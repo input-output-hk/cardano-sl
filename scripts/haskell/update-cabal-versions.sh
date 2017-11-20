@@ -12,6 +12,7 @@ function updateVersion() {
 }
 
 updateVersion lib/cardano-sl.cabal
+updateVersion binary/cardano-sl-binary.cabal
 updateVersion util/cardano-sl-util.cabal
 updateVersion core/cardano-sl-core.cabal
 updateVersion infra/cardano-sl-infra.cabal

@@ -30,8 +30,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            rollbackBlocksUnsafe, toTxpBlock, toUpdateBlock)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (HeaderHash, epochIndexL, headerHashG, prevBlockL)
-import           Pos.Core.Block (Block)
+import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import qualified Pos.GState as GS
 import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)

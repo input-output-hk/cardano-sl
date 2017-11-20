@@ -24,6 +24,8 @@ module Pos.Binary.Class.Core
     , genericDecode
     ) where
 
+import           Universum
+
 import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
 import qualified Codec.CBOR.Read as CBOR.Read
@@ -44,7 +46,6 @@ import qualified Data.Vector as Vector
 import qualified Data.Vector.Generic as Vector.Generic
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
-import           Universum
 
 encodeBinary :: Binary.Binary a => a -> E.Encoding
 encodeBinary = encode . BS.Lazy.toStrict . Binary.encode

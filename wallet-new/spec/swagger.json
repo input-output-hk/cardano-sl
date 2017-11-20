@@ -1,0 +1,3674 @@
+{
+    "swagger": "2.0",
+    "host": "127.0.0.1:8090",
+    "info": {
+        "version": "2.0",
+        "title": "Cardano Wallet API",
+        "license": {
+            "url": "http://mit.com",
+            "name": "MIT"
+        },
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"code\": 600,\n    \"message\": \"The requested Wallet cannot be found.\"\n}\n```\n"
+    },
+    "definitions": {
+        "CPtxCondition": {
+            "type": "string",
+            "enum": [
+                "CPtxCreating",
+                "CPtxApplying",
+                "CPtxInBlocks",
+                "CPtxWontApply",
+                "CPtxNotTracked"
+            ]
+        },
+        "CUpdateInfo": {
+            "required": [
+                "cuiSoftwareVersion",
+                "cuiBlockVesion",
+                "cuiScriptVersion",
+                "cuiImplicit",
+                "cuiVotesFor",
+                "cuiVotesAgainst",
+                "cuiPositiveStake",
+                "cuiNegativeStake"
+            ],
+            "type": "object",
+            "properties": {
+                "cuiNegativeStake": {
+                    "$ref": "#/definitions/CCoin"
+                },
+                "cuiVotesFor": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                },
+                "cuiSoftwareVersion": {
+                    "$ref": "#/definitions/SoftwareVersion"
+                },
+                "cuiImplicit": {
+                    "type": "boolean"
+                },
+                "cuiVotesAgainst": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                },
+                "cuiPositiveStake": {
+                    "$ref": "#/definitions/CCoin"
+                },
+                "cuiScriptVersion": {
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "cuiBlockVesion": {
+                    "$ref": "#/definitions/BlockVersion"
+                }
+            }
+        },
+        "Wallet": {
+            "example": {
+                "balance": {
+                    "getCoin": 361333354208714
+                },
+                "name": "My wallet",
+                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+            },
+            "required": [
+                "balance",
+                "name",
+                "id"
+            ],
+            "type": "object",
+            "description": "A Wallet.",
+            "properties": {
+                "balance": {
+                    "required": [
+                        "getCoin"
+                    ],
+                    "type": "object",
+                    "readOnly": true,
+                    "properties": {
+                        "getCoin": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "readOnly": true
+                }
+            }
+        },
+        "CAccount": {
+            "required": [
+                "caId",
+                "caMeta",
+                "caAddresses",
+                "caAmount"
+            ],
+            "type": "object",
+            "properties": {
+                "caAddresses": {
+                    "items": {
+                        "$ref": "#/definitions/CAddress"
+                    },
+                    "type": "array"
+                },
+                "caMeta": {
+                    "$ref": "#/definitions/CAccountMeta"
+                },
+                "caId": {
+                    "$ref": "#/definitions/CAccountId"
+                },
+                "caAmount": {
+                    "$ref": "#/definitions/CCoin"
+                }
+            }
+        },
+        "CTxMeta": {
+            "required": [
+                "ctmDate"
+            ],
+            "type": "object",
+            "properties": {
+                "ctmDate": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ApiVersion": {
+            "type": "string",
+            "enum": [
+                "ApiVersion0"
+            ]
+        },
+        "Payment": {
+            "example": {
+                "sourceAccount": {
+                    "amount": 2,
+                    "addresses": [
+                        {
+                            "id": "DEADBeef"
+                        },
+                        {
+                            "id": "123456"
+                        }
+                    ],
+                    "name": "My account",
+                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                    "id": "DEADBeef"
+                },
+                "amount": 1,
+                "destinationAddress": {
+                    "id": "DEADBeef"
+                }
+            },
+            "required": [
+                "sourceAccount",
+                "amount",
+                "destinationAddress"
+            ],
+            "type": "object",
+            "description": "A request for exchange of `Coins` from one entity to another.",
+            "properties": {
+                "sourceAccount": {
+                    "required": [
+                        "amount",
+                        "addresses",
+                        "name",
+                        "walletId",
+                        "id"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number"
+                        },
+                        "addresses": {
+                            "items": {
+                                "required": [
+                                    "id"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "type": "array"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "walletId": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "destinationAddress": {
+                    "required": [
+                        "id"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "CTxId": {
+            "type": "string"
+        },
+        "WalletVersion": {
+            "example": {
+                "gitRev": "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79",
+                "version": "v0"
+            },
+            "required": [
+                "gitRev",
+                "version"
+            ],
+            "type": "object",
+            "description": "The Wallet version, including the API version and the Git revision.",
+            "properties": {
+                "gitRev": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "CAccountInit": {
+            "required": [
+                "caInitMeta",
+                "caInitWId"
+            ],
+            "type": "object",
+            "properties": {
+                "caInitWId": {
+                    "$ref": "#/definitions/CId"
+                },
+                "caInitMeta": {
+                    "$ref": "#/definitions/CAccountMeta"
+                }
+            }
+        },
+        "CProfile": {
+            "required": [
+                "cpLocale"
+            ],
+            "type": "object",
+            "properties": {
+                "cpLocale": {
+                    "type": "string"
+                }
+            }
+        },
+        "OneOf [Address] (ExtendedResponse [Address])": {
+            "example": [
+                {
+                    "id": "DEADBeef"
+                }
+            ],
+            "items": {
+                "required": [
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "type": "array",
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Address] or [Address] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+        },
+        "CWalletAssurance": {
+            "type": "string",
+            "enum": [
+                "CWAStrict",
+                "CWANormal"
+            ]
+        },
+        "BackupPhrase": {
+            "required": [
+                "bpToList"
+            ],
+            "type": "object",
+            "properties": {
+                "bpToList": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            }
+        },
+        "BlockVersion": {
+            "required": [
+                "bvMajor",
+                "bvMinor",
+                "bvAlt"
+            ],
+            "type": "object",
+            "properties": {
+                "bvAlt": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "bvMajor": {
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "bvMinor": {
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
+        },
+        "Address": {
+            "example": {
+                "id": "DEADBeef"
+            },
+            "required": [
+                "id"
+            ],
+            "type": "object",
+            "description": "An Address.",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "CWalletInit": {
+            "required": [
+                "cwInitMeta",
+                "cwBackupPhrase"
+            ],
+            "type": "object",
+            "properties": {
+                "cwBackupPhrase": {
+                    "$ref": "#/definitions/BackupPhrase"
+                },
+                "cwInitMeta": {
+                    "$ref": "#/definitions/CWalletMeta"
+                }
+            }
+        },
+        "WalletUpdate": {
+            "example": {
+                "assuranceLevel": "normal",
+                "name": "My Wallet"
+            },
+            "required": [
+                "assuranceLevel",
+                "name"
+            ],
+            "type": "object",
+            "description": "A type represending an update for an existing Wallet.",
+            "properties": {
+                "assuranceLevel": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "InputSelectionPolicy": {
+            "type": "string",
+            "enum": [
+                "OptimizeForSecurity",
+                "OptimizeForSize"
+            ]
+        },
+        "CWalletMeta": {
+            "required": [
+                "cwName",
+                "cwAssurance",
+                "cwUnit"
+            ],
+            "type": "object",
+            "properties": {
+                "cwUnit": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                },
+                "cwName": {
+                    "type": "string"
+                },
+                "cwAssurance": {
+                    "$ref": "#/definitions/CWalletAssurance"
+                }
+            }
+        },
+        "CWallet": {
+            "required": [
+                "cwId",
+                "cwMeta",
+                "cwAccountsNumber",
+                "cwAmount",
+                "cwHasPassphrase",
+                "cwPassphraseLU"
+            ],
+            "type": "object",
+            "properties": {
+                "cwAmount": {
+                    "$ref": "#/definitions/CCoin"
+                },
+                "cwHasPassphrase": {
+                    "type": "boolean"
+                },
+                "cwAccountsNumber": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                },
+                "cwPassphraseLU": {
+                    "type": "integer"
+                },
+                "cwMeta": {
+                    "$ref": "#/definitions/CWalletMeta"
+                },
+                "cwId": {
+                    "$ref": "#/definitions/CId"
+                }
+            }
+        },
+        "Transaction": {
+            "example": {
+                "amount": 1,
+                "confirmations": 3,
+                "id": "U"
+            },
+            "required": [
+                "amount",
+                "confirmations",
+                "id"
+            ],
+            "type": "object",
+            "description": "A Wallet Transaction.",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "confirmations": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "WalletStateSnapshot": {
+            "type": "string"
+        },
+        "CAccountMeta": {
+            "required": [
+                "caName"
+            ],
+            "type": "object",
+            "properties": {
+                "caName": {
+                    "type": "string"
+                }
+            }
+        },
+        "CAccountId": {
+            "type": "string"
+        },
+        "CTx": {
+            "required": [
+                "ctId",
+                "ctAmount",
+                "ctConfirmations",
+                "ctMeta",
+                "ctInputs",
+                "ctOutputs",
+                "ctIsLocal",
+                "ctIsOutgoing",
+                "ctCondition"
+            ],
+            "type": "object",
+            "properties": {
+                "ctId": {
+                    "$ref": "#/definitions/CTxId"
+                },
+                "ctMeta": {
+                    "$ref": "#/definitions/CTxMeta"
+                },
+                "ctIsOutgoing": {
+                    "type": "boolean"
+                },
+                "ctCondition": {
+                    "$ref": "#/definitions/CPtxCondition"
+                },
+                "ctInputs": {
+                    "items": {
+                        "minItems": 2,
+                        "items": [
+                            {
+                                "$ref": "#/definitions/CId"
+                            },
+                            {
+                                "$ref": "#/definitions/CCoin"
+                            }
+                        ],
+                        "maxItems": 2,
+                        "type": "array"
+                    },
+                    "type": "array"
+                },
+                "ctIsLocal": {
+                    "type": "boolean"
+                },
+                "ctConfirmations": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "ctAmount": {
+                    "$ref": "#/definitions/CCoin"
+                },
+                "ctOutputs": {
+                    "items": {
+                        "minItems": 2,
+                        "items": [
+                            {
+                                "$ref": "#/definitions/CId"
+                            },
+                            {
+                                "$ref": "#/definitions/CCoin"
+                            }
+                        ],
+                        "maxItems": 2,
+                        "type": "array"
+                    },
+                    "type": "array"
+                }
+            }
+        },
+        "ClientInfo": {
+            "required": [
+                "ciApiVersion",
+                "ciSoftwareVersion",
+                "ciCabalVersion",
+                "ciGitRevision"
+            ],
+            "type": "object",
+            "properties": {
+                "ciSoftwareVersion": {
+                    "$ref": "#/definitions/SoftwareVersion"
+                },
+                "ciCabalVersion": {
+                    "$ref": "#/definitions/Version"
+                },
+                "ciApiVersion": {
+                    "$ref": "#/definitions/ApiVersion"
+                },
+                "ciGitRevision": {
+                    "type": "string"
+                }
+            }
+        },
+        "EstimatedFees": {
+            "example": {
+                "estimatedAmount": 4
+            },
+            "required": [
+                "estimatedAmount"
+            ],
+            "type": "object",
+            "description": "Estimated fees for a `Payment`.",
+            "properties": {
+                "estimatedAmount": {
+                    "type": "number"
+                }
+            }
+        },
+        "CInitialized": {
+            "required": [
+                "cTotalTime",
+                "cPreInit"
+            ],
+            "type": "object",
+            "properties": {
+                "cTotalTime": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "cPreInit": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
+        },
+        "BlockCount": {
+            "required": [
+                "getBlockCount"
+            ],
+            "type": "object",
+            "properties": {
+                "getBlockCount": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
+        },
+        "Version": {
+            "required": [
+                "versionBranch",
+                "versionTags"
+            ],
+            "type": "object",
+            "properties": {
+                "versionTags": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "versionBranch": {
+                    "items": {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "type": "integer"
+                    },
+                    "type": "array"
+                }
+            }
+        },
+        "CWalletRedeem": {
+            "required": [
+                "crWalletId",
+                "crSeed"
+            ],
+            "type": "object",
+            "properties": {
+                "crWalletId": {
+                    "$ref": "#/definitions/CAccountId"
+                },
+                "crSeed": {
+                    "type": "string"
+                }
+            }
+        },
+        "SyncProgress": {
+            "required": [
+                "_spLocalCD",
+                "_spPeers"
+            ],
+            "type": "object",
+            "properties": {
+                "_spPeers": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "_spNetworkCD": {
+                    "$ref": "#/definitions/ChainDifficulty"
+                },
+                "_spLocalCD": {
+                    "$ref": "#/definitions/ChainDifficulty"
+                }
+            }
+        },
+        "CAddress": {
+            "required": [
+                "cadId",
+                "cadAmount",
+                "cadIsUsed",
+                "cadIsChange"
+            ],
+            "type": "object",
+            "properties": {
+                "cadId": {
+                    "$ref": "#/definitions/CId"
+                },
+                "cadIsUsed": {
+                    "type": "boolean"
+                },
+                "cadIsChange": {
+                    "type": "boolean"
+                },
+                "cadAmount": {
+                    "$ref": "#/definitions/CCoin"
+                }
+            }
+        },
+        "ApplicationName": {
+            "required": [
+                "getApplicationName"
+            ],
+            "type": "object",
+            "properties": {
+                "getApplicationName": {
+                    "type": "string"
+                }
+            }
+        },
+        "SoftwareVersion": {
+            "required": [
+                "svAppName",
+                "svNumber"
+            ],
+            "type": "object",
+            "properties": {
+                "svAppName": {
+                    "$ref": "#/definitions/ApplicationName"
+                },
+                "svNumber": {
+                    "maximum": 4294967295,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
+        },
+        "CPaperVendWalletRedeem": {
+            "required": [
+                "pvWalletId",
+                "pvSeed",
+                "pvBackupPhrase"
+            ],
+            "type": "object",
+            "properties": {
+                "pvBackupPhrase": {
+                    "$ref": "#/definitions/BackupPhrase"
+                },
+                "pvSeed": {
+                    "type": "string"
+                },
+                "pvWalletId": {
+                    "$ref": "#/definitions/CAccountId"
+                }
+            }
+        },
+        "CFilePath": {
+            "type": "string"
+        },
+        "OneOf [Wallet] (ExtendedResponse [Wallet])": {
+            "example": [
+                {
+                    "balance": {
+                        "getCoin": 24471984623077811
+                    },
+                    "name": "My wallet",
+                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                }
+            ],
+            "items": {
+                "required": [
+                    "balance",
+                    "name",
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "balance": {
+                        "required": [
+                            "getCoin"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "getCoin": {
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "type": "array",
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": {\n            \"getCoin\": 36547889394682337\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": {\n            \"getCoin\": 17970494008295748\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"balance\": {\n                \"getCoin\": 30779743811174597\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": {\n                \"getCoin\": 5522692044222880\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+        },
+        "CCoin": {
+            "required": [
+                "getCCoin"
+            ],
+            "type": "object",
+            "properties": {
+                "getCCoin": {
+                    "type": "string"
+                }
+            }
+        },
+        "NewWallet": {
+            "example": {
+                "backupPhrase": [
+                    "entry",
+                    "certain",
+                    "tourist",
+                    "palm",
+                    "palm",
+                    "rabbit",
+                    "worry",
+                    "swamp",
+                    "plastic",
+                    "night",
+                    "tourist",
+                    "mean "
+                ],
+                "assuranceLevel": "normal",
+                "name": "My Wallet",
+                "spendingPassword": null
+            },
+            "required": [
+                "backupPhrase",
+                "assuranceLevel",
+                "name",
+                "spendingPassword"
+            ],
+            "type": "object",
+            "description": "A type represending an request for creating a(n) Wallet.",
+            "properties": {
+                "backupPhrase": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "assuranceLevel": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "spendingPassword": {
+                    "type": "null"
+                }
+            }
+        },
+        "PasswordUpdate": {
+            "example": {
+                "old": "Vç",
+                "new": "¯"
+            },
+            "required": [
+                "old",
+                "new"
+            ],
+            "type": "object",
+            "description": "A PasswordUpdate incapsulate a request for changing a Wallet's password.",
+            "properties": {
+                "old": {
+                    "type": "string"
+                },
+                "new": {
+                    "type": "string"
+                }
+            }
+        },
+        "ChainDifficulty": {
+            "required": [
+                "getChainDifficulty"
+            ],
+            "type": "object",
+            "properties": {
+                "getChainDifficulty": {
+                    "$ref": "#/definitions/BlockCount"
+                }
+            }
+        },
+        "CId": {
+            "type": "string"
+        }
+    },
+    "paths": {
+        "/api/backup/import": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets/password/{walletId}": {
+            "post": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `new` or `old`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "old",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "new",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/addresses/{address}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`address` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/accounts/{accountId}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "put": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/redemptions/ada": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletRedeem"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/backup/export/{walletId}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/settings/sync/progress": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/SyncProgress"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/txs/fee/{from}/{to}/{amount}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CCoin"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "from",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "to",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "amount",
+                        "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets/new": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/wallets/{walletId}": {
+            "get": {
+                "summary": "Returns the Wallet identified by the given walletId.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "delete": {
+                "summary": "Deletes the given Wallet and all its accounts.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "put": {
+                "summary": "Update the Wallet identified by the given walletId.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/settings/time/difference": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets/{walletId}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "put": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/info": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/ClientInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/version": {
+            "get": {
+                "summary": "Returns the version for this API.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V1"
+                ]
+            }
+        },
+        "/api/v1/updates": {
+            "post": {
+                "summary": "Applies the update. Returns info about the update being applied.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Updates",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v0/txs/payments/{address}/{transaction}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`address` or `transaction` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "transaction",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CTxMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/test/reset": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/backup/import": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/settings/version": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/SoftwareVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/txs/payments/{from}/{to}/{amount}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "from",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "to",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "amount",
+                        "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/payments/fees": {
+            "post": {
+                "summary": "Estimate the fees which would originate from the payment.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/EstimatedFees"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Payments",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v0/accounts": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "400": {
+                        "description": "Invalid `accountId`"
+                    },
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CAccount"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/update/apply": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/info": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/ClientInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/accounts/{accountId}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "put": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`accountId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/wallets/{walletId}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "delete": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "put": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/settings/time/difference": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/txs/fee/{from}/{to}/{amount}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CCoin"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "from",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "to",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "amount",
+                        "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/papervend/redemptions/ada": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CPaperVendWalletRedeem"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/backup/export/{walletId}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/settings/sync/progress": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/SyncProgress"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/update": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CUpdateInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/payments": {
+            "post": {
+                "summary": "Generates a new payment from the source Account to the target Address.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Transaction"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Payments",
+                    "V1"
+                ]
+            }
+        },
+        "/api/txs/payments/{from}/{to}/{amount}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "from",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "to",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "amount",
+                        "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/txs/histories": {
+            "get": {
+                "responses": {
+                    "400": {
+                        "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
+                    },
+                    "200": {
+                        "schema": {
+                            "minItems": 2,
+                            "items": [
+                                {
+                                    "items": {
+                                        "$ref": "#/definitions/CTx"
+                                    },
+                                    "type": "array"
+                                },
+                                {
+                                    "maximum": 1.8446744073709551615e19,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                }
+                            ],
+                            "maxItems": 2,
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "skip",
+                        "type": "integer"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "limit",
+                        "type": "integer"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/wallets": {
+            "post": {
+                "summary": "Creates a new Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "201": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/NewWallet"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "get": {
+                "summary": "Returns all the available wallets.",
+                "responses": {
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Wallet] (ExtendedResponse [Wallet])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 500,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "query",
+                        "name": "response_format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/test/reset": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CWallet"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/settings/slots/duration": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/reporting/initialized": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CInitialized"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/wallets/{walletId}/password": {
+            "put": {
+                "summary": "Updates the password for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PasswordUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/wallets/keys": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/test/state": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletStateSnapshot"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/papervend/redemptions/ada": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CPaperVendWalletRedeem"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/update/postpone": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/updates/next": {
+            "get": {
+                "summary": "Requests information about the next scheduled update.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Updates",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v0/wallets/restore": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/accounts": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "400": {
+                        "description": "Invalid `accountId`"
+                    },
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CAccount"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/profile": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/update/apply": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/reporting/initialized": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CInitialized"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/settings/slots/duration": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/wallets": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CWallet"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/txs/histories": {
+            "get": {
+                "responses": {
+                    "400": {
+                        "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
+                    },
+                    "200": {
+                        "schema": {
+                            "minItems": 2,
+                            "items": [
+                                {
+                                    "items": {
+                                        "$ref": "#/definitions/CTx"
+                                    },
+                                    "type": "array"
+                                },
+                                {
+                                    "maximum": 1.8446744073709551615e19,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                }
+                            ],
+                            "maxItems": 2,
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "skip",
+                        "type": "integer"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "limit",
+                        "type": "integer"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/addresses": {
+            "post": {
+                "summary": "Creates a new Address.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Addresses",
+                    "V1"
+                ]
+            },
+            "get": {
+                "summary": "Returns all the addresses.",
+                "responses": {
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Address] (ExtendedResponse [Address])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 500,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "query",
+                        "name": "response_format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    }
+                ],
+                "tags": [
+                    "Addresses",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v0/update": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CUpdateInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/addresses": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAddress"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountId"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/update/postpone": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets/restore": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/profile": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/txs/payments/{address}/{transaction}": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`address` or `transaction` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "transaction",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CTxMeta"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/wallets/keys": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CFilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/wallets/new": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/wallets/password/{walletId}": {
+            "post": {
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `new` or `old`"
+                    },
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "old",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "new",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/addresses/{address}": {
+            "get": {
+                "responses": {
+                    "404": {
+                        "description": "`address` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/test/state": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletStateSnapshot"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/redemptions/ada": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CWalletRedeem"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/addresses": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAddress"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountId"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/settings/version": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/SoftwareVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        }
+    }
+}

@@ -103,7 +103,6 @@ executable cardano-genupdate
                      , optparse-applicative
                      , filepath
                      , formatting
-                     , system-filepath
                      , process
                      , tar
                      , text
@@ -214,19 +213,17 @@ executable cardano-launcher
                      , cardano-sl-infra
                      , cardano-sl-update
                      , cardano-sl-util
-                     , data-default
                      , directory
                      , filepath
                      , formatting
-                     , lens
                      , lifted-async
+                     , lens
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
                      , process
                      , safe-exceptions
                      , silently
-                     , system-filepath
                      , text
                      , time-units
                      , universum
@@ -257,20 +254,12 @@ executable cardano-addr-convert
   main-is:             Main.hs
   build-depends:       base
                      , ansi-wl-pprint
-                     , bytestring
                      , cardano-sl
                      , cardano-sl-core
-                     , data-default
-                     , directory
-                     , filepath
                      , neat-interpolation
                      , optparse-applicative
-                     , process
-                     , serokell-util
-                     , system-filepath
                      , text
                      , universum
-                     , lens
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall
@@ -432,6 +421,7 @@ executable cardano-blockchain-analyser
    build-depends:      ansi-wl-pprint
                      , base
                      , cardano-sl
+                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra

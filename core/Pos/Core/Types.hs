@@ -349,12 +349,17 @@ headerHashF = build
 -- Proxy signatures and delegation
 ----------------------------------------------------------------------------
 
+-- Notice: light delegation was removed as part of CSL-1856 and should
+-- be reworked later. Though some parts of it are left to support
+-- backward compatibility.
+
 -- | Proxy signature, that holds a pair of epoch indices. Block is
 -- valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
 type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
+
 
 -- | Simple proxy signature without ttl/epoch index
 -- constraints. 'EpochIndex' inside is needed for replay attack

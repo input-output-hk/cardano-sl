@@ -31,7 +31,6 @@ import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Block.Types (Undo)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -42,13 +41,11 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
 import           Pos.Communication (NodeId)
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
-                           IsHeader, deriveFirstHDAddress, largestPubKeyAddressBoot,
+                           deriveFirstHDAddress, largestPubKeyAddressBoot,
                            largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
-import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
-import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
-                               MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
@@ -60,11 +57,11 @@ import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Ssc.Types (HasSscContext (..), SscBlock)
+import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
                           txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
-import           Pos.Util (HasLens (..), Some (..), postfixLFields)
+import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
@@ -186,29 +183,14 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
+    dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
+    dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 
 instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo AuxxMode where
-    dbPutBlund = realModeToAuxx ... dbPutBlund
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric BlockHeader Block Undo AuxxMode
-  where
-    dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @BlockHeader @Block @Undo
-    dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) SscBlock () AuxxMode
-  where
-    dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @SscBlock @()
-    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @SscBlock @()
+    dbPutSerBlund = realModeToAuxx ... dbPutSerBlund
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
@@ -242,7 +224,6 @@ instance (HasConfigurations, HasCompileInfo) =>
         gsIsBootstrapEra epochIndex <&> \case
             False -> largestPubKeyAddressBoot
             True -> largestPubKeyAddressSingleKey
-
 
 instance MonadKeysRead AuxxMode where
     getSecret = getSecretDefault

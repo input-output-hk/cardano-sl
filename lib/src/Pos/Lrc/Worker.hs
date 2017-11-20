@@ -31,6 +31,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
                            blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.DB as DB
 import qualified Pos.GState as GS
 import           Pos.Lrc.Consumer (LrcConsumer (..))

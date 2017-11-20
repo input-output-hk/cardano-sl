@@ -16,6 +16,7 @@ b
 # Various DBs
 node-db*
 wallet-db/
+wallet-new-db/
 db-*/
 wdb-*/
 
@@ -65,6 +66,7 @@ scripts/haskell/dependencies
 
 # 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
 pkgs/stack2nix
+nixpkgs # in case generate.sh clones nixpkgs in here
 
 # explorer
 explorer-node.log.*

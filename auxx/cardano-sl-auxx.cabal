@@ -41,7 +41,6 @@ library
                      , ansi-wl-pprint
                      , async
                      , base
-                     , base58-bytestring
                      , bytestring
                      , canonical-json
                      , cardano-sl-util
@@ -187,7 +186,6 @@ test-suite cardano-auxx-test
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , hspec
-                     , scientific
                      , universum >= 0.1.11
 
   hs-source-dirs:      test

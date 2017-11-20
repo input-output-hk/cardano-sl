@@ -1,8 +1,7 @@
 -- | Types describing runtime errors related to Block processing.
 
 module Pos.Block.Error
-       ( BlkError
-       , RollbackException(..)
+       ( RollbackException(..)
        , ApplyBlocksException(..)
        , VerifyBlocksException(..)
        ) where
@@ -17,11 +16,6 @@ import           Formatting (bprint, stext, (%))
 import           Pos.Core (HeaderHash)
 import           Pos.Crypto (shortHashF)
 
-data BlkError
-
---instance Exception BlkError
-
---instance Buildable BlkError
 
 -- | This function can be used to create a message when tip mismatch
 -- is detected (usually between tip stored in DB and some other tip

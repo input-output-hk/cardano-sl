@@ -32,9 +32,9 @@ import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxA
                            TxUndo, difficultyL, getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (WithHash (..))
-import           Pos.DB.Block (MonadBlockDB)
-import           Pos.DB.DB (getTipHeader)
-import qualified Pos.GState as GS
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
+import qualified Pos.DB.GState.Common as GS
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Txp (MonadTxpLocal (..), ToilVerFailure, TxpNormalizeMempoolMode,
@@ -61,7 +61,7 @@ getLastKnownHeader =
     atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
 
 type BlockchainInfoEnv ctx m =
-    ( MonadBlockDB m
+    ( MonadDBRead m
     , PC.MonadLastKnownHeader ctx m
     , PC.MonadProgressHeader ctx m
     , MonadReader ctx m
@@ -76,7 +76,7 @@ networkChainDifficultyWebWallet
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
-        thDiff <- view difficultyL <$> getTipHeader
+        thDiff <- view difficultyL <$> DB.getTipHeader
         let lhDiff = lh ^. difficultyL
         return . Just $ max thDiff lhDiff
     Nothing -> pure Nothing
@@ -87,7 +87,7 @@ localChainDifficultyWebWallet
 localChainDifficultyWebWallet = do
     -- Workaround: Make local chain difficulty monotonic
     prevMaxDifficulty <- fromMaybe 0 <$> GS.getMaxSeenDifficultyMaybe
-    currDifficulty <- view difficultyL <$> getTipHeader
+    currDifficulty <- view difficultyL <$> DB.getTipHeader
     return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet

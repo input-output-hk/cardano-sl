@@ -36,7 +36,6 @@ import           Pos.Crypto (AbstractHash, DecShare, EncShare, ProxyCert (..), P
                              ProxySignature (..), PublicKey, Secret, SecretProof (..),
                              Signature (..), VssPublicKey)
 import qualified Pos.DB.Class as DB
-import           Pos.Delegation.Types (ProxySKLightConfirmation)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -117,8 +116,6 @@ instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
 
 instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
 instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
-
-instance MessageLimited ProxySKLightConfirmation
 
 ----------------------------------------------------------------------------
 ---- SSC

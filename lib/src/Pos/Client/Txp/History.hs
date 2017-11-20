@@ -52,7 +52,7 @@ import           Pos.Core (Address, ChainDifficulty, HasConfiguration, HeaderHas
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
-import           Pos.DB.Block (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Block (getBlund)
 import qualified Pos.GState as GS
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType)
@@ -228,15 +228,10 @@ type TxHistoryEnv ctx m =
     , HasNodeType ctx
     )
 
-type TxHistoryEnv' ctx m =
-    ( MonadBlockDB m
-    , TxHistoryEnv ctx m
-    )
-
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ctx m. (HasConfiguration, TxHistoryEnv' ctx m)
+    :: forall ctx m. (HasConfiguration, TxHistoryEnv ctx m)
     => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
     let bot      = headerHash genesisBlock0
@@ -250,7 +245,7 @@ getBlockHistoryDefault addrs = do
         getBlockTimestamp blk = getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (Map TxId TxHistoryEntry)
-        blockFetcher start = GS.foldlUpWhileM blkGetBlund fromBlund start (const $ const True)
+        blockFetcher start = GS.foldlUpWhileM getBlund fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
     runGenesisToil . evalToilTEmpty $ blockFetcher bot

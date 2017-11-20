@@ -1,30 +1,29 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Reference implementation of CBOR (de)serialization.
-module Test.Pos.Cbor.ReferenceImplementation (
-    serialise,
-    deserialise,
-
-    UInt(..),
-    Term(..),
-    canonicalNaN,
-
+module Test.Pos.Cbor.ReferenceImplementation
+    ( serialise
+    , deserialise
+    , UInt(..)
+    , Term(..)
+    , canonicalNaN
     -- * Properties
-    prop_InitialByte,
-    prop_AdditionalInfo,
-    prop_TokenHeader,
-    prop_TokenHeader2,
-    prop_Token,
-    prop_Term,
+    , prop_InitialByte
+    , prop_AdditionalInfo
+    , prop_TokenHeader
+    , prop_TokenHeader2
+    , prop_Token
+    , prop_Term
     -- * Properties of internal helpers
-    prop_integerToFromBytes,
-    prop_word16ToFromNet,
-    prop_word32ToFromNet,
-    prop_word64ToFromNet,
-    prop_halfToFromFloat,
+    , prop_integerToFromBytes
+    , prop_word16ToFromNet
+    , prop_word32ToFromNet
+    , prop_word64ToFromNet
+    , prop_halfToFromFloat
     ) where
 
-import qualified Control.Monad.State as S
+import           Universum
+
 import           Data.Bits
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -35,7 +34,6 @@ import           GHC.Float (RealFloat (..))
 import           Numeric.Half (Half (..))
 import qualified Numeric.Half as Half
 import           System.IO.Unsafe (unsafeDupablePerformIO)
-import           Universum
 
 import           Test.QuickCheck.Arbitrary (Arbitrary (..), arbitraryBoundedIntegral)
 import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof, resize, sized,

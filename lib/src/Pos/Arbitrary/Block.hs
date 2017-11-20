@@ -257,7 +257,7 @@ recursiveHeaderGen
        , HasConfiguration
        )
     => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
-    -> [Either SecretKey (SecretKey, SecretKey, Bool)]
+    -> [Either SecretKey (SecretKey, SecretKey)]
     -> [Core.SlotId]
     -> [T.BlockHeader]
     -> Gen [T.BlockHeader]
@@ -277,22 +277,17 @@ recursiveHeaderGen genesis
     genMainHeader prevHeader = do
         body <- arbitrary
         extraHData <- arbitrary
-        lowEpoch <- choose (0, siEpoch)
-        highEpoch <- choose (siEpoch, bhlMaxStartingEpoch + 5)
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
         let slotId = Core.SlotId siEpoch siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
-                Right (issuerSK, delegateSK, isSigEpoch) ->
-                    let w = (lowEpoch, highEpoch)
-                        delegatePK = toPublic delegateSK
+                Right (issuerSK, delegateSK) ->
+                    let delegatePK = toPublic delegateSK
                         toPsk :: Bi w => w -> ProxySecretKey w
                         toPsk = createPsk issuerSK delegatePK
-                        proxy = if isSigEpoch
-                                then Right (toPsk siEpoch, toPublic issuerSK)
-                                else Left $ toPsk w
+                        proxy = (toPsk siEpoch, toPublic issuerSK)
                     in (delegateSK, Just proxy)
         pure $ Right $
             T.mkMainHeader prevHeader slotId leader proxySK body extraHData
@@ -344,11 +339,11 @@ generateBHL
     -> Core.SlotCount  -- ^ Slot count
     -> Gen BlockHeaderList
 generateBHL createInitGenesis startSlot slotCount = BHL <$> do
-    let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey, Bool))
+    let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey))
         correctLeaderGen =
             -- We don't want to create blocks with self-signed psks
-            let issDelDiff (Left _)        = True
-                issDelDiff (Right (i,d,_)) = i /= d
+            let issDelDiff (Left _)      = True
+                issDelDiff (Right (i,d)) = i /= d
             in arbitrary `suchThat` issDelDiff
     leadersList <- vectorOf (fromIntegral slotCount) correctLeaderGen
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList

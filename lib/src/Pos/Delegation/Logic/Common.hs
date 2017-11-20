@@ -27,16 +27,14 @@ import qualified Data.Text.Buildable as B
 import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Formatting (bprint, build, sformat, stext, (%))
 
-import           Pos.Configuration (HasNodeConfiguration, dlgCacheParam,
-                                    lightDlgConfirmationTimeout, messageCacheTimeout)
+import           Pos.Configuration (HasNodeConfiguration, dlgCacheParam, messageCacheTimeout)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
-import           Pos.DB (DBError (DBMalformed), MonadDBRead)
-import qualified Pos.DB.Block as DB
-import qualified Pos.DB.DB as DB
+import           Pos.DB (DBError (DBMalformed), MonadBlockDBRead, MonadDBRead)
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.Delegation.Cede (getPskChain, runDBCede)
 import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..), MonadDelegation,
-                                       askDelegationState, dwConfirmationCache, dwMessageCache)
+                                       askDelegationState, dwMessageCache)
 import           Pos.Delegation.DB (getDlgTransitive)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Util.LRU (filterLRU)
@@ -86,11 +84,9 @@ runDelegationStateAction action = do
 
 -- | Invalidates proxy caches using built-in constants.
 invalidateProxyCaches :: HasNodeConfiguration => UTCTime -> DelegationStateAction ()
-invalidateProxyCaches curTime = do
+invalidateProxyCaches curTime =
     dwMessageCache %=
         filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
-    dwConfirmationCache %=
-        filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
   where
     toDiffTime (t :: Integer) = fromIntegral t
 
@@ -103,21 +99,19 @@ invalidateProxyCaches curTime = do
 -- * Sets '_dwEpochId' to epoch of tip.
 -- * Initializes mempools/LRU caches.
 mkDelegationVar ::
-       (MonadIO m, DB.MonadBlockDB m, HasConfiguration, HasNodeConfiguration)
+       (MonadIO m, MonadBlockDBRead m, HasConfiguration, HasNodeConfiguration)
     => m DelegationVar
 mkDelegationVar = do
-    tip <- DB.getTipHeader
+    tip <- getTipHeader
     newTVarIO
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit
-        , _dwConfirmationCache = LRU.newLRU confCacheLimit
         , _dwProxySKPool = HM.empty
         , _dwPoolSize = 1 -- approximate size of the empty mempool.
         , _dwTip = headerHash tip
         }
   where
     msgCacheLimit = Just dlgCacheParam
-    confCacheLimit = Just (dlgCacheParam `div` 5)
 
 -- | Retrieves last PSK in chain of delegation started by public key
 -- and resolves the passed issuer to a public key. Doesn't check that

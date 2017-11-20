@@ -35,16 +35,17 @@ import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Pure (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots, SlogUndo (..))
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots)
+import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Context (lrcActionOnEpochReason)
 import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
                            prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.DB.Block (MonadBlockDBWrite, blkGetHeader)
-import           Pos.DB.Class (MonadDBRead, dbPutBlund)
+import           Pos.DB.Block (putBlund)
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState as GS
 import           Pos.Lrc.Context (HasLrcContext)
@@ -176,7 +177,7 @@ slogVerifyBlocks blocks = do
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ctx m =
     ( MonadSlogBase ctx m
-    , MonadBlockDBWrite m
+    , MonadDB m
     , MonadBListener m
     , MonadMask m
     , MonadReader ctx m
@@ -207,7 +208,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- BlockDB. If program is interrupted after we put blunds and
     -- before we update GState, this invariant won't be violated. If
     -- we update GState first, this invariant may be violated.
-    mapM_ dbPutBlund blunds
+    mapM_ putBlund blunds
     -- If the program is interrupted at this point (after putting on
     -- block), we will have a garbage block in BlockDB, but it's not a
     -- problem.
@@ -268,7 +269,7 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
     maxSeenDifficulty <- GS.getMaxSeenDifficulty
     resultingDifficulty <-
         maybe 0 (view difficultyL) <$>
-        blkGetHeader (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
+        DB.getHeader (NE.head (getOldestFirst . toOldestFirst $ blunds) ^. prevBlockL)
     let
         secure =
             -- no underflow from subtraction

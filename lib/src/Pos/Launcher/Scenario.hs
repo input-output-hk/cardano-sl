@@ -25,7 +25,7 @@ import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.DHT.Real (KademliaDHTInstance (..), kademliaJoinNetworkNoThrow,
                                kademliaJoinNetworkRetry)
 import qualified Pos.GState as GS
@@ -44,7 +44,6 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
-
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -168,30 +167,3 @@ nodeStartMsg = logInfo msg
                    curSoftwareVersion
                    lastKnownBlockVersion
                    ourSystemTag
-
-----------------------------------------------------------------------------
--- Details
-----------------------------------------------------------------------------
-
--- TODO @pva701: somebody who knows what is going on here fix it.
--- We delegate the right to produce block to node @encToPublic encryptedSK@,
--- why does such node exist?
--- If this function is correct:
--- 1. explain me why it's correct.
--- 2. please don't run it in dev mode, because of there is not a node with delegated PK
--- and node2 doesn't produce blocks and the error about poor chain quality appears in the log.
-
--- putProxySecretKeys ::
---        ( MonadDB m
---        , MonadReader ctx m
---        , MonadIO m
---        , HasPrimaryKey ctx )
---     => m ()
--- putProxySecretKeys = do
---     uSecret <- atomically . readTVar =<< view userSecret
---     secretKey <- view primaryKey
---     let eternity = (minBound, maxBound)
---         makeOwnPSK =
---             flip (createPsk secretKey) eternity . encToPublic
---         ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
---     for_ ownPSKs addProxySecretKey

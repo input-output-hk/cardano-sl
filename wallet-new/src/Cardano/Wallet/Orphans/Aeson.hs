@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.Orphans.Aeson where
 
-import           Universum
+import           Universum hiding (words)
 
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH
@@ -14,7 +14,7 @@ import           Pos.Wallet.Web.ClientTypes.Types (CFilePath (..))
 
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Formatting
+import           Formatting (int, sformat, shown, (%))
 import qualified Pos.Core.Types as Core
 import qualified Pos.Crypto.Signing.Types as Core
 import qualified Serokell.Util.Base16 as Base16
@@ -37,8 +37,8 @@ instance ToJSON Core.PassPhrase where
 instance FromJSON Core.PassPhrase where
     parseJSON Null        = mempty
     parseJSON x@(String pp) = case mkPassPhrase pp of
-        Left e   -> typeMismatch e x
-        Right pp -> pure pp
+        Left e    -> typeMismatch e x
+        Right pp' -> pure pp'
     parseJSON x           = typeMismatch "parseJSON failed for PassPhrase" x
 
 mkPassPhrase :: Text -> Either String Core.PassPhrase

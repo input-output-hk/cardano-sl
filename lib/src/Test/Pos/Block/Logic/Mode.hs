@@ -61,15 +61,12 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
-import           Pos.Block.Types (Undo)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
-                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration, IsHeader,
-                           SlotId, Timestamp (..), genesisSecretKeys, withGenesisSpec)
-import           Pos.Core.Block (Block, BlockHeader)
+                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
+                           Timestamp (..), genesisSecretKeys, withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
-import           Pos.DB (DBPure, MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
-                         MonadDB (..), MonadDBRead (..), MonadGState (..))
+import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
@@ -84,17 +81,17 @@ import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), SimpleSlottingMode,
-                               SimpleSlottingVar, SlottingData, currentTimeSlottingSimple,
+                               SimpleSlottingVar, currentTimeSlottingSimple,
                                getCurrentSlotBlockingSimple, getCurrentSlotInaccurateSimple,
                                getCurrentSlotSimple, mkSimpleSlottingVar)
 import           Pos.Slotting.MemState (MonadSlotsData)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.Types (SscBlock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                           txpGlobalSettings)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
-import           Pos.Util (Some, newInitFuture, postfixLFields, postfixLFields2)
+import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
@@ -346,33 +343,14 @@ instance HasSlottingVar TestInitModeContext where
 instance HasConfiguration => MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric BlockHeader Block Undo TestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockPureDefault
-    dbGetUndo   = DB.dbGetUndoPureDefault
-    dbGetHeader = DB.dbGetHeaderPureDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGenericWrite BlockHeader Block Undo TestInitMode
-  where
-    dbPutBlund = DB.dbPutBlundPureDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) SscBlock () TestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault
-    dbGetUndo   = DB.dbGetUndoSscPureDefault
-    dbGetHeader = DB.dbGetHeaderSscPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
@@ -488,28 +466,14 @@ instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
 instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-
-instance HasConfiguration =>
-         MonadBlockDBGeneric BlockHeader Block Undo BlockTestMode
-  where
-    dbGetBlock = DB.dbGetBlockPureDefault
-    dbGetUndo = DB.dbGetUndoPureDefault
-    dbGetHeader = DB.dbGetHeaderPureDefault
-
-instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) SscBlock () BlockTestMode
-  where
-    dbGetBlock = DB.dbGetBlockSscPureDefault
-    dbGetUndo = DB.dbGetUndoSscPureDefault
-    dbGetHeader = DB.dbGetHeaderSscPureDefault
-
-instance HasConfiguration =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo BlockTestMode where
-    dbPutBlund = DB.dbPutBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

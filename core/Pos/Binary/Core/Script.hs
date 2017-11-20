@@ -12,20 +12,11 @@ import qualified Utils.Names as Names
 import qualified Utils.Vars as Vars
 
 import           Data.Hashable (Hashable, hashWithSalt)
-import           Data.SafeCopy (SafeCopy (..))
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, genericDecode,
-                                   genericEncode, getCopyBi, putCopyBi, serialize')
+                                   genericEncode, serialize')
 import           Pos.Core.Script ()
 import           Pos.Core.Types (Script (..), ScriptVersion)
 
-
-instance Bi PLCore.Term => SafeCopy PLCore.Term where
-    getCopy = getCopyBi
-    putCopy = putCopyBi
-
-instance Bi PLCore.Program => SafeCopy PLCore.Program where
-    getCopy = getCopyBi
-    putCopy = putCopyBi
 
 instance Bi Vars.FreeVar where
   encode = genericEncode

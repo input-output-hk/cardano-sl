@@ -20,6 +20,7 @@ import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, Secre
                              unsafeAbstractHash)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck.Instances ()
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase

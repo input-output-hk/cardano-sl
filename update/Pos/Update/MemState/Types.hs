@@ -19,8 +19,8 @@ import           Pos.Core (HasConfiguration, HeaderHash, SlotId (..), UpdateProp
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Update.Poll.Modifier ()
-import           Pos.Update.Poll.Types (LocalVotes, PollModifier)
+import           Pos.Update.Poll.Modifier (PollModifier)
+import           Pos.Update.Poll.Types (LocalVotes)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.

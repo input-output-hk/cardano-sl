@@ -3,9 +3,7 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeFamilies               #-}
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
@@ -48,7 +46,6 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteArray as ByteArray
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable

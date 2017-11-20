@@ -19,7 +19,8 @@ import           Pos.Block.Types (Blund)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux)
-import           Pos.DB.DB (getTipHeader, loadBlundsFromTipByDepth)
+import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
@@ -40,7 +41,7 @@ rollbackAndDump
 rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
-        loadBlundsFromTipByDepth (fromIntegral numToRollback)
+        DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
@@ -70,5 +71,5 @@ rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -
         | genBlock ^. epochIndexL == 0 = True
     is0thGenesis _ = False
     printTipDifficulty = do
-        tipDifficulty <- view difficultyL <$> getTipHeader
+        tipDifficulty <- view difficultyL <$> DB.getTipHeader
         logInfo $ sformat ("Our tip's difficulty is "%build) tipDifficulty

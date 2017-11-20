@@ -21,7 +21,6 @@ module Pos.Configuration
        , messageCacheTimeout
 
        -- * Delegation
-       , lightDlgConfirmationTimeout
        , dlgCacheParam
 
        -- * Malicious activity detection constants
@@ -59,8 +58,6 @@ data NodeConfiguration = NodeConfiguration
       -- ^ List of default peers
     , ccMdNoBlocksSlotThreshold      :: !Int
       -- ^ Threshold of slots for malicious activity detection
-    , ccLightDlgConfirmationTimeout  :: !Int
-      -- ^ Timeout for holding light psks confirmations
     , ccDlgCacheParam                :: !Int
       -- ^ This value parameterizes size of cache used in Delegation.
       -- Not bytes, but number of elements.
@@ -136,10 +133,6 @@ messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ nodeConfiguration
 ----------------------------------------------------------------------------
 -- Delegation
 ----------------------------------------------------------------------------
-
--- | Amount of time we hold confirmations for light PSKs.
-lightDlgConfirmationTimeout :: (HasNodeConfiguration, Integral a) => a
-lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ nodeConfiguration
 
 -- | This value parameterizes size of cache used in Delegation.
 -- Not bytes, but number of elements.

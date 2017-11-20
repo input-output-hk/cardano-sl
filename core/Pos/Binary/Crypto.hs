@@ -15,13 +15,11 @@ import qualified Crypto.SCRAPE as Scrape
 import qualified Crypto.Sign.Ed25519 as EdStandard
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Data.SafeCopy (SafeCopy (..))
 import           Formatting (int, sformat, (%))
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
 
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
-                                   deriveSimpleBi, encodeBinary, encodeListLen, enforceSize,
-                                   getCopyBi, putCopyBi)
+                                   deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
@@ -37,10 +35,6 @@ import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhr
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
     decode = withHash <$> decode
-
-instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
-    putCopy = putCopyBi
-    getCopy = getCopyBi
 
 ----------------------------------------------------------------------------
 -- Hashing

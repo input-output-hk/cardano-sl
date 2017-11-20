@@ -67,12 +67,20 @@ library
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
+                      DefaultSignatures
                       NoImplicitPrelude
+                      MultiParamTypeClasses
                       OverloadedStrings
                       ScopedTypeVariables
+                      FlexibleInstances
+                      FlexibleContexts
+                      TypeFamilies
                       TypeApplications
+                      TypeOperators
                       TemplateHaskell
                       RecordWildCards
+                      ScopedTypeVariables
+                      UndecidableInstances
 
 executable wallet-new-server
   hs-source-dirs:      server
@@ -136,23 +144,39 @@ executable wallet-new-server
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
+                      DefaultSignatures
                       NoImplicitPrelude
+                      MultiParamTypeClasses
                       OverloadedStrings
                       ScopedTypeVariables
-                      TypeApplications
-                      TypeFamilies
+                      FlexibleInstances
                       FlexibleContexts
+                      TypeFamilies
+                      TypeApplications
+                      TypeOperators
                       TemplateHaskell
                       RecordWildCards
+                      ScopedTypeVariables
+                      UndecidableInstances
 
 test-suite wallet-new-specs
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   hs-source-dirs:   server test
-  main-is:          Spec.hs
+  main-is:          Test.hs
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
+                    Spec
+
+                    Cardano.Wallet.API.V0.Handlers
+                    Cardano.Wallet.API.V1.Handlers
+                    Cardano.Wallet.API.V1.Handlers.Accounts
+                    Cardano.Wallet.API.V1.Handlers.Addresses
+                    Cardano.Wallet.API.V1.Handlers.Payments
+                    Cardano.Wallet.API.V1.Handlers.Wallets
+                    Cardano.Wallet.API.V1.Handlers.Updates
+                    Cardano.Wallet.API.V1.Swagger
   build-depends:    base
                   , QuickCheck
                   , aeson
@@ -192,12 +216,17 @@ test-suite wallet-new-specs
   default-language: Haskell2010
   default-extensions: TypeOperators
                       DataKinds
+                      DefaultSignatures
                       NoImplicitPrelude
+                      MultiParamTypeClasses
                       OverloadedStrings
                       ScopedTypeVariables
                       FlexibleInstances
                       FlexibleContexts
                       TypeFamilies
                       TypeApplications
+                      TypeOperators
                       TemplateHaskell
                       RecordWildCards
+                      ScopedTypeVariables
+                      UndecidableInstances

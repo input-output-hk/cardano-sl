@@ -66,4 +66,4 @@ newAccount w@(WalletId wId) _ AccountUpdate{..} = do
            }
 
 updateAccount :: WalletId -> AccountId -> AccountUpdate -> Handler Account
-updateAccount w@(WalletId wId) _ u = newAccount w Nothing u
+updateAccount w _ u = newAccount w Nothing u

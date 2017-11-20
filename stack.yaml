@@ -6,8 +6,9 @@ flags:
 
 extra-package-dbs: []
 
-# util → core → db → [lrc, infra] → [ssc, txp, update] → lib → [auxx, explorer, node, tools, wallet]
+# [util, binary] → core → db → [lrc, infra] → [ssc, txp, update] → lib → [auxx, explorer, node, tools, wallet, wallet-new]
 packages:
+- binary
 - util
 - core
 - db

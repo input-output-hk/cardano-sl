@@ -17,17 +17,13 @@ import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
-import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
-                                  forAll, ioProperty)
+import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Slog (mkSlogGState)
-import           Pos.Block.Types (Undo)
-import           Pos.Core (IsHeader, SlotId, Timestamp (..))
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
-import           Pos.DB.Block (MonadBlockDB)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
@@ -36,14 +32,13 @@ import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
                                SimpleSlottingVar, mkSimpleSlottingVar)
 import qualified Pos.Slotting as Slot
-import           Pos.Ssc.Types (SscBlock)
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
-import           Pos.Util (Some, postfixLFields)
+import           Pos.Util (postfixLFields)
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
-                                            HasGenesisRedeemAddressInfo, runExtraContextT,
-                                            makeExtraCtx)
+                                            HasGenesisRedeemAddressInfo, makeExtraCtx,
+                                            runExtraContextT)
 import           Pos.Explorer.Txp (ExplorerExtra (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
@@ -65,8 +60,7 @@ import           Test.Pos.Block.Logic.Mode (TestParams (..))
 -- | We require much less then @WorkMode@, and this simplifies things later when
 -- testing (and running).
 type ExplorerMode ctx m =
-    ( MonadBlockDB m
-    , MonadDBRead m
+    ( MonadDBRead m
     -- ^ Database operations
     , MonadSlots ctx m
     -- ^ Slotting
@@ -182,33 +176,14 @@ instance HasLens DB.DBPureVar ExplorerTestInitContext DB.DBPureVar where
 instance HasConfigurations => DB.MonadDBRead ExplorerTestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGeneric BlockHeader Block Undo ExplorerTestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockPureDefault
-    dbGetUndo   = DB.dbGetUndoPureDefault
-    dbGetHeader = DB.dbGetHeaderPureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGenericWrite BlockHeader Block Undo ExplorerTestInitMode
-  where
-    dbPutBlund = DB.dbPutBlundPureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGeneric (Some IsHeader) SscBlock () ExplorerTestInitMode
-  where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault
-    dbGetUndo   = DB.dbGetUndoSscPureDefault
-    dbGetHeader = DB.dbGetHeaderSscPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 ----------------------------------------------------------------------------
 -- Boilerplate ExplorerTestContext instances
@@ -273,33 +248,14 @@ instance (HasConfigurations, MonadSlotsData ctx ExplorerTestMode)
 instance HasConfigurations => DB.MonadDBRead ExplorerTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGeneric BlockHeader Block Undo ExplorerTestMode
-  where
-    dbGetBlock  = DB.dbGetBlockPureDefault
-    dbGetUndo   = DB.dbGetUndoPureDefault
-    dbGetHeader = DB.dbGetHeaderPureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGenericWrite BlockHeader Block Undo ExplorerTestMode
-  where
-    dbPutBlund = DB.dbPutBlundPureDefault
-
-instance
-    HasConfigurations =>
-    DB.MonadBlockDBGeneric (Some IsHeader) SscBlock () ExplorerTestMode
-  where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault
-    dbGetUndo   = DB.dbGetUndoSscPureDefault
-    dbGetHeader = DB.dbGetHeaderSscPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
     getLoggerName = getLoggerNameDefault

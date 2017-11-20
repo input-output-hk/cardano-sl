@@ -38,8 +38,8 @@ import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
-import qualified Pos.DB.Block as DB
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
                                  clearDlgMemPool, getDlgMempool, mkDlgPayload)
 import           Pos.Exception (assertionFailed, reportFatalError)
@@ -70,7 +70,7 @@ type MonadCreateBlock ctx m
        , HasPrimaryKey ctx
        , HasSlogGState ctx -- to check chain quality
        , WithLogger m
-       , DB.MonadBlockDB m
+       , MonadDBRead m
        , MonadIO m
        , MonadMask m
        , HasLrcContext ctx

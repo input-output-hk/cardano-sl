@@ -58,6 +58,8 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
@@ -223,11 +225,14 @@ instance HasLens NodeDBs LauncherModeContext NodeDBs where
 instance HasConfiguration => MonadDBRead LauncherMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 bracketNodeDBs :: FilePath -> (NodeDBs -> IO a) -> IO a
 bracketNodeDBs dbPath = bracket (openNodeDBs False dbPath) closeNodeDBs

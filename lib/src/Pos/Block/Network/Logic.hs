@@ -55,8 +55,8 @@ import           Pos.Core (EpochOrSlot (..), HasConfiguration, HasHeaderHash (..
                            epochOrSlotG, gbHeader, headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
-import           Pos.DB.Block (blkGetHeader)
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker (lrcSingleShot)
@@ -159,7 +159,7 @@ mkHeadersRequest
        WorkMode ctx m
     => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
-    uHdr <- blkGetHeader upto
+    uHdr <- DB.getHeader upto
     if isJust uHdr then return MhrrBlockAdopted else do
         bHeaders <- toList <$> getHeadersOlderExp Nothing
         pure $ MhrrWithCheckpoints $ MsgGetHeaders (toList bHeaders) (Just upto)

@@ -17,11 +17,9 @@ import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
 import           Pos.Core (HasConfiguration)
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExtraContext (..),
-                                            makeExtraCtx, makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (emptyBlk, leftToCounter,
-                                        generateValidExplorerMockableMode,
-                                        generateValidBlocksSlotsNumber)
+import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
+                                        generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
                                           getBlocksPagesTotal, getBlocksTotal)

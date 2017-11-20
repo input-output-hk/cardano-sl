@@ -1,6 +1,8 @@
 {- | QuickCheck Orphans. |-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-missing-methods #-}
+
 module Cardano.Wallet.Orphans.Arbitrary where
 
 import           Universum

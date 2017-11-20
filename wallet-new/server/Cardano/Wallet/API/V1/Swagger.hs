@@ -257,7 +257,7 @@ instance ToDocs EstimatedFees where
   descriptionFor _ = "Estimated fees for a `Payment`."
 
 instance ToDocs Payment where
-  descriptionFor _ = "A request for exchange of `Coins` from one entity to another."
+  descriptionFor _ = "An exchange of `Coin`(s) from one source to one or more destinations."
 
 instance ToDocs Transaction where
   descriptionFor _ = "A Wallet Transaction."

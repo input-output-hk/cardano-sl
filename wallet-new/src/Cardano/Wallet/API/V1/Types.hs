@@ -400,7 +400,7 @@ deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse 
 data Payment = Payment
   { pmtSourceWallet   :: !WalletId
     -- ^ The source Wallet.
-  , pmtSourceAccount  :: !Account
+  , pmtSourceAccount  :: !AccountId
     -- ^ The source Account.
   , pmtDestinations   :: !(NonEmpty PaymentDestination)
     -- ^ The destinations for this payment.

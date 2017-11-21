@@ -16,7 +16,6 @@ import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
-import           System.Wlog (CanLog, HasLoggerName(..))
 
 import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
@@ -30,10 +29,10 @@ import           Pos.Explorer.Socket.Methods (SubscriptionMode, addrSubParam, ad
                                               fromCAddressOrThrow, subscribeAddr, spSessId, txsSubParam)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (makeMockExtraCtx)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ccAddress, csClients, mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (ConnectionsState(..), ccAddress, csClients, mkConnectionsState)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
-import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
 
+import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
 ----------------------------------------------------------------------------
 -- Spec
 ----------------------------------------------------------------------------
@@ -66,7 +65,7 @@ spec =
                     subParam = txsSubParam socketId
                 spSessId subParam `shouldBe` socketId
         describe "subscribeAddr" $
-            modifyMaxSize (const 50) $
+            modifyMaxSize (const 1) $
                 prop "subscribes by a given address" subscribeAddrProp
 
 addressSetByTxsProp :: SecretKey -> Bool
@@ -83,16 +82,16 @@ addressSetByTxsProp key =
     in
         addrs == S.fromList [addrA]
 
-subscribeAddrSocket
-  :: (SubscriptionMode m, CanLog m, MonadIO m, HasLoggerName m)
+subscribeAddrAssert
+  :: (SubscriptionMode m, MonadIO m)
   => CAddress -> SocketId -> m Bool
-subscribeAddrSocket cAddr socketId = do
+subscribeAddrAssert cAddr socketId = do
     -- create an emtpy ConnectionsState
-    var <- liftIO $ newTVarIO mkConnectionsState
+    var <- atomically $ newTVar mkConnectionsState
     -- subscribe to an `CAddress`
     subscribeAddr cAddr socketId
     -- get updated ConnectionsState again ...
-    var' <- readTVarIO var
+    var' <- atomically $ readTVar var
     -- to check if ConnectionsState has a `CAddress` subscribed
     let ctx = var' ^. (csClients . at socketId)
     pure $ maybe False hasAddress ctx
@@ -108,7 +107,10 @@ subscribeAddrProp testParams addr socketId = monadicIO $ do
   let extraContext = withDefConfigurations $ makeMockExtraCtx def
   let subscription = withDefConfigurations $
                           runExplorerTestMode testParams extraContext $
-                          subscribeAddrSocket addr socketId
+                          subscribeAddrAssert addr socketId
+
+  -- TODO (jk) Try to simply run here w/o all ExplorerTestMode stuff
+  -- result <- run $ subscribeAddrAssert addr socketId
 
   result <- run subscription
   assert result
@@ -120,6 +122,7 @@ instance MonadState ConnectionsState Emulation where
     get = Emulation get
     put newState = Emulation $ put newState
 
+-- TODO (jk) Fix this instance
 instance MonadState ConnectionsState IO where
     get = get
     put = put

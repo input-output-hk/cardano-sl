@@ -9,7 +9,7 @@ module Pos.Explorer.Socket.Holder
        ( ExplorerSockets
 
        , ClientContext
-       , ConnectionsState
+       , ConnectionsState (..)
        , ConnectionsVar
        , mkClientContext
        , mkConnectionsState

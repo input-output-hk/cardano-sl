@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP          #-}
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -63,9 +62,6 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, Tx
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 
 ----------------------------------------------------------------------------

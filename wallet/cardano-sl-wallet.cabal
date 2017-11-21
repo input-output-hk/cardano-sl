@@ -107,6 +107,7 @@ library
                       , base
                       , base58-bytestring
                       , bytestring
+                      , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
@@ -259,6 +260,7 @@ executable cardano-wallet-hs2purs
                      , cardano-sl-core
                      , cardano-sl
                      , cardano-sl-wallet
+                     , cardano-sl-client
                      , optparse-applicative
                      , purescript-bridge
                      , universum >= 0.1.11
@@ -376,6 +378,8 @@ test-suite cardano-wallet-test
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-ssc
+                     , cardano-sl-client
+                     , cardano-sl-generator
                      , cardano-sl-wallet
                      , cardano-sl-util
                      , cardano-sl

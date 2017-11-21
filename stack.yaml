@@ -6,7 +6,10 @@ flags:
 
 extra-package-dbs: []
 
-# [util, binary] → core → db → [lrc, infra] → [ssc, txp, update] → lib → [auxx, explorer, node, tools, wallet, wallet-new]
+# [util, binary] → core → db → [lrc, infra] → [ssc, txp, update] → lib → ...
+# Then we have two branches:
+# ... → client → generator → [auxx, explorer, wallet]
+# ... → [node, tools]
 packages:
 - binary
 - util
@@ -18,6 +21,8 @@ packages:
 - txp
 - update
 - lib
+- generator
+- client
 - auxx
 - explorer
 - node
@@ -161,6 +166,8 @@ ghc-options:
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
   cardano-sl-txp:        -Werror
+  cardano-sl-client:     -Werror
+  cardano-sl-generator:  -Werror
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
   cardano-sl-auxx:       -Werror

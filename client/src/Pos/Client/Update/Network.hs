@@ -2,19 +2,23 @@
 
 {-# LANGUAGE RankNTypes #-}
 
-module Pos.Communication.Update
+module Pos.Client.Update.Network
        ( submitVote
        , submitUpdateProposal
        ) where
 
 import           Universum
 
-import           Pos.Binary ()
-import           Pos.Communication.Methods (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (EnqueueMsg)
-import           Pos.Crypto (SafeSigner, SignTag (SignUSVote), hash, safeSign, safeToPublic)
+import           Formatting (sformat, (%))
+import           System.Wlog (logInfo)
+
+import           Pos.Communication.Message ()
+import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
+import           Pos.Communication.Relay (invReqDataFlowTK)
+import           Pos.Crypto (SafeSigner, SignTag (SignUSVote), hash, hashHexF, safeSign,
+                             safeToPublic)
 import           Pos.DB.Class (MonadGState)
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..))
+import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkVoteId)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
@@ -24,7 +28,12 @@ submitVote
     -> UpdateVote
     -> m ()
 submitVote enqueue voteUpd = do
-    sendVote enqueue voteUpd
+    void $ invReqDataFlowTK
+        "UpdateVote"
+        enqueue
+        (MsgMPC OriginSender)
+        (mkVoteId voteUpd)
+        voteUpd
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
@@ -49,3 +58,20 @@ submitUpdateProposal enqueue ss prop = do
     constructVotes upid =
         let signatures = map (\s -> safeSign SignUSVote s (upid, True)) ss
         in map (createVote upid) (zip ss signatures)
+
+-- Send UpdateProposal to given address.
+sendUpdateProposal
+    :: (MinWorkMode m, MonadGState m)
+    => EnqueueMsg m
+    -> UpId
+    -> UpdateProposal
+    -> [UpdateVote]
+    -> m ()
+sendUpdateProposal enqueue upid proposal votes = do
+    logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
+    void $ invReqDataFlowTK
+        "UpdateProposal"
+        enqueue
+        (MsgMPC OriginSender)
+        upid
+        (proposal, votes)

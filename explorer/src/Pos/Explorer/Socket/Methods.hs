@@ -47,6 +47,9 @@ module Pos.Explorer.Socket.Methods
        , addressSetByTxs
        , addrsTouchedByTx
        , fromCAddressOrThrow
+
+       -- needed by tests
+       , SubscriptionMode
        ) where
 
 import           Universum

@@ -35,7 +35,7 @@ import qualified System.Systemd.Daemon as Systemd
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..))
 import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..), HasUpdateLimits, HasTxpLimits, HasBlockLimits, HasSscLimits)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
---import           Pos.Communication.Server (allListeners)
+import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
 import           Pos.Core.Coin (coinPortionToDouble)
@@ -44,9 +44,11 @@ import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionDat
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
-import qualified Pos.Diffusion.Full.Block  as Diffusion.Block
-import qualified Pos.Diffusion.Full.Txp    as Diffusion.Txp
-import qualified Pos.Diffusion.Full.Update as Diffusion.Update
+import qualified Pos.Diffusion.Full.Block      as Diffusion.Block
+import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
+import qualified Pos.Diffusion.Full.Ssc        as Diffusion.Ssc
+import qualified Pos.Diffusion.Full.Txp        as Diffusion.Txp
+import qualified Pos.Diffusion.Full.Update     as Diffusion.Update
 import           Pos.Diffusion.Full.Types  (DiffusionWorkMode)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBlocksError (..))
 import           Pos.Logic.Types (Logic (..))
@@ -96,7 +98,21 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             OutSpecs outs = outSpecs mkL
 
             mkL :: MkListeners d
-            mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
+            --mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
+            mkL = mconcat $
+                [ lmodifier "block"      $ Diffusion.Block.blockListeners logic oq
+                , lmodifier "tx"         $ Diffusion.Txp.txListeners logic oq enqueue
+                , lmodifier "update"     $ Diffusion.Update.updateListeners logic oq enqueue
+                , lmodifier "delegation" $ Diffusion.Delegation.delegationListeners logic oq enqueue
+                , lmodifier "ssc"        $ Diffusion.Ssc.sscListeners logic oq enqueue
+                ]
+
+            lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }
+              where
+                mkListeners' v p =
+                    let ls = mkListeners mkL v p
+                        f = wrapListener ("server" <> lname)
+                    in  map f ls
 
             listeners :: VerInfo -> [Listener d]
             listeners = mkListeners mkL ourVerInfo

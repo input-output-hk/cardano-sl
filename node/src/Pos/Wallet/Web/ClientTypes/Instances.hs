@@ -11,7 +11,7 @@ import qualified Data.ByteString as BS
 import           Data.List (intersperse, partition)
 import           Data.Text (splitOn)
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder (Builder (..))
+import           Data.Text.Lazy.Builder (Builder)
 import           Data.Version (showVersion)
 import           Formatting (bprint, build, builder, int, later, sformat, shown, string, (%))
 import           Serokell.Util (listJsonIndent, mapBuilder)

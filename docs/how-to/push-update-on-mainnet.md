@@ -249,7 +249,7 @@ These hashes are Blake2b_256 hashes of CBOR-encoded contents of the files.
 There is a simple command to calculate the hash of an installer:
 
 ```
-stack exec -- cardano-auxx cmd --commands "hash-installer <FILEPATH>"
+./scripts/hash-installer.sh <FILEPATH>
 ```
 
 Note:

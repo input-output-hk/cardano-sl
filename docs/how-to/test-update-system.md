@@ -53,10 +53,10 @@ Then you will appear in `repl` mode and would need to perform few actions:
 #### Import secret keys
 
 ```
-add-key ./nodes2/testnet1.key true
-add-key ./nodes2/testnet2.key true
-add-key ./nodes2/testnet3.key true
-add-key ./nodes2/testnet4.key true
+add-key ./nodes2/testnet1.key primary:true
+add-key ./nodes2/testnet2.key primary:true
+add-key ./nodes2/testnet3.key primary:true
+add-key ./nodes2/testnet4.key primary:true
 ```
 
 Then if you execute
@@ -149,9 +149,9 @@ Wait for 30-60 seconds.
 
 Execute
 ```
-vote 1 true <upId>
-vote 2 true <upId>
-vote 3 true <upId>
+vote 1 agree:true <upId>
+vote 2 agree:true <upId>
+vote 3 agree:true <upId>
 ```
 
 This will result in output like:

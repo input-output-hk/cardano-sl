@@ -1,7 +1,7 @@
 name:                cardano-sl-binary
 version:             1.0.3
 synopsis:            Cardano SL - binary serialization
-description:         This packages defines a type class for binary serialization,
+description:         This package defines a type class for binary serialization,
                      helpers and instances.
 license:             MIT
 license-file:        LICENSE
@@ -11,10 +11,6 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-
-flag asserts
-  default:     True
-  manual:      True
 
 library
   exposed-modules:
@@ -89,5 +85,3 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-  if flag(asserts)
-    cpp-options: -DASSERTS_ON

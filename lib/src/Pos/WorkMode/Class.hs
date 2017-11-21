@@ -23,6 +23,8 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
 import           Pos.Block.Types (MonadLastKnownHeader, MonadProgressHeader, MonadRecoveryHeader)
+import           Pos.Communication.Limits (HasSscLimits, HasTxpLimits, HasBlockLimits,
+                                           HasUpdateLimits)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
                               TxpGlobalSettings)
@@ -93,6 +95,10 @@ type WorkMode ctx m
       , HasNodeType ctx
       , HasSscConfiguration
       , HasDlgConfiguration
+      , HasSscLimits m
+      , HasBlockLimits m
+      , HasUpdateLimits m
+      , HasTxpLimits m
       )
 
 -- | More relaxed version of 'WorkMode'.

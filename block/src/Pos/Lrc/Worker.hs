@@ -65,7 +65,7 @@ type LrcModeFull ctx m =
     , MonadSlots ctx m
     , MonadBlockApply ctx m
     , MonadReader ctx m
-    , SscMessageConstraints
+    , SscMessageConstraints m
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable

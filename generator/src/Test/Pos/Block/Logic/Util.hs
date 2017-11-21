@@ -24,6 +24,7 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
+import           Pos.Communication.Limits (HasSscLimits)
 import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
                            SlotId (..), epochIndexL, genesisData)
 import           Pos.Core.Block (Block)
@@ -80,6 +81,7 @@ bpGenBlocks
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
+       , HasSscLimits (BlockGenMode (MempoolExt m) m)
        )
     => Maybe BlockCount
     -> EnableTxPayload
@@ -100,6 +102,7 @@ bpGenBlock
        , HasAllSecrets ctx
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , Default (MempoolExt m)
+       , HasSscLimits (BlockGenMode (MempoolExt m) m)
        )
     => EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block

@@ -9,6 +9,8 @@ module Pos.Launcher.Runner
          runRealMode
        , runRealBasedMode
 
+       , cslMain
+
        -- * Exported for custom usage in CLI utils
        , runServer
 
@@ -24,7 +26,7 @@ import           Data.Default (Default)
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
 import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
-                           killThread, throw)
+                           killThread, throw, Concurrently, concurrently)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
@@ -44,13 +46,17 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
                                     Msg, OutSpecs (..), PackingType, PeerData, SendActions,
                                     VerInfo (..), allListeners, bipPacking, hoistSendActions,
                                     makeEnqueueMsg, makeSendActions)
+import           Pos.Communication.Limits (HasSscLimits, HasBlockLimits, HasTxpLimits,
+                                           HasUpdateLimits)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
-import           Pos.Context (NodeContext (..))
+import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Diffusion.Types (DiffusionLayer (runDiffusionLayer))
+import           Pos.Logic.Types (LogicLayer (runLogicLayer))
 import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
                                     topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
@@ -59,9 +65,22 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.Web.Server (route53HealthCheckApplication, serveImpl)
+import           Pos.Web.Server (serveImpl, route53HealthCheckApplication)
 import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
                                WorkMode)
+
+-- | Generic CSL main entrypoint. Supply a continuation-style acquiring
+-- function for logic and diffusion layers, and this will run them concurrently.
+--
+-- Before cslMain one will probably do command-line argument parsing in order
+-- to get the obligations necessary to create the layers (i.e. to come up with
+-- the contiuation-style function).
+cslMain
+    :: ( Mockable Concurrently m )
+    => (forall x . ((LogicLayer m, DiffusionLayer m) -> m x) -> m x)
+    -> m ()
+cslMain layers = layers $ \(logicLayer, diffusionLayer) ->
+    void $ concurrently (runLogicLayer logicLayer) (runDiffusionLayer diffusionLayer)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -87,6 +106,10 @@ runRealBasedMode
        -- we can't remove @ext@ from @RealMode@ because
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
+       , HasUpdateLimits (RealMode ext)
+       , HasTxpLimits (RealMode ext)
+       , HasBlockLimits (RealMode ext)
+       , HasSscLimits (RealMode ext)
        )
     => (forall b. m b -> RealMode ext b)
     -> (forall b. RealMode ext b -> m b)
@@ -105,6 +128,10 @@ runRealModeDo
        , HasCompileInfo
        , Default ext
        , MonadTxpLocal (RealMode ext)
+       , HasUpdateLimits (RealMode ext)
+       , HasTxpLimits (RealMode ext)
+       , HasBlockLimits (RealMode ext)
+       , HasSscLimits (RealMode ext)
        )
     => NodeResources ext (RealMode ext)
     -> OutSpecs

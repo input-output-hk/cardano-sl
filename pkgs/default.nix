@@ -6340,46 +6340,17 @@ self: {
           description = "Blaze-html support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-<<<<<<< HEAD
-      servant-docs = callPackage ({ aeson, aeson-pretty, base, base-compat, bytestring, case-insensitive, control-monad-omega, hashable, http-media, http-types, lens, mkDerivation, servant, stdenv, string-conversions, text, unordered-containers }:
-      mkDerivation {
-          pname = "servant-docs";
-          version = "0.11.1";
-          sha256 = "62d12d6884c018c5c05f796ff297337dcdd6360c8f4d55bb548ce6f7254046c4";
-          isLibrary = true;
-          isExecutable = true;
-=======
       servant-client = callPackage ({ aeson, attoparsec, base, base-compat, bytestring, containers, exceptions, http-client, http-client-tls, http-media, http-types, mkDerivation, monad-control, mtl, semigroupoids, servant-client-core, stdenv, text, transformers, transformers-base, transformers-compat }:
       mkDerivation {
           pname = "servant-client";
           version = "0.12";
           sha256 = "95c9d6cef575f1c7f9cc448753a8d6ca5d53e394638665a5f09dbc83917150f0";
->>>>>>> upstream/alfredo/wallet-new
           libraryHaskellDepends = [
             aeson
-            aeson-pretty
+            attoparsec
             base
             base-compat
             bytestring
-<<<<<<< HEAD
-            case-insensitive
-            control-monad-omega
-            hashable
-            http-media
-            http-types
-            lens
-            servant
-            string-conversions
-            text
-            unordered-containers
-          ];
-          executableHaskellDepends = [
-            aeson
-            base
-            lens
-            servant
-            string-conversions
-=======
             containers
             exceptions
             http-client
@@ -6390,17 +6361,17 @@ self: {
             mtl
             semigroupoids
             servant-client-core
->>>>>>> upstream/alfredo/wallet-new
             text
+            transformers
+            transformers-base
+            transformers-compat
           ];
           doHaddock = false;
           doCheck = false;
           homepage = "http://haskell-servant.readthedocs.org/";
-          description = "generate API docs for your servant webservice";
+          description = "automatical derivation of querying functions for servant webservices";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-<<<<<<< HEAD
-=======
       servant-client-core = callPackage ({ base, base-compat, base64-bytestring, bytestring, containers, exceptions, generics-sop, http-api-data, http-media, http-types, mkDerivation, mtl, network-uri, safe, servant, stdenv, text }:
       mkDerivation {
           pname = "servant-client-core";
@@ -6467,7 +6438,6 @@ self: {
           description = "generate API docs for your servant webservice";
           license = stdenv.lib.licenses.bsd3;
         }) {};
->>>>>>> upstream/alfredo/wallet-new
       servant-multipart = callPackage ({ base, bytestring, directory, http-client, http-media, lens, mkDerivation, network, resourcet, servant, servant-docs, servant-server, stdenv, text, transformers, wai, wai-extra, warp }:
       mkDerivation {
           pname = "servant-multipart";
@@ -6508,8 +6478,6 @@ self: {
           description = "multipart/form-data (e.g file upload) support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-<<<<<<< HEAD
-=======
       servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, fetchgit, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
       mkDerivation {
           pname = "servant-quickcheck";
@@ -6550,7 +6518,6 @@ self: {
           description = "QuickCheck entire APIs";
           license = stdenv.lib.licenses.bsd3;
         }) {};
->>>>>>> upstream/alfredo/wallet-new
       servant-server = callPackage ({ Cabal, aeson, attoparsec, base, base-compat, base64-bytestring, bytestring, cabal-doctest, containers, exceptions, filepath, http-api-data, http-types, mkDerivation, monad-control, mtl, network, network-uri, resourcet, safe, servant, split, stdenv, string-conversions, system-filepath, tagged, text, transformers, transformers-base, transformers-compat, wai, wai-app-static, warp, word8 }:
       mkDerivation {
           pname = "servant-server";
@@ -6881,6 +6848,22 @@ self: {
           homepage = "https://github.com/fpco/streaming-commons";
           description = "Common lower-level functions needed by various streaming data libraries";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      string-conv = callPackage ({ base, bytestring, mkDerivation, stdenv, text }:
+      mkDerivation {
+          pname = "string-conv";
+          version = "0.1.2";
+          sha256 = "f259a03e6f296af19a71c07ab9a98a38661dfe40679f360f8e371334ea226039";
+          libraryHaskellDepends = [
+            base
+            bytestring
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/Soostone/string-conv";
+          description = "Standardized conversion between string types";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       string-conversions = callPackage ({ base, bytestring, mkDerivation, stdenv, text, utf8-string }:
       mkDerivation {
@@ -8389,3 +8372,4 @@ compiler.override {
   initialPackages = stackPackages;
   configurationCommon = { ... }: self: super: {};
 }
+

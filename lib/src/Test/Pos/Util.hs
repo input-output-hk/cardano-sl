@@ -157,9 +157,8 @@ splitIntoChunks maxSize items = do
 
 expectedOne :: Monad m => Text -> [a] -> PropertyM m a
 expectedOne desc = \case
-    [] ->  kickOut "expected at least one element, but list empty"
+    [] ->  kickOut "expected exactly one element, but list is empty"
     [x] -> pure x
-    _ ->   kickOut "expected one element, but list contains more elements"
+    _ ->   kickOut "expected exactly one element, but list contains more elements"
   where
     kickOut err = stopProperty $ err <> " (" <> desc <> ")"
-

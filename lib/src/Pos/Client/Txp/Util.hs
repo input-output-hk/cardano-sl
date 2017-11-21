@@ -70,6 +70,8 @@ import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
                           TxOutAux (..), TxSigData (..), Utxo)
 import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -142,7 +144,7 @@ isCheckedTxError = \case
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Specifies the way Uxtos are going to be grouped.
+-- | Specifies the way Utxos are going to be grouped.
 data InputSelectionPolicy
     = OptimizeForSecurity  -- ^ Spend everything from the address
     | OptimizeForSize      -- ^ No grouping
@@ -158,6 +160,10 @@ instance Buildable (SecureLog InputSelectionPolicy) where
 
 instance Default InputSelectionPolicy where
     def = OptimizeForSecurity
+
+instance Arbitrary InputSelectionPolicy where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m

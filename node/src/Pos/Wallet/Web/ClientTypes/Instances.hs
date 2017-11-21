@@ -38,9 +38,9 @@ import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), ApiVersion (.
                                                    CTxId (..), CTxMeta (..), CUpdateInfo (..),
                                                    CWallet (..), CWalletAssurance, CWalletInit (..),
                                                    CWalletMeta (..), CWalletRedeem (..),
-                                                   ClientInfo (..), NewBatchPayment,
-                                                   NewBatchPayment (..), ScrollLimit (..),
-                                                   ScrollOffset (..), SyncProgress (..))
+                                                   ClientInfo (..), NewBatchPayment (..),
+                                                   ScrollLimit (..), ScrollOffset (..),
+                                                   SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 
 -- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?

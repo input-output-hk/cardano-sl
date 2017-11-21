@@ -17,8 +17,8 @@ self: {
           pname = "Cabal";
           version = "1.24.2.0";
           sha256 = "b7d0eb8e3503fbca460c0a6ca5c88352cecfe1b69e0bbc79827872134ed86340";
-          revision = "1";
-          editedCabalFile = "0jw809psa2ms9sy1mnirmbj9h7rs76wbmf24zgjqvhp4wq919z3m";
+          revision = "2";
+          editedCabalFile = "15ncrm7x2lg4hn0m5mhc8hy769bzhmajsm6l9i6536plfs2bbbdj";
           libraryHaskellDepends = [
             array
             base
@@ -2733,8 +2733,8 @@ self: {
           pname = "diagrams-lib";
           version = "1.4.1.2";
           sha256 = "4b6e8805decaef85d355d620311595b16fb702df3885060db19bc9b425652670";
-          revision = "3";
-          editedCabalFile = "14ni87kwmjhbphcihiivvz0nxga355263q36wvbyvvjmxvbdj98n";
+          revision = "4";
+          editedCabalFile = "0wlb4ng803rhx82msl49b39im4cw8naik0pcyyybpphyqbxxs6dd";
           libraryHaskellDepends = [
             active
             adjunctions
@@ -3851,8 +3851,8 @@ self: {
       hscolour = callPackage ({ base, containers, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hscolour";
-          version = "1.24.1";
-          sha256 = "e46fe3de8ed6f96e2216b94b7608d01919bc86b15dd8d0ec7e71c0e7e5bf79c8";
+          version = "1.24.2";
+          sha256 = "55fb86bafdcad9613c25910b1cbca4b071c1ddc6365538c3b3d4e350cb30cf22";
           isLibrary = true;
           isExecutable = true;
           enableSeparateDataOutput = true;

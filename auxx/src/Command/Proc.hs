@@ -44,7 +44,7 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
-import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome)
+import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
@@ -64,6 +64,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "L"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArgMany tyValue "elem"
     , cpExec = return . ValueList
     , cpHelp = "construct a list"
@@ -73,6 +74,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = fmap ValuePublicKey . toLeft . Right
     , cpHelp = "public key for secret #i"
@@ -82,6 +84,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyPublicKey `tyEither` tyInt) "pk"
     , cpExec = fmap ValueStakeholderId . toLeft . Right
     , cpHelp = "stakeholder id (hash) of the specified public key"
@@ -91,6 +94,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer =
         (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
             <*> getArgOpt tyAddrStakeDistr "distr"
@@ -110,6 +114,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = \i -> do
         sks <- getSecretKeysPlain
@@ -123,6 +128,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "tx-out"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         txOutAddress <- getArg tyAddress "addr"
         txOutValue <- getArg tyCoin "value"
@@ -135,6 +141,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         adpStakeholderId <- getArg (tyStakeholderId `tyEither` tyPublicKey `tyEither` tyInt) "s"
         adpCoinPortion <- getArg tyCoinPortion "p"
@@ -149,6 +156,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArgSome tyAddrDistrPart "dp"
     , cpExec = \parts -> do
         distr <- case parts of
@@ -176,6 +184,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
         addr <- toLeft addr'
@@ -188,6 +197,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> ValueBlockVersionData <$> gsAdoptedBVData
     , cpHelp = "return current (adopted) BlockVersionData"
@@ -198,6 +208,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         stagpDuration <- getArg tyInt "dur"
         stagpConc <- getArg tyInt "conc"
@@ -219,6 +230,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
         Tx.sendTxsFromFile sendActions filePath
@@ -231,6 +243,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer =
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
@@ -246,6 +259,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer =
         (,,) <$> getArg tyInt "i"
              <*> getArg tyBool "agree"
@@ -260,6 +274,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "bvm"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         bvmScriptVersion <- getArgOpt tyScriptVersion "script-version"
         bvmSlotDuration <- getArgOpt tySecond "slot-duration"
@@ -282,6 +297,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "upd-bin"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         pusSystemTag <- getArg tySystemTag "system"
         pusInstallerPath <- getArgOpt tyFilePath "installer-path"
@@ -296,6 +312,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = map
+        $ typeDirectedKwAnn "bvm" tyBlockVersionModifier
+        . typeDirectedKwAnn "update" tyProposeUpdateSystem
+        . typeDirectedKwAnn "block-version" tyBlockVersion
+        . typeDirectedKwAnn "software-version" tySoftwareVersion
     , cpArgumentConsumer = do
         puSecretKeyIdx <- getArg tyInt "i"
         puVoteAll <- getArg tyBool "vote-all"
@@ -315,6 +336,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "hash-installer"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
         Update.hashInstaller printAction filePath
@@ -327,6 +349,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer =
       (,,,) <$> getArg tyInt "i"
             <*> getArg tyPublicKey "pk"
@@ -363,6 +386,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         bgoBlockN <- getArg tyWord32 "n"
         bgoSeed <- getArgOpt tyInt "seed"
@@ -377,6 +401,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = \i -> do
         CmdCtx {..} <- getCmdCtx
@@ -392,6 +417,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         akpFile <- getArg tyFilePath "file"
         akpPrimary <- getArg tyBool "primary"
@@ -411,6 +437,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
         rpNum <- getArg tyWord "n"
         rpDumpPath <- getArg tyFilePath "dump-file"
@@ -425,6 +452,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
         sks <- getSecretKeysPlain
@@ -452,6 +480,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "help"
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
         printAction (mkHelpMessage commands)
@@ -470,6 +499,7 @@ procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =
     CommandProc
     { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = pure ()
     , cpExec = \() -> pure value
     , cpHelp = "constant"

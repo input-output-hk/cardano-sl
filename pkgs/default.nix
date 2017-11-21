@@ -1318,7 +1318,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, constraints, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, constraints, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, loc, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.3";
@@ -1348,6 +1348,7 @@ self: {
             generic-arbitrary
             haskeline
             lens
+            loc
             log-warper
             megaparsec
             mmorph
@@ -4226,8 +4227,8 @@ self: {
       hscolour = callPackage ({ base, containers, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hscolour";
-          version = "1.24.1";
-          sha256 = "e46fe3de8ed6f96e2216b94b7608d01919bc86b15dd8d0ec7e71c0e7e5bf79c8";
+          version = "1.24.2";
+          sha256 = "55fb86bafdcad9613c25910b1cbca4b071c1ddc6365538c3b3d4e350cb30cf22";
           isLibrary = true;
           isExecutable = true;
           enableSeparateDataOutput = true;
@@ -4865,6 +4866,21 @@ self: {
           homepage = "http://github.com/ekmett/linear/";
           description = "Linear Algebra";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      loc = callPackage ({ base, containers, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "loc";
+          version = "0.1.3.1";
+          sha256 = "fd49e9437bd547ac77ff31773c16fe0cae93ff060668c80c0c2ba71507d43c47";
+          libraryHaskellDepends = [
+            base
+            containers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/chris-martin/loc";
+          description = "Types representing line and column positions and ranges in text files";
+          license = stdenv.lib.licenses.asl20;
         }) {};
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {

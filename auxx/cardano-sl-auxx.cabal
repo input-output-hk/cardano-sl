@@ -26,6 +26,7 @@ library
                        Lang
                        Lang.Argument
                        Lang.Command
+                       Lang.DisplayError
                        Lang.Interpreter
                        Lang.Lexer
                        Lang.Name
@@ -59,6 +60,7 @@ library
                      , generic-arbitrary
                      , haskeline
                      , lens
+                     , loc
                      , log-warper
                      , megaparsec
                      , mmorph

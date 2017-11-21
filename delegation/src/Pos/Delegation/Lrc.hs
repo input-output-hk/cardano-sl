@@ -8,8 +8,8 @@ module Pos.Delegation.Lrc
 
 import           Pos.Core (BlockVersionData (bvdHeavyDelThd))
 import qualified Pos.DB as DB
+import           Pos.Delegation.RichmenComponent (RCDlg)
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)
-import           Pos.Lrc.DB (RCDlg)
 
 -- | Consumer will be called on every Richmen computation.
 delegationLrcConsumer :: (DB.MonadGState m, DB.MonadDB m) => LrcConsumer m

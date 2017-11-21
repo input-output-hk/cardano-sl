@@ -10,34 +10,25 @@ module Pos.Delegation.Logic.Common
        -- * Modifying memstate
        , DelegationStateAction
        , runDelegationStateAction
-       , invalidateProxyCaches
 
        -- * Common helpers
-       , mkDelegationVar
        , getDlgTransPsk
        ) where
 
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Control.Lens ((%=))
-import qualified Data.Cache.LRU as LRU
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
-import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Formatting (bprint, build, sformat, stext, (%))
 
-import           Pos.Configuration (HasNodeConfiguration, dlgCacheParam, messageCacheTimeout)
-import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash, headerHash)
+import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
-import           Pos.DB (DBError (DBMalformed), MonadBlockDBRead, MonadDBRead)
-import           Pos.DB.BlockIndex (getTipHeader)
+import           Pos.DB (DBError (DBMalformed), MonadDBRead)
 import           Pos.Delegation.Cede (getPskChain, runDBCede)
-import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..), MonadDelegation,
-                                       askDelegationState, dwMessageCache)
+import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation, askDelegationState)
 import           Pos.Delegation.DB (getDlgTransitive)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Util.LRU (filterLRU)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -82,36 +73,9 @@ runDelegationStateAction action = do
         writeTVar var $! v1
         pure r
 
--- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: HasNodeConfiguration => UTCTime -> DelegationStateAction ()
-invalidateProxyCaches curTime =
-    dwMessageCache %=
-        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
-  where
-    toDiffTime (t :: Integer) = fromIntegral t
-
 ----------------------------------------------------------------------------
 -- Common functions
 ----------------------------------------------------------------------------
-
--- | Make a new 'DelegationVar' and initialize it.
---
--- * Sets '_dwEpochId' to epoch of tip.
--- * Initializes mempools/LRU caches.
-mkDelegationVar ::
-       (MonadIO m, MonadBlockDBRead m, HasConfiguration, HasNodeConfiguration)
-    => m DelegationVar
-mkDelegationVar = do
-    tip <- getTipHeader
-    newTVarIO
-        DelegationWrap
-        { _dwMessageCache = LRU.newLRU msgCacheLimit
-        , _dwProxySKPool = HM.empty
-        , _dwPoolSize = 1 -- approximate size of the empty mempool.
-        , _dwTip = headerHash tip
-        }
-  where
-    msgCacheLimit = Just dlgCacheParam
 
 -- | Retrieves last PSK in chain of delegation started by public key
 -- and resolves the passed issuer to a public key. Doesn't check that

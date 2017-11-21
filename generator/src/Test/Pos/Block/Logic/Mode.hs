@@ -71,7 +71,8 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure (DBPureVar, newDBPureVar)
-import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Delegation (DelegationVar)
+import           Pos.Delegation.HelpersLib (mkDelegationVar)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS

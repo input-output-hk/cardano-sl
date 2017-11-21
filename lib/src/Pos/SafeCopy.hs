@@ -20,6 +20,7 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
+import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
                                SscProof (..))
@@ -44,7 +45,6 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
                                              ProxySignature (..), PublicKey (..), SecretKey (..),
                                              Signature (..), Signed (..))
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
-import           Pos.Delegation.Types (DlgPayload (..))
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
 

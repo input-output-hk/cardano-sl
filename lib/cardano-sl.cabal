@@ -19,7 +19,6 @@ library
 
                         -- Arbitrary instances
                         Pos.Arbitrary.Block
-                        Pos.Arbitrary.Delegation
 
                         Pos.Aeson
                         Pos.Binary
@@ -41,8 +40,6 @@ library
                         Pos.DB.Block
                         Pos.DB.Block.Load
 
-                        Pos.Delegation
-
                         -- GState
                         Pos.GState
                         Pos.GState.BlockExtra
@@ -63,12 +60,10 @@ library
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
 
-                        -- cardano-sl-client
+                        -- cardano-sl-client & cardano-sl-generator
+                        Pos.Communication.Limits
                         Pos.Communication.Message
                         Pos.Communication.Types
-
-                        -- cardano-sl-generator
-                        Pos.Delegation.Logic
                         Pos.Lrc.DB
 
                         -- Something
@@ -97,6 +92,8 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
 
+                        Pos.Delegation.HelpersLib
+
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
@@ -104,12 +101,8 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Communication
-                        Pos.Binary.Delegation
                         Pos.Binary.Relay
                         Pos.Binary.Block.Types
-
-                        -- Heavy delegation
-                        Pos.Delegation.Types
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
@@ -155,20 +148,8 @@ library
                         -- Crypto
                         Pos.Crypto.HDDiscovery
 
-                        -- Heavy delegation
-                        Pos.Delegation.Cede
-                        Pos.Delegation.Cede.Class
-                        Pos.Delegation.Cede.Logic
-                        Pos.Delegation.Cede.Types
-                        Pos.Delegation.Cede.Holders
-                        Pos.Delegation.Class
-                        Pos.Delegation.DB
-                        Pos.Delegation.Helpers
+                        -- Delegation
                         Pos.Delegation.Listeners
-                        Pos.Delegation.Logic.Common
-                        Pos.Delegation.Logic.Mempool
-                        Pos.Delegation.Logic.VAR
-                        Pos.Delegation.Lrc
                         Pos.Delegation.Worker
 
                         -- GState
@@ -183,7 +164,6 @@ library
 
                         -- Network
                         Pos.Communication.Server
-                        Pos.Communication.Limits
 
                         -- LRC
                         Pos.Lrc.Consumers
@@ -219,6 +199,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
+                      , cardano-sl-delegation
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc
@@ -397,6 +378,7 @@ test-suite cardano-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
+                     , cardano-sl-delegation
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-ssc

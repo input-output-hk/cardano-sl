@@ -43,7 +43,8 @@ import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
                                dbPutSerBlundSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Delegation (DelegationVar)
+import           Pos.Delegation.HelpersLib (mkDelegationVar)
 import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))

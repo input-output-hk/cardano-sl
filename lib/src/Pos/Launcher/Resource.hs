@@ -46,7 +46,8 @@ import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (
 import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Delegation (DelegationVar)
+import           Pos.Delegation.HelpersLib (mkDelegationVar)
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance,
                                stopDHTInstance)
 import qualified Pos.GState as GS

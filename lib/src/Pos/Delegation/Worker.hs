@@ -6,16 +6,19 @@ module Pos.Delegation.Worker
 
 import           Universum
 
+import           Control.Lens ((%=))
+import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
 import           Serokell.Util (sec)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Logic (invalidateProxyCaches, runDelegationStateAction)
+import           Pos.Configuration (HasNodeConfiguration, messageCacheTimeout)
+import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
+import           Pos.Delegation.Logic (DelegationStateAction, runDelegationStateAction)
 import           Pos.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
+import           Pos.Util.LRU (filterLRU)
 import           Pos.WorkMode.Class (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
@@ -52,3 +55,11 @@ dlgInvalidateCaches =
     invalidate = do
         curTime <- microsecondsToUTC <$> currentTime
         runDelegationStateAction $ invalidateProxyCaches curTime
+
+-- | Invalidates proxy caches using built-in constants.
+invalidateProxyCaches :: HasNodeConfiguration => UTCTime -> DelegationStateAction ()
+invalidateProxyCaches curTime =
+    dwMessageCache %=
+        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
+  where
+    toDiffTime (t :: Integer) = fromIntegral t

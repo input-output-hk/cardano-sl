@@ -21,6 +21,7 @@ packages:
 - ssc
 - txp
 - update
+- delegation
 - lib
 - generator
 - client

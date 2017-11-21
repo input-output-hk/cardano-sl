@@ -39,7 +39,8 @@ import           Pos.Core.Coin ()
 import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, ProxySKHeavy,
                                  SharedSeed, StakeholderId, Timestamp)
 import           Pos.Core.Vss.Types (VssCertificatesMap, getVssCertificatesMap)
-import           Pos.Crypto.Signing.Types (RedeemPublicKey)
+import           Pos.Crypto.Configuration (ProtocolMagic)
+import           Pos.Crypto.Signing (RedeemPublicKey)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
@@ -206,7 +207,7 @@ data ProtocolConstants = ProtocolConstants
     { -- | Security parameter from the paper.
       pcK             :: !Int
       -- | Magic constant for separating real/testnet.
-    , pcProtocolMagic :: !Int32
+    , pcProtocolMagic :: !ProtocolMagic
       -- | VSS certificates max timeout to live (number of epochs).
     , pcVssMaxTTL     :: !Word32
       -- | VSS certificates min timeout to live (number of epochs).

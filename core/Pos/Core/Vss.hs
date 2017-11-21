@@ -34,16 +34,15 @@ import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Address (addressHash)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Core.Types (EpochIndex, StakeholderId)
 import           Pos.Core.Vss.Types
-import           Pos.Crypto (PublicKey, SecretKey, SignTag (SignVssCert), Signature, VssPublicKey,
-                             checkSig, sign, toPublic)
+import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
+                             Signature, VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
 mkVssCertificate
-    :: (HasProtocolConstants, Bi EpochIndex)
+    :: (HasCryptoConfiguration, Bi EpochIndex)
     => SecretKey
     -> AsBinary VssPublicKey
     -> EpochIndex
@@ -56,7 +55,7 @@ mkVssCertificate sk vk expiry =
 -- | Recreate 'VssCertificate' from its contents. This function main
 -- 'fail' if data is invalid.
 recreateVssCertificate
-    :: (HasProtocolConstants, Bi EpochIndex, MonadFail m)
+    :: (HasCryptoConfiguration, Bi EpochIndex, MonadFail m)
     => AsBinary VssPublicKey
     -> EpochIndex
     -> Signature (AsBinary VssPublicKey, EpochIndex)
@@ -78,7 +77,7 @@ recreateVssCertificate vssKey epoch sig pk =
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCertSign :: (HasProtocolConstants, Bi EpochIndex) => VssCertificate -> Bool
+checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
 checkCertSign VssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 

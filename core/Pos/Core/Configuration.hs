@@ -37,6 +37,7 @@ import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (
                                          GenesisInitializer (..), GenesisSpec (..),
                                          getGenesisAvvmBalances)
 import           Pos.Core.Types (Coin, Timestamp)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
 
@@ -48,6 +49,7 @@ type HasConfiguration =
     , HasGeneratedSecrets
     , HasGenesisBlockVersionData
     , HasProtocolConstants
+    , HasCryptoConfiguration
     )
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)

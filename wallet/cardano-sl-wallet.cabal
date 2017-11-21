@@ -109,6 +109,7 @@ library
                       , bytestring
                       , cardano-sl-client
                       , cardano-sl-core
+                      , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-ssc
@@ -372,6 +373,7 @@ test-suite cardano-wallet-test
                      , QuickCheck
                      , base
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc

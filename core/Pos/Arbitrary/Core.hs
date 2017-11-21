@@ -47,7 +47,7 @@ import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Types (BlockVersionData (..), Timestamp (..), maxCoinVal)
 import qualified Pos.Core.Types as Types
 import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
-import           Pos.Crypto (createPsk, toPublic)
+import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
@@ -510,7 +510,7 @@ instance Arbitrary G.FakeAvvmOptions where
         faoOneBalance <- choose (5, 30)
         return G.FakeAvvmOptions {..}
 
-instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
+instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
@@ -538,7 +538,7 @@ instance Arbitrary G.ProtocolConstants where
         G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
         arbitrary
 
-instance HasProtocolConstants => Arbitrary G.GenesisData where
+instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -581,6 +581,6 @@ deriving instance Arbitrary TinyVarInt
 -- SSC
 ----------------------------------------------------------------------------
 
-instance HasProtocolConstants => Arbitrary VssCertificate where
+instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.

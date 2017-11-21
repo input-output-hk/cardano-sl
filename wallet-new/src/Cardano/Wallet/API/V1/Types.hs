@@ -62,7 +62,7 @@ import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
-import qualified Pos.Crypto.Signing.Types as Core
+import qualified Pos.Crypto.Signing as Core
 
 --
 -- Swagger & REST-related types

@@ -29,6 +29,8 @@ module Pos.Crypto.Signing.Signing
        , module Pos.Crypto.Signing.Types.Signing
        ) where
 
+import           Universum hiding (show)
+
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom, getRandomBytes)
 import           Data.ByteArray (ScrubbedBytes)
@@ -36,11 +38,11 @@ import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
 import           Formatting (Format, build, later, sformat, (%))
 import qualified Serokell.Util.Base16 as B16
-import           Universum hiding (show)
 
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Binary.Crypto ()
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types.Signing
 import           Pos.Crypto.Signing.Types.Tag (SignTag (SignProxySK))
@@ -90,7 +92,7 @@ parseFullSignature s = do
 
 -- | Encode something with 'Binary' and sign it.
 sign
-    :: (HasProtocolConstants, Bi a)
+    :: (HasCryptoConfiguration, Bi a)
     => SignTag         -- ^ See docs for 'SignTag'
     -> SecretKey
     -> a
@@ -99,7 +101,7 @@ sign t k = coerce . signRaw (Just t) k . Bi.serialize'
 
 -- | Sign a bytestring.
 signRaw
-    :: HasProtocolConstants
+    :: HasCryptoConfiguration
     => Maybe SignTag   -- ^ See docs for 'SignTag'. Unlike in 'sign', we
                        -- allow no tag to be provided just in case you need
                        -- to sign /exactly/ the bytestring you provided
@@ -113,18 +115,30 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
 -- CHECK: @checkSig
 -- | Verify a signature.
 -- #verifyRaw
-checkSig :: (HasProtocolConstants, Bi a) => SignTag -> PublicKey -> a -> Signature a -> Bool
+checkSig ::
+       (HasCryptoConfiguration, Bi a)
+    => SignTag
+    -> PublicKey
+    -> a
+    -> Signature a
+    -> Bool
 checkSig t k x s = verifyRaw (Just t) k (Bi.serialize' x) (coerce s)
 
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
-verifyRaw :: HasProtocolConstants => Maybe SignTag -> PublicKey -> ByteString -> Signature Raw -> Bool
+verifyRaw ::
+       HasCryptoConfiguration
+    => Maybe SignTag
+    -> PublicKey
+    -> ByteString
+    -> Signature Raw
+    -> Bool
 verifyRaw mbTag (PublicKey k) x (Signature s) = CC.verify k (tag <> x) s
   where
     tag = maybe mempty signTag mbTag
 
 -- | Smart constructor for 'Signed' data type with proper signing.
-mkSigned :: (HasProtocolConstants, Bi a) => SignTag -> SecretKey -> a -> Signed a
+mkSigned :: (HasCryptoConfiguration, Bi a) => SignTag -> SecretKey -> a -> Signed a
 mkSigned t sk x = Signed x (sign t sk x)
 
 ----------------------------------------------------------------------------
@@ -132,7 +146,7 @@ mkSigned t sk x = Signed x (sign t sk x)
 ----------------------------------------------------------------------------
 
 -- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
-verifyProxyCert :: (HasProtocolConstants, Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
+verifyProxyCert :: (HasCryptoConfiguration, Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
 verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
     checkSig SignProxySK issuerPk
         (mconcat ["00", CC.unXPub delegatePk, Bi.serialize' o])
@@ -151,7 +165,7 @@ parseFullProxyCert s = do
 
 -- | Checks if proxy secret key is valid (the signature/cert inside is
 -- correct).
-verifyPsk :: (HasProtocolConstants, Bi w) => ProxySecretKey w -> Bool
+verifyPsk :: (HasCryptoConfiguration, Bi w) => ProxySecretKey w -> Bool
 verifyPsk ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
 
@@ -160,7 +174,7 @@ verifyPsk ProxySecretKey{..} =
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
 proxySign
-    :: (HasProtocolConstants, Bi a, Bi PublicKey)
+    :: (HasCryptoConfiguration, Bi a)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
 proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
@@ -185,7 +199,7 @@ proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
-    :: (HasProtocolConstants, Bi w, Bi a)
+    :: (HasCryptoConfiguration, Bi w, Bi a)
     => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
 proxyVerify t ProxySignature{..} omegaPred m =
     and [predCorrect, pskValid, sigValid]

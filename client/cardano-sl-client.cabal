@@ -28,6 +28,7 @@ library
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-txp
@@ -101,6 +102,7 @@ test-suite cardano-test
                      , cardano-sl
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-ssc

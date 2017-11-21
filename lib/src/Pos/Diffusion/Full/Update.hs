@@ -4,11 +4,14 @@
 module Pos.Diffusion.Full.Update
        ( sendVote
        , sendUpdateProposal
+
+       , updateListeners
        ) where
 
-import           Formatting (sformat, (%))
-import           System.Wlog (logInfo)
 import           Universum
+import           Formatting (sformat, (%))
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           System.Wlog (logInfo)
 
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
@@ -22,9 +25,16 @@ import           Pos.Core.Configuration.GeneratedSecrets (HasGeneratedSecrets)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Communication.Limits (HasUpdateLimits)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
-import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode)
+import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
+                                             NodeId, MkListeners)
+import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode,
+                                          Relay (..), relayListeners,
+                                          InvReqDataParams (..), MempoolParams (..))
 import           Pos.Crypto (hashHexF)
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
+import           Pos.Logic.Types (Logic (..))
+import qualified Pos.Logic.Types as KV (KeyVal (..))
+import           Pos.Network.Types (Bucket)
 import           Pos.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
 
 -- Send UpdateVote to given addresses.
@@ -73,3 +83,61 @@ sendUpdateProposal enqueue upid proposal votes = do
         (MsgMPC OriginSender)
         upid
         (proposal, votes)
+
+updateListeners
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> EnqueueMsg m
+    -> MkListeners m
+updateListeners logic oq enqueue = relayListeners oq enqueue (usRelays logic)
+
+-- | Relays for data related to update system
+usRelays
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> [Relay m]
+usRelays logic = [proposalRelay logic, voteRelay logic]
+
+----------------------------------------------------------------------------
+-- UpdateProposal relays
+----------------------------------------------------------------------------
+
+proposalRelay
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> Relay m
+proposalRelay logic =
+    InvReqData
+        NoMempool $
+        InvReqDataParams
+           { invReqMsgType = MsgTransaction
+           , contentsToKey = KV.toKey kv
+           , handleInv = \_ -> KV.handleInv kv
+           , handleReq = \_ -> KV.handleReq kv
+           , handleData = \_ -> KV.handleData kv
+           }
+  where
+    kv = postUpdate logic
+
+----------------------------------------------------------------------------
+-- UpdateVote listeners
+----------------------------------------------------------------------------
+
+voteRelay
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> Relay m
+voteRelay logic =
+    InvReqData
+        NoMempool $
+        InvReqDataParams
+           { invReqMsgType = MsgTransaction
+           , contentsToKey = KV.toKey kv
+           , handleInv = \_ -> KV.handleInv kv
+           , handleReq = \_ -> KV.handleReq kv
+           , handleData = \_ -> KV.handleData kv
+           }
+  where
+    kv = postVote logic

@@ -14875,7 +14875,7 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
     genesis:
       src:
         file: mainnet-staging-short-epoch-genesis.json
-        hash: f73231256fe6784c408e8a31b7bb8250f80ce64fdbdec137ad1da2faa257a166
+        hash: e7a53de0c136f1da2a8591cac6150ea790dbe428b5f7aa840d2ea210cbb00673
   update:
     <<:
     applicationName: cardano-sl

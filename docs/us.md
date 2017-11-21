@@ -107,14 +107,14 @@ Assume a proposal which is bumping `BlockVersion` became _confirmed_.
 Though the proposal is already _confirmed_ along with block version but stakeholders
 haven't updated its software yet, hence, they can't validate block of _confirmed_ block version.
 
-To avoid an unsafe situation when adversary stakeholder issues invalid block of just _confirmed_ block version,
-honest stakeholders will validate blocks according to previous **adopted** block version, not _confirmed_.
+To avoid a situation when adversary stakeholder issues invalid block of just _confirmed_ block version,
+others stakeholders will validate blocks according to previous **adopted** block version, 
+until _confirmed_ becomes **adopted**.
 
-#### SoftforkRule. Adopted block version.
 Informally `BlockVersion` is **adopted** if sum of block issuers' stakes, 
 which issued blocks of this `BlockVersion` at least once, is a majority.
 
-Formally, let's say a proposal became _confirmed_ in `s` epoch and current epoch is `t`:
+Formally, let's say a proposal became _confirmed_ in `s` epoch and current epoch is `t`:  
 if portion of block issuers' stakes, which issued blocks of this `BlockVersion` at least once, is greater than
 `max spMinThd (spInitThd - (t - s) * spThdDecrement)`, then proposal's `BlockVersion` becomes **adopted**.
 
@@ -132,6 +132,57 @@ data SoftforkRule = SoftforkRule
 
 So we check this rule at the beginning of each epoch for each _confirmed_ proposal 
 and adopt one of this _confirmed_ `BlockVersion` if it satisfies the rule.
+
+Note: last adopted block version is the feature of the blockchain, not stakeholders' software or something else.
+
+#### Example
+
+Assume there are four stakeholders with stakes `[0.25, 0.26, 0.1, 0.39]`,
+`lastKnownBlockVersion` is `0.1.0` for all stakeholders' softwares and 
+last adopted block version is also `0.1.0`.
+
+Then update proposal which bumps block version to `0.2.0` is confirmed in 2nd epoch.
+Suppose this proposal adds consensus rule, 
+that block header's attributes should contain by key `228` string `"pva"`.
+
+Then the first stakeholder downloads this update and update own software. 
+`lastKnownBlockVersion` is `0.2.0` for this software but last adopted block version is still `0.1.0`.
+
+Then the first stakeholder issues a block as leader of some slot: 
+* `BlockVersion` of this block is set to `0.2.0`
+* block created by rules for last adopted version, i.e. `0.1.0`. 
+Update software considers last adopted version and creates block using old logic 
+if this one is `0.1.0` and using new logic if this one is `0.2.0`.
+So the block is issued without new attribute. Stakeholders with old software expects that all attributes are known because
+last adopted version equals `lastKnownBlockVersion` for its softwares.
+
+Then the 3rd epoch starts and the threshold (which is regulated by `SoftforkRule`) 
+for adopting new block version is dumped to `0.6`.
+
+Then the second stakeholder downloads this update and when it's turn to issue block, 
+the stakeholder issues block like it has been done by the first stakeholder.
+Also the second one issues one more block as leader, so it produced 2 blocks.
+
+Then 4th epoch starts and sum of issuers stakes is `0.25 + 0.26 = 0.51 < 0.6` 
+(we take into account the second stakeholder only once). Adopting threshold is dumped to the minimal value `0.6`.
+So last adopted version is still `0.1.0`, `lastKnownBlockVersion` is `0.2.0` for 
+the first and the second stakeholders and `0.1.0` for the third and the fourth.
+
+Then the third stakeholder downloads this update and issues block in the same manner like previous ones.
+
+When 5th epoch starts the sum of issuers stakes is `0.25 + 0.26 + 0.1 = 0.61 > 0.6` and 
+it's time to bump last adopted version.
+So last adoped version is `0.2.0` now and `lastKnownBlockVersion` is `0.1.0` 
+for the latter stakeholder and `0.2.0` for others.
+
+When it's turn to issue block of the fourth stakeholder, 
+it issues block with `0.1.0` block version and with block format for `0.1.0`.
+Others stakeholders see that last adopted version equals `0.2.0` and 
+try to decode block using new rules but failed because it doesn't contain attribute with key `228`.
+So this slot left without a block.
+
+You can see despite the provided update system is powerful, it's also very complicated 
+and updates should be handled carefully.
 
 ## GState
 

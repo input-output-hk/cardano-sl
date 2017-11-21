@@ -6,7 +6,7 @@ Note: document is aimed to cover work to be performed within Shelley, we should 
 
 Document is structured as follows:
 
-1. Introduction: agree on terminology, goals
+1. Introduction: agree on terminology
 2. Requirements: what functionality is required, desirable
 3. Existing implementation
 4. Possible solutions

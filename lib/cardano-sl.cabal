@@ -31,6 +31,8 @@ library
                         Pos.Diffusion.Types
                         Pos.Diffusion.Full
                         Pos.Diffusion.Full.Block
+                        Pos.Diffusion.Full.Delegation
+                        Pos.Diffusion.Full.Types
                         Pos.Diffusion.Full.Txp
                         Pos.Diffusion.Full.Update
 

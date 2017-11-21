@@ -7,6 +7,8 @@ module Pos.Diffusion.Full.Block
     , requestTip
     , announceBlock
     , handleHeadersCommunication
+
+    , blockListeners
     ) where
 
 import           Universum
@@ -23,6 +25,7 @@ import qualified Data.Text.Buildable as B
 -- it (part of WorkMode).
 import           Formatting (build, sformat, (%), shown, bprint, stext, int, builder)
 import           Mockable (throw)
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
@@ -32,10 +35,12 @@ import           Pos.Binary.Class (biSize)
 -- Logic layer won't know of it.
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
 import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, Origin (..),
-                                             waitForConversations)
+                                             waitForConversations, OutSpecs, ListenerSpec,
+                                             MkListeners (..), constantListeners)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core (HeaderHash, headerHash, prevBlockL, headerHashG)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
@@ -44,6 +49,7 @@ import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Logic.Types (Logic (..), GetBlockHeadersError (..), GetTipError (..))
+import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 -- NB: the logic-layer security policy is actually available here in the
 -- diffusion layer by way of the WorkMode constraint.
@@ -440,3 +446,130 @@ handleHeadersCommunication logic conv = do
     onRecovery = do
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
         send conv (MsgNoHeaders "server node is in recovery mode")
+
+
+-- |
+-- = Listeners
+
+{-
+import           Formatting (build, int, sformat, (%))
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (logDebug, logWarning)
+import           Universum
+
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce (handleHeadersCommunication)
+import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
+                                          MsgHeaders (..))
+import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Listener (listenerConv)
+import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
+                                             MkListeners, OutSpecs, constantListeners)
+import qualified Pos.DB.Block as DB
+import           Pos.DB.Error (DBError (DBMalformed))
+-}
+
+-- | All block-related listeners.
+blockListeners
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> MkListeners m
+blockListeners logic oq = constantListeners $ map ($ oq)
+    [ handleGetHeaders logic
+    , handleGetBlocks logic
+    , handleBlockHeaders logic
+    ]
+
+----------------------------------------------------------------------------
+-- Getters (return currently stored data)
+----------------------------------------------------------------------------
+
+-- | Handles GetHeaders request which means client wants to get
+-- headers from some checkpoints that are older than optional @to@
+-- field.
+handleGetHeaders
+    :: forall pack m.
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetHeaders logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
+    logDebug $ "handleGetHeaders: request from " <> show nodeId
+    handleHeadersCommunication logic conv --(convToSProxy conv)
+
+handleGetBlocks
+    :: forall pack m.
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
+    mbMsg <- recvLimited conv
+    whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
+        logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
+            mgb nodeId
+        mHashes <- getBlockHeaders' logic mgbFrom mgbTo
+        case mHashes of
+            Right (Just hashes) -> do
+                logDebug $ sformat
+                    ("handleGetBlocks: started sending "%int%
+                     " blocks to "%build%" one-by-one: "%listJson)
+                    (length hashes) nodeId hashes
+                for_ hashes $ \hHash ->
+                    getBlock logic hHash >>= \case
+                        Right (Just b) -> send conv (MsgBlock b)
+                        -- TODO handle Left *and* Right Nothing
+                        _ -> do
+                            send conv (MsgNoBlock $
+                                       "Couldn't retrieve block with hash " <> pretty hHash)
+                            --failMalformed
+                logDebug "handleGetBlocks: blocks sending done"
+            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+  where
+  {-
+    FIXME this makes no sense. Diffusion layer should not make judgements about
+    malformedness of the database.
+    failMalformed =
+        throwM $ DBMalformed $
+        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "have corresponding block in storage."
+  -}
+
+----------------------------------------------------------------------------
+-- Header propagation
+----------------------------------------------------------------------------
+
+-- | Handles MsgHeaders request, unsolicited usecase
+handleBlockHeaders
+    :: forall pack m.
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleBlockHeaders logic oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
+    -- The type of the messages we send is set to 'MsgGetHeaders' for
+    -- protocol compatibility reasons only. We could use 'Void' here because
+    -- we don't really send any messages.
+    logDebug "handleBlockHeaders: got some unsolicited block header(s)"
+    mHeaders <- recvLimited conv
+    whenJust mHeaders $ \case
+        (MsgHeaders headers) ->
+            handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId
+        _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.
+
+-- Second case of 'handleBlockheaders'
+handleUnsolicitedHeaders
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> NonEmpty BlockHeader
+    -> NodeId
+    -> m ()
+handleUnsolicitedHeaders logic (header :| []) nodeId =
+    postBlockHeader logic header nodeId
+-- TODO: ban node for sending more than one unsolicited header.
+handleUnsolicitedHeaders _ (h:|hs) _ = do
+    logWarning "Someone sent us nonzero amount of headers we didn't expect"
+    logWarning $ sformat ("Here they are: "%listJson) (h:hs)

@@ -31,7 +31,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVe
 import           Pos.Util (maybeThrow)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-import           Pos.Client.KeyStorage (MonadKeys, deleteSecretKey, getSecretKeys)
+import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
@@ -120,12 +120,7 @@ localTimeDifference =
 ----------------------------------------------------------------------------
 
 testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
-testResetAll = deleteAllKeys >> testReset >> return NoContent
-  where
-    deleteAllKeys :: MonadKeys m => m ()
-    deleteAllKeys = do
-        keyNum <- length <$> getSecretKeys
-        replicateM_ keyNum $ deleteSecretKey 0
+testResetAll = deleteAllSecretKeys >> testReset >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Print wallet state

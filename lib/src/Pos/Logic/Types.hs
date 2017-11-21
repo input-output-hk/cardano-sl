@@ -13,18 +13,19 @@ module Pos.Logic.Types
 
 import           Universum
 import           Data.Default              (def)
+import           Data.Tagged               (Tagged)
 
-import           Pos.Communication         (NodeId)
+import           Pos.Communication         (NodeId, TxMsgContents)
 import           Pos.Core.Configuration    (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Core.Block            (Block, BlockHeader)
 import           Pos.Core.Types            (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
-import           Pos.Core.Txp              (TxId, TxAux)
+import           Pos.Core.Txp              (TxId)
 import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData)
 import           Pos.Security              (SecurityParams (..))
 import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
-import           Pos.Util.Chrono           (NewestFirst, NE)
+import           Pos.Util.Chrono           (NewestFirst, OldestFirst, NE)
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -41,6 +42,12 @@ data Logic m = Logic
       -- Included here because that function is quite complicated; it's not
       -- clear whether it can be expressed simply in terms of getBlockHeader.:q
     , getBlockHeaders    :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
+      -- Inspired by 'getHeadersFromToIncl', which is apparently distinct from
+      -- 'getHeadersFromManyTo' (getBlockHeaders without the tick above).
+      -- FIXME we must unify these.
+      -- May want to think about giving a streaming-IO interface (pipes, conduit
+      -- or similar).
+    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (Maybe (OldestFirst NE HeaderHash)))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
@@ -66,8 +73,9 @@ data Logic m = Logic
       -- system minimal, so the logic layer must define how to do all of
       -- these things for every relayed piece of data.
       -- See comment on the 'KeyVal' type.
-    , postTx            :: KeyVal TxId TxAux m
-    , postUpdate        :: KeyVal UpId (UpdateProposal, [UpdateVote]) m
+    , postTx            :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
+    , postUpdate        :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
+    , postVote          :: KeyVal (Tagged UpdateVote UpId) UpdateVote m
     , postSscCommitment :: KeyVal StakeholderId MCCommitment m
     , postSscOpening    :: KeyVal StakeholderId MCOpening m
     , postSscShares     :: KeyVal StakeholderId MCShares m
@@ -173,12 +181,14 @@ dummyLogicLayer stkhldId = LogicLayer
         , getBlock           = \_ -> pure (error "dummy: can't get block")
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
         , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
         , getTip             = pure (error "dummy: can't get tip")
         , getAdoptedBVData   = pure genesisBlockVersionData
         , postBlockHeader    = \_ _ -> pure ()
         , postPskHeavy       = \_ -> pure False
         , postTx             = dummyKeyVal
         , postUpdate         = dummyKeyVal
+        , postVote           = dummyKeyVal
         , postSscCommitment  = dummyKeyVal
         , postSscOpening     = dummyKeyVal
         , postSscShares      = dummyKeyVal

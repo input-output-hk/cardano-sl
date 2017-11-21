@@ -41,8 +41,7 @@ import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader, epoc
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock, mbTxPayload, mbUpdatePayload)
 import           Pos.Core.Txp (TxPayload)
 import           Pos.Core.Update (UpdateBlock, UpdatePayload)
-import           Pos.DB (MonadDB, MonadGState, SomeBatchOp (..))
-import           Pos.DB.Block (MonadBlockDB, MonadSscBlockDB)
+import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.DB (sanityCheckDB)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
@@ -68,8 +67,7 @@ type MonadBlockBase ctx m
        -- Needed because SSC state is fully stored in memory.
        , MonadSscMem ctx m
        -- Needed to load blocks (at least delegation does it).
-       , MonadBlockDB m
-       , MonadSscBlockDB m
+       , MonadDBRead m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.
@@ -108,8 +106,7 @@ type MonadMempoolNormalization ctx m
       , HasLrcContext ctx
       , HasLens' ctx UpdateContext
       -- Needed to load useful information from db
-      , MonadBlockDB m
-      , MonadSscBlockDB m
+      , MonadDBRead m
       , MonadGState m
       -- Needed for error reporting.
       , MonadReporting ctx m

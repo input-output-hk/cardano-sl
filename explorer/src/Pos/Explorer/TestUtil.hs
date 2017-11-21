@@ -2,7 +2,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Explorer.TestUtil
-    ( generateValidExplorerMockableMode
+    ( BlockNumber
+    , SlotsPerEpoch
+    , generateValidExplorerMockableMode
     , produceBlocksByBlockNumberAndSlots
     , basicBlockGenericUnsafe
     , basicBlock
@@ -10,61 +12,43 @@ module Pos.Explorer.TestUtil
     , leftToCounter
     , produceSlotLeaders
     , produceSecretKeys
+    , generateValidBlocksSlotsNumber
+    , createEmptyUndo
     ) where
 
 import qualified Prelude
 import           Universum
 
+import           Control.Lens (at)
 import           Data.Default (def)
+import           Data.Map (fromList, fromListWith)
 import qualified Data.List.NonEmpty as NE
-import           Data.Text.Buildable (build)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
-import           Test.QuickCheck (Arbitrary (..), Property, Testable, counterexample, forAll,
-                                  generate, property)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
+import           Test.QuickCheck (Arbitrary (..), Property, Testable, Gen, counterexample, forAll,
+                                  generate, choose, suchThat, property)
 
 import           Pos.Arbitrary.Block ()
 import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
-import           Pos.Block.Types (SlogUndo, Undo)
+import           Pos.Block.Types (Blund, Undo (..), SlogUndo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
-                           LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId,
-                           difficultyL)
+                           LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId, HeaderHash,
+                           difficultyL, headerHash)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
-import           Pos.Delegation (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
+import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Util (withDefConfigurations)
 
+import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
+import           Pos.Explorer.DB (Page)
+import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 
-----------------------------------------------------------------
--- Arbitrary and Show instances
-----------------------------------------------------------------
-
--- I used the build function since I suspect that it's safe (even in tests).
-instance HasConfiguration => Prelude.Show SlogUndo where
-    show = show . build
-
-instance Prelude.Show DlgUndo where
-    show = show . build
-
-instance HasConfiguration => Prelude.Show Undo where
-    show = show . build
-
-instance Arbitrary SlogUndo where
-    arbitrary = genericArbitrary
-
-instance HasConfiguration => Arbitrary DlgUndo where
-    arbitrary = genericArbitrary
-
-instance HasConfiguration => Arbitrary Undo where
-    arbitrary = genericArbitrary
 
 ----------------------------------------------------------------
 -- Util types
@@ -89,24 +73,56 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 
     slotStart     <- liftIO $ generate $ arbitrary
 
-    blockHHs      <- liftIO $ generate $ arbitrary
-    blundsFHHs    <- liftIO $ generate $ withDefConfigurations arbitrary
-
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
     blocks <- withDefConfigurations $
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
-    let tipBlock = Prelude.last blocks
+    let tipBlock  = Prelude.last blocks
+    let pagedHHs  = withDefConfigurations $ createMapPageHHs blocks
+    let hHsBlunds = withDefConfigurations $ createMapHHsBlund blocks
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock
-        , emmGetPageBlocks        = \_ -> pure $ Just blockHHs
-        , emmGetBlundFromHH       = \_ -> pure $ Just blundsFHHs
-        , emmGetSlotStart         = \_ -> pure $ Just slotStart
-        , emmGetLeadersFromEpoch  = \_ -> pure $ Just slotLeaders
+        , emmGetPageBlocks        = \page -> pure $ pagedHHs ^. at page
+        , emmGetBlundFromHH       = \hh   -> pure $ hHsBlunds ^. at hh
+        , emmGetSlotStart         = \_    -> pure $ Just slotStart
+        , emmGetLeadersFromEpoch  = \_    -> pure $ Just slotLeaders
         }
+  where
+    createMapPageHHs :: (HasConfiguration) => [Block] -> Map Page [HeaderHash]
+    createMapPageHHs blocks =
+        fromListWith (++) [ (page, [hHash]) | (page, hHash) <- createPagedHeaderHashesPair blocks]
+
+    createMapHHsBlund :: (HasConfiguration) => [Block] -> Map HeaderHash Blund
+    createMapHHsBlund blocks = fromList $ map blockHH blocks
+      where
+        blockHH :: Block -> (HeaderHash, Blund)
+        blockHH block = (headerHash block, (block, createEmptyUndo))
+
+-- | The first aproximation. Ideally, I wanted to have something to generate @Undo@ from
+-- @Block@. We could generate @Undo@ from _produceBlocksByBlockNumberAndSlots_, but we
+-- need to add quite a bit of logic to it. For now, it's good enough, since we are
+-- testing just the "sunny day" scenario, and we don't worry about rollbacks. There
+-- are already tests that cover a lot of rollback logic.
+-- For a more realistic @Undo@, check @Pos.Block.Logic.VAR.verifyBlocksPrefix@.
+createEmptyUndo :: Undo
+createEmptyUndo = Undo
+    { undoTx = mempty
+    , undoDlg = DlgUndo mempty mempty
+    , undoUS = def
+    , undoSlog = SlogUndo Nothing
+    }
+
+-- | Simplify the generation of blocks number and slots.
+-- For now we have a minimum of one epoch.
+generateValidBlocksSlotsNumber :: Gen (Word, Word)
+generateValidBlocksSlotsNumber = do
+    totalBlocksNumber <- choose (3, 1000)
+    -- You can have minimally two blocks - genesis + main block
+    slotsPerEpoch     <- choose (2, 1000) `suchThat` (< totalBlocksNumber)
+    pure (totalBlocksNumber, slotsPerEpoch)
 
 ----------------------------------------------------------------
 -- Utility
@@ -180,15 +196,18 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
     -- This is just plain wrong and we need to check for it.
     when (blockNumber < slotsNumber) $ error "Illegal argument."
 
-    let generatedEpochBlocksM :: m [[Block]]
-        generatedEpochBlocksM = forM [0..totalEpochs] $ \currentEpoch -> do
-            generateGenericEpochBlocks Nothing slotsNumber (EpochIndex . fromIntegral $ currentEpoch)
-
-    concat <$> generatedEpochBlocksM
+    concatForM [0..totalEpochs] $ \currentEpoch -> do
+        generateGenericEpochBlocks
+            Nothing
+            slotsNumber
+            (EpochIndex . fromIntegral $ currentEpoch)
   where
 
     totalEpochs :: TotalEpochs
     totalEpochs = blockNumber `div` slotsNumber
+
+    remainingSlots :: SlotsPerEpoch
+    remainingSlots = blockNumber `mod` slotsNumber
 
     generateGenericEpochBlocks
         :: Maybe BlockHeader
@@ -196,6 +215,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         -> EpochIndex
         -> m [Block]
     generateGenericEpochBlocks mBlockHeader slotsPerEpoch epochIndex = do
+
         let generatedBlocks = generateEpochBlocks mBlockHeader slotsPerEpoch epochIndex
 
         let gbToMainBlock :: Block
@@ -221,12 +241,31 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
 
         epochBlocks :: [MainBlock]
-        epochBlocks =
+        epochBlocks = do
             -- TODO(ks): Need to create prev. blocks that are not dependant on genesis block.
-            generateBlocks getPrevBlockHeader <$> blockNumbers
+            let mainBlocks = foldl' epochBlocksCalculation (getPrevBlockHeader, []) totalBlockNumbers
+
+            mainBlocks ^. _2
           where
-            blockNumbers :: [Word]
-            blockNumbers = [1..slotsPerEpoch']
+            epochBlocksCalculation
+                :: (BlockHeader, [MainBlock])
+                -> Word
+                -> (BlockHeader, [MainBlock])
+            epochBlocksCalculation (previousBlockHeader, mainBlocks) currentBlockNumber = do
+
+                let newBlock :: MainBlock
+                    newBlock = generateBlocks previousBlockHeader currentBlockNumber
+
+                let newBlockHeader :: BlockHeader
+                    newBlockHeader = getBlockHeader . Right $ newBlock
+
+                let newMainBlocks :: [MainBlock]
+                    newMainBlocks = mainBlocks ++ [newBlock]
+
+                (newBlockHeader, newMainBlocks)
+
+            totalBlockNumbers :: [Word]
+            totalBlockNumbers = [1..slotsPerEpoch']
 
             getPrevBlockHeader :: BlockHeader
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
@@ -241,8 +280,25 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
                 case basicBlock previousBlockHeader currentSecretKey slotId of
                     Left _      -> error "Block creation error!"
                     Right block ->
-                        block & difficultyL .~ (ChainDifficulty $ BlockCount $ fromIntegral blockNumber')
+                        block & difficultyL .~ (ChainDifficulty currentBlockCount)
               where
+                -- If we are on the last epoch we don't neccesarily have the full number of
+                -- slots.
+                currentBlockCount :: BlockCount
+                currentBlockCount =
+                    if epochIndex == (EpochIndex . fromIntegral $ totalEpochs)
+                        then BlockCount $
+                              fromIntegral $
+                              (remainingSlots + (blockNumber' * epochIndexWord))
+                        else BlockCount $
+                              fromIntegral $
+                              blockNumber' * (epochIndexWord + 1)
+                  where
+                    -- | TODO(ks): This is wrong, @EpochIndex@ is @Word64@ and the whole
+                    -- calculation should be corrected because of a possible overflow.
+                    -- But since we aren't using some gigantic @Epoch@ numbers, good for now.
+                    epochIndexWord :: Word
+                    epochIndexWord = fromIntegral $ getEpochIndex epochIndex
 
                 slotId :: SlotId
                 slotId = SlotId

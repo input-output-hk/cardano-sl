@@ -9,13 +9,14 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
+import           Universum
+
 import           Control.Lens (uses, (%=), (.=))
 import           Control.Monad.State (MonadState (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Ether
 import           System.Wlog (logWarning)
-import           Universum
 
 import           Pos.Binary.Update ()
 import           Pos.Core (SoftwareVersion (..), addressHash)
@@ -23,12 +24,12 @@ import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.BlockVersion (applyBVM)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Modifier (PollModifier (..), pmActivePropsL, pmAdoptedBVFullL,
+                                           pmBVsL, pmConfirmedL, pmConfirmedPropsL,
+                                           pmEpochProposersL, pmSlottingDataL)
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
-                                        PollModifier (..), ProposalState (..),
-                                        UndecidedProposalState (..), bvsIsConfirmed,
-                                        cpsSoftwareVersion, pmActivePropsL, pmAdoptedBVFullL,
-                                        pmBVsL, pmConfirmedL, pmConfirmedPropsL, pmEpochProposersL,
-                                        pmSlottingDataL, psProposal)
+                                        ProposalState (..), UndecidedProposalState (..),
+                                        bvsIsConfirmed, cpsSoftwareVersion, psProposal)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (ether)
 

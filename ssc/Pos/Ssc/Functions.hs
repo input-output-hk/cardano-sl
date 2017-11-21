@@ -34,7 +34,7 @@ import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for SSC.Types

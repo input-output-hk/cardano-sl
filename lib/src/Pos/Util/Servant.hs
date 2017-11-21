@@ -47,6 +47,8 @@ import           Universum
 import           Control.Lens (Iso, iso, makePrisms)
 import           Control.Monad.Catch (handleAll)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import           Data.Constraint ((\\))
+import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text.Buildable
@@ -55,7 +57,7 @@ import           Formatting (bprint, build, builder, formatToString, sformat, sh
                              (%))
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
-import           Serokell.Util.ANSI (Color (..))
+import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, QueryParam, ReflectMethod (..), ReqBody,
                               Verb)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
@@ -65,7 +67,6 @@ import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
 import           Pos.Util.LogSafe (BuildableSafe, SecuredText, buildSafe, logInfoSP, secretOnlyF,
                                    secretOnlyF2)
-import           Pos.Util.Util (colorizeDull)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -102,12 +103,15 @@ class ApiHasArgClass apiType a where
         => Proxy (someApiType n a) -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
-type ApiHasArgInvariant apiType a res =
-    Server (apiType a :> res) ~ (ApiArg apiType a -> Server res)
+class ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
+   => ApiHasArgInvariant apiType a res m
+instance ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
+      => ApiHasArgInvariant apiType a res m
 
 type ApiHasArg apiType a res =
     ( ApiHasArgClass apiType a
-    , ApiHasArgInvariant apiType a res
+    , ApiHasArgInvariant apiType a res Handler  -- this one for common cases
+    , Forall (ApiHasArgInvariant apiType a res)  -- and this is generalized one
     )
 
 instance KnownSymbol s => ApiHasArgClass (Capture s) a
@@ -133,14 +137,19 @@ class ModifiesApiRes t where
 -- 'ModifiesApiRes'.
 data VerbMod (modType :: *) api
 
-instance (HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx,
-          ModifiesApiRes mod) =>
+instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
+         , HasServer (Verb mt st ct a) ctx
+         , ModifiesApiRes mod
+         ) =>
          HasServer (VerbMod mod $ Verb (mt :: k1) (st :: Nat) (ct :: [*]) a) ctx where
     type ServerT (VerbMod mod $ Verb mt st ct a) m =
          ServerT (Verb mt st ct a) m
 
     route = inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route $
             serverHandlerL' %~ modifyApiResult (Proxy @mod)
+
+    hoistServerWithContext _ pc nt s =
+        hoistServerWithContext (Proxy :: Proxy (Verb mt st ct api)) pc nt s
 
 instance HasSwagger v => HasSwagger (VerbMod mod v) where
     toSwagger _ = toSwagger $ Proxy @v
@@ -191,6 +200,7 @@ instance ApiHasArgClass apiType a =>
     apiArgName _ = apiArgName (Proxy @(apiType a))
 
 instance ( HasServer (apiType a :> res) ctx
+         , HasServer res ctx
          , ApiHasArg apiType a res
          , FromCType (ApiArg apiType a)
          , ReportDecodeError res
@@ -198,6 +208,7 @@ instance ( HasServer (apiType a :> res) ctx
          HasServer (CDecodeApiArg apiType a :> res) ctx where
     type ServerT (CDecodeApiArg apiType a :> res) m =
          OriginType (ApiArg apiType a) -> ServerT res m
+
     route =
         inRouteServer @(apiType a :> res) route $
         \f a -> either reportE f $ decodeCType a
@@ -207,6 +218,9 @@ instance ( HasServer (apiType a :> res) ctx
             sformat ("(in "%string%") "%stext)
                 (apiArgName $ Proxy @(apiType a))
                 err
+
+    hoistServerWithContext _ pc nt s =
+            hoistServerWithContext (Proxy @res) pc nt . s
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (CDecodeApiArg apiType a :> res) where
@@ -229,15 +243,38 @@ instance (ApiHasArgClass apiType a, ApiArg apiType a ~ Maybe b) =>
     apiArgName _ = apiArgName (Proxy @(apiType a))
 
 instance ( HasServer (apiType a :> res) ctx
+         , HasServer res ctx
+         , ApiHasArg (WithDefaultApiArg apiType) a res
          , Server (apiType a :> res) ~ (Maybe c -> d)
          , Default c
          ) =>
          HasServer (WithDefaultApiArg apiType a :> res) ctx where
     type ServerT (WithDefaultApiArg apiType a :> res) m =
          UnmaybeArg (ServerT (apiType a :> res) m)
+
     route =
         inRouteServer @(apiType a :> res) route $
         \f a -> f $ fromMaybe def a
+
+    -- The simpliest what we can do here is to delegate to
+    -- @hoistServer (Proxy @res)@.
+    -- However to perform that we need a knowledge of that
+    -- @ServerT (withDefaultApiArg apiType a :> res) m@ is a /function/
+    -- regardless of @m@.
+    -- I.e. we have to set a constraint
+    -- @forall m. ServerT (WithDefaultApiArg apiType :> res) m ~ (e -> d)@
+    -- (for some @e@ and @d@).
+    -- However GHC doesn't allow @forall@ in constraints.
+    --
+    -- But we can use 'Forall' thing instead.
+    -- @Forall (ApiHasArgInvariant (WithDefaultApiArg apiType) a res)@
+    -- constraint is already provided here (see 'ApiHasArg' definition),
+    -- so we can instantiate it's quantification parameter @m@ to concrete
+    -- @m1@ and @m2@ required by this function, getting desired constraints.
+    hoistServerWithContext _ pc (nt :: forall x. m1 x -> m2 x) s =
+        hoistServerWithContext (Proxy @res) pc nt . s
+        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg apiType) a res) @m1
+        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg apiType) a res) @m2
 
 instance HasSwagger (apiType a :> res) =>
     HasSwagger (WithDefaultApiArg apiType a :> res) where
@@ -315,16 +352,21 @@ instance (Buildable (WithTruncatedLog a), HasTruncateLogPolicy a) =>
             mMore
 
 
-instance HasServer (LoggingApiRec config api) ctx =>
+instance ( HasServer (LoggingApiRec config api) ctx
+         , HasServer api ctx
+         ) =>
          HasServer (LoggingApi config api) ctx where
     type ServerT (LoggingApi config api) m = ServerT api m
+
     route = inRouteServer @(LoggingApiRec config api) route
             (def, )
+
+    hoistServerWithContext _ = hoistServerWithContext (Proxy :: Proxy api)
 
 -- | Version of 'HasServer' which is assumed to perform logging.
 -- It's helpful because 'ServerT (LoggingApi ...)' is already defined for us
 -- in actual 'HasServer' instance once and forever.
-class HasLoggingServer config api ctx where
+class HasServer api ctx => HasLoggingServer config api ctx where
     routeWithLog
         :: Proxy (LoggingApiRec config api)
         -> SI.Context ctx
@@ -335,7 +377,11 @@ instance HasLoggingServer config api ctx =>
          HasServer (LoggingApiRec config api) ctx where
     type ServerT (LoggingApiRec config api) m =
          (ApiParamsLogInfo, ServerT api m)
+
     route = routeWithLog
+
+    hoistServerWithContext _ pc nt s =
+        hoistServerWithContext (Proxy :: Proxy api) pc nt <$> s
 
 instance ( HasLoggingServer config api1 ctx
          , HasLoggingServer config api2 ctx
@@ -393,7 +439,8 @@ instance ( ApiHasArgClass apiType a
 instance ( ApiCanLogArg apiType a ) =>
          ApiCanLogArg (CDecodeApiArg apiType) a where
 
-instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
+instance ( HasServer (apiType a :> res) ctx
+         , HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
          , ApiHasArg apiType a (LoggingApiRec config res)
          , ApiCanLogArg apiType a
@@ -523,6 +570,21 @@ instance ( HasServer (Verb mt st ct a) ctx
     routeWithLog =
         inRouteServer @(Verb mt st ct a) route $
         applyLoggingToHandler (Proxy @config) (Proxy @mt)
+
+instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
+         , HasServer (VerbMod mod (Verb mt st ct a)) ctx
+         , ModifiesApiRes mod
+         , ReflectMethod mt
+         , Reifies config ApiLoggingConfig
+         , Buildable (WithTruncatedLog $ ApiModifiedRes mod a)
+         ) =>
+         HasLoggingServer config (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
+    routeWithLog =
+        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
+        inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route $
+        \(paramsInfo, handler) ->
+            handler & serverHandlerL' %~ modifyApiResult (Proxy @mod)
+                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
 
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where

@@ -27,7 +27,7 @@ import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBloc
                                              calcSoftforkThreshold, canBeAdoptedBV,
                                              updateSlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
-import           Pos.Util.Util (inAssertMode)
+import           Pos.Util.AssertMode (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.

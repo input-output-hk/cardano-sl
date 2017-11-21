@@ -17,8 +17,7 @@ import qualified Control.Monad.Catch as Catch (Handler (..), catches)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Mockable (runProduction)
-import           Servant.Server (Handler)
-import           Servant.Utils.Enter ((:~>) (..), enter)
+import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
 import           Pos.Configuration (HasNodeConfiguration)
@@ -36,6 +35,7 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExt
                                             runExtraContextT)
 import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
 import           Pos.Explorer.Txp (ExplorerExtra, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Web.Api (explorerApi)
 import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
 
 -----------------------------------------------------------------
@@ -101,13 +101,12 @@ explorerServeWebReal
     => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal sendActions = explorerServeImpl
-    (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
-
-nat :: HasConfiguration => ExplorerProd (ExplorerProd :~> Handler)
-nat = do
+explorerServeWebReal sendActions port = do
     rctx <- ask
-    pure $ NT (convertHandler rctx)
+    let handlers = explorerHandlers sendActions
+        server = hoistServer explorerApi (convertHandler rctx) handlers
+        app = explorerApp (pure server)
+    explorerServeImpl app port
 
 convertHandler
     :: HasConfiguration

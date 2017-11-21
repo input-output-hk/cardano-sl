@@ -73,16 +73,12 @@ withExample (_ :: proxy a) desc =
 -- | Generates a description suitable to be used for "Update" types.
 updateDescr :: Typeable a => proxy a -> T.Text
 updateDescr (p :: proxy a) =
-    "A type represending an update for an existing " <> renderType p <>
-    ".You can still pass an entire " <> renderType p <> " as input, and extra " <>
-    " fields (which are not meant to be controlled by user) will simply be ignored."
+    "A type represending an update for an existing " <> renderType p <> "."
 
 -- | Generates a description suitable to be used for "New" types.
 newDescr :: Typeable a => proxy a -> T.Text
 newDescr (p :: proxy a) =
-    "A type represending an request for creating a(n) " <> renderType p <>
-    ". You can still pass an entire " <> renderType p <> " as input, and extra " <>
-    " fields (which are not meant to be controlled by user) will simply be ignored."
+    "A type represending an request for creating a(n) " <> renderType p <> "."
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
@@ -153,12 +149,6 @@ instance HasSwagger (apiType a :> res) =>
 instance HasSwagger (argA a :> argB a :> res) =>
          HasSwagger (AlternativeApiArg argA argB a :> res) where
     toSwagger _ = toSwagger (Proxy @(argA a :> argB a :> res))
-
-instance ( KnownSymbol summary , HasSwagger subApi) => HasSwagger (Summary summary :> subApi) where
-    toSwagger _ =
-        let summaryTxt = toS (symbolVal (Proxy @summary))
-            swgr       = toSwagger (Proxy @subApi)
-        in swgr & (operationsOf swgr) . summary ?~ summaryTxt
 
 instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
     toSwagger _ =

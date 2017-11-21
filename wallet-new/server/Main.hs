@@ -8,83 +8,33 @@ module Main where
 
 import           Universum
 
-import qualified Control.Monad.Catch                  as Catch
-import           Control.Monad.Reader                 (MonadReader, ReaderT (..))
-import           Data.Aeson.Encode.Pretty             (encodePretty)
-import qualified Data.ByteString.Lazy.Char8           as BL8
-import           Data.Maybe                           (fromJust)
-import           Formatting                           (sformat, shown, (%))
-import           Mockable                             (Production (..), currentTime,
-                                                       runProduction)
-import           Network.Wai                          (Middleware)
-import           Network.Wai.Middleware.Cors          (cors, corsMethods,
-                                                       corsRequestHeaders,
-                                                       simpleCorsResourcePolicy,
-                                                       simpleMethods)
-import           Network.Wai.Middleware.RequestLogger (logStdout)
-import           Pos.Communication                    (ActionSpec (..))
-import           Pos.Core                             (Timestamp (..), gdStartTime,
-                                                       genesisData)
-import           Pos.DB.DB                            (initNodeDBs)
-import           Pos.Launcher                         (NodeParams (..),
-                                                       NodeResources (..),
-                                                       bracketNodeResources,
-                                                       loggerBracket, runNode,
-                                                       withConfigurations)
-import           Pos.Launcher.Configuration           (ConfigurationOptions,
-                                                       HasConfigurations)
-import           Pos.Ssc.Types                        (SscParams)
-import           Pos.Txp                              (txpGlobalSettings)
-import           Pos.Util.CompileInfo                 (HasCompileInfo,
-                                                       retrieveCompileTimeInfo,
-                                                       withCompileInfo)
-import           Pos.Util.UserSecret                  (usVss)
-import           Pos.Wallet.Web                       (bracketWalletWS,
-                                                       bracketWalletWebDB, getSKById,
-                                                       getWalletAddresses, runWRealMode,
-                                                       syncWalletsWithGState)
-import           Pos.Wallet.Web.Mode                  (WalletWebMode)
-import           Pos.Wallet.Web.State                 (flushWalletStorage)
-import           Servant
-import           System.Wlog                          (logInfo)
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.ByteString.Lazy.Char8 as BL8
+import           Data.Maybe (fromJust)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Production (..), currentTime, runProduction)
+import           Pos.Communication (ActionSpec (..))
+import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.Launcher (NodeParams (..), NodeResources (..), bracketNodeResources,
+                               loggerBracket, runNode, withConfigurations)
+import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
+import           Pos.Ssc.Types (SscParams)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
+                                 runWRealMode, syncWalletsWithGState)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
+import           Pos.Wallet.Web.State (flushWalletStorage)
+import           System.Wlog (logInfo)
 
-import qualified Cardano.Wallet.API.V1.Swagger        as Swagger
-import           Cardano.Wallet.Server.CLI            (WalletBackendParams (..),
-                                                       WalletDBOptions (..),
-                                                       WalletStartupOptions (..),
-                                                       getWalletNodeOptions)
-import qualified Cardano.Wallet.Server.Plugins        as Plugins
-import qualified Pos.Client.CLI                       as CLI
+import qualified Cardano.Wallet.API.V1.Swagger as Swagger
+import           Cardano.Wallet.Server.CLI (WalletBackendParams (..), WalletDBOptions (..),
+                                            WalletStartupOptions (..), getWalletNodeOptions)
+import qualified Cardano.Wallet.Server.Plugins as Plugins
+import qualified Pos.Client.CLI as CLI
 
-
-{- V1 placeholders -}
-
--- Placeholder types, to be stubbed out.
-data V1Context = V1Context
-    { v1WalletState     :: ()
-    }
-
--- | The main monad for all the wallet logic(?).
-newtype V1 a = V1 { runV1Api :: ReaderT V1Context Production a }
-             deriving (Functor, Applicative, Monad, MonadReader V1Context)
-
--- | Hoist an `Icarus` monad to a Servant's Handler.
--- See: http://haskell-servant.readthedocs.io/en/stable/tutorial/Server.html#natural-transformations
-hoistV1Monad :: V1 (V1 :~> Handler)
-hoistV1Monad = do
-    ctx <- ask
-    pure $ NT (toServantHandler ctx)
-
--- | Converts our domain-specific monad into a standard Servant `Handler`.
-toServantHandler :: V1Context -> V1 a -> Handler a
-toServantHandler ctx handler =
-    liftIO (hoistHandler handler) `Catch.catches` excHandlers
-  where
-
-    hoistHandler :: forall a . V1 a -> IO a
-    hoistHandler = runProduction . flip runReaderT ctx . runV1Api
-
-    excHandlers = [Catch.Handler throwError]
 
 {-
    Most of the code below has been copied & adapted from wallet/node/Main.hs as a path
@@ -160,13 +110,6 @@ startEdgeNode WalletStartupOptions{..} = do
 
     nodeArgs :: CLI.NodeArgs
     nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }
-
-corsMiddleware :: Middleware
-corsMiddleware = cors (const $ Just policy)
-    where
-      policy = simpleCorsResourcePolicy
-        { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods }
 
 -- | Generates the updated spec and store it in the appropriate folder.
 -- the reason why we don't generate a yaml file is because for swagger-ui is actually

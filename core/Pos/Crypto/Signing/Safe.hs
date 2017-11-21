@@ -35,8 +35,7 @@ import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
 -- | Regerates secret key with new passphrase.
--- This operation remains corresponding public key unchanged.
--- However, derived (child) keys change.
+-- Note: This operation remains corresponding public key and derived (child) keys unchanged.
 changeEncPassphrase
     :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase

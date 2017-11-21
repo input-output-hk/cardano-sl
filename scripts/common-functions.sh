@@ -108,6 +108,7 @@ function gen_kademlia_topology {
       local others_n=$npred
     fi
 
+    touch $kfile
     if [[ $total_nodes -eq 1 ]]; then
       echo "peers: []" > $kfile
     else

@@ -34,8 +34,7 @@ import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
-import qualified Pos.DB.Block as DB
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.GState.Common as GS
 import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), DlgEdgeAction (..),
                                       MapCede, MonadCede (..), MonadCedeRead (..),
                                       detectCycleOnAddition, dlgEdgeActionIssuer, dlgVerifyHeader,
@@ -314,11 +313,11 @@ getNoLongerRichmen newEpoch =
 --   end of prev. epoch
 -- * Delegation payload plus database state doesn't produce cycles.
 --
--- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
+-- It's assumed blocks are correct from 'Pos.Block.Pure#verifyBlocks'
 -- point of view.
 dlgVerifyBlocks ::
        forall ctx m.
-       ( DB.MonadBlockDB m
+       ( MonadDBRead m
        , MonadIO m
        , MonadReader ctx m
        , HasLrcContext ctx
@@ -465,7 +464,7 @@ dlgApplyBlocks blunds = do
 dlgRollbackBlocks
     :: forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB m
+       , MonadDBRead m
        , WithLogger m
        )
     => NewestFirst NE Blund -> m (NonEmpty SomeBatchOp)
@@ -493,7 +492,7 @@ dlgRollbackBlocks blunds = do
 dlgNormalizeOnRollback ::
        forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB m
+       , MonadDBRead m
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m

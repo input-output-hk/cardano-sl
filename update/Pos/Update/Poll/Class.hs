@@ -12,10 +12,10 @@ import           Universum
 import           Control.Monad.Trans (MonadTrans)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, Coin, EpochIndex,
-                           HasConfiguration, NumSoftwareVersion, SlotId, SoftwareVersion,
-                           StakeholderId)
-import           Pos.Core.Update (BlockVersionData, UpId)
+import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, ChainDifficulty, Coin,
+                           EpochIndex, HasConfiguration, NumSoftwareVersion, SlotId,
+                           SoftwareVersion, StakeholderId)
+import           Pos.Core.Update (UpId)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState, UndecidedProposalState)

@@ -5,6 +5,8 @@ module Main
 import           Universum
 import           Unsafe (unsafeFromJust)
 
+import           Control.Exception.Safe (handle)
+import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
@@ -13,7 +15,7 @@ import           System.Wlog (logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Core (ConfigurationError, Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
@@ -22,13 +24,14 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyD
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
+import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
-import           Plugin (auxxPlugin)
-import           Repl (WithCommandAction, withAuxxRepl)
+import           Plugin (auxxPlugin, rawExec)
+import           Repl (WithCommandAction(..), withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
@@ -69,30 +72,50 @@ runNodeWithSinglePlugin ::
 runNodeWithSinglePlugin nr (plugin, plOuts) =
     runNode nr ([plugin], plOuts)
 
-action :: HasCompileInfo => AuxxOptions -> Either (WithCommandAction AuxxMode) Text -> Production ()
-action opts@AuxxOptions {..} command = withConfigurations conf $ do
+action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
+action opts@AuxxOptions {..} command = do
     CLI.printFlags
-    logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
-    t <- currentTime
-    logInfo $ sformat ("Current time is "%shown) (Timestamp t)
-    (nodeParams, tempDbUsed) <-
-        correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
-    let
-        toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
-        toRealMode auxxAction = do
-            realModeContext <- ask
-            let auxxContext =
-                    AuxxContext
-                    { acRealModeContext = realModeContext
-                    , acCmdCtx = cmdCtx
-                    , acTempDbUsed = tempDbUsed }
-            lift $ runReaderT auxxAction auxxContext
-    let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-        runRealBasedMode toRealMode realModeToAuxx nr $
-            (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
-            (auxxPlugin opts command)
+    let runWithoutNode = rawExec Nothing opts Nothing command
+    printAction <- either getPrintAction (const $ return putText) command
+
+    let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
+        configToDict = return (Just Dict)
+
+    hasConfigurations <- case aoStartMode of
+        Automatic -> do
+            mode <- handle @_ @ConfigurationException  (return . const Nothing)
+                  . handle @_ @ConfigurationError      (return . const Nothing)
+                  $ withConfigurations conf configToDict
+            mode <$ case mode of
+                Nothing -> printAction "Mode: light"
+                _ -> printAction "Mode: with-config"
+        Light -> return Nothing
+        _ -> withConfigurations conf configToDict
+
+    case hasConfigurations of
+      Nothing -> runWithoutNode
+      Just Dict -> do
+          logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
+          t <- currentTime
+          logInfo $ sformat ("Current time is "%shown) (Timestamp t)
+          (nodeParams, tempDbUsed) <-
+              correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
+          let
+              toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
+              toRealMode auxxAction = do
+                  realModeContext <- ask
+                  let auxxContext =
+                          AuxxContext
+                          { acRealModeContext = realModeContext
+                          , acCmdCtx = cmdCtx
+                          , acTempDbUsed = tempDbUsed }
+                  lift $ runReaderT auxxAction auxxContext
+          let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+          let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+          bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
+              runRealBasedMode toRealMode realModeToAuxx nr $
+                  (if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity)
+                  (auxxPlugin opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

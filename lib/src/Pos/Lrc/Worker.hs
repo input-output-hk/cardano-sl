@@ -31,6 +31,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
                            blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.DB as DB
 import qualified Pos.GState as GS
 import           Pos.Lrc.Consumer (LrcConsumer (..))
@@ -48,13 +49,13 @@ import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateS
 import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
-import           Pos.Util (logWarningWaitLinear, maybeThrow)
+import           Pos.Util (maybeThrow)
 import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
-
+import           Pos.Util.TimeLimit (logWarningWaitLinear)
 
 
 ----------------------------------------------------------------------------
--- Single short
+-- Single shot
 ----------------------------------------------------------------------------
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.

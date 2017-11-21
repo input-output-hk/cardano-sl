@@ -16,36 +16,32 @@ import           Pos.Binary (serialize)
 import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, difficultyL, epochIndexL)
+import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux)
-import           Pos.DB.DB (getTipHeader, loadBlundsFromTipByDepth)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
-import           Mode (AuxxMode)
+import           Mode (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
 rollbackAndDump
-    :: ( HasConfiguration
-       , HasSscConfiguration
-       , HasUpdateConfiguration
-       , HasInfraConfiguration
+    :: ( MonadAuxxMode m
        , HasCompileInfo
        )
     => Word
     -> FilePath
-    -> AuxxMode ()
+    -> m ()
 rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
-        loadBlundsFromTipByDepth (fromIntegral numToRollback)
+        DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
@@ -75,5 +71,5 @@ rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -
         | genBlock ^. epochIndexL == 0 = True
     is0thGenesis _ = False
     printTipDifficulty = do
-        tipDifficulty <- view difficultyL <$> getTipHeader
+        tipDifficulty <- view difficultyL <$> DB.getTipHeader
         logInfo $ sformat ("Our tip's difficulty is "%build) tipDifficulty

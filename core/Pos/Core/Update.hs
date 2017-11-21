@@ -63,7 +63,7 @@ import           Pos.Core.Types (BlockVersion, BlockVersionData (..), CoinPortio
 import           Pos.Crypto (Hash, PublicKey, SafeSigner, SignTag (SignUSProposal), Signature,
                              checkSig, hash, safeSign, safeToPublic, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related
@@ -366,7 +366,8 @@ mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
 -- Payload and proof
 ----------------------------------------------------------------------------
 
--- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
+-- | Update System payload. 'BodyProof MainBlockchain' contains
+-- 'UpdateProof' = @Hash UpdatePayload@.
 data UpdatePayload = UpdatePayload
     { upProposal :: !(Maybe UpdateProposal)
     , upVotes    :: ![UpdateVote]

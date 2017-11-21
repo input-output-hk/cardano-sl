@@ -13,7 +13,7 @@ import           Universum
 
 import           Paths_cardano_sl (version)
 import qualified Pos.Client.Txp.Util as CL
-import qualified Pos.Types as PT
+import qualified Pos.Core as PT
 import qualified Pos.Util.BackupPhrase as BP
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET

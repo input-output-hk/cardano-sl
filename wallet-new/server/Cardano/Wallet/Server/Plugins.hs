@@ -1,4 +1,7 @@
-{- | A collection of plugins used by this edge node. -}
+{- | A collection of plugins used by this edge node.
+     A @Plugin@ is essentially a set of actions which will be run in
+     a particular monad, at some point in time.
+-}
 {-# LANGUAGE TupleSections #-}
 module Cardano.Wallet.Server.Plugins (
       Plugin
@@ -7,42 +10,37 @@ module Cardano.Wallet.Server.Plugins (
     , walletBackend
     ) where
 
-import qualified Prelude
 import           Universum
 
-import           Cardano.Wallet.API             as API
-import           Cardano.Wallet.Server          as API
-import           Cardano.Wallet.Server.CLI      (WalletBackendParams (..), isDebugMode,
-                                                 walletAcidInterval, walletDbOptions)
+import           Cardano.Wallet.API as API
+import           Cardano.Wallet.Server as API
+import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..), isDebugMode,
+                                            walletAcidInterval, walletDbOptions)
 
-import qualified Control.Concurrent.STM         as STM
-import           Network.Wai                    (Application)
-import           Pos.Wallet.Web                 (cleanupAcidStatePeriodically,
-                                                 syncWalletsWithGState, wwmcSendActions)
-import           Pos.Wallet.Web.Account         (findKey, myRootAddresses)
+import qualified Control.Concurrent.STM as STM
+import           Network.Wai (Application, Middleware)
+import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
+                                              simpleCorsResourcePolicy, simpleMethods)
+import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import           Pos.Wallet.Web (cleanupAcidStatePeriodically, syncWalletsWithGState,
+                                 wwmcSendActions)
+import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Methods.Restore (addInitialRichAccount)
-import           Pos.Wallet.Web.Pending.Worker  (startPendingTxsResubmitter)
-import qualified Pos.Wallet.Web.Server.Runner   as V0
-import           Pos.Wallet.Web.Sockets         (getWalletWebSockets, launchNotifier,
-                                                 upgradeApplicationWS)
-import           Servant                        (Handler, Server, serve)
-import           Servant.Utils.Enter            ((:~>) (..))
-import           System.Wlog                    (logInfo, modifyLoggerName)
+import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
+import qualified Pos.Wallet.Web.Server.Runner as V0
+import           Pos.Wallet.Web.Sockets (getWalletWebSockets, launchNotifier, upgradeApplicationWS)
+import           Servant (serve)
+import           System.Wlog (logInfo, modifyLoggerName)
 
-import qualified Data.ByteString.Char8          as BS8
-import           Pos.Communication              (ActionSpec (..), OutSpecs, SendActions,
-                                                 WorkerSpec, sendTxOuts, worker)
-import           Pos.Context                    (HasNodeContext)
+import           Pos.Communication (ActionSpec (..), OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Context (HasNodeContext)
 
-import           Pos.Launcher.Configuration     (HasConfigurations)
-import           Pos.Util.CompileInfo           (HasCompileInfo)
-import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode,
-                                                 MonadWalletWebMode,
-                                                 MonadWalletWebSockets, WalletWebMode,
-                                                 WalletWebModeContext)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
-import           Pos.Web                        (TlsParams, serveImpl, serveWeb)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Web (serveWeb)
+import           Pos.WorkMode (WorkMode)
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = ([WorkerSpec m], OutSpecs)
@@ -64,7 +62,7 @@ conversation wArgs = (, mempty) $ map (\act -> ActionSpec $ \__vI __sA -> act) (
                          => WalletBackendParams
                          -> [m ()]
     pluginsMonitoringApi WalletBackendParams {..}
-        | enableMonitoringApi = [serveWeb monitoringApiPort (Just walletTLSParams)]
+        | enableMonitoringApi = [serveWeb monitoringApiPort walletTLSParams]
         | otherwise = []
 
 -- | A @Plugin@ to start the wallet backend API.
@@ -77,7 +75,7 @@ walletBackend WalletBackendParams {..} =
         (getApplication sendActions)
         walletAddress
         -- Disable TLS if in debug mode.
-        (if (isDebugMode walletRunMode) then Nothing else (Just walletTLSParams))
+        (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: SendActions WalletWebMode -> WalletWebMode Application
@@ -87,8 +85,24 @@ walletBackend WalletBackendParams {..} =
       atomically $ STM.putTMVar saVar sendActions
       when (isDebugMode walletRunMode) $ addInitialRichAccount 0
       wsConn <- getWalletWebSockets
-      natV0 <- V0.nat
+      ctx <- V0.walletWebModeContext
       syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
       startPendingTxsResubmitter
-      launchNotifier natV0
-      return $ upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer natV0)
+      launchNotifier (V0.convertHandler ctx)
+      let app = upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx))
+      return $ withMiddleware walletRunMode app
+
+-- | "Attaches" the middleware to this 'Application', if any.
+-- When running in debug mode, chances are we want to at least allow CORS to test the API
+-- with a Swagger editor, locally.
+withMiddleware :: RunMode -> Application -> Application
+withMiddleware wrm app
+  | isDebugMode wrm = logStdoutDev . corsMiddleware $ app
+  | otherwise = app
+
+corsMiddleware :: Middleware
+corsMiddleware = cors (const $ Just policy)
+    where
+      policy = simpleCorsResourcePolicy
+        { corsRequestHeaders = ["Content-Type"]
+        , corsMethods = "PUT" : simpleMethods }

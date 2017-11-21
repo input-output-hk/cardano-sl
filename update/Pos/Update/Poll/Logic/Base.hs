@@ -47,8 +47,8 @@ import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HasConfiguration
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
                                   UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
-import           Pos.Slotting (EpochSlottingData (..), SlottingData, addEpochSlottingData,
-                               getCurrentEpochIndex, getNextEpochSlottingData)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, addEpochSlottingData,
+                                     getCurrentEpochIndex, getNextEpochSlottingData)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),

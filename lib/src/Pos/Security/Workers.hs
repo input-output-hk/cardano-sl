@@ -22,8 +22,8 @@ import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, genesisHash)
 import           Pos.Crypto (PublicKey)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.DB.Block (MonadBlockDB, blkGetHeader)
-import           Pos.DB.DB (getTipHeader)
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
 import           Pos.Reporting (reportMisbehaviour, reportOrLogE)
 import           Pos.Slotting (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class (WorkMode)
@@ -41,7 +41,7 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (MonadBlockDB m, HasConfiguration, HasNodeConfiguration)
+    :: (MonadDBRead m, HasConfiguration, HasNodeConfiguration)
     => PublicKey -> SlotId -> BlockHeader -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
@@ -72,7 +72,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
            | prevBlock == genesisHash -> pure True
            | isGoodBlock header       -> pure True
            | otherwise                ->
-                 blkGetHeader prevBlock >>= \case
+                 DB.getHeader prevBlock >>= \case
                      Just h  -> notEclipsed h
                      Nothing -> onBlockLoadFailure header $> True
 
@@ -88,7 +88,7 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard "security worker" $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader
+                header <- DB.getTipHeader
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

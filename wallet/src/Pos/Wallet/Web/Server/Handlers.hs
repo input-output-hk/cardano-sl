@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Wallet endpoints list
@@ -11,14 +12,13 @@ import           Universum
 
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Server (Handler, Server, ServerT)
+import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
-import           Servant.Utils.Enter ((:~>) (..), enter)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api (WalletApi, WalletSwaggerApi)
+import           Pos.Wallet.Web.Api (WalletApi, WalletSwaggerApi, walletApi)
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
@@ -110,10 +110,9 @@ servantHandlers =
 
 servantHandlersWithSwagger
     :: MonadFullWalletWebMode ctx m
-    => (m :~> Handler)
+    => (forall x. m x -> Handler x)
     -> Server WalletSwaggerApi
 servantHandlersWithSwagger nat =
-    nat `enter` servantHandlers
+    hoistServer walletApi nat servantHandlers
    :<|>
-    -- doesn't work for arbitrary monad, so we have to 'enter' above
     swaggerSchemaUIServer swaggerSpecForWalletApi

@@ -3,9 +3,7 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeFamilies               #-}
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
@@ -25,10 +23,14 @@ module Cardano.Wallet.API.V1.Types (
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
+  -- * Wallets
   , Wallet (..)
+  , AssuranceLevel (..)
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , SpendingPassword
+  -- * Addresses
   , Address (..)
   , Account (..)
   , AccountId
@@ -44,14 +46,23 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Default           (Default (def))
-import           Data.Text              (Text)
+import           Data.Default (Default (def))
+import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
-import           Formatting             (build, sformat)
-import           GHC.Generics           (Generic)
+import           Formatting (build, sformat)
+import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
+
+import           Cardano.Wallet.Orphans.Aeson ()
+
+-- V0 logic
+import           Pos.Util.BackupPhrase (BackupPhrase)
+
+import           Pos.Arbitrary.Core ()
+import qualified Pos.Core.Types as Core
+import qualified Pos.Crypto.Signing.Types as Core
 
 --
 -- Swagger & REST-related types
@@ -213,17 +224,23 @@ instance Arbitrary WalletError where
 -- Domain-specific types, mostly placeholders.
 --
 
-type BackupPhrase = Text
-type Passphrase   = Text
+-- A 'SpendingPassword' represent a secret piece of information which can be
+-- optionally supplied by the user to encrypt the private keys. As private keys
+-- are needed to spend funds and this password secures spending, here the name
+-- 'SpendingPassword'.
+-- Practically speaking, it's just a type synonym for a PassPhrase, which is a
+-- base16-encoded string.
+type SpendingPassword = Core.PassPhrase
 
-data WalletAssurance = AssuranceNormal
-                     | AssuranceStrict
+data AssuranceLevel =  NormalAssurance
+                     | StrictAssurance
                      deriving (Eq, Show, Enum, Bounded)
 
-instance Arbitrary WalletAssurance where
+instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON Serokell.defaultOptions ''WalletAssurance
+deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
+                                   } ''AssuranceLevel
 
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
@@ -245,46 +262,49 @@ type Coins = Int
 
 -- | A type modelling the request for a new wallet.
 data NewWallet = NewWallet {
-      newwalBackupPhrase :: BackupPhrase
-    , newwalPassphrase   :: Maybe Passphrase
+      newwalBackupPhrase     :: !BackupPhrase
+    -- ^ The backup phrase to restore the wallet.
+    , newwalSpendingPassword :: !(Maybe SpendingPassword)
+    -- ^ The spending password to encrypt the private keys.
+    , newwalAssuranceLevel   :: !AssuranceLevel
+    , newwalName             :: !Text
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
 
 instance Arbitrary NewWallet where
-  arbitrary = NewWallet <$> pure "MyBackupPhraseHashed"
-                        <*> pure (Just "My passphrase")
+  arbitrary = NewWallet <$> arbitrary
+                        <*> pure Nothing
+                        <*> arbitrary
+                        <*> pure "My Wallet"
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
-      uwalUnit      :: !Int
-    , uwalAssurance :: WalletAssurance
-    , uwalName      :: Text
+      uwalAssuranceLevel :: !AssuranceLevel
+    , uwalName           :: !Text
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''WalletUpdate
 
 instance Arbitrary WalletUpdate where
-  arbitrary = WalletUpdate <$> fmap getPositive arbitrary
-                           <*> arbitrary
-                           <*> fmap fromString arbitrary
+  arbitrary = WalletUpdate <$> arbitrary
+                           <*> pure "My Wallet"
+
+type WalletName = Text
 
 -- | A Wallet.
 data Wallet = Wallet {
-      walId        :: WalletId
-    , walUnit      :: !Int
-    , walAssurance :: WalletAssurance
-    -- | The name for this wallet.
-    , walName      :: Text
+      walId      :: !WalletId
+    , walName    :: !WalletName
+    , walBalance :: !Core.Coin
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions  ''Wallet
+deriveJSON Serokell.defaultOptions ''Wallet
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
-                     <*> fmap getPositive arbitrary
-                     <*> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
 
 -- Placeholder.
 newtype Address = Address

@@ -6,7 +6,7 @@ import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.API.V1.Updates as Updates
 
 import           Servant
-import           Test.QuickCheck               (arbitrary, generate, listOf1, resize)
+import           Test.QuickCheck (arbitrary, generate)
 
 handlers :: Server Updates.API
 handlers =   nextUpdate

@@ -13,6 +13,8 @@ module Pos.Explorer.BListener
        , epochPagedBlocksMap
        -- * Required for migration
        , findEpochMaxPages
+       -- * Required for test util
+       , createPagedHeaderHashesPair
        ) where
 
 import           Universum
@@ -39,8 +41,8 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageS
                                   findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
 import           Pos.Txp (topsortTxs)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
-import           Pos.Util.Util (inAssertMode)
 
 
 ----------------------------------------------------------------------------
@@ -237,7 +239,7 @@ createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
             blockIndexes = getBlockIndex <$> blocks
               where
                 -- | Get the block index number. We start with the the index 1 for the
-                -- gensis block and add 1 for the main blocks since they start with 1
+                -- genesis block and add 1 for the main blocks since they start with 1
                 -- as well.
                 getBlockIndex :: Block -> Int
                 getBlockIndex (Left _)      = 1

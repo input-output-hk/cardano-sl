@@ -9,16 +9,11 @@ module Test.Pos.Helpers
        , safeCopyEncodeDecode
        , safeCopyTest
        , serDeserId
-       , serDeserTest
-       , showReadId
        , showReadTest
        , canonicalJsonTest
 
-       , splitIntoChunks
-
        -- * Message length
        , msgLenLimitedTest
-       , msgLenLimitedTest'
 
        -- * Helpers
        , (.=.)
@@ -49,8 +44,6 @@ import           Test.Hspec (Expectation, Selector, Spec, describe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, counterexample, forAll,
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
-import           Test.QuickCheck.Gen (choose)
-import           Test.QuickCheck.Monadic (PropertyM, pick)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
@@ -59,6 +52,7 @@ import           Pos.Communication (Limit (..), MessageLimitedPure (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Util.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable)
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
@@ -114,9 +108,6 @@ binaryTest =
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @a safeCopyEncodeDecode
-
-serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
-serDeserTest = identityTest @a serDeserId
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
 showReadTest = identityTest @a showReadId
@@ -285,15 +276,6 @@ shouldThrowException
 shouldThrowException action exception arg =
     (return $! action arg) `shouldThrow` exception
 
--- | Split given list into chunks with size up to given value.
-splitIntoChunks :: Monad m => Word -> [a] -> PropertyM m [NonEmpty a]
-splitIntoChunks 0 _ = error "splitIntoChunks: maxSize is 0"
-splitIntoChunks maxSize items = do
-    sizeMinus1 <- pick $ choose (0, maxSize - 1)
-    let (chunk, rest) = splitAt (fromIntegral sizeMinus1 + 1) items
-    case nonEmpty chunk of
-        Nothing      -> return []
-        Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest
 
 ----------------------------------------------------------------------------
 -- Various properties and predicates
@@ -306,3 +288,9 @@ blockPropertySpec ::
     -> (HasConfiguration => BlockProperty a)
     -> Spec
 blockPropertySpec description bp = prop description (blockPropertyTestable bp)
+
+----------------------------------------------------------------------------
+-- Orphans
+----------------------------------------------------------------------------
+
+deriving instance Bi bi => Bi (SmallGenerator bi)

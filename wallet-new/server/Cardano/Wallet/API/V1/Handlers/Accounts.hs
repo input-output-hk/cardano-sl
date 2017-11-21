@@ -5,24 +5,11 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 import           Universum
 
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Errors   as Errors
+import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 
-import           Data.Aeson                     (encode)
-import qualified Network.HTTP.Types.Header      as HTTP
 import           Servant
-import           Test.QuickCheck                (arbitrary, generate, listOf1, resize)
-
-toError :: ServantErr -> WalletError -> ServantErr
-toError err@ServantErr{..} we =
-    err { errBody = encode we
-        , errHeaders = applicationJson : errHeaders
-        }
-
-applicationJson :: HTTP.Header
-applicationJson =
-    let [hdr] = getHeaders (addHeader "application/json" mempty :: (Headers '[Header "Content-Type" String] String))
-    in hdr
+import           Test.QuickCheck (arbitrary, generate, listOf1, resize)
 
 handlers :: WalletId -> Server Accounts.API
 handlers walletId =
@@ -79,4 +66,4 @@ newAccount w@(WalletId wId) _ AccountUpdate{..} = do
            }
 
 updateAccount :: WalletId -> AccountId -> AccountUpdate -> Handler Account
-updateAccount w@(WalletId wId) _ u = newAccount w Nothing u
+updateAccount w _ u = newAccount w Nothing u

@@ -10,6 +10,7 @@ module Mode
        -- * Mode, context, etc.
        , AuxxContext (..)
        , AuxxMode
+       , MonadAuxxMode
 
        -- * Helpers
        , getCmdCtx
@@ -30,7 +31,6 @@ import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Block.Types (Undo)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -41,13 +41,11 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
 import           Pos.Communication (NodeId)
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
-                           IsHeader, deriveFirstHDAddress, largestPubKeyAddressBoot,
+                           deriveFirstHDAddress, largestPubKeyAddressBoot,
                            largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
-import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
-import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
-                               MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
@@ -59,18 +57,17 @@ import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Ssc.Types (HasSscContext (..), SscBlock)
+import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
                           txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
-import           Pos.Util (Some (..))
+import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..), postfixLFields)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
 -- | Command execution context.
@@ -79,6 +76,9 @@ data CmdCtx = CmdCtx
     }
 
 type AuxxMode = ReaderT AuxxContext Production
+
+class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
+instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
@@ -93,7 +93,7 @@ makeLensesWith postfixLFields ''AuxxContext
 ----------------------------------------------------------------------------
 
 -- | Get 'CmdCtx' in 'AuxxMode'.
-getCmdCtx :: AuxxMode CmdCtx
+getCmdCtx :: MonadAuxxMode m => m CmdCtx
 getCmdCtx = view acCmdCtx_L
 
 isTempDbUsed :: AuxxMode Bool
@@ -183,29 +183,14 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
+    dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
+    dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 
 instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo AuxxMode where
-    dbPutBlund = realModeToAuxx ... dbPutBlund
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric BlockHeader Block Undo AuxxMode
-  where
-    dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @BlockHeader @Block @Undo
-    dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) SscBlock () AuxxMode
-  where
-    dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @SscBlock @()
-    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @SscBlock @()
+    dbPutSerBlund = realModeToAuxx ... dbPutSerBlund
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
@@ -230,7 +215,7 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance (HasConfiguration, HasInfraConfiguration) =>
+instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
@@ -239,7 +224,6 @@ instance (HasConfiguration, HasInfraConfiguration) =>
         gsIsBootstrapEra epochIndex <&> \case
             False -> largestPubKeyAddressBoot
             True -> largestPubKeyAddressSingleKey
-
 
 instance MonadKeysRead AuxxMode where
     getSecret = getSecretDefault
@@ -262,9 +246,9 @@ instance (HasConfigurations) =>
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
 makePubKeyAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => PublicKey
-    -> AuxxMode Address
+    -> m Address
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
@@ -272,9 +256,9 @@ makePubKeyAddressAuxx pk = do
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
 deriveHDAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => EncryptedSecretKey
-    -> AuxxMode Address
+    -> m Address
 deriveHDAddressAuxx hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex

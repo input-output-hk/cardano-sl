@@ -1,12 +1,15 @@
-{-# LANGUAGE ApplicativeDo     #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ApplicativeDo         #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 import           Universum
 
@@ -14,6 +17,8 @@ import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsyncWithUnmask)
 import           Control.Exception.Safe (tryAny)
+import           Control.Lens (makeLensesWith)
+import qualified Data.ByteString.Lazy as BS.L
 import           Data.List (isSuffixOf)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
@@ -27,7 +32,7 @@ import           System.Directory (createDirectoryIfMissing, doesFileExist, getT
                                    removeFile)
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (..))
-import           System.FilePath (normalise, (</>))
+import           System.FilePath ((</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process as Process
@@ -52,17 +57,25 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
-import           Pos.Core (Timestamp (..))
+import           Pos.Core (HasConfiguration, Timestamp (..))
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
+                               dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Methods (retrieveLogFiles, sendReport)
+import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report (ReportType (..))
-import           Pos.Util (directory, sleep)
+import           Pos.Update (installerHash)
+import           Pos.Update.DB.Misc (affirmUpdateInstalled)
+import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
     , loNodeArgs            :: ![Text]
+    , loNodeDbPath          :: !FilePath
     , loNodeLogConfig       :: !(Maybe FilePath)
     , loNodeLogPath         :: !(Maybe FilePath)
     , loWalletPath          :: !(Maybe FilePath)
@@ -97,6 +110,10 @@ optionsParser = do
         short   'n' <>
         help    "An argument to be passed to the node." <>
         metavar "ARG"
+    loNodeDbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        help    "Path to directory with all DBs used by the node."
     loNodeLogConfig <- optional $ textOption $
         long    "node-log-config" <>
         help    "Path to log config that will be used by the node." <>
@@ -196,8 +213,33 @@ Command example:
     --node-timeout 5                                               \
     --update-archive updateDownloaded.tar|]
 
+data LauncherModeContext = LauncherModeContext { lmcNodeDBs :: NodeDBs }
+
+makeLensesWith postfixLFields ''LauncherModeContext
+
+type LauncherMode = ReaderT LauncherModeContext IO
+
+instance HasLens NodeDBs LauncherModeContext NodeDBs where
+    lensOf = lmcNodeDBs_L
+
+instance HasConfiguration => MonadDBRead LauncherMode where
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
+
+instance HasConfiguration => MonadDB LauncherMode where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
+
+bracketNodeDBs :: FilePath -> (NodeDBs -> IO a) -> IO a
+bracketNodeDBs dbPath = bracket (openNodeDBs False dbPath) closeNodeDBs
+
 main :: IO ()
 main =
+  withCompileInfo $(retrieveCompileTimeInfo) $
 #ifdef mingw32_HOST_OS
   -- We don't output anything to console on Windows because on Windows the
   -- launcher is considered a “GUI application” and so stdout and stderr
@@ -220,14 +262,16 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.Debug)
-    Log.usingLoggerName "launcher" $
+    bracketNodeDBs loNodeDbPath $ \lmcNodeDBs ->
+        Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
-        withCompileInfo $(retrieveCompileTimeInfo) $
+        let lmc = LauncherModeContext{..} in
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
+                    lmc
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     ( loUpdaterPath
@@ -239,6 +283,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
+                    lmc
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     (wpath, loWalletArgs)
@@ -284,25 +329,26 @@ main =
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: LauncherModeContext
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
     -> M ()
-serverScenario logConf node updater report = do
-    runUpdater updater
+serverScenario lmc logConf node updater report = do
+    runUpdater lmc updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync, nodeLog) <- spawnNode node
+    (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario logConf node updater report
+        serverScenario lmc logConf node updater report
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash exitCode logConf repServ nodeLog
+            reportNodeCrash exitCode logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -310,7 +356,8 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: LauncherModeContext
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
@@ -318,24 +365,36 @@ clientScenario
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
     -> M ()
-clientScenario logConf node wallet updater nodeTimeout report = do
-    runUpdater updater
-    (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
+clientScenario lmc logConf node wallet updater nodeTimeout report = do
+    runUpdater lmc updater
+    (nodeHandle, nodeAsync) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    let restart = clientScenario lmc logConf node wallet updater nodeTimeout report
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
+                 reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
-             void $ wait walletAsync
+             walletExitCode <- wait walletAsync
+             logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
+             when (walletExitCode == ExitFailure 20) $
+                 case exitCode of
+                     ExitSuccess{} -> restart
+                     ExitFailure{} ->
+                         -- -- Commented out because shutdown is broken and node
+                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
+                         -- TL.putStrLn $
+                         --   "The wallet has exited with code 20, but\
+                         --   \ we won't update due to node crash"
+                         restart -- remove this after CSL-1855
        | exitCode == ExitFailure 20 -> do
              logNotice "The wallet has exited with code 20"
              logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              killNode nodeHandle nodeAsync
-             clientScenario logConf node wallet updater nodeTimeout report
+             restart
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
@@ -357,11 +416,11 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
-runUpdater (path, args, runnerPath, updateArchive) = do
+runUpdater :: LauncherModeContext -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
+runUpdater lmc (path, args, runnerPath, mUpdateArchivePath) = do
     whenM (liftIO (doesFileExist path)) $ do
         logNotice "Running the updater"
-        let args' = args ++ maybe [] (one . toText) updateArchive
+        let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
             Just rp -> do
@@ -374,8 +433,10 @@ runUpdater (path, args, runnerPath, updateArchive) = do
                 logInfo "The updater has exited successfully"
                 -- this will throw an exception if the file doesn't exist but
                 -- hopefully if the updater has succeeded it *does* exist
-                whenJust updateArchive $ \fp ->
-                    liftIO (removeFile fp)
+                whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
+                    updateArchive <- BS.L.readFile updateArchivePath
+                    usingReaderT lmc $ affirmUpdateInstalled (installerHash updateArchive)
+                    removeFile updateArchivePath
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
@@ -413,14 +474,14 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
-    -> M (ProcessHandle, Async ExitCode, FilePath)
+    -> M (ProcessHandle, Async ExitCode)
 spawnNode (path, args, mbLogPath) = do
     logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (logPath, logHandle) <- liftIO $ case mbLogPath of
+    (_, logHandle) <- liftIO $ case mbLogPath of
         Just lp -> do
             createDirectoryIfMissing True (directory lp)
             (lp,) <$> openFile lp AppendMode
@@ -452,7 +513,7 @@ spawnNode (path, args, mbLogPath) = do
             exitFailure
         Just ph -> do
             logInfo "Node has started"
-            return (ph, asc, logPath)
+            return (ph, asc)
 
 runWallet :: (FilePath, [Text]) -> M ExitCode
 runWallet (path, args) = do
@@ -476,9 +537,8 @@ reportNodeCrash
     :: ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
-    -> FilePath        -- ^ Path to the stdout log
     -> M ()
-reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
+reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
@@ -487,7 +547,8 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
+    bracket (compressLogs logFiles) removeFile $ \txz ->
+        sendReport [txz] (RCrash ec) "cardano-node" reportServ
 
 -- Taken from the 'turtle' library and modified
 system'

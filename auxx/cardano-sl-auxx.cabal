@@ -26,6 +26,7 @@ library
                        Lang
                        Lang.Argument
                        Lang.Command
+                       Lang.DisplayError
                        Lang.Interpreter
                        Lang.Lexer
                        Lang.Name
@@ -41,9 +42,9 @@ library
                      , ansi-wl-pprint
                      , async
                      , base
-                     , base58-bytestring
                      , bytestring
                      , canonical-json
+                     , cardano-sl-util
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
@@ -51,6 +52,7 @@ library
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , constraints
                      , data-default
                      , ether
                      , containers
@@ -58,6 +60,7 @@ library
                      , generic-arbitrary
                      , haskeline
                      , lens
+                     , loc
                      , log-warper
                      , megaparsec
                      , mmorph
@@ -119,10 +122,13 @@ executable cardano-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-txp
+                     , cardano-sl-util
+                     , constraints
                      , log-warper
                      , temporary
                      , node-sketch
                      , network-transport-tcp
+                     , safe-exceptions
                      , universum
                      , formatting
   default-language:    Haskell2010
@@ -182,7 +188,6 @@ test-suite cardano-auxx-test
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , hspec
-                     , scientific
                      , universum >= 0.1.11
 
   hs-source-dirs:      test
@@ -223,18 +228,3 @@ test-suite cardano-auxx-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-executable cardano-hash-installer
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  main-is:             HashInstaller.hs
-  build-depends:       base
-                       , bytestring
-                       , formatting
-                       , cardano-sl-core
-                       , cardano-sl-update
-                       , cardano-sl
-                       , universum
-  default-extensions:   OverloadedStrings
-  ghc-options:         -threaded -rtsopts
-                       -Wall

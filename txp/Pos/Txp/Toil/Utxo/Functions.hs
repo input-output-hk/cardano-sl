@@ -87,7 +87,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
             minimalReasonableChecks
             resolvedInputs <- mapM resolveInput _txInputs
             txFee <- verifySums resolvedInputs _txOutputs
-            verifyInputs ctx resolvedInputs ta
+            verifyKnownInputs ctx resolvedInputs ta
             when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
             pure (map (Just . snd) resolvedInputs, Just txFee)
   where
@@ -150,13 +150,15 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
           )
         ]
 
-verifyInputs ::
+-- Verify inputs of a transaction after they have been resolved
+-- (implies that they are known).
+verifyKnownInputs ::
        (HasConfiguration, MonadError ToilVerFailure m)
     => VTxContext
     -> NonEmpty (TxIn, TxOutAux)
     -> TxAux
     -> m ()
-verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
+verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
     unless allInputsDifferent $ throwError ToilRepeatedInput
     mapM_ (uncurry3 checkInput) $
         zip3 [0 ..] (toList resolvedInputs) (toList witnesses)
@@ -178,8 +180,6 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..})) witness = do
         unless (checkSpendingData txOutAddress witness) $
             throwError $ ToilWitnessDoesntMatch i txIn txOut witness
-        when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
-            ToilUnknownInput i txIn
         whenLeft (checkWitness toa witness) $ \err ->
             throwError $ ToilInvalidWitness i witness err
 

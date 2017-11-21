@@ -24,8 +24,8 @@ import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (WithHash (..))
-import           Pos.DB.Block (MonadBlockDB)
-import           Pos.DB.DB (getTipHeader)
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
@@ -44,7 +44,7 @@ import           Pos.Wallet.Web.Util (getWalletAssuredDepth)
 type MonadPendings ctx m =
     ( TxMode m
     , MonadAddresses m
-    , MonadBlockDB m
+    , MonadDBRead m
     , MonadRecoveryInfo m
     , MonadReporting ctx m
     , HasShutdownContext ctx
@@ -58,7 +58,7 @@ type MonadPendings ctx m =
 processPtxInNewestBlocks :: MonadPendings ctx m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    tipDiff <- view difficultyL <$> getTipHeader
+    tipDiff <- view difficultyL <$> DB.getTipHeader
     if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth ptxDiff tipDiff -> do

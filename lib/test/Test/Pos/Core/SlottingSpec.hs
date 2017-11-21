@@ -1,6 +1,6 @@
--- | Specification of Pos.Types.Slotting.
+-- | Specification of Pos.Core.Slotting.
 
-module Test.Pos.Types.SlottingSpec
+module Test.Pos.Core.SlottingSpec
        ( spec
        ) where
 
@@ -11,8 +11,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
 
 import           Pos.Arbitrary.Core (EoSToIntOverflow (..), UnreasonableEoS (..))
-import           Pos.Core (HasConfiguration)
-import           Pos.Types (EpochOrSlot, SlotId (..), flattenSlotId, unflattenSlotId)
+import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), flattenSlotId,
+                           unflattenSlotId)
 
 import           Test.Pos.Helpers (shouldThrowException, (.=.))
 import           Test.Pos.Util (withDefConfiguration)

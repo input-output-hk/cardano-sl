@@ -27,17 +27,16 @@ import qualified Ether
 import           Data.Default (Default (..), def)
 import           Pos.Block.Types (Blund)
 import           Pos.Core.Block (Block)
-import           Pos.DB.Block (MonadBlockDB, blkGetBlund)
+import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.DB.DB (getTipBlock)
 
 import           Pos.Explorer.DB (Page, getPageBlocks)
 
-import           Pos.Core (Address, Coin, HasConfiguration, isRedeemAddress)
+import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration, HeaderHash, SlotId (..),
+                           SlotLeaders, Timestamp, isRedeemAddress)
 import           Pos.Lrc (getLeadersForEpoch)
 import           Pos.Slotting (MonadSlotsData, getSlotStart)
 import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
-import           Pos.Types (EpochIndex, HeaderHash, SlotId (..), SlotLeaders, Timestamp)
 
 
 -------------------------------------------------------------------------------------
@@ -94,11 +93,11 @@ instance Monad m => HasGenesisRedeemAddressInfo (ExtraContextT m) where
 
 data ExplorerMockableMode = ExplorerMockableMode
     { emmGetTipBlock
-          :: forall m. MonadBlockDB m => m Block
+          :: forall m. MonadDBRead m => m Block
     , emmGetPageBlocks
           :: forall m. MonadDBRead m => Page -> m (Maybe [HeaderHash])
     , emmGetBlundFromHH
-          :: forall m. MonadBlockDB m => HeaderHash -> m (Maybe Blund)
+          :: forall m. MonadDBRead m => HeaderHash -> m (Maybe Blund)
     , emmGetSlotStart
           :: forall ctx m. MonadSlotsData ctx m => SlotId -> m (Maybe Timestamp)
     , emmGetLeadersFromEpoch
@@ -108,9 +107,9 @@ data ExplorerMockableMode = ExplorerMockableMode
 -- | This is what we use in production when we run Explorer.
 prodMode :: ExplorerMockableMode
 prodMode = ExplorerMockableMode {
-      emmGetTipBlock            = getTipBlock,
+      emmGetTipBlock            = DB.getTipBlock,
       emmGetPageBlocks          = getPageBlocks,
-      emmGetBlundFromHH         = blkGetBlund,
+      emmGetBlundFromHH         = DB.getBlund,
       emmGetSlotStart           = getSlotStart,
       emmGetLeadersFromEpoch    = getLeadersForEpoch
     }
@@ -146,7 +145,7 @@ class HasExplorerCSLInterface m where
     getLeadersFromEpochCSLI :: EpochIndex -> m (Maybe SlotLeaders)
 
 -- | The instance for external CSL functions.
-instance (Monad m, MonadBlockDB m, MonadDBRead m, MonadSlotsData ctx m) =>
+instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
     HasExplorerCSLInterface (ExtraContextT m) where
 
     getTipBlockCSLI = do

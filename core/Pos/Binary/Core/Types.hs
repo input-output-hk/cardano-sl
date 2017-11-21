@@ -16,6 +16,7 @@ import qualified Pos.Core.Fee as T
 import qualified Pos.Core.Slotting as T
 import qualified Pos.Core.Types as T
 import qualified Pos.Data.Attributes as A
+import           Pos.Util.Orphans ()
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity

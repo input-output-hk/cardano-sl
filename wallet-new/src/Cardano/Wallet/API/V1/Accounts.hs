@@ -1,19 +1,13 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeApplications #-}
 module Cardano.Wallet.API.V1.Accounts where
 
 import           Universum
 
-import           Cardano.Wallet.API.Types
+import           Servant
+
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
-import           Servant
 
 type API
     =    "accounts" :> Capture "accountId" AccountId

@@ -70,6 +70,10 @@ before_test:
 - copy rocksdb.dll lib
 - copy rocksdb.dll wallet
 
+# Install liblzma/xz
+- ps: Start-FileDownload https://tukaani.org/xz/xz-5.2.3-windows.zip -Filename xz-5.2.3-windows.zip
+- 7z -oC:\xz_extracted x xz-5.2.3-windows.zip
+
 test_script:
   - cd "%WORK_DIR%"
   - stack --verbosity warn setup --no-reinstall > nul
@@ -81,6 +85,8 @@ test_script:
       --work-dir %STACK_WORK%
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="C:\xz_extracted\include"
+      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
 #   TODO: CSL-1133. To be reenabled.
@@ -88,7 +94,7 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
+  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
       -j 2
       --no-terminal
       --local-bin-path %WORK_DIR%
@@ -100,6 +106,8 @@ test_script:
       --flag cardano-sl-wallet:for-installer
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="C:\xz_extracted\include"
+      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs

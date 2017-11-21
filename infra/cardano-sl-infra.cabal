@@ -118,9 +118,10 @@ library
                       , parsec
                       , base64-bytestring
                       , bytestring
-                      , cardano-sl-util
+                      , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-db
+                      , cardano-sl-util
                       , cardano-report-server >= 0.3.0
                       , conduit
                       , containers

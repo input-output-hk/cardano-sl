@@ -40,7 +40,7 @@ set -o pipefail
 
 # We can't have client, generator, auxx, explorer, wallet or tools here
 # because they depend on 'cardano-sl'.
-projects="util core db lrc infra ssc txp update"
+projects="binary util core db lrc infra ssc txp update"
 
 args=''
 

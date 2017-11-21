@@ -13,7 +13,8 @@ module Pos.Client.KeyStorage
        , getSecretKeys
        , getSecretKeysPlain
        , addSecretKey
-       , deleteSecretKey
+       , deleteAllSecretKeys
+       , deleteSecretKeyBy
        , newSecretKey
        , KeyData
        , KeyError (..)
@@ -91,9 +92,11 @@ addSecretKey sk = modifySecret $ \us ->
     then us
     else us & usKeys <>~ [sk]
 
-deleteSecretKey :: MonadKeys m => Word -> m ()
-deleteSecretKey (fromIntegral -> i) =
-    modifySecret (usKeys %~ deleteAt i)
+deleteAllSecretKeys :: MonadKeys m => m ()
+deleteAllSecretKeys = modifySecret (usKeys .~ [])
+
+deleteSecretKeyBy :: MonadKeys m => (EncryptedSecretKey -> Bool) -> m ()
+deleteSecretKeyBy predicate = modifySecret (usKeys %~ filter (not . predicate))
 
 -- | Helper for generating a new secret key
 newSecretKey :: (MonadIO m, MonadKeys m) => PassPhrase -> m EncryptedSecretKey
@@ -105,9 +108,6 @@ newSecretKey pp = do
 ------------------------------------------------------------------------
 -- Common functions
 ------------------------------------------------------------------------
-
-deleteAt :: Int -> [a] -> [a]
-deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r
 
 containsKey :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
 containsKey ls k = hash k `elem` map hash ls

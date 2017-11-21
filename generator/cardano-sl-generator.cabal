@@ -116,6 +116,7 @@ test-suite cardano-test
                      , QuickCheck
                      , base
                      , cardano-sl
+                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-generator

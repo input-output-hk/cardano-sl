@@ -1,7 +1,8 @@
-name:                cardano-sl-lrc
+name:                cardano-sl-binary
 version:             1.0.3
-synopsis:            Cardano SL - Leaders and Richmen computation
-description:         Cardano SL - Leaders and Richmen computation
+synopsis:            Cardano SL - binary serialization
+description:         This packages defines a type class for binary serialization,
+                     helpers and instances.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -11,42 +12,53 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
+flag asserts
+  default:     True
+  manual:      True
+
 library
-  exposed-modules:     Pos.Arbitrary.Lrc
+  exposed-modules:
+                       Pos.Binary.Class
 
-                       Pos.Lrc.Fts
-                       Pos.Lrc.Types
-                       Pos.Lrc.Error
-                       Pos.Lrc.Core
-                       Pos.Lrc.Consumer
-                       Pos.Lrc.Class
-                       Pos.Lrc.Context
-                       Pos.Lrc.Mode
+  other-modules:
+                       Pos.Binary.Class.Core
+                       Pos.Binary.Class.Numbers
+                       Pos.Binary.Class.Primitive
+                       Pos.Binary.Class.TH
 
-                       Pos.Lrc.DB.Common
-                       Pos.Lrc.DB.Issuers
-                       Pos.Lrc.DB.Seed
-                       Pos.Lrc.DB.RichmenBase
-
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , autoexporter
+                     , base
+                     , binary
                      , bytestring
-                     , cardano-sl-binary
-                     , cardano-sl-core
-                     , cardano-sl-db
-                     , cardano-sl-util
-                     , conduit
-                     , ether
+                     , cborg
+                     , containers
+                     , digest
                      , formatting
-                     , generic-arbitrary
+                     , hashable
                      , lens
-                     , log-warper
-                     , node-sketch
-                     , reflection
-                     , rocksdb-haskell
-                     , text-format
-                     , QuickCheck
+                     , mtl
+                     , parsec
+                     , process
+                     , quickcheck-instances
+                     , semigroups
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , template-haskell
+                     , text
+                     , th-lift-instances
+                     , th-utilities
+                     , time
+                     , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
                      , unordered-containers
+                     , vector
+
+  default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -71,11 +83,11 @@ library
                        TemplateHaskell
                        ScopedTypeVariables
 
-  default-language:    Haskell2010
-
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON

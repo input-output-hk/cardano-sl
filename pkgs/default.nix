@@ -1179,7 +1179,7 @@ self: {
           description = "Reporting server for CSL";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      cardano-sl = callPackage ({ MonadRandom, QuickCheck, aeson, ansi-terminal, ansi-wl-pprint, base, binary, bytestring, canonical-json, cardano-crypto, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, cereal, conduit, constraints, containers, cpphs, cryptonite, data-default, deepseq, directory, ed25519, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, extra, filelock, filepath, fmt, formatting, generic-arbitrary, half, hashable, hspec, lens, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, mtl, neat-interpolation, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, pvss, random, reflection, resourcet, rocksdb-haskell, safe-exceptions, safecopy, serokell-util, servant, servant-server, servant-swagger, stdenv, stm, systemd, tagged, template-haskell, text, text-format, time, time-units, transformers, transformers-base, universum, unix, unordered-containers, vector, wai, warp, warp-tls, yaml }:
+      cardano-sl = callPackage ({ MonadRandom, QuickCheck, aeson, ansi-terminal, ansi-wl-pprint, base, binary, bytestring, canonical-json, cardano-crypto, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, cereal, conduit, constraints, containers, cpphs, cryptonite, data-default, deepseq, directory, ed25519, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, extra, filelock, filepath, fmt, formatting, generic-arbitrary, half, hashable, hspec, lens, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, mtl, neat-interpolation, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, plutus-prototype, pvss, random, reflection, resourcet, rocksdb-haskell, safe-exceptions, safecopy, serokell-util, servant, servant-server, servant-swagger, stdenv, stm, systemd, tagged, template-haskell, text, text-format, time, time-units, transformers, transformers-base, universum, unix, unordered-containers, vector, wai, warp, warp-tls, yaml }:
       mkDerivation {
           pname = "cardano-sl";
           version = "1.0.3";
@@ -1193,6 +1193,7 @@ self: {
             bytestring
             canonical-json
             cardano-crypto
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -1238,6 +1239,7 @@ self: {
             node-sketch
             optparse-applicative
             parsec
+            plutus-prototype
             pvss
             QuickCheck
             random
@@ -1273,6 +1275,7 @@ self: {
             base
             bytestring
             canonical-json
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -1315,7 +1318,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, bytestring, canonical-json, cardano-sl, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, constraints, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, bytestring, canonical-json, cardano-sl, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, constraints, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, loc, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.3";
@@ -1347,6 +1350,7 @@ self: {
             generic-arbitrary
             haskeline
             lens
+            loc
             log-warper
             megaparsec
             mmorph
@@ -1402,6 +1406,50 @@ self: {
           doHaddock = false;
           doCheck = true;
           description = "Cardano SL - Auxx";
+          license = stdenv.lib.licenses.mit;
+        }) {};
+      cardano-sl-binary = callPackage ({ QuickCheck, autoexporter, base, binary, bytestring, cborg, containers, cpphs, digest, formatting, hashable, lens, mkDerivation, mtl, parsec, process, quickcheck-instances, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      mkDerivation {
+          pname = "cardano-sl-binary";
+          version = "1.0.3";
+          src = ./../binary;
+          libraryHaskellDepends = [
+            autoexporter
+            base
+            binary
+            bytestring
+            cborg
+            containers
+            digest
+            formatting
+            hashable
+            lens
+            mtl
+            parsec
+            process
+            QuickCheck
+            quickcheck-instances
+            semigroups
+            serokell-util
+            stm
+            tagged
+            template-haskell
+            text
+            th-lift-instances
+            th-utilities
+            time
+            time-units
+            transformers
+            transformers-base
+            transformers-lift
+            universum
+            unordered-containers
+            vector
+          ];
+          libraryToolDepends = [ cpphs ];
+          doHaddock = false;
+          doCheck = true;
+          description = "Cardano SL - binary serialization";
           license = stdenv.lib.licenses.mit;
         }) {};
       cardano-sl-client = callPackage ({ MonadRandom, QuickCheck, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, data-default, ether, formatting, hspec, lens, log-warper, mkDerivation, monad-control, mtl, node-sketch, serokell-util, stdenv, stm, text-format, transformers, universum, unordered-containers, vector }:
@@ -1461,7 +1509,7 @@ self: {
           description = "Cardano SL client modules";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cardano-sl-util, cborg, cereal, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, ed25519, exceptions, extra, filepath, fmt, formatting, generic-arbitrary, hashable, lens, log-warper, memory, mkDerivation, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, safecopy, scrypt, serokell-util, stdenv, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, universum, unordered-containers, vector }:
+      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cardano-sl-binary, cardano-sl-util, cborg, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, exceptions, extra, filepath, fmt, formatting, generic-arbitrary, hashable, lens, log-warper, memory, mkDerivation, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, scrypt, serokell-util, stdenv, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-core";
           version = "1.0.3";
@@ -1476,9 +1524,9 @@ self: {
             bytestring
             canonical-json
             cardano-crypto
+            cardano-sl-binary
             cardano-sl-util
             cborg
-            cereal
             containers
             cryptonite
             cryptonite-openssl
@@ -1486,6 +1534,7 @@ self: {
             deepseq
             deriving-compat
             digest
+            directory
             ed25519
             exceptions
             extra
@@ -1506,7 +1555,6 @@ self: {
             quickcheck-instances
             random
             reflection
-            safecopy
             scrypt
             serokell-util
             tagged
@@ -1514,7 +1562,6 @@ self: {
             text
             text-format
             th-lift-instances
-            th-utilities
             time
             time-units
             universum
@@ -1527,7 +1574,7 @@ self: {
           description = "Cardano SL - core";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-db = callPackage ({ base, bytestring, cardano-sl-core, cardano-sl-util, concurrent-extra, conduit, containers, cpphs, data-default, directory, ether, filepath, formatting, lens, memory, mkDerivation, mmorph, monad-control, mtl, resourcet, rocksdb-haskell, serokell-util, stdenv, text-format, transformers, universum }:
+      cardano-sl-db = callPackage ({ base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-util, concurrent-extra, conduit, containers, cpphs, data-default, directory, ether, filepath, formatting, lens, memory, mkDerivation, mmorph, monad-control, mtl, resourcet, rocksdb-haskell, serokell-util, stdenv, text-format, transformers, universum }:
       mkDerivation {
           pname = "cardano-sl-db";
           version = "1.0.3";
@@ -1535,6 +1582,7 @@ self: {
           libraryHaskellDepends = [
             base
             bytestring
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-util
             concurrent-extra
@@ -1563,7 +1611,7 @@ self: {
           description = "Cardano SL - basic DB interfaces";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, bytestring, cardano-sl, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, lens, log-warper, memory, mkDerivation, mtl, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, resourcet, rocksdb-haskell, serokell-util, servant, servant-multipart, servant-server, servant-swagger, socket-io, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, bytestring, cardano-sl, cardano-sl-binary, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, lens, log-warper, memory, mkDerivation, mtl, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, resourcet, rocksdb-haskell, serokell-util, servant, servant-multipart, servant-server, servant-swagger, socket-io, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-explorer";
           version = "1.0.3";
@@ -1575,6 +1623,7 @@ self: {
             base
             bytestring
             cardano-sl
+            cardano-sl-binary
             cardano-sl-client
             cardano-sl-core
             cardano-sl-db
@@ -1670,7 +1719,7 @@ self: {
           description = "Cardano explorer";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-generator = callPackage ({ MonadRandom, QuickCheck, base, bytestring, cardano-sl, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, ether, exceptions, formatting, hspec, lens, log-warper, mkDerivation, monad-control, node-sketch, random, serokell-util, stdenv, text, text-format, time-units, transformers-base, universum, unordered-containers, vector }:
+      cardano-sl-generator = callPackage ({ MonadRandom, QuickCheck, base, bytestring, cardano-sl, cardano-sl-binary, cardano-sl-client, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, ether, exceptions, formatting, hspec, lens, log-warper, mkDerivation, monad-control, node-sketch, random, serokell-util, stdenv, text, text-format, time-units, transformers-base, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-generator";
           version = "1.0.3";
@@ -1714,6 +1763,7 @@ self: {
           testHaskellDepends = [
             base
             cardano-sl
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-ssc
@@ -1736,7 +1786,7 @@ self: {
           description = "Cardano SL - arbitrary data generation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, bytestring, cardano-report-server, cardano-sl-core, cardano-sl-db, cardano-sl-util, conduit, containers, cpphs, directory, dns, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, log-warper, lzma-conduit, mkDerivation, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, tar, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, yaml }:
+      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, bytestring, cardano-report-server, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-util, conduit, containers, cpphs, directory, dns, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, log-warper, lzma-conduit, mkDerivation, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, tar, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "cardano-sl-infra";
           version = "1.0.3";
@@ -1747,6 +1797,7 @@ self: {
             base64-bytestring
             bytestring
             cardano-report-server
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-util
@@ -1798,7 +1849,7 @@ self: {
           description = "Cardano SL - infrastructural";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-lrc = callPackage ({ QuickCheck, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-util, conduit, cpphs, ether, formatting, generic-arbitrary, lens, log-warper, mkDerivation, node-sketch, reflection, rocksdb-haskell, stdenv, text-format, universum, unordered-containers }:
+      cardano-sl-lrc = callPackage ({ QuickCheck, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-util, conduit, cpphs, ether, formatting, generic-arbitrary, lens, log-warper, mkDerivation, node-sketch, reflection, rocksdb-haskell, stdenv, text-format, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-lrc";
           version = "1.0.3";
@@ -1806,6 +1857,7 @@ self: {
           libraryHaskellDepends = [
             base
             bytestring
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-util
@@ -1857,7 +1909,7 @@ self: {
           description = "Cardano SL simple node executable";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-ssc = callPackage ({ QuickCheck, aeson, array, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, containers, cpphs, cryptonite, data-default, ether, exceptions, formatting, generic-arbitrary, lens, log-warper, memory, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, parsec, reflection, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-ssc = callPackage ({ QuickCheck, aeson, array, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, containers, cpphs, cryptonite, data-default, ether, exceptions, formatting, generic-arbitrary, lens, log-warper, memory, mkDerivation, mmorph, mono-traversable, mtl, node-sketch, parsec, reflection, rocksdb-haskell, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-ssc";
           version = "1.0.3";
@@ -1867,6 +1919,7 @@ self: {
             array
             base
             bytestring
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -1906,7 +1959,7 @@ self: {
           description = "Cardano SL - shared seed computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, silently, stdenv, stm, tabl, tar, text, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, silently, stdenv, stm, tabl, tar, text, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "1.0.3";
@@ -1925,6 +1978,7 @@ self: {
             canonical-json
             cardano-report-server
             cardano-sl
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -1988,7 +2042,7 @@ self: {
           description = "Cardano SL - Tools";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-txp = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-util, conduit, containers, cpphs, data-default, ekg-core, ether, exceptions, fmt, formatting, generic-arbitrary, hashable, lens, log-warper, memory, mkDerivation, mmorph, mtl, neat-interpolation, node-sketch, plutus-prototype, resourcet, rocksdb-haskell, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, transformers, universum, unordered-containers, vector }:
+      cardano-sl-txp = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-util, conduit, containers, cpphs, data-default, ekg-core, ether, exceptions, fmt, formatting, generic-arbitrary, hashable, lens, log-warper, memory, mkDerivation, mmorph, mtl, neat-interpolation, node-sketch, plutus-prototype, resourcet, rocksdb-haskell, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, transformers, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-txp";
           version = "1.0.3";
@@ -1997,6 +2051,7 @@ self: {
             aeson
             base
             bytestring
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -2039,7 +2094,7 @@ self: {
           description = "Cardano SL - transaction processing";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, conduit, containers, cpphs, data-default, directory, ether, exceptions, formatting, generic-arbitrary, hashable, http-client, http-client-tls, http-conduit, lens, log-warper, memory, mkDerivation, mtl, node-sketch, reflection, resourcet, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, conduit, containers, cpphs, data-default, directory, ether, exceptions, formatting, generic-arbitrary, hashable, http-client, http-client-tls, http-conduit, lens, log-warper, memory, mkDerivation, mtl, node-sketch, reflection, resourcet, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, tagged, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-update";
           version = "1.0.3";
@@ -2048,6 +2103,7 @@ self: {
             aeson
             base
             bytestring
+            cardano-sl-binary
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -4814,6 +4870,21 @@ self: {
           homepage = "http://github.com/ekmett/linear/";
           description = "Linear Algebra";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      loc = callPackage ({ base, containers, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "loc";
+          version = "0.1.3.1";
+          sha256 = "fd49e9437bd547ac77ff31773c16fe0cae93ff060668c80c0c2ba71507d43c47";
+          libraryHaskellDepends = [
+            base
+            containers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/chris-martin/loc";
+          description = "Types representing line and column positions and ranges in text files";
+          license = stdenv.lib.licenses.asl20;
         }) {};
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {

@@ -10,7 +10,7 @@ module NodeOptions
        , getExplorerNodeOptions
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,

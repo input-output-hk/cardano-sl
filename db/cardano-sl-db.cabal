@@ -29,8 +29,9 @@ library
 
   build-depends:       base
                      , bytestring
-                     , cardano-sl-util
+                     , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-util
                      , concurrent-extra
                      , conduit
                      , containers

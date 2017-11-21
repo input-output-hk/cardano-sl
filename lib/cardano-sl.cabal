@@ -213,7 +213,9 @@ library
                       , base
                       , binary
                       , bytestring
+                      , canonical-json
                       , cardano-crypto
+                      , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
@@ -222,7 +224,6 @@ library
                       , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl-util
-                      , canonical-json
                       , cereal
                       , conduit >= 1.2.8
                       , constraints
@@ -257,6 +258,7 @@ library
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative
                       , parsec
+                      , plutus-prototype
                       , pvss
                       , random
                       , reflection
@@ -390,7 +392,7 @@ test-suite cardano-test
                      , bytestring
                      , canonical-json
                      , cardano-sl
-                     , cardano-sl-util
+                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
@@ -398,6 +400,7 @@ test-suite cardano-test
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-util
                      , cborg
                      , cereal
                      , containers

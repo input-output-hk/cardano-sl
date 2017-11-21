@@ -76,10 +76,10 @@ data Logic m = Logic
     , postTx            :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
     , postUpdate        :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
     , postVote          :: KeyVal (Tagged UpdateVote UpId) UpdateVote m
-    , postSscCommitment :: KeyVal StakeholderId MCCommitment m
-    , postSscOpening    :: KeyVal StakeholderId MCOpening m
-    , postSscShares     :: KeyVal StakeholderId MCShares m
-    , postSscVssCert    :: KeyVal StakeholderId MCVssCertificate m
+    , postSscCommitment :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
+    , postSscOpening    :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
+    , postSscShares     :: KeyVal (Tagged MCShares StakeholderId) MCShares m
+    , postSscVssCert    :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
 
       -- Give a heavy delegation certificate. Returns False if something
       -- went wrong.

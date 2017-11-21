@@ -3,6 +3,7 @@
 ## Prerequisites
 
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).
+* [Bootstrap era](https://cardanodocs.com/timeline/bootstrap/).
 
 ## Overview
 Update system gives ability to developers to propose updates of software applications and
@@ -150,11 +151,11 @@ Then the first stakeholder downloads this update and update own software.
 
 Then the first stakeholder issues a block as leader of some slot: 
 * `BlockVersion` of this block is set to `0.2.0`
-* block created by rules for last adopted version, i.e. `0.1.0`. 
-Update software considers last adopted version and creates block using old logic 
+* block created by rules for last adopted block version, i.e. `0.1.0`. 
+Update software considers last adopted block version and creates block using old logic 
 if this one is `0.1.0` and using new logic if this one is `0.2.0`.
 So the block is issued without new attribute. Stakeholders with old software expects that all attributes are known because
-last adopted version equals `lastKnownBlockVersion` for its softwares.
+last adopted block version equals `lastKnownBlockVersion` for its softwares.
 
 Then the 3rd epoch starts and the threshold (which is regulated by `SoftforkRule`) 
 for adopting new block version is dumped to `0.6`.
@@ -165,19 +166,19 @@ Also the second one issues one more block as leader, so it produced 2 blocks.
 
 Then 4th epoch starts and sum of issuers stakes is `0.25 + 0.26 = 0.51 < 0.6` 
 (we take into account the second stakeholder only once). Adopting threshold is dumped to the minimal value `0.6`.
-So last adopted version is still `0.1.0`, `lastKnownBlockVersion` is `0.2.0` for 
+So last adopted block version is still `0.1.0`, `lastKnownBlockVersion` is `0.2.0` for 
 the first and the second stakeholders and `0.1.0` for the third and the fourth.
 
 Then the third stakeholder downloads this update and issues block in the same manner like previous ones.
 
 When 5th epoch starts the sum of issuers stakes is `0.25 + 0.26 + 0.1 = 0.61 > 0.6` and 
-it's time to bump last adopted version.
+it's time to bump last adopted block version.
 So last adoped version is `0.2.0` now and `lastKnownBlockVersion` is `0.1.0` 
 for the latter stakeholder and `0.2.0` for others.
 
 When it's turn to issue block of the fourth stakeholder, 
 it issues block with `0.1.0` block version and with block format for `0.1.0`.
-Others stakeholders see that last adopted version equals `0.2.0` and 
+Others stakeholders see that last adopted block version equals `0.2.0` and 
 try to decode block using new rules but failed because it doesn't contain attribute with key `228`.
 So this slot left without a block.
 
@@ -187,3 +188,73 @@ and updates should be handled carefully.
 ## GState
 
 ## Verification
+
+### Block header verification
+
+First of all, we check that one of statements for a verifiable block is true:
+* block version equals to last adopted block version. 
+It means the block is created by software where `lastKnownBlockVersion` equals last adopted block version.
+* block version is greater than last adopted block version and this one is confirmed. 
+It means the block is created by software updated by _confirmed_ update proposal.
+
+### Update proposal verification
+
+#### General checks
+
+* _No duplicated proposer check_: that no one stakeholder sent two update proposals within current epoch. 
+We prohibit it because of opportunity spam update proposals from one stakeholder.
+
+* _Update proposal size check_: proposal is not exceed maximal proposal size.
+  * Update proposal size is computed as number of bytes in serialized `UpdateProposal`.
+  * Update proposal size limit is part of `BlockVersionData`.
+  * If the size of a proposal is greater than the limit from the adopted `BlockVersionData`, the proposal is invalid.
+
+* _Attributes known check_: if `verifyAllIsKnown` is `True`, all update proposal attributes must be known.
+
+* _Uniqueness of proposal check_: that there is no active proposal with the same id.
+
+* _Software version check_: numeric software version of application is 1 more 
+than of last confirmed proposal for this application.
+
+* _Stake to include into block check_: sum of positive votes for this proposal is enough 
+to be included into block (at least `updateProposalThd`).
+We wouldn't like adversary stakeholders to have opportunity to spam network by `UpdateProposal`, 
+so only stakeholders with some significant amount of stake can send proposals.
+
+#### Protocol version checks
+
+* _Protocol version following check_: protocol version from proposal can follow last adopted protocol version.
+
+The following rules regarding major and minor versions take place:
+* The proposed major version must be equal to or greater by `1` last adopted one.
+* If the proposed major version is greater than last adopted one by `1`, then minor version must be `0`.
+* If the proposed major version is equal to the last adopted one, then minor version 
+can be either same as the last adopted one or greater by `1`.
+
+Also the following rules regarding alternative versions take place (assuming checks above passed):
+* If `(Major, Minor)` of proposed version is equal to `(Major, Minor)` of
+last adopted version, then alternative version must be equal to alternative version of last adopted version.
+* Otherwise `(Major, Minor)` of proposed version is lexicographically greater 
+than `(Major, Minor)` of last adopted version and in this case
+other proposed block versions with same `(Major, Minor)` are considered (let's call this set `X`):
+  * If `X` is empty, given alternative version must be `0`.
+  * Otherwise it must be in `X` or greater than maximum from `X` by `1`.
+
+* _BlockVersionModifier consistenty check_: `BlockVersionModifier` from proposal is consistent 
+with `BlockVersionData` for adopted protocol version or with `BlockVersionModifier` from _competing_ proposals.
+
+There are three cases to check:
+* Block version from proposal is equal to adopted version. 
+  In this case each field of `BlockVersionModifier` from proposal must be either `Nothing` or 
+  `Just` with the same value from `BlockVersionData` of last adopted version.
+* Block version from proposal is equal to one from another proposal. 
+  `BlockVersionModifier`s from them must be the same. 
+   If several proposals with the same block version exist, then all `BlockVersionModifier` must be equal.
+* Block version from proposal is new one. 
+  In this case we must check `BlockVersionModifier` from the proposal is consistent with adopted `BlockVersionData`.  
+  The following checks take place:
+  * script version from proposal must be equal to or greater by `1` adopted one.
+  * max block size from proposal is at most two times greater than adopted one.
+  * unlock stake epoch must not be changed if boostrap era is over
+
+### Votes verification

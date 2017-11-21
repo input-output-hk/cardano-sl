@@ -111,7 +111,7 @@ canCreateBlockBV bv = do
 -- last adopted version, then alternative version must be equal to
 -- alternative version of last adopted version.
 -- 2. Otherwise '(Major, Minor)' of given version is lexicographically greater
--- than or equal to '(Major, Minor)' of last adopted version and in this case
+-- than '(Major, Minor)' of last adopted version and in this case
 -- other proposed block versions with same '(Major, Minor)' are considered
 -- (let's call this set 'X').
 -- If 'X' is empty, given alternative version must be 0.

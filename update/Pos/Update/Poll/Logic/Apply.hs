@@ -128,16 +128,17 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- Do all necessary checks of new proposal and votes for it.
 -- If it's valid, apply. Specifically, these checks are done:
 --
--- 1. Proposal must not exceed maximal proposal size.
--- 2. Check that there is no active proposal with the same id.
--- 3. Check script version, it should be consistent with existing
---    script version dependencies. New dependency can be added.
--- 4. Check that numeric software version of application is 1 more than
---    of last confirmed proposal for this application.
--- 5. If 'slotOrHeader' is 'Right', also check that sum of positive votes
---    for this proposal is enough (at least 'updateProposalThd').
--- 6. If 'verifyAllIsKnown' is 'True', check that proposal has
+-- 1. Check that no one stakeholder sent two update proposals within current epoch.
+-- 2. If 'verifyAllIsKnown' is 'True', check that proposal has
 --    no unknown attributes.
+-- 3. Proposal must not exceed maximal proposal size.
+-- 4. Check that there is no active proposal with the same id.
+-- 5. Verify consistenty with BlockVersionState for protocol version from proposal.
+-- 6. Verify that protocol version from proposal can follow last adopted protocol version.
+-- 7. Check that numeric software version of application is 1 more than
+--    of last confirmed proposal for this application.
+-- 8. If 'slotOrHeader' is 'Right', also check that sum of positive votes
+--    for this proposal is enough (at least 'updateProposalThd').
 --
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
@@ -176,7 +177,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId epoch up
     -- Then we verify that protocol version from proposal can follow last
-    -- adopted software version.
+    -- adopted protocol version.
     verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up

@@ -153,7 +153,7 @@ testV1Context =
 spec :: Spec
 spec = withCompileInfo def $ do
     withDefConfigurations $ do
-      describe "Servant API Properties" $ do
+      xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
           withServantServer (Proxy @V0.API) v0Server $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates

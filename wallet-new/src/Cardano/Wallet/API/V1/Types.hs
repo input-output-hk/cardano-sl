@@ -37,6 +37,7 @@ module Cardano.Wallet.API.V1.Types (
   , Payment (..)
   , PaymentDistribution (..)
   , Transaction (..)
+  , TransactionType (..)
   , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
@@ -238,9 +239,10 @@ type SpendingPassword = Core.PassPhrase
 
 type WalletName = Text
 
-data AssuranceLevel =  NormalAssurance
-                     | StrictAssurance
-                     deriving (Eq, Show, Enum, Bounded)
+data AssuranceLevel =
+    NormalAssurance
+  | StrictAssurance
+  deriving (Eq, Show, Enum, Bounded)
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -343,29 +345,29 @@ instance Arbitrary AccountUpdate where
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
-    pwdOld :: !Text
-    -- ^ The old password.
-  , pwdNew :: !Text
-    -- ^ The new password.
+    pwdOld :: !SpendingPassword
+    -- ^ The old 'SpendingPassword'.
+  , pwdNew :: !SpendingPassword
+    -- ^ The new 'SpendingPassword'.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PasswordUpdate
 
 instance Arbitrary PasswordUpdate where
-  arbitrary = PasswordUpdate <$> fmap fromString arbitrary
-                             <*> fmap fromString arbitrary
+  arbitrary = PasswordUpdate <$> arbitrary
+                             <*> arbitrary
 
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.
 data EstimatedFees = EstimatedFees {
-    feeEstimatedAmount :: !Coins
+    feeEstimatedAmount :: !Core.Coin
     -- ^ The estimated fees, as coins.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''EstimatedFees
 
 instance Arbitrary EstimatedFees where
-  arbitrary = EstimatedFees <$> fmap getPositive arbitrary
+  arbitrary = EstimatedFees <$> arbitrary
 
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
@@ -383,14 +385,14 @@ instance Arbitrary PaymentDistribution where
 -- | A policy to be passed to each new payment request to
 -- determine how a 'Transaction' is assembled.
 data TransactionGroupingPolicy =
-      OptimiseForSizePolicy
-    -- ^ Tries to minimise the size of the created transaction
-    -- by choosing only the biggest value available up until
-    -- the stake sum is greater or equal the payment amount.
-    | OptimiseForSecurityPolicy
-    -- ^ Tries to minimise the number of addresses left with
-    -- unspent funds after the transaction has been created.
-    deriving (Show, Ord, Eq, Enum, Bounded)
+    OptimiseForSizePolicy
+  -- ^ Tries to minimise the size of the created transaction
+  -- by choosing only the biggest value available up until
+  -- the stake sum is greater or equal the payment amount.
+  | OptimiseForSecurityPolicy
+  -- ^ Tries to minimise the number of addresses left with
+  -- unspent funds after the transaction has been created.
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionGroupingPolicy where
   arbitrary = elements [minBound .. maxBound]
@@ -420,11 +422,24 @@ instance Arbitrary Payment where
 
 type TxId = Text
 
+data TransactionType =
+    LocalTransaction
+  -- ^ This transaction is local to this node.
+  | IncomingTransaction
+  -- ^ This represents an incoming transaction.
+  | OutgoingTransaction
+  -- ^ This qualifies external transaction.
+  deriving (Show, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionType where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Transaction@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse } ''TransactionType
+
 -- | A 'Wallet''s 'Transaction'.
--- TODO(adinapoli) This still doesn't include the full payload frontend might
--- need.
 data Transaction = Transaction
-  { txId            :: TxId
+  { txId            :: !TxId
     -- ^ The Tx Id.
   , txConfirmations :: !Word
     -- ^ The number of confirmations.
@@ -434,12 +449,15 @@ data Transaction = Transaction
     -- ^ The input money distribution.
   , txOutputs       :: !(NonEmpty PaymentDistribution)
     -- ^ The output money distribution.
+  , txType          :: TransactionType
+    -- ^ The type for this transaction (e.g local, incoming, etc)
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

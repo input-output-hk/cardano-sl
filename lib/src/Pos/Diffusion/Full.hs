@@ -53,8 +53,10 @@ import           Pos.Diffusion.Full.Types  (DiffusionWorkMode)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBlocksError (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue)
+import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue,
+                                    topologySubscribers)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
+import           Pos.Subscription.Common (subscriptionListeners)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
@@ -100,11 +102,14 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             mkL :: MkListeners d
             --mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
             mkL = mconcat $
-                [ lmodifier "block"      $ Diffusion.Block.blockListeners logic oq
-                , lmodifier "tx"         $ Diffusion.Txp.txListeners logic oq enqueue
-                , lmodifier "update"     $ Diffusion.Update.updateListeners logic oq enqueue
-                , lmodifier "delegation" $ Diffusion.Delegation.delegationListeners logic oq enqueue
-                , lmodifier "ssc"        $ Diffusion.Ssc.sscListeners logic oq enqueue
+                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq
+                , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
+                , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
+                , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
+                , lmodifier "ssc"         $ Diffusion.Ssc.sscListeners logic oq enqueue
+                ] ++ [
+                  lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
+                | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
                 ]
 
             lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }

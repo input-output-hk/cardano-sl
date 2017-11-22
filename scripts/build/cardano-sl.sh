@@ -25,7 +25,7 @@ set -o pipefail
 #   :
 #   core, db, etc.                  cardano-sl-{core,db,etc.}
 #   lib                             cardano-sl
-#   all or sl or sl+                all packages at once
+#   sl | all                        all packages at once
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,6 +40,15 @@ set -o pipefail
 
 # Note: this list should be topologically sorted.
 projects="binary util crypto core db lrc infra ssc txp update lib node client generator auxx tools explorer wallet wallet-new"
+
+# Returns name of a stack project to build, given the alias.
+function pkgNameToProject {
+  if [[ $1 == "lib" ]]; then
+    echo "cardano-sl"
+  else
+    echo "cardano-sl-$prj"
+  fi
+}
 
 args=''
 
@@ -108,7 +117,7 @@ do
     asserts=false
   # all = build all at once
   # package name = build only the package
-  elif [[ $var == "sl" ]] || [[ $var == "sl+" ]] || [[ $var == "all" ]]; then
+  elif [[ $var == "sl" ]] || [[ $var == "all" ]]; then
     spec_prj="all"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
@@ -159,34 +168,18 @@ xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module impo
 
 function cleanPackage () { echo "Cleaning $1"; stack clean $1 2>&1 | perl -pe "$xperl_workaround"; };
 if [[ $clean == true ]]; then
-
   for prj in $projects; do
-    if [[ $prj == "lib" ]]; then
-      pkgName="cardano-sl"
-    else
-      pkgName="cardano-sl-$prj"
-    fi
-
-    cleanPackage "$pkgName"
+    cleanPackage "$(pkgNameToProject $prj)"
   done
-
   exit
 fi
 
 to_build=''
 if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
-    if [[ $prj == "lib" ]]; then
-      pkgName="cardano-sl"
-    else
-      pkgName="cardano-sl-$prj"
-    fi
-
+    pkgName=$(pkgNameToProject $prj)
     to_build="$to_build $pkgName"
   done
-
-elif [[ $spec_prj == "lib" ]]; then
-  to_build="cardano-sl"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
 elif [[ $spec_prj == "wallet-new" ]]; then
@@ -196,7 +189,7 @@ elif [[ $spec_prj == "explorer" ]]; then
 elif [[ $spec_prj == "all" ]]; then
   to_build="" # build everything concurrently
 else
-  to_build="cardano-sl-$spec_prj"
+  to_build=$(pkgNameToProject $spec_prj)
 fi
 
 if [[ $to_build == "" ]]; then

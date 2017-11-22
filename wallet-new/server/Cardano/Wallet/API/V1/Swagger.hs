@@ -13,29 +13,28 @@ import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Errors            as Errors
+import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens                            ((?~))
-import           Data.Aeson                              (ToJSON (..),
-                                                          Value (Number, Object, String))
+import           Control.Lens ((?~))
+import           Data.Aeson (ToJSON (..), Value (Number, Object, String))
 import           Data.Aeson.Encode.Pretty
-import           Data.Default                            (Default (def))
-import qualified Data.HashMap.Strict                     as HM
-import           Data.HashMap.Strict.InsOrd              (InsOrdHashMap)
-import qualified Data.HashMap.Strict.InsOrd              as InsOrdHM
-import           Data.Map                                (Map)
-import qualified Data.Map.Strict                         as M
-import           Data.Set                                (Set)
-import qualified Data.Set                                as Set
+import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HM
+import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
+import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
+import           Data.Map (Map)
+import qualified Data.Map.Strict as M
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Data.String.Conv
-import           Data.Swagger                            hiding (Header)
+import           Data.Swagger hiding (Header)
 import           Data.Swagger.Declare
-import qualified Data.Text                               as T
+import qualified Data.Text as T
 import           Data.Typeable
-import           Formatting                              (build, sformat)
+import           Formatting (build, sformat)
 import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
@@ -258,13 +257,25 @@ instance ToDocs EstimatedFees where
   descriptionFor _ = "Estimated fees for a `Payment`."
 
 instance ToDocs Payment where
-  descriptionFor _ = "A request for exchange of `Coins` from one entity to another."
+  descriptionFor _ = "A transfer of `Coin`(s) from one source to one or more destinations."
+
+instance ToDocs PaymentDistribution where
+  descriptionFor _ = "Maps an `Address` to some `Coin`s and it's typically "
+                  <> "used to specify where to send money during a `Payment`."
 
 instance ToDocs Transaction where
   descriptionFor _ = "A Wallet Transaction."
 
 instance ToDocs WalletSoftwareUpdate where
   descriptionFor _ = "A programmed update to the system."
+
+instance ToDocs TransactionGroupingPolicy where
+  descriptionFor _ = "A policy to be passed to each new `Payment` request to "
+                  <> "determine how a `Transaction` is assembled. "
+                  <> "Possible values: [" <> possibleValuesOf @TransactionGroupingPolicy Proxy <> "]."
+
+possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
+possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
 -- ToSchema instances
 

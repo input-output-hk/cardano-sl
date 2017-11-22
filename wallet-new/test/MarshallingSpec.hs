@@ -18,7 +18,13 @@ spec :: Spec
 spec = describe "Marshalling & Unmarshalling" $ do
   prop "Aeson BackupPhrase roundtrips" (aesonRoundtrip @BackupPhrase Proxy)
   prop "Aeson AssuranceLevel roundtrips" (aesonRoundtrip @AssuranceLevel Proxy)
+  prop "Aeson Payment roundtrips" (aesonRoundtrip @Payment Proxy)
+  prop "Aeson PaymentDistribution roundtrips" (aesonRoundtrip @PaymentDistribution Proxy)
+  prop "Aeson NewWallet roundtrips" (aesonRoundtrip @NewWallet Proxy)
   prop "Aeson Coin roundtrips" (aesonRoundtrip @Core.Coin Proxy)
+  prop "Aeson TransactionGroupingPolicy roundtrips" (aesonRoundtrip @TransactionGroupingPolicy Proxy)
+  prop "Aeson TransactionType roundtrips" (aesonRoundtrip @TransactionType Proxy)
+  prop "Aeson Transaction roundtrips" (aesonRoundtrip @Transaction Proxy)
 
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property

@@ -23,7 +23,7 @@ library
                        Cardano.Wallet.API.V1.Parameters
                        Cardano.Wallet.API.V1.Addresses
                        Cardano.Wallet.API.V1.Accounts
-                       Cardano.Wallet.API.V1.Payments
+                       Cardano.Wallet.API.V1.Transactions
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Updates
@@ -91,7 +91,7 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
-                       Cardano.Wallet.API.V1.Handlers.Payments
+                       Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
@@ -165,7 +165,7 @@ test-suite wallet-new-specs
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   hs-source-dirs:   server test
-  main-is:          Test.hs
+  main-is:          Spec.hs
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
@@ -175,7 +175,7 @@ test-suite wallet-new-specs
                     Cardano.Wallet.API.V1.Handlers
                     Cardano.Wallet.API.V1.Handlers.Accounts
                     Cardano.Wallet.API.V1.Handlers.Addresses
-                    Cardano.Wallet.API.V1.Handlers.Payments
+                    Cardano.Wallet.API.V1.Handlers.Transactions
                     Cardano.Wallet.API.V1.Handlers.Wallets
                     Cardano.Wallet.API.V1.Handlers.Updates
                     Cardano.Wallet.API.V1.Swagger

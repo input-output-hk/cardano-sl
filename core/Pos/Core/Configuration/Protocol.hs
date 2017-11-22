@@ -18,22 +18,25 @@ module Pos.Core.Configuration.Protocol
 import           Universum
 
 import           Data.Reflection (Given (..), give)
+
 import           Pos.Core.Genesis.Types (ProtocolConstants (..))
-import           Pos.Core.Types (BlockCount (..), ProtocolMagic (..), SlotCount)
+import           Pos.Core.Types (BlockCount (..), SlotCount)
+import qualified Pos.Crypto.Configuration as CC
 
 type HasProtocolConstants = Given ProtocolConstants
 
-withProtocolConstants :: ProtocolConstants -> (HasProtocolConstants => r) -> r
-withProtocolConstants = give
+withProtocolConstants ::
+       ProtocolConstants
+    -> ((HasProtocolConstants, CC.HasCryptoConfiguration) => r)
+    -> r
+withProtocolConstants pc a = give pc (give (pcProtocolMagic pc) a)
 
 protocolConstants :: HasProtocolConstants => ProtocolConstants
 protocolConstants = given
 
--- | Protocol magic constant. Is put to block serialized version to
--- distinguish testnet and realnet (for example, possible usages are
--- wider).
-protocolMagic :: HasProtocolConstants => ProtocolMagic
-protocolMagic = ProtocolMagic . pcProtocolMagic $ protocolConstants
+-- | 'CC.protocolMagic' with 'HasProtocolConstants' constraint.
+protocolMagic :: HasProtocolConstants => CC.ProtocolMagic
+protocolMagic = pcProtocolMagic protocolConstants
 
 -- | VSS certificates max timeout to live (number of epochs)
 vssMaxTTL :: (HasProtocolConstants, Integral i) => i

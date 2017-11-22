@@ -32,8 +32,9 @@ executable cardano-dht-keygen
                      , array
                      , bytestring
                      , data-default
-                     , cardano-sl-core
                      , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-crypto
                      , filepath
                      , formatting
                      , kademlia
@@ -141,6 +142,7 @@ executable cardano-keygen
                      , canonical-json
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-txp
                      , containers
                      , cryptonite
@@ -423,6 +425,7 @@ executable cardano-blockchain-analyser
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc

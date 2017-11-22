@@ -20,7 +20,7 @@ import           Formatting (build, sformat, shown, stext, (%))
 import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Client.Txp.History (saveTx)
-import           Pos.Communication (TxMode)
+import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))

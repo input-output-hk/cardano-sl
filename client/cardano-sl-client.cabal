@@ -1,0 +1,155 @@
+name:                cardano-sl-client
+version:             1.0.3
+synopsis:            Cardano SL client modules
+description:         Cardano SL client modules
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2017 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Pos.Client.Txp
+                       Pos.Client.Txp.Addresses
+                       Pos.Client.Txp.Balances
+                       Pos.Client.Txp.History
+                       Pos.Client.Txp.Network
+                       Pos.Client.Txp.Util
+
+                       Pos.Client.Update
+                       Pos.Client.Update.Network
+
+                       Pos.Client.KeyStorage
+
+  build-depends:       base
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , containers
+                     , data-default
+                     , ether
+                     , formatting
+                     , lens
+                     , log-warper
+                     , monad-control
+                     , mtl
+                     , node-sketch
+                     , serokell-util
+                     , stm
+                     , text-format
+                     , transformers
+                     , universum
+                     , unordered-containers
+                     , vector
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite cardano-test
+  main-is:             Test.hs
+  other-modules:
+                       Spec
+
+                       -- Txp
+                       Test.Pos.Client.Txp.Mode
+                       Test.Pos.Client.Txp.UtilSpec
+
+  type:                exitcode-stdio-1.0
+
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , containers
+                     , formatting
+                     , hspec
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

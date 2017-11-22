@@ -18,7 +18,7 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses)
-import           Pos.Communication (TxMode)
+import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPeriod)
 import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
 import           Pos.Core.Configuration (HasConfiguration)

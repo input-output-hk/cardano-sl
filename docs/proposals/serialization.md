@@ -14,8 +14,6 @@ consists of the following steps:
  * __(D2)__ Check CBOR structure (bytestring is a correct CBOR encoded data)
  * __(D3)__ Check datatype canonicity
  * __(D4)__ Construct/deserialize datatype `T`
-   * __(D4.1)__ An option is to deserialize only some part of data (header
-     of block)
  * __(D5)__ Validate `T`.
    * __(D5.1)__ Validate parts of `T`.
 
@@ -33,19 +31,15 @@ them in terms of use cases:
      * Only D1 is needed (just get those bytes and send them).
  * __(U2)__ Diffusion (as designed for Shelley) of blocks: receive block
    and distribute it on fly.
-     * __(U2.1)__ D1, D2, D3 and D4.1 are needed. Regarding blocks, we don't want
-       to deserialize payload at all, checking header is enough.
-     * __(U2.2)__ One can argue that may want to have D4 + D5.1 instead of
-       D4.1, if it's not significantly slower.
+     * We need D4 + D5.1 (complete validation is not required). We don't
+       want to have partial deserialization (though it's possible).
  * __(U3)__ Apply received block(s) to GState.
      * D1-D5 (complete procedure) are needed.
  * __(U4)__ Reading data (sometimes lots of it) from DB for different
    node local actions (LRC, GState checks, API for Middleware -- all
    of them require db traversing or LCA computations).
-     * D1,D4 needed (we trust local database, so we want to turn off
-       as much checks as it's possible).
-     * AFAIU @avieth assumes D2-D3 is also needed and we shouldn't
-       optimize here because it's too dangerous anyway.
+     * D1,D2,D4 needed. We can omit D3: we trust local database, 
+       so let's turn off as much checks as it's possible.
 
 ## Solutions and comparison.
 
@@ -102,22 +96,22 @@ like? Well, you should consider the fact that now you're obliged to
 perform all the subfields checks by yourself. Hopefully, this will be
 easy to maintain. Just a notice.
 
-I claim that if we're aiming to solve U2.2 then the only thing we
+I claim that if we're aiming to solve U2 then the only thing we
 need to agree on is Q2: U1 is irrelevant, U4 is solved by
 deserializing to unsafe `T` or `T0` (and maybe skipping D2 D3 as
 suggested by Q1).
 
-If we aim to do U2.1, i think we can implement it using
-newtypes. E.g. if we have `S` as subfield of `T` and we only want to
-deserialize `S`, we can create `newtype SAsT = SAsT S` which will be
-encoded as `S`, but decoded as `T`, though avoiding other `T`'s
-fields.
-
-Another suggestion is to use `data SAsT = ...` effectively duplicating
-T, but containing only one related subfield `S`.
-
-And yes, maybe default haskell laziness can help us here too (though
-I'm not sure). What if `S` subfield of `T` is not strict?
+# If we aim to do U2.1, i think we can implement it using
+# newtypes. E.g. if we have `S` as subfield of `T` and we only want to
+# deserialize `S`, we can create `newtype SAsT = SAsT S` which will be
+# encoded as `S`, but decoded as `T`, though avoiding other `T`'s
+# fields.
+# 
+# Another suggestion is to use `data SAsT = ...` effectively duplicating
+# T, but containing only one related subfield `S`.
+# 
+# And yes, maybe default haskell laziness can help us here too (though
+# I'm not sure). What if `S` subfield of `T` is not strict?
 
 ### Solution 1: Approach with "RawX and X".
 

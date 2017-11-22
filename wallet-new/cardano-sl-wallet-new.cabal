@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1
+                       Cardano.Wallet.API.V1.Generic
                        Cardano.Wallet.API.V1.TH
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Parameters
@@ -31,6 +32,7 @@ library
                        Cardano.Wallet.API.V1.Migration
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
+                       Cardano.Wallet.Util
 
   ghc-options:         -Wall
   build-depends:       base
@@ -41,9 +43,11 @@ library
                      , data-default
                      , exceptions
                      , formatting
+                     , generics-sop
                      , http-api-data
                      , http-client
                      , http-types
+                     , json-sop
                      , lens
                      , memory
                      , mtl
@@ -57,6 +61,8 @@ library
                      , text-format
                      , transformers
                      , universum
+                     , unordered-containers
+                     , vector
                      , serokell-util
                      , warp
                      , cardano-sl-core

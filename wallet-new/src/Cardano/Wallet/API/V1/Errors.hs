@@ -7,12 +7,13 @@ module Cardano.Wallet.API.V1.Errors where
 import           Universum
 
 import           Data.Aeson
-import           Data.Aeson.TH (deriveJSON)
+import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
+import           Cardano.Wallet.API.V1.Generic (gToJsend)
+import           Cardano.Wallet.API.V1.TH (conNamesList)
 
 --
 -- Error handling
@@ -50,12 +51,19 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | WalletNotFound
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq)
 
 --
 -- Instances for `WalletError`
 
-deriveWalletErrorJSON ''WalletError
+-- deriveWalletErrorJSON ''WalletError
+deriveGeneric ''WalletError
+
+instance ToJSON WalletError where
+    toJSON = gToJsend
+
+-- instance FromJSON WalletError where
+--     parseJSON = gparseJSON defaultJsonOptions
 
 instance Exception WalletError where
 

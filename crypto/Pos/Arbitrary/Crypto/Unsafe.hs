@@ -9,7 +9,8 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Binary.Crypto ()
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
                                            toVssPublicKey)
@@ -17,15 +18,15 @@ import           Pos.Crypto.Signing (PublicKey, SecretKey, Signed, mkSigned)
 import           Pos.Crypto.Signing.Types.Tag (SignTag)
 import           Pos.Util.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
 
-instance Bi PublicKey => ArbitraryUnsafe PublicKey where
+instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 64
 
-instance Bi SecretKey => ArbitraryUnsafe SecretKey where
+instance ArbitraryUnsafe SecretKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 128
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks
-instance (HasProtocolConstants, Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
+instance (HasCryptoConfiguration, Bi a, ArbitraryUnsafe a, Arbitrary SignTag) =>
          ArbitraryUnsafe (Signed a) where
     arbitraryUnsafe = mkSigned <$> arbitrary
                                <*> arbitraryUnsafe

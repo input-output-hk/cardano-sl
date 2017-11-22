@@ -6,13 +6,14 @@ flags:
 
 extra-package-dbs: []
 
-# [util, binary] → core → db → [lrc, infra] → [ssc, txp, update] → lib → ...
+# [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update] → lib → ...
 # Then we have two branches:
-# ... → client → generator → [auxx, explorer, wallet]
+# ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
 packages:
 - binary
 - util
+- crypto
 - core
 - db
 - lrc

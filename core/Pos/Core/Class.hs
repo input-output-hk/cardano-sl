@@ -26,7 +26,7 @@ import           Control.Lens (Getter, choosing, to)
 
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex, EpochOrSlot (..),
                                  HeaderHash, SlotId, SoftwareVersion)
-import           Pos.Crypto.Signing.Types (PublicKey)
+import           Pos.Crypto.Signing (PublicKey)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 
 #define SOME_LENS_CLASS(HAS, LENS, CL)                       \

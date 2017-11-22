@@ -47,6 +47,7 @@ library
                      , cardano-sl
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-infra
@@ -189,6 +190,7 @@ test-suite cardano-auxx-test
                        QuickCheck
                      , cardano-sl-auxx
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , hspec
                      , universum >= 0.1.11
 

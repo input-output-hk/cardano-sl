@@ -120,6 +120,7 @@ library
                       , bytestring
                       , cardano-sl-binary
                       , cardano-sl-core
+                      , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-util
                       , cardano-report-server >= 0.3.0

@@ -13,12 +13,15 @@ import           Data.Aeson.Types (toJSONKeyText)
 import           Formatting (sformat)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProxyCert, ProxySecretKey,
-                             PublicKey, RedeemPublicKey, RedeemSignature, Signature (..),
-                             decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
+import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProtocolMagic (..), ProxyCert,
+                             ProxySecretKey, PublicKey, RedeemPublicKey, RedeemSignature,
+                             Signature (..), decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature)
 import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
+
+deriving instance ToJSON ProtocolMagic
+deriving instance FromJSON ProtocolMagic
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF

@@ -1,7 +1,7 @@
-name:                cardano-sl-txp
+name:                cardano-sl-crypto
 version:             1.0.3
-synopsis:            Cardano SL - transaction processing
-description:         Cardano SL - transaction processing
+synopsis:            Cardano SL - cryptography primitives
+description:         This package contains cryptography primities used in Cardano SL.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -13,95 +13,62 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Pos.Txp
+                       Pos.Aeson.Crypto
+                       Pos.Arbitrary.Crypto
+                       Pos.Binary.Crypto
 
-    Pos.Txp.DB
-    Pos.Txp.DB.Stakes
-    Pos.Txp.DB.Utxo
+                       Pos.Crypto
 
-    Pos.Txp.GenesisUtxo
-    Pos.Txp.Toil
-    Pos.Txp.Toil.Stakes
-    Pos.Txp.Toil.Stakes.Functions
-    Pos.Txp.Toil.Stakes.Pure
-    Pos.Txp.Toil.Class
-    Pos.Txp.Toil.DBToil
-    Pos.Txp.Toil.Failure
-    Pos.Txp.Toil.Logic
-    Pos.Txp.Toil.Trans
-    Pos.Txp.Toil.Types
-    Pos.Txp.Toil.Utxo
-    Pos.Txp.Toil.Utxo.Functions
-    Pos.Txp.Toil.Utxo.Pure
-    Pos.Txp.Toil.Utxo.Util
+                       Pos.Crypto.Configuration
+                       Pos.Crypto.Hashing
+                       Pos.Crypto.HD
+                       Pos.Crypto.Random
+                       Pos.Crypto.SecretSharing
+                       Pos.Crypto.Signing
+                       Pos.Crypto.Signing.Redeem
+                       Pos.Crypto.Signing.Safe
+                       Pos.Crypto.Signing.Signing
 
-    Pos.Txp.Logic
-    Pos.Txp.Logic.Global
-    Pos.Txp.Logic.Local
+  other-modules:
+                       Pos.Arbitrary.Crypto.Unsafe
 
-    Pos.Txp.Network
-    Pos.Txp.Network.Listeners
-    Pos.Txp.Network.Types
+                       Pos.Crypto.AsBinary
+                       Pos.Crypto.Encryption
+                       Pos.Crypto.Scrypt
 
-    Pos.Txp.MemState
-    Pos.Txp.MemState.Class
-    Pos.Txp.MemState.Holder
-    Pos.Txp.MemState.Metrics
-    Pos.Txp.MemState.Types
-
-    Pos.Txp.Settings
-    Pos.Txp.Settings.Global
-
-    Pos.Txp.Base
-    Pos.Txp.Error
-    Pos.Txp.Topsort
-
-    Pos.Script
-    Pos.Script.Examples
-
-    Pos.Aeson.Txp
-
-    Pos.Arbitrary.Txp
-    Pos.Arbitrary.Txp.Unsafe
-    Pos.Arbitrary.Txp.Network
-
-    Pos.Binary.Txp
-    Pos.Binary.Txp.Network
+                       Pos.Crypto.Signing.Tag
+                       Pos.Crypto.Signing.Types
+                       Pos.Crypto.Signing.Types.Tag
+                       Pos.Crypto.Signing.Types.Redeem
+                       Pos.Crypto.Signing.Types.Safe
+                       Pos.Crypto.Signing.Types.Signing
 
   build-depends:       QuickCheck
                      , aeson
+                     , autoexporter
                      , base
+                     , binary
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
-                     , cardano-sl-core
-                     , cardano-sl-crypto
-                     , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-util
-                     , conduit
                      , containers
+                     , cryptonite
+                     , cryptonite-openssl
                      , data-default
-                     , ekg-core
-                     , ether
-                     , exceptions
-                     , fmt >= 0.4
+                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hashable
                      , lens
-                     , log-warper
                      , memory
-                     , mmorph
                      , mtl
-                     , neat-interpolation
-                     , node-sketch
-                     , plutus-prototype
-                     , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , pvss
+                     , quickcheck-instances
+                     , reflection
+                     , scrypt
                      , serokell-util
                      , stm
-                     , tagged
-                     , template-haskell
                      , text
                      , text-format
                      , transformers

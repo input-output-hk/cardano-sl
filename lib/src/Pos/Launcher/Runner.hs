@@ -47,7 +47,7 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
 import           Pos.Context (NodeContext (..))
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)

@@ -5,7 +5,7 @@ module Pos.Arbitrary.Core.Unsafe () where
 import           Universum
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Crypto.Unsafe ()
+import           Pos.Arbitrary.Crypto ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), AddrType (..),
                            Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),

@@ -26,7 +26,7 @@ import           Data.Coerce (coerce)
 
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hash)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
@@ -47,7 +47,7 @@ changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
         Just <$> mkEncSecretUnsafe newPass (CC.xPrvChangePass oldPass newPass sk)
     | otherwise = return Nothing
 
-signRaw' :: HasProtocolConstants
+signRaw' :: HasCryptoConfiguration
          => Maybe SignTag
          -> PassPhrase
          -> EncryptedSecretKey
@@ -59,7 +59,7 @@ signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
     tag = maybe mempty signTag mbTag
 
 sign'
-    :: (HasProtocolConstants, Bi a)
+    :: (HasCryptoConfiguration, Bi a)
     => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
 sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.serialize'
 
@@ -92,7 +92,7 @@ safeDeterministicKeyGen seed pp =
         (mkEncSecretWithSaltUnsafe (S.mkSalt (hash seed)) pp)
         (safeCreateKeypairFromSeed seed pp)
 
-safeSign :: (HasProtocolConstants, Bi a) => SignTag -> SafeSigner -> a -> Signature a
+safeSign :: (HasCryptoConfiguration, Bi a) => SignTag -> SafeSigner -> a -> Signature a
 safeSign t (SafeSigner sk pp) = sign' t pp sk
 safeSign t (FakeSigner sk)    = sign t sk
 
@@ -142,7 +142,7 @@ fakeSigner = FakeSigner
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-safeCreateProxyCert :: (HasProtocolConstants, Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
+safeCreateProxyCert :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
 safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
   where
     Signature sig = safeSign SignProxySK ss $
@@ -150,7 +150,7 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
                           ["00", CC.unXPub delegatePk, Bi.serialize' o]
 
 -- | Creates proxy secret key
-safeCreatePsk :: (HasProtocolConstants, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreatePsk :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
 safeCreatePsk ss delegatePk w =
     ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w
 
@@ -160,9 +160,9 @@ safeCreatePsk ss delegatePk w =
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-createProxyCert :: (HasProtocolConstants, Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert :: (HasCryptoConfiguration, Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
 createProxyCert = safeCreateProxyCert . fakeSigner
 
 -- | Creates proxy secret key
-createPsk :: (HasProtocolConstants, Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createPsk :: (HasCryptoConfiguration, Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createPsk = safeCreatePsk . fakeSigner

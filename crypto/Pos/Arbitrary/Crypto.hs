@@ -15,8 +15,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Crypto.AsBinary ()
+import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm,
                                      unsafeCheatingHashCoerce)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
@@ -33,6 +33,8 @@ import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk
 import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
 import           Pos.Util.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen, sublistN)
 import           Pos.Util.Orphans ()
+
+deriving instance Arbitrary ProtocolMagic
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -116,22 +118,22 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signature a) where
+instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
     arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signed a) where
+instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
 
-instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
     arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
 
-instance (HasProtocolConstants, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+instance (HasCryptoConfiguration, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary

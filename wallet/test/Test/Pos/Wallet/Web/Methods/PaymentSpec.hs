@@ -14,7 +14,8 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (TxFeePolicy (..), bvdTxFeePolicy, mkCoin, unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core (TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins, unsafeGetCoin,
+                           unsafeSubCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
@@ -31,7 +32,6 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, stopProperty,
                                 withDefConfigurations)
 
-import           Pos.Core (sumCoins)
 import           Pos.Util.Servant (encodeCType)
 import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,

@@ -32,7 +32,8 @@ import qualified System.Wlog as Logger
 import qualified System.Systemd.Daemon as Systemd
 #endif
 
-import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..))
+import           Pos.Block.Network.Types (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
+import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe)
 import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..), HasUpdateLimits, HasTxpLimits, HasBlockLimits, HasSscLimits)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
@@ -40,7 +41,7 @@ import           Pos.Configuration (HasNodeConfiguration, conversationEstablishT
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
 import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionData (..))
+import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionData (..), StakeholderId)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
@@ -54,7 +55,8 @@ import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBl
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue,
-                                    topologySubscribers)
+                                    topologySubscribers, SubscriptionWorker (..),
+                                    topologySubscriptionWorker)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
 import           Pos.Subscription.Common (subscriptionListeners)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
@@ -89,15 +91,95 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
             ourVerInfo :: VerInfo
-            ourVerInfo = VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins outs
+            ourVerInfo = VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins (outs <> workerOuts)
 
             ins :: HandlerSpecs
             InSpecs ins = inSpecs mkL
 
-            -- TODO get OutSpecs that were formerly defined on workers (which
-            -- makes no sense with the diffusion/logic split).
+            -- The out specs come not just from listeners but also from workers.
+            -- Workers in the existing implementation were bundled up in
+            --   allWorkers :: ([WorkerSpec m], OutSpecs)
+            -- and they performed logic layer tasks, so having out specs defined
+            -- by them doesn't make sense.
+            -- For the first iteration, we just dump those out specs here, since
+            -- we know in the diffusion layer the set of all requests that might
+            -- be made.
+            --
+            -- Find below a definition of each of the worker out specs,
+            -- copied from Pos.Worker (allWorkers). Each one was manually
+            -- inspected to determine the out specs.
+            --
+            -- FIXME this system must change. Perhaps replace it with a
+            -- version number?
             outs :: HandlerSpecs
             OutSpecs outs = outSpecs mkL
+
+            workerOuts :: HandlerSpecs
+            OutSpecs workerOuts = mconcat
+                [ sscWorkerOutSpecs
+                , securityWorkerOutSpecs
+                , usWorkerOutSpecs
+                , blockWorkerOutSpecs
+                , delegationWorkerOutSpecs
+                , slottingWorkerOutSpecs
+                , subscriptionWorkerOutSpecs
+                , dhtWorkerOutSpecs
+                ]
+
+            -- An onNewSlotWorker and a localWorker. Latter is mempty. Former
+            -- actually does the ssc stuff.
+            sscWorkerOutSpecs = mconcat
+                [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
+                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCOpening))
+                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCShares))
+                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCVssCertificate))
+                ]
+
+            -- A single worker checkForReceivedBlocksWorker with
+            -- requestTipOuts from Pos.Block.Network.
+            securityWorkerOutSpecs = toOutSpecs
+                [ convH (Proxy :: Proxy MsgGetHeaders)
+                        (Proxy :: Proxy MsgHeaders)
+                ]
+
+            -- Definition of usWorkers plainly shows the out specs = mempty.
+            usWorkerOutSpecs = mempty
+
+            -- announceBlockOuts from blkCreatorWorker
+            -- announceBlockOuts from blkMetricCheckerWorker
+            -- along with the retrieval worker outs which also include
+            -- announceBlockouts.
+            blockWorkerOutSpecs = mconcat
+                [ announceBlockOuts
+                , announceBlockOuts
+                , announceBlockOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
+                                                          (Proxy :: Proxy MsgBlock)
+                                                  ]
+                ]
+
+            announceBlockOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
+                                                   (Proxy :: Proxy MsgGetHeaders)
+                                           ]
+
+            -- It's a local worker, no out specs.
+            delegationWorkerOutSpecs = mempty
+
+            -- Plainly mempty from the definition of allWorkers.
+            slottingWorkerOutSpecs = mempty
+
+            -- Copied from existing implementation but
+            -- FIXME it will be wrong when the patch to include a keepalive
+            -- is merged. That shall be the first test of this inspec/outspec
+            -- system I suppose.
+            subscriptionWorkerOutSpecs = case topologySubscriptionWorker (ncTopology networkConfig) of
+                Just (SubscriptionWorkerBehindNAT _) -> specs
+                Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
+                _ -> mempty
+              where
+                specs = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
+
+            -- It's a localOnNewSlotWorker, so mempty.
+            dhtWorkerOutSpecs = mempty
 
             mkL :: MkListeners d
             --mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue

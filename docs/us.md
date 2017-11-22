@@ -27,30 +27,39 @@ Making decision whether approve or reject an update proposal depends on sum of s
 
 There are two rules to make decision about update proposal:
 * **Explicit agreement**: if an update proposal has greater than 50% stake "for" or "against" 
-then the proposal becomes approved or rejected corresponding.
+then the proposal becomes approved or rejected respectively.
 * **Implicit agreement**: if an update proposal has been proposed in the blockchain `U` slots ago,
-and it has more stakes "for" then "against", then the proposal becomes approved and rejected otherwise.
+and it has more stakes "for" than "against", then the proposal becomes approved or rejected otherwise.
 
 ### Update proposal states
 
-Update proposal may be in three states:
-* **Active** (or Undecided)  
+Update proposal may be in five states:
+* **Active**  
 When an update proposal gets into the blockchain within some block, it becomes _active_.
 This state means that the proposal is known in the blockchain but 
 it wasn't still decided by stakeholders whether to approve or to reject this proposal.
 So, a poll is active and stakeholders' votes which get into the blockchain affect the decision.
 
-* **Decided**  
-An update proposal continues being _active_ until it becomes _decided_, it may be _decided_ to approve
-or to reject.
-If a proposal is rejected then it doesn't affect any consensus rules and we don't consider it anymore.
-Note: rejected proposal may become active again if rollback occurs.
+* **Approved**  
+If a decision about proposal has been made positively following one of two rules mentioned above,
+then proposal becomes **approved**.
+_Approved_ proposal may become _active_ or even _rejected_ if rollback occurs.
+
+* **Rejected**  
+If a decision about proposal has been made negatively, then proposal become **rejected**.
+_Rejected_ proposal may become _active_ or even _approved_ if rollback occurs.
 
 * **Confirmed**  
 If a proposal has been approved in some block and there are at least `k` blocks after this one, then
-update proposal is called _confirmed_.
-_Confirmed_ state reflects the fact that a proposal's state cannot be changed anymore 
+update proposal becomes **confirmed**.
+_Confirmed_ state reflects the fact that _approved_ state cannot be changed anymore 
 because we have guarantee that at most `k` blocks may be rolled back.
+
+* **Discarded**  
+If a proposal has been rejected in some block and there are at least `k` blocks after this one, then
+update proposal becomes **discarded**.
+_Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.  
+If a proposal is discarded then it doesn't affect consensus rules anymore and we throw away it from the consideration.
 
 ### Software and block versions. Data associated with block version
 
@@ -104,16 +113,8 @@ So if a value is going to be updated then a field is `Just` and `Nothing` otherw
 
 ### Adoption of block version
 
-Assume a proposal which is bumping `BlockVersion` became _confirmed_.
-Though the proposal is already _confirmed_ along with block version but stakeholders
-haven't updated its software yet, hence, they can't validate block of _confirmed_ block version.
-
-To avoid a situation when adversary stakeholder issues invalid block of just _confirmed_ block version,
-others stakeholders will validate blocks according to previous **adopted** block version, 
-until _confirmed_ becomes **adopted**.
-
-Informally `BlockVersion` is **adopted** if sum of block issuers' stakes, 
-which issued blocks of this `BlockVersion` at least once, is a majority.
+Informally, `BlockVersion` is **adopted** if sum of block issuers' stakes, 
+which issued blocks of this `BlockVersion` at least once, takes a significant part of the stake.
 
 Formally, let's say a proposal became _confirmed_ in `s` epoch and current epoch is `t`:  
 if portion of block issuers' stakes, which issued blocks of this `BlockVersion` at least once, is greater than
@@ -132,9 +133,20 @@ data SoftforkRule = SoftforkRule
 ```
 
 So we check this rule at the beginning of each epoch for each _confirmed_ proposal 
-and adopt one of this _confirmed_ `BlockVersion` if it satisfies the rule.
+and adopt one of block version from _confirmed_ proposals if this version satisfies the rule.
 
-Note: last adopted block version is the feature of the blockchain, not stakeholders' software or something else.
+By the way, we call block version **competing** if it might become adopted. 
+It implies there is at least one confirmed proposal with such block version.
+
+#### Block validation according to adopted version
+
+Assume a proposal which is bumping `BlockVersion` became _confirmed_.
+Though the proposal is already _confirmed_ but stakeholders
+haven't updated its software yet, hence, 
+they can't validate blocks of block version from the proposal.
+
+To avoid a situation when adversary stakeholder issues invalid block of _competing_ version
+others stakeholders will validate blocks according to the previous _adopted_ block version.
 
 #### Example
 
@@ -149,12 +161,17 @@ that block header's attributes should contain by key `228` string `"pva"`.
 Then the first stakeholder downloads this update and update own software. 
 `lastKnownBlockVersion` is `0.2.0` for this software but last adopted block version is still `0.1.0`.
 
-Then the first stakeholder issues a block as leader of some slot: 
+Then it's turn to issue a block of the first stakeholder as leader of some slot.  
+To be valid for others stakeholders, issued block should be created by rules for last adopted version, so
+updated software of the first stakeholder considers last adopted block version.  
+If last adopted is `0.1.0` then the software creates block using old logic (logic for `0.1.0`)
+otherwise using new logic (logic for `0.2.0`).  
+The last adopted version is `0.1.0`, hence, the first stakeholder issues a block:
 * `BlockVersion` of this block is set to `0.2.0`
 * block created by rules for last adopted block version, i.e. `0.1.0`. 
-Update software considers last adopted block version and creates block using old logic 
-if this one is `0.1.0` and using new logic if this one is `0.2.0`.
-So the block is issued without new attribute. Stakeholders with old software expects that all attributes are known because
+
+So the block is issued without new attribute but tagged by the new version.
+Stakeholders with old software expects that all attributes are known because
 last adopted block version equals `lastKnownBlockVersion` for its softwares.
 
 Then the 3rd epoch starts and the threshold (which is regulated by `SoftforkRule`) 

@@ -12,7 +12,7 @@ import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.Generic (gToJsend)
+import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.API.V1.TH (conNamesList)
 
 --
@@ -60,10 +60,10 @@ data WalletError =
 deriveGeneric ''WalletError
 
 instance ToJSON WalletError where
-    toJSON = gToJsend
+    toJSON = gtoJsend
 
--- instance FromJSON WalletError where
---     parseJSON = gparseJSON defaultJsonOptions
+instance FromJSON WalletError where
+    parseJSON = gparseJsend
 
 instance Exception WalletError where
 

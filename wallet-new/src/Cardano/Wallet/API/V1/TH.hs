@@ -12,24 +12,11 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
-import           Data.Char (isUpper, toLower)
 import qualified Data.List as DL
 import           Language.Haskell.TH
 import qualified Serokell.Aeson.Options as Serokell
 
---
--- String manipulation utils
---
-
-headToLower :: String -> Maybe String
-headToLower []     = Nothing
-headToLower (x:xs) = Just $ toLower x : xs
-
-stripFieldPrefix :: String -> String
-stripFieldPrefix = dropWhile (not . isUpper)
-
-mkJsonKey :: String -> String
-mkJsonKey s = fromMaybe s . headToLower $ stripFieldPrefix s
+import           Cardano.Wallet.Util (mkJsonKey)
 
 --
 -- Utils

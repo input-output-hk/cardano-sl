@@ -2,7 +2,6 @@
 
 module Pos.Wallet.Web.Account
        ( myRootAddresses
-       , getAddrIdx
        , getSKById
        , getSKByAddress
        , getSKByAddressPure
@@ -19,7 +18,6 @@ module Pos.Wallet.Web.Account
        ) where
 
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
-import           Data.List (elemIndex)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomIO)
 import           System.Wlog (WithLogger)
@@ -29,7 +27,7 @@ import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKey
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..), isHardened)
-import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util (eitherToThrow)
 import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
@@ -46,12 +44,6 @@ type AccountMode ctx m =
 
 myRootAddresses :: MonadKeysRead m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeysPlain
-
-getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
-getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
-  where
-    notFound =
-        RequestError $ sformat ("No wallet with address "%build%" found") addr
 
 getSKById
     :: AccountMode ctx m

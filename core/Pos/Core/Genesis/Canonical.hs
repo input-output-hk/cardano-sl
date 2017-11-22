@@ -39,6 +39,7 @@ import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPu
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature, redeemPkB64UrlF)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
@@ -182,7 +183,7 @@ instance Monad m => ToJSON m ProtocolConstants where
         mkObject
             -- 'k' definitely won't exceed the limit
             [ ("k", pure . JSNum . fromIntegral $ pcK)
-            , ("protocolMagic", toJSON pcProtocolMagic)
+            , ("protocolMagic", toJSON (getProtocolMagic pcProtocolMagic))
             , ("vssMaxTTL", toJSON pcVssMaxTTL)
             , ("vssMinTTL", toJSON pcVssMinTTL)
             ]
@@ -413,7 +414,7 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
 instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
     fromJSON obj = do
         pcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        pcProtocolMagic <- fromJSField obj "protocolMagic"
+        pcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
         pcVssMaxTTL <- fromJSField obj "vssMaxTTL"
         pcVssMinTTL <- fromJSField obj "vssMinTTL"
         return ProtocolConstants {..}

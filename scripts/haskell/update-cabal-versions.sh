@@ -14,6 +14,7 @@ function updateVersion() {
 updateVersion lib/cardano-sl.cabal
 updateVersion binary/cardano-sl-binary.cabal
 updateVersion util/cardano-sl-util.cabal
+updateVersion crypto/cardano-sl-crypto.cabal
 updateVersion core/cardano-sl-core.cabal
 updateVersion infra/cardano-sl-infra.cabal
 updateVersion db/cardano-sl-db.cabal

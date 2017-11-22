@@ -24,7 +24,7 @@ import           Formatting (bprint, build, int, (%))
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Types (EpochIndex, StakeholderId)
 import           Pos.Crypto.SecretSharing (VssPublicKey)
-import           Pos.Crypto.Signing.Types (PublicKey, Signature)
+import           Pos.Crypto.Signing (PublicKey, Signature)
 
 ----------------------------------------------------------------------------
 -- Vss certificates
@@ -96,4 +96,3 @@ instance Monoid VssCertificatesMap where
         a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
       where
         lVssKeys = HS.fromList (map vcVssKey (toList a))
-

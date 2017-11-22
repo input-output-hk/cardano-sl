@@ -14440,11 +14440,7 @@
 	"9ddb7f322f6793a3be63ac3f31ac71e7b90d27b76c1cc71761e2c5bf": 1,
 	"4d84219037028f3502c58e293396f9becc8b94ecbf852f404580ef4b": 1,
 
-	"6ea479471d79c2db71e7f5bf55e4b391b310450de81d3b10850eadd2": 1,
-	"691f26be7d3a03d56c40c979c03eed0fc06db5346c47e8d338cc7b11": 1,
-
-	"be2819fd6b1ac86763d5c1de6903b5e8d96f43b23f243e16401f85cb": 1,
-	"44527f7f7b1e49e679de5033f79ec075556adc3e8086194016abdadd": 1
+	"6ea479471d79c2db71e7f5bf55e4b391b310450de81d3b10850eadd2": 1
     },
     "ftsSeed": "76617361206f7061736120736b6f766f726f64612047677572646120626f726f64612070726f766f6461",
     "heavyDelegation": {
@@ -14452,11 +14448,7 @@
 	"9ddb7f322f6793a3be63ac3f31ac71e7b90d27b76c1cc71761e2c5bf":{"cert":"b2f044cf7f0d1aa9c800817436570aabbfa029b3ff9b77a3b83d3205746f176c9fef5aec029aaa5f9c486744bfedb6724c997515ed4f5fdaa2d03700f8708407","delegatePk":"HV5+gKgoYbGoAB34NMkIDvKBrulsRyfCZmS0Fizrl7bUnEfMs9/EyvLcgDaqLdfNLNfFzBSgAR1QWNWADQ0Gig==","issuerPk":"S33PbA1kO5Cad6f47KJcNGW3FcD5IT1zEO2fn3cORj6qKZxT8r9x+Izadz1f+SWx/lufb3z2c7fNiPtHPkwwvA==","omega":0},
 	"4d84219037028f3502c58e293396f9becc8b94ecbf852f404580ef4b":{"cert":"cb4e69ff882552865e93312fd00970bc7ab36296de0c50f50e4a7e0ce4b6cb0eb9a55794e20b670426f35cfbcd5f3368f9de5c403677fafe408e6a92eb5f4a00","delegatePk":"9nyylndB1x0liSdnz0LhpoufvOpEuZ1jJLcrDZYspFk/mj10EkWZUCi/wfiST0hbeunKp2lhx+HbGpNuMlEvEA==","issuerPk":"b0BEmpRyqoitufH0FAJIiTqpaDQYgpJ0uMuiPO3reI1AiAZD5fkvu8o9vWl924+VVwe7UEIRbOGCHk/o6Vel3g==","omega":0},
 
-	"6ea479471d79c2db71e7f5bf55e4b391b310450de81d3b10850eadd2":{"cert":"abc115e9bc3398607558da9ed2433ba00c65ff71e9a625f853374c33d832fc5dc1812dce9c59bd67310def91ffbe44845f45678d1ea9414e832bfa370d21c300","delegatePk":"FVT9+EybM5YFJKmYZoUa0hb6mZEZXmtChhxwpTS/Gn8QeIaDzpFBq889IXTCt5Idew+JT+9f+tiXAluAlCNtng==","issuerPk":"npsfpHUshwIPLCzexfM3PAhQiPhfJ/A6q2X4ZOoON+UJpjhrozM24VQl3PEKKn/jfadzF10Dw7aEWOXVHnN2Vw==","omega":0},
-	"691f26be7d3a03d56c40c979c03eed0fc06db5346c47e8d338cc7b11":{"cert":"d8e8fa28b8c7a453e8cc40e587f6fd76a524f0403c79a894042eff5fac413b75d7b3c4fe52472b0a6f519f6da5ed9bd7d4400ccfd9b224605b6b18c42db2220a","delegatePk":"rQ798zSqVQzn14teNAtFl6XLHqKidtksY0TPLDKSRob9JJpvsV7u07BhpJrsKJnOgz+hhuLzAahFGguB6toYig==","issuerPk":"PmoUzfYYkx3TlbIDSX8ZRTMPiBXY+Nttp/2Q81bLyMgLO89v7SV8f/vZF7Jr/M5j4QOZyzedFcSNGDqP2LQN0A==","omega":0},
-
-	"be2819fd6b1ac86763d5c1de6903b5e8d96f43b23f243e16401f85cb":{"cert":"b727b58fb68157b11dbcc67243246e87237bbb1ab14513033ce329565a8c31bae2fb3dcd43b2a83fe22800fc9429414e79a1c81c5744c27c21e729c6d367a70f","delegatePk":"1C4vGdgHil59gukd8YPsqtV2pgfalL4j7phWuKaEisLkCedCusGtaskOwk0fkiEgU8kVc1TFKjqxTEQYdE3DpA==","issuerPk":"kJbDly+8W5I9AFWLruJ9QL5BbJvakhUR4GqhtBw4h28m04+r0b+tqySnJLeMAHbX9PUc52j6QZ4XxEAuUTyStw==","omega":0},
-	"44527f7f7b1e49e679de5033f79ec075556adc3e8086194016abdadd":{"cert":"05ff34e3b7e703fb222609004361f3e03d45231e80064c0e8ccd4d164ad2e399b2544223cfdfef9dec067bf8395e0a6fd82735abfb8827bfc9bbb4648c73f504","delegatePk":"LxnxuG5pTlojgG7TCjSsrrQTEWIpd5Lpakd/Jlmh3J1N5vIPAlLn5W8WqnSTj94W+OhjYzD3QN5vWJqDwqA8Sw==","issuerPk":"Xf8mIEqV4YadaLHas2Q2zCg6hSXDc02QXq7Qvq90hR5EIGYIkqGcShF8pQoUAUQMrd8W+udqC6Cr///FzNO6YA==","omega":0}
+	"6ea479471d79c2db71e7f5bf55e4b391b310450de81d3b10850eadd2":{"cert":"abc115e9bc3398607558da9ed2433ba00c65ff71e9a625f853374c33d832fc5dc1812dce9c59bd67310def91ffbe44845f45678d1ea9414e832bfa370d21c300","delegatePk":"FVT9+EybM5YFJKmYZoUa0hb6mZEZXmtChhxwpTS/Gn8QeIaDzpFBq889IXTCt5Idew+JT+9f+tiXAluAlCNtng==","issuerPk":"npsfpHUshwIPLCzexfM3PAhQiPhfJ/A6q2X4ZOoON+UJpjhrozM24VQl3PEKKn/jfadzF10Dw7aEWOXVHnN2Vw==","omega":0}
     },
     "nonAvvmBalances": {},
     "protocolConsts": {
@@ -14465,14 +14457,11 @@
         "vssMaxTTL": 6,
         "vssMinTTL": 2
     },
-    "startTime": 1506450213,
+    "startTime": 1509473308,
     "vssCerts": {
 	"a2b1af0df8ca764876a45608fae36cf04400ed9f413de2e37d92ce04":{"expiryEpoch":5,"signature":"52c66d5c7d816e364bb26dff77eedfc19ffaa54676db1c151d951760e5878908516d3d6736d43a2b721596daacc067f0e76173c7cfc3e811bb384052db193807","signingKey":"sc4pa1pAriXO7IzMpByKo4cG90HCFD465Iad284uDYz06dHCqBwMHRukReQ90+TA/vQpj4L1YNaLHI7DS0Z2Vg==","vssKey":"WCECJ3Hc8mA7MGIrSofe1Wbriatx8ftFm9QB2Gm9R61oi7M="},
 	"0f7443bbb6cbd90378632877fc480bc17feb3a916f2a21a772268091":{"expiryEpoch":5,"signature":"1b3cd6946b1bac3c0f04fa245f0c17591faaf7e88616b669ada887ee6423b03e897b54fe49cfd4471f0822d0b49e53fb681d7a0d5bb057ce6141143b35a2ac05","signingKey":"HV5+gKgoYbGoAB34NMkIDvKBrulsRyfCZmS0Fizrl7bUnEfMs9/EyvLcgDaqLdfNLNfFzBSgAR1QWNWADQ0Gig==","vssKey":"WCEDYt3U7vLJqPpz4q9yOk2ka+zV+5VkDt5pgRK3RWcndPo="},
 	"9dcc46914fd513f96291b384ed57dab18999221c4ffe07bc1c5963b0":{"expiryEpoch":5,"signature":"86a339644bedf9abea48debeb8fbeae7ba89e8f1fe5d230f06a064fbc1e16925159e85a2f241075402f86239b19bdffb8739ad48e56fc18481b57b2a1a320e0e","signingKey":"9nyylndB1x0liSdnz0LhpoufvOpEuZ1jJLcrDZYspFk/mj10EkWZUCi/wfiST0hbeunKp2lhx+HbGpNuMlEvEA==","vssKey":"WCEDxIke7JrGlMLf25Eg+1ZP+pn8mqRD0nldjB/x2KgzYMU="},
-	"366718b4cd6f426e773dc7e06d0f930a97bf9f59ec8385f7cace8f87":{"expiryEpoch":5,"signature":"acf41c3319d491116e8027919eb0afb93a90ce519e446813ba6386a2673a944de0b8c763488e5caecc3bb160d68959896b81dc5564cbb2093dc9d7e9e2c41109","signingKey":"FVT9+EybM5YFJKmYZoUa0hb6mZEZXmtChhxwpTS/Gn8QeIaDzpFBq889IXTCt5Idew+JT+9f+tiXAluAlCNtng==","vssKey":"WCEDtNiaE+TNouVm+jT2mICFRbbAAbswdT3zEwPSsPf72GY="},
-	"98c7c54caa02d1b606d847c8de7826303d7a167f7de863d957ae88d6":{"expiryEpoch":5,"signature":"76b162d0e155fe38acf8d67ef7f2a2712b88b8b62bd0f803a346ad515a059098c82ec82a7841acd266c1e7ce11f24ab8a6699d21d5cf45e34cef89df8e3f0d03","signingKey":"rQ798zSqVQzn14teNAtFl6XLHqKidtksY0TPLDKSRob9JJpvsV7u07BhpJrsKJnOgz+hhuLzAahFGguB6toYig==","vssKey":"WCEDg7oWPXifzx5a1Vf2neb0eykK4aN38lm1+Bm588s6m5g="},
-	"ad702bc2fab46048f8b636b2b6390b76b1bcba3a12b34006b6aa78b1":{"expiryEpoch":5,"signature":"534fdb3fc1106f8ecb9b77ee60c5829837b188d94f8f2921655798f811d553b96d8d28c077ce4dca7c700d0b8e06860028e3721462cad744443fad18b54dea09","signingKey":"1C4vGdgHil59gukd8YPsqtV2pgfalL4j7phWuKaEisLkCedCusGtaskOwk0fkiEgU8kVc1TFKjqxTEQYdE3DpA==","vssKey":"WCEDdo0IbZRz6NuH+5op6YdKvCbFXhE/4jq6qPdcdkhG+PM="},
-	"c677de8c7c16cacc8db55ef21521feabf6acbe5160260f9a31681611":{"expiryEpoch":5,"signature":"6d9b5b2ca7cbe2d20f0f0a4522e6d6a9007a1f52c6c3c40d1ae5659eba695edf5183a979ea8d4564b47a3861b9762ecc7fd74d1f9aaa0b573156b1fe26027404","signingKey":"LxnxuG5pTlojgG7TCjSsrrQTEWIpd5Lpakd/Jlmh3J1N5vIPAlLn5W8WqnSTj94W+OhjYzD3QN5vWJqDwqA8Sw==","vssKey":"WCECFGOgNTOZTM4LywqsMEweJh9B0WJBJUFMLFe+5t93MkE="}
+	"366718b4cd6f426e773dc7e06d0f930a97bf9f59ec8385f7cace8f87":{"expiryEpoch":5,"signature":"acf41c3319d491116e8027919eb0afb93a90ce519e446813ba6386a2673a944de0b8c763488e5caecc3bb160d68959896b81dc5564cbb2093dc9d7e9e2c41109","signingKey":"FVT9+EybM5YFJKmYZoUa0hb6mZEZXmtChhxwpTS/Gn8QeIaDzpFBq889IXTCt5Idew+JT+9f+tiXAluAlCNtng==","vssKey":"WCEDtNiaE+TNouVm+jT2mICFRbbAAbswdT3zEwPSsPf72GY="}
     }
 }

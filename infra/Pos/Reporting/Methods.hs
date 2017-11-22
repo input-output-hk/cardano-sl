@@ -62,7 +62,7 @@ import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFi
 
 import           Paths_cardano_sl_infra (version)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))

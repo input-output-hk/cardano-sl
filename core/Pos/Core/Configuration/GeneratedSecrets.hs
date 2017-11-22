@@ -16,7 +16,7 @@ import           Universum
 import           Data.Reflection (Given (..), give)
 
 import           Pos.Core.Genesis.Generate (GeneratedSecrets (..), RichSecrets (..))
-import           Pos.Crypto.Signing.Types (EncryptedSecretKey, SecretKey, encToSecret)
+import           Pos.Crypto.Signing (EncryptedSecretKey, SecretKey, encToSecret)
 
 -- | 'GeneratedSecrets' are known only when 'GenesisSpec' with
 -- 'TestnetInitializer' is used to specify genesis. That's why we have

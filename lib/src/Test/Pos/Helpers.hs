@@ -24,9 +24,6 @@ module Test.Pos.Helpers
        , formsSemigroup
        , formsMonoid
        , formsCommutativeMonoid
-
-       -- * Various properties and predicates
-       , blockPropertySpec
        ) where
 
 import           Universum
@@ -49,11 +46,7 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
 import           Pos.Communication (Limit (..), MessageLimitedPure (..))
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Util.Arbitrary (SmallGenerator (..))
-import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable)
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
 
@@ -276,18 +269,6 @@ shouldThrowException
 shouldThrowException action exception arg =
     (return $! action arg) `shouldThrow` exception
 
-
-----------------------------------------------------------------------------
--- Various properties and predicates
-----------------------------------------------------------------------------
-
--- | Specialized version of 'prop' function from 'hspec'.
-blockPropertySpec ::
-       (HasNodeConfiguration, HasSscConfiguration)
-    => String
-    -> (HasConfiguration => BlockProperty a)
-    -> Spec
-blockPropertySpec description bp = prop description (blockPropertyTestable bp)
 
 ----------------------------------------------------------------------------
 -- Orphans

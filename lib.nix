@@ -5,6 +5,13 @@ let
     then builtins.trace "using host <cardano_pkgs>" try.value
     else import ./fetch-nixpkgs.nix;
 
+  maybeEnv = env: default:
+    let
+      result = builtins.getEnv env;
+    in if result != ""
+       then result
+       else default;
+
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;
 in lib // (rec {

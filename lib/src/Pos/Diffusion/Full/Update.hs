@@ -15,7 +15,6 @@ import           System.Wlog (logInfo)
 
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
-import           Pos.Binary.Relay ()
 import           Pos.Binary.Txp ()
 import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
@@ -31,6 +30,7 @@ import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode,
                                           Relay (..), relayListeners,
                                           InvReqDataParams (..), MempoolParams (..))
 import           Pos.Crypto (hashHexF)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
@@ -47,6 +47,7 @@ sendVote
        , HasGeneratedSecrets
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasCryptoConfiguration
        )
     => EnqueueMsg m
     -> UpdateVote
@@ -69,6 +70,7 @@ sendUpdateProposal
        , HasGeneratedSecrets
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasCryptoConfiguration
        )
     => EnqueueMsg m
     -> UpId
@@ -85,7 +87,9 @@ sendUpdateProposal enqueue upid proposal votes = do
         (proposal, votes)
 
 updateListeners
-    :: ( DiffusionWorkMode m )
+    :: ( DiffusionWorkMode m
+       , HasUpdateLimits m
+       )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg m
@@ -95,7 +99,9 @@ updateListeners logic oq enqueue = relayListeners oq enqueue (usRelays logic)
 -- | Relays for data related to update system
 usRelays
     :: forall m .
-       ( DiffusionWorkMode m )
+       ( DiffusionWorkMode m
+       , HasUpdateLimits m
+       )
     => Logic m
     -> [Relay m]
 usRelays logic = [proposalRelay logic, voteRelay logic]
@@ -105,7 +111,9 @@ usRelays logic = [proposalRelay logic, voteRelay logic]
 ----------------------------------------------------------------------------
 
 proposalRelay
-    :: ( DiffusionWorkMode m )
+    :: ( DiffusionWorkMode m
+       , HasUpdateLimits m
+       )
     => Logic m
     -> Relay m
 proposalRelay logic =

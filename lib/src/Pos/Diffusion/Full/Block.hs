@@ -34,7 +34,7 @@ import           Pos.Binary.Class (biSize)
 -- TODO move Pos.Block.Network.Types to Pos.Diffusion hierarchy.
 -- Logic layer won't know of it.
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
-import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Limits (HasBlockLimits, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
@@ -58,6 +58,8 @@ import           Pos.Security (AttackType (..), NodeAttackedError (..),
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE)
 import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -144,7 +146,9 @@ enqueueMsgSingle enqueue msg conv = do
 
 getBlocks
     :: forall d .
-       ( DiffusionWorkMode d )
+       ( DiffusionWorkMode d
+       , HasBlockLimits d
+       )
     => Logic d
     -> EnqueueMsg d
     -> NodeId
@@ -331,7 +335,9 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
 
 requestTip
     :: forall d t .
-       ( DiffusionWorkMode d )
+       ( DiffusionWorkMode d
+       , HasBlockLimits d
+       )
     => EnqueueMsg d
     -> (BlockHeader -> NodeId -> d t)
     -> d (Map NodeId (d t))
@@ -473,7 +479,9 @@ import           Pos.DB.Error (DBError (DBMalformed))
 
 -- | All block-related listeners.
 blockListeners
-    :: ( DiffusionWorkMode m )
+    :: ( DiffusionWorkMode m
+       , HasBlockLimits m
+       )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
@@ -545,7 +553,9 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall pack m.
-       ( DiffusionWorkMode m )
+       ( DiffusionWorkMode m
+       , HasBlockLimits m
+       )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)

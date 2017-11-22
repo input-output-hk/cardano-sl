@@ -16,6 +16,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
+import           Pos.Communication.Limits (HasSscLimits)
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
@@ -31,7 +32,9 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
                                   MCVssCertificate (..), SscMessageConstraints)
 
 sscListeners
-    :: ( DiffusionWorkMode m )
+    :: ( DiffusionWorkMode m
+       , HasSscLimits m
+       )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg m

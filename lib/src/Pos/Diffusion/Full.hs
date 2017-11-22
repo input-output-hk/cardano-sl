@@ -34,16 +34,17 @@ import qualified System.Systemd.Daemon as Systemd
 
 import           Pos.Block.Network.Types (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe)
-import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..), HasUpdateLimits, HasTxpLimits, HasBlockLimits, HasSscLimits)
+import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
 import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionData (..), StakeholderId)
+import           Pos.Core.Types (HeaderHash, BlockVersionData (..), StakeholderId)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
 import qualified Pos.Diffusion.Full.Block      as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
@@ -184,11 +185,11 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             mkL :: MkListeners d
             --mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
             mkL = mconcat $
-                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq
-                , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
-                , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
+                [ lmodifier "block"       $ give blockLimits $ Diffusion.Block.blockListeners logic oq
+                , lmodifier "tx"          $ give txpLimits $ Diffusion.Txp.txListeners logic oq enqueue
+                , lmodifier "update"      $ give updateLimits $ Diffusion.Update.updateListeners logic oq enqueue
                 , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
-                , lmodifier "ssc"         $ Diffusion.Ssc.sscListeners logic oq enqueue
+                , lmodifier "ssc"         $ give sscLimits $ Diffusion.Ssc.sscListeners logic oq enqueue
                 ] ++ [
                   lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
                 | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
@@ -219,10 +220,10 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
                       -> BlockHeader
                       -> [HeaderHash]
                       -> d (Either GetBlocksError [Block])
-            getBlocks = Diffusion.Block.getBlocks logic enqueue
+            getBlocks = give blockLimits $ Diffusion.Block.getBlocks logic enqueue
 
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
-            requestTip = Diffusion.Block.requestTip enqueue
+            requestTip = give blockLimits $ Diffusion.Block.requestTip enqueue
 
             announceBlock :: MainBlockHeader -> d ()
             announceBlock = void . Diffusion.Block.announceBlock logic enqueue
@@ -284,19 +285,10 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
                 , maxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData logic
                 }
 
-            withLimits
-                :: ((HasUpdateLimits d, HasTxpLimits d, HasSscLimits d, HasBlockLimits d) => x) -> x
-            withLimits x =
-                give sscLimits $
-                    give txpLimits $
-                    give updateLimits $
-                    give blockLimits $ x
-
             diffusion :: Diffusion d
             diffusion = Diffusion {..}
 
-        -- seq withLimits so that Werror doesn't stop compilation.
-        return (withLimits `seq` DiffusionLayer {..})
+        return DiffusionLayer {..}
 
   where
     -- TBD will we need any resources here?

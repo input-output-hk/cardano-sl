@@ -17,7 +17,6 @@ import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
-import           Pos.Communication.Limits
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
@@ -39,10 +38,6 @@ type DiffusionWorkMode m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
-      , HasBlockLimits m
-      , HasSscLimits m
-      , HasTxpLimits m
-      , HasUpdateLimits m
       , MonadKnownPeers m
       , MonadFormatPeers m
       )

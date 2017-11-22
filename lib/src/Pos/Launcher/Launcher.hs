@@ -17,12 +17,10 @@ import           Pos.Communication.Limits (HasUpdateLimits, HasTxpLimits,
                                            HasSscLimits, HasBlockLimits,
                                            UpdateLimits (..), TxpLimits (..),
                                            SscLimits (..), BlockLimits (..))
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration, BlockVersionData (..))
 import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Class (gsAdoptedBVData)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)

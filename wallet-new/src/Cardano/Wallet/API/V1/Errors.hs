@@ -12,8 +12,7 @@ import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
-import           Cardano.Wallet.API.V1.TH (conNamesList)
+import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsend)
 
 --
 -- Error handling
@@ -83,7 +82,7 @@ instance Arbitrary WalletError where
 
 -- | List of all existing error tags. Populates automatically
 allErrorsList :: [Text]
-allErrorsList = $(conNamesList ''WalletError)
+allErrorsList = gconsNames (Proxy :: Proxy WalletError)
 
 -- | Function which determines which HTTP error corresponds to each
 -- `WalletError`.

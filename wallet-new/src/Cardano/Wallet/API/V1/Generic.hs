@@ -3,6 +3,7 @@
 module Cardano.Wallet.API.V1.Generic
        ( gtoJsend
        , gparseJsend
+       , gconsNames
        ) where
 
 import           Universum hiding (All, Generic)
@@ -34,6 +35,12 @@ pf = Proxy
 allpf :: Proxy (All FromJSON)
 allpf = Proxy
 
+--
+-- JSON encoding/decoding
+--
+
+-- | Returns `JsonInfo` for type (from `json-sop` package)
+-- for representing a type in a JSend format.
 jsendInfo
     :: forall a. (HasDatatypeInfo a, SListI (Code a))
     => Proxy a -> NP JsonInfo (Code a)
@@ -41,7 +48,8 @@ jsendInfo pa = jsonInfo pa $ defaultJsonOptions
     { jsonFieldName = const mkJsonKey
     }
 
--- | mda
+-- | Generic method which makes JSON `Value` from a Haskell value in
+-- JSend format.
 gtoJsend
     :: forall a. (Generic a, HasDatatypeInfo a, All2 ToJSON (Code a))
     => a -> Value
@@ -64,6 +72,7 @@ gtoJsend' (JsonRecord tag fields) cs =
     jsendValue tag . Object . HM.fromList . hcollapse $
     hcliftA2 pt (\(K field) (I a) -> K (pack field, toJSON a)) fields cs
 
+-- | Generic method which parses a Haskell value from given `Value`.
 gparseJsend
     :: forall a. (Generic a, HasDatatypeInfo a, All2 FromJSON (Code a))
     => Value -> Parser a
@@ -109,6 +118,8 @@ parseJsendValues (JsonRecord tag fields) =
             getField (K name) = o .: pack name
         in hsequence $ hcliftA pf getField fields
 
+-- | Helper function which makes a JSON value in JSend format
+-- from a constructor tag and object with constructor's arguments
 jsendValue :: Tag -> Value -> K Value a
 jsendValue NoTag v   = K v
 jsendValue (Tag t) v = K $ Object $
@@ -116,6 +127,8 @@ jsendValue (Tag t) v = K $ Object $
                 , ("diagnostic", v)
                 ]
 
+-- | Helper function to parse value in JSend format if desired constructor
+-- is known.
 unJsendValue :: Tag -> (Value -> Parser a) -> Value -> Parser a
 unJsendValue NoTag f = f
 unJsendValue (Tag n) f = withObject ("Expected JSend object with message `" <> n <> "`") $
@@ -124,3 +137,24 @@ unJsendValue (Tag n) f = withObject ("Expected JSend object with message `" <> n
         guard $ n == msg
         val <- o .: "diagnostic"
         f val
+
+--
+-- Misc
+--
+
+gconsName' :: forall xs. ConstructorInfo xs -> K ConstructorName xs
+gconsName' (Infix n _ _)   = K n
+gconsName' (Constructor n) = K n
+gconsName' (Record n _)    = K n
+
+gconsInfos
+    :: forall a. (HasDatatypeInfo a, SListI (Code a))
+    => Proxy a -> NP ConstructorInfo (Code a)
+gconsInfos pa = case datatypeInfo pa of
+    Newtype _ _ conInfo -> conInfo :* Nil
+    ADT _ _ consInfo    -> consInfo
+
+gconsNames
+    :: forall a. (HasDatatypeInfo a, SListI (Code a))
+    => Proxy a -> [Text]
+gconsNames = map pack . hcollapse . hliftA gconsName' . gconsInfos

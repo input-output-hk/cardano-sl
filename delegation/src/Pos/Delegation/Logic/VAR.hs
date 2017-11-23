@@ -25,12 +25,10 @@ import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Types (Blund, Undo (undoDlg))
-import           Pos.Context (lrcActionOnEpochReason)
 import           Pos.Core (EpochIndex (..), HasConfiguration, StakeholderId, addressHash,
                            epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
-import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Core.Block (Block, BlockchainHelpers, MainBlockchain, mainBlockDlgPayload,
+                                 mainBlockSlot)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
@@ -41,13 +39,14 @@ import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), Dlg
                                       dlgVerifyPskHeavy, evalMapCede, getPskChain, getPskPk, modPsk,
                                       pskToDlgEdgeAction, runDBCede)
 import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
+import qualified Pos.Delegation.DB as GS
 import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
                                                processProxySKHeavyInternal)
-import           Pos.Delegation.Types (DlgPayload (getDlgPayload), DlgUndo (..))
-import qualified Pos.GState as GS
+import           Pos.Delegation.RichmenComponent (getRichmenDlg)
+import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
+import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Context (HasLrcContext)
-import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -301,7 +300,7 @@ getNoLongerRichmen newEpoch =
   where
     getRichmen e =
         toList <$>
-        lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
+        lrcActionOnEpochReason e "getNoLongerRichmen" getRichmenDlg
 
 
 -- | Verifies if blocks are correct relatively to the delegation logic
@@ -322,6 +321,7 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasConfiguration
+       , BlockchainHelpers MainBlockchain
        )
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
@@ -330,7 +330,7 @@ dlgVerifyBlocks blocks = do
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
-        LrcDB.getRichmenDlg
+        getRichmenDlg
     hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -411,9 +411,9 @@ dlgApplyBlocks ::
        , MonadMask m
        , HasConfiguration
        )
-    => OldestFirst NE Blund
+    => OldestFirst NE DlgBlund
     -> m (NonEmpty SomeBatchOp)
-dlgApplyBlocks blunds = do
+dlgApplyBlocks dlgBlunds = do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $ throwM $
@@ -421,11 +421,11 @@ dlgApplyBlocks blunds = do
         sformat
         ("Oldest block is based on tip "%shortHashF%", but our tip is "%shortHashF)
         assumedTip tip
-    getOldestFirst <$> mapM applyBlock blunds
+    getOldestFirst <$> mapM applyBlock dlgBlunds
   where
-    blocks = map fst blunds
-    applyBlock :: Blund -> m SomeBatchOp
-    applyBlock ((Left block), undoDlg -> DlgUndo{..}) = do
+    blocks = map fst dlgBlunds
+    applyBlock :: DlgBlund -> m SomeBatchOp
+    applyBlock ((Left block), DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
@@ -443,7 +443,7 @@ dlgApplyBlocks blunds = do
     applyBlock ((Right block), _) = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
-        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ snd block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map pskToDlgEdgeAction proxySKs
             postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
@@ -467,16 +467,17 @@ dlgRollbackBlocks
        , MonadDBRead m
        , WithLogger m
        )
-    => NewestFirst NE Blund -> m (NonEmpty SomeBatchOp)
-dlgRollbackBlocks blunds = do
-    getNewestFirst <$> mapM rollbackBlund blunds
+    => NewestFirst NE DlgBlund
+    -> m (NonEmpty SomeBatchOp)
+dlgRollbackBlocks dlgBlunds = do
+    getNewestFirst <$> mapM rollbackBlund dlgBlunds
   where
-    rollbackBlund :: Blund -> m SomeBatchOp
-    rollbackBlund (Left _, undoDlg -> DlgUndo{..}) =
+    rollbackBlund :: DlgBlund -> m SomeBatchOp
+    rollbackBlund (Left _, DlgUndo{..}) =
         -- We should restore "this epoch posted" set to one from the undo
         pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
-    rollbackBlund (Right block, undoDlg -> DlgUndo{..}) = do
-        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
+    rollbackBlund (Right block, DlgUndo{..}) = do
+        let proxySKs = getDlgPayload $ snd block
             issuers = map pskIssuerPk proxySKs
             backDeleted = issuers \\ map pskIssuerPk duPsks
             edgeActions = map (DlgEdgeDel . addressHash) backDeleted
@@ -499,6 +500,7 @@ dlgNormalizeOnRollback ::
        , HasLrcContext ctx
        , Mockable CurrentTime m
        , HasConfiguration
+       , BlockchainHelpers MainBlockchain
        )
     => m ()
 dlgNormalizeOnRollback = do

@@ -1,80 +1,85 @@
-{-# LANGUAGE ApplicativeDo     #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE ApplicativeDo         #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 import           Universum
 
-import           Control.Concurrent           (modifyMVar_)
-import           Control.Concurrent.Async.Lifted.Safe
-    (Async, async, cancel, poll, wait, waitAny, withAsyncWithUnmask)
-import           Control.Exception.Safe       (tryAny)
-import           Control.Lens                 (makeLensesWith)
-import qualified Data.ByteString.Lazy         as BS.L
-import           Data.List                    (isSuffixOf)
-import qualified Data.Text.IO                 as T
-import           Data.Time.Units              (Second, convertUnit)
-import           Data.Version                 (showVersion)
-import           Formatting                   (int, sformat, shown, stext, (%))
-import qualified NeatInterpolation            as Q (text)
-import           Options.Applicative          (Mod, OptionFields, Parser, auto,
-                                               execParser, footerDoc, fullDesc, header,
-                                               help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, short,
-                                               strOption)
-import           System.Directory             (createDirectoryIfMissing, doesFileExist,
-                                               getTemporaryDirectory, removeFile)
-import           System.Environment           (getExecutablePath)
-import           System.Exit                  (ExitCode (..))
-import           System.FilePath              (normalise, (</>))
-import qualified System.IO                    as IO
-import           System.Process               (ProcessHandle, readProcessWithExitCode)
-import qualified System.Process               as Process
-import           System.Timeout               (timeout)
-import           System.Wlog                  (logNotice, logInfo,
-                                               logWarning, logError)
-import qualified System.Wlog                  as Log
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Control.Concurrent                   (modifyMVar_)
+import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait,
+                                                       waitAny, withAsyncWithUnmask)
+import           Control.Exception.Safe               (handleAny, tryAny)
+import           Control.Lens                         (makeLensesWith)
+import qualified Data.ByteString.Lazy                 as BS.L
+import           Data.List                            (isSuffixOf)
+import qualified Data.Text.IO                         as T
+import           Data.Time.Units                      (Second, convertUnit)
+import           Data.Version                         (showVersion)
+import           Formatting                           (int, sformat, shown, stext, (%))
+import qualified NeatInterpolation                    as Q (text)
+import           Options.Applicative                  (Mod, OptionFields, Parser,
+                                                       ParserInfo, ParserResult (..),
+                                                       auto, defaultPrefs, execParserPure,
+                                                       footerDoc, fullDesc, header, help,
+                                                       helper, info, infoOption, long,
+                                                       metavar, option, progDesc,
+                                                       renderFailure, short, strOption)
+import           System.Directory                     (createDirectoryIfMissing,
+                                                       doesFileExist,
+                                                       getTemporaryDirectory, removeFile)
+import           System.Environment                   (getExecutablePath)
+import           System.Exit                          (ExitCode (..))
+import           System.FilePath                      (normalise, (</>))
+import qualified System.IO                            as IO
+import           System.Process                       (ProcessHandle,
+                                                       readProcessWithExitCode)
+import qualified System.Process                       as Process
+import           System.Timeout                       (timeout)
+import           System.Wlog                          (logError, logInfo, logNotice,
+                                                       logWarning)
+import qualified System.Wlog                          as Log
+import           Text.PrettyPrint.ANSI.Leijen         (Doc)
 
 #ifdef mingw32_HOST_OS
-import qualified System.IO.Silently           as Silently
+import qualified System.IO.Silently                   as Silently
 #endif
 
 #ifndef mingw32_HOST_OS
-import           System.Posix.Signals         (sigKILL, signalProcess)
-import qualified System.Process.Internals     as Process
+import           System.Posix.Signals                 (sigKILL, signalProcess)
+import qualified System.Process.Internals             as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception            (handle, mask_, throwIO)
-import           Foreign.C.Error              (Errno (..), ePIPE)
-import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
+import           Control.Exception                    (handle, mask_, throwIO)
+import           Foreign.C.Error                      (Errno (..), ePIPE)
+import           GHC.IO.Exception                     (IOErrorType (..), IOException (..))
 
-import           Paths_cardano_sl             (version)
-import           Pos.Client.CLI               (configurationOptionsParser,
-                                               readLoggerConfig)
-import           Pos.Core                     (HasConfiguration, Timestamp (..))
-import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Misc                  (affirmUpdateInstalled)
-import           Pos.DB.Rocks                 (NodeDBs, closeNodeDBs, dbDeleteDefault,
-                                               dbGetDefault, dbIterSourceDefault,
-                                               dbPutDefault, dbWriteBatchDefault,
-                                               openNodeDBs)
-import           Pos.Launcher                 (HasConfigurations, withConfigurations)
-import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
-import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
-import           Pos.ReportServer.Report      (ReportType (..))
-import           Pos.Update                   (installerHash)
-import           Pos.Util                     (HasLens (..), directory, postfixLFields,
-                                               sleep)
+import           Paths_cardano_sl                     (version)
+import           Pos.Client.CLI                       (configurationOptionsParser,
+                                                       readLoggerConfig)
+import           Pos.Core                             (HasConfiguration, Timestamp (..))
+import           Pos.DB.Class                         (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Misc                          (affirmUpdateInstalled)
+import           Pos.DB.Rocks                         (NodeDBs, closeNodeDBs,
+                                                       dbDeleteDefault, dbGetDefault,
+                                                       dbIterSourceDefault, dbPutDefault,
+                                                       dbWriteBatchDefault, openNodeDBs)
+import           Pos.Launcher                         (HasConfigurations,
+                                                       withConfigurations)
+import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
+import           Pos.Reporting.Methods                (retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report              (ReportType (..))
+import           Pos.Update                           (installerHash)
+import           Pos.Util                             (HasLens (..), directory,
+                                                       postfixLFields, sleep)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -95,7 +100,7 @@ data LauncherOptions = LO
     -- console, except on Windows where we don't output anything to console
     -- because it crashes).
     , loLauncherLogsPrefix  :: !(Maybe FilePath)
-    }
+    } deriving (Show)
 
 -- | The concrete monad where everything happens
 type M a = HasConfigurations => Log.LoggerNameBox IO a
@@ -175,8 +180,17 @@ optionsParser = do
 
     pure LO{..}
 
+execParserCustom :: (Show a) => ParserInfo a -> IO a
+execParserCustom x = (execParserPure defaultPrefs x <$> getArgs) >>= \case
+    Success a -> pure a
+    (Failure f) -> do
+        let (msg,_) = renderFailure f "launcher"
+        appendFile "patak.log" $ "\n" <> (fromString msg)
+        exitFailure
+    _ -> error "bababa, completion shouldn't be invoked"
+
 getLauncherOptions :: IO LauncherOptions
-getLauncherOptions = execParser programInfo
+getLauncherOptions = execParserCustom programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ""
@@ -246,8 +260,11 @@ main =
   -- don't even exist.
   Silently.hSilence [stdout, stderr] $
 #endif
+  handleAny (\e -> appendFile "patak.log" $ "Caught an exception: " <> show e) $
   do
+    writeFile "patak.log" "Entered launcher's main"
     LO {..} <- getLauncherOptions
+    appendFile "patak.log" "Got launcher's options"
     let realNodeArgs = addConfigurationOptions loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
@@ -262,12 +279,14 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.Debug)
+    appendFile "patak.log" "Managed to setup launcher's logging, wow-wow"
     bracketNodeDBs loNodeDbPath $ \lmcNodeDBs ->
         Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
         let lmc = LauncherModeContext{..} in
         case loWalletPath of
             Nothing -> do
+                appendFile "patak.log" "serverScenario"
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
@@ -280,6 +299,7 @@ main =
                     , loUpdateArchive)
                     loReportServer
             Just wpath -> do
+                appendFile "patak.log" "clientScenario"
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario

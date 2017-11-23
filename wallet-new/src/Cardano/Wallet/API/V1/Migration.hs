@@ -22,7 +22,8 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Pos.Core.Common as Core
+import qualified Pos.Core as Core
+import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Exception.Safe as E
@@ -89,15 +90,15 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
 --
 instance Migrate V0.CCoin Core.Coin where
     eitherMigrate =
-        maybe (Left $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
-        . fmap Core.mkCoin
-        . readMaybe
-        . toString
-        . V0.getCCoin
+        first (const $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") .
+        V0.decodeCType
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
+
+instance Migrate V1.WalletId (V0.CId V0.Wal) where
+    eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108

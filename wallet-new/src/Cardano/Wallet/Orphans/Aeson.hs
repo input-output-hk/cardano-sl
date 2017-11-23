@@ -41,6 +41,9 @@ instance FromJSON BackupPhrase where
 instance ToJSON CFilePath where
   toJSON (CFilePath c) = toJSON c
 
+-- FIXME: This couple of instances is not complementary,
+-- can't write roundtrip test for them.
+-- It doesn't matter though, because we will hardly need to return password
 instance ToJSON Core.PassPhrase where
     toJSON = String . sformat shown
 

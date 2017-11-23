@@ -219,12 +219,6 @@ instance ToParamSchema ResponseFormat where
 
 instance ToParamSchema WalletId
 
-instance ToDocs APIVersion where
-  descriptionFor _ = "The API version. We currently support v0 and v1."
-
-instance ToDocs WalletVersion where
-  descriptionFor _ = "The Wallet version, including the API version and the Git revision."
-
 instance ToDocs Metadata where
   descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
 
@@ -284,12 +278,6 @@ possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
 possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
 -- ToSchema instances
-
-instance ToSchema APIVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
-
-instance ToSchema WalletVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON

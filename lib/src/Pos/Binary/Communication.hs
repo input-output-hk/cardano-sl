@@ -51,14 +51,16 @@ instance HasConfiguration => Bi MsgHeaders where
 
 instance HasConfiguration => Bi MsgBlock where
     encode = \case
-        (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        (MsgBlockDirect b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+        (MsgBlock bbs) -> encodeListLen 2 <> encode (2 :: Word8) <> encode bbs
     decode = do
         enforceSize "MsgBlock" 2
         tag <- decode @Word8
         case tag of
-            0 -> MsgBlock <$> decode
+            0 -> MsgBlockDirect <$> decode
             1 -> MsgNoBlock <$> decode
+            2 -> MsgBlock <$> decode
             t -> fail $ "MsgBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
@@ -78,15 +80,17 @@ instance Bi MsgSubscribe where
 ----------------------------------------------------------------------------
 
 instance Bi HandlerSpec where
-  encode input = case input of
-    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
-    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
-  decode = do
-    enforceSize "HandlerSpec" 2
-    tag <- decode @Word8
-    case tag of
-      0 -> ConvHandler        <$> decodeKnownCborDataItem
-      _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
+    encode input = case input of
+        ConvHandler mname        ->
+            encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+        UnknownHandler word8 bs  ->
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+    decode = do
+        enforceSize "HandlerSpec" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> ConvHandler        <$> decodeKnownCborDataItem
+            _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

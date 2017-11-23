@@ -11,7 +11,7 @@ import           System.Wlog (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Logic (getHeadersFromToIncl)
+import           Pos.Block.Logic (getHeadersRange)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
@@ -20,7 +20,7 @@ import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
-import qualified Pos.DB.Block as DB
+import qualified Pos.DB.Class as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
 import           Pos.Util.Chrono (NewestFirst (..))
@@ -62,26 +62,27 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        mHashes <- getHeadersFromToIncl mgbFrom mgbTo
-        case mHashes of
-            Just hashes -> do
+        getHeadersRange mgbFrom mgbTo >>= \case
+            Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
-                for_ hashes $ \hHash ->
-                    DB.getBlock hHash >>= \case
-                        Nothing -> do
-                            send conv (MsgNoBlock $
-                                       "Couldn't retrieve block with hash " <> pretty hHash)
-                            failMalformed
-                        Just b -> send conv (MsgBlock b)
+                for_ hashes $ \hHash -> DB.dbGetSerBlock hHash >>= \case
+                    Nothing -> do
+                        send conv (MsgNoBlock $
+                                   "Couldn't retrieve block with hash " <> pretty hHash)
+                        failMalformed
+                    Just (DB.Serialized bbs) -> send conv (MsgBlock bbs)
                 logDebug "handleGetBlocks: blocks sending done"
-            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+            Left e -> do
+                let e' = "getBlocksByHeaders@retrieveHeaders returned error: " <> e
+                logWarning e'
+                send conv (MsgNoBlock e')
   where
     failMalformed =
         throwM $ DBMalformed $
-        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "handleGetBlocks: getHeadersRange returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------

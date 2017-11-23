@@ -13,22 +13,22 @@ outdated for newer version of the code.
     + [Naming conventions](#naming-conventions)
     + [How to specify genesis](#how-to-specify-genesis)
     + [Genesis data format](#genesis-data-format)
+      - [Balances and stakes](#balances-and-stakes)
     + [Genesis spec format](#genesis-spec-format)
-    + [Initializer](#initializer)
-      - [Testnet initializer](#testnet-initializer)
-      - [Mainnet initializer](#mainnet-initializer)
-    + [Balances and stakes](#balances-and-stakes)
-    + [System start time](#system-start-time)
+      - [Initializer](#initializer)
+      - [Balances and stakes](#balances-and-stakes-1)
+      - [System start time](#system-start-time)
     + [Tools](#tools)
     + [Generating genesis for testnet](#generating-genesis-for-testnet)
     + [Generating genesis for mainnet](#generating-genesis-for-mainnet)
-  * [Core configuration besides genesis](#core-configuration-besides-genesis)
-  * [Infra configuration](#infra-configuration)
-  * [Update configuration](#update-configuration)
-  * [Ssc configuration](#ssc-configuration)
-  * [Delegation configuration](#delegation-configuration)
-  * [Node configuration](#node-configuration)
-  * [Our configurations](#our-configurations)
+  * [Parts of configuration file](#parts-of-configuration-file)
+    + [Core configuration besides genesis](#core-configuration-besides-genesis)
+    + [Infra configuration](#infra-configuration)
+    + [Update configuration](#update-configuration)
+    + [Ssc configuration](#ssc-configuration)
+    + [Delegation configuration](#delegation-configuration)
+    + [Node configuration](#node-configuration)
+  * [Predefined configurations](#predefined-configurations)
     + [Mainnet configurations](#mainnet-configurations)
     + [Internal staging configurations](#internal-staging-configurations)
     + [Devnet configuration](#devnet-configuration)
@@ -55,13 +55,19 @@ outdated for newer version of the code.
 Configuration is stored in YAML format, conventional name for the file
 is `configuration.yaml`. This file contains multiple configurations,
 each one is associated with a key.  An example of configuration can be
-found in the file `lib/configuration.yaml`. Configuration consists of
-several parts (for different parts of Cardano SL): `core`
-configuration, `infra` configuration, `update` configuration, `ssc`
-configuration, `delegation` configuration, `node` configuration. Below
-we describe each part. Probably the most important part of `core`
-configuration is `genesis` configuration. It's described
-in [a separate section](#genesis).
+found in the file `lib/configuration.yaml`.
+
+Configuration consists of several parts (for different parts of Cardano SL),
+each will be descirbed below:
+
+* `core` configuration
+  - `genesis` configuration is the most important  part of `core`, described
+in [a separate section](#genesis)
+* `infra` configuration
+* `update` configuration
+* `ssc` configuration
+* `delegation` configuration
+* `node` configuration
 
 ## Command line options
 
@@ -76,8 +82,8 @@ file. Default value is `lib/configuration.yaml`.
   configuration and must not be provided otherwise. More details are
   provided [below](#system-start-time).
 * `--configuration-seed` can be used to specify seed used to generate
-  secret data. It overrides `seed` value from `testnetInitializer`
-  (see below). In `testnetInitializer` isn't used, passing
+  secret data. It overrides `seed` value from `initializer`
+  (see below). If _genesis data_ is used, passing
   `--configuration-seed` is prohibited.
 
 ## Genesis
@@ -294,6 +300,26 @@ Section "vssCerts" contains VSS certificates:
 Keys in `vssCerts` dictionary are `StakeholderId`s of
 certificates' issuers. They must be consistent with `signingKey` values.
 
+#### Balances and stakes
+
+In _genesis data_ there are two fields which determine balances:
+`avvmDistr` and `nonAvvmBalances`:
+ - The former is a map from AVVM
+addresses to balances
+ - The latter is a map from Cardano-SL addresses
+to balances
+
+AVVM addresses can be easily converted to Cardano-SL
+addresses (redeem type), so obtaining a final map from Cardano-SL
+addresses to balances is trivial.
+
+Stakes are computed from balances w.r.t. `bootStakeholders` map,
+because all genesis addresses have `BootstraEra` stake
+distribution.
+Keys in `bootStakeholders` map are `StakeholderId`s
+which will have stake and values are their weights (stake will be
+distributed proportionally to those weights).
+
 ### Genesis spec format
 
 Let's again start with an example:
@@ -302,19 +328,18 @@ Let's again start with an example:
     genesis:
       spec:
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        12
-              richmen:      4
-              richmenShare: 0.99
-              useHDAddresses: True
-              totalBalance: 600000000000000000
-            fakeAvvmBalance:
-              count: 10
-              oneBalance: 100000
-            avvmBalanceFactor: 0.5
-            useHeavyDlg: True
-            seed: 0
+          testBalance:
+            poors:        12
+            richmen:      4
+            richmenShare: 0.99
+            useHDAddresses: True
+            totalBalance: 600000000000000000
+          fakeAvvmBalance:
+            count: 10
+            oneBalance: 100000
+          avvmBalanceFactor: 0.5
+          useHeavyDlg: True
+          seed: 0
         blockVersionData:
           scriptVersion:     0
           slotDuration:      7000
@@ -358,14 +383,9 @@ differences:
    are lovelaces, not ADA.
 5. Addresses in `avvmDistr` are presented in base64 format, not base64(url).
 
-### Initializer
+#### Initializer
 
-`initializer` can be either `testnetInitializer` or
-`mainnetInitializer`.
-
-#### Testnet initializer
-
-Sample configuration with `testnetInitializer` was presented above. It
+Sample configuration with `initializer` was presented above. It
 contains the following fields:
 * `testBalance`. It specifies how many nodes should be rich, how many
   nodes should be poor, how big should be total balance of rich nodes,
@@ -385,14 +405,13 @@ contains the following fields:
   derived from secret keys). It can be overridden using
   `--configuration-seed` option.
 
-`testnetInitializer` makes it quite easy to generate genesis data,
+Initializer makes it quite easy to generate genesis data,
 because all secrets are derived from only one integer. It's suitable
-for testnet because there we can let some people control all
+for custom developer clusters because there we can let some people control all
 stake. It's not true for mainnet, where we have three parties, that's
 why workflow for mainnet is more complex.
 
-Other features supported by `testnetInitializer` which are not present
-in mainnet:
+Other features supported by initializer:
 * It allows to have fake AVVM seeds to test ADA redemption, which are
   needed, because developers and QA specialists don't know actual
   seeds having value.
@@ -402,106 +421,70 @@ in mainnet:
   seeds), but also ready-to-use public key addresses (specified by
   `testBalance`). We can have few addresses with very big balance
   owned by us and many addresses with small balance shared with
-  everybody.
+  everybody (e.g. for faucet).
 
-#### Mainnet initializer
-
-`mainnetInitializer` doesn't have any seed, in this case all data is
-specified explicitly, not generated somehow. It contains bootstrap
-stakeholders, vss certificates, non-avvm balances and system start
-time (see below). Example:
-
-```
-    initializer:
-        mainnetInitializer:
-        startTime: 1505621332000000
-        bootStakeholders:
-            0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
-        vssCerts:
-            0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da:
-                expiryEpoch: 1
-                signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
-                signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
-                vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-            4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735:
-                expiryEpoch: 2
-                signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
-                signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
-                vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-        nonAvvmBalances: {}
-```
-
-Such type of genesis spec presumably was used once to construct
-mainnet genesis data. It's not clear whether it will be ever used
-again.
-
-### Balances and stakes
-
-In _genesis data_ there are two fields which determine balances:
-`avvmDistr` and `nonAvvmBalances`. The former is a map from AVVM
-addresses to balances, the latter is a map from Cardano-SL addresses
-to balances. AVVM addresses can be easily converted to Cardano-SL
-addresses (redeem type), so obtaining a final map from Cardano-SL
-addresses to balances is trivial.
-
-Stakes are computed from balances based on `bootStakeholders` map,
-because all genesis addresses have `BootstraEra` stake
-distribution. Keys in `bootStakeholders` map are `StakeholderId`s
-which will have stake and values are their weights (stake will be
-distributed proportionally to those weights).
+#### Balances and stakes
 
 In _genesis spec_ there are two fields which determine balances and
 stakes: `avvmDistr` and `initializer`. `avvmDistr` is supposed to
 contain the result of vending (which can be found in
 `lib/configuration.yaml`, see `mainnet_avvmDistr`), but it also can be
-empty if you don't want need AVVM addresses (or it can be modified in
+empty if you don't need AVVM addresses (or it can be modified in
 a different way, however you want). Overview of `initializer` is
-described [above](#initializer). In the following we describe how
+described [above](#initializer).
+
+In the following we describe how
 `avvmDistr` and `nonAvvmBalances` (fields in genesis data which
 determine balances and stakes) are computed from genesis spec.
 
 * `avvmDistr` in _genesis data_ depends on `avvmDistr` from _genesis
-  spec_ and also on `fakeAvvmBalance` and `avvmBalanceFactor` if
-  `testnetInitializer` is used. We generate `fakeAvvmBalance.count`
+  spec_ and also on `fakeAvvmBalance` and `avvmBalanceFactor` from `initializer`.
+  We generate `fakeAvvmBalance.count`
   random seeds, convert them to AVVM addresses and assign each one
   `fakeAvvmBalance.oneBalance` coins (lovelaces). `avvmDistr` is
   multiplied by `avvmBalanceFactor` and then is merged with fake
-  distribution.  Note: if an address is in fake avvm map **and** in
+  distribution.
+
+  Note: if an address is in fake avvm map **and** in
   real avvm map, it likely indicates that you are doing something
   wrong, but the behavior is to pick the fake value.
-* `nonAvvmBalances` in _genesis data_ is empty when
-  `mainnetInitializer` is used and depends on `testBalance` otherwise
-  (i. e. for `testnetInitializer`). Let's describe how balances and
-  addresses generated in this case:
+
+* `nonAvvmBalances` in _genesis data_ depends on `testBalance`.
+  Let's describe how balances and addresses generated in this case:
+
   - To generated balances we first find limit on how much
   coins we can generate by subtracting sum of all real avvm balances
   (considering `avvmBalanceFactor`) from maximal possible coin value
   (45000000000000000). Total generated value is the minimum between
-  `testBalance.totalBalance` and the aforementioned limit. Let's say
-  that `n` is the difference between total generated value and the sum
-  of all fake avvm balances (`count * oneBalance`). Then we have
-  `richmenBalance = richmenShare * n`. There will be
-  `testBalance.richmen` addresses with approximately `richmenBalance /
-  testBalance.richmen` coins. The rest will be evenly distributed
-  among `testBalance.poors` addresses.
+  `testBalance.totalBalance` and the aforementioned limit.
+
+    Let's say
+    that `n` is the difference between total generated value and the sum
+    of all fake avvm balances (`count * oneBalance`). Then we have
+    `richmenBalance = richmenShare * n`. There will be
+    `testBalance.richmen` addresses with approximately `richmenBalance /
+    testBalance.richmen` coins. The rest will be evenly distributed
+    among `testBalance.poors` addresses.
+
   - For each richman we generate a simple PubKey addresses without
-    attributes. Poor addresses are either HD addresses with empty
+    attributes.
+
+    Poor addresses are either HD addresses with empty
     passphrase or simple PubKey addresses depending on
     `useHDAddresses` value. All addresses have BootstrapEra stake
-    distribution. Note: rich addresses are derived from secret keys of
+    distribution.
+
+    Note: rich addresses are derived from secret keys of
     richmen which may be different from bootstrap stakeholders'
     keys. It depends on `useHeavyDlg`.
 
-### System start time
+#### System start time
 
-System start time is taken from configuration or command line option
-(`--system-start`). It's taken from configuration if genesis is
-provided as genesis data (which always contains system start time) or
-if genesis is provided as genesis spec with `mainnetInitializer`. The
-reason why system start is part of `mainnetInitializer`, but not part
-of `testnetInitializer` is that mainnet is launched rarely (actually
-only once, but there is also staging), but other clusters are launched
-more often, and it's easier to change this value from CLI.
+With _genesis spec_, system start time is taken from command line option
+(`--system-start`). The
+reason why system start is not part
+of `initializer` is that dev clusters are to be launched
+often, and it's easier to change this value from CLI flags rather then configuration file.
 
 ### Tools
 
@@ -514,7 +497,7 @@ There are some tools relevant to genesis data.
   generate and dump secrets to `<dir>`. To deploy a cluster you need
   keys of core nodes. They can be found in
   `<dir>/generated-keys/rich/`. It can be used only when genesis spec
-  with `testnetInitializer` is used.
+  is used.
 
 * `cardano-keygen` also has command to dump genesis data (in JSON
   format). Usage: `cardano-keygen --system-start SYSTEM_START
@@ -532,7 +515,7 @@ There are some tools relevant to genesis data.
 ### Generating genesis for testnet
 
 For testnet we can't use `spec` for genesis, at least because
-converting genesis spec to genesis data in currently very slow and we
+converting genesis spec to genesis data is currently very slow and we
 want to have thousands of HD addresses in testnet. For this reason
 it's necessary to generate a JSON file with genesis data
 first. Fortunately it can be done automatically from genesis spec. The
@@ -540,8 +523,8 @@ instruction below applies to public testnet, staging testnet, internal
 staging and other clusters when it's necessary to generate genesis
 data from spec.
 
-1. You need to have a configuration which uses _genesis spec_ and
-   `testnetInitializer`. Let's assume it's in file `CONF_FILE` and its
+1. You need to have a configuration which uses _genesis spec_.
+   Let's assume it's in file `CONF_FILE` and its
    key is `CONF_KEY`. For instance, at the moment of writing, there is
    `internal_staging_gen` configuration which can be used to generate
    genesis for `internal_staging_full` configuration.
@@ -587,27 +570,29 @@ example. Probably that `README.md` should be moved to this section or
 to this folder (`docs/`). Some part of that `README.md` has been moved
 to this file already.
 
-## Core configuration besides genesis
+## Parts of configuration file
+
+### Core configuration besides genesis
 
 **TODO**
 
-## Infra configuration
+### Infra configuration
 
 **TODO**
 
-## Update configuration
+### Update configuration
 
 **TODO**
 
-## Ssc configuration
+### Ssc configuration
 
 **TODO**
 
-## Delegation configuration
+### Delegation configuration
 
 **TODO**
 
-## Node configuration
+### Node configuration
 
 Node configuration is accessible by `<configuration-key>.node` key. It
 has the following values:
@@ -625,7 +610,7 @@ has the following values:
 
 **TODO**: describe the rest.
 
-## Our configurations
+## Predefined configurations
 
 This section describes various configuration keys we have in
 `lib/configuration.yaml` file. For long-term clusters we also describe
@@ -645,9 +630,6 @@ file for different keys.
 * `mainnet_base` configuration serves as a basis for other mainnet
   configurations and shouldn't be used directly. It also can be used
   as a basis for non-mainnet configurations.
-* `mainnet_example_generated` configuration is an example of mainnet
-  configuration where genesis is provided by spec. It shouldn't be used
-  directly, only as an example.
 * `mainnet_full` configuration is what core nodes use in real
   mainnet. `mainnet_wallet_win64` and `mainnet_wallet_macos64` are
   almost same, but they have different `update` configurations
@@ -700,7 +682,7 @@ depend on particular task:
 * `mdNoBlocksSlotThreshold` and
   `recoveryHeadersMessage` depend on `k`. Set their values properly if
   you modify `k`. See [node configuration](#node-configuration).
-* `genesis.spec.initializer.testnetInitializer.richmen` is basically
+* `genesis.spec.initializer.richmen` is basically
   the number of core nodes. Should be the same as the number of core
   nodes deployed.
 

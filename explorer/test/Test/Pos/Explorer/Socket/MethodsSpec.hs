@@ -10,24 +10,24 @@ module Test.Pos.Explorer.Socket.MethodsSpec
 import           Universum
 
 import           Control.Lens (at)
-import           Control.Monad.State.Class (MonadState (..))
+-- import           Control.Monad.State.Class (MonadState (..))
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
-import           Network.EngineIO (SocketId)
+-- import           Network.EngineIO (SocketId)
 
 import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import           Test.Pos.Block.Logic.Emulation (Emulation(..))
-import           Test.Pos.Util (withDefConfigurations)
-import           Test.QuickCheck (Arbitrary (..), Property)
+-- import           Test.Pos.Block.Logic.Emulation (Emulation(..))
+-- import           Test.Pos.Util (withDefConfigurations)
+import           Test.QuickCheck (Arbitrary (..), Property, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
-import           Pos.Explorer.Socket.Methods (SubscriptionMode, addrSubParam, addressSetByTxs, blockPageSubParam,
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
                                               fromCAddressOrThrow, subscribeAddr, spSessId, txsSubParam)
-import           Pos.Explorer.ExplorerMode (SubscriptionTestParams, runSubscriptionTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState(..), ccAddress, csClients, mkConnectionsState)
+import           Pos.Explorer.ExplorerMode (runSubTestMode)
+import           Pos.Explorer.Socket.Holder (ClientContext, ccAddress, csClients, mkConnectionsState)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
@@ -80,45 +80,32 @@ addressSetByTxsProp key =
     in
         addrs == S.fromList [addrA]
 
-subscribeAddrAssert
-  :: (SubscriptionMode m, MonadIO m)
-  => CAddress -> SocketId -> m Bool
-subscribeAddrAssert cAddr socketId = do
-    -- create an emtpy ConnectionsState
-    connState <- atomically $ newTVar mkConnectionsState
-    -- subscribe to an `CAddress`
-    subscribeAddr cAddr socketId
-    -- get an updated ConnectionsState ...
-    connState' <- atomically $ readTVar connState
-    -- to check if CAddress` has been added to it
-    let ctx = connState' ^. (csClients . at socketId)
-    pure $ maybe False hasAddress ctx
+-- | TODO(ks): It's probably missing something (csClients, from where?).
+subscribeAddrProp :: Property
+subscribeAddrProp =
+        forAll arbitrary $ \(addr) ->
+            monadicIO $ do
+                -- create an empty ConnectionsState
+                let connState = mkConnectionsState
+
+                -- The result of this is `SubscriptionMode m => m ()`
+                let subscription = runSubTestMode connState $ subscribeAddr addr socketId
+
+                (_, connectionsState) <- run subscription
+
+                -- to check if CAddress` has been added to it
+                let clients = csClients . at socketId
+                let ctx = connectionsState ^. clients
+
+                assert $ hasAddress addr ctx
   where
-    hasAddress ctx' = maybe False ((==) cAddr . toCAddress) $ ctx' ^. ccAddress
+    hasAddress :: CAddress -> Maybe ClientContext -> Bool
+    hasAddress cAddr (Just ctx')  = maybe False ((==) cAddr . toCAddress) $ ctx' ^. ccAddress
+    hasAddress _     Nothing      = False
 
-subscribeAddrProp
-    :: SubscriptionTestParams
-    -> CAddress
-    -> SocketId
-    -> Property
-subscribeAddrProp testParams addr socketId = monadicIO $ do
-    let subscription = withDefConfigurations $
-                            runSubscriptionTestMode testParams $
-                            subscribeAddrAssert addr socketId
-    result <- run subscription
-    assert result
+    -- | Create arbitrary, non-null.
+    socketId = "testingsocket"
 
--- TODO (jk): Move all following instances to other, more common modules
--- eg. to TestUtil or similar
-
-instance MonadState ConnectionsState Emulation where
-    get = Emulation get
-    put newState = Emulation $ put newState
-
--- TODO (jk) Fix this instance
-instance MonadState ConnectionsState IO where
-    get = get
-    put = put
-
+-- | TODO(ks): Maybe this exist already?
 instance Arbitrary CAddress where
     arbitrary = toCAddress . secretKeyToAddress <$> arbitrary

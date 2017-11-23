@@ -11,8 +11,7 @@ module Pos.Explorer.ExplorerMode
     , explorerPropertyToProperty
     -- Explorer Socket Subscription
     , SubscriptionTestMode
-    , SubscriptionTestParams
-    , runSubscriptionTestMode
+    , runSubTestMode
     ) where
 
 import           Universum
@@ -20,7 +19,7 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
-import           System.Wlog (HasLoggerName (..), LoggerName)
+import           System.Wlog (HasLoggerName (..), LoggerName (..), CanLog)
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
@@ -45,7 +44,7 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExpl
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
                                             runExtraContextT)
 import           Pos.Explorer.Txp (ExplorerExtra (..))
-import           Pos.Explorer.Socket.Holder (ConnectionsState (..), mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (ConnectionsState) --(..), mkConnectionsState)
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
@@ -277,52 +276,17 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 -- into a module `ExplorerSubscriptionMode` or similar.
 ----------------------------------------------------------------------------
 
-type SubscriptionTestParams = TestParams
+newtype SubscriptionTestMode a = SubscriptionTestMode
+    { runSubscriptionTestMode :: (StateT ConnectionsState IO a)
+    } deriving (Functor, Applicative, Monad, MonadThrow, CanLog, MonadState ConnectionsState)
 
-type SubscriptionTestMode = ReaderT SubscriptionTestContext Emulation
+runSubTestMode :: ConnectionsState -> SubscriptionTestMode a -> IO (a, ConnectionsState)
+runSubTestMode connectionsState m =
+    runStateT (runSubscriptionTestMode m) connectionsState
 
-data SubscriptionTestContext = SubscriptionTestContext
-    { stcCState     :: !ConnectionsState
-    , stcParams     :: !SubscriptionTestParams
-    , stcLoggerName :: !LoggerName
-    }
-
-makeLensesWith postfixLFields ''SubscriptionTestContext
-
-initSubscriptionTestContext
-    :: HasConfigurations
-    => SubscriptionTestParams
-    -> (SubscriptionTestContext -> Emulation a)
-    -> Emulation a
-initSubscriptionTestContext  tp@TestParams {..} callback =
-    let sCtx = SubscriptionTestContext
-                   { stcCState = mkConnectionsState
-                   , stcParams = tp
-                   , stcLoggerName = "explorer-subscription-test"
-                   }
-    in
-    callback sCtx
-
---  SubscriptionMode
-runSubscriptionTestMode
-    :: HasConfigurations
-    => SubscriptionTestParams
-    -> SubscriptionTestMode a
-    -> IO a
-runSubscriptionTestMode tp action =
-    runEmulation (getTimestamp $ _tpStartTime tp) $
-        initSubscriptionTestContext tp $
-        runReaderT action
-
-instance {-# OVERLAPPING #-} HasLoggerName SubscriptionTestMode where
-    getLoggerName = getLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
-
-instance HasLoggerName' SubscriptionTestContext where
-    loggerName = lensOf @LoggerName
-
-instance HasLens LoggerName SubscriptionTestContext LoggerName where
-      lensOf = stcLoggerName_L
+instance HasLoggerName SubscriptionTestMode where
+    getLoggerName        = pure "explorer-subscription-test"
+    modifyLoggerName _ a = a
 
 ----------------------------------------------------------------------------
 -- Property

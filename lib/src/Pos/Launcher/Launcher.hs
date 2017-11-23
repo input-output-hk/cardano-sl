@@ -8,18 +8,15 @@ module Pos.Launcher.Launcher
 import           Mockable (Production)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
@@ -29,11 +26,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 -- | Run full node in real mode.
 runNodeReal
-    :: ( HasConfiguration
-       , HasUpdateConfiguration
-       , HasInfraConfiguration
-       , HasSscConfiguration
-       , HasNodeConfiguration
+    :: ( HasConfigurations
        , HasCompileInfo
        )
     => NodeParams

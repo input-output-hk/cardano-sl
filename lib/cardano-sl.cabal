@@ -92,8 +92,6 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
 
-                        Pos.Delegation.HelpersLib
-
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
@@ -101,7 +99,6 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Communication
-                        Pos.Binary.Relay
                         Pos.Binary.Block.Types
 
                         -- Exposed for tests
@@ -147,10 +144,6 @@ library
 
                         -- Crypto
                         Pos.Crypto.HDDiscovery
-
-                        -- Delegation
-                        Pos.Delegation.Listeners
-                        Pos.Delegation.Worker
 
                         -- GState
                         Pos.GState.Context

@@ -14,14 +14,17 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Pos.Delegation
+                       Pos.Delegation.Cede
                        Pos.Delegation.Class
+                       Pos.Delegation.Configuration
                        Pos.Delegation.DB
                        Pos.Delegation.Helpers
+                       Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc
-                       Pos.Delegation.Types
                        Pos.Delegation.RichmenComponent
-                       Pos.Delegation.Cede
+                       Pos.Delegation.Types
+                       Pos.Delegation.Worker
 
                        -- Arbitrary instances
                        Pos.Arbitrary.Delegation
@@ -39,9 +42,11 @@ library
                        Pos.Delegation.Logic.VAR
 
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
@@ -56,6 +61,7 @@ library
                      , mmorph
                      , mtl
                      , node-sketch
+                     , reflection
                      , resourcet
                      , rocksdb-haskell
                      , serokell-util

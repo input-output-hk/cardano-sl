@@ -1,10 +1,10 @@
--- | Test.Pos.Cbor.CborSpec specification
-
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE TemplateHaskell           #-}
+
+-- | Test.Pos.Cbor.CborSpec specification
 
 module Test.Pos.Cbor.CborSpec
        ( spec
@@ -35,7 +35,6 @@ import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
-import           Pos.Binary.Relay ()
 import           Pos.Binary.Ssc ()
 import           Pos.Core.Types (ScriptVersion)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)

@@ -8,6 +8,7 @@ module Test.Pos.Util
        , withDefNodeConfiguration
        , withDefSscConfiguration
        , withDefUpdateConfiguration
+       , withDefDlgConfiguration
        , withDefConfigurations
        , withStaticConfigurations
 
@@ -38,6 +39,7 @@ import           Test.QuickCheck.Property (Result (..), failed)
 
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
+import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration, withInfraConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
@@ -52,6 +54,7 @@ type HasStaticConfigurations =
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasNodeConfiguration
+    , HasDlgConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -66,6 +69,9 @@ withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 withDefInfraConfiguration :: (HasInfraConfiguration => r) -> r
 withDefInfraConfiguration = withInfraConfiguration (ccInfra defaultTestConf)
 
+withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
+withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
+
 withDefConfiguration :: (HasConfiguration => r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 
@@ -74,6 +80,7 @@ withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
+    withDefDlgConfiguration $
     withDefInfraConfiguration patak
 
 withDefConfigurations :: (HasConfigurations => r) -> r
@@ -162,4 +169,3 @@ expectedOne desc = \case
     _ ->   kickOut "expected one element, but list contains more elements"
   where
     kickOut err = stopProperty $ err <> " (" <> desc <> ")"
-

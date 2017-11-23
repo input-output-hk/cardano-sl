@@ -26,10 +26,9 @@ import qualified Data.HashMap.Strict as HM
 import           Mockable (CurrentTime, Mockable, currentTime)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Binary.Communication ()
-import           Pos.Context (lrcActionOnEpochReason)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
                            epochIndexL, headerHash)
+import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -39,9 +38,9 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
+import           Pos.Delegation.RichmenComponent (getRichmenDlg)
 import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
-import           Pos.Lrc.Context (HasLrcContext)
-import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
@@ -130,6 +129,7 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
+       , BlockchainHelpers MainBlockchain
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -140,7 +140,7 @@ processProxySKHeavy psk =
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
-       forall ctx m. (ProcessHeavyConstraint ctx m)
+       forall ctx m. (ProcessHeavyConstraint ctx m, BlockchainHelpers MainBlockchain)
     => ProxySKHeavy
     -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do
@@ -152,7 +152,7 @@ processProxySKHeavyInternal psk = do
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
-        LrcDB.getRichmenDlg
+        getRichmenDlg
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let consistent = verifyPsk psk
         iPk = pskIssuerPk psk

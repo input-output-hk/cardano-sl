@@ -14,7 +14,7 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
-import           Pos.Client.CLI      (configurationOptions)
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core            (gdStartTime, genesisData)
@@ -23,15 +23,16 @@ import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Web    (ExplorerProd, explorerPlugin, notifierPlugin)
 import           Pos.Launcher        (HasConfigurations, NodeParams (..),
                                       NodeResources (..), bracketNodeResources,
-                                      hoistNodeResources, runNode, runRealBasedMode,
-                                      withConfigurations)
+                                      hoistNodeResources, loggerBracket, runNode,
+                                      runRealBasedMode, withConfigurations)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update          (updateTriggerWorker)
 import           Pos.Util            (inAssertMode, mconcatPair)
 import           Pos.Util.UserSecret (usVss)
 
-import           ExplorerOptions     (Args (..), getExplorerOptions)
+import           ExplorerOptions     (Args (..), ExplorerNodeArgs (..),
+                                      getExplorerOptions)
 import           Params              (getNodeParams, gtSscParams)
 
 printFlags :: IO ()
@@ -48,8 +49,10 @@ printFlags = do
 main :: IO ()
 main = do
     args <- getExplorerOptions
-    printFlags
-    runProduction $ action args
+    let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
+    loggerBracket loggingParams $ do
+        printFlags
+        runProduction $ action (enaExplorerArgs args)
 
 action :: Args -> Production ()
 action args@Args {..} = withConfigurations conf $ do
@@ -75,7 +78,7 @@ action args@Args {..} = withConfigurations conf $ do
             (hoistNodeResources (lift . runExplorerBListener) nr)
             (runNode @SscGodTossing nr plugins)
   where
-    conf = configurationOptions commonArgs
+    conf = CLI.configurationOptions commonArgs
     runExplorerRealMode
         :: HasConfigurations
         => NodeResources SscGodTossing ExplorerProd

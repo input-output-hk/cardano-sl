@@ -23,8 +23,8 @@ import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, wo
 import           Pos.Context          (HasNodeContext)
 import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..),
-                                       NodeResources (..), bracketNodeResources, runNode,
-                                       withConfigurations)
+                                       NodeResources (..), bracketNodeResources, loggerBracket,
+                                       runNode, withConfigurations)
 import           Pos.Ssc.Class        (SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.UserSecret  (usVss)
@@ -115,6 +115,8 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
 main :: IO ()
 main = do
     args <- getWalletNodeOptions
-    CLI.printFlags
-    putText "[Attention] Software is built with wallet part"
-    runProduction $ action args
+    let loggingParams = CLI.loggingParams "node" (wnaCommonNodeArgs args)
+    loggerBracket loggingParams $ do
+        CLI.printFlags
+        putText "[Attention] Software is built with wallet part"
+        runProduction $ action args

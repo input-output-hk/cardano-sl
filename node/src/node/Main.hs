@@ -21,8 +21,8 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Core            (GenesisData (..), Timestamp (..), genesisData,
                                       getSharedSeed)
-import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
-                                      withConfigurations)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..), loggerBracket,
+                                      runNodeReal, withConfigurations)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
@@ -72,6 +72,8 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 main :: IO ()
 main = do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
-    CLI.printFlags
-    let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    runProduction $ withConfigurations conf (action args)
+    let loggingParams = CLI.loggingParams "node" commonNodeArgs
+    loggerBracket loggingParams $ do
+        CLI.printFlags
+        let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+        runProduction $ withConfigurations conf (action args)

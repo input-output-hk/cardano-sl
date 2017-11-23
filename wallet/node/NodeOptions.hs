@@ -24,7 +24,10 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Util.TimeWarp   (NetworkAddress, localhost)
 import           Pos.Web.Types       (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs
+    { wnaCommonNodeArgs :: CommonNodeArgs
+    , wnaWalletArgs     :: WalletArgs
+    }
 
 data WalletArgs = WalletArgs
     { enableWeb          :: !Bool

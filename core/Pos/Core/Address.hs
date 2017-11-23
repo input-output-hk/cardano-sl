@@ -373,18 +373,17 @@ deriveHDAddressKeyPair
 deriveHDAddressKeyPair isBootstrap checkPass passphrase rootKey path = do
     let hdPassphrase = deriveHDPassphrase $ encToPublic rootKey
     let hdAddressPayload = packHDAddressAttr hdPassphrase path
-    let (ShouldCheckPassphrase checkFirst) = checkPass
-    childKey <- deriveChildKey path checkFirst rootKey
+    childKey <- deriveChildKey path checkPass rootKey
     let publicKey = encToPublic childKey
     return (makePubKeyHdwAddress isBootstrap hdAddressPayload publicKey, childKey)
   where
     deriveChildKey []     _     key = return key
-    -- On the first iteration we check the passphrase if checkFirst is True.
-    deriveChildKey (i:is) True  key =
-        deriveHDSecretKey checkPass passphrase key i >>= deriveChildKey is False
+    -- On the first iteration we check the passphrase since checkFirst is True.
+    deriveChildKey (i:is) checkFirst@(ShouldCheckPassphrase True)  key =
+        deriveHDSecretKey checkFirst passphrase key i >>= deriveChildKey is dontCheck
     -- On the next iterations we do not check the passphrase.
-    deriveChildKey (i:is) False key =
-        deriveHDSecretKey dontCheck passphrase key i >>= deriveChildKey is False
+    deriveChildKey (i:is) checkNext@(ShouldCheckPassphrase False)  key =
+        deriveHDSecretKey checkNext passphrase key i >>= deriveChildKey is dontCheck
 
     dontCheck = ShouldCheckPassphrase False
 

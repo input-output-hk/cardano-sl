@@ -50,13 +50,13 @@ If a decision about proposal has been made negatively, then proposal become **re
 _Rejected_ proposal may become _active_ or even _approved_ if rollback occurs.
 
 * **Confirmed**  
-If a proposal has been approved in some block and there are at least `k` blocks after this one, then
+If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, then
 update proposal becomes **confirmed**.
 _Confirmed_ state reflects the fact that _approved_ state cannot be changed anymore 
 because we have guarantee that at most `k` blocks may be rolled back.
 
 * **Discarded**  
-If a proposal has been rejected in some block and there are at least `k` blocks after this one, then
+If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, then
 update proposal becomes **discarded**.
 _Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.  
 If a proposal is discarded then it doesn't affect consensus rules anymore and we throw away it from the consideration.
@@ -202,8 +202,6 @@ So this slot left without a block.
 You can see despite the provided update system is powerful, it's also very complicated 
 and updates should be handled carefully.
 
-## GState
-
 ## Verification
 
 ### Block header verification
@@ -283,3 +281,43 @@ For each vote the following checks must be performed:
 * _Revote check_: check that a stakeholder doesn't revote twice or send the same decision twice.  
   It's allowed for any stakeholder to vote no more than one time and 
   also change his decision to opposite no more than one time.
+
+## Confirmation and adoption algorithms
+
+In the previous sections we touched _explicit agreement rule_ and _adoption of block version_,
+we will describe them in details in this section.
+
+### Update proposal confirmation algorithm
+In this section we describe update proposal confirmation algorithm more carefully, 
+in particular, the rules for cases when there are several concurrent update proposals.
+
+On each main block the following algorithm is performed
+1. Take all proposals which were decided at least `k` block ago.  
+   It may be determined by chain difficulty.
+2. Group proposals by application name.
+3. Sort each group using the following rule:
+  * Construct tuple  
+    (decision, whether decision is implicit, positive stake, slot when it has been proposed)  
+    by each proposal. So a tuple has type `(Bool, Bool, Coin, SlotId)`
+  * Compare in decreasing order.  
+    So at the beginning of sorted list,  _approved_ proposals will follow, if there is more than one,
+    approved explicitly and so on.
+4. All proposals in each group except a head become _discarded_.
+5. Head proposal of each group become _confirmed_ if it's _approved_.
+
+### Block version adoption algorithm
+
+In this section we describe block version adoption algorithm more precisely.
+
+On each genesis block the following algorithm is performed:
+1. Compute threshold for current epoch for adoption of block version, let's call it `T`.
+2. For each competing block version do the following steps:
+    1. Compute summary stake of stakeholder which issued a block of this block version and 
+        corresponding to slots no greater than `8k`. 
+        Such blocks can't be rolled back, hence, summary stake can't be changed.  
+        Notice, if a stakeholder issued two or more blocks with this block version, it's counted only once.
+    2. If summary stake is greater than total stake multiple by `T` then this block version can be adopted.
+3. Take all block versions from the previous step which can be adopted, let's call them `S`.  
+   If `S` is empty then there is nothing to adopt, otherwise take maximal block version from `S`, let's call it `V`.
+4. `V` becomes new adopted version. Other competing versions can't become adopted because they are less than `V`, 
+   so they aren't competing anymore and thrown away from the consideration.

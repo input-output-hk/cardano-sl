@@ -130,6 +130,66 @@
                 }
             }
         },
+        "WalletSettings": {
+            "example": {
+                "slotDuration": {
+                    "quantity": 77,
+                    "unit": "milliseconds"
+                },
+                "softwareVersion": {
+                    "svAppName": {
+                        "getApplicationName": "9D"
+                    },
+                    "svNumber": 0
+                }
+            },
+            "required": [
+                "slotDuration",
+                "softwareVersion"
+            ],
+            "type": "object",
+            "description": "A collection of static settings for this wallet node.",
+            "properties": {
+                "slotDuration": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "softwareVersion": {
+                    "required": [
+                        "svAppName",
+                        "svNumber"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "svAppName": {
+                            "required": [
+                                "getApplicationName"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "getApplicationName": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "svNumber": {
+                            "type": "number"
+                        }
+                    }
+                }
+            }
+        },
         "ApiVersion": {
             "type": "string",
             "enum": [
@@ -163,7 +223,7 @@
                 "sourceWallet"
             ],
             "type": "object",
-            "description": "An exchange of `Coin`(s) from one source to one or more destinations.",
+            "description": "A transfer of `Coin`(s) from one source to one or more destinations.",
             "properties": {
                 "sourceAccount": {
                     "type": "string"
@@ -246,8 +306,18 @@
         "OneOf [Transaction] (ExtendedResponse [Transaction])": {
             "example": [
                 {
-                    "amount": 38300502284149906,
+                    "amount": 18773007703513614,
                     "inputs": [
+                        {
+                            "amount": 44860519515251501,
+                            "address": "DxiwK26gE3LC9ui1eHgDa39GAYb49NTAVXiLd3nWApv571tVeaDac89jjkvKzm9hygeRaM2eCk3tDXhQmUFEzgUxLPUc1kh74h4kgipG9pAUQ1jKSmT4hxBXoPTaTdBg8XZy7gVXioqhBWpsD2uSHdsPy1gDPVQzwcQjPZsci9Mm8MC2cRb9rNTFXP3pXq9p8oA8SWX2he1SpsH15osvWdMZAF21BQkjp9DYLLP"
+                        },
+                        {
+                            "amount": 33921758618797403,
+                            "address": "eMNXLAmamdhbZqLznEZ4eVGD4htgs5yBuecG97aPKwfM4QvYZ46fDQ5WVLLfNKxhyy2UXe8Ga6iMYeBAhhWbJqvTf8nzsujMVULp9LFBCEu43rVxBUDFNyKeXhtgp46yqpTFaNgg8fddtLyCpSERV9mVLfJ6sGKtsrKfttGmziQw5NBhnnVjEkzKPpGA7v18a8d6ECoEXTs7nmfQG2JUVK9zp7bkBucraNsqAPZPVEyhKZh3s4bn94P8ujAvvhtne62cS8CXZ74Hp1ssEDtE6R6tugBF"
+                        }
+                    ],
+                    "outputs": [
                         {
                             "amount": 38792191716529224,
                             "address": "LDTseZq14n94S4x7JaGvP1D4SL4q3KJ1UWYvXxDNWN4cFzYx6mfbsr147XUmTcBdKvz6qZ6UBJbHnAbrZcyyYxa5wqAxKxqiB7LquAJvJCT6fV2pMpFAAYad8kN6A1bbg3wEqXfyMQq9nTqgNTaCMaNf3Eeq2r3ghgpdpo7BRVJCC7QFTjN5MwmVJ8EnzivdXaZoNMhsSgQwnckUmV7YLrHGAbmVxuVLLE5JqXJfRLJ"
@@ -261,14 +331,9 @@
                             "address": "42wmHXYSz61LtdqUQB2fMzx6iXUC1xdy28JdMfxTvCeheG57do2mTDAkW8z2Z6vaNX1rYYX2c9FJK3XbXNNTkV7o5Uj2JpmwqGLMNK4Enur5dqNfJSpyL577K5JcWv4QbRGj32zxkUYM3yU1kDo4cYQo5VE4utBg84pKRSgU4dL41s"
                         }
                     ],
-                    "outputs": [
-                        {
-                            "amount": 16492373788197846,
-                            "address": "DxiwK26gE3LDoEimuLAQrdzCNhDrTsF9H7xkeMRtCiAku86KF2hBS8zxoM8poRdGNubTdivCdURk544XnBeWN2jcMnpjey6E7HBHte3LezyCsJGQoknJcUDCpxFKn7FbZBQDtPGH5NwtuHygHx7hrP4tk4zkNqpi77mW9N5ouemXs33R8TQkY1Pwp19LqYdL8pBae5euG3fHgg6kg1PPh96vjMsTxKEzjCb4RFL"
-                        }
-                    ],
-                    "confirmations": 0,
-                    "id": "JM"
+                    "confirmations": 1,
+                    "id": "dA",
+                    "type": "Incoming"
                 }
             ],
             "items": {
@@ -277,7 +342,8 @@
                     "inputs",
                     "outputs",
                     "confirmations",
-                    "id"
+                    "id",
+                    "type"
                 ],
                 "type": "object",
                 "properties": {
@@ -325,11 +391,14 @@
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
                     }
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Transaction] or [Transaction] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 10574016894293587,\n        \"inputs\": [\n            {\n                \"amount\": 23710842936426245,\n                \"address\": \"KjgoiXJS2cogrMXR7LyfjSwYLAWnv8PrcQSpfLyVL3dq6e2e2HGhsMi1YEnN8TmWsv5zaJx3Kq7A6tpyS4m76wNLodLc6KFHXdZ9btjc7cMF\"\n            },\n            {\n                \"amount\": 4318666227263205,\n                \"address\": \"eMNXLAmamdgsPtvT1nyTuVvSRWmBogKLc3chzQLumrBV8KKSTzy33U8stEaMoWm7UTUvAwzTkPHrw4abeNFnz5F2tNP4yJfrJ3dbB1TDeJENAa4jjB65xffrB9wmmfQ7c6fs7fhp1pTBUfdPw5PMV4oMDooT94K15iKFwH7E6A6QAFbAaJVGbFhrPW481kUAZugV2gmxFLDVoGQmPzWE4Z4g5WHCQSQNzrQHNNUq6VuRstSdE13M4NLR6AXceQGzD56HiAGDFaU4vPj1Y5AU83no72wo\"\n            }\n        ],\n        \"outputs\": [\n            {\n                \"amount\": 5438729624036222,\n                \"address\": \"D9NMcbfEqZXiYt5ZpAe6vj95bD8oEuUD7SDQmormdt62xn1Puk2Axrzc2Q2Eo7vJBwk6vkCbuXAWtpau47bWvKA4AVTtbD9SQpTeq3PdAPmv5mrZMph4YHTwBqYfe5nfGrw4EuSzaCMn9gWvEsB8MB9UXikqNta9cvCJXG6UyhcoAwZCxWRz823nCDnPuyHYFFwJd8Yh8pzBKTjcfvm1TQjuDSpbp3YNo9mhSpbLeXorrwji9WsPS381Cs348gVRgfGi9bXKykBJamAWSFbsAMdMSihLVsB1czprXAGzoD2o6on54iyhYuPNwLL6LmEZPaAQsGmW91TP7dhhs2NUBWW\"\n            },\n            {\n                \"amount\": 27922173224757677,\n                \"address\": \"SCFaachJNvGHJ4Z6X9KUvwT6swaJBmYHGZdoSa2K8YT5hbN8NL57966a8rmTCGds1UQU9BvpVcJs7W6SnPe1HkWc8hF2UNYwvbsvT9YZmbgehJp5UEsRUR8D5o6CLL37zWEnL5EJPEP1EKBHUGaDRVTrmYf9ggeD2eprmP4fxLfSMJuHv4Vaam8vfk3pCQxp9iTdzbMtD5mC3ttpvFYkZivRZKWvTYoyKhp1o9Fx97ZzEsHytEeVSRN2uSy8EHbt2vuPXHRTamZ7xR8nn56Wjvpx\"\n            },\n            {\n                \"amount\": 3094525191547233,\n                \"address\": \"DYfJvSPhVoapHe2cjXcbPw86KgKqFFDWh99X1qJiDGEWZ3XSZDLGMCLTWUxwXc9cFUVJzsa3xVtGgwhbTXm37QdZEYX5eAFNJ85vUNh1jLSX6f6XFiu4fTc4oFgFjYVc3aF4iT6qsTnKN2Pic1WdNgkUyis71wYx8kTPVNv7JesSrDXhfgDgwNaLM2kopXkKRj3SyQgktyRouKfXtEGUdS3tkLDJpVRsADt8P3abxRry5smMEbjJCKsBdrT9EegTqHZ3jEpXR3UiDebPsEiSh77QqkPmaVD\"\n            },\n            {\n                \"amount\": 33470987706258865,\n                \"address\": \"2cWKMJemoBaknHgqs2GZELCaBcLUNPfhMBrEgCgy4QtxtqGGDgDrfLs4c3w51F6qFnQPS\"\n            }\n        ],\n        \"confirmations\": 4,\n        \"id\": \"\\u0000\"\n    },\n    {\n        \"amount\": 18773007703513614,\n        \"inputs\": [\n            {\n                \"amount\": 44860519515251501,\n                \"address\": \"DxiwK26gE3LC9ui1eHgDa39GAYb49NTAVXiLd3nWApv571tVeaDac89jjkvKzm9hygeRaM2eCk3tDXhQmUFEzgUxLPUc1kh74h4kgipG9pAUQ1jKSmT4hxBXoPTaTdBg8XZy7gVXioqhBWpsD2uSHdsPy1gDPVQzwcQjPZsci9Mm8MC2cRb9rNTFXP3pXq9p8oA8SWX2he1SpsH15osvWdMZAF21BQkjp9DYLLP\"\n            },\n            {\n                \"amount\": 33921758618797403,\n                \"address\": \"eMNXLAmamdhbZqLznEZ4eVGD4htgs5yBuecG97aPKwfM4QvYZ46fDQ5WVLLfNKxhyy2UXe8Ga6iMYeBAhhWbJqvTf8nzsujMVULp9LFBCEu43rVxBUDFNyKeXhtgp46yqpTFaNgg8fddtLyCpSERV9mVLfJ6sGKtsrKfttGmziQw5NBhnnVjEkzKPpGA7v18a8d6ECoEXTs7nmfQG2JUVK9zp7bkBucraNsqAPZPVEyhKZh3s4bn94P8ujAvvhtne62cS8CXZ74Hp1ssEDtE6R6tugBF\"\n            }\n        ],\n        \"outputs\": [\n            {\n                \"amount\": 38792191716529224,\n                \"address\": \"LDTseZq14n94S4x7JaGvP1D4SL4q3KJ1UWYvXxDNWN4cFzYx6mfbsr147XUmTcBdKvz6qZ6UBJbHnAbrZcyyYxa5wqAxKxqiB7LquAJvJCT6fV2pMpFAAYad8kN6A1bbg3wEqXfyMQq9nTqgNTaCMaNf3Eeq2r3ghgpdpo7BRVJCC7QFTjN5MwmVJ8EnzivdXaZoNMhsSgQwnckUmV7YLrHGAbmVxuVLLE5JqXJfRLJ\"\n            },\n            {\n                \"amount\": 20432792615637176,\n                \"address\": \"Ae2tdPwUPEZ8XpapabgQN3P3azcVjPVr5vLWUdvEm6R9N3vTyUqtLUf7pD9\"\n            },\n            {\n                \"amount\": 27868369964354682,\n                \"address\": \"42wmHXYSz61LtdqUQB2fMzx6iXUC1xdy28JdMfxTvCeheG57do2mTDAkW8z2Z6vaNX1rYYX2c9FJK3XbXNNTkV7o5Uj2JpmwqGLMNK4Enur5dqNfJSpyL577K5JcWv4QbRGj32zxkUYM3yU1kDo4cYQo5VE4utBg84pKRSgU4dL41s\"\n            }\n        ],\n        \"confirmations\": 1,\n        \"id\": \"dA\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"amount\": 23759697234791994,\n            \"inputs\": [\n                {\n                    \"amount\": 12603939355472819,\n                    \"address\": \"5FCjkr138i9o2gRKDXuQd8Yi2htdNFT8UoecaJBofZEggz9ovP78GDkgZfyWZ4L7LNgumVWGcYc1h1yYtjRmdpCtW2WntL2r6t3FHkUhMTC\"\n                },\n                {\n                    \"amount\": 5751058795189423,\n                    \"address\": \"AL91N9VXRTCq87iRbS9GEtgT1mD63WwY3LmmPTMT9ra5xfevAf7KaU9izbXnegKgK6vKLV2XK97uBBAZoXGMs2Mvu9Mi4auggiiYykKbc55q27SK23Y\"\n                }\n            ],\n            \"outputs\": [\n                {\n                    \"amount\": 24017177367472045,\n                    \"address\": \"Un4ZpTvXtoKYgX5gxqjMZ49JDDPyEWuPSyea4u6KXfVEfuE5oSzLguZxVd7yCBqd9DCMNxdEUfB4Vwp1z4b5KbRsiEp6E4Qmi3uGAh7o1L8Dgghf\"\n                },\n                {\n                    \"amount\": 21253442952613784,\n                    \"address\": \"FHnt4NL7yPY7KYntfxRXMRVVMJZXcdAnR4pgVefJWwY5HMii7RrLhFE6Lf1dUrG\"\n                },\n                {\n                    \"amount\": 1297135207018908,\n                    \"address\": \"Un4ZpTvXtoKU97rPzKYax2noNjdZSJyAspwo9tmTC74TNpkdhTqYWLEtGqTuFozLLE7d5eHGHs2bj6Mp89VWaxsdjf637wG9znMiBv711chr5keD\"\n                },\n                {\n                    \"amount\": 18661322635646272,\n                    \"address\": \"NBimUZYpm3G1m2DZzHN8WRVi4sbj2F6LXNcorEUNhVHu2VVxJuY4mE7wFdD3rvRXNCt\"\n                }\n            ],\n            \"confirmations\": 0,\n            \"id\": \"\"\n        },\n        {\n            \"amount\": 39337990575634793,\n            \"inputs\": [\n                {\n                    \"amount\": 5411995016967939,\n                    \"address\": \"EPaiTwpiJ9vjWVBrFKG5TB6QQkJUoS8h6di2t4ETzVphY4gRihFULtM9hyhk7pjHazjKoD7SCPi21NMBCFFwpWu3mno1VN5XaPhACgD1JPFYd5uptU6dCi9mRTdktmRcui9cwFS11iRJGmqqDFk2NfUMo5bTBfzM99wSAd8h6jtZZvA\"\n                },\n                {\n                    \"amount\": 15077189504459671,\n                    \"address\": \"5oP9ib6ym3Xik6dUeSeAiTsAe3iF4cuNgDsmLWeGTwbDr2Cq1mYjfYtMb75VQ4qsBV\"\n                },\n                {\n                    \"amount\": 1055713532949158,\n                    \"address\": \"jYTLseJK1m3Qakbo73c3rR5SBULmYJEUVCio8W5NgntoC9Ubs6P1jzFKpgJp\"\n                }\n            ],\n            \"outputs\": [\n                {\n                    \"amount\": 15924696905627592,\n                    \"address\": \"LrKNkKxZoMeenPi4NZrVY4kLinBtC4rMmPiyRdk8idqn9aVPnkynD8DmeLXTFtrrQA6arJeEqga9XTytQvT71bABJ6cBYJqX5M8Uy8PemGGH692oEQbXCNKMnkepf6dTpAvzApjAhwvrmRrGBeuCCwc1X9SrnZYqmSzUzoBQhv5HAwTe5NV\"\n                }\n            ],\n            \"confirmations\": 0,\n            \"id\": \"Øß$\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Transaction] or [Transaction] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 1050113657751293,\n        \"inputs\": [\n            {\n                \"amount\": 1334284366964500,\n                \"address\": \"NBimUZYpm3GEuQVbPESLLpUawax3zZey1EmTm7x6jkzWZUYsDxFfFPhEx1sd6B45vAw\"\n            },\n            {\n                \"amount\": 26632435084216427,\n                \"address\": \"2Tp1cYozcWTqJMGexiHSkPar9hP3QuBH1Jnn3JmFmGmB5LUiuYx3Ar1yQADZr1uaGK1bxML1Wg7YC9gq9jDRuwiuLePXi5SuDQktJby1kxhY1cnjN8qDEs8cig9pJRSegXfgHUddYgSgbmZ8tYAQeDZqJRFKW4npXEXrikjt7Sv7PWLHzqmkP4LLAq85vj9eEkJY6LqG3233EpsGBGA2A98gDbeUGSqBDXtpd4ZUQAWPu\"\n            },\n            {\n                \"amount\": 14504884420630507,\n                \"address\": \"Un4ZpTvXtoKkw2SwZn9oWBx94RqdNj6Tt2UvgoKcQGGFivoZavpsMZYN6txB5seL5NFyPMo6b7J3gWQZv7sHLsAhQosJKS4qRW6zDugZ4EdBzR6H\"\n            },\n            {\n                \"amount\": 35142054301558539,\n                \"address\": \"3qruzscJwnkGspjGWXKSCyBACJCXCqh3H3wHyFuxXzg1r97RGoVDBqtE2bgbbgzqrqsAxZhA7c1trZRhHtV5wEZ7yzDP9kr2qrQgshN55nuq6HcpQ9makrDJ2CAxksEXt5V4zJgLyBmWY4BpycXANbNydnXw4ZNLB1bqoApcRQfCzJXx2MyHUkvLwcR22XvzJiNTQrVPN5fRr9W9oJFBrKn5Hudk4JrU3kmXSNbDx8c6k852GSZe7uARiwpmxWpsFo3CQ2k2AJj1ZoLH4dqAx2hnHYYN1C\"\n            }\n        ],\n        \"outputs\": [\n            {\n                \"amount\": 23710842936426245,\n                \"address\": \"KjgoiXJS2cogrMXR7LyfjSwYLAWnv8PrcQSpfLyVL3dq6e2e2HGhsMi1YEnN8TmWsv5zaJx3Kq7A6tpyS4m76wNLodLc6KFHXdZ9btjc7cMF\"\n            },\n            {\n                \"amount\": 4318666227263205,\n                \"address\": \"eMNXLAmamdgsPtvT1nyTuVvSRWmBogKLc3chzQLumrBV8KKSTzy33U8stEaMoWm7UTUvAwzTkPHrw4abeNFnz5F2tNP4yJfrJ3dbB1TDeJENAa4jjB65xffrB9wmmfQ7c6fs7fhp1pTBUfdPw5PMV4oMDooT94K15iKFwH7E6A6QAFbAaJVGbFhrPW481kUAZugV2gmxFLDVoGQmPzWE4Z4g5WHCQSQNzrQHNNUq6VuRstSdE13M4NLR6AXceQGzD56HiAGDFaU4vPj1Y5AU83no72wo\"\n            }\n        ],\n        \"confirmations\": 3,\n        \"id\": \"\\u0005\",\n        \"type\": \"Local\"\n    },\n    {\n        \"amount\": 25820424046006543,\n        \"inputs\": [\n            {\n                \"amount\": 32003858608147755,\n                \"address\": \"Ae2tdPwUPEZJnuHHU2MFFR1t9AmxvMTVEXZR8jiYN3siDbfngmCSx4cBGk6\"\n            },\n            {\n                \"amount\": 39122173921310246,\n                \"address\": \"2Wcg6zEnC1Vo4oJGEFHuhyu8DFzWf8XVRHBg2UjACrHRT6ee6zvccmttPDLa34vbUXVWNbGosEgAzzHWtiLYwWna5MMMDh97ez9agBy97wtZDb6wp8D8i8LNcfLWZMw4Xg7kLmRZhHJWbfd8aWCaBGt6SKmQY6WaxrWmNYJBG5cGkc8ygjtqY\"\n            }\n        ],\n        \"outputs\": [\n            {\n                \"amount\": 44860519515251501,\n                \"address\": \"DxiwK26gE3LC9ui1eHgDa39GAYb49NTAVXiLd3nWApv571tVeaDac89jjkvKzm9hygeRaM2eCk3tDXhQmUFEzgUxLPUc1kh74h4kgipG9pAUQ1jKSmT4hxBXoPTaTdBg8XZy7gVXioqhBWpsD2uSHdsPy1gDPVQzwcQjPZsci9Mm8MC2cRb9rNTFXP3pXq9p8oA8SWX2he1SpsH15osvWdMZAF21BQkjp9DYLLP\"\n            },\n            {\n                \"amount\": 33921758618797403,\n                \"address\": \"eMNXLAmamdhbZqLznEZ4eVGD4htgs5yBuecG97aPKwfM4QvYZ46fDQ5WVLLfNKxhyy2UXe8Ga6iMYeBAhhWbJqvTf8nzsujMVULp9LFBCEu43rVxBUDFNyKeXhtgp46yqpTFaNgg8fddtLyCpSERV9mVLfJ6sGKtsrKfttGmziQw5NBhnnVjEkzKPpGA7v18a8d6ECoEXTs7nmfQG2JUVK9zp7bkBucraNsqAPZPVEyhKZh3s4bn94P8ujAvvhtne62cS8CXZ74Hp1ssEDtE6R6tugBF\"\n            }\n        ],\n        \"confirmations\": 2,\n        \"id\": \"h}\",\n        \"type\": \"Outgoing\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"amount\": 32746308333424514,\n            \"inputs\": [\n                {\n                    \"amount\": 37765755838301214,\n                    \"address\": \"NBimUZYpm3FsF2zwV8agdFGSittgxe3mkVCFo4j4jBibwnA2AzYxtmJsqLfZZrkLbUh\"\n                },\n                {\n                    \"amount\": 24958883317782305,\n                    \"address\": \"jYTLseJK1m3LfnTMHyWkGmajQMJmQ4hMSCS93Ep3vomC5f9dKETEZGMAdiUE\"\n                },\n                {\n                    \"amount\": 25555482624522706,\n                    \"address\": \"dA2W35xz9skvQJHXpaXh6WQyuDcwoZ6GQM8yWbSBno5ccLLLuoLrS9gTYGuYKQXvosjA3WjsvnXnX5hbMdbkPo7my9yPReSvT6JECEoVEoSCAJ7oZCB9LdYZFE9yj66wjSgwWruRjtuGcqgKMeQHumBbXWojJLRW83NCigeC3zC1yYczfk2EUs44GYwkXmjHhYSWavj9PyYAkRdcWaP47WSicpvKc38zo1kZ6Qy18F5QWDEkZan3nWyZFKmU6i12ipNaVYnqsBkS7vG1cHKibek7js9ibYSh5pVmuxGC4Da1xfqKhXGHNj1McyFh4zE1bB4PNSUgzTJZn4qQmLjd\"\n                }\n            ],\n            \"outputs\": [\n                {\n                    \"amount\": 12603939355472819,\n                    \"address\": \"5FCjkr138i9o2gRKDXuQd8Yi2htdNFT8UoecaJBofZEggz9ovP78GDkgZfyWZ4L7LNgumVWGcYc1h1yYtjRmdpCtW2WntL2r6t3FHkUhMTC\"\n                },\n                {\n                    \"amount\": 5751058795189423,\n                    \"address\": \"AL91N9VXRTCq87iRbS9GEtgT1mD63WwY3LmmPTMT9ra5xfevAf7KaU9izbXnegKgK6vKLV2XK97uBBAZoXGMs2Mvu9Mi4auggiiYykKbc55q27SK23Y\"\n                }\n            ],\n            \"confirmations\": 4,\n            \"id\": \"\",\n            \"type\": \"Incoming\"\n        },\n        {\n            \"amount\": 3687196863119191,\n            \"inputs\": [\n                {\n                    \"amount\": 5822102536916018,\n                    \"address\": \"jYTLseJK1m314VPM2NpFL3ZwhfxxL1DMwzaDBLhHE4RSFCKMTsQJVzymnxY7\"\n                },\n                {\n                    \"amount\": 42779166564495783,\n                    \"address\": \"42wmHXYSz61FEvz8P1wZ2TNmWdGnYKSQu2u1ANhQDQxDRP9ZAvW2q6X2ZmFyfAa7dSjdq9wiAgQku2imL4t1d8FAuiuZv6Rbxwdfr9KzhJ3FESoJ6CTgbJR2gRMb56QiPK7nsYA1hM8Aj8WXydrEg1Gp3XXxPoX8xMZVjnVjhyj3hE\"\n                }\n            ],\n            \"outputs\": [\n                {\n                    \"amount\": 5411995016967939,\n                    \"address\": \"EPaiTwpiJ9vjWVBrFKG5TB6QQkJUoS8h6di2t4ETzVphY4gRihFULtM9hyhk7pjHazjKoD7SCPi21NMBCFFwpWu3mno1VN5XaPhACgD1JPFYd5uptU6dCi9mRTdktmRcui9cwFS11iRJGmqqDFk2NfUMo5bTBfzM99wSAd8h6jtZZvA\"\n                },\n                {\n                    \"amount\": 15077189504459671,\n                    \"address\": \"5oP9ib6ym3Xik6dUeSeAiTsAe3iF4cuNgDsmLWeGTwbDr2Cq1mYjfYtMb75VQ4qsBV\"\n                },\n                {\n                    \"amount\": 1055713532949158,\n                    \"address\": \"jYTLseJK1m3Qakbo73c3rR5SBULmYJEUVCio8W5NgntoC9Ubs6P1jzFKpgJp\"\n                }\n            ],\n            \"confirmations\": 2,\n            \"id\": \"+j\",\n            \"type\": \"Incoming\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "OneOf [Address] (ExtendedResponse [Address])": {
             "example": [
@@ -490,8 +559,18 @@
         },
         "Transaction": {
             "example": {
-                "amount": 11091176260625603,
+                "amount": 39891315882968024,
                 "inputs": [
+                    {
+                        "amount": 27889372662178400,
+                        "address": "7J1MaQmKydNdKZ8ASMptqTpSiq6k8QwjD5w8hsnMF6iGQSFLZNbjgVjDhKtAa2vWYNCXvRixXTeuxKAfSHUBcjoieTUHcDaFPMgUtnhVnwk2rbz"
+                    },
+                    {
+                        "amount": 33829516096667581,
+                        "address": "2cWKMJemoBamMBMBYJWe5aQR3xitBLbjVbt4yxQUWUWC8KGGHvYF8BfUQwmAs5je5fSii"
+                    }
+                ],
+                "outputs": [
                     {
                         "amount": 32634946131515590,
                         "address": "5oP9ib6ym3XdFXvmLXfUVZWw537vicy11ppa5bo8Ku9weByZAUaXWknjiA4dzK84Si"
@@ -505,33 +584,17 @@
                         "address": "5FCjkr138i9vJ5GwWGUm11T1Zn4X1BNWoRcHAioCVMUq4ZXLJU5BfTrYCPYAX8iZ4TkPnAehU7rwTKdfnBgRDQpq3LGWwCYcHz3HCdPJw5c"
                     }
                 ],
-                "outputs": [
-                    {
-                        "amount": 39901648540850153,
-                        "address": "FHnt4NL7yPY8fDBeSD11uCiYMy6RDsAp8wBeqNoLwJM8qCgbCFVJM9TiqGZemqi"
-                    },
-                    {
-                        "amount": 10580058452873041,
-                        "address": "jYTLseJK1m1XSG6Q5rrnUyqr5SwpwaZCsvkki5Nd1qNvHJv9dxCNn3JTgqET"
-                    },
-                    {
-                        "amount": 37474492650025226,
-                        "address": "37btjrVyb4KELbUUkdpDAyNt4EndRLzD5wjPFqHSBkdsZrNdiQzKdn6PxurTpi4mbNxSHGK18UdAdK694PfYRBAk1sBmemgK36invnGfzZ9zSaH7Q4"
-                    },
-                    {
-                        "amount": 32896852974615948,
-                        "address": "NBimUZYpm3GBkFeSKGRHBNnFFeqbnGfx5dkuqvrJ7f9AQFDbQeXxhEv5XsDj31yAbBm"
-                    }
-                ],
                 "confirmations": 3,
-                "id": "^@"
+                "id": "¼",
+                "type": "Incoming"
             },
             "required": [
                 "amount",
                 "inputs",
                 "outputs",
                 "confirmations",
-                "id"
+                "id",
+                "type"
             ],
             "type": "object",
             "description": "A Wallet Transaction.",
@@ -579,6 +642,9 @@
                     "type": "number"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -696,7 +762,7 @@
         },
         "EstimatedFees": {
             "example": {
-                "estimatedAmount": 4
+                "estimatedAmount": 25132995790248024
             },
             "required": [
                 "estimatedAmount"
@@ -961,8 +1027,8 @@
         },
         "PasswordUpdate": {
             "example": {
-                "old": "Vç",
-                "new": "¯"
+                "old": "<passphrase>",
+                "new": "<passphrase>"
             },
             "required": [
                 "old",
@@ -3115,6 +3181,26 @@
                 ],
                 "tags": [
                     "Transactions",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v1/settings": {
+            "get": {
+                "summary": "Retrieves the static settings for this node.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletSettings"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Settings",
                     "V1"
                 ]
             }

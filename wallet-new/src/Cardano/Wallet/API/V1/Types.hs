@@ -44,6 +44,8 @@ module Cardano.Wallet.API.V1.Types (
   , WalletSoftwareUpdate (..)
   -- * Settings
   , WalletSettings (..)
+  , SlotDuration
+  , MeasuredIn (..)
   -- * Core re-exports
   , Core.Address
   ) where

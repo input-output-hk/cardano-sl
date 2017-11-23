@@ -269,6 +269,9 @@ instance ToDocs Transaction where
 instance ToDocs WalletSoftwareUpdate where
   descriptionFor _ = "A programmed update to the system."
 
+instance ToDocs WalletSettings where
+  descriptionFor _ = "A collection of static settings for this wallet node."
+
 instance ToDocs TransactionGroupingPolicy where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "
                   <> "determine how a `Transaction` is assembled. "
@@ -322,6 +325,9 @@ instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema WalletSoftwareUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletSettings where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

@@ -66,12 +66,10 @@ newPaymentBatch
     -> m CTx
 newPaymentBatch passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
-    dst <- nonEmpty npbTo `whenNothing`
-        throwM (RequestError "At least one recipient required.")
     sendMoney
         passphrase
         (AccountMoneySource src)
-        dst
+        npbTo
         npbInputSelectionPolicy
 
 type MonadFees ctx m =

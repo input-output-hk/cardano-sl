@@ -6,6 +6,7 @@ import           Universum
 
 import           Data.Default (def)
 import           Data.List ((!!), (\\))
+import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
@@ -73,7 +74,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     let newBatchP =
             NewBatchPayment
                 { npbFrom = encodeCType srcAccId
-                , npbTo = zip dstCAddrs coins
+                , npbTo = fromList $ zip dstCAddrs coins
                 , npbInputSelectionPolicy = policy
                 }
     void $ lift $ newPaymentBatch pswd newBatchP

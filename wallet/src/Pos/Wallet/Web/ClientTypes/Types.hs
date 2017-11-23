@@ -498,7 +498,7 @@ data CTExMeta = CTExMeta
 
 data NewBatchPayment = NewBatchPayment
     { npbFrom                 :: CAccountId
-    , npbTo                   :: [(CId Addr, Coin)]
+    , npbTo                   :: NonEmpty (CId Addr, Coin)
     , npbInputSelectionPolicy :: InputSelectionPolicy
     } deriving (Show, Generic)
 

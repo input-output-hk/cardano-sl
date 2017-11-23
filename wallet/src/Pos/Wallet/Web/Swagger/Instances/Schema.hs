@@ -11,9 +11,9 @@ import           Universum
 
 import           Control.Lens (mapped, (?~))
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
-                               ToSchema (..), declareNamedSchema, declareSchemaRef,
-                               defaultSchemaOptions, format, genericDeclareNamedSchema, name,
-                               properties, required, type_)
+                               ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
+                               defaultSchemaOptions, format, genericDeclareNamedSchema, minItems,
+                               name, properties, required, type_)
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
@@ -113,3 +113,9 @@ instance {-# OVERLAPPING #-}
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
+
+instance ToSchema a => ToSchema (NonEmpty a) where
+    declareNamedSchema _ = do
+        schema <- declareSchema (Proxy :: Proxy [a])
+        pure $ NamedSchema Nothing $ schema
+            & minItems ?~ 1

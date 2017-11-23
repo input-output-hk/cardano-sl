@@ -8,6 +8,7 @@ module Command.Proc
 import           Universum
 
 import           Data.Constraint (Dict (..))
+import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
@@ -322,7 +323,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         puVoteAll <- getArg tyBool "vote-all"
         puBlockVersion <- getArg tyBlockVersion "block-version"
         puSoftwareVersion <- getArg tySoftwareVersion "software-version"
-        puBlockVersionModifier <- getArg tyBlockVersionModifier "bvm"
+        puBlockVersionModifier <- fromMaybe def <$> getArgOpt tyBlockVersionModifier "bvm"
         puUpdates <- getArgMany tyProposeUpdateSystem "update"
         pure ProposeUpdateParams{..}
     , cpExec = \params ->

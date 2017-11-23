@@ -63,9 +63,7 @@ updatePassword
     => WalletId -> PasswordUpdate -> m Wallet
 updatePassword wid PasswordUpdate{..} = do
     wid' <- migrate wid
-    _ <- join $ V0.changeWalletPassphrase <$> migrate wid
-                                          <*> pure pwdOld
-                                          <*> pure pwdNew
+    _ <- V0.changeWalletPassphrase wid' pwdOld pwdNew
     V0.getWallet wid' >>= migrate
 
 -- | Deletes an exisiting wallet.

@@ -28,6 +28,7 @@ import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Update          (updateTriggerWorker)
+import           Pos.Util            (logException)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
@@ -73,7 +74,7 @@ main :: IO ()
 main = do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams "node" commonNodeArgs
-    loggerBracket loggingParams $ do
+    loggerBracket loggingParams . logException "node" $ do
         CLI.printFlags
         let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
         runProduction $ withConfigurations conf (action args)

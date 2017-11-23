@@ -17,6 +17,7 @@ import           Pos.Network.Types   (NetworkConfig (..), Topology (..),
                                       topologyDequeuePolicy, topologyEnqueuePolicy,
                                       topologyFailurePolicy)
 import           Pos.Ssc.SscAlgo     (SscAlgo (GodTossingAlgo))
+import           Pos.Util            (logException)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
@@ -70,6 +71,7 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
 
 main :: IO ()
 main = do
-  opts <- getAuxxOptions
-  let loggingParams = CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
-  loggerBracket loggingParams . runProduction $ action opts
+    opts <- getAuxxOptions
+    let loggingParams = CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+    loggerBracket loggingParams . logException "auxx" $ do
+        runProduction $ action opts

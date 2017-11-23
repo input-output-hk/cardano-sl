@@ -28,7 +28,7 @@ import           Pos.Launcher        (HasConfigurations, NodeParams (..),
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update          (updateTriggerWorker)
-import           Pos.Util            (inAssertMode, mconcatPair)
+import           Pos.Util            (inAssertMode, logException, mconcatPair)
 import           Pos.Util.UserSecret (usVss)
 
 import           ExplorerOptions     (Args (..), ExplorerNodeArgs (..),
@@ -50,7 +50,7 @@ main :: IO ()
 main = do
     args <- getExplorerOptions
     let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
-    loggerBracket loggingParams $ do
+    loggerBracket loggingParams . logException "node" $ do
         printFlags
         runProduction $ action (enaExplorerArgs args)
 

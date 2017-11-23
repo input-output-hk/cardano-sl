@@ -172,6 +172,7 @@ library
                      , random
                      , reflection
                      , resourcet
+                     , safe-exceptions
                      , safecopy
                      , scrypt >= 0.5
                      , semigroups

@@ -1392,7 +1392,7 @@ self: {
           description = "Cardano SL - Auxx";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base16-bytestring, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safecopy, scrypt, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
+      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base16-bytestring, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safe-exceptions, safecopy, scrypt, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-core";
           version = "1.0.3";
@@ -1443,6 +1443,7 @@ self: {
             random
             reflection
             resourcet
+            safe-exceptions
             safecopy
             scrypt
             semigroups

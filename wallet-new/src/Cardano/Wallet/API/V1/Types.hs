@@ -43,9 +43,11 @@ module Cardano.Wallet.API.V1.Types (
   -- * Updates
   , WalletSoftwareUpdate (..)
   -- * Settings
-  , WalletSettings (..)
+  , NodeSettings (..)
   , SlotDuration
   , MeasuredIn (..)
+  , LocalTimeDifference
+  , NodeInfo (..)
   -- * Core re-exports
   , Core.Address
   ) where
@@ -69,6 +71,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
 
+import           Data.Version (Version)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
@@ -489,14 +492,14 @@ instance Arbitrary WalletSoftwareUpdate where
 -- not leave anything to guessing.
 data UnitOfMeasure =
       Seconds
-    | MilliSeconds
-    | MicroSeconds
+    | Milliseconds
+    | Microseconds
     deriving (Show, Eq)
 
 data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show)
 
--- | How many seconds
-type SlotDuration = MeasuredIn 'MilliSeconds Word
+-- | How many milliseconds a slot lasts for.
+type SlotDuration = MeasuredIn 'Milliseconds Word
 
 instance Arbitrary SlotDuration where
     arbitrary = MeasuredIn <$> choose (0, 100)
@@ -507,18 +510,47 @@ instance ToJSON SlotDuration where
                                    ]
 
 instance FromJSON SlotDuration where
-    parseJSON = withObject "SlotDuration" $ \sl -> MeasuredIn <$> sl .: "quantity"
+    parseJSON = withObject "MeasuredIn" $ \sl -> MeasuredIn <$> sl .: "quantity"
 
-data WalletSettings = WalletSettings {
-     setSlotDuration    :: SlotDuration
-   , setSoftwareVersion :: Core.SoftwareVersion
+-- | The @static@ settings for this wallet node. In particular, we could group
+-- here protocol-related settings like the slot duration, the transaction max size,
+-- the current software version running on the node, etc.
+data NodeSettings = NodeSettings {
+     setSlotDuration    :: !SlotDuration
+   , setSoftwareVersion :: !Core.SoftwareVersion
+   , setProjectVersion  :: !Version
+   , setGitRevision     :: !Text
    } deriving (Show, Eq)
 
-deriveJSON Serokell.defaultOptions ''WalletSettings
+deriveJSON Serokell.defaultOptions ''NodeSettings
 
-instance Arbitrary WalletSettings where
-    arbitrary = WalletSettings <$> arbitrary
-                               <*> arbitrary
+instance Arbitrary NodeSettings where
+    arbitrary = NodeSettings <$> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
+                             <*> pure "0e1c9322a"
+
+type LocalTimeDifference = MeasuredIn 'Microseconds Word
+
+instance Arbitrary LocalTimeDifference where
+    arbitrary = MeasuredIn <$> choose (0, 100)
+
+instance ToJSON LocalTimeDifference where
+    toJSON (MeasuredIn w) = object [ "quantity" .= toJSON w
+                                   , "unit"     .= String "microseconds"
+                                   ]
+
+instance FromJSON LocalTimeDifference where
+    parseJSON = withObject "MeasuredIn" $ \sl -> MeasuredIn <$> sl .: "quantity"
+
+data NodeInfo = NodeInfo {
+     staLocalTimeDifference :: LocalTimeDifference
+   } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''NodeInfo
+
+instance Arbitrary NodeInfo where
+    arbitrary = NodeInfo <$> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

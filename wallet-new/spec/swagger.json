@@ -130,66 +130,6 @@
                 }
             }
         },
-        "WalletSettings": {
-            "example": {
-                "slotDuration": {
-                    "quantity": 77,
-                    "unit": "milliseconds"
-                },
-                "softwareVersion": {
-                    "svAppName": {
-                        "getApplicationName": "9D"
-                    },
-                    "svNumber": 0
-                }
-            },
-            "required": [
-                "slotDuration",
-                "softwareVersion"
-            ],
-            "type": "object",
-            "description": "A collection of static settings for this wallet node.",
-            "properties": {
-                "slotDuration": {
-                    "required": [
-                        "quantity",
-                        "unit"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "quantity": {
-                            "type": "number"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "softwareVersion": {
-                    "required": [
-                        "svAppName",
-                        "svNumber"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "svAppName": {
-                            "required": [
-                                "getApplicationName"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "getApplicationName": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "svNumber": {
-                            "type": "number"
-                        }
-                    }
-                }
-            }
-        },
         "ApiVersion": {
             "type": "string",
             "enum": [
@@ -257,23 +197,73 @@
         "CTxId": {
             "type": "string"
         },
-        "WalletVersion": {
+        "NodeSettings": {
             "example": {
-                "gitRev": "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79",
-                "version": "v0"
+                "projectVersion": "2",
+                "gitRevision": "0e1c9322a",
+                "slotDuration": {
+                    "quantity": 77,
+                    "unit": "milliseconds"
+                },
+                "softwareVersion": {
+                    "svAppName": {
+                        "getApplicationName": "RB6n"
+                    },
+                    "svNumber": 0
+                }
             },
             "required": [
-                "gitRev",
-                "version"
+                "projectVersion",
+                "gitRevision",
+                "slotDuration",
+                "softwareVersion"
             ],
             "type": "object",
-            "description": "The Wallet version, including the API version and the Git revision.",
+            "description": "A collection of static settings for this wallet node.",
             "properties": {
-                "gitRev": {
+                "projectVersion": {
                     "type": "string"
                 },
-                "version": {
+                "gitRevision": {
                     "type": "string"
+                },
+                "slotDuration": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "softwareVersion": {
+                    "required": [
+                        "svAppName",
+                        "svNumber"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "svAppName": {
+                            "required": [
+                                "getApplicationName"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "getApplicationName": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "svNumber": {
+                            "type": "number"
+                        }
+                    }
                 }
             }
         },
@@ -1058,6 +1048,36 @@
         },
         "CId": {
             "type": "string"
+        },
+        "NodeInfo": {
+            "example": {
+                "localTimeDifference": {
+                    "quantity": 77,
+                    "unit": "microseconds"
+                }
+            },
+            "required": [
+                "localTimeDifference"
+            ],
+            "type": "object",
+            "description": "A collection of dynamic information for this wallet node.",
+            "properties": {
+                "localTimeDifference": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "paths": {
@@ -1683,25 +1703,6 @@
                 ],
                 "tags": [
                     "V0"
-                ]
-            }
-        },
-        "/api/v1/version": {
-            "get": {
-                "summary": "Returns the version for this API.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/WalletVersion"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V1"
                 ]
             }
         },
@@ -3185,26 +3186,6 @@
                 ]
             }
         },
-        "/api/v1/settings": {
-            "get": {
-                "summary": "Retrieves the static settings for this node.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/WalletSettings"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "Settings",
-                    "V1"
-                ]
-            }
-        },
         "/api/reporting/initialized": {
             "post": {
                 "consumes": [
@@ -3342,6 +3323,26 @@
                 ],
                 "tags": [
                     "V0"
+                ]
+            }
+        },
+        "/api/v1/node-settings": {
+            "get": {
+                "summary": "Retrieves the static settings for this node.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/NodeSettings"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Settings",
+                    "V1"
                 ]
             }
         },
@@ -3551,6 +3552,26 @@
                 ],
                 "tags": [
                     "V0"
+                ]
+            }
+        },
+        "/api/v1/node-info": {
+            "get": {
+                "summary": "Retrieves the dynamic information for this node.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/NodeInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Info",
+                    "V1"
                 ]
             }
         },

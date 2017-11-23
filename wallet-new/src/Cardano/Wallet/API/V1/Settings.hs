@@ -5,5 +5,5 @@ import           Cardano.Wallet.API.V1.Types
 import           Servant
 
 type API =
-         "settings" :> Summary "Retrieves the static settings for this node."
-                    :> Get '[JSON] WalletSettings
+         "node-settings" :> Summary "Retrieves the static settings for this node."
+                         :> Get '[JSON] NodeSettings

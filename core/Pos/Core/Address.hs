@@ -72,7 +72,7 @@ import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Coin ()
-import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.Constants (accountGenesisIndex, chainGenesisIndex, wAddressGenesisIndex)
 import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
                                  AddrStakeDistribution (..), AddrType (..), Address (..),
                                  Address' (..), AddressHash, Script, StakeholderId)
@@ -386,7 +386,8 @@ deriveFirstHDAddress
     -> EncryptedSecretKey -- ^ key of wallet set
     -> Maybe (Address, EncryptedSecretKey)
 deriveFirstHDAddress ibea passphrase wsKey =
-    deriveLvl2KeyPair ibea (ShouldCheckPassphrase False) passphrase wsKey accountGenesisIndex wAddressGenesisIndex
+    deriveLvl3KeyPair ibea (ShouldCheckPassphrase False) passphrase wsKey
+      accountGenesisIndex chainGenesisIndex wAddressGenesisIndex
 
 ----------------------------------------------------------------------------
 -- Pattern-matching helpers
@@ -444,11 +445,12 @@ maxPubKeyAddressSizeSingleKey = biSize largestPubKeyAddressSingleKey
 -- is serialized using var-length encoding.
 largestHDAddressBoot :: Bi Address' => Address
 largestHDAddressBoot =
-    case deriveLvl2KeyPair
+    case deriveLvl3KeyPair
              (IsBootstrapEraAddr True)
              (ShouldCheckPassphrase False)
              emptyPassphrase
              encSK
+             maxBound
              maxBound
              maxBound of
         Nothing        -> error "largestHDAddressBoot failed"

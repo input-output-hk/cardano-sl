@@ -240,38 +240,46 @@ so only stakeholders with some significant amount of stake can send proposals.
 
 #### Protocol version checks
 
-* _Protocol version following check_: protocol version from proposal can follow last adopted protocol version.
-
+* _Protocol version following check_: protocol version from proposal can follow last adopted protocol version.  
 The following rules regarding major and minor versions take place:
-* The proposed major version must be equal to or greater by `1` last adopted one.
-* If the proposed major version is greater than last adopted one by `1`, then minor version must be `0`.
-* If the proposed major version is equal to the last adopted one, then minor version 
+  * The proposed major version must be equal to or greater by `1` last adopted one.
+  * If the proposed major version is greater than last adopted one by `1`, then minor version must be `0`.
+  * If the proposed major version is equal to the last adopted one, then minor version 
 can be either same as the last adopted one or greater by `1`.
 
-Also the following rules regarding alternative versions take place (assuming checks above passed):
-* If `(Major, Minor)` of proposed version is equal to `(Major, Minor)` of
+  Also the following rules regarding alternative versions take place (assuming checks above passed):
+  * If `(Major, Minor)` of proposed version is equal to `(Major, Minor)` of
 last adopted version, then alternative version must be equal to alternative version of last adopted version.
-* Otherwise `(Major, Minor)` of proposed version is lexicographically greater 
+  * Otherwise `(Major, Minor)` of proposed version is lexicographically greater 
 than `(Major, Minor)` of last adopted version and in this case
 other proposed block versions with same `(Major, Minor)` are considered (let's call this set `X`):
-  * If `X` is empty, given alternative version must be `0`.
-  * Otherwise it must be in `X` or greater than maximum from `X` by `1`.
+    * If `X` is empty, given alternative version must be `0`.
+    * Otherwise it must be in `X` or greater than maximum from `X` by `1`.
 
 * _BlockVersionModifier consistenty check_: `BlockVersionModifier` from proposal is consistent 
-with `BlockVersionData` for adopted protocol version or with `BlockVersionModifier` from _competing_ proposals.
-
+with `BlockVersionData` for adopted protocol version or with `BlockVersionModifier` from _competing_ proposals.  
 There are three cases to check:
-* Block version from proposal is equal to adopted version. 
-  In this case each field of `BlockVersionModifier` from proposal must be either `Nothing` or 
-  `Just` with the same value from `BlockVersionData` of last adopted version.
-* Block version from proposal is equal to one from another proposal. 
-  `BlockVersionModifier`s from them must be the same. 
-   If several proposals with the same block version exist, then all `BlockVersionModifier` must be equal.
-* Block version from proposal is new one. 
-  In this case we must check `BlockVersionModifier` from the proposal is consistent with adopted `BlockVersionData`.  
-  The following checks take place:
-  * script version from proposal must be equal to or greater by `1` adopted one.
-  * max block size from proposal is at most two times greater than adopted one.
-  * unlock stake epoch must not be changed if boostrap era is over
+  * Block version from proposal is equal to adopted version. 
+    In this case each field of `BlockVersionModifier` from proposal must be either `Nothing` or 
+    `Just` with the same value from `BlockVersionData` of last adopted version.
+  * Block version from proposal is equal to one from another proposal. 
+    `BlockVersionModifier`s from them must be the same. 
+     If several proposals with the same block version exist, then all `BlockVersionModifier` must be equal.
+  * Block version from proposal is new one. 
+    In this case we must check `BlockVersionModifier` from the proposal is consistent with adopted `BlockVersionData`.  
+    The following checks take place:
+    * script version from proposal must be equal to or greater by `1` adopted one.
+    * max block size from proposal is at most two times greater than adopted one.
+    * unlock stake epoch must not be changed if boostrap era is over
 
 ### Votes verification
+
+For each vote the following checks must be performed:
+
+* _Existence proposal check_: check that proposal with such proposal id exists.
+
+* _Active proposal check_: check that proposal is still active.
+
+* _Revote check_: check that a stakeholder doesn't revote twice or send the same decision twice.  
+  It's allowed for any stakeholder to vote no more than one time and 
+  also change his decision to opposite no more than one time.

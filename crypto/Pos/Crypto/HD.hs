@@ -17,6 +17,8 @@ module Pos.Crypto.HD
 
        , firstHardened
        , firstNonHardened
+       , secondHardened
+       , secondNonHardened
        , isHardened
        ) where
 
@@ -75,6 +77,12 @@ firstHardened = 2 ^ (31 :: Word32)
 
 firstNonHardened :: Word32
 firstNonHardened = 0
+
+secondHardened :: Word32
+secondHardened = firstHardened
+
+secondNonHardened :: Word32
+secondNonHardened = 0
 
 isHardened :: Word32 -> Bool
 isHardened = ( >= firstHardened)

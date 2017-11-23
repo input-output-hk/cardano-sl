@@ -12,7 +12,6 @@ import           Universum
 import           Control.Lens (at)
 import           Control.Monad.State.Class (MonadState (..))
 import qualified Data.ByteString.Char8 as BS
-import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
@@ -27,8 +26,7 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.Socket.Methods (SubscriptionMode, addrSubParam, addressSetByTxs, blockPageSubParam,
                                               fromCAddressOrThrow, subscribeAddr, spSessId, txsSubParam)
-import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (makeMockExtraCtx)
+import           Pos.Explorer.ExplorerMode (SubscriptionTestParams, runSubscriptionTestMode)
 import           Pos.Explorer.Socket.Holder (ConnectionsState(..), ccAddress, csClients, mkConnectionsState)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -87,33 +85,28 @@ subscribeAddrAssert
   => CAddress -> SocketId -> m Bool
 subscribeAddrAssert cAddr socketId = do
     -- create an emtpy ConnectionsState
-    var <- atomically $ newTVar mkConnectionsState
+    connState <- atomically $ newTVar mkConnectionsState
     -- subscribe to an `CAddress`
     subscribeAddr cAddr socketId
-    -- get updated ConnectionsState again ...
-    var' <- atomically $ readTVar var
-    -- to check if ConnectionsState has a `CAddress` subscribed
-    let ctx = var' ^. (csClients . at socketId)
+    -- get an updated ConnectionsState ...
+    connState' <- atomically $ readTVar connState
+    -- to check if CAddress` has been added to it
+    let ctx = connState' ^. (csClients . at socketId)
     pure $ maybe False hasAddress ctx
   where
     hasAddress ctx' = maybe False ((==) cAddr . toCAddress) $ ctx' ^. ccAddress
 
 subscribeAddrProp
-    :: ExplorerTestParams
+    :: SubscriptionTestParams
     -> CAddress
     -> SocketId
     -> Property
 subscribeAddrProp testParams addr socketId = monadicIO $ do
-  let extraContext = withDefConfigurations $ makeMockExtraCtx def
-  let subscription = withDefConfigurations $
-                          runExplorerTestMode testParams extraContext $
-                          subscribeAddrAssert addr socketId
-
-  -- TODO (jk) Try to simply run here w/o all ExplorerTestMode stuff
-  -- result <- run $ subscribeAddrAssert addr socketId
-
-  result <- run subscription
-  assert result
+    let subscription = withDefConfigurations $
+                            runSubscriptionTestMode testParams $
+                            subscribeAddrAssert addr socketId
+    result <- run subscription
+    assert result
 
 -- TODO (jk): Move all following instances to other, more common modules
 -- eg. to TestUtil or similar

@@ -49,7 +49,7 @@ instance ToJSON Core.PassPhrase where
 
 instance FromJSON Core.PassPhrase where
     parseJSON Null        = mempty
-    parseJSON x@(String pp) = case mkPassPhrase pp of
-        Left e    -> typeMismatch e x
+    parseJSON (String pp) = case mkPassPhrase pp of
+        Left e    -> fail e
         Right pp' -> pure pp'
     parseJSON x           = typeMismatch "parseJSON failed for PassPhrase" x

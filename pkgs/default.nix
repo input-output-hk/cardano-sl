@@ -1663,15 +1663,17 @@ self: {
           description = "Cardano SL - basic DB interfaces";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-delegation = callPackage ({ QuickCheck, base, cardano-sl-binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, conduit, cpphs, ether, formatting, generic-arbitrary, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, node-sketch, resourcet, rocksdb-haskell, serokell-util, stdenv, text-format, time, transformers, universum, unordered-containers }:
+      cardano-sl-delegation = callPackage ({ QuickCheck, aeson, base, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-util, conduit, cpphs, ether, formatting, generic-arbitrary, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, node-sketch, reflection, resourcet, rocksdb-haskell, serokell-util, stdenv, text-format, time, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-delegation";
           version = "1.0.3";
           src = ./../delegation;
           libraryHaskellDepends = [
+            aeson
             base
             cardano-sl-binary
             cardano-sl-core
+            cardano-sl-crypto
             cardano-sl-db
             cardano-sl-infra
             cardano-sl-lrc
@@ -1687,6 +1689,7 @@ self: {
             mtl
             node-sketch
             QuickCheck
+            reflection
             resourcet
             rocksdb-haskell
             serokell-util

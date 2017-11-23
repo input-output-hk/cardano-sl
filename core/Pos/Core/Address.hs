@@ -350,26 +350,26 @@ deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
 -- | Derives a HD wallet address and private key from a root key and a path
 -- which is 3 levels deep (i, j, k).
 deriveLvl3KeyPair
-  :: Bi Address'
-  => IsBootstrapEraAddr
-  -> ShouldCheckPassphrase
-  -> PassPhrase
-  -> EncryptedSecretKey
-  -> (Word32, Word32, Word32)
-  -> Maybe (Address, EncryptedSecretKey)
+    :: Bi Address'
+    => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> (Word32, Word32, Word32)
+    -> Maybe (Address, EncryptedSecretKey)
 deriveLvl3KeyPair isBootstrap checkPass passphrase rootKey (i, j, k) =
     deriveHDAddressKeyPair isBootstrap checkPass passphrase rootKey [i, j, k]
 
 -- | Derives a HD wallet address and private key from a root key and a path of
 -- arbitrary length.
 deriveHDAddressKeyPair
-  :: Bi Address'
-  => IsBootstrapEraAddr    -- ^ Whether the address is BootStrap Era or beyond.
-  -> ShouldCheckPassphrase
-  -> PassPhrase
-  -> EncryptedSecretKey
-  -> [Word32]              -- ^ The derivation path as 32-bit integers.
-  -> Maybe (Address, EncryptedSecretKey)
+    :: Bi Address'
+    => IsBootstrapEraAddr    -- ^ Whether the address is BootStrap Era or beyond.
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> [Word32]              -- ^ The derivation path as 32-bit integers.
+    -> Maybe (Address, EncryptedSecretKey)
 deriveHDAddressKeyPair isBootstrap checkPass passphrase rootKey path = do
     let hdPassphrase = deriveHDPassphrase $ encToPublic rootKey
     let hdAddressPayload = packHDAddressAttr hdPassphrase path

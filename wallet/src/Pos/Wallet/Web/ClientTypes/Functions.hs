@@ -142,8 +142,9 @@ mkCTx diff THEntry {..} meta pc wAddrsSet = do
 
 addrMetaToAccount :: CWAddressMeta -> AccountId
 addrMetaToAccount CWAddressMeta{..} = AccountId
-    { aiWId  = cwamWId
-    , aiIndex = cwamAccountIndex
+    { aiWId        = cwamWId
+    , aiIndex      = cwamAccountIndex
+    , aiChainIndex = cwamChainIndex
     }
 
 -- | Return counts of negative and positive votes

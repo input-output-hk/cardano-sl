@@ -163,16 +163,18 @@ type PassPhraseLU = POSIXTime
 
 data AccountId = AccountId
     { -- | Address of wallet this account belongs to
-      aiWId   :: CId Wal
-    , -- | Derivation index of this account key
-      aiIndex :: Word32
+      aiWId        :: CId Wal
+    , -- | First derivation index of this account key
+      aiIndex      :: Word32
+    , -- | Second derivation index of this account key
+      aiChainIndex :: Word32
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Hashable AccountId
 
 instance Buildable AccountId where
     build AccountId{..} =
-        bprint (build%"@"%build) aiWId aiIndex
+        bprint (build%"@"%build%"@"%build) aiWId aiIndex aiChainIndex
 
 instance Buildable (SecureLog AccountId) where
     build _ = "<account id>"
@@ -189,6 +191,8 @@ data CWAddressMeta = CWAddressMeta
     , -- | First index in derivation path of this account key
       cwamAccountIndex :: Word32
     , -- | Second index in derivation path of this account key
+      cwamChainIndex   :: Word32
+    , -- | Third index in derivation path of this account key
       cwamAddressIndex :: Word32
     , -- | Actual address
       cwamId           :: CId Addr
@@ -196,8 +200,8 @@ data CWAddressMeta = CWAddressMeta
 
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
-        bprint (build%"@"%build%"@"%build%" ("%build%")")
-        cwamWId cwamAccountIndex cwamAddressIndex cwamId
+        bprint (build%"@"%build%"@"%build%"@"%build%" ("%build%")")
+        cwamWId cwamAccountIndex cwamChainIndex cwamAddressIndex cwamId
 
 instance Hashable CWAddressMeta
 

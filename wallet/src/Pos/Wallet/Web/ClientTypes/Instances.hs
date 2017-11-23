@@ -58,10 +58,12 @@ type instance OriginType CAccountId = AccountId
 instance FromCType CAccountId where
     decodeCType (CAccountId url) =
         case splitOn "@" url of
-            [part1, part2] -> do
+            [part1, part2, part3] -> do
                 aiWId  <- encodeCType <$> decodeTextAddress part1
-                aiIndex <- maybe (Left "Invalid wallet index") Right $
+                aiIndex <- maybe (Left "Invalid wallet account index") Right $
                             readMaybe $ toString part2
+                aiChainIndex <- maybe (Left "Invalid wallet chain index") Right $
+                                  readMaybe $ toString part3
                 return AccountId{..}
             _ -> Left "Expected 2 parts separated by '@'"
 

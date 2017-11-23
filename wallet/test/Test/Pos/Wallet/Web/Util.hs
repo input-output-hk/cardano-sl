@@ -12,7 +12,7 @@ module Test.Pos.Wallet.Web.Util
        , importSingleWallet
        , mostlyEmptyPassphrases
        , deriveRandomAddress
-       , genWalletLvl2KeyPair
+       , genWalletLvl3KeyPair
        , genWalletAddress
        , genWalletUtxo
        , expectedAddrBalance
@@ -36,7 +36,7 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Context (LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
-import           Pos.Core.Address (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.Address (IsBootstrapEraAddr (..), deriveLvl3KeyPair)
 import           Pos.Core.Block (blockHeader)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
@@ -135,7 +135,7 @@ mostlyEmptyPassphrases =
 
 -- | Take passphrases of our wallets
 -- and return some address from one of our wallets and id of this wallet.
--- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
+-- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl3KeyPair@
 deriveRandomAddress :: [PassPhrase] -> WalletProperty (CId Addr, CId Wal)
 deriveRandomAddress passphrases = do
     skeys <- lift getSecretKeysPlain
@@ -156,30 +156,31 @@ deriveRandomAddress passphrases = do
 -- | Take root secret key of wallet and a passphrase
 -- and generate arbitrary wallet address with corresponding lvl 2
 -- secret key
--- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
-genWalletLvl2KeyPair
+-- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl3KeyPair@
+genWalletLvl3KeyPair
     :: EncryptedSecretKey
     -> PassPhrase
     -> Gen (Maybe (Address, EncryptedSecretKey))
-genWalletLvl2KeyPair sk psw = do
+genWalletLvl3KeyPair sk psw = do
     accountIdx <- getDerivingIndex <$> arbitrary
+    chainIdx <- getDerivingIndex <$> arbitrary
     addressIdx <- getDerivingIndex <$> arbitrary
-    pure $ deriveLvl2KeyPair
+    pure $ deriveLvl3KeyPair
         (IsBootstrapEraAddr True)
         (ShouldCheckPassphrase False)
-        psw sk accountIdx addressIdx
+        psw sk accountIdx chainIdx addressIdx
 
 -- | Take root secret key of wallet and a passphrase
 -- and generate arbitrary wallet address
--- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
+-- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl3KeyPair@
 genWalletAddress
     :: EncryptedSecretKey
     -> PassPhrase
     -> Gen (Maybe Address)
-genWalletAddress sk psw = fst <<$>> genWalletLvl2KeyPair sk psw
+genWalletAddress sk psw = fst <<$>> genWalletLvl3KeyPair sk psw
 
 -- | Generate utxo which contains only addresses from given wallet
--- BE CAREFUL: @deriveLvl2KeyPair@ is called `size` times here -
+-- BE CAREFUL: @deriveLvl3KeyPair@ is called `size` times here -
 -- generating large utxos will take a long time
 genWalletUtxo
     :: EncryptedSecretKey

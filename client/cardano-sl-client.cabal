@@ -38,6 +38,7 @@ library
                      , data-default
                      , ether
                      , formatting
+                     , generic-arbitrary
                      , lens
                      , log-warper
                      , monad-control
@@ -50,6 +51,7 @@ library
                      , universum
                      , unordered-containers
                      , vector
+                     , QuickCheck
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

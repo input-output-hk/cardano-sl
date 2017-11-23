@@ -9,7 +9,7 @@ import           Data.List ((!!), (\\))
 import           Formatting (build, sformat, (%))
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (arbitrary, choose, suchThat, vectorOf)
+import           Test.QuickCheck (arbitrary, choose)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Client.Txp.Balances (getBalance)
@@ -29,8 +29,8 @@ import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
-import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, stopProperty,
-                                withDefConfigurations)
+import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, splitWord,
+                                stopProperty, withDefConfigurations)
 
 import           Pos.Util.Servant (encodeCType)
 import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
@@ -43,11 +43,6 @@ spec :: Spec
 spec = withCompileInfo def $
        withDefConfigurations $
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
-    -- TODO: add seperate test for newPayment
-    -- this ^ is not really needed as newPayment endpoint is a real subset
-    -- of newPaymentBatch as both of them use sendMoney endpoint - but
-    -- it would be nice to have both here as somebody might change the
-    -- implementation in future.
     describe "newPaymentBatch" $ do
         describe "One payment" oneNewPaymentBatchSpec
 
@@ -71,10 +66,9 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     srcAddr <- getAddress srcAccId
     -- Dunno how to get account's balances without CAccModifier
     initBalance <- getBalance srcAddr
-    let topBalance = unsafeGetCoin initBalance `div` 2
     -- `div` 2 to leave money for tx fee
-    -- FIXME: this might be inafficient
-    coins <- pick $ suchThat (vectorOf destLen $ mkCoin <$> choose (1, topBalance)) ((< topBalance) . fromIntegral . sumCoins)
+    let topBalance = unsafeGetCoin initBalance `div` 2
+    coins <- pick $ map mkCoin <$> splitWord topBalance (fromIntegral destLen)
     policy <- pick arbitrary
     let newBatchP =
             NewBatchPayment
@@ -105,16 +99,9 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
         "Minimal tx fee isn't satisfied"
 
     -- Validate that tx meta was added when transaction was processed
-
-    -- (!!) is safe here as group will guarantee that
-    let countedWalIds = map (length &&& (!! 0)) . group . sort $ walId:dstWalIds
-    forM_ countedWalIds $ \(c, wId) -> do
+    forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
         txMetas <- maybeStopProperty "Wallet doesn't exist" =<< lift (WS.getWalletTxHistory wId)
-        -- FIXME: I am sure that if there was one output, there will
-        -- be exactly one txMeta. If there are multiple outputs tx meta
-        -- count is a bit complicated to calculate (not sure yet)
-        when (c == 1) $
-            void $ expectedOne "TxMeta for wallet" txMetas
+        void $ expectedOne "TxMeta for wallet" txMetas
 
     -- Validate change and used address
     -- TODO implement it when access

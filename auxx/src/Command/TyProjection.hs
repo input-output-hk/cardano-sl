@@ -25,6 +25,7 @@ module Command.TyProjection
        , tyBlockVersionModifier
        , tyProposeUpdateSystem
        , tySystemTag
+       , tyApplicationName
        , tyString
        ) where
 
@@ -35,9 +36,9 @@ import           Data.Time.Units (TimeUnit, convertUnit)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util (sec)
 
-import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin, CoinPortion,
-                           EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId, mkCoin,
-                           unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, ApplicationName, BlockVersion, Coin,
+                           CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
+                           mkApplicationName, mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
 import           Pos.Update (BlockVersionModifier (..), SystemTag (..), mkSystemTag)
@@ -153,6 +154,9 @@ tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValuePropos
 
 tySystemTag :: TyProjection SystemTag
 tySystemTag = TyProjection "SystemTag" (mkSystemTag' <=< preview _ValueString)
+
+tyApplicationName :: TyProjection ApplicationName
+tyApplicationName = TyProjection "ApplicationName" (mkApplicationName . fromString <=< preview _ValueString)
 
 mkSystemTag' :: String -> Maybe SystemTag
 mkSystemTag' = either (\(_::String) -> Nothing) Just . mkSystemTag . fromString

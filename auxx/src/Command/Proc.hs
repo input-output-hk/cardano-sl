@@ -12,15 +12,15 @@ import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
-import           System.Wlog (CanLog, HasLoggerName, logError, logInfo)
+import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Communication (MsgType (..), Origin (..), SendActions, dataFlow,
                                     immediateConcurrentConversations)
-import           Pos.Core (AddrStakeDistribution (..), Address, StakeholderId, addressHash,
-                           mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
+                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Address (makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
@@ -38,10 +38,11 @@ import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
-import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress, tyBlockVersion,
-                                       tyBlockVersionModifier, tyBool, tyByte, tyCoin,
-                                       tyCoinPortion, tyEither, tyEpochIndex, tyFilePath, tyHash,
-                                       tyInt, tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
+import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
+                                       tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
+                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
+                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
+                                       tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
                                        tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
@@ -308,6 +309,19 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct a part of the update proposal for binary update"
     },
 
+    let name = "software" in
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        appName <- getArg tyApplicationName "name"
+        number <- getArg tyWord32 "n"
+        pure (appName, number)
+    , cpExec = \(svAppName, svNumber) -> do
+        return $ ValueSoftwareVersion SoftwareVersion{..}
+    , cpHelp = "Construct a software version from application name and number"
+    },
+
     let name = "propose-update" in
     needsSendActions name >>= \sendActions ->
     needsAuxxMode name >>= \Dict ->
@@ -403,13 +417,14 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
-    , cpArgumentConsumer = getArg tyInt "i"
-    , cpExec = \i -> do
+    , cpArgumentConsumer = getArgMany tyInt "i"
+    , cpExec = \is -> do
+        when (null is) $ logWarning "Not adding keys from pool (list is empty)"
         CmdCtx {..} <- getCmdCtx
         let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
-            key = secrets !! i
-        evaluateNF_ key
-        addSecretKey $ noPassEncrypt key
+        forM_ is $ \i -> do
+            key <- evaluateNF $ secrets !! i
+            addSecretKey $ noPassEncrypt key
         return ValueUnit
     , cpHelp = ""
     },
@@ -428,8 +443,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         if akpPrimary then do
             let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk
-        else
-            mapM_ addSecretKey $ secret ^. usKeys
+        else do
+            let ks = secret ^. usKeys
+            printAction $ sformat ("Adding "%build%" secret keys") (length ks)
+            mapM_ addSecretKey ks
         return ValueUnit
     , cpHelp = ""
     },

@@ -92,7 +92,7 @@ instance Buildable FilePath' where
                  | otherwise = '\\':[c]
 
 isFilePathChar :: Char -> Bool
-isFilePathChar c = isAlphaNum c || c `elem` ['.', '/']
+isFilePathChar c = isAlphaNum c || c `elem` ['.', '/', '-', '_']
 
 data Token
     = TokenSquareBracket BracketSide

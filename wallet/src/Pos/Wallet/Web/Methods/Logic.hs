@@ -47,7 +47,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (MonadBalances (..), WalletMempoolExt)
-import           Pos.Wallet.Web.Account (AddrGenSeed, genUniqueAccountId, genUniqueAddress,
+import           Pos.Wallet.Web.Account (AddressGenerationMode, genUniqueAccountId, genUniqueAddress,
                                          getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
                                              CAccountMeta (..), CAddress (..), CCoin, CId,
@@ -181,35 +181,35 @@ getWallets = getWalletAddresses >>= mapM getWallet
 
 newAddress
     :: MonadWalletLogic ctx m
-    => AddrGenSeed
+    => AddressGenerationMode
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId =
+newAddress addGenMode passphrase accId =
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
         _ <- getAccount accMod accId
 
-        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
+        cAccAddr <- genUniqueAddress addGenMode passphrase accId
         addWAddress cAccAddr
         getWAddress accMod cAccAddr
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} =
+    => Bool -> AddressGenerationMode -> PassPhrase -> CAccountInit -> m CAccount
+newAccountIncludeUnready includeUnready addGenMode passphrase CAccountInit {..} =
     fixCachedAccModifierFor caInitWId $ \accMod -> do
         -- check wallet exists
         _ <- getWalletIncludeUnready includeUnready caInitWId
 
-        cAddr <- genUniqueAccountId addGenSeed caInitWId
+        cAddr <- genUniqueAccountId addGenMode caInitWId
         createAccount cAddr caInitMeta
-        () <$ newAddress addGenSeed passphrase cAddr
+        () <$ newAddress addGenMode passphrase cAddr
         getAccount accMod cAddr
 
 newAccount
     :: MonadWalletLogic ctx m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+    => AddressGenerationMode -> PassPhrase -> CAccountInit -> m CAccount
 newAccount = newAccountIncludeUnready False
 
 createWalletSafe

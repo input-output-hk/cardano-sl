@@ -25,6 +25,9 @@ spec = describe "Marshalling & Unmarshalling" $ do
   prop "Aeson TransactionGroupingPolicy roundtrips" (aesonRoundtrip @TransactionGroupingPolicy Proxy)
   prop "Aeson TransactionType roundtrips" (aesonRoundtrip @TransactionType Proxy)
   prop "Aeson Transaction roundtrips" (aesonRoundtrip @Transaction Proxy)
+  prop "Aeson ApplicationName roundtrips" (aesonRoundtrip @Core.ApplicationName Proxy)
+  prop "Aeson SoftwareVersion roundtrips" (aesonRoundtrip @Core.SoftwareVersion Proxy)
+  prop "Aeson WalletSettings roundtrips" (aesonRoundtrip @WalletSettings Proxy)
 
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property

@@ -42,6 +42,8 @@ module Cardano.Wallet.API.V1.Types (
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Settings
+  , WalletSettings (..)
   -- * Core re-exports
   , Core.Address
   ) where
@@ -63,6 +65,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
+
 
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
@@ -477,6 +480,43 @@ instance Arbitrary WalletSoftwareUpdate where
   arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
                                    <*> fmap fromString arbitrary
                                    <*> fmap getPositive arbitrary
+
+-- | A finite sum type representing time units we might want to show to
+-- clients. The idea is that whenever we have a quantity represeting some
+-- form of time, we should render it together with the relevant unit, to
+-- not leave anything to guessing.
+data UnitOfMeasure =
+      Seconds
+    | MilliSeconds
+    | MicroSeconds
+    deriving (Show, Eq)
+
+data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show)
+
+-- | How many seconds
+type SlotDuration = MeasuredIn 'MilliSeconds Word
+
+instance Arbitrary SlotDuration where
+    arbitrary = MeasuredIn <$> choose (0, 100)
+
+instance ToJSON SlotDuration where
+    toJSON (MeasuredIn w) = object [ "quantity" .= toJSON w
+                                   , "unit"     .= String "milliseconds"
+                                   ]
+
+instance FromJSON SlotDuration where
+    parseJSON = withObject "SlotDuration" $ \sl -> MeasuredIn <$> sl .: "quantity"
+
+data WalletSettings = WalletSettings {
+     setSlotDuration    :: SlotDuration
+   , setSoftwareVersion :: Core.SoftwareVersion
+   } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''WalletSettings
+
+instance Arbitrary WalletSettings where
+    arbitrary = WalletSettings <$> arbitrary
+                               <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

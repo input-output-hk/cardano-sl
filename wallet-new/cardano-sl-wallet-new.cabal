@@ -1,11 +1,13 @@
 name:                cardano-sl-wallet-new
 version:             0.1.0.0
-synopsis:            Auto-generated API bindings for cardano-sl-web-wallet
+synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
 homepage:            https://github.com/swagger-api/swagger-codegen#readme
 author:              IOHK Engineering Team
 maintainer:          operations@iohk.io
 copyright:           2017 - Input Output Hong Honk
+license:             MIT
+license-file:        LICENSE
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10

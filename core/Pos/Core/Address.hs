@@ -21,6 +21,7 @@ module Pos.Core.Address
        , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
+       , deriveLvl3KeyPair
        , deriveFirstHDAddress
 
        -- * Pattern-matching helpers
@@ -345,6 +346,47 @@ deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
     -- We don't need to check passphrase twice
     createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
+
+-- | Derives a HD wallet address and private key from a root key and a path
+-- which is 3 levels deep (i, j, k).
+deriveLvl3KeyPair
+  :: Bi Address'
+  => IsBootstrapEraAddr
+  -> ShouldCheckPassphrase
+  -> PassPhrase
+  -> EncryptedSecretKey
+  -> (Word32, Word32, Word32)
+  -> Maybe (Address, EncryptedSecretKey)
+deriveLvl3KeyPair isBootstrap checkPass passphrase rootKey (i, j, k) =
+    deriveHDAddressKeyPair isBootstrap checkPass passphrase rootKey [i, j, k]
+
+-- | Derives a HD wallet address and private key from a root key and a path of
+-- arbitrary length.
+deriveHDAddressKeyPair
+  :: Bi Address'
+  => IsBootstrapEraAddr    -- ^ Whether the address is BootStrap Era or beyond.
+  -> ShouldCheckPassphrase
+  -> PassPhrase
+  -> EncryptedSecretKey
+  -> [Word32]              -- ^ The derivation path as 32-bit integers.
+  -> Maybe (Address, EncryptedSecretKey)
+deriveHDAddressKeyPair isBootstrap checkPass passphrase rootKey path = do
+    let hdPassphrase = deriveHDPassphrase $ encToPublic rootKey
+    let hdAddressPayload = packHDAddressAttr hdPassphrase path
+    let (ShouldCheckPassphrase checkFirst) = checkPass
+    childKey <- deriveChildKey path checkFirst rootKey
+    let publicKey = encToPublic childKey
+    return (makePubKeyHdwAddress isBootstrap hdAddressPayload publicKey, childKey)
+  where
+    deriveChildKey []     _     key = return key
+    -- On the first iteration we check the passphrase if checkFirst is True.
+    deriveChildKey (i:is) True  key =
+        deriveHDSecretKey checkPass passphrase key i >>= deriveChildKey is False
+    -- On the next iterations we do not check the passphrase.
+    deriveChildKey (i:is) False key =
+        deriveHDSecretKey dontCheck passphrase key i >>= deriveChildKey is False
+
+    dontCheck = ShouldCheckPassphrase False
 
 deriveFirstHDAddress
     :: Bi Address'

@@ -1,7 +1,4 @@
-{-# LANGUAGE OverloadedLists     #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE OverloadedLists #-}
 
 -- | Instances of `ToSchema` & `ToParamSchema`
 
@@ -11,9 +8,10 @@ import           Universum
 
 import           Control.Lens (mapped, (?~))
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
-                               ToSchema (..), declareNamedSchema, declareSchemaRef,
-                               defaultSchemaOptions, format, genericDeclareNamedSchema, name,
-                               properties, required, type_)
+                               ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
+                               defaultSchemaOptions, description, example, format,
+                               genericDeclareNamedSchema, name, properties, required, type_)
+import           Data.Swagger.Internal.Schema (named)
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
@@ -80,7 +78,6 @@ instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit
-instance ToSchema      CT.CFilePath
 instance ToSchema      CT.ApiVersion
 instance ToSchema      Version
 instance ToSchema      CT.ClientInfo
@@ -102,6 +99,21 @@ instance ToSchema (FileData tag) where
                 ]
             & required .~ [ "fdInputFile", "fdFileName", "fdFileCType", "fdFilePath"]
 
+instance ToSchema CT.CFilePath where
+    declareNamedSchema _ = do
+        schema <- declareSchema (Proxy :: Proxy FilePath)
+        let schema' = schema
+                & description ?~ desc
+                & example ?~ "keys/1.key"
+        return $ named "FilePath" schema'
+      where
+        desc = "Path to file.\n \
+               \Note that it is represented as JSON-string, \
+               \one may need to properly escape content. For instance:\n \
+               \curl ... -X \"\\\\\"1.key\"\\\\\".\n\
+               \Also, when on Windows, don't forget to double-escape \
+               \ backslashes, e.g. \
+               \ \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

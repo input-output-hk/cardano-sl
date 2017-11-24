@@ -30,6 +30,7 @@
 * Please read about
   [balances and stakes](https://cardanodocs.com/cardano/balance-and-stake/) and
   don't confuse them.
+* [Unknown data handling](unknown-data.md).
 
 ## Overview
 Update system gives ability to developers to propose updates of software applications and
@@ -250,8 +251,9 @@ We prohibit it because of opportunity spam update proposals from one stakeholder
   * Update proposal size limit is part of `BlockVersionData`.
   * If the size of a proposal is greater than the limit from the adopted `BlockVersionData`, the proposal is invalid.
 
-* _Attributes known check_: if `verifyAllIsKnown` is `True`, all update proposal attributes must be known.
-
+* _Attributes known check_: if `verifyAllIsKnown` (defined [here](unknown-data.md#verifyallisknown-flag))
+is `True`, all update proposal attributes must be known.
+ 
 * _Uniqueness of proposal check_: that there is no active proposal with the same id.
 
 * _Software version check_: numeric software version of application is 1 more 
@@ -347,3 +349,4 @@ On each genesis block the following algorithm is performed:
    If `S` is empty then there is nothing to adopt, otherwise take maximal block version from `S`, let's call it `V`.
 4. `V` becomes new adopted version. Other competing versions can't become adopted because they are less than `V`, 
    so they aren't competing anymore and thrown away from the consideration.
+   

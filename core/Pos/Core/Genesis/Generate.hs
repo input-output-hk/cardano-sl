@@ -33,7 +33,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisDelegation, GenesisInitializer (..),
                                          GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         TestnetBalanceOptions (..), noGenesisDelegation)
+                                         TestnetBalanceOptions (..))
 import           Pos.Core.Types (Coin, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, HasCryptoConfiguration, RedeemPublicKey, SecretKey,
@@ -55,7 +55,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     , ggdDelegation       :: !GenesisDelegation
     -- ^ Genesis heavyweight delegation certificates (empty if
     -- 'tiUseHeavyDlg' is 'False').
-    , ggdSecrets          :: !(Maybe GeneratedSecrets)
+    , ggdSecrets          :: !GeneratedSecrets
     -- ^ Secrets which can unlock genesis data (if known).
     }
 
@@ -88,12 +88,12 @@ generateGenesisData
     => GenesisInitializer
     -> GenesisAvvmBalances
     -> GeneratedGenesisData
-generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (serialize' tiSeed) $ do
-    let TestnetBalanceOptions{..} = tiTestBalance
+generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (serialize' giSeed) $ do
+    let TestnetBalanceOptions{..} = giTestBalance
 
     -- apply ggdAvvmBalanceFactor
     let applyAvvmBalanceFactor :: HashMap k Coin -> HashMap k Coin
-        applyAvvmBalanceFactor = map (applyCoinPortionDown tiAvvmBalanceFactor)
+        applyAvvmBalanceFactor = map (applyCoinPortionDown giAvvmBalanceFactor)
         realAvvmMultiplied :: GenesisAvvmBalances
         realAvvmMultiplied = realAvvmBalances & coerced %~ applyAvvmBalanceFactor
 
@@ -107,13 +107,13 @@ generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (s
         tnBalance = min maxTnBalance tboTotalBalance
 
     -- Generate AVVM stuff
-    (fakeAvvmDistr, fakeAvvmSeeds, fakeAvvmBalance) <- generateFakeAvvmGenesis tiFakeAvvmBalance
+    (fakeAvvmDistr, fakeAvvmSeeds, fakeAvvmBalance) <- generateFakeAvvmGenesis giFakeAvvmBalance
 
     -- Generate all secrets
     let replicateRich = replicateM (fromIntegral tboRichmen)
         replicatePoor = replicateM (fromIntegral tboPoors)
     dlgIssuersSecrets <-
-        case tiUseHeavyDlg of
+        case giUseHeavyDlg of
             False -> pure []
             True  -> replicateRich (snd <$> keyGen)
     richmenSecrets <- replicateRich generateRichSecrets
@@ -122,7 +122,7 @@ generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (s
     -- Heavyweight delegation
     let genesisDlgList :: [ProxySKHeavy]
         genesisDlgList
-            | tiUseHeavyDlg =
+            | giUseHeavyDlg =
                 zip dlgIssuersSecrets richmenSecrets <&>
                 (\(issuerSk, RichSecrets {..}) ->
                         createPsk issuerSk (toPublic rsPrimaryKey) 0)
@@ -133,7 +133,7 @@ generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (s
 
     -- Bootstrap stakeholders
     let bootSecrets
-            | tiUseHeavyDlg = dlgIssuersSecrets
+            | giUseHeavyDlg = dlgIssuersSecrets
             | otherwise = map rsPrimaryKey richmenSecrets
         toStakeholders :: [SecretKey] -> Map StakeholderId Word16
         toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic)
@@ -169,7 +169,7 @@ generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (s
             else zip a b
 
         (richBals, poorBals) =
-            genTestnetDistribution tiTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
+            genTestnetDistribution giTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
         -- ^ Rich and poor balances
         nonAvvmDistr = HM.fromList $
             safeZip "rich" richAddresses richBals ++
@@ -181,22 +181,13 @@ generateGenesisData (TestnetInitializer{..}) realAvvmBalances = deterministic (s
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
         , ggdVssCerts = vssCerts
         , ggdDelegation = genesisDlg
-        , ggdSecrets = Just $ GeneratedSecrets
+        , ggdSecrets = GeneratedSecrets
               { gsDlgIssuersSecrets = dlgIssuersSecrets
               , gsRichSecrets = richmenSecrets
               , gsPoorSecrets = poorsSecrets
               , gsFakeAvvmSeeds = fakeAvvmSeeds
               }
         }
-generateGenesisData MainnetInitializer {..} realAvvm =
-    GeneratedGenesisData
-    { ggdNonAvvm = miNonAvvmBalances
-    , ggdAvvm = realAvvm
-    , ggdBootStakeholders = miBootStakeholders
-    , ggdVssCerts = miVssCerts
-    , ggdDelegation = noGenesisDelegation
-    , ggdSecrets = Nothing
-    }
 
 ----------------------------------------------------------------------------
 -- Exported helpers

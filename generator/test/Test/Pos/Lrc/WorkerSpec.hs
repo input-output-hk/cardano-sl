@@ -71,13 +71,13 @@ genTestParams = do
 
 genGenesisInitializer :: Gen GenesisInitializer
 genGenesisInitializer = do
-    tiTestBalance <- genTestnetBalanceOptions
-    tiFakeAvvmBalance <- arbitrary
-    tiAvvmBalanceFactor <- arbitrary
+    giTestBalance <- genTestnetBalanceOptions
+    giFakeAvvmBalance <- arbitrary
+    giAvvmBalanceFactor <- arbitrary
     -- Currently these tests don't work well with genesis delegation.
-    let tiUseHeavyDlg = False
-    tiSeed <- arbitrary
-    return TestnetInitializer {..}
+    let giUseHeavyDlg = False
+    giSeed <- arbitrary
+    return GenesisInitializer {..}
   where
     -- We want to be sure that richmen are indeed richmen according to
     -- genesis thresholds from all components and that poor guys are

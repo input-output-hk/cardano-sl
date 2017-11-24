@@ -128,28 +128,20 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
     GCSpec spec -> do
 
         theSystemStart <- case mSystemStart of
-            Just it -> case gsInitializer spec of
-                TestnetInitializer{..} -> do
-                    logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
-                    return it
-                MainnetInitializer{..} -> throwM UnnecessarySystemStartTime
-            Nothing -> case gsInitializer spec of
-                TestnetInitializer{..} -> throwM MissingSystemStartTime
-                MainnetInitializer{..} -> do
-                    logInfo $ sformat ("withConfiguration using genesis configured system start time "%shown) miStartTime
-                    return miStartTime
+            Just it -> do
+                logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
+                return it
+            Nothing -> throwM MissingSystemStartTime
 
         -- Override seed if necessary
-        let overrideSeed :: Integer -> GenesisInitializer -> m GenesisInitializer
-            overrideSeed newSeed ti@TestnetInitializer{} = pure (ti {tiSeed = newSeed})
-            overrideSeed _ _ =
-                throwM $ MeaninglessSeed "Can't override seed for mainnet initializer"
+        let overrideSeed :: Integer -> GenesisInitializer -> GenesisInitializer
+            overrideSeed newSeed gi = gi {giSeed = newSeed}
 
-        theSpec <- case mSeed of
-             Nothing      -> pure spec
-             Just newSeed -> do
-                 newInitializer <- overrideSeed newSeed (gsInitializer spec)
-                 return spec { gsInitializer = newInitializer }
+        let theSpec = case mSeed of
+                Nothing -> spec
+                Just newSeed -> spec
+                    { gsInitializer = overrideSeed newSeed (gsInitializer spec)
+                    }
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
@@ -196,7 +188,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                 theGenesisHash = unsafeHash @Text "patak"
              in withCoreConfiguration conf $
                   withGenesisHash theGenesisHash $
-                  withGeneratedSecrets ggdSecrets $
+                  withGeneratedSecrets (Just ggdSecrets) $
                   withGenesisData theGenesisData val
 
 data ConfigurationError =

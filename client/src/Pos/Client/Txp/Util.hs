@@ -70,8 +70,7 @@ import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
                           TxOutAux (..), TxSigData (..), Utxo)
 import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), elements)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -148,7 +147,7 @@ isCheckedTxError = \case
 data InputSelectionPolicy
     = OptimizeForSecurity  -- ^ Spend everything from the address
     | OptimizeForSize      -- ^ No grouping
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Enum, Bounded, Generic)
 
 instance Buildable InputSelectionPolicy where
     build = \case
@@ -162,8 +161,7 @@ instance Default InputSelectionPolicy where
     def = OptimizeForSecurity
 
 instance Arbitrary InputSelectionPolicy where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+    arbitrary = elements [minBound .. maxBound]
 
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m

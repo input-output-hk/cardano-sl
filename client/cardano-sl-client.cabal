@@ -38,7 +38,6 @@ library
                      , data-default
                      , ether
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , monad-control

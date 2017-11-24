@@ -1,9 +1,35 @@
 # Update system consensus rules
+## Table of contents
 
+  * [Prerequisites](#prerequisites)
+  * [Overview](#overview)
+  * [Problem definition](#problem-definition)
+  * [Update system model](#update-system-model)
+    + [Poll and decision agreement rules](#poll-and-decision-agreement-rules)
+    + [Update proposal states](#update-proposal-states)
+    + [Software and block versions](#software-and-block-versions)
+    + [Adoption of block version](#adoption-of-block-version)
+      - [Block validation according to adopted version](#block-validation-according-to-adopted-version)
+      - [Example](#example)
+ * [Verification](#verification)
+    + [Block header verification](#block-header-verification)
+    + [Update proposal verification](#update-proposal-verification)
+      - [General checks](#general-checks)
+      - [Protocol version checks](#protocol-version-checks)
+    + [Votes verification](#votes-verification)
+ * [Confirmation and adoption algorithms](#confirmation-and-adoption-algorithms)
+    + [Update proposal confirmation algorithm](#update-proposal-confirmation-algorithm)
+    + [Block version adoption algorithm](#block-version-adoption-adoption-algorithm)
+ 
 ## Prerequisites
 
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).
 * [Bootstrap era](https://cardanodocs.com/timeline/bootstrap/).
+* [Block structure](https://cardanodocs.com/technical/blocks/#design).
+  Specifically, you need to know about how update payload is stored in blocks.
+* Please read about
+  [balances and stakes](https://cardanodocs.com/cardano/balance-and-stake/) and
+  don't confuse them.
 
 ## Overview
 Update system gives ability to developers to propose updates of software applications and
@@ -61,7 +87,7 @@ update proposal becomes **discarded**.
 _Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.  
 If a proposal is discarded then it doesn't affect consensus rules anymore and we throw away it from the consideration.
 
-### Software and block versions. Data associated with block version
+### Software and block versions
 
 When a developer wants to fix some bug or add some features to application,
 which don't affect protocol rules, he should propose an update with new `SoftwareVersion`.

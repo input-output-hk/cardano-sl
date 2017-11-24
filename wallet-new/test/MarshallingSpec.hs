@@ -27,6 +27,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
         aesonRoundtripProp @Core.Coin Proxy
+        aesonRoundtripProp @PassPhrase Proxy
         aesonRoundtripProp @TransactionGroupingPolicy Proxy
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
@@ -53,7 +54,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
-    decode (encode (toJSON s)) === Just s
+    eitherDecode (encode (toJSON s)) === Right s
 
 aesonRoundtripProp
     :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a, Typeable a)

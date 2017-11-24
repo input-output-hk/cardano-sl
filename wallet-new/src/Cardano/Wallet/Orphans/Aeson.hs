@@ -9,7 +9,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.Types (Value (..), typeMismatch)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Formatting (int, sformat, shown, (%))
+import           Formatting (int, sformat, (%))
 
 import qualified Serokell.Util.Base16 as Base16
 
@@ -41,14 +41,13 @@ instance FromJSON BackupPhrase where
 instance ToJSON CFilePath where
   toJSON (CFilePath c) = toJSON c
 
--- FIXME: This couple of instances is not complementary,
--- can't write roundtrip test for them.
--- It doesn't matter though, because we will hardly need to return password
 instance ToJSON Core.PassPhrase where
-    toJSON = String . sformat shown
+    toJSON passphrase
+        | passphrase == Core.emptyPassphrase = Null
+        | otherwise = String $ Base16.encode (ByteArray.convert passphrase)
 
 instance FromJSON Core.PassPhrase where
-    parseJSON Null        = mempty
+    parseJSON Null        = pure Core.emptyPassphrase
     parseJSON (String pp) = case mkPassPhrase pp of
         Left e    -> fail e
         Right pp' -> pure pp'

@@ -234,8 +234,10 @@ instance HasConfiguration => MonadDB LauncherMode where
     dbDelete = dbDeleteDefault
     dbPutSerBlund = dbPutSerBlundRealDefault
 
-bracketNodeDBs :: FilePath -> (NodeDBs -> IO a) -> IO a
-bracketNodeDBs dbPath = bracket (openNodeDBs False dbPath) closeNodeDBs
+newtype NodeDbPath = NodeDbPath FilePath
+
+bracketNodeDBs :: NodeDbPath -> (NodeDBs -> IO a) -> IO a
+bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNodeDBs
 
 main :: IO ()
 main =
@@ -262,16 +264,14 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.Debug)
-    bracketNodeDBs loNodeDbPath $ \lmcNodeDBs ->
-        Log.usingLoggerName "launcher" $
+    Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
-        let lmc = LauncherModeContext{..} in
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
-                    lmc
+                    (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     ( loUpdaterPath
@@ -283,7 +283,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
-                    lmc
+                    (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     (wpath, loWalletArgs)
@@ -329,21 +329,21 @@ main =
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: LauncherModeContext
+    :: NodeDbPath
     -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
     -> M ()
-serverScenario lmc logConf node updater report = do
-    runUpdater lmc updater
+serverScenario ndbp logConf node updater report = do
+    runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario lmc logConf node updater report
+        serverScenario ndbp logConf node updater report
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
@@ -356,7 +356,7 @@ serverScenario lmc logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: LauncherModeContext
+    :: NodeDbPath
     -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
@@ -365,12 +365,12 @@ clientScenario
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
     -> M ()
-clientScenario lmc logConf node wallet updater nodeTimeout report = do
-    runUpdater lmc updater
+clientScenario ndbp logConf node wallet updater nodeTimeout report = do
+    runUpdater ndbp updater
     (nodeHandle, nodeAsync) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
-    let restart = clientScenario lmc logConf node wallet updater nodeTimeout report
+    let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
@@ -416,8 +416,8 @@ clientScenario lmc logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: LauncherModeContext -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
-runUpdater lmc (path, args, runnerPath, mUpdateArchivePath) = do
+runUpdater :: NodeDbPath -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
+runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
     whenM (liftIO (doesFileExist path)) $ do
         logNotice "Running the updater"
         let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
@@ -435,7 +435,9 @@ runUpdater lmc (path, args, runnerPath, mUpdateArchivePath) = do
                 -- hopefully if the updater has succeeded it *does* exist
                 whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
                     updateArchive <- BS.L.readFile updateArchivePath
-                    usingReaderT lmc $ affirmUpdateInstalled (installerHash updateArchive)
+                    bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                        usingReaderT LauncherModeContext{..} $
+                        affirmUpdateInstalled (installerHash updateArchive)
                     removeFile updateArchivePath
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code

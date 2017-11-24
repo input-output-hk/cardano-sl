@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Logic.Types
@@ -158,7 +159,7 @@ instance Exception GetTipError
 
 -- | A diffusion layer: its interface, and a way to run it.
 data LogicLayer m = LogicLayer
-    { runLogicLayer :: m ()
+    { runLogicLayer :: forall x . m x -> m x
     , logic         :: Logic m
     }
 
@@ -169,7 +170,7 @@ dummyLogicLayer
        )
     => StakeholderId -> LogicLayer m
 dummyLogicLayer stkhldId = LogicLayer
-    { runLogicLayer = pure ()
+    { runLogicLayer = identity
     , logic         = dummyLogic
     }
 

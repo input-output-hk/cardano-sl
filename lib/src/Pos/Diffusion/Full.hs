@@ -22,15 +22,11 @@ import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
-import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node, waitForDispatcher)
+import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
 import           Node.Conversation (Converse, converseWith)
 import qualified System.Metrics as Monitoring
 import           System.Random (newStdGen)
 import           System.Wlog (WithLogger, CanLog, logError, getLoggerName, usingLoggerName)
-import qualified System.Wlog as Logger
-#ifdef linux_HOST_OS
-import qualified System.Systemd.Daemon as Systemd
-#endif
 
 import           Pos.Block.Network.Types (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe)
@@ -207,7 +203,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.
-            runDiffusionLayer :: d ()
+            runDiffusionLayer :: forall y . d y -> d y
             runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq listeners
 
             enqueue :: EnqueueMsg d
@@ -300,30 +296,24 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.
 runDiffusionLayerFull
-    :: forall d .
+    :: forall d x .
        ( DiffusionWorkMode d, MonadFix d )
     => NetworkConfig KademliaParams
     -> VerInfo
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> (VerInfo -> [Listener d])
-    -> d ()
-runDiffusionLayerFull networkConfig ourVerInfo oq listeners =
+    -> d x
+    -> d x
+runDiffusionLayerFull networkConfig ourVerInfo oq listeners action =
     bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
         bracketKademlia networkConfig $ \_ ->
-            timeWarpNode transport ourVerInfo listeners $ \theNode converse ->
+            timeWarpNode transport ourVerInfo listeners $ \_ converse ->
                 withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
                     -- TODO EKG stuff.
                     -- Both logic and diffusion will use EKG so we don't
-                    -- set it up here in the diffusion layer.
-                    notifyReady
-                    -- Wait until the dispatcher finishes (the transport
-                    -- shuts down normally or exceptionally).
-                    -- The expectation is that some user interface component
-                    -- controls when the node goes down, and terminates the
-                    -- diffusion layer via asynchronous exception (KillThread).
-                    -- In the case of the typical full cardano node, the
-                    -- user interface is "wait for control+c".
-                    waitForDispatcher theNode
+                    -- set it up here in the diffusion layer, but we do
+                    -- register some counters and gauges.
+                    action
 
 sendMsgFromConverse
     :: Converse PackingType PeerData d
@@ -453,17 +443,3 @@ bracketTransport
     -> m a
 bracketTransport tcpAddr k =
     bracket (createTransportTCP tcpAddr) snd (k . fst)
-
--- | Notify process manager tools like systemd the node is ready.
--- Available only on Linux for systems where `libsystemd-dev` is installed.
--- It defaults to a noop for all the other platforms.
-notifyReady :: (MonadIO m, WithLogger m) => m ()
-#ifdef linux_HOST_OS
-notifyReady = do
-    res <- liftIO Systemd.notifyReady
-    case res of
-        Just () -> return ()
-        Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
-#else
-notifyReady = return ()
-#endif

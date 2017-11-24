@@ -62,14 +62,14 @@ deriving instance Show GetBlocksError
 
 -- | A diffusion layer: its interface, and a way to run it.
 data DiffusionLayer m = DiffusionLayer
-    { runDiffusionLayer :: m ()
+    { runDiffusionLayer :: forall x . m x -> m x
     , diffusion         :: Diffusion m
     }
 
 -- | A diffusion layer that does nothing.
 dummyDiffusionLayer :: Applicative m => DiffusionLayer m
 dummyDiffusionLayer = DiffusionLayer
-    { runDiffusionLayer = pure ()
+    { runDiffusionLayer = identity
     , diffusion         = dummyDiffusion
     }
   where

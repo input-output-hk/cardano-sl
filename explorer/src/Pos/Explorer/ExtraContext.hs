@@ -30,7 +30,7 @@ import           Pos.Core.Block (Block)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 
-import           Pos.Explorer.DB (Page, getPageBlocks)
+import           Pos.Explorer.DB (Epoch, Page, getPageBlocks, getEpochBlocks, getEpochPages)
 
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration, HeaderHash, SlotId (..),
                            SlotLeaders, Timestamp, isRedeemAddress)
@@ -102,6 +102,10 @@ data ExplorerMockableMode = ExplorerMockableMode
           :: forall ctx m. MonadSlotsData ctx m => SlotId -> m (Maybe Timestamp)
     , emmGetLeadersFromEpoch
           :: forall m. MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
+    , emmGetEpochBlocks
+          :: forall m. MonadDBRead m => Epoch -> Page -> m (Maybe [HeaderHash])
+    , emmGetEpochPages
+          :: forall m. MonadDBRead m => Epoch -> m (Maybe Page)
     }
 
 -- | This is what we use in production when we run Explorer.
@@ -111,7 +115,9 @@ prodMode = ExplorerMockableMode {
       emmGetPageBlocks          = getPageBlocks,
       emmGetBlundFromHH         = DB.getBlund,
       emmGetSlotStart           = getSlotStart,
-      emmGetLeadersFromEpoch    = getLeadersForEpoch
+      emmGetLeadersFromEpoch    = getLeadersForEpoch,
+      emmGetEpochBlocks         = getEpochBlocks,
+      emmGetEpochPages          = getEpochPages
     }
 
 -- | So we can just reuse the default instance and change individial functions.
@@ -125,7 +131,9 @@ instance Default (ExplorerMockableMode) where
         emmGetPageBlocks          = errorImpl,
         emmGetBlundFromHH         = errorImpl,
         emmGetSlotStart           = errorImpl,
-        emmGetLeadersFromEpoch    = errorImpl
+        emmGetLeadersFromEpoch    = errorImpl,
+        emmGetEpochBlocks         = errorImpl,
+        emmGetEpochPages          = errorImpl
       }
     where
       errorImpl = error "Cannot be used, please implement this function!"
@@ -143,6 +151,8 @@ class HasExplorerCSLInterface m where
     getBlundFromHHCSLI :: HeaderHash -> m (Maybe Blund)
     getSlotStartCSLI :: SlotId -> m (Maybe Timestamp)
     getLeadersFromEpochCSLI :: EpochIndex -> m (Maybe SlotLeaders)
+    getEpochBlocksCSLI :: Epoch -> Page -> m (Maybe [HeaderHash])
+    getEpochPagesCSLI :: Epoch -> m (Maybe Page)
 
 -- | The instance for external CSL functions.
 instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
@@ -172,3 +182,13 @@ instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetLeadersFromEpoch explorerMockMode $ epochIndex
+
+    getEpochBlocksCSLI epoch page = do
+        extraCtx <- Ether.ask @ExtraContext
+        let explorerMockMode = ecExplorerMockableMode extraCtx
+        (emmGetEpochBlocks explorerMockMode) epoch page
+
+    getEpochPagesCSLI epoch = do
+        extraCtx <- Ether.ask @ExtraContext
+        let explorerMockMode = ecExplorerMockableMode extraCtx
+        emmGetEpochPages explorerMockMode $ epoch

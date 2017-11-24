@@ -15,14 +15,15 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (EpochIndex (..), HasConfiguration)
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
                                         generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
-                                          getBlocksPagesTotal, getBlocksTotal)
+                                          getBlocksPagesTotal, getBlocksTotal, getEpochPage,
+                                          getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 import           Test.Pos.Util (withDefConfigurations)
@@ -34,7 +35,7 @@ import           Test.Pos.Util (withDefConfigurations)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
--- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
+-- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
 spec = withDefConfigurations $ do
     describe "Pos.Explorer.Web.Server" $ do
@@ -45,6 +46,9 @@ spec = withDefConfigurations $ do
         blocksPagesTotalUnitSpec
         blocksPageUnitSpec
         blocksLastPageUnitSpec
+
+        epochSlotUnitSpec
+        epochPageUnitSpec
 
         blocksTotalFunctionalSpec
 
@@ -227,6 +231,81 @@ blocksLastPageUnitSpec =
 
                   -- This function should be equal to calling getBlocksPage with @Nothing@.
                   assert $ blocksLastPage == blocksPage
+
+
+epochSlotUnitSpec :: HasConfigurations => Spec
+epochSlotUnitSpec = do
+    describe "getEpochSlot"
+    $ modifyMaxSuccess (const 200) $ do
+        prop "getEpochSlot(valid epoch) != empty" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
+                monadicIO $ do
+
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
+
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
+
+
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  -- The first slot of the last epoch.
+                  -- TODO(ks): Generalize to arbitrary @EpochIndex@.
+                  let epochSlotM :: IO [CBlockEntry]
+                      epochSlotM =
+                          runExplorerTestMode testParams extraContext
+                              $ getEpochSlot
+                                  (EpochIndex 0)
+                                  1
+
+                  -- We finally run it as @PropertyM@ and check if it holds.
+                  epochSlot <- run epochSlotM
+
+                  -- The function result should not be empty.
+                  assert $ not . null $ epochSlot
+                  -- The function result should always be one.
+                  assert $ length epochSlot == 1
+
+
+epochPageUnitSpec :: HasConfigurations => Spec
+epochPageUnitSpec = do
+    describe "getEpochPage"
+    $ modifyMaxSuccess (const 200) $ do
+        prop "getEpochPage(valid epoch) != empty" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
+                monadicIO $ do
+
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
+
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
+
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  -- The first slot of the last epoch.
+                  -- TODO(ks): Generalize to arbitrary @EpochIndex@.
+                  let epochPageM :: IO (Int, [CBlockEntry])
+                      epochPageM =
+                          runExplorerTestMode testParams extraContext
+                              $ getEpochPage
+                                  (EpochIndex 0)
+                                  Nothing
+
+                  -- We finally run it as @PropertyM@ and check if it holds.
+                  (totalPages, epochPage) <- run epochPageM
+
+                  -- The function result should not be empty.
+                  assert $ not . null $ epochPage
+                  -- Pages should always exist.
+                  assert $ totalPages > 0
 
 
 -- | A spec with the following test invariant. If a block is generated, there is no way

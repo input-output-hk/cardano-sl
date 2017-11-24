@@ -20,8 +20,6 @@ module Cardano.Wallet.API.V1.Types (
   , AccountUpdate (..)
   , Update
   , New
-  -- * Error handling
-  , WalletError (..)
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -219,25 +217,6 @@ instance (ToJSON a, ToJSON b) => ToJSON (OneOf a b) where
 instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
   arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
                               , fmap Right (arbitrary :: Gen b)]
-
---
--- Error handling
---
-
--- | Models a Wallet Error as a Jsend <https://labs.omniti.com/labs/jsend> response.
-data WalletError = WalletError
-  { errCode    :: !Int
-  , errMessage :: Text
-  } deriving (Show, Eq, Generic)
-
-instance ToJSON WalletError where
-    toJSON WalletError{..} = object [ "code"    .= toJSON errCode
-                                    , "status"  .= String "error"
-                                    , "message" .= toJSON errMessage
-                                    ]
-
-instance Arbitrary WalletError where
-    arbitrary = WalletError <$> choose (1,999) <*> pure "The given AccountId is not correct."
 
 --
 -- Domain-specific types, mostly placeholders.
@@ -515,13 +494,38 @@ instance FromJSON SlotDuration where
 -- here protocol-related settings like the slot duration, the transaction max size,
 -- the current software version running on the node, etc.
 data NodeSettings = NodeSettings {
-     setSlotDuration    :: !SlotDuration
-   , setSoftwareVersion :: !Core.SoftwareVersion
-   , setProjectVersion  :: !Version
-   , setGitRevision     :: !Text
+     setSlotDuration   :: !SlotDuration
+   , setSoftwareInfo   :: !Core.SoftwareVersion
+   , setProjectVersion :: !Version
+   , setGitRevision    :: !Text
    } deriving (Show, Eq)
 
-deriveJSON Serokell.defaultOptions ''NodeSettings
+-- The following instances are derived manually due to the fact that changing the
+-- way `SoftwareVersion` is represented would break compatibility with V0, so the
+-- solution is either write this manual instance by hand or create a `newtype` wrapper.
+--deriveJSON Serokell.defaultOptions ''NodeSettings
+instance ToJSON NodeSettings where
+    toJSON NodeSettings{..} =
+        let override Core.SoftwareVersion{..} =
+                object [ "applicationName" .= toJSON (Core.getApplicationName svAppName)
+                       , "version" .=  toJSON svNumber
+                       ]
+        in object [ "slotDuration" .= toJSON setSlotDuration
+                  , "softwareInfo" .= override setSoftwareInfo
+                  , "projectVersion" .= toJSON setProjectVersion
+                  , "gitRevision" .= toJSON setGitRevision
+                  ]
+
+instance FromJSON NodeSettings where
+    parseJSON = withObject "NodeSettings" $ \ns -> do
+        si <- ns .: "softwareInfo"
+        let softwareInfo = withObject "SoftwareVersion" $ \sw ->
+                Core.SoftwareVersion <$> sw .: "applicationName"
+                                     <*> sw .: "version"
+        NodeSettings <$> ns .: "slotDuration"
+                     <*> softwareInfo si
+                     <*> ns .: "projectVersion"
+                     <*> ns .: "gitRevision"
 
 instance Arbitrary NodeSettings where
     arbitrary = NodeSettings <$> arbitrary

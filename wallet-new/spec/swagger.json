@@ -8,7 +8,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            \"Un4ZpTvXtoKfUHjDCrusx7xrADRVPP11956y3BPMs6Mrgng4qbEQrjPn2dhLTDiqLtptbiGD5ZYc7FPq2iCVTuD9jnWz2KtaSdfWdU1huyKxd795\",\n            \"3qruzscJwnkDgVrhM7QEbBpsLTKgAfGSGoVkvN6frVXPxwsgjbpooVVvYBdmcUaLsLXNVVi1RrkSinxYiFSV1aH8X8FcP8MbzP1QFDKpicCkV78Z61tUKE3bFBASFJXNpmZ8vFkrY36a6WgyQh8VsXpqnvynLDZyFcURF9bhHWqrMBbmxMqWeYX8zcKGCR84BccQr1Bf7vu6xFL7xcdUZHqH55J3a7gGsHRG2XUjEfkF5WyHz6toRpAzzL4rRLL1K2ypckMUrQNeVdMN7ADhfufhqJQsrk\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            \"5oP9ib6ym3XbH2fmvNAm5dUyE7xFqQztrsN41xg7hbXQbmbQnYUgXXt2rFZUgLyYPd\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                \"Un4ZpTvXtoKN7YiPTJZgXcD8uywHboxG9r7ZQqCRnpvnFAq7Gx4gpUd5Wqti65ZXydvyrg8KVe2oWVXi5PiVosGoEWGZLseimCRBEM61DCbL5hqj\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                \"7J1MaQmKydNVxXeuuEk33yiWbfA9mjA3TSzxsLzVaPq7LzDsx11Wz9qBT738VcPE53sg9sREzDzdRD43AAByWX55rdvigsfAQW1nj7aysmFfmtb\",\n                \"2657WMsDfac6Yj1L8CzH6jr7Xqd82zKm91aYZL61Ft1TV44RtY8YQDgFtJtjoqe5W\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"code\": 600,\n    \"message\": \"The requested Wallet cannot be found.\"\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            \"Un4ZpTvXtoKfUHjDCrusx7xrADRVPP11956y3BPMs6Mrgng4qbEQrjPn2dhLTDiqLtptbiGD5ZYc7FPq2iCVTuD9jnWz2KtaSdfWdU1huyKxd795\",\n            \"3qruzscJwnkDgVrhM7QEbBpsLTKgAfGSGoVkvN6frVXPxwsgjbpooVVvYBdmcUaLsLXNVVi1RrkSinxYiFSV1aH8X8FcP8MbzP1QFDKpicCkV78Z61tUKE3bFBASFJXNpmZ8vFkrY36a6WgyQh8VsXpqnvynLDZyFcURF9bhHWqrMBbmxMqWeYX8zcKGCR84BccQr1Bf7vu6xFL7xcdUZHqH55J3a7gGsHRG2XUjEfkF5WyHz6toRpAzzL4rRLL1K2ypckMUrQNeVdMN7ADhfufhqJQsrk\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            \"5oP9ib6ym3XbH2fmvNAm5dUyE7xFqQztrsN41xg7hbXQbmbQnYUgXXt2rFZUgLyYPd\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                \"Un4ZpTvXtoKN7YiPTJZgXcD8uywHboxG9r7ZQqCRnpvnFAq7Gx4gpUd5Wqti65ZXydvyrg8KVe2oWVXi5PiVosGoEWGZLseimCRBEM61DCbL5hqj\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                \"7J1MaQmKydNVxXeuuEk33yiWbfA9mjA3TSzxsLzVaPq7LzDsx11Wz9qBT738VcPE53sg9sREzDzdRD43AAByWX55rdvigsfAQW1nj7aysmFfmtb\",\n                \"2657WMsDfac6Yj1L8CzH6jr7Xqd82zKm91aYZL61Ft1TV44RtY8YQDgFtJtjoqe5W\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
     },
     "definitions": {
         "CPtxCondition": {
@@ -205,18 +205,16 @@
                     "quantity": 77,
                     "unit": "milliseconds"
                 },
-                "softwareVersion": {
-                    "svAppName": {
-                        "getApplicationName": "RB6n"
-                    },
-                    "svNumber": 0
+                "softwareInfo": {
+                    "version": 0,
+                    "applicationName": "RB6n"
                 }
             },
             "required": [
                 "projectVersion",
                 "gitRevision",
                 "slotDuration",
-                "softwareVersion"
+                "softwareInfo"
             ],
             "type": "object",
             "description": "A collection of static settings for this wallet node.",
@@ -242,26 +240,18 @@
                         }
                     }
                 },
-                "softwareVersion": {
+                "softwareInfo": {
                     "required": [
-                        "svAppName",
-                        "svNumber"
+                        "version",
+                        "applicationName"
                     ],
                     "type": "object",
                     "properties": {
-                        "svAppName": {
-                            "required": [
-                                "getApplicationName"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "getApplicationName": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "svNumber": {
+                        "version": {
                             "type": "number"
+                        },
+                        "applicationName": {
+                            "type": "string"
                         }
                     }
                 }
@@ -1056,7 +1046,7 @@
                     "unit": "blocks"
                 },
                 "localTimeDifference": {
-                    "quantity": 96,
+                    "quantity": 1.7174679558469000649e19,
                     "unit": "microseconds"
                 },
                 "syncProgress": {

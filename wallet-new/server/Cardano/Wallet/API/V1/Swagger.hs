@@ -266,6 +266,18 @@ instance ToDocs WalletSoftwareUpdate where
 instance ToDocs NodeSettings where
   descriptionFor _ = "A collection of static settings for this wallet node."
 
+instance ToDocs BlockchainHeight where
+  descriptionFor _ = "The height of the blockchain."
+
+instance ToDocs SyncProgress where
+  descriptionFor _ = "The sync progress with the blockchain."
+
+instance ToDocs SlotDuration where
+  descriptionFor _ = "The duration for a slot."
+
+instance ToDocs LocalTimeDifference where
+  descriptionFor _ = "The time difference between this node clock and the NTP server."
+
 instance ToDocs NodeInfo where
   descriptionFor _ = "A collection of dynamic information for this wallet node."
 
@@ -439,7 +451,7 @@ api = toSwagger walletAPI
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty Errors.walletNotFound
+      errorExample = toS $ encodePretty Errors.WalletNotFound
     , defaultPerPage = fromString (show defaultPerPageEntries)
     , accountExample = toS $ encodePretty (genExample @[Account])
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))

@@ -57,7 +57,7 @@ import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue, unsafeAddCoin,
+                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
@@ -396,7 +396,11 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
     when (totalMoney == mkCoin 0) $
         throwError $ GeneralTxError "Attempted to send 0 money"
 
-    let moneyToSpent = totalMoney `unsafeAddCoin` fee
+    moneyToSpent <- case integerToCoin (sumCoins [totalMoney, fee]) of
+        -- we don't care about exact number if user desires all money in the world
+        Left _  -> throwError $ NotEnoughMoney maxBound
+        Right c -> pure c
+
     futxo <- either throwError pure $ inputPicker utxo outputs moneyToSpent
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"

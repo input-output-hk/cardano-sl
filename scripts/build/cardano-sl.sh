@@ -46,7 +46,7 @@ function pkgNameToProject {
   if [[ $1 == "lib" ]]; then
     echo "cardano-sl"
   else
-    echo "cardano-sl-$prj"
+    echo "cardano-sl-$1"
   fi
 }
 

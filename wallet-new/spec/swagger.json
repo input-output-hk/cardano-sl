@@ -1051,18 +1051,78 @@
         },
         "NodeInfo": {
             "example": {
+                "blockchainHeight": {
+                    "quantity": 1686551422064315977,
+                    "unit": "blocks"
+                },
                 "localTimeDifference": {
-                    "quantity": 77,
+                    "quantity": 96,
                     "unit": "microseconds"
+                },
+                "syncProgress": {
+                    "quantity": 77,
+                    "unit": "percent"
+                },
+                "localBlockchainHeight": {
+                    "quantity": 1.4664872184249792035e19,
+                    "unit": "blocks"
                 }
             },
             "required": [
-                "localTimeDifference"
+                "blockchainHeight",
+                "localTimeDifference",
+                "syncProgress",
+                "localBlockchainHeight"
             ],
             "type": "object",
             "description": "A collection of dynamic information for this wallet node.",
             "properties": {
+                "blockchainHeight": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "localTimeDifference": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "syncProgress": {
+                    "required": [
+                        "quantity",
+                        "unit"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "localBlockchainHeight": {
                     "required": [
                         "quantity",
                         "unit"

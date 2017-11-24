@@ -27,12 +27,15 @@ spec = describe "Marshalling & Unmarshalling" $ do
   prop "Aeson Transaction roundtrips" (aesonRoundtrip @Transaction Proxy)
   prop "Aeson SlotDuration roundtrips" (aesonRoundtrip @SlotDuration Proxy)
   prop "Aeson LocalTimeDifference roundtrips" (aesonRoundtrip @LocalTimeDifference Proxy)
+  prop "Aeson BlockchainHeight roundtrips" (aesonRoundtrip @BlockchainHeight Proxy)
+  prop "Aeson SyncProgress roundtrips" (aesonRoundtrip @SyncProgress Proxy)
+  prop "Aeson NodeInfo roundtrips" (aesonRoundtrip @NodeInfo Proxy)
   -- TODO(adinapoli): These won't roundtrip up until we don't come up with a better story
   -- for JSON instances.
   xdescribe "WalletSettings" $ do
     prop "Aeson ApplicationName roundtrips" (aesonRoundtrip @Core.ApplicationName Proxy)
     prop "Aeson SoftwareVersion roundtrips" (aesonRoundtrip @Core.SoftwareVersion Proxy)
-    prop "Aeson WalletSettings roundtrips" (aesonRoundtrip @NodeSettings Proxy)
+    prop "Aeson NodeSettings roundtrips" (aesonRoundtrip @NodeSettings Proxy)
 
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property

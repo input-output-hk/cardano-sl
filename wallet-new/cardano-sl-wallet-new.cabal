@@ -20,6 +20,7 @@ library
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Types
+                       Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Parameters

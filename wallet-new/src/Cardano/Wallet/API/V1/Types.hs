@@ -45,8 +45,13 @@ module Cardano.Wallet.API.V1.Types (
   -- * Settings
   , NodeSettings (..)
   , SlotDuration
-  , MeasuredIn (..)
+  , mkSlotDuration
+  , BlockchainHeight
+  , mkBlockchainHeight
   , LocalTimeDifference
+  , mkLocalTimeDifference
+  , SyncProgress
+  , mkSyncProgress
   , NodeInfo (..)
   -- * Core re-exports
   , Core.Address
@@ -59,19 +64,20 @@ import           Data.Aeson.TH
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
+import           Data.Version (Version)
 import           Formatting (build, sformat)
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
 
-import           Data.Version (Version)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
@@ -486,31 +492,24 @@ instance Arbitrary WalletSoftwareUpdate where
                                    <*> fmap fromString arbitrary
                                    <*> fmap getPositive arbitrary
 
--- | A finite sum type representing time units we might want to show to
--- clients. The idea is that whenever we have a quantity represeting some
--- form of time, we should render it together with the relevant unit, to
--- not leave anything to guessing.
-data UnitOfMeasure =
-      Seconds
-    | Milliseconds
-    | Microseconds
-    deriving (Show, Eq)
-
-data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show)
-
 -- | How many milliseconds a slot lasts for.
-type SlotDuration = MeasuredIn 'Milliseconds Word
+newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
+                     deriving (Show, Eq)
+
+mkSlotDuration :: Word -> SlotDuration
+mkSlotDuration = SlotDuration . MeasuredIn
 
 instance Arbitrary SlotDuration where
-    arbitrary = MeasuredIn <$> choose (0, 100)
+    arbitrary = mkSlotDuration <$> choose (0, 100)
 
 instance ToJSON SlotDuration where
-    toJSON (MeasuredIn w) = object [ "quantity" .= toJSON w
-                                   , "unit"     .= String "milliseconds"
-                                   ]
+    toJSON (SlotDuration (MeasuredIn w)) =
+            object [ "quantity" .= toJSON w
+                   , "unit"     .= String "milliseconds"
+                   ]
 
 instance FromJSON SlotDuration where
-    parseJSON = withObject "MeasuredIn" $ \sl -> MeasuredIn <$> sl .: "quantity"
+    parseJSON = withObject "SlotDuration" $ \sl -> mkSlotDuration <$> sl .: "quantity"
 
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
@@ -530,27 +529,81 @@ instance Arbitrary NodeSettings where
                              <*> arbitrary
                              <*> pure "0e1c9322a"
 
-type LocalTimeDifference = MeasuredIn 'Microseconds Word
+-- | The different between the local time and the remote NTP server.
+newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Word)
+                            deriving (Show, Eq)
+
+mkLocalTimeDifference :: Word -> LocalTimeDifference
+mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
 
 instance Arbitrary LocalTimeDifference where
-    arbitrary = MeasuredIn <$> choose (0, 100)
+    arbitrary = mkLocalTimeDifference <$> choose (minBound, maxBound)
 
 instance ToJSON LocalTimeDifference where
-    toJSON (MeasuredIn w) = object [ "quantity" .= toJSON w
-                                   , "unit"     .= String "microseconds"
-                                   ]
+    toJSON (LocalTimeDifference (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "microseconds"
+               ]
 
 instance FromJSON LocalTimeDifference where
-    parseJSON = withObject "MeasuredIn" $ \sl -> MeasuredIn <$> sl .: "quantity"
+    parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
 
+-- | The sync progress with the blockchain.
+newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
+                     deriving (Show, Eq)
+
+mkSyncProgress :: Word8 -> SyncProgress
+mkSyncProgress = SyncProgress . MeasuredIn
+
+instance Arbitrary SyncProgress where
+    arbitrary = mkSyncProgress <$> choose (0, 100)
+
+instance ToJSON SyncProgress where
+    toJSON (SyncProgress (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "percent"
+               ]
+
+instance FromJSON SyncProgress where
+    parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
+
+-- | The absolute or relative height of the blockchain, measured in number
+-- of blocks.
+newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
+                         deriving (Show, Eq)
+
+mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
+mkBlockchainHeight = BlockchainHeight . MeasuredIn
+
+instance Arbitrary BlockchainHeight where
+    arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
+
+instance ToJSON BlockchainHeight where
+    toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
+                                                      , "unit"     .= String "blocks"
+                                                      ]
+
+instance FromJSON BlockchainHeight where
+    parseJSON = withObject "BlockchainHeight" $ \sl ->
+        mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
+
+-- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
-     staLocalTimeDifference :: LocalTimeDifference
+     nfoSyncProgress          :: !SyncProgress
+   , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
+   -- ^ The current blockchain "height", in blocks, if we know it.
+   , nfoLocalBlockchainHeight :: !BlockchainHeight
+   -- ^ The local blockchain "height", in blocks.
+   , nfoLocalTimeDifference   :: !LocalTimeDifference
    } deriving (Show, Eq)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

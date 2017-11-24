@@ -24,7 +24,7 @@ handlers = getSettings
 -- like the slot duration or the current 'SoftwareVersion'.
 getSettings :: (HasConfigurations, HasCompileInfo, MonadBlockchainInfo m)
             => m NodeSettings
-getSettings = NodeSettings <$> (MeasuredIn . fromIntegral <$> blockchainSlotDuration)
+getSettings = NodeSettings <$> (V1.mkSlotDuration . fromIntegral <$> blockchainSlotDuration)
                            <*> pure curSoftwareVersion
                            <*> pure version
                            <*> pure (T.replace "\n" mempty $ ctiGitRevision compileInfo)

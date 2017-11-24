@@ -304,27 +304,32 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: ApplyMode m
+    :: forall m . ApplyMode m
     => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
 applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
+        -- 1. Group psoposals by (application name, difficulty when proposal became decided)
+        -- 2. Proposals in each group sort by pairs
+        --     (decision, whether decision is implicit, positive stake, slot when it has been proposed)
+        -- 3. All proposals in each group except the head we make discarded
+        -- 4. Concat all groups and process all proposals
         let winners =
-                concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
+                concatMap (toList . discardAllExceptHead . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
         mapM_ applyDepthCheckDo winners
   where
     upsAppName = svAppName . upSoftwareVersion . upsProposal
-    resetAllDecisions (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
-    groupCriterion a =
-        ( upsAppName $ dpsUndecided a
-        , dpsDifficulty a)
+    discardAllExceptHead (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
+    groupCriterion = upsAppName . dpsUndecided
     mkTuple a extra =
         ( dpsDecision a
         , not $ deImplicit extra
         , upsPositiveStake $ dpsUndecided a
-        , upsSlot $ dpsUndecided a)
+        , upsSlot $ dpsUndecided a
+        )
+
     -- This comparator chooses the most appropriate proposal among
     -- proposals of one app and with same chain difficulty.
     proposalCmp a b
@@ -337,6 +342,8 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
       | Just _ <- dpsExtra b = GT
       | otherwise =
           compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
+
+    applyDepthCheckDo :: DecidedProposalState -> m ()
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal

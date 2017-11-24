@@ -14985,6 +14985,15 @@ devnet: &devnet
             useHeavyDlg: True
             seed: 0
 
+  update:
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
+
   node:
     <<: *mainnet_base_node
     networkDiameter: 18 # should be slightly less than slot duration

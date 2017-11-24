@@ -20,41 +20,41 @@ import           Pos.Crypto (Hash, PublicKey)
 import           Serokell.Util (allDistinct)
 
 instance Bi Commitment where
-  encode Commitment{..} = encodeListLen 2 <> encode commShares
-                                          <> encode commProof
-  decode = do
-    enforceSize "Commitment" 2
-    commShares <- decode
-    when (null commShares) $ fail "decode@Commitment: no shares"
-    commProof <- decode
-    return $ Commitment commProof commShares
+    encode Commitment{..} = encodeListLen 2 <> encode commShares
+                                            <> encode commProof
+    decode = do
+        enforceSize "Commitment" 2
+        commShares <- decode
+        when (null commShares) $ fail "decode@Commitment: no shares"
+        commProof <- decode
+        return $ Commitment commProof commShares
 
 instance Bi CommitmentsMap where
-  encode = encodeCommitments
-  decode = decodeCommitments
+    encode = encodeCommitments
+    decode = decodeCommitments
 
 instance HasConfiguration => Bi VssCertificate where
-  encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
-                                   <> encode (vcExpiryEpoch vssCert)
-                                   <> encode (vcSignature vssCert)
-                                   <> encode (vcSigningKey vssCert)
-  decode = do
-    enforceSize "VssCertificate" 4
-    key <- decode
-    epo <- decode
-    sig <- decode
-    sky <- decode
-    case recreateVssCertificate key epo sig sky of
-      Left e  -> fail e
-      Right v -> pure v
+    encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
+                                     <> encode (vcExpiryEpoch vssCert)
+                                     <> encode (vcSignature vssCert)
+                                     <> encode (vcSigningKey vssCert)
+    decode = do
+        enforceSize "VssCertificate" 4
+        key <- decode
+        epo <- decode
+        sig <- decode
+        sky <- decode
+        case recreateVssCertificate key epo sig sky of
+            Left e  -> fail e
+            Right v -> pure v
 
 instance HasConfiguration => Bi VssCertificatesMap where
-  encode = encodeVssCertificates
-  decode = decodeVssCertificates
+    encode = encodeVssCertificates
+    decode = decodeVssCertificates
 
 instance Bi Opening where
-  encode = encode . getOpening
-  decode = Opening <$> decode
+    encode = encode . getOpening
+    decode = Opening <$> decode
 
 ----------------------------------------------------------------------------
 -- Maps encoding/decoding

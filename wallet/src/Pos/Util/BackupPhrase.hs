@@ -8,19 +8,19 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
+import qualified Prelude
 import           Universum
 
-import           Data.Text.Buildable (Buildable (..))
-import qualified Prelude
-
 import           Crypto.Hash (Blake2b_256)
+import           Data.Text.Buildable (Buildable (..))
+import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck.Instances ()
+
 import           Pos.Binary (Bi (..), serialize')
 import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
-import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
-import           Test.QuickCheck.Instances ()
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
@@ -28,12 +28,12 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Bi BackupPhrase where
-  encode = encode . bpToList
-  decode = BackupPhrase <$> decode
+    encode = encode . bpToList
+    decode = BackupPhrase <$> decode
 
 instance Arbitrary BackupPhrase where
-  arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
-  shrink    = genericShrink
+    arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
+    shrink    = genericShrink
 
 -- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
 englishWords :: [Text]

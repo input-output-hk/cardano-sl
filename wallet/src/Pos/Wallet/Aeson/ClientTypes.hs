@@ -4,8 +4,8 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.!=), (.:), (.:?),
-                             (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, withArray, withObject, (.!=), (.:),
+                             (.:?), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Default (def)
 import           Data.Version (showVersion)
@@ -82,6 +82,12 @@ instance ToJSON NoContent where
 instance FromJSON NewBatchPayment where
     parseJSON = withObject "NewBatchPayment" $ \o -> do
         npbFrom <- o .: "from"
-        npbTo <- o .: "to"
+        npbTo <- (`whenNothing` expectedOneRecipient) . nonEmpty . toList =<< withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
         npbInputSelectionPolicy <- o .:? "groupingPolicy" .!= def
         return $ NewBatchPayment {..}
+      where
+        expectedOneRecipient = fail $ "Expected at least one recipient."
+        collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
+            \o -> (,)
+                <$> o .: "address"
+                <*> o .: "amount"

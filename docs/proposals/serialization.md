@@ -101,17 +101,19 @@ need to agree on is Q2: U1 is irrelevant, U4 is solved by
 deserializing to unsafe `T` or `T0` (and maybe skipping D2 D3 as
 suggested by Q1).
 
-# If we aim to do U2.1, i think we can implement it using
-# newtypes. E.g. if we have `S` as subfield of `T` and we only want to
-# deserialize `S`, we can create `newtype SAsT = SAsT S` which will be
-# encoded as `S`, but decoded as `T`, though avoiding other `T`'s
-# fields.
-# 
-# Another suggestion is to use `data SAsT = ...` effectively duplicating
-# T, but containing only one related subfield `S`.
-# 
-# And yes, maybe default haskell laziness can help us here too (though
-# I'm not sure). What if `S` subfield of `T` is not strict?
+<!--
+If we aim to do U2.1, i think we can implement it using
+newtypes. E.g. if we have `S` as subfield of `T` and we only want to
+deserialize `S`, we can create `newtype SAsT = SAsT S` which will be
+encoded as `S`, but decoded as `T`, though avoiding other `T`'s
+fields.
+
+Another suggestion is to use `data SAsT = ...` effectively duplicating
+T, but containing only one related subfield `S`.
+
+And yes, maybe default haskell laziness can help us here too (though
+I'm not sure). What if `S` subfield of `T` is not strict?
+-->
 
 ### Solution 1: Approach with "RawX and X".
 

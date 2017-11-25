@@ -3,7 +3,7 @@
 -}
 module Cardano.Wallet.Server.CLI where
 
-import           Universum hiding (show)
+import           Universum
 
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)

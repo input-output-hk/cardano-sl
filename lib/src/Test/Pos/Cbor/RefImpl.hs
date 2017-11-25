@@ -1,7 +1,9 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Reference implementation of CBOR (de)serialization.
-module Test.Pos.Cbor.ReferenceImplementation
+
+module Test.Pos.Cbor.RefImpl
     ( serialise
     , deserialise
     , UInt(..)
@@ -55,35 +57,35 @@ deserialise bytes =
 newtype Decoder a = Decoder { runDecoder :: [Word8] -> Maybe (a, [Word8]) }
 
 instance Functor Decoder where
-  fmap f a = a >>= return . f
+    fmap f (Decoder d) = Decoder $ \x -> (first f) <$> d x
 
+-- implemented using monad, yes
 instance Applicative Decoder where
-  pure  = return
-  (<*>) = ap
+    pure  = return
+    (<*>) = ap
 
 instance Monad Decoder where
-  return x = Decoder (\ws -> Just (x, ws))
-  d >>= f  = Decoder (\ws -> case runDecoder d ws of
-                               Nothing       -> Nothing
-                               Just (x, ws') -> runDecoder (f x) ws')
+    return x = Decoder (\ws -> Just (x, ws))
+    d >>= f  = Decoder (\ws -> case runDecoder d ws of
+                                 Nothing       -> Nothing
+                                 Just (x, ws') -> runDecoder (f x) ws')
 
 instance MonadFail Decoder where
-  fail _   = Decoder (const Nothing)
+    fail _   = Decoder (const Nothing)
 
 getByte :: Decoder Word8
 getByte =
-  Decoder $ \ws ->
-    case ws of
-      w:ws' -> Just (w, ws')
-      _     -> Nothing
+    Decoder $ \case
+        w:ws' -> Just (w, ws')
+        _     -> Nothing
 
 getBytes :: Integral n => n -> Decoder [Word8]
 getBytes n =
-  Decoder $ \ws ->
-    case genericSplitAt n ws of
-      (ws', [])   | genericLength ws' == n -> Just (ws', [])
-                  | otherwise              -> Nothing
-      (ws', ws'')                          -> Just (ws', ws'')
+    Decoder $ \ws ->
+      case genericSplitAt n ws of
+        (ws', [])   | genericLength ws' == n -> Just (ws', [])
+                    | otherwise              -> Nothing
+        (ws', ws'')                          -> Just (ws', ws'')
 
 type Encoder a = a -> [Word8]
 
@@ -96,15 +98,15 @@ data MajorType = MajorType0 | MajorType1 | MajorType2 | MajorType3
   deriving (Show, Eq, Ord, Enum)
 
 instance Arbitrary MajorType where
-  arbitrary = elements [MajorType0 .. MajorType7]
+    arbitrary = elements [MajorType0 .. MajorType7]
 
 encodeInitialByte :: MajorType -> Word -> Word8
 encodeInitialByte mt ai
-  | ai < 2^(5 :: Int)
-  = fromIntegral (fromIntegral (fromEnum mt) `shiftL` 5 .|. ai)
+    | ai < 2^(5 :: Int)
+    = fromIntegral (fromIntegral (fromEnum mt) `shiftL` 5 .|. ai)
 
-  | otherwise
-  = error "encodeInitialByte: invalid additional info value"
+    | otherwise
+    = error "encodeInitialByte: invalid additional info value"
 
 decodeInitialByte :: Word8 -> (MajorType, Word)
 decodeInitialByte ib = ( toEnum $ fromIntegral $ ib `shiftR` 5
@@ -147,23 +149,23 @@ data AdditionalInformation =
   deriving (Eq, Show)
 
 instance Arbitrary UInt where
-  arbitrary =
-    sized $ \n ->
-      oneof $ take (1 + n `div` 2)
-        [ UIntSmall <$> choose (0, 23)
-        , UInt8     <$> arbitraryBoundedIntegral
-        , UInt16    <$> arbitraryBoundedIntegral
-        , UInt32    <$> arbitraryBoundedIntegral
-        , UInt64    <$> arbitraryBoundedIntegral
-        ]
+    arbitrary =
+        sized $ \n ->
+            oneof $ take (1 + n `div` 2)
+              [ UIntSmall <$> choose (0, 23)
+              , UInt8     <$> arbitraryBoundedIntegral
+              , UInt16    <$> arbitraryBoundedIntegral
+              , UInt32    <$> arbitraryBoundedIntegral
+              , UInt64    <$> arbitraryBoundedIntegral
+              ]
 
 instance Arbitrary AdditionalInformation where
-  arbitrary =
-    frequency
-      [ (7, AiValue <$> arbitrary)
-      , (2, pure AiIndefLen)
-      , (1, AiReserved <$> choose (28, 30))
-      ]
+    arbitrary =
+        frequency
+            [ (7, AiValue <$> arbitrary)
+            , (2, pure AiIndefLen)
+            , (1, AiReserved <$> choose (28, 30))
+            ]
 
 decodeAdditionalInfo :: Word -> Decoder AdditionalInformation
 decodeAdditionalInfo = dec
@@ -213,11 +215,12 @@ prop_AdditionalInfo ai =
      in ai === ai'
 
 
-data TokenHeader = TokenHeader MajorType AdditionalInformation
-  deriving (Show, Eq)
+data TokenHeader =
+    TokenHeader MajorType AdditionalInformation
+    deriving (Show, Eq)
 
 instance Arbitrary TokenHeader where
-  arbitrary = TokenHeader <$> arbitrary <*> arbitrary
+    arbitrary = TokenHeader <$> arbitrary <*> arbitrary
 
 decodeTokenHeader :: Decoder TokenHeader
 decodeTokenHeader = do
@@ -267,37 +270,37 @@ data Token =
   deriving (Show, Eq)
 
 instance Arbitrary Token where
-  arbitrary =
-    oneof
-      [ MT0_UnsignedInt <$> arbitrary
-      , MT1_NegativeInt <$> arbitrary
-      , do ws <- arbitrary
-           MT2_ByteString <$> arbitraryLengthUInt ws <*> pure ws
-      , pure MT2_ByteStringIndef
-      , do cs <- arbitrary
-           let ws = encodeUTF8 cs
-           MT3_String <$> arbitraryLengthUInt ws <*> pure ws
-      , pure MT3_StringIndef
-      , MT4_ArrayLen <$> arbitrary
-      , pure MT4_ArrayLenIndef
-      , MT5_MapLen <$> arbitrary
-      , pure MT5_MapLenIndef
-      , MT6_Tag     <$> arbitrary
-      , MT7_Simple  <$> arbitrary
-      , MT7_Float16 . getFloatSpecials <$> arbitrary
-      , MT7_Float32 . getFloatSpecials <$> arbitrary
-      , MT7_Float64 . getFloatSpecials <$> arbitrary
-      , pure MT7_Break
-      ]
-    where
-      arbitraryLengthUInt xs =
-        let n = length xs in
-        elements $
-             [ UIntSmall (fromIntegral n) | n < 24  ]
-          ++ [ UInt8     (fromIntegral n) | n < 256 ]
-          ++ [ UInt16    (fromIntegral n) | n < 65536 ]
-          ++ [ UInt32    (fromIntegral n)
-             , UInt64    (fromIntegral n) ]
+    arbitrary =
+        oneof
+          [ MT0_UnsignedInt <$> arbitrary
+          , MT1_NegativeInt <$> arbitrary
+          , do ws <- arbitrary
+               MT2_ByteString <$> arbitraryLengthUInt ws <*> pure ws
+          , pure MT2_ByteStringIndef
+          , do cs <- arbitrary
+               let ws = encodeUTF8 cs
+               MT3_String <$> arbitraryLengthUInt ws <*> pure ws
+          , pure MT3_StringIndef
+          , MT4_ArrayLen <$> arbitrary
+          , pure MT4_ArrayLenIndef
+          , MT5_MapLen <$> arbitrary
+          , pure MT5_MapLenIndef
+          , MT6_Tag     <$> arbitrary
+          , MT7_Simple  <$> arbitrary
+          , MT7_Float16 . getFloatSpecials <$> arbitrary
+          , MT7_Float32 . getFloatSpecials <$> arbitrary
+          , MT7_Float64 . getFloatSpecials <$> arbitrary
+          , pure MT7_Break
+          ]
+      where
+        arbitraryLengthUInt xs =
+            let n = length xs in
+              elements $
+                   [ UIntSmall (fromIntegral n) | n < 24  ]
+                ++ [ UInt8     (fromIntegral n) | n < 256 ]
+                ++ [ UInt16    (fromIntegral n) | n < 65536 ]
+                ++ [ UInt32    (fromIntegral n)
+                   , UInt64    (fromIntegral n) ]
 
 
 decodeToken :: Decoder Token
@@ -471,122 +474,119 @@ data Term = TUInt   UInt
   deriving (Show, Eq)
 
 instance Arbitrary Term where
-  arbitrary =
-      frequency
-        [ (1, TUInt    <$> arbitrary)
-        , (1, TNInt    <$> arbitrary)
-        , (1, TBigInt  <$> sized (\sz -> fromIntegral <$> choose (0, sz))
-                       <*> (getLargeInteger <$> arbitrary))
-        , (1, TBytes   <$> arbitrary)
-        , (1, TBytess  <$> arbitrary)
-        , (1, TString  <$> arbitrary)
-        , (1, TStrings <$> arbitrary)
-        , (2, TArray   <$> listOfSmaller arbitrary)
-        , (2, TArrayI  <$> listOfSmaller arbitrary)
-        , (2, TMap     <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
-        , (2, TMapI    <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
-        , (1, TTagged  <$> arbitraryTag <*> sized (\sz -> resize (max 0 (sz-1)) arbitrary))
-        , (1, pure TFalse)
-        , (1, pure TTrue)
-        , (1, pure TNull)
-        , (1, pure TUndef)
-        , (1, TSimple  <$> arbitrary `suchThat` (not . reservedSimple))
-        , (1, TFloat16 <$> arbitrary)
-        , (1, TFloat32 <$> arbitrary)
-        , (1, TFloat64 <$> arbitrary)
-        ]
-    where
-      listOfSmaller :: Gen a -> Gen [a]
-      listOfSmaller gen =
-        sized $ \n -> do
-          k <- choose (0,n)
-          vectorOf k (resize (n `div` (k+1)) gen)
+    arbitrary =
+        frequency
+            [ (1, TUInt    <$> arbitrary)
+            , (1, TNInt    <$> arbitrary)
+            , (1, TBigInt  <$> sized (\sz -> fromIntegral <$> choose (0, sz))
+                           <*> (getLargeInteger <$> arbitrary))
+            , (1, TBytes   <$> arbitrary)
+            , (1, TBytess  <$> arbitrary)
+            , (1, TString  <$> arbitrary)
+            , (1, TStrings <$> arbitrary)
+            , (2, TArray   <$> listOfSmaller arbitrary)
+            , (2, TArrayI  <$> listOfSmaller arbitrary)
+            , (2, TMap     <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
+            , (2, TMapI    <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
+            , (1, TTagged  <$> arbitraryTag <*> sized (\sz -> resize (max 0 (sz-1)) arbitrary))
+            , (1, pure TFalse)
+            , (1, pure TTrue)
+            , (1, pure TNull)
+            , (1, pure TUndef)
+            , (1, TSimple  <$> arbitrary `suchThat` (not . reservedSimple))
+            , (1, TFloat16 <$> arbitrary)
+            , (1, TFloat32 <$> arbitrary)
+            , (1, TFloat64 <$> arbitrary)
+            ]
+      where
+        listOfSmaller :: Gen a -> Gen [a]
+        listOfSmaller gen =
+            sized $ \n -> do
+                k <- choose (0,n)
+                vectorOf k (resize (n `div` (k+1)) gen)
 
-      arbitraryTag = arbitrary `suchThat` (not . reservedTag . fromUInt)
+        arbitraryTag = arbitrary `suchThat` (not . reservedTag . fromUInt)
 
-  shrink (TUInt   n)    = [ TUInt    n'   | n' <- shrink n ]
-  shrink (TNInt   n)    = [ TNInt    n'   | n' <- shrink n ]
-  shrink (TBigInt z n)  = [ TBigInt z' n' | (z', n') <- shrink (z, n) ]
+    shrink (TUInt   n)    = [ TUInt    n'   | n' <- shrink n ]
+    shrink (TNInt   n)    = [ TNInt    n'   | n' <- shrink n ]
+    shrink (TBigInt z n)  = [ TBigInt z' n' | (z', n') <- shrink (z, n) ]
 
-  shrink (TBytes  ws)   = [ TBytes   ws'  | ws'  <- shrink ws  ]
-  shrink (TBytess wss)  = [ TBytess  wss' | wss' <- shrink wss ]
-  shrink (TString  ws)  = [ TString  ws'  | ws'  <- shrink ws  ]
-  shrink (TStrings wss) = [ TStrings wss' | wss' <- shrink wss ]
+    shrink (TBytes  ws)   = [ TBytes   ws'  | ws'  <- shrink ws  ]
+    shrink (TBytess wss)  = [ TBytess  wss' | wss' <- shrink wss ]
+    shrink (TString  ws)  = [ TString  ws'  | ws'  <- shrink ws  ]
+    shrink (TStrings wss) = [ TStrings wss' | wss' <- shrink wss ]
 
-  shrink (TArray  xs@[x]) = x : [ TArray  xs' | xs' <- shrink xs ]
-  shrink (TArray  xs)     =     [ TArray  xs' | xs' <- shrink xs ]
-  shrink (TArrayI xs@[x]) = x : [ TArrayI xs' | xs' <- shrink xs ]
-  shrink (TArrayI xs)     =     [ TArrayI xs' | xs' <- shrink xs ]
+    shrink (TArray  xs@[x]) = x : [ TArray  xs' | xs' <- shrink xs ]
+    shrink (TArray  xs)     =     [ TArray  xs' | xs' <- shrink xs ]
+    shrink (TArrayI xs@[x]) = x : [ TArrayI xs' | xs' <- shrink xs ]
+    shrink (TArrayI xs)     =     [ TArrayI xs' | xs' <- shrink xs ]
 
-  shrink (TMap  xys@[(x,y)]) = x : y : [ TMap  xys' | xys' <- shrink xys ]
-  shrink (TMap  xys)         =         [ TMap  xys' | xys' <- shrink xys ]
-  shrink (TMapI xys@[(x,y)]) = x : y : [ TMapI xys' | xys' <- shrink xys ]
-  shrink (TMapI xys)         =         [ TMapI xys' | xys' <- shrink xys ]
+    shrink (TMap  xys@[(x,y)]) = x : y : [ TMap  xys' | xys' <- shrink xys ]
+    shrink (TMap  xys)         =         [ TMap  xys' | xys' <- shrink xys ]
+    shrink (TMapI xys@[(x,y)]) = x : y : [ TMapI xys' | xys' <- shrink xys ]
+    shrink (TMapI xys)         =         [ TMapI xys' | xys' <- shrink xys ]
 
-  shrink (TTagged w t) = [ TTagged w' t' | (w', t') <- shrink (w, t)
-                                         , not (reservedTag (fromUInt w')) ]
+    shrink (TTagged w t) = [ TTagged w' t' | (w', t') <- shrink (w, t)
+                                           , not (reservedTag (fromUInt w')) ]
 
-  shrink TFalse = []
-  shrink TTrue  = []
-  shrink TNull  = []
-  shrink TUndef = []
+    shrink TFalse = []
+    shrink TTrue  = []
+    shrink TNull  = []
+    shrink TUndef = []
 
-  shrink (TSimple  w) = [ TSimple  w' | w' <- shrink w, not (reservedSimple w) ]
-  shrink (TFloat16 f) = [ TFloat16 f' | f' <- shrink f ]
-  shrink (TFloat32 f) = [ TFloat32 f' | f' <- shrink f ]
-  shrink (TFloat64 f) = [ TFloat64 f' | f' <- shrink f ]
+    shrink (TSimple  w) = [ TSimple  w' | w' <- shrink w, not (reservedSimple w) ]
+    shrink (TFloat16 f) = [ TFloat16 f' | f' <- shrink f ]
+    shrink (TFloat32 f) = [ TFloat32 f' | f' <- shrink f ]
+    shrink (TFloat64 f) = [ TFloat64 f' | f' <- shrink f ]
 
 
 decodeTerm :: Decoder Term
 decodeTerm = decodeToken >>= decodeTermFrom
 
 decodeTermFrom :: Token -> Decoder Term
-decodeTermFrom tk =
-    case tk of
-      MT0_UnsignedInt n   -> return (TUInt n)
-      MT1_NegativeInt n   -> return (TNInt n)
+decodeTermFrom = \case
+    MT0_UnsignedInt n   -> return (TUInt n)
+    MT1_NegativeInt n   -> return (TNInt n)
 
-      MT2_ByteString _ bs -> return (TBytes bs)
-      MT2_ByteStringIndef -> decodeBytess []
+    MT2_ByteString _ bs -> return (TBytes bs)
+    MT2_ByteStringIndef -> decodeBytess []
 
-      MT3_String _ ws     -> either fail (return . TString) (decodeUTF8 ws)
-      MT3_StringIndef     -> decodeStrings []
+    MT3_String _ ws     -> either fail (return . TString) (decodeUTF8 ws)
+    MT3_StringIndef     -> decodeStrings []
 
-      MT4_ArrayLen len    -> decodeArrayN (fromUInt len)
-      MT4_ArrayLenIndef   -> decodeArray []
+    MT4_ArrayLen len    -> decodeArrayN (fromUInt len)
+    MT4_ArrayLenIndef   -> decodeArray []
 
-      MT5_MapLen  len     -> decodeMapN (fromUInt len)
-      MT5_MapLenIndef     -> decodeMap  []
+    MT5_MapLen  len     -> decodeMapN (fromUInt len)
+    MT5_MapLenIndef     -> decodeMap  []
 
-      MT6_Tag     tag     -> decodeTagged tag
+    MT6_Tag     tag     -> decodeTagged tag
 
-      MT7_Simple  20      -> return TFalse
-      MT7_Simple  21      -> return TTrue
-      MT7_Simple  22      -> return TNull
-      MT7_Simple  23      -> return TUndef
-      MT7_Simple  w       -> return (TSimple w)
-      MT7_Float16 f       -> return (TFloat16 f)
-      MT7_Float32 f       -> return (TFloat32 f)
-      MT7_Float64 f       -> return (TFloat64 f)
-      MT7_Break           -> fail "unexpected"
+    MT7_Simple  20      -> return TFalse
+    MT7_Simple  21      -> return TTrue
+    MT7_Simple  22      -> return TNull
+    MT7_Simple  23      -> return TUndef
+    MT7_Simple  w       -> return (TSimple w)
+    MT7_Float16 f       -> return (TFloat16 f)
+    MT7_Float32 f       -> return (TFloat32 f)
+    MT7_Float64 f       -> return (TFloat64 f)
+    MT7_Break           -> fail "unexpected"
 
 
 decodeBytess :: [[Word8]] -> Decoder Term
-decodeBytess acc = do
-    tk <- decodeToken
-    case tk of
-      MT7_Break           -> return $! TBytess (reverse acc)
-      MT2_ByteString _ bs -> decodeBytess (bs : acc)
-      _                   -> fail "unexpected"
+decodeBytess acc =
+    decodeToken >>= \case
+        MT7_Break           -> return $! TBytess (reverse acc)
+        MT2_ByteString _ bs -> decodeBytess (bs : acc)
+        _                   -> fail "unexpected"
 
 decodeStrings :: [String] -> Decoder Term
-decodeStrings acc = do
-    tk <- decodeToken
-    case tk of
-      MT7_Break        -> return $! TStrings (reverse acc)
-      MT3_String _ ws  -> do cs <- either fail return (decodeUTF8 ws)
-                             decodeStrings (cs : acc)
-      _                -> fail "unexpected"
+decodeStrings acc =
+    decodeToken >>= \case
+        MT7_Break        -> return $! TStrings (reverse acc)
+        MT3_String _ ws  -> do cs <- either fail return (decodeUTF8 ws)
+                               decodeStrings (cs : acc)
+        _                -> fail "unexpected"
 
 decodeArrayN :: Word64 -> Decoder Term
 decodeArrayN n = TArray <$!> replicateM (fromIntegral n) decodeTerm
@@ -643,9 +643,9 @@ integerFromBytes (w0:ws0) = go (fromIntegral w0) ws0
 
 integerToBytes :: Integer -> [Word8]
 integerToBytes n0
-  | n0 == 0   = [0]
-  | n0 < 0    = reverse (go (-n0))
-  | otherwise = reverse (go n0)
+    | n0 == 0   = [0]
+    | n0 < 0    = reverse (go (-n0))
+    | otherwise = reverse (go n0)
   where
     go n | n == 0    = []
          | otherwise = narrow n : go (n `shiftR` 8)
@@ -859,30 +859,30 @@ prop_halfToFromFloat =
       w === (Half.getHalf . Half.toHalf . Half.fromHalf . Half.Half $ w)
 
 instance Arbitrary Half where
-  arbitrary = Half.Half . fromIntegral <$> (arbitrary :: Gen Word16)
+    arbitrary = Half.Half . fromIntegral <$> (arbitrary :: Gen Word16)
 
 newtype FloatSpecials n = FloatSpecials { getFloatSpecials :: n }
-  deriving (Show, Eq)
+    deriving (Show, Eq)
 
 instance (Arbitrary n, RealFloat n) => Arbitrary (FloatSpecials n) where
-  arbitrary =
-    frequency
-      [ (7, FloatSpecials <$> arbitrary)
-      , (1, pure (FloatSpecials (1/0)) )  -- +Infinity
-      , (1, pure (FloatSpecials (0/0)) )  --  NaN
-      , (1, pure (FloatSpecials (-1/0)) ) -- -Infinity
-      ]
+    arbitrary =
+        frequency
+            [ (7, FloatSpecials <$> arbitrary)
+            , (1, pure (FloatSpecials (1/0)) )  -- +Infinity
+            , (1, pure (FloatSpecials (0/0)) )  --  NaN
+            , (1, pure (FloatSpecials (-1/0)) ) -- -Infinity
+            ]
 
 newtype LargeInteger = LargeInteger { getLargeInteger :: Integer }
-  deriving (Show, Eq)
+    deriving (Show, Eq)
 
 instance Arbitrary LargeInteger where
-  arbitrary =
-    sized $ \n ->
-      oneof $ take (1 + n `div` 10)
-        [ LargeInteger .          fromIntegral <$> (arbitrary :: Gen Int8)
-        , LargeInteger .          fromIntegral <$> choose (minBound, maxBound :: Int64)
-        , LargeInteger . bigger . fromIntegral <$> choose (minBound, maxBound :: Int64)
-        ]
-    where
-      bigger n = n * abs n
+    arbitrary =
+        sized $ \n ->
+            oneof $ take (1 + n `div` 10)
+              [ LargeInteger .          fromIntegral <$> (arbitrary :: Gen Int8)
+              , LargeInteger .          fromIntegral <$> choose (minBound, maxBound :: Int64)
+              , LargeInteger . bigger . fromIntegral <$> choose (minBound, maxBound :: Int64)
+              ]
+      where
+        bigger n = n * abs n

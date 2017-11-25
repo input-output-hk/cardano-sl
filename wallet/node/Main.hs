@@ -9,7 +9,7 @@ module Main
        ( main
        ) where
 
-import           Universum hiding (over)
+import           Universum
 
 import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))

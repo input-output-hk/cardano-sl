@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Server.Runner
        , convertHandler
        ) where
 
-import           Universum hiding (over)
+import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Monad.Catch as Catch

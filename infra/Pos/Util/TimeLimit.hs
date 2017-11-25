@@ -18,7 +18,7 @@ module Pos.Util.TimeLimit
        , waitRandomInterval
        ) where
 
-import           Universum hiding (bracket, finally)
+import           Universum
 
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))

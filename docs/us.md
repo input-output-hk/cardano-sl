@@ -173,7 +173,7 @@ haven't updated its software yet, hence,
 they can't validate blocks of block version from the proposal.
 
 To avoid a situation when adversary stakeholder issues invalid block of _competing_ version
-others stakeholders will validate blocks according to the previous _adopted_ block version.
+others stakeholders will validate blocks according to the current _adopted_ block version.
 
 #### Example
 
@@ -221,10 +221,8 @@ So last adoped version is `0.2.0` now and `lastKnownBlockVersion` is `0.1.0`
 for the latter stakeholder and `0.2.0` for others.
 
 When it's turn to issue block of the fourth stakeholder, 
-it issues block with `0.1.0` block version and with block format for `0.1.0`.
-Others stakeholders see that last adopted block version equals `0.2.0` and 
-try to decode block using new rules but failed because it doesn't contain attribute with key `228`.
-So this slot left without a block.
+his software checks that his `lastKnownBlockVersion` mismatchs the last adopted block version
+and the software gives up issuing a block. So this slot left without a block.
 
 You can see despite the provided update system is powerful, it's also very complicated 
 and updates should be handled carefully.
@@ -261,8 +259,8 @@ than of last confirmed proposal for this application.
 
 * _Stake to include into block check_: sum of positive votes for this proposal is enough 
 to be included into block (at least `updateProposalThd`).
-We wouldn't like adversary stakeholders to have opportunity to spam network by `UpdateProposal`, 
-so only stakeholders with some significant amount of stake can send proposals.
+We wouldn't like adversary stakeholders to have opportunity to spam blockchain by `UpdateProposal`.
+So everyone can send update proposal to network, but it can get into block only along with enough votes.
 
 #### Protocol version checks
 
@@ -302,11 +300,14 @@ There are three cases to check:
 
 For each vote the following checks must be performed:
 
-* _Existence proposal check_: check that proposal with such proposal id exists.
+* _Voter stake check_: stakeholder who issued given vote has enough stake (at least `bvdUpdateProposalThd`).
+  Note: `bvdUpdateProposalThd` is used by mistake, `bvdUpdateVoteThd` must be used. It will be resolved in the future.
 
-* _Active proposal check_: check that proposal is still active.
+* _Existence proposal check_: proposal with such proposal id exists.
 
-* _Revote check_: check that a stakeholder doesn't revote twice or send the same decision twice.  
+* _Active proposal check_: proposal is still active.
+
+* _Revote check_: a stakeholder who issued the vote doesn't revote twice or send the same decision twice.  
   It's allowed for any stakeholder to vote no more than one time and 
   also change his decision to opposite no more than one time.
 

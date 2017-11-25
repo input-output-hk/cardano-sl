@@ -61,7 +61,7 @@ unparsed fields must be empty.
 
 ## verifyAllIsKnown flag
 
-Let's assume that version comparison as described above
+Let's assume that version comparison as described above.
 Let's denote flag `verifyAllIsKnown` and assign it value:
 * `True` if check is to be done, i.e. only known data should be considered valid (unknown data is prohibitied)
 * `False` otherwise

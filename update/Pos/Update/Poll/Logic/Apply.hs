@@ -310,7 +310,7 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
-        -- 1. Group psoposals by (application name, difficulty when proposal became decided)
+        -- 1. Group psoposals by application name
         -- 2. Sort proposals in each group by tuple
         --     (decision, whether decision is implicit, positive stake, slot when it has been proposed)
         -- 3. All proposals in each group except the head we make discarded

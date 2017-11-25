@@ -39,12 +39,11 @@ outdated for newer version of the code.
 * Read about [VSS certificates](https://cardanodocs.com/technical/pvss/#vss-certificate).
 * You need to know the difference between
   [balance and stake](https://cardanodocs.com/cardano/balance-and-stake/).
-* You need to know about AVVM. I don't know if it's described
-  somewhere, so briefly: there was vending process after which we have
-  a map from AVVM address (32 bytes, base64url encoded) to an integer
-  number (amount of ADA). AVVM addresses can be converted to
-  Cardano-SL addresses and initially each address has this amount of
-  ADA (as balance, not stake).
+* You need to know about AVVM. In short: there was vending process
+  after which we have a map from AVVM address (32 bytes, base64url
+  encoded) to an integer number (amount of ADA). AVVM addresses can be
+  converted to Cardano-SL addresses and initially each address has
+  this amount of ADA (as balance, not stake).
 * [Bootstrap era and stake locking](https://cardanodocs.com/timeline/bootstrap/).
 * SSC is Shared Seed Computation, it's performed by rich nodes (with
   big stake) to agree upon the seed which will be used for leaders
@@ -82,9 +81,9 @@ file. Default value is `lib/configuration.yaml`.
   configuration and must not be provided otherwise. More details are
   provided [below](#system-start-time).
 * `--configuration-seed` can be used to specify seed used to generate
-  secret data. It overrides `seed` value from `initializer`
-  (see below). If _genesis data_ is used, passing
-  `--configuration-seed` is prohibited.
+  secret data. It overrides `seed` value from `initializer` (see
+  below). If _genesis data_ is used, passing `--configuration-seed` is
+  prohibited and leads to a runtime error.
 
 ## Genesis
 
@@ -149,7 +148,7 @@ genesis data.
   The format of `mainnet-genesis.json` is described
   in [Genesis data format](#genesis-data-format).
 
-* Another way is to provide a specification how to generate genesis
+* Another way is to provide a specification of how to generate genesis
   data. It allows one to specify how many nodes should have stake,
   which bootstrap stakeholders should be used, what should be total
   balance, etc. When node is launched with spec as genesis, it
@@ -433,7 +432,7 @@ empty if you don't need AVVM addresses (or it can be modified in
 a different way, however you want). Overview of `initializer` is
 described [above](#initializer).
 
-In the following we describe how
+In the following, we describe how
 `avvmDistr` and `nonAvvmBalances` (fields in genesis data which
 determine balances and stakes) are computed from genesis spec.
 
@@ -515,13 +514,13 @@ There are some tools relevant to genesis data.
 ### Generating genesis for testnet
 
 For testnet we can't use `spec` for genesis, at least because
-converting genesis spec to genesis data is currently very slow and we
-want to have thousands of HD addresses in testnet. For this reason
-it's necessary to generate a JSON file with genesis data
-first. Fortunately it can be done automatically from genesis spec. The
-instruction below applies to public testnet, staging testnet, internal
-staging and other clusters when it's necessary to generate genesis
-data from spec.
+converting genesis spec to genesis data is currently very slow when
+there are many HD addresses (and we want to have thousands of HD
+addresses in testnet). For this reason it's necessary to generate a
+JSON file with genesis data first. Fortunately it can be done
+automatically from genesis spec. The instruction below applies to
+public testnet, staging testnet, internal staging and other clusters
+when it's necessary to generate genesis data from spec.
 
 1. You need to have a configuration which uses _genesis spec_.
    Let's assume it's in file `CONF_FILE` and its

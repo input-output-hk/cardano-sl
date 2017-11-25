@@ -96,7 +96,8 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
-    , cpArgumentPrepare = identity
+    , cpArgumentPrepare = map
+        $ typeDirectedKwAnn "distr" tyAddrStakeDistr
     , cpArgumentConsumer =
         (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
             <*> getArgOpt tyAddrStakeDistr "distr"
@@ -130,7 +131,8 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
 
     return CommandProc
     { cpName = "tx-out"
-    , cpArgumentPrepare = identity
+    , cpArgumentPrepare = map
+        $ typeDirectedKwAnn "addr" tyAddress
     , cpArgumentConsumer = do
         txOutAddress <- getArg tyAddress "addr"
         txOutValue <- getArg tyCoin "value"

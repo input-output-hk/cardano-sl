@@ -14,7 +14,7 @@ module Pos.Update.Poll.Logic.Base
        , canBeAdoptedBV
        , canBeProposedBV
        , canCreateBlockBV
-       , isConfirmedBV
+       , isCompetingBV
        , confirmBlockVersion
        , updateSlottingData
        , verifyNextBVMod
@@ -65,8 +65,8 @@ import           Pos.Util.Util (leftToPanic)
 ----------------------------------------------------------------------------
 
 -- | Check whether BlockVersion is confirmed.
-isConfirmedBV :: MonadPollRead m => BlockVersion -> m Bool
-isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
+isCompetingBV :: MonadPollRead m => BlockVersion -> m Bool
+isCompetingBV = fmap (maybe False bvsIsConfirmed) . getBVState
 
 -- | Mark given 'BlockVersion' as confirmed if it is known. This
 -- function also takes epoch when proposal was confirmed.
@@ -81,17 +81,12 @@ confirmBlockVersion confirmedEpoch bv =
 --
 -- Specifically, one of the following conditions must be true.
 -- • Given block version is equal to last adopted block version.
--- • '(major, minor)' of given block version is greater than
--- '(major, minor)' of adopted block version and this block version
--- is confirmed.
+-- • Given block version is competing
 canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
 canCreateBlockBV bv = do
     lastAdopted <- getAdoptedBV
-    isConfirmed <- isConfirmedBV bv
-    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
-    return
-        (bv == lastAdopted ||
-         (toMajMin bv > toMajMin lastAdopted && isConfirmed))
+    isCompeting <- isCompetingBV bv
+    pure (bv == lastAdopted || isCompeting)
 
 -- | Check whether given 'BlockVersion' can be proposed according to
 -- current Poll.

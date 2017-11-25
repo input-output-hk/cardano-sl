@@ -241,11 +241,7 @@ and updates should be handled carefully.
 
 ### Block header verification
 
-First of all, we check that one of statements for a verifiable block is true:
-* block version equals to last adopted block version. 
-It means the block is created by software where `lastKnownBlockVersion` equals last adopted block version.
-* block version is greater than last adopted block version and this one is confirmed. 
-It means the block is created by software updated by _confirmed_ update proposal.
+First of all, we check that block version of a verifiable block is _adopted_ or _competing_.
 
 ### Update proposal verification
 

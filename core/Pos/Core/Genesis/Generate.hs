@@ -119,25 +119,25 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
     richmenSecrets <- replicateRich generateRichSecrets
     poorsSecrets <- replicatePoor (snd <$> safeKeyGen emptyPassphrase)
 
-    -- Heavyweight delegation
+    -- Heavyweight delegation.
+    -- genesisDlgList is empty if giUseHeavyDlg = False
     let genesisDlgList :: [ProxySKHeavy]
-        genesisDlgList
-            | giUseHeavyDlg =
-                zip dlgIssuersSecrets richmenSecrets <&>
-                (\(issuerSk, RichSecrets {..}) ->
-                        createPsk issuerSk (toPublic rsPrimaryKey) 0)
-            | otherwise = []
+        genesisDlgList =
+            (\(issuerSk, RichSecrets {..}) ->
+                 createPsk issuerSk (toPublic rsPrimaryKey) 0) <$>
+            zip dlgIssuersSecrets richmenSecrets
         genesisDlg =
-            leftToPanic "generateGenesisData" $
+            leftToPanic "generateGenesisData: genesisDlg" $
             mkGenesisDelegation genesisDlgList
 
     -- Bootstrap stakeholders
     let bootSecrets
             | giUseHeavyDlg = dlgIssuersSecrets
             | otherwise = map rsPrimaryKey richmenSecrets
-        toStakeholders :: [SecretKey] -> Map StakeholderId Word16
-        toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic)
-        bootStakeholders = toStakeholders bootSecrets
+        bootStakeholders :: Map StakeholderId Word16
+        bootStakeholders =
+            Map.fromList $
+            map ((,1) . addressHash . toPublic) bootSecrets
 
     -- VSS certificates
     vssCertsList <- mapM generateVssCert richmenSecrets

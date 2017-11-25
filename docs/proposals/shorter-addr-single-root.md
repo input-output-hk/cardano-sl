@@ -1,11 +1,11 @@
-# Address from single Merkle root
+# Address from single hash
 
 | Workstream | Author(s) |
 | ---- | ----- |
 | Short addresses | George Agapov |
 
 
-In this document we analyze possibility of forming address from single Merkle root.
+In this document we analyze possibility of forming address from single hash (or as it was also refferred, address from Merkle tree root).
 
 This idea was previously discussed in meetings involving Aggelos, Duncan and being quite desirable to implement, encounters several pitfalls being applied directly as is.
 This document's purpose is to define this pitfalls and look for possible solutions.

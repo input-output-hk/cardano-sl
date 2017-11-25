@@ -21,8 +21,8 @@ Document is structured as follows:
     + [Using reference to blockchain](#using-reference-to-blockchain)
       - [Solving D4](#solving-d4)
   * [Problem of reliable data aggregation](#problem-of-reliable-data-aggregation)
-    + [Solution 1: use OR](#solution-1--use-or)
-    + [Solution 2: using aggregate signatures in crazy way](#solution-2--using-aggregate-signatures-in-crazy-way)
+    + [Solution 1: use OR](#solution-1-use-or)
+    + [Solution 2: using aggregate signatures in crazy way](#solution-2-using-aggregate-signatures-in-crazy-way)
     + [Other solutions](#other-solutions)
 
 ## Terminology

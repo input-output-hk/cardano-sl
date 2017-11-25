@@ -143,12 +143,12 @@ instance Arbitrary TestParams where
 
 genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
 genGenesisInitializer = do
-    tiTestBalance <- arbitrary
-    tiFakeAvvmBalance <- arbitrary
-    tiAvvmBalanceFactor <- arbitrary
-    tiUseHeavyDlg <- arbitrary
-    tiSeed <- arbitrary
-    return TestnetInitializer {..}
+    giTestBalance <- arbitrary
+    giFakeAvvmBalance <- arbitrary
+    giAvvmBalanceFactor <- arbitrary
+    giUseHeavyDlg <- arbitrary
+    giSeed <- arbitrary
+    return GenesisInitializer {..}
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.

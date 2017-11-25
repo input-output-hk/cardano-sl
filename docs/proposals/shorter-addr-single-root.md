@@ -59,18 +59,37 @@ We describe constraints as they're given by design of rest parts of CSL (assumin
 
 Hard constraints (which we *must* satisfy):
 
-* (H1) Given `Addr` (constructed from `B`), one shouldn't be able to derive PK for balance key (to which `B` relates)
-* (H2) Given `Addr` (constructed from `S`), one shouldn't be able to derive SK for stake key (to which `S` relates)
-* (H3) Given `Addr` (constructed from `S`, `A`) one shouldn't be able to construct `Addr' = (B, S', A')` with `S' /= S`
-* (H4) Given `Addr` (constructed from `S`, `A`) and current state of blockchain, one should be able to derive `S`, `A`
-* (H5) Given `Addr` (constructed from `B`), `B` and current state of blokchain, one should be able to proove `B` belongs to address `Addr`
+* (H1) Given `Addr` (constructed from `B`),
+
+  One shouldn't be able to derive PK for balance key (to which `B` relates).
+* (H2) Given `Addr` (constructed from `S`),
+
+  One shouldn't be able to derive SK for stake key (to which `S` relates).
+* (H3) Given `Addr` (constructed from `S`, `A`),
+
+  One shouldn't be able to construct `Addr' = (B, S', A')` with `S' /= S`.
+* (H4) Given `Addr` (constructed from `S`, `A`) and current state of blockchain,
+
+  One should be able to derive `S`, `A`.
+* (H5) Given `Addr` (constructed from `B`), `B` and current state of blokchain,
+
+  One should be able to proove `B` belongs to address `Addr`.
 
 Desirable constraints (which we *could* have):
 
-* (D1) Given `Addr` (constructed from `S`, `A`) one shouldn't be able to construct `Addr' = (B, S', A')` with `A' /= A`
-* (D2) Given `Addr` (constructed from `S`) one can proove that `S` belongs to address `Addr`
-* (D3) Given `Addr` (constructed from `A`) one can proove that `A` belongs to address `Addr`
-* (D4) Given `Addr` (constructed from `S`, `A`) one can proove that pair `(S, A)` belongs to address `Addr`
+* (D1) Given `Addr` (constructed from `S`, `A`),
+
+  One shouldn't be able to construct `Addr' = (B, S', A')` with `A' /= A`.
+* (D2) Given `Addr` (constructed from `S`),
+
+  One can prove that `S` belongs to address `Addr`.
+* (D3) Given `Addr` (constructed from `A`),
+
+  One can prove that `A` belongs to address `Addr`.
+* (D4) Given `Addr` (constructed from `S`, `A`),
+
+  One can prove that pair `(S, A)` belongs to address `Addr`.
+  
 * (D5) Resulting `Addr` should be represented to user in not more than 55 chars
    * Number 55 is arbitrary, but it shouldn't be much larger than address of Bitcoin which is 34 character long
    * 55 characters roughly corresponds to 40 bytes (given address is represented in base58)
@@ -146,11 +165,11 @@ Designed in such a way that:
 * Both `A`, `B` are not more than 32b
 * `Verify_aggregated (C, A, B) <-> C == Aggregate (A, B)`
   I.e. you can combine two pieces of data `A` and `B` in such `C` that allows you to further verify `A`, `B` where used in `C` construction.
-* Size of `C` is less than 32 bytes
+* Size of `C` is not more than 32 bytes
 
-Obviously, definition as above is not good, in particular because `A`, `B` are in sum 64b whereas `C` is limited by 32b. So similar to definition of hash function, we should account for collisions here. But as was said, I'm rather looking for existing well-defined problems might look similar to above than clearly defining my own.
+Obviously, definition as above is not good, in particular because `A`, `B` are in sum 64b whereas `C` is limited by 32b. So similar to definition of hash function, we should account for collisions here. But as was said, description here is given rather to look for existing well-defined scientific problem (that is somewhat similar) than clearly defining a new one.
 
-What are possible solutions to the problem (with no argument on colisions etc.)?
+What are possible solutions to the problem (with no argument on collisions etc.)?
 
 ### Solution 1: use OR
 
@@ -166,10 +185,12 @@ Aggregate signature is signature scheme that supports aggregation: Given n signa
 
 We can utilize this primitive in following way:
 * Assume SK `Z` is publicly known
-* We sign `A`, `B` with `Z`, aggregate two signatures into single one, `C` => we have `Aggregate`
+* We sign `A`, `B` with `Z`, aggregate two signatures into single one, `C`
+   - => We have `Aggregate` function
 * We validate `Z` indeed signed `A`, `B` by checking signature `C` that it is indeed signature of `A`, `B` made by `Z`
+   - => We have `Verify_aggregated` function
 
-Also, no reasoning of how good is the approach. But given size of signature for eliptic curve schemes, we can fit into 32 bytes for `C`.
+Similarly to sultion 1, we provide no reasoning of how good is the approach. But given size of signature for eliptic curve schemes, we can fit into 32 bytes for `C`.
 
 ### Other solutions
 

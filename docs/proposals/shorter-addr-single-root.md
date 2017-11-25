@@ -175,7 +175,7 @@ What are possible solutions to the problem (with no argument on collisions etc.)
 
 Obvious solution to above is using OR. I.e.
 * `Aggregate (A, B) = A || B`
-* `Verify_aggregated (C, T) = T && C`
+* `Verify_aggregated` as function checking `T` as bitmask has `1` bits only where `C` does
 
 As was mentioned above, we don't provide any reasoning how good and reliable is this solution (probably bad).
 

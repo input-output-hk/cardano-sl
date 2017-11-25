@@ -159,15 +159,15 @@ Suppose we have two pieces of data: `A` and `B` with no particular structure (sa
 
 We want to define two functions:
  * `Aggregate (A, B)`, returning some arbitrary piece of data
- * `Verify_aggregated (C, A, B)`, returning boolean value
+ * `Verify_aggregated (C, T)`, returning boolean value
 
 Designed in such a way that:
 * Both `A`, `B` are not more than 32b
-* `Verify_aggregated (C, A, B) <-> C == Aggregate (A, B)`
-  I.e. you can combine two pieces of data `A` and `B` in such `C` that allows you to further verify `A`, `B` where used in `C` construction.
+* `Verify_aggregated (C, T) <-> ∃ X ( Aggregate(X, T) = C || Aggregate(T, X) = C )`
+  I.e. you can combine two pieces of data `A` and `B` in such `C` that allows you to further independently verify `A`, `B` where used in `C` construction.
 * Size of `C` is not more than 32 bytes
 
-Obviously, definition as above is not good, in particular because `A`, `B` are in sum 64b whereas `C` is limited by 32b. So similar to definition of hash function, we should account for collisions here. But as was said, description here is given rather to look for existing well-defined scientific problem (that is somewhat similar) than clearly defining a new one.
+Obviously, definition as above is not good, similarly to definition of hash function, we should account for collisions here. But as was said, description here is given rather to look for existing well-defined scientific problem (that is somewhat similar) than clearly defining a new one.
 
 What are possible solutions to the problem (with no argument on collisions etc.)?
 
@@ -175,7 +175,7 @@ What are possible solutions to the problem (with no argument on collisions etc.)
 
 Obvious solution to above is using OR. I.e.
 * `Aggregate (A, B) = A || B`
-* `Verify_aggregated (C, A, B) = A && C && B`
+* `Verify_aggregated (C, T) = T && C`
 
 As was mentioned above, we don't provide any reasoning how good and reliable is this solution (probably bad).
 
@@ -190,7 +190,7 @@ We can utilize this primitive in following way:
 * We validate `Z` indeed signed `A`, `B` by checking signature `C` that it is indeed signature of `A`, `B` made by `Z`
    - => We have `Verify_aggregated` function
 
-Similarly to sultion 1, we provide no reasoning of how good is the approach. But given size of signature for eliptic curve schemes, we can fit into 32 bytes for `C`.
+Similarly to solution 1, we provide no reasoning of how good is the approach. But given size of signature for eliptic curve schemes, we can fit into 32 bytes for `C`.
 
 ### Other solutions
 

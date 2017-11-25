@@ -33,7 +33,7 @@ import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, slo
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
-import qualified Pos.GState as GS
+import           Pos.GState.BlockExtra (isBlockInMainChain)
 import           Pos.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTimestamp)
 import           Pos.Util (_neHead)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
@@ -53,7 +53,7 @@ lcaWithMainChain headers =
     oldestParent :: HeaderHash
     oldestParent = headers ^. _Wrapped . _neHead . prevBlockL
     lcaProceed prevValue (h :| others) = do
-        inMain <- GS.isBlockInMainChain h
+        inMain <- isBlockInMainChain h
         case (others, inMain) of
             (_, False)   -> pure prevValue
             ([], True)   -> pure $ Just h

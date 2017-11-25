@@ -8,16 +8,12 @@ module Pos.Configuration
        , nodeConfiguration
        , withNodeConfiguration
 
-       -- * Constants mentioned in paper
-       , networkDiameter
-
        -- * Other constants
        , networkConnectionTimeout
        , conversationEstablishTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
-       , recoveryHeadersMessage
 
        -- * Transaction resubmition constants
        , pendingTxResubmitionPeriod
@@ -29,7 +25,7 @@ import           Data.Aeson (FromJSON (..), genericParseJSON)
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (ms, sec)
+import           Serokell.Util (ms)
 import qualified Text.Parsec as P
 
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
@@ -45,12 +41,8 @@ withNodeConfiguration = give
 -- | Top-level node configuration. See example in /configuration.yaml/ file.
 data NodeConfiguration = NodeConfiguration
     {
-      ccNetworkDiameter              :: !Int
-      -- ^ Estimated time for broadcasting messages
-    , ccDefaultPeers                 :: ![Text]
+      ccDefaultPeers                 :: ![Text]
       -- ^ List of default peers
-    , ccRecoveryHeadersMessage       :: !Int
-      -- ^ Numbers of headers put in message in recovery mode.
     , ccNetworkConnectionTimeout     :: !Int
       -- ^ Network connection timeout in milliseconds
     , ccConversationEstablishTimeout :: !Int
@@ -68,16 +60,7 @@ instance FromJSON NodeConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
 ----------------------------------------------------------------------------
--- Main constants mentioned in paper
-----------------------------------------------------------------------------
-
--- | Estimated time needed to broadcast message from one node to all
--- other nodes. Also see 'Pos.NodeConfiguration.ccNetworkDiameter'.
-networkDiameter :: HasNodeConfiguration => Microsecond
-networkDiameter = sec . ccNetworkDiameter $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Other constants
+-- Miscellaneous constants
 ----------------------------------------------------------------------------
 
 networkConnectionTimeout :: HasNodeConfiguration => Microsecond
@@ -104,11 +87,6 @@ defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
         either (error . show) identity .
         P.parse addrParser "Compile time config"
 
--- | Maximum amount of headers node can put into headers message while
--- in "after offline" or "recovery" mode. Should be more than
--- 'blkSecurityParam'.
-recoveryHeadersMessage :: (HasNodeConfiguration, Integral a) => a
-recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ nodeConfiguration
 
 ----------------------------------------------------------------------------
 -- Transactions resubmition

@@ -27,6 +27,7 @@ library
 
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db

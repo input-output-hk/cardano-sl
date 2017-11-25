@@ -18,7 +18,7 @@ import           Serokell.Util (listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Communication ()
+import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply, needRecovery)
@@ -29,10 +29,9 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
+import           Pos.Block.WorkMode (BlockWorkMode)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
                                              onNewSlotWorker, worker)
-import           Pos.Configuration (networkDiameter)
-import           Pos.Context (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),
                            Timestamp (Timestamp), blkSecurityParam, difficultyL, epochSlots,
                            fixedTimeCQSec, flattenSlotId, gbHeader, getSlotIndex, slotIdF,
@@ -40,16 +39,19 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, S
 import           Pos.Core.Common (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Core.Context (getOurPublicKey)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
-import           Pos.GState (getAdoptedBVData, getPskByIssuer)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
+import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
+import           Pos.Update.DB (getAdoptedBVData)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.JsonLog (jlCreatedBlock)
@@ -57,7 +59,6 @@ import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Util.Timer (Timer)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
-import           Pos.WorkMode.Class (WorkMode)
 
 
 ----------------------------------------------------------------------------
@@ -66,7 +67,7 @@ import           Pos.WorkMode.Class (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => Timer -> ([WorkerSpec m], OutSpecs)
 blkWorkers keepAliveTimer =
     merge $ [ blkCreatorWorker
@@ -77,7 +78,7 @@ blkWorkers keepAliveTimer =
   where
     merge = mconcatPair . map (first pure)
 
-blkMetricCheckerWorker :: WorkMode ctx m => (WorkerSpec m, OutSpecs)
+blkMetricCheckerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkMetricCheckerWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, blkMetricCheckerWorker" $
@@ -88,7 +89,7 @@ blkMetricCheckerWorker =
 ----------------------------------------------------------------------------
 
 -- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
-blkCreatorWorker :: WorkMode ctx m => (WorkerSpec m, OutSpecs)
+blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
@@ -99,7 +100,7 @@ blkCreatorWorker =
 
 
 blockCreator
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => SlotId -> SendActions m -> m ()
 blockCreator (slotId@SlotId {..}) sendActions = do
 
@@ -165,7 +166,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
@@ -204,14 +205,14 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
 ----------------------------------------------------------------------------
 
 recoveryTriggerWorker ::
-       forall ctx m. (WorkMode ctx m)
+       forall ctx m. (BlockWorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 recoveryTriggerWorker =
     worker requestTipOuts recoveryTriggerWorkerImpl
 
 recoveryTriggerWorkerImpl
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => SendActions m -> m ()
 recoveryTriggerWorkerImpl SendActions{..} =
     repeatOnInterval $ recoveryCommGuard "security worker" $
@@ -236,7 +237,7 @@ recoveryTriggerWorkerImpl SendActions{..} =
 --
 -- Apart from chain quality check we also record some generally useful values.
 metricWorker
-    :: forall ctx m. WorkMode ctx m
+    :: forall ctx m. BlockWorkMode ctx m
     => SlotId -> m ()
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
@@ -259,7 +260,7 @@ metricWorker curSlot = do
 ----------------------------------------------------------------------------
 
 reportTotalBlocks ::
-       forall ctx m. WorkMode ctx m
+       forall ctx m. BlockWorkMode ctx m
     => m ()
 reportTotalBlocks = do
     difficulty <- view difficultyL <$> DB.getTipHeader
@@ -271,7 +272,7 @@ difficultyMonitor ::
        MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
 difficultyMonitor = noReportMonitor fromIntegral Nothing
 
-reportSlottingData :: WorkMode ctx m => SlotId -> m ()
+reportSlottingData :: BlockWorkMode ctx m => SlotId -> m ()
 reportSlottingData slotId = do
     -- epoch
     let epoch = siEpoch slotId
@@ -291,7 +292,7 @@ reportSlottingData slotId = do
         view scGlobalSlotMonitorState
     recordValue globalSlotMonitor globalSlot
 
-reportCrucialValues :: WorkMode ctx m => m ()
+reportCrucialValues :: BlockWorkMode ctx m => m ()
 reportCrucialValues = do
     label <- view scCrucialValuesLabel
     BlockVersionData {..} <- getAdoptedBVData
@@ -309,7 +310,7 @@ reportCrucialValues = do
 ----------------------------------------------------------------------------
 
 chainQualityChecker ::
-       forall ctx m. WorkMode ctx m
+       forall ctx m. BlockWorkMode ctx m
     => SlotId
     -> FlatSlotId
     -> m ()

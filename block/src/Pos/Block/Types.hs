@@ -6,17 +6,32 @@ module Pos.Block.Types
        , Undo (..)
        , Blund
        , SerializedBlund
+
+       , LastKnownHeader
+       , LastKnownHeaderTag
+       , MonadLastKnownHeader
+
+       , ProgressHeader
+       , ProgressHeaderTag
+       , MonadProgressHeader
+
+       , RecoveryHeaderTag
+       , RecoveryHeader
+       , MonadRecoveryHeader
        ) where
 
 import           Universum
 
+import qualified Control.Concurrent.STM as STM
 import qualified Data.Text.Buildable
+import           Ether.Internal (HasLens (..))
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Block.Slog.Types (SlogUndo (..))
+import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Core.Block (Block)
+import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.DB.Class (SerializedUndo)
 import           Pos.Delegation.Types (DlgUndo)
@@ -51,3 +66,18 @@ instance HasDifficulty Blund where
 
 instance HasHeaderHash Block => HasHeaderHash Blund where
     headerHash = headerHash . fst
+
+data LastKnownHeaderTag
+type LastKnownHeader = TVar (Maybe BlockHeader)
+type MonadLastKnownHeader ctx m
+     = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
+
+data ProgressHeaderTag
+type ProgressHeader = STM.TMVar BlockHeader
+type MonadProgressHeader ctx m
+     = (MonadReader ctx m, HasLens ProgressHeaderTag ctx ProgressHeader)
+
+data RecoveryHeaderTag
+type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
+type MonadRecoveryHeader ctx m
+     = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)

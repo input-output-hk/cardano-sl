@@ -23,9 +23,9 @@ import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           System.Wlog (WithLogger, logDebug)
 
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
 import           Pos.Block.Pure (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
-import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
 import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, HeaderHash, SlotId (..),
                            blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
                            epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
@@ -36,11 +36,13 @@ import           Pos.Crypto (hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
+import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
-import qualified Pos.GState as GS
+import qualified Pos.GState.BlockExtra as GS
 import           Pos.Lrc.Context (HasLrcContext)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
+import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _NewestFirst, _OldestFirst)
@@ -251,7 +253,7 @@ getHeadersFromManyTo ::
        , WithLogger m
        , MonadError Text m
        , HasConfiguration
-       , HasNodeConfiguration
+       , HasBlockConfiguration
        )
     => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order

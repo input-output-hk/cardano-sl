@@ -27,14 +27,13 @@ import           Control.Exception (Exception (..))
 import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
-import           Ether.Internal (HasLens (..))
+import           Ether.Internal (lensOf)
 import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Binary.Communication ()
 import           Pos.Binary.Txp ()
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..), classifyHeaders,
@@ -43,13 +42,14 @@ import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..
 import qualified Pos.Block.Logic as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types (MsgGetBlocks (..), MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalTask (..))
-import           Pos.Block.Types (Blund)
-import           Pos.Communication.Limits (recvLimited)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
+                                           BlockRetrievalTask (..))
+import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Block.WorkMode (BlockInstancesConstraint, BlockWorkMode)
+import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs, convH,
                                              toOutSpecs, waitForConversations)
-import           Pos.Context (BlockRetrievalQueueTag, LastKnownHeaderTag, recoveryInProgress)
 import           Pos.Core (EpochOrSlot (..), HasConfiguration, HasHeaderHash (..), HeaderHash,
                            SlotId (..), criticalForkThreshold, crucialSlot, epochIndexL,
                            epochOrSlotG, gbHeader, headerHashG, isMoreDifficult, prevBlockL)
@@ -60,6 +60,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker (lrcSingleShot)
+import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
 import           Pos.Util (_neHead, _neLast)
@@ -68,7 +69,6 @@ import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _Newes
                                   _OldestFirst)
 import           Pos.Util.JsonLog (jlAdoptedBlock)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
-import           Pos.WorkMode.Class (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -105,7 +105,7 @@ instance Exception BlockNetLogicException where
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => EnqueueMsg m -> m ()
 triggerRecovery enqueue = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
@@ -115,7 +115,7 @@ triggerRecovery enqueue = unlessM recoveryInProgress $ do
            throwM e
     logDebug "Finished requesting tips for recovery"
 
-requestTipOuts :: OutSpecs
+requestTipOuts :: BlockInstancesConstraint => OutSpecs
 requestTipOuts =
     toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
                        (Proxy :: Proxy MsgHeaders) ]
@@ -124,7 +124,7 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> ConversationActions MsgGetHeaders MsgHeaders m
     -> m ()
@@ -156,7 +156,7 @@ data MkHeadersRequestResult
 -- message.
 mkHeadersRequest
     :: forall ctx m.
-       WorkMode ctx m
+       BlockWorkMode ctx m
     => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
     uHdr <- DB.getHeader upto
@@ -166,7 +166,7 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NonEmpty BlockHeader
     -> NodeId
     -> m ()
@@ -178,7 +178,7 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => BlockHeader
     -> NodeId
     -> m ()
@@ -251,7 +251,7 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
 
 requestHeaders
     :: forall ctx m.
-       WorkMode ctx m
+       BlockWorkMode ctx m
     => (NewestFirst NE BlockHeader -> m ())
     -> MsgGetHeaders
     -> NodeId
@@ -304,7 +304,7 @@ requestHeaders cont mgh nodeId conv = do
 
 handleRequestedHeaders
     :: forall ctx m.
-       WorkMode ctx m
+       BlockWorkMode ctx m
     => (NewestFirst NE BlockHeader -> m ())
     -> Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
@@ -393,7 +393,7 @@ handleRequestedHeaders cont inRecovery headers = do
 -- download queue and they will be processed later.
 addHeaderToBlockRequestQueue
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => NodeId
     -> BlockHeader
     -> Bool -- ^ Was classified as chain continuation
@@ -448,7 +448,7 @@ mkBlocksRequest lcaChild wantedBlock =
     }
 
 handleBlocks
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> OldestFirst NE Block
     -> EnqueueMsg m
@@ -468,7 +468,7 @@ handleBlocks nodeId blocks enqueue = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> EnqueueMsg m
     -> OldestFirst NE Block
@@ -486,7 +486,7 @@ handleBlocksWithLca nodeId enqueue blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ctx m.
-       WorkMode ctx m
+       BlockWorkMode ctx m
     => EnqueueMsg m
     -> OldestFirst NE Block
     -> m ()
@@ -525,7 +525,7 @@ applyWithoutRollback enqueue blocks = do
         pure (newTip, res)
 
 applyWithRollback
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> EnqueueMsg m
     -> OldestFirst NE Block
@@ -574,7 +574,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
 
 relayBlock
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => EnqueueMsg m -> Block -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock enqueue (Right mainBlk) = do
@@ -591,7 +591,7 @@ relayBlock enqueue (Right mainBlk) = do
 -- TODO: ban node for it!
 onFailedVerifyBlocks
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => NonEmpty Block -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

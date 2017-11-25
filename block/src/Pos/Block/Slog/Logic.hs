@@ -37,7 +37,6 @@ import           Pos.Block.Pure (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Context (lrcActionOnEpochReason)
 import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
                            prevBlockL)
@@ -46,12 +45,15 @@ import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlund)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
+import qualified Pos.DB.GState.Common as GS (CommonOp (PutMaxSeenDifficulty, PutTip),
+                                             getMaxSeenDifficulty)
 import           Pos.Exception (assertionFailed, reportFatalError)
-import qualified Pos.GState as GS
-import           Pos.Lrc.Context (HasLrcContext)
+import qualified Pos.GState.BlockExtra as GS
+import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst)

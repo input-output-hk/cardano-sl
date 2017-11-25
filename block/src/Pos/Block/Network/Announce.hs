@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Announcements related to blocks.
 
@@ -11,41 +12,43 @@ module Pos.Block.Network.Announce
 import           Universum
 
 import           Control.Monad.Except (runExceptT)
-import           Ether.Internal (HasLens (..))
+import           Ether.Internal (lensOf)
 import           Formatting (build, sformat, (%))
 import           Mockable (throw)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Block.Logic (getHeadersFromManyTo)
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Limits (recvLimited)
-import           Pos.Communication.Message ()
+import           Pos.Block.WorkMode (BlockWorkMode)
+import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
+                                             EnqueueMsg, Message, MsgType (..), NodeId, Origin (..),
                                              OutSpecs, convH, toOutSpecs)
-import           Pos.Context (recoveryInProgress)
 import           Pos.Core (headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Security.Params (AttackType (..), NodeAttackedError (..), SecurityParams (..))
 import           Pos.Security.Util (shouldIgnoreAddress)
 import           Pos.Util.TimeWarp (nodeIdToAddress)
-import           Pos.WorkMode.Class (WorkMode)
 
-announceBlockOuts :: OutSpecs
+announceBlockOuts :: (Message MsgGetHeaders, Message MsgHeaders) => OutSpecs
 announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy MsgHeaders)
                                       (Proxy :: Proxy MsgGetHeaders)
                                ]
 
 announceBlock
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => EnqueueMsg m -> MainBlockHeader -> m (Map NodeId (m ()))
 announceBlock enqueue header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
+    announceBlockDo
+        :: BlockWorkMode ctx m
+        => NodeId -> NonEmpty (Conversation m ())
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
         SecurityParams{..} <- view (lensOf @SecurityParams)
         let throwOnIgnored nId =
@@ -62,8 +65,7 @@ announceBlock enqueue header = do
         handleHeadersCommunication cA
 
 handleHeadersCommunication
-    :: forall ctx m .
-       (WorkMode ctx m)
+    :: BlockWorkMode ctx m
     => ConversationActions MsgHeaders MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
@@ -81,7 +83,7 @@ handleHeadersCommunication conv = do
   where
     -- retrieves header of the newest main block if there's any,
     -- genesis otherwise.
-    getLastMainHeader :: m BlockHeader
+    getLastMainHeader :: BlockWorkMode ctx m => m BlockHeader
     getLastMainHeader = do
         tip :: Block <- DB.getTipBlock
         let tipHeader = tip ^. blockHeader

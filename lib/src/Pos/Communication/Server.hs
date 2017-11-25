@@ -17,7 +17,9 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           System.Wlog (LoggerName)
 
 import           Pos.Binary.Communication ()
-import           Pos.Block.Network.Listeners (blockListeners)
+import           Pos.Block.Network (blockListeners)
+import           Pos.Communication.Limits ()
+import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MkListeners (..))
 import           Pos.Communication.Relay (relayListeners)
 import           Pos.Communication.Util (wrapListener)

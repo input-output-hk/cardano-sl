@@ -25,15 +25,14 @@ import           Mockable (forConcurrently)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Communication ()
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
                            blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
 import qualified Pos.DB.Block.Load as DB
-import qualified Pos.DB.DB as DB
-import qualified Pos.GState as GS
+import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
+import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Consumer (LrcConsumer (..))
 import           Pos.Lrc.Consumers (allLrcConsumers)
 import           Pos.Lrc.Context (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -47,6 +46,7 @@ import           Pos.Reporting (reportMisbehaviour)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
 import           Pos.Ssc.Message (SscMessageConstraints)
+import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)

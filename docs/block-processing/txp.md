@@ -5,6 +5,7 @@
   * [Prerequisites](#prerequisites)
   * [Overview](#overview)
   * [Global transaction processing](#global-transaction-processing)
+    + [Transaction payload](#transaction-payload)
     + [GState](#gstate)
     + [Verification](#verification)
       - [General checks](#general-checks)
@@ -38,7 +39,7 @@
 * [Block structure](https://cardanodocs.com/technical/blocks/#design).
   Specifically, you need to know about how transactions are stored in blocks.
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).
-* [Unknown data handling](unknown-data.md).
+* [Block processing](block-processing.md).
 
 ## Overview
 
@@ -56,42 +57,19 @@ places.
 
 ## Global transaction processing
 
-Global transaction processing can be described by presenting an
-algorithm to solve the following problem:
+### Transaction payload
 
-> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first
-genesis block) check whether transactions payload (`TxPayload`) from
-these blocks are valid.
 [Recall](https://cardanodocs.com/technical/blocks/#main-block)
 that transactions payload contains actual transactions (stored in the
 Merkle tree) and list of witnesses for inputs of those transactions.
 
-The algorithm is similar to the one from Bitcoin (for example, UTXO is used to prevent
-double-spending), but is more complicated due to various reasons, including:
-
+Transaction payload processing is similar to the one from Bitcoin 
+(for example, UTXO is used to prevent double-spending), 
+but is more complicated due to various reasons, including:
 * Extendable (via update mechanism) data structures
 * Maintaining stakes in addition to balances
 
-
-We describe global txp as stateful algorithm:
-* Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
-* `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`
-* State transition function. Given GState `S` and a main block `B` return either an error describing why `B` is invalid (w.r.t. tx payload) or new GState `S'`
-  ```
-  verifyAndApplyGState :: GState -> MainBlock -> Either TxPayloadVerificationError GState
-  -- ^ Note, that function definition and types are different in code and are put here for reader's convenience
-  ```
-  * Note, that state transition function is defined only for main blocks. This is done because genesis blocks (as defined in Ouroboros) don't have tx payload and thus are not considered by global txp.
-  * Recall that tx payload contains transactions (stored in Merkle tree) and their witnesses.
-
-Note, that in theory transaction verification can be stateless (except genesis
-state `S₀`) and be described without mentioning any additional state
-(apart from blocks themselves). But in practice it would be very
-inefficient and inconvenient.
-
-For sake of simplicity, we describe state transition function in two parts:
-* Verification: given GState `S` and a main block `B`, check whether `B` is valid (and can be applied to `S`)
-* Modification: given GState `S` and a main block `B` (successfully verified against `S`), produce `S'`
+Block payload verification and application are described formally [here](overall.md#task-definition).
 
 ### GState
 
@@ -172,7 +150,7 @@ transactions are valid, temporary modifications are committed.
 Checks, that are considering whole transaction, not inputs/outputs in particular.
 
 - *Consistency check*: number of inputs in a transaction must be the same as number of witnesses for this transaction
-- *Attributes known check*: if `verifyAllIsKnown` (defined [here](unknown-data.md#verifyallisknown-flag)) 
+- *Attributes known check*: if `verifyAllIsKnown` (defined [here](overall.md#verifyallisknown-flag)) 
 is `True`, all transaction attributes must be known.
 - *Transaction size check*: size of transaction doesn't exceed size limit
     - Transaction size is computed as number of bytes in serialized `TxAux` (which contains transaction and its witness)

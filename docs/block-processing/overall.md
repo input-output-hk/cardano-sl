@@ -1,4 +1,42 @@
-# Unknown data handling
+# Block processing
+
+## Task definition
+
+Block processing can be described by presenting an algorithm to solve the following problem:
+
+> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first
+genesis block) check whether block payload from these blocks are valid.
+
+We describe block processing as stateful algorithm:
+* Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
+* `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`
+* State transition function. Given GState `S` and a main block `B` return either an error describing why `B` is invalid (w.r.t. tx payload) or new GState `S'`
+  ```
+  verifyAndApplyGState :: GState -> MainBlock -> Either BlockPayloadVerificationError GState
+  -- ^ Note, that function definition and types are different in code and are put here for reader's convenience
+  ```
+  * Note, that state transition function is defined only for main blocks. This is done because genesis blocks 
+  (as defined in Ouroboros) don't have payload.
+
+Note, that in theory payload verification can be stateless (except genesis
+state `S₀`) and be described without mentioning any additional state
+(apart from blocks themselves). But in practice it would be very
+inefficient and inconvenient.
+
+For sake of simplicity, we describe state transition function in two parts:
+* Verification: given GState `S` and a main block `B`, check whether `B` is valid (and can be applied to `S`)
+* Modification: given GState `S` and a main block `B` (successfully verified against `S`), produce `S'`
+
+### Block payload
+
+Block payload consist of:
+* `UpdatePayload`. 
+  It's checked by update system component and is described in the [Update system consensus rules](us.md).
+* `TxPayload`. 
+  It's checked by transaction processing component and is described in the [Transaction processing](txp.md).
+* TODO: others 
+
+## Unknown data handling
 
 Many types in Cardano-SL are designed in an extensible way. They can
 be extended via softfork in future (e. g. new data can be attached or
@@ -59,7 +97,7 @@ adopted version) check is not done.
 Note: when we say that attributes must be known, it means that
 unparsed fields must be empty.
 
-## verifyAllIsKnown flag
+### verifyAllIsKnown flag
 
 Let's assume that version comparison as described above.
 Let's denote flag `verifyAllIsKnown` and assign it value:

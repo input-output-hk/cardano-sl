@@ -5,6 +5,7 @@
   * [Overview](#overview)
   * [Problem definition](#problem-definition)
   * [Update system model](#update-system-model)
+    + [Update payload](#update-payload)
     + [Poll and decision agreement rules](#poll-and-decision-agreement-rules)
     + [Update proposal states](#update-proposal-states)
     + [Software and block versions](#software-and-block-versions)
@@ -30,21 +31,30 @@
 * Please read about
   [balances and stakes](https://cardanodocs.com/cardano/balance-and-stake/) and
   don't confuse them.
-* [Unknown data handling](unknown-data.md).
+* [Block processing](block-processing.md).
 
 ## Overview
 Update system gives ability to developers to propose updates of software applications and
 ability to users to vote for updates to decide which one will be accepted.
 
-This document describes a global part of update system consensus rules, as well difference between a local part.
-Global consensus rules is a part of block processing, which checks validity of update payload of blocks and update 
-corresponding state when blocks are applied/rolled back. 
-We first describe global part and then describe how local part differs.
-
-## Problem definition
-TBA
+This document describes a global part of update system consensus rules.
+Global consensus rules is a part of block processing, 
+which checks validity of update payload of blocks and update corresponding state when blocks are applied/rolled back. 
 
 ## Update system model
+
+### Update payload
+
+Update payload consists of at most one `UpdatePayload` and list of votes, it reflects the datatype:
+```
+data UpdatePayload = UpdatePayload
+    { upProposal :: !(Maybe UpdateProposal)
+    , upVotes    :: ![UpdateVote]
+    }
+```
+
+This document describes update system model and consensus rules including update payload verification, 
+which is part of block payload verification. It's described formally [here](overall.md#task-definition).
 
 ### Poll and decision agreement rules
 
@@ -249,7 +259,7 @@ We prohibit it because of opportunity spam update proposals from one stakeholder
   * Update proposal size limit is part of `BlockVersionData`.
   * If the size of a proposal is greater than the limit from the adopted `BlockVersionData`, the proposal is invalid.
 
-* _Attributes known check_: if `verifyAllIsKnown` (defined [here](unknown-data.md#verifyallisknown-flag))
+* _Attributes known check_: if `verifyAllIsKnown` (defined [here](overall.md#verifyallisknown-flag))
 is `True`, all update proposal attributes must be known.
  
 * _Uniqueness of proposal check_: that there is no active proposal with the same id.

@@ -2454,6 +2454,7 @@ self: {
             cardano-sl-infra
             cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cardano-sl-util
             cardano-sl-wallet
             containers
@@ -2499,6 +2500,7 @@ self: {
             cardano-sl-infra
             cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cardano-sl-util
             cardano-sl-wallet
             containers
@@ -2512,6 +2514,7 @@ self: {
             lens
             memory
             neat-interpolation
+            node-sketch
             QuickCheck
             quickcheck-instances
             serokell-util
@@ -2529,8 +2532,8 @@ self: {
           doHaddock = false;
           doCheck = true;
           homepage = "https://github.com/swagger-api/swagger-codegen#readme";
-          description = "Auto-generated API bindings for cardano-sl-web-wallet";
-          license = stdenv.lib.licenses.unfree;
+          description = "The Wallet Backend for a Cardano node";
+          license = stdenv.lib.licenses.mit;
         }) {};
       case-insensitive = callPackage ({ base, bytestring, deepseq, hashable, mkDerivation, stdenv, text }:
       mkDerivation {

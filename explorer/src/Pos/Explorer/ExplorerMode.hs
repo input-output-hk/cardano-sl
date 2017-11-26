@@ -278,7 +278,7 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 
 newtype SubscriptionTestMode a = SubscriptionTestMode
     { runSubscriptionTestMode :: (StateT ConnectionsState IO a)
-    } deriving (Functor, Applicative, Monad, MonadThrow, CanLog)
+    } deriving (Functor, Applicative, Monad, MonadThrow, CanLog, MonadState ConnectionsState)
 
 runSubTestMode :: ConnectionsState -> SubscriptionTestMode a -> IO (a, ConnectionsState)
 runSubTestMode connectionsState m =
@@ -287,10 +287,6 @@ runSubTestMode connectionsState m =
 instance HasLoggerName SubscriptionTestMode where
     getLoggerName        = pure "explorer-subscription-test"
     modifyLoggerName _ a = a
-
-instance MonadState ConnectionsState SubscriptionTestMode where
-    get          = SubscriptionTestMode $ get
-    put newState = SubscriptionTestMode $ put newState
 
 ----------------------------------------------------------------------------
 -- Property

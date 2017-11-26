@@ -13,6 +13,7 @@ module Pos.Explorer.Socket.Holder
        , ConnectionsVar
        , mkClientContext
        , mkConnectionsState
+       , mkEmptyClientContext
        , withConnState
        , askingConnState
 
@@ -41,13 +42,16 @@ import           Pos.Core (Address)
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccConnection :: !Socket
+    , _ccConnection :: !(Maybe Socket)
     }
 
 makeClassy ''ClientContext
 
-mkClientContext :: Socket -> ClientContext
+mkClientContext :: Maybe Socket -> ClientContext
 mkClientContext = ClientContext Nothing
+
+mkEmptyClientContext :: ClientContext
+mkEmptyClientContext = ClientContext Nothing Nothing
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions

@@ -23,9 +23,10 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (csAddressSubscribers, csBlocksSubscribers,
-                                             mkConnectionsState)
-import           Pos.Explorer.Socket.Methods (SubscriptionMode, addrSubParam, addressSetByTxs,
+import           Pos.Explorer.Socket.Holder (csAddressSubscribers, csClients,
+                                             mkConnectionsState,
+                                             mkEmptyClientContext)
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               blockPageSubParam, fromCAddressOrThrow, spSessId,
                                               subscribeAddr, txsSubParam)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
@@ -65,8 +66,7 @@ spec =
                     subParam = txsSubParam socketId
                 spSessId subParam `shouldBe` socketId
         describe "subscribeAddr" $
-            modifyMaxSize (const 1) $ do
-                prop "trivial test" workingTestInstance
+            modifyMaxSize (const 50) $
                 prop "subscribes by a given address" subscribeAddrProp
 
 
@@ -88,8 +88,10 @@ subscribeAddrProp :: Property
 subscribeAddrProp =
     forAll arbitrary $ \addr ->
         monadicIO $ do
-            -- create an empty ConnectionsState
-            let connState = mkConnectionsState
+            -- create a ConnectionsState and add an empty `ClientContext`
+            -- which is needed to subscribe to an `Address`
+            let connState = mkConnectionsState & csClients . at socketId
+                                .~ Just mkEmptyClientContext
             let cAddr = toCAddress addr
             -- The result of this is `SubscriptionMode m => m ()`
             let subscription = runSubTestMode connState $
@@ -105,27 +107,6 @@ subscribeAddrProp =
     hasSession :: SocketId -> Maybe (S.Set SocketId) -> Bool
     hasSession socketId' (Just sessions) = S.member socketId' sessions
     hasSession _          Nothing        = False
-
-    -- | Create arbitrary, non-null.
-    socketId :: SocketId
-    socketId = "testingsocket"
-
-workingTestInstance :: Property
-workingTestInstance =
-    monadicIO $ do
-        -- create an empty ConnectionsState
-        let connState = mkConnectionsState
-        let subscription = runSubTestMode connState modifyConnectionState
-
-        (_, updatedConnState) <- run subscription
-
-        assert $ length (updatedConnState ^. csBlocksSubscribers) > 0
-  where
-    -- | A very simple modifiction of the state.
-    modifyConnectionState :: SubscriptionMode m => m ()
-    modifyConnectionState = do
-        connState <- get
-        put $ connState & csBlocksSubscribers .~ S.singleton socketId
 
     -- | Create arbitrary, non-null.
     socketId :: SocketId

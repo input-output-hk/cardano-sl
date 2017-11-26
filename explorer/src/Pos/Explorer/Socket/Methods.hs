@@ -153,7 +153,7 @@ startSession
     :: SubscriptionMode m
     => Socket -> m ()
 startSession conn = do
-    let cc = mkClientContext conn
+    let cc = mkClientContext $ Just conn
         id = socketId conn
     csClients . at id .= Just cc
     logDebug $ sformat ("New session has started (#"%shown%")") id
@@ -306,7 +306,7 @@ broadcast
     => event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . ix sockid . ccConnection
+        mSock <- preview $ csClients . ix sockid . ccConnection . _Just
         case mSock of
             Nothing   -> logWarning $
                 sformat ("No socket with SocketId="%shown%" registered") sockid

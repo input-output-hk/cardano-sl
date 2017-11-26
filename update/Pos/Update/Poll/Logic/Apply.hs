@@ -313,7 +313,7 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
         -- 1. Group psoposals by application name
         -- 2. Sort proposals in each group by tuple
         --     (decision, whether decision is implicit, positive stake, slot when it has been proposed)
-        -- 3. All proposals in each group except the head we make discarded
+        -- 3. All proposals in each group except the head we discard
         -- 4. Concat all groups and process all proposals
         let winners =
                 concatMap (toList . discardAllExceptHead . NE.sortBy proposalCmp) $

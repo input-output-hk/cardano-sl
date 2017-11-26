@@ -64,7 +64,7 @@ import           Pos.Util.Util (leftToPanic)
 -- BlockVersion-related simple functions/operations
 ----------------------------------------------------------------------------
 
--- | Check whether BlockVersion is confirmed.
+-- | Check whether BlockVersion is competing.
 isCompetingBV :: MonadPollRead m => BlockVersion -> m Bool
 isCompetingBV = fmap (maybe False bvsIsConfirmed) . getBVState
 

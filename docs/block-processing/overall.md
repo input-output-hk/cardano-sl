@@ -4,32 +4,33 @@
 
 Block processing can be described by presenting an algorithm to solve the following problem:
 
-> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first
-genesis block) check whether block payload from these blocks are valid.
+> Given a sequence of blocks `B₀, B₁, B₂, …` 
+(where `B₀` is the first genesis block) check whether block payload from these blocks are valid.
 
 We describe block processing as stateful algorithm:
 * Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
 * `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`
-* State transition function. Given GState `S` and a main block `B` return either an error describing why `B` is invalid (w.r.t. tx payload) or new GState `S'`
+* State transition function. 
+We maintain some state called GState which corresponds to the application of a sequence of blocks
+Given GState `S` and a block `B` 
+return either an error describing why `B` is invalid or new GState `S'`
   ```
-  verifyAndApplyGState :: GState -> MainBlock -> Either BlockPayloadVerificationError GState
+  verifyAndApplyGState :: GState -> Block -> Either BlockVerificationError GState
   -- ^ Note, that function definition and types are different in code and are put here for reader's convenience
   ```
-  * Note, that state transition function is defined only for main blocks. This is done because genesis blocks 
-  (as defined in Ouroboros) don't have payload.
 
-Note, that in theory payload verification can be stateless (except genesis
+Note, that in theory verification can be stateless (except genesis
 state `S₀`) and be described without mentioning any additional state
 (apart from blocks themselves). But in practice it would be very
 inefficient and inconvenient.
 
 For sake of simplicity, we describe state transition function in two parts:
-* Verification: given GState `S` and a main block `B`, check whether `B` is valid (and can be applied to `S`)
-* Modification: given GState `S` and a main block `B` (successfully verified against `S`), produce `S'`
+* Verification: given GState `S` and a block `B`, check whether `B` is valid (and can be applied to `S`)
+* Modification: given GState `S` and a block `B` (successfully verified against `S`), produce `S'`
 
 ### Block payload
 
-Block payload consist of:
+Block payload consists of:
 * `UpdatePayload`. 
   It's checked by update system component and is described in the [Update system consensus rules](us.md).
 * `TxPayload`. 
@@ -77,7 +78,8 @@ equal to the adopted version. That's because in this case:
 1. Authors of this software are aware of the adopted version.
 2. Each issued block must be formed with respect to adopted version.
 
-Comparison is quite tricky here. Table below demonstrates it.
+Comparison of software protocol version and last adopted one is quite tricky here. 
+Table below demonstrates it. The last column stands for whether we check data in block is known.
 
 | Our   | Adopted | Check? |
 | ----- | ------- | ------ |
@@ -99,7 +101,7 @@ unparsed fields must be empty.
 
 ### verifyAllIsKnown flag
 
-Let's assume that version comparison as described above.
-Let's denote flag `verifyAllIsKnown` and assign it value:
+Let's assume that version comparison is done as described above.
+Let's define flag `verifyAllIsKnown` and assign it value:
 * `True` if check is to be done, i.e. only known data should be considered valid (unknown data is prohibitied)
 * `False` otherwise

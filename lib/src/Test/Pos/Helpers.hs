@@ -48,7 +48,7 @@ import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize,
 import           Pos.Communication (Limit (..), MessageLimitedPure (..))
 import           Pos.Util.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
-import qualified Test.Pos.Cbor.ReferenceImplementation as R
+import qualified Test.Pos.Cbor.RefImpl as R
 
 ----------------------------------------------------------------------------
 -- From/to tests

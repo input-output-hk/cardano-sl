@@ -249,12 +249,11 @@ instance (Bi a, Bi b) => Bi (Either a b) where
                   _ -> fail $ "decode@Either: unknown tag " <> show t
 
 instance Bi a => Bi (NonEmpty a) where
-  encode = defaultEncodeList . toList
-  decode = do
-    l <- defaultDecodeList
-    case nonEmpty l of
-      Nothing -> fail "Expected a NonEmpty list, but an empty list was found!"
-      Just xs -> return xs
+    encode = defaultEncodeList . toList
+    decode =
+        nonEmpty <$> defaultDecodeList >>= \case
+            Nothing -> fail "Expected a NonEmpty list, but an empty list was found!"
+            Just xs -> return xs
 
 instance Bi a => Bi (Maybe a) where
     encode Nothing  = E.encodeListLen 0
@@ -327,12 +326,12 @@ encodeMapSkel size foldrWithKey =
 -- "[..]The keys in every map must be sorted lowest value to highest.[...]"
 decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
 decodeMapSkel fromDistinctAscList = do
-  n <- D.decodeMapLenCanonical
-  case n of
-      0 -> return (fromDistinctAscList [])
-      _ -> do
-          (firstKey, firstValue) <- decodeEntry
-          fromDistinctAscList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+    n <- D.decodeMapLenCanonical
+    case n of
+        0 -> return (fromDistinctAscList [])
+        _ -> do
+            (firstKey, firstValue) <- decodeEntry
+            fromDistinctAscList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
   where
     -- Decode a single (k,v).
     decodeEntry :: (Bi k, Bi v) => D.Decoder s (k,v)
@@ -357,15 +356,15 @@ decodeMapSkel fromDistinctAscList = do
 {-# INLINE decodeMapSkel #-}
 
 instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
-  encode = encodeMapSkel HM.size $ \f acc ->
-      -- We need to encode the list with keys sorted in ascending order as
-      -- that's the only representation we accept during decoding.
-      foldr (uncurry f) acc . sortWith fst . HM.toList
-  decode = decodeMapSkel HM.fromList
+    encode = encodeMapSkel HM.size $ \f acc ->
+        -- We need to encode the list with keys sorted in ascending order as
+        -- that's the only representation we accept during decoding.
+        foldr (uncurry f) acc . sortWith fst . HM.toList
+    decode = decodeMapSkel HM.fromList
 
 instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
-  encode = encodeMapSkel M.size M.foldrWithKey
-  decode = decodeMapSkel M.fromDistinctAscList
+    encode = encodeMapSkel M.size M.foldrWithKey
+    decode = decodeMapSkel M.fromDistinctAscList
 
 encodeSetSkel :: Bi a
               => (s -> Int)
@@ -373,7 +372,8 @@ encodeSetSkel :: Bi a
               -> s
               -> E.Encoding
 encodeSetSkel size foldFunction =
-    mappend encodeSetTag . encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
+    mappend encodeSetTag .
+    encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
 -- We stitch a `258` in from of a (Hash)Set, so that tools which
@@ -396,13 +396,13 @@ decodeSetTag = do
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
 decodeSetSkel fromDistinctAscList = do
-  decodeSetTag
-  n <- D.decodeListLenCanonical
-  case n of
-      0 -> return (fromDistinctAscList [])
-      _ -> do
-          firstValue <- decode
-          fromDistinctAscList <$> decodeEntries (n - 1) firstValue [firstValue]
+    decodeSetTag
+    n <- D.decodeListLenCanonical
+    case n of
+        0 -> return (fromDistinctAscList [])
+        _ -> do
+            firstValue <- decode
+            fromDistinctAscList <$> decodeEntries (n - 1) firstValue [firstValue]
   where
     decodeEntries :: (Bi v, Ord v) => Int -> v -> [v] -> D.Decoder s [v]
     decodeEntries 0 _ acc = pure $ reverse acc
@@ -417,15 +417,15 @@ decodeSetSkel fromDistinctAscList = do
 {-# INLINE decodeSetSkel #-}
 
 instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
-  encode = encodeSetSkel HS.size $ \f acc ->
-      -- We need to encode the list sorted in ascending order as that's the only
-      -- representation we accept during decoding.
-      foldr f acc . sort . HS.toList
-  decode = decodeSetSkel HS.fromList
+    encode = encodeSetSkel HS.size $ \f acc ->
+        -- We need to encode the list sorted in ascending order as that's the only
+        -- representation we accept during decoding.
+        foldr f acc . sort . HS.toList
+    decode = decodeSetSkel HS.fromList
 
 instance (Ord a, Bi a) => Bi (Set a) where
-  encode = encodeSetSkel S.size S.foldr
-  decode = decodeSetSkel S.fromDistinctAscList
+    encode = encodeSetSkel S.size S.foldr
+    decode = decodeSetSkel S.fromDistinctAscList
 
 -- | Generic encoder for vectors. Its intended use is to allow easy
 -- definition of 'Serialise' instances for custom vector

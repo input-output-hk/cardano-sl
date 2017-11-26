@@ -13,7 +13,8 @@ import           Pos.Block.Worker (blkWorkers)
 import           Pos.Communication (OutSpecs, Relay, WorkerSpec, localWorker, relayPropagateOut,
                                     wrapActionSpec)
 import           Pos.Context (NodeContext (..))
-import           Pos.Delegation (delegationRelays, dlgWorkers)
+import           Pos.Delegation.Listeners (delegationRelays)
+import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers (dhtWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Network.Types (NetworkConfig (..), SubscriptionWorker (..),

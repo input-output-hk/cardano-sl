@@ -43,7 +43,7 @@ import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
                                dbPutSerBlundSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))
@@ -83,6 +83,7 @@ type MonadBlockGenBase m
        , HasInfraConfiguration
        , HasSscConfiguration
        , HasNodeConfiguration
+       , HasDlgConfiguration
        )
 
 -- | A set of constraints necessary for blockchain generation. All
@@ -158,6 +159,7 @@ mkBlockGenContext
        ( MonadBlockGenInit ctx m
        , HasSscConfiguration
        , HasNodeConfiguration
+       , HasDlgConfiguration
        , Default ext
        )
     => BlockGenParams

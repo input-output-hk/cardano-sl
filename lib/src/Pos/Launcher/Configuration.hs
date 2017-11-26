@@ -28,6 +28,7 @@ import           Pos.Aeson.Core.Configuration ()
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Core.Types (Timestamp)
+import           Pos.Delegation.Configuration
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
@@ -39,6 +40,7 @@ data Configuration = Configuration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
+    , ccDlg    :: !DlgConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -50,6 +52,7 @@ type HasConfigurations =
     , HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
+    , HasDlgConfiguration
     , HasNodeConfiguration
     )
 
@@ -93,4 +96,5 @@ withConfigurations co@ConfigurationOptions{..} act = do
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
+        withDlgConfiguration ccDlg $
         withNodeConfiguration ccNode $ act

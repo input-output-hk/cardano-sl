@@ -4,7 +4,7 @@ module Pos.Wallet.Web.State.Util
     ( cleanupAcidStatePeriodically
     ) where
 
-import           Universum hiding (over)
+import           Universum
 
 import           Data.Acid (createArchive, createCheckpoint)
 import           Data.Time.Units (TimeUnit)

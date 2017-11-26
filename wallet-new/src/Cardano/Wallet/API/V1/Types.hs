@@ -20,8 +20,6 @@ module Cardano.Wallet.API.V1.Types (
   , AccountUpdate (..)
   , Update
   , New
-  -- * Error handling
-  , module Errors
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -68,8 +66,6 @@ import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
 import qualified Pos.Crypto.Signing as Core
-
-import qualified Cardano.Wallet.API.V1.Errors as Errors
 
 --
 -- Swagger & REST-related types

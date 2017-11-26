@@ -22,13 +22,16 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 
 import           Pos.Crypto (SecretKey)
-import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
-                                              fromCAddressOrThrow, subscribeAddr, spSessId, txsSubParam)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (csAddressSubscribers, mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (csAddressSubscribers, csBlocksSubscribers,
+                                             mkConnectionsState)
+import           Pos.Explorer.Socket.Methods (SubscriptionMode, addrSubParam, addressSetByTxs,
+                                              blockPageSubParam, fromCAddressOrThrow, spSessId,
+                                              subscribeAddr, txsSubParam)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
+
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -62,8 +65,10 @@ spec =
                     subParam = txsSubParam socketId
                 spSessId subParam `shouldBe` socketId
         describe "subscribeAddr" $
-            modifyMaxSize (const 1) $
+            modifyMaxSize (const 1) $ do
+                prop "trivial test" workingTestInstance
                 prop "subscribes by a given address" subscribeAddrProp
+
 
 addressSetByTxsProp :: SecretKey -> Bool
 addressSetByTxsProp key =
@@ -100,7 +105,30 @@ subscribeAddrProp =
     hasSession :: SocketId -> Maybe (S.Set SocketId) -> Bool
     hasSession socketId' (Just sessions) = S.member socketId' sessions
     hasSession _          Nothing        = False
+
     -- | Create arbitrary, non-null.
+    socketId :: SocketId
+    socketId = "testingsocket"
+
+workingTestInstance :: Property
+workingTestInstance =
+    monadicIO $ do
+        -- create an empty ConnectionsState
+        let connState = mkConnectionsState
+        let subscription = runSubTestMode connState modifyConnectionState
+
+        (_, updatedConnState) <- run subscription
+
+        assert $ length (updatedConnState ^. csBlocksSubscribers) > 0
+  where
+    -- | A very simple modifiction of the state.
+    modifyConnectionState :: SubscriptionMode m => m ()
+    modifyConnectionState = do
+        connState <- get
+        put $ connState & csBlocksSubscribers .~ S.singleton socketId
+
+    -- | Create arbitrary, non-null.
+    socketId :: SocketId
     socketId = "testingsocket"
 
 -- | TODO(ks): Maybe this exist already?

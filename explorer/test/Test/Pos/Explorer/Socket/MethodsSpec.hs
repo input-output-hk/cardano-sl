@@ -10,27 +10,26 @@ module Test.Pos.Explorer.Socket.MethodsSpec
 import           Universum
 
 import           Control.Lens (at)
--- import           Control.Monad.State.Class (MonadState (..))
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
--- import           Network.EngineIO (SocketId)
+import           Network.EngineIO (SocketId)
 
 import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
--- import           Test.Pos.Block.Logic.Emulation (Emulation(..))
--- import           Test.Pos.Util (withDefConfigurations)
 import           Test.QuickCheck (Arbitrary (..), Property, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
+
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
                                               fromCAddressOrThrow, subscribeAddr, spSessId, txsSubParam)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ClientContext, ccAddress, csClients, mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (csAddressSubscribers, mkConnectionsState)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
+
 ----------------------------------------------------------------------------
 -- Spec
 ----------------------------------------------------------------------------
@@ -80,29 +79,27 @@ addressSetByTxsProp key =
     in
         addrs == S.fromList [addrA]
 
--- | TODO(ks): It's probably missing something (csClients, from where?).
 subscribeAddrProp :: Property
 subscribeAddrProp =
-        forAll arbitrary $ \(addr) ->
-            monadicIO $ do
-                -- create an empty ConnectionsState
-                let connState = mkConnectionsState
+    forAll arbitrary $ \addr ->
+        monadicIO $ do
+            -- create an empty ConnectionsState
+            let connState = mkConnectionsState
+            let cAddr = toCAddress addr
+            -- The result of this is `SubscriptionMode m => m ()`
+            let subscription = runSubTestMode connState $
+                                  subscribeAddr cAddr socketId
 
-                -- The result of this is `SubscriptionMode m => m ()`
-                let subscription = runSubTestMode connState $ subscribeAddr addr socketId
+            (_, updatedConnState) <- run subscription
 
-                (_, connectionsState) <- run subscription
-
-                -- to check if CAddress` has been added to it
-                let clients = csClients . at socketId
-                let ctx = connectionsState ^. clients
-
-                assert $ hasAddress addr ctx
+            -- get stored sessions by a given `Address`
+            let mSessions = updatedConnState ^. csAddressSubscribers . at addr
+            -- to check whether a session has been added to it or not
+            assert $ hasSession socketId mSessions
   where
-    hasAddress :: CAddress -> Maybe ClientContext -> Bool
-    hasAddress cAddr (Just ctx')  = maybe False ((==) cAddr . toCAddress) $ ctx' ^. ccAddress
-    hasAddress _     Nothing      = False
-
+    hasSession :: SocketId -> Maybe (S.Set SocketId) -> Bool
+    hasSession socketId' (Just sessions) = S.member socketId' sessions
+    hasSession _          Nothing        = False
     -- | Create arbitrary, non-null.
     socketId = "testingsocket"
 

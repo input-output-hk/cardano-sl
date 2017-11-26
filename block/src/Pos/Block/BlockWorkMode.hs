@@ -2,7 +2,7 @@
 
 -- | Various constraints needed for block processing.
 
-module Pos.Block.WorkMode
+module Pos.Block.BlockWorkMode
     ( BlockInstancesConstraint
     , BlockWorkMode
     ) where
@@ -24,7 +24,6 @@ import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressH
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol (Message)
 import           Pos.Core.Context (HasPrimaryKey)
-import           Pos.DB.Class (MonadDBRead, MonadGState)
 import           Pos.Lrc.Worker (LrcModeFull)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Security.Params (SecurityParams)
@@ -40,18 +39,21 @@ import           Pos.Util.Util (HasLens')
 -- are unavailable at this point, hence we defer providing them
 -- to the calling site.
 type BlockInstancesConstraint =
-    ( Bi MsgGetHeaders
-    , Bi MsgHeaders
-    , Bi MsgGetBlocks
-    , Bi MsgBlock
-    , Message MsgGetHeaders
-    , Message MsgHeaders
-    , Message MsgGetBlocks
-    , Message MsgBlock
-    , MessageLimited MsgGetHeaders
-    , MessageLimited MsgHeaders
-    , MessageLimited MsgGetBlocks
-    , MessageLimited MsgBlock
+    ( Each '[Bi]
+        [ MsgGetHeaders
+        , MsgHeaders
+        , MsgGetBlocks
+        , MsgBlock ]
+    , Each '[Message]
+        [ MsgGetHeaders
+        , MsgHeaders
+        , MsgGetBlocks
+        , MsgBlock ]
+    , Each '[MessageLimited]
+        [ MsgGetHeaders
+        , MsgHeaders
+        , MsgGetBlocks
+        , MsgBlock ]
     )
 
 -- | A subset of @WorkMode@.

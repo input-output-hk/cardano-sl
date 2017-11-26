@@ -18,6 +18,7 @@ import           Serokell.Util (listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Wlog (logDebug, logInfo, logWarning)
 
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
@@ -29,7 +30,6 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Block.WorkMode (BlockWorkMode)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
                                              onNewSlotWorker, worker)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),

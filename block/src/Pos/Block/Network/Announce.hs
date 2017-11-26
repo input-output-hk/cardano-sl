@@ -17,9 +17,9 @@ import           Formatting (build, sformat, (%))
 import           Mockable (throw)
 import           System.Wlog (logDebug, logWarning)
 
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (getHeadersFromManyTo)
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Block.WorkMode (BlockWorkMode)
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, Message, MsgType (..), NodeId, Origin (..),

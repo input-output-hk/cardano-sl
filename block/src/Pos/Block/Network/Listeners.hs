@@ -11,12 +11,12 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
                                           MsgHeaders (..))
-import           Pos.Block.WorkMode (BlockWorkMode)
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),

@@ -6,14 +6,12 @@ module Cardano.Wallet.Orphans.Aeson where
 import           Universum hiding (words)
 
 import           Data.Aeson (FromJSON (..), ToJSON (..))
--- import           Data.Aeson.TH
 import           Data.Aeson.Types (Value (..), typeMismatch)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Formatting (int, sformat, shown, (%))
 import qualified Serokell.Util.Base16 as Base16
 
--- import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CFilePath (..))
@@ -27,8 +25,6 @@ instance FromJSON BackupPhrase where
 
 instance ToJSON CFilePath where
   toJSON (CFilePath c) = toJSON c
-
--- deriveJSON defaultOptions ''Core.Coin
 
 instance ToJSON Core.PassPhrase where
     toJSON = String . sformat shown

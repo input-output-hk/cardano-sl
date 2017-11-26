@@ -591,10 +591,10 @@ to this file already.
 
 **TODO**
 
-### Node configuration
+### Block configuration
 
-Node configuration is accessible by `<configuration-key>.node` key. It
-has the following values:
+Block configuration is stored under the `<configuration-key>.block` key.
+It contains the following values:
 
 * `networkDiameter` (seconds) — how much time it takes to propagate a
   block across the network. In practice this value determines when
@@ -603,7 +603,12 @@ has the following values:
 * `recoveryHeadersMessage` — how many headers will be sent in a
   batch. This value should be greater than `k`.
 
-**TODO**: describe the rest.
+### Node configuration
+
+Node configuration is accessible via the `<configuration-key>.node` key. It
+has the following values:
+
+**TODO**: describe values.
 
 ## Predefined configurations
 

@@ -67,6 +67,8 @@ instance HasDifficulty Blund where
 instance HasHeaderHash Block => HasHeaderHash Blund where
     headerHash = headerHash . fst
 
+-- | For a description of what these types mean,
+-- please refer to @NodeContext@ in @Pos.Context.Context@.
 data LastKnownHeaderTag
 type LastKnownHeader = TVar (Maybe BlockHeader)
 type MonadLastKnownHeader ctx m

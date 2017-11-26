@@ -103,7 +103,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-test
+test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec

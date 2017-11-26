@@ -50,6 +50,7 @@ library
                         Pos.Block.Logic.VAR
 
   other-modules:
+                        Pos.Block.BlockWorkMode
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
@@ -62,7 +63,6 @@ library
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
-                        Pos.Block.WorkMode
 
                         -- LRC
                         Pos.Lrc.Consumers

@@ -85,7 +85,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-test
+test-suite cardano-client-test
   main-is:             Test.hs
   other-modules:
                        Spec

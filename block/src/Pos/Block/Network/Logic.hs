@@ -35,6 +35,7 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Txp ()
+import           Pos.Block.BlockWorkMode (BlockInstancesConstraint, BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..), classifyHeaders,
                                   classifyNewHeader, getHeadersOlderExp, lcaWithMainChain,
@@ -45,7 +46,6 @@ import           Pos.Block.Network.Types (MsgGetBlocks (..), MsgGetHeaders (..),
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Block.WorkMode (BlockInstancesConstraint, BlockWorkMode)
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs, convH,

@@ -14,7 +14,13 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
+  hWaitForInputPatch = pkgs.fetchurl {
+    name = "hWaitForInputPatch";
+    url = "https://github.com/ghc/ghc/compare/ghc-8.0.2-release...nh2:0d232b1.patch";
+    sha256 = "1bw5lc6dzl82p3iimkpnc1dr3dqrahsmgicri33ql37vjh309k7j";
+  };
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    ghc = pkgs.haskell.compiler.ghc802.overrideAttrs (drv: { patches = [hWaitForInputPatch] ++ drv.patches; });
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants

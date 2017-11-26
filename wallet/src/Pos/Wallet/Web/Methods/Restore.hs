@@ -23,13 +23,14 @@ import           System.Wlog (logDebug)
 
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+                             firstHardened, secondHardened)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
                                       mkGenesisWalletUserSecret, readUserSecret, usWallet,
                                       wusAccounts, wusWalletName)
-import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Account (GenerationMode (..), genSaveRootKey, genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
                                              CFilePath (..), CId, CWallet (..), CWalletInit (..),
                                              CWalletMeta (..), Wal, encToCId)
@@ -39,10 +40,10 @@ import           Pos.Wallet.Web.State (createAccount, removeHistoryCache, setWal
 import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 
 
--- | Which index to use to create initial account and address on new wallet
--- creation
-initialAccAddrIdxs :: Word32
-initialAccAddrIdxs = firstHardened
+-- | Which indices to use to create initial account and address on new wallet
+-- creation.
+initialAccAddrIdxs :: GenerationMode Word32 Word32
+initialAccAddrIdxs = DeterministicMode firstHardened secondHardened
 
 newWalletFromBackupPhrase
     :: L.MonadWalletLogic ctx m
@@ -58,7 +59,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     let accMeta = CAccountMeta { caName = "Initial account" }
         accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    () <$ L.newAccountIncludeUnready True initialAccAddrIdxs passphrase accInit
 
     return (skey, cAddr)
 
@@ -125,13 +126,13 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
-            seedGen = DeterminedSeed walletIndex
+            seedGen = DeterministicMode walletIndex secondHardened
         cAddr <- genUniqueAccountId seedGen wid
         createAccount cAddr accMeta
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
-        let accId = AccountId wid walletIndex
-        L.newAddress (DeterminedSeed accountIndex) passphrase accId
+        let accId = AccountId wid walletIndex secondHardened
+        L.newAddress (DeterministicMode accountIndex secondHardened) passphrase accId
 
     -- `syncWalletOnImport` automatically marks a wallet as "ready".
     void $ syncWalletOnImport key

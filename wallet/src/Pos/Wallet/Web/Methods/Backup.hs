@@ -16,7 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat, stext, (%))
 
 import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAccountId)
+import           Pos.Wallet.Web.Account (GenerationMode (..), genUniqueAccountId)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CAccountInit (..), CAccountMeta (..), CFilePath (..),
@@ -29,7 +29,7 @@ import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           Servant.API.ContentTypes (NoContent (..))
 
-import           Pos.Crypto (emptyPassphrase, firstHardened)
+import           Pos.Crypto (emptyPassphrase, firstHardened, secondHardened)
 
 
 type MonadWalletBackup ctx m = L.MonadWalletLogic ctx m
@@ -47,7 +47,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             let (WalletMetaBackup wMeta) = wbMeta
                 accList = HM.toList wbAccounts
                           & each . _2 %~ \(AccountMetaBackup am) -> am
-                defaultAccAddrIdx = DeterminedSeed firstHardened
+                defaultAccAddrIdx = DeterministicMode firstHardened secondHardened
 
             addSecretKey wbSecretKey
             -- If there are no existing accounts, then create one
@@ -56,11 +56,13 @@ restoreWalletFromBackup WalletBackup {..} = do
                     let accMeta = CAccountMeta { caName = "Initial account" }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
                     () <$ L.newAccountIncludeUnready True defaultAccAddrIdx emptyPassphrase accInit
-                else for_ accList $ \(idx, meta) -> do
-                    let aIdx = fromInteger $ fromIntegral idx
-                        seedGen = DeterminedSeed aIdx
-                    accId <- genUniqueAccountId seedGen wId
-                    createAccount accId meta
+                else
+                    for_ accList $ \(idx, meta) -> do
+                        let aIdx = fromInteger $ fromIntegral idx
+                            -- NOTE restores only the account index
+                            seedGen = DeterministicMode aIdx secondHardened
+                        accId <- genUniqueAccountId seedGen wId
+                        createAccount accId meta
 
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.

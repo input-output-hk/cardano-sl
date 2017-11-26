@@ -19,7 +19,7 @@ import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
+import           Pos.Wallet.Web.Account (GenerationMode (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId, cwamId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
@@ -43,12 +43,12 @@ type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
 
 fakeAddressHasMaxSizeTest
     :: (HasConfigurations, HasCompileInfo)
-    => AddressGenerator -> Word32 -> WalletProperty ()
-fakeAddressHasMaxSizeTest generator accSeed = do
+    => AddressGenerator -> Word32 -> Word32 -> WalletProperty ()
+fakeAddressHasMaxSizeTest generator accSeed chainSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
     wid <- expectedOne "wallet addresses" =<< getWalletAddresses
     accId <- lift $ decodeCTypeOrFail . caId
-         =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
+         =<< newAccount (DeterministicMode accSeed chainSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
 
     largeAddress <- lift getFakeChangeAddress
@@ -66,8 +66,9 @@ changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphras
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: HasConfigurations => AddressGenerator
 commonAddressGenerator accId passphrase = do
-    addrSeed <- pick arbitrary
-    let genAddress = genUniqueAddress (DeterminedSeed addrSeed) passphrase accId
+    accSeed <- pick arbitrary
+    chainSeed <- pick arbitrary
+    let genAddress = genUniqueAddress (DeterministicMode accSeed chainSeed) passphrase accId
     -- can't catch under 'PropertyM', workarounding
     maddr <- lift $ (Just <$> genAddress) `catch` seedBusyHandler
     addr <- maybe (stop Discard) pure maddr

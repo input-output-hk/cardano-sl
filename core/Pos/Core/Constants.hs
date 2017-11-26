@@ -6,6 +6,7 @@
 module Pos.Core.Constants
        ( sharedSeedLength
        , accountGenesisIndex
+       , chainGenesisIndex
        , wAddressGenesisIndex
        ) where
 
@@ -17,7 +18,11 @@ import           Pos.Crypto.HD (firstHardened)
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstHardened
 
--- | Second index in derivation path for HD account, which is put to genesis
+-- | Second index in derivation path for HD account, which is put to genesis utxo.
+chainGenesisIndex :: Word32
+chainGenesisIndex = firstHardened
+
+-- | Third index in derivation path for HD account, which is put to genesis
 -- utxo
 wAddressGenesisIndex :: Word32
 wAddressGenesisIndex = firstHardened

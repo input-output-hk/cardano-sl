@@ -34,7 +34,7 @@ import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBala
                                            importSomeWallets, mostlyEmptyPassphrases)
 
 
--- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
+-- TODO remove HasCompileInfo when MonadWalletWebMode is split.
 spec :: Spec
 spec = withCompileInfo def $
        withDefConfigurations $
@@ -44,24 +44,27 @@ spec = withCompileInfo def $
 
 oneNewPaymentSpec :: (HasCompileInfo, HasConfigurations) => Spec
 oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
+    -- Addresses of secret wallets
     passphrases <- importSomeWallets mostlyEmptyPassphrases
-    (dstCAddr, dstWalId) <- deriveRandomAddress passphrases
     let l = length passphrases
-    rootsWIds <- lift myRootAddresses
+    rootWalletIds <- lift myRootAddresses
     idx <- pick $ choose (0, l - 1)
-    let walId = rootsWIds !! idx
-    let pswd = passphrases !! idx
-    let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
+    let rootWalletId = rootWalletIds !! idx
+    let passphrase = passphrases !! idx
+    let accountUndefined = sformat ("There is no account defined for wallet index: "%build) rootWalletId
+    srcAccount <- maybeStopProperty accountUndefined =<< (lift $ head <$> getAccounts (Just rootWalletId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
-
     srcAddr <- getAddress srcAccId
-    -- Dunno how to get account's balances without CAccModifier
+
+    -- A random destination address / wallet id
+    (destClientAddress, destWalletId) <- deriveRandomAddress passphrases
     initBalance <- getBalance srcAddr
+
     -- `div` 2 to leave money for tx fee
     coins <- pick $ mkCoin <$> choose (1, unsafeGetCoin initBalance `div` 2)
-    void $ lift $ newPayment pswd srcAccId dstCAddr coins def
-    dstAddr <- lift $ decodeCTypeOrFail dstCAddr
+    void $ lift $ newPayment passphrase srcAccId destClientAddress coins def
+    dstAddr <- lift $ decodeCTypeOrFail destClientAddress
+
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
         _                              -> error "unknown fee policy"
@@ -80,11 +83,11 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
         "Minimal tx fee isn't satisfied"
 
     -- Validate that tx meta was added when transaction was processed
-    when (walId /= dstWalId) $ do
-        txMetasSource <- maybeStopProperty "Source wallet doesn't exist" =<< lift (WS.getWalletTxHistory walId)
+    when (rootWalletId /= destWalletId) $ do
+        txMetasSource <- maybeStopProperty "Source wallet doesn't exist" =<< lift (WS.getWalletTxHistory rootWalletId)
         void $ expectedOne "TxMeta for source wallet" txMetasSource
 
-        txMetasDst <- maybeStopProperty "Dst wallet doesn't exist" =<< lift (WS.getWalletTxHistory dstWalId)
+        txMetasDst <- maybeStopProperty "Destination wallet doesn't exist" =<< lift (WS.getWalletTxHistory destWalletId)
         void $ expectedOne "TxMeta for dst wallet" txMetasDst
 
     -- Validate change and used address
@@ -98,6 +101,6 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
         expectedOne "address" =<<
         lift (getAccountAddrsOrThrow WS.Existing srcAccId)
     oneNewPaymentDesc =
-        "Send money from one own address to another; " <>
-        "check balances validity for destination address, source address and change address; " <>
-        "validate history and used/change addresses"
+        "Sends money from one address to another; " <>
+        "Checks balance validity on the destination address, source address and change address; " <>
+        "Validates the history and used / change addresses"

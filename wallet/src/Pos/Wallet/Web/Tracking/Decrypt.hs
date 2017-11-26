@@ -92,5 +92,5 @@ decryptAddress :: WalletDecrCredentials -> Address -> Maybe CWAddressMeta
 decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
-    guard $ length derPath == 2
-    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (encodeCType addr)
+    guard $ length derPath == 3
+    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (derPath !! 2) (encodeCType addr)

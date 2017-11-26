@@ -68,13 +68,13 @@ spec = describe "Address" $ do
                 genHDAddrBoot' passphrase esk <$> arbitrary <*> arbitrary
 
         largestAddressProp "HD address with BootstrapEra distribution"
-            genHDAddrBoot largestHDAddressBoot 76
+            genHDAddrBoot largestHDAddressBoot 81
 
 pkAndHdwAreShownDifferently :: Bool -> PublicKey -> Bool
 pkAndHdwAreShownDifferently isBootstrap pk =
     show (makePubKeyAddress (IsBootstrapEraAddr isBootstrap) pk) /=
     (show @_ @Text (makePubKeyHdwAddress (IsBootstrapEraAddr isBootstrap)
-                    (HDAddressPayload "pataq") pk))
+                    (Just $ HDAddressPayload "pataq") pk))
 
 largestAddressProp :: Text -> (SecretKey -> Gen Address) -> Address -> Byte -> Spec
 largestAddressProp addressDescription genAddress largestAddress expectedLargestSize = do

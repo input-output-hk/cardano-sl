@@ -17,7 +17,6 @@ import           Data.Default              (def)
 import           Data.Tagged               (Tagged)
 
 import           Pos.Communication         (NodeId, TxMsgContents)
-import           Pos.Core.Configuration    (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Core.Block            (Block, BlockHeader)
 import           Pos.Core.Types            (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
@@ -165,11 +164,9 @@ data LogicLayer m = LogicLayer
 
 -- | A diffusion layer that does nothing, and probably crahes the program.
 dummyLogicLayer
-    :: ( Applicative m
-       , HasGenesisBlockVersionData
-       )
-    => StakeholderId -> LogicLayer m
-dummyLogicLayer stkhldId = LogicLayer
+    :: ( Applicative m )
+    => LogicLayer m
+dummyLogicLayer = LogicLayer
     { runLogicLayer = identity
     , logic         = dummyLogic
     }
@@ -178,13 +175,13 @@ dummyLogicLayer stkhldId = LogicLayer
 
     dummyLogic :: Applicative m => Logic m
     dummyLogic = Logic
-        { ourStakeholderId   = stkhldId
+        { ourStakeholderId   = error "dummy: no stakeholder id"
         , getBlock           = \_ -> pure (error "dummy: can't get block")
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
         , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
         , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
         , getTip             = pure (error "dummy: can't get tip")
-        , getAdoptedBVData   = pure genesisBlockVersionData
+        , getAdoptedBVData   = pure (error "dummy: can't get block version data")
         , postBlockHeader    = \_ _ -> pure ()
         , postPskHeavy       = \_ -> pure False
         , postTx             = dummyKeyVal

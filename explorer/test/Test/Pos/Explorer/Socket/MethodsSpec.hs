@@ -12,6 +12,7 @@ import           Universum
 import           Control.Lens (at)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
@@ -30,7 +31,7 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               blockPageSubParam, fromCAddressOrThrow,
                                               spSessId, subscribeAddr, subscribeBlocksLastPage,
                                               subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam)
+                                              txsSubParam, unsubscribeAddr)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -72,6 +73,10 @@ spec =
             modifyMaxSize (const 200) $
                 prop "adds sessions of `Address` subscribers to `ConnectionsState`"
                     subscribeAddrProp
+        describe "unsubscribeAddr" $
+            modifyMaxSize (const 200) $
+                prop "removes a session of an `Address` subscriber from `ConnectionsState`"
+                    unsubscribeAddrProp
         describe "subscribeBlocksLastPage" $
             modifyMaxSize (const 200) $
                 prop "adds sessions of `block last page` subscribers to `ConnectionsState`"
@@ -119,6 +124,26 @@ subscribeAddrProp =
     hasSession :: SocketId -> Maybe (S.Set SocketId) -> Bool
     hasSession socketId' (Just sessions) = S.member socketId' sessions
     hasSession _          Nothing        = False
+
+unsubscribeAddrProp :: Property
+unsubscribeAddrProp =
+    forAll arbitrary $ \(socketId, addr) ->
+        monadicIO $ do
+            let cAddr = toCAddress addr
+            let connState = mkSubConnectionState socketId
+            -- Add a subscription first ...
+            let subscription = runSubTestMode connState $
+                                  subscribeAddr cAddr socketId
+            (_, updatedConnState) <- run subscription
+            -- ... and remove subscription
+            let unsubscription = runSubTestMode updatedConnState $
+                                    unsubscribeAddr socketId
+            (_, updatedConnState') <- run unsubscription
+
+            -- get sessions of `Address` subscribers
+            let sessions = updatedConnState' ^. csAddressSubscribers
+            -- to check that no session has been stored anymore
+            assert $ M.size sessions == 0
 
 
 subscribeBlocksLastPageProp :: Property

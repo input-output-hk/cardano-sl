@@ -60,6 +60,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16 as SB16
 import           Servant.API (FromHttpApiData (..))
+import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary (Bi, biSize)
 import           Pos.Block.Types (Undo (..))
@@ -78,7 +79,7 @@ import           Pos.Merkle (getMerkleRoot, mtRoot)
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
-
+import           Pos.Explorer.TestUtil (secretKeyToAddress)
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
@@ -432,3 +433,10 @@ sumCoinOfInputsOutputs addressListMB
             addressCoinList = addressCoins <$> addressList
         mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
     | otherwise = mkCCoinMB Nothing
+
+--------------------------------------------------------------------------------
+-- Arbitrary instances
+--------------------------------------------------------------------------------
+
+instance Arbitrary CAddress where
+    arbitrary = toCAddress . secretKeyToAddress <$> arbitrary

@@ -272,8 +272,6 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 
 ----------------------------------------------------------------------------
 -- SubscriptionMode
--- TODO (jk): Move all following things related to `SubscriptionMode`
--- into a module `ExplorerSubscriptionMode` or similar.
 ----------------------------------------------------------------------------
 
 newtype SubscriptionTestMode a = SubscriptionTestMode

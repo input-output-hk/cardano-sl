@@ -192,3 +192,4 @@ instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetEpochPages explorerMockMode $ epoch
+

@@ -5,14 +5,13 @@
 Block processing can be described by presenting an algorithm to solve the following problem:
 
 > Given a sequence of blocks `B₀, B₁, B₂, …` 
-(where `B₀` is the first genesis block) check whether block payload from these blocks are valid.
+(where `B₀` is the first genesis block) check whether these blocks are valid.
 
 We describe block processing as stateful algorithm:
 * Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
 * `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`
-* State transition function. 
-We maintain some state called GState which corresponds to the application of a sequence of blocks
-Given GState `S` and a block `B` 
+* We maintain some state called GState which corresponds to the application of a sequence of blocks.
+* State transition function. Given GState `S` and a block `B` 
 return either an error describing why `B` is invalid or new GState `S'`
   ```
   verifyAndApplyGState :: GState -> Block -> Either BlockVerificationError GState
@@ -67,8 +66,7 @@ possible behaviours:
 1. Consider such block invalid.
 2. Do as many checks as we can and ignore checks which can't be done
    because data is unknown. This behaviour depends on which type of
-   data we are processing, each particular case is described in more
-   details below.
+   data we are processing.
 
 The behaviour depends on two protocol versions: version used by this
 software and last adopted version. We verify that data in blocks is

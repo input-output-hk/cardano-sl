@@ -40,7 +40,8 @@ ability to users to vote for updates to decide which one will be accepted.
 
 This document describes a global part of update system consensus rules.
 Global consensus rules is a part of block processing, 
-which checks validity of update payload of blocks and update corresponding state when blocks are applied/rolled back. 
+which checks validity of update payload of block, verify main block header and 
+update corresponding state when blocks are applied/rolled back. 
 
 ## Update system model
 
@@ -193,7 +194,7 @@ haven't updated its software yet, hence,
 they can't validate blocks of block version from the proposal.
 
 To avoid a situation when adversary stakeholder issues invalid block of _competing_ version
-others stakeholders will validate blocks according to the current _adopted_ block version.
+other stakeholders will validate blocks according to the current _adopted_ block version.
 
 #### Example
 
@@ -251,14 +252,14 @@ and updates should be handled carefully.
 
 ### Block header verification
 
-First of all, we check that block version of a verifiable block is _adopted_ or _competing_.
+First of all, we check that block version of a verifiable block is _adopted_ or [competing](#competing-block-version).
 
 ### Update proposal verification
 
 #### General checks
 
 * _No duplicated proposer check_: that no one stakeholder sent two update proposals within current epoch. 
-We prohibit it because of opportunity spam update proposals from one stakeholder.
+We prohibit it because of opportunity to spam update proposals from one stakeholder.
 
 * _Update proposal size check_: proposal doesn't exceed maximal proposal size.
   * Update proposal size is computed as number of bytes in serialized `UpdateProposal`.
@@ -271,7 +272,8 @@ is `True`, all update proposal attributes must be known.
 * _Uniqueness of proposal check_: that there is no active proposal with the same id.
 
 * _Software version check_: numeric software version of application is 1 more 
-than of last confirmed proposal for this application.
+than of last confirmed proposal for this application. 
+Numeric software version should be zero for a new application name.
 
 * _Stake to include into block check_: sum of positive votes for this proposal is enough 
 to be included into block (at least `updateProposalThd`).
@@ -297,9 +299,9 @@ There are three cases to check:
   * Block version from proposal is new one. 
     In this case we must check `BlockVersionModifier` from the proposal is consistent with adopted `BlockVersionData`.  
     The following checks take place:
-    * script version from proposal must be equal to or greater by `1` adopted one.
-    * max block size from proposal is at most two times greater than adopted one.
-    * unlock stake epoch must not be changed if boostrap era is over
+    * Script version from proposal must be equal to or greater by `1` than adopted one.
+    * Max block size from proposal is at most two times greater than adopted one.
+    * Unlock stake epoch must not be changed if boostrap era is over.
 
 ### Votes verification
 
@@ -353,6 +355,7 @@ On each genesis block the following algorithm is performed:
     2. If summary stake is greater than total stake multiple by `T` then this block version can be adopted.
 3. Take all block versions from the previous step which can be adopted, let's call them `S`.  
    If `S` is empty then there is nothing to adopt, otherwise take maximal block version from `S`, let's call it `V`.
-4. `V` becomes new adopted version. Other competing versions can't become adopted because they are less than `V`, 
-   so they aren't competing anymore and thrown away from the consideration.
+4. `V` becomes new adopted version. Other competing versions
+   that can't become adopted because they are less than `V`
+   aren't competing anymore and thrown away from the consideration.
    

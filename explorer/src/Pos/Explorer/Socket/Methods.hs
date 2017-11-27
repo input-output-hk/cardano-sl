@@ -78,11 +78,12 @@ import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
-import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSockets,
-                                             ccAddress, ccConnection, csAddressSubscribers,
-                                             csBlocksPageSubscribers, csClients,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             mkClientContext)
+import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState,
+                                             ExplorerSocket(..), ExplorerSockets,
+                                             _ProdSocket, ccAddress, ccConnection,
+                                             csAddressSubscribers, csBlocksPageSubscribers,
+                                             csClients, csEpochsLastPageSubscribers,
+                                             csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..),
                                                EpochIndex (..), TxInternal (..),
@@ -152,9 +153,9 @@ data SubscriptionParam cli = SubscriptionParam
 startSession
     :: SubscriptionMode m
     => Socket -> m ()
-startSession conn = do
-    let cc = mkClientContext $ Just conn
-        id = socketId conn
+startSession socket = do
+    let cc = mkClientContext $ ProdSocket socket
+        id = socketId socket
     csClients . at id .= Just cc
     logDebug $ sformat ("New session has started (#"%shown%")") id
 
@@ -306,10 +307,10 @@ broadcast
     => event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . ix sockid . ccConnection . _Just
+        mSock <- preview $ csClients . ix sockid . ccConnection . _ProdSocket
         case mSock of
             Nothing   -> logWarning $
-                sformat ("No socket with SocketId="%shown%" registered") sockid
+                sformat ("No socket with SocketId="%shown%" registered for using in production") sockid
             Just sock -> emitTo sock event args
                 `catchAny` handler sockid
   where

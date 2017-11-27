@@ -23,12 +23,11 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (csAddressSubscribers, csClients,
-                                             mkConnectionsState,
-                                             mkEmptyClientContext)
+import           Pos.Explorer.Socket.Holder (ExplorerSocket(..), csAddressSubscribers,
+                                             csClients, mkClientContext, mkConnectionsState)
 import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
-                                              blockPageSubParam, fromCAddressOrThrow, spSessId,
-                                              subscribeAddr, txsSubParam)
+                                              blockPageSubParam, fromCAddressOrThrow,
+                                              spSessId, subscribeAddr, txsSubParam)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
@@ -90,8 +89,10 @@ subscribeAddrProp =
         monadicIO $ do
             -- create a ConnectionsState and add an empty `ClientContext`
             -- which is needed to subscribe to an `Address`
-            let connState = mkConnectionsState & csClients . at socketId
-                                .~ Just mkEmptyClientContext
+            let ctx = mkClientContext $ TestSocket "explorer-test-socket"
+            let connState = mkConnectionsState & csClients . at socketId .~ Just ctx
+            -- TODO (jk) No need to convert an `Address` into `CAddress`
+            -- we can use an arbitrary `Address`
             let cAddr = toCAddress addr
             -- The result of this is `SubscriptionMode m => m ()`
             let subscription = runSubTestMode connState $

@@ -7,13 +7,15 @@
 
 module Pos.Explorer.Socket.Holder
        ( ExplorerSockets
+       , ExplorerSocket(..)
+       , _ProdSocket
+       , _TestSocket
 
        , ClientContext
        , ConnectionsState (..)
        , ConnectionsVar
        , mkClientContext
        , mkConnectionsState
-       , mkEmptyClientContext
        , withConnState
        , askingConnState
 
@@ -29,7 +31,7 @@ module Pos.Explorer.Socket.Holder
 
 import           Universum
 
-import           Control.Lens (makeClassy)
+import           Control.Lens (makeClassy, makePrisms)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
@@ -40,18 +42,21 @@ import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Core (Address)
 
+data ExplorerSocket
+    = ProdSocket Socket
+    | TestSocket String
+
+makePrisms ''ExplorerSocket
+
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccConnection :: !(Maybe Socket)
+    , _ccConnection :: !ExplorerSocket
     }
 
 makeClassy ''ClientContext
 
-mkClientContext :: Maybe Socket -> ClientContext
+mkClientContext :: ExplorerSocket -> ClientContext
 mkClientContext = ClientContext Nothing
-
-mkEmptyClientContext :: ClientContext
-mkEmptyClientContext = ClientContext Nothing Nothing
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions

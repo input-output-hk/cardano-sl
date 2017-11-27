@@ -44,7 +44,7 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExpl
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
                                             runExtraContextT)
 import           Pos.Explorer.Txp (ExplorerExtra (..))
-import           Pos.Explorer.Socket.Holder (ConnectionsState) --(..), mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (ConnectionsState)
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)

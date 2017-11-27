@@ -22,11 +22,13 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ExplorerSocket(..), csAddressSubscribers,
-                                             csClients, mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
+                                             csAddressSubscribers,
+                                             csBlocksPageSubscribers, csClients,
+                                             mkClientContext, mkConnectionsState)
 import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, txsSubParam)
+                                              spSessId, subscribeAddr, subscribeBlocksLastPage, txsSubParam)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -46,7 +48,7 @@ spec =
             it "throws an exception if a given CAddress is invalid" $
                 fromCAddressOrThrow (CAddress "invalid" ) `shouldThrow` anyException
         describe "addressSetByTxs" $
-            modifyMaxSize (const 50) $
+            modifyMaxSize (const 200) $
                 prop "creates a Set of Addresses by given txs"
                     addressSetByTxsProp
         describe "addrSubParam" $
@@ -65,8 +67,11 @@ spec =
                     subParam = txsSubParam socketId
                 spSessId subParam `shouldBe` socketId
         describe "subscribeAddr" $
-            modifyMaxSize (const 50) $
-                prop "subscribes by a given address" subscribeAddrProp
+            modifyMaxSize (const 200) $
+                prop "adds sessions of subscribers by a given `Address` to ConnectionsState" subscribeAddrProp
+        describe "subscribeBlocksLastPage" $
+            modifyMaxSize (const 200) $
+                prop "adds sessions of subscribers to ConnectionsState" subscribeBlocksLastPageProp
 
 
 addressSetByTxsProp :: SecretKey -> Bool
@@ -85,12 +90,9 @@ addressSetByTxsProp key =
 
 subscribeAddrProp :: Property
 subscribeAddrProp =
-    forAll arbitrary $ \addr ->
+    forAll arbitrary $ \(socketId, addr) ->
         monadicIO $ do
-            -- create a ConnectionsState and add an empty `ClientContext`
-            -- which is needed to subscribe to an `Address`
-            let ctx = mkClientContext $ TestSocket "explorer-test-socket"
-            let connState = mkConnectionsState & csClients . at socketId .~ Just ctx
+            let connState = mkSubConnectionState socketId
             let cAddr = toCAddress addr
             let subscription = runSubTestMode connState $
                                   subscribeAddr cAddr socketId
@@ -106,6 +108,25 @@ subscribeAddrProp =
     hasSession socketId' (Just sessions) = S.member socketId' sessions
     hasSession _          Nothing        = False
 
-    -- | Create arbitrary, non-null.
-    socketId :: SocketId
-    socketId = "testingsocket"
+
+
+subscribeBlocksLastPageProp :: Property
+subscribeBlocksLastPageProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            let connState = mkSubConnectionState socketId
+            let subscription = runSubTestMode connState $
+                                    subscribeBlocksLastPage socketId
+
+            (_, updatedConnState) <- run subscription
+
+            -- get sessions of "block last page" subscribers
+            let mSessions = updatedConnState ^. csBlocksPageSubscribers
+            -- to check whether a session has been added to it or not
+            assert $ S.member socketId mSessions
+
+-- | Helper to create a "subscription-able" `ConnectionsState`
+mkSubConnectionState :: SocketId -> ConnectionsState
+mkSubConnectionState socketId =
+    let ctx = mkClientContext $ TestSocket "explorer-test-socket" in
+    mkConnectionsState & csClients . at socketId .~ Just ctx

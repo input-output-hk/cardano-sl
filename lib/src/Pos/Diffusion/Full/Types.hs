@@ -20,7 +20,6 @@ import           System.Wlog (WithLogger)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.TimeWarp (CanJsonLog)
@@ -38,6 +37,4 @@ type DiffusionWorkMode m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
-      , MonadKnownPeers m
-      , MonadFormatPeers m
       )

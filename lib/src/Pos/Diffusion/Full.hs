@@ -23,13 +23,13 @@ import           Network.Transport.Abstract (Transport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
 import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
-import           Node.Conversation (Converse, converseWith)
+import           Node.Conversation (Converse, converseWith, Conversation)
 import qualified System.Metrics as Monitoring
 import           System.Random (newStdGen)
 import           System.Wlog (WithLogger, CanLog, logError, getLoggerName, usingLoggerName)
 
 import           Pos.Block.Network.Types (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
-import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe)
+import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
 import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
@@ -55,7 +55,9 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, i
                                     topologySubscribers, SubscriptionWorker (..),
                                     topologySubscriptionWorker)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
-import           Pos.Subscription.Common (subscriptionListeners)
+import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
+import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
@@ -306,14 +308,35 @@ runDiffusionLayerFull
     -> d x
 runDiffusionLayerFull networkConfig ourVerInfo oq listeners action =
     bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
-        bracketKademlia networkConfig $ \_ ->
+        bracketKademlia networkConfig $ \networkConfig' ->
             timeWarpNode transport ourVerInfo listeners $ \_ converse ->
                 withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
                     -- TODO EKG stuff.
                     -- Both logic and diffusion will use EKG so we don't
                     -- set it up here in the diffusion layer, but we do
                     -- register some counters and gauges.
-                    action
+                    --
+                    -- Subscription worker bypasses the outbound queue and uses
+                    -- send actions directly.
+                    let sendActions :: SendActions d
+                        sendActions = makeSendActions ourVerInfo oqEnqueue converse
+                    withAsync (subscriptionThread networkConfig' sendActions) $ \_ ->
+                        action
+  where
+    oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
+    oqEnqueue msgType k = do
+        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+        let itMap = M.fromList itList
+        return ((>>= either throw return) <$> itMap)
+    subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
+        Just (SubscriptionWorkerBehindNAT dnsDomains) -> do
+            keepaliveTimer <- error "TIMER"
+            -- TODO update to use logic layer to get next slot interval.
+            let retryInterval = pure 20000
+            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer retryInterval sactions
+        Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
+            dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
+        Nothing -> pure ()
 
 sendMsgFromConverse
     :: Converse PackingType PeerData d

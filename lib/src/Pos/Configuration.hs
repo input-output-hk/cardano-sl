@@ -19,9 +19,6 @@ module Pos.Configuration
        , defaultPeers
        , recoveryHeadersMessage
 
-       -- * Malicious activity detection constants
-       , mdNoBlocksSlotThreshold
-
        -- * Transaction resubmition constants
        , pendingTxResubmitionPeriod
        ) where
@@ -52,8 +49,6 @@ data NodeConfiguration = NodeConfiguration
       -- ^ Estimated time for broadcasting messages
     , ccDefaultPeers                 :: ![Text]
       -- ^ List of default peers
-    , ccMdNoBlocksSlotThreshold      :: !Int
-      -- ^ Threshold of slots for malicious activity detection
     , ccRecoveryHeadersMessage       :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
     , ccNetworkConnectionTimeout     :: !Int
@@ -114,15 +109,6 @@ defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (HasNodeConfiguration, Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Malicious activity
-----------------------------------------------------------------------------
-
--- | Number of slots used by malicious actions detection to check if
--- we are not receiving generated blocks.
-mdNoBlocksSlotThreshold :: (HasNodeConfiguration, Integral i) => i
-mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ nodeConfiguration
 
 ----------------------------------------------------------------------------
 -- Transactions resubmition

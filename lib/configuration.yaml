@@ -115,7 +115,6 @@ dev: &dev
   node: &dev_node
     networkDiameter: 3
     defaultPeers: []
-    mdNoBlocksSlotThreshold: 3 # should be less than 2 * k
     recoveryHeadersMessage: 20 # should be greater than k
     networkConnectionTimeout: 2000 # ms
     conversationEstablishTimeout: 30000
@@ -297,7 +296,7 @@ mainnet_base: &mainnet_base
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: True
-   
+
   dlg: &mainnet_base_dlg
     dlgCacheParam: 500
     messageCacheTimeout: 30
@@ -305,7 +304,6 @@ mainnet_base: &mainnet_base
   node: &mainnet_base_node
     networkDiameter: 18
     defaultPeers: []
-    mdNoBlocksSlotThreshold: 18 # should be less than 2 * k
     recoveryHeadersMessage: 2200 # should be greater than k
     networkConnectionTimeout: 2000
     conversationEstablishTimeout: 30000
@@ -14912,7 +14910,6 @@ devnet: &devnet
   node:
     <<: *mainnet_base_node
     networkDiameter: 18 # should be slightly less than slot duration
-    mdNoBlocksSlotThreshold: 5 # should be less than 2 * k
     recoveryHeadersMessage: 200 # should be greater than k
 
 ##############################################################################

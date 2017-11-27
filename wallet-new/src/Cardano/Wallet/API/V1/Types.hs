@@ -307,7 +307,7 @@ deriveJSON Serokell.defaultOptions ''Account
 instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
                                    <*> listOf1 arbitrary
-                                   <*> fmap (Core.mkCoin . getPositive) arbitrary
+                                   <*> arbitrary
                                    <*> pure "My account"
                                    <*> arbitrary
 

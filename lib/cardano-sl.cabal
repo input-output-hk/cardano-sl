@@ -71,6 +71,11 @@ library
 
                         -- Client CLI
                         Pos.Client.CLI
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Options
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
 
                         -- Utilities/helpers
                         Pos.Util.Config

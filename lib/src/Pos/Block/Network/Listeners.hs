@@ -4,11 +4,12 @@ module Pos.Block.Network.Listeners
        ( blockListeners
        ) where
 
+import           Universum
+
 import           Formatting (build, int, sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
-import           Universum
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic (getHeadersRange)
@@ -20,6 +21,7 @@ import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
+import           Pos.Configuration (recoveryHeadersMessage)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
@@ -62,7 +64,9 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        getHeadersRange mgbFrom mgbTo >>= \case
+        -- We fail if we're requested to give more than
+        -- recoveryHeadersMessage headers at once.
+        getHeadersRange (Just $ recoveryHeadersMessage - 1) mgbFrom mgbTo >>= \case
             Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
@@ -77,7 +81,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                         Just b -> send conv (MsgBlock b)
                 logDebug "handleGetBlocks: blocks sending done"
             Left e -> do
-                let e' = "getBlocksByHeaders@retrieveHeaders returned error: " <> e
+                let e' = "handleGetBlocks: got Left: " <> e
                 logWarning e'
                 send conv (MsgNoBlock e')
   where

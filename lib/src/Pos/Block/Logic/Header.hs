@@ -353,17 +353,21 @@ getHeadersOlderExp upto = do
                 | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
--- | Given @from@ and @to@ headers where @from@ is older (not strict)
--- than @to@, and valid chain in between can be found, headers in
--- range @[from..to]@ will be found.
-getHeadersRange
-    :: forall m. (HasConfiguration, MonadDBRead m)
-    => HeaderHash -> HeaderHash -> m (Either Text (OldestFirst NE HeaderHash))
-getHeadersRange older newer | older == newer = runExceptT $ do
+-- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
+-- is older (not strict) than @to@, and valid chain in between can be
+-- found, headers in range @[from..to]@ will be found. If difference
+-- between headers is more than @depthLimit@, error will be thrown.
+getHeadersRange ::
+       forall m. (HasConfiguration, MonadDBRead m)
+    => Maybe Word
+    -> HeaderHash
+    -> HeaderHash
+    -> m (Either Text (OldestFirst NE HeaderHash))
+getHeadersRange _ older newer | older == newer = runExceptT $ do
     unlessM (isJust <$> DB.getHeader newer) $
         throwError "getHeadersRange: can't find newer-older header"
     pure $ OldestFirst $ one newer
-getHeadersRange older newer = runExceptT $ do
+getHeadersRange depthLimitM older newer = runExceptT $ do
     -- oldest and newest blocks do exist
     newerHd <- fromMaybeM "can't retrieve newer header" $ DB.getHeader newer
     olderHd <- fromMaybeM "can't retrieve older header" $ DB.getHeader older
@@ -381,6 +385,13 @@ getHeadersRange older newer = runExceptT $ do
         throwError $
         sformat ("getHeadersRange: newer header is less dificult than older one. "%
                  newerOlderF)
+                newerHd olderHd
+    whenJust depthLimitM $ \depthLimit ->
+        when (fromIntegral (newerD - olderD) > depthLimit) $
+        throwError $
+        sformat ("getHeadersRange: requested headers with depth more than depthLimit"%
+                 int%". Headers: "%newerOlderF)
+                depthLimit
                 newerHd olderHd
 
     -- How many epochs does this range cross.

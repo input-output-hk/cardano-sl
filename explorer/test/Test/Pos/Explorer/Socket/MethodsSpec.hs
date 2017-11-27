@@ -23,12 +23,14 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
 import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
-                                             csAddressSubscribers,
-                                             csBlocksPageSubscribers, csClients,
-                                             mkClientContext, mkConnectionsState)
+                                             csAddressSubscribers, csBlocksPageSubscribers,
+                                             csEpochsLastPageSubscribers, csTxsSubscribers,
+                                             csClients, mkClientContext, mkConnectionsState)
 import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, subscribeBlocksLastPage, txsSubParam)
+                                              spSessId, subscribeAddr, subscribeBlocksLastPage,
+                                              subscribeEpochsLastPage, subscribeTxs,
+                                              txsSubParam)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -68,10 +70,20 @@ spec =
                 spSessId subParam `shouldBe` socketId
         describe "subscribeAddr" $
             modifyMaxSize (const 200) $
-                prop "adds sessions of subscribers by a given `Address` to ConnectionsState" subscribeAddrProp
+                prop "adds sessions of `Address` subscribers to `ConnectionsState`"
+                    subscribeAddrProp
         describe "subscribeBlocksLastPage" $
             modifyMaxSize (const 200) $
-                prop "adds sessions of subscribers to ConnectionsState" subscribeBlocksLastPageProp
+                prop "adds sessions of `block last page` subscribers to `ConnectionsState`"
+                    subscribeBlocksLastPageProp
+        describe "subscribeTxs" $
+            modifyMaxSize (const 200) $
+                prop "adds sessions of `tx` subscribers to `ConnectionsState`"
+                    subscribeTxsProp
+        describe "subscribeEpochsLastPage" $
+            modifyMaxSize (const 200) $
+                prop "adds sessions of `epochs last page` subscribers to `ConnectionsState`"
+                    subscribeEpochsLastPageProp
 
 
 addressSetByTxsProp :: SecretKey -> Bool
@@ -99,15 +111,14 @@ subscribeAddrProp =
 
             (_, updatedConnState) <- run subscription
 
-            -- get stored sessions by a given `Address`
+            -- get sessions `Address` subscribers
             let mSessions = updatedConnState ^. csAddressSubscribers . at addr
-            -- to check whether a session has been added to it or not
+            -- to check whether current session has been added to it or not
             assert $ hasSession socketId mSessions
   where
     hasSession :: SocketId -> Maybe (S.Set SocketId) -> Bool
     hasSession socketId' (Just sessions) = S.member socketId' sessions
     hasSession _          Nothing        = False
-
 
 
 subscribeBlocksLastPageProp :: Property
@@ -122,10 +133,46 @@ subscribeBlocksLastPageProp =
 
             -- get sessions of "block last page" subscribers
             let mSessions = updatedConnState ^. csBlocksPageSubscribers
-            -- to check whether a session has been added to it or not
+            -- to check whether current session has been added to it or not
             assert $ S.member socketId mSessions
 
--- | Helper to create a "subscription-able" `ConnectionsState`
+
+subscribeTxsProp :: Property
+subscribeTxsProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            let connState = mkSubConnectionState socketId
+            let subscription = runSubTestMode connState $
+                                    subscribeTxs socketId
+
+            (_, updatedConnState) <- run subscription
+
+            -- get sessions of "tx" subscribers
+            let mSessions = updatedConnState ^. csTxsSubscribers
+            -- to check whether current session has been added to it or not
+            assert $ S.member socketId mSessions
+
+
+subscribeEpochsLastPageProp :: Property
+subscribeEpochsLastPageProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            let connState = mkSubConnectionState socketId
+            let subscription = runSubTestMode connState $
+                                    subscribeEpochsLastPage socketId
+
+            (_, updatedConnState) <- run subscription
+
+            -- get sessions of "epoch last page" subscribers
+            let mSessions = updatedConnState ^. csEpochsLastPageSubscribers
+            -- to check whether current session has been added to it or not
+            assert $ S.member socketId mSessions
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+-- | Creates a "subscription-able" `ConnectionsState`
 mkSubConnectionState :: SocketId -> ConnectionsState
 mkSubConnectionState socketId =
     let ctx = mkClientContext $ TestSocket "explorer-test-socket" in

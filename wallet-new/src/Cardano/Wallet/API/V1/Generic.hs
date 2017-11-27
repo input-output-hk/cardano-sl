@@ -11,7 +11,6 @@ import           Universum hiding (All, Generic)
 import           Data.Aeson
 import           Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (pack)
 import qualified Data.Vector as V
 import           Generics.SOP
 import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), defaultJsonOptions,
@@ -70,7 +69,7 @@ gtoJsend' (JsonMultiple tag) cs =
     hcliftA pt (K . toJSON . unI) cs
 gtoJsend' (JsonRecord tag fields) cs =
     jsendValue tag . Object . HM.fromList . hcollapse $
-    hcliftA2 pt (\(K field) (I a) -> K (pack field, toJSON a)) fields cs
+    hcliftA2 pt (\(K field) (I a) -> K (toText field, toJSON a)) fields cs
 
 -- | Generic method which parses a Haskell value from given `Value`.
 gparseJsend
@@ -115,7 +114,7 @@ parseJsendValues (JsonRecord tag fields) =
     unJsendValue tag $
     withObject "Object" $ \o ->
         let getField :: FromJSON a => K String a -> Parser a
-            getField (K name) = o .: pack name
+            getField (K name) = o .: toText name
         in hsequence $ hcliftA pf getField fields
 
 -- | Helper function which makes a JSON value in JSend format
@@ -123,7 +122,7 @@ parseJsendValues (JsonRecord tag fields) =
 jsendValue :: Tag -> Value -> K Value a
 jsendValue NoTag v   = K v
 jsendValue (Tag t) v = K $ Object $
-    HM.fromList [ ("message", String $ pack t)
+    HM.fromList [ ("message", String $ toText t)
                 , ("diagnostic", v)
                 ]
 
@@ -157,4 +156,4 @@ gconsInfos pa = case datatypeInfo pa of
 gconsNames
     :: forall a. (HasDatatypeInfo a, SListI (Code a))
     => Proxy a -> [Text]
-gconsNames = map pack . hcollapse . hliftA gconsName' . gconsInfos
+gconsNames = map toText . hcollapse . hliftA gconsName' . gconsInfos

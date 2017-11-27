@@ -1,7 +1,7 @@
 name:                cardano-sl-util
 version:             1.0.3
 synopsis:            Cardano SL - general utilities
-description:         This packages contains utility functions not specific
+description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
                      something from scratch.
 license:             MIT
@@ -12,10 +12,6 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-
-flag asserts
-  default:     True
-  manual:      True
 
 library
   exposed-modules:
@@ -121,5 +117,3 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-  if flag(asserts)
-    cpp-options: -DASSERTS_ON

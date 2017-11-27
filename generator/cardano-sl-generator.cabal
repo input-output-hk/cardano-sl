@@ -1,0 +1,176 @@
+name:                cardano-sl-generator
+version:             1.0.3
+synopsis:            Cardano SL - arbitrary data generation
+description:         Cardano SL - arbitrary data generation
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2017 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Pos.Generator
+                       Pos.Generator.Block
+
+                       Pos.Generator.BlockEvent
+                       Pos.Generator.BlockEvent.DSL
+
+                       -- Common code for tests
+                       Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.Emulation
+                       Test.Pos.Block.Logic.Util
+                       Test.Pos.Block.Logic.Event
+
+  other-modules:
+                       Pos.Generator.Block.Error
+                       Pos.Generator.Block.Logic
+                       Pos.Generator.Block.Mode
+                       Pos.Generator.Block.Param
+                       Pos.Generator.Block.Payload
+
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , ether
+                     , exceptions
+                     , formatting
+                     , lens
+                     , log-warper
+                     , monad-control
+                     , node-sketch
+                     , random
+                     , serokell-util
+                     , text
+                     , text-format
+                     , time-units
+                     , transformers-base
+                     , universum
+                     , unordered-containers
+                     , vector
+
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite cardano-test
+  main-is:             Test.hs
+  other-modules:
+                       Spec
+                       Test.Pos.Helpers
+
+                       Test.Pos.Lrc.WorkerSpec
+                       Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.VarSpec
+
+  type:                exitcode-stdio-1.0
+
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , cardano-sl
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-generator
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , data-default
+                     , formatting
+                     , hspec
+                     , lens
+                     , serokell-util
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

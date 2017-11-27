@@ -8,16 +8,15 @@ import           Universum hiding (words)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH
 import           Data.Aeson.Types (Value (..), typeMismatch)
-
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
-import           Pos.Wallet.Web.ClientTypes.Types (CFilePath (..))
-
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Formatting (int, sformat, shown, (%))
-import qualified Pos.Core.Types as Core
-import qualified Pos.Crypto.Signing.Types as Core
 import qualified Serokell.Util.Base16 as Base16
+
+import qualified Pos.Core.Types as Core
+import qualified Pos.Crypto.Signing as Core
+import           Pos.Util.BackupPhrase (BackupPhrase (..))
+import           Pos.Wallet.Web.ClientTypes.Types (CFilePath (..))
 
 instance ToJSON BackupPhrase where
     toJSON (BackupPhrase words) = toJSON words

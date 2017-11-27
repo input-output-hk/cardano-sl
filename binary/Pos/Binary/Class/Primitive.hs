@@ -1,4 +1,3 @@
-
 -- | Useful functions for serialization/deserialization.
 
 module Pos.Binary.Class.Primitive
@@ -98,9 +97,11 @@ decodeFull bs0 = case deserializeOrFail' bs0 of
   Right (x, leftover) -> case BS.null leftover of
       True  -> pure x
       False ->
-          let msg = "decodeFull failed for " <> label (Proxy @a) <> "! Leftover found: " <> show leftover
+          let msg = "decodeFull failed for " <> label (Proxy @a) <>
+                    "! Leftover found: " <> show leftover
           in Left $ fromString msg
-  Left  (e, _) -> Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <> ": " <> show e
+  Left  (e, _) ->
+      Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <> ": " <> show e
 
 -- | Deserialize a Haskell value from the external binary representation,
 -- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
@@ -228,7 +229,8 @@ decodeUnknownCborDataItem = do
 -- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
 -- protecting it with a CRC.
 encodeCrcProtected :: Bi a => a -> E.Encoding
-encodeCrcProtected x = E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
+encodeCrcProtected x =
+    E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
     body = serialize' x
 

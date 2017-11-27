@@ -107,7 +107,9 @@ library
                       , base
                       , base58-bytestring
                       , bytestring
+                      , cardano-sl-client
                       , cardano-sl-core
+                      , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-ssc
@@ -259,6 +261,7 @@ executable cardano-wallet-hs2purs
                      , cardano-sl-core
                      , cardano-sl
                      , cardano-sl-wallet
+                     , cardano-sl-client
                      , optparse-applicative
                      , purescript-bridge
                      , universum >= 0.1.11
@@ -369,16 +372,20 @@ test-suite cardano-wallet-test
   build-depends:       MonadRandom
                      , QuickCheck
                      , base
+                     , cardano-sl
+                     , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-generator
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
-                     , cardano-sl-ssc
-                     , cardano-sl-wallet
                      , cardano-sl-util
-                     , cardano-sl
+                     , cardano-sl-wallet
                      , containers
                      , data-default
                      , ether

@@ -47,14 +47,13 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
 import           Pos.Context (NodeContext (..))
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
 import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
                                     topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
-import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Statistics (EkgParams (..), StatsdParams (..))
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
@@ -102,11 +101,7 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 -- | RealMode runner.
 runRealModeDo
     :: forall ext a.
-       ( HasConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
+       ( HasConfigurations
        , HasCompileInfo
        , Default ext
        , MonadTxpLocal (RealMode ext)

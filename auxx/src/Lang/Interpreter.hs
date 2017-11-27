@@ -53,7 +53,8 @@ evalProcCall :: ProcCall Value -> T m Value
 evalProcCall (ProcCall procName args) = do
     CommandProc{..} <- lookupCommandProc procName
     e <- either (throwError . InvalidArguments cpName) return $
-         consumeArguments cpArgumentConsumer args
+         consumeArguments cpArgumentConsumer $
+         cpArgumentPrepare args
     lift . lift $ cpExec e
 
 lookupCommandProc :: Name -> T m (CommandProc m)

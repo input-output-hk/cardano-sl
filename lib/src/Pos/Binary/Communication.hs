@@ -78,15 +78,17 @@ instance Bi MsgSubscribe where
 ----------------------------------------------------------------------------
 
 instance Bi HandlerSpec where
-  encode input = case input of
-    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
-    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
-  decode = do
-    enforceSize "HandlerSpec" 2
-    tag <- decode @Word8
-    case tag of
-      0 -> ConvHandler        <$> decodeKnownCborDataItem
-      _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
+    encode input = case input of
+        ConvHandler mname        ->
+            encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+        UnknownHandler word8 bs  ->
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+    decode = do
+        enforceSize "HandlerSpec" 2
+        tag <- decode @Word8
+        case tag of
+          0 -> ConvHandler        <$> decodeKnownCborDataItem
+          _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

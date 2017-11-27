@@ -61,6 +61,7 @@ scripts/bench                   @kantp @avieth
 wallet/src                      @martoon @flyingleafe @akegalj
 wallet/purescript               @akegalj
 wallet/web-api-swagger          @martoon
+wallet-new/                     @adinapoli-iohk @flyingleafe
 
 ## Auxx
 auxx                            @int-index

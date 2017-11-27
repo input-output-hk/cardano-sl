@@ -53,10 +53,10 @@ Then you will appear in `repl` mode and would need to perform few actions:
 #### Import secret keys
 
 ```
-add-key nodes2/testnet1.key primary
-add-key nodes2/testnet2.key primary
-add-key nodes2/testnet3.key primary
-add-key nodes2/testnet4.key primary
+add-key ./nodes2/testnet1.key primary:true
+add-key ./nodes2/testnet2.key primary:true
+add-key ./nodes2/testnet3.key primary:true
+add-key ./nodes2/testnet4.key primary:true
 ```
 
 Then if you execute
@@ -70,16 +70,28 @@ You should see something like:
 ```
 > listaddr
 Available addresses:
-    #0:   1feg76nzCcJrhwX4Z9NXc9iwNwo1UxUdkaF3XwdyFhtDdst (PK: eMrhrnbwqmRmeHNQW6kyrD9gs4sMtUyGRqPuLsiZaaTLhHY4uojgp7imLNX6tsECechdqLUB92APfs6Er1BJv6E)
-    #1:   1gE3qzmCe4cjReAWwJRv6iHHmHDzoejG9Mkp9sGF5qv6SQb (PK: 3E36aezxjRFHz8viGTTpu7us5mPej5d83195GFoHcSnWKCcVpduxKVLuAxxNWN2w9sRsDzdxfVeQpqWkumEJGYUN)
-    #2:   1gK2AvmDBSTYJgqLaJbmY3r1qgC55SyKeQCTjYDPLTxpyRN (PK: 2vCzGFduRi6obJaDitkz1DNqckGerE2oos7ocLRzeaCV28zvvkcKRsofDDWwpML5JaHUjeLKjFGnjmCZnhu2XjGJ)
-    #3:   1fNkZ1oyrV9xGaPizPHMM2hzwdwERyDPQrcLqLz76mqNxC6 (PK: 4856H9Czc65Y7ueCMdhnPtDwUZvH6g5uBEi1TkoN9CqE75ENbSx8jx8ebDgSDFX7A869qNjBe4n9SgZ74NSyr7xx)
+    #0:   addr:      Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
+          pk:        ZcrTBz5bwqSA+6pGfg7D55uJfZt++5XiEY7h03ly3++41DDNIerLdILubwKrr1zinBEBJhJORXlla/S4yERogg==
+          pk hash:   f83e9e0270abcc744b26570b069f66db5a83cdebe4bedb7cd435c443
+          HD addr:   DdzFFzCqrhszS1SoxhSTtM8c3qNyvKZvguJ2GNeTjRY5AXyJFia81xS1cERj215orZ9Fd1BzedinMfSXBJerpHxWpu1tzpx53Q2gEJtL
+    #1:   addr:      Ae2tdPwUPEZESKZGFtTEeR761598wbuCEERzqxeEtR69gCEzpTwSiaP7oxj
+          pk:        LxQs4CWIxMp3demqmPBMxrI/v/KpscOVwxiXATy0sByGK3idaFpN72k3U/Nxfhk6HGUFQAfcMwEzy0za95BNJw==
+          pk hash:   df4901e8f6abd96a8bd0579f24036a8b9b24c1df4bed85a1402db09b
+          HD addr:   DdzFFzCqrhtBFQAHQMzQK2vdWLWC55APHkrzQryBgwPN9jNdFTHeSQ4cBVpmQuksLjpeLFCoGwHPxHFvQPNhtXDXFBnAquWumkTdYyDS
+    #2:   addr:      Ae2tdPwUPEZMezLqssf4EMpudh7uNSoLKw6f1VN9F2o8rsAckXvx76PoZdc
+          pk:        mNZwrlO1fVSn2SV0bqfvp5D22gSToWwDxBZLgbFFOp5HdgO/n8iO5JnofvKajPtyujUch7jQZxmMhvBzBMc5zA==
+          pk hash:   c96ac1e118c0d38467e7ff7829e59d051c751c9c371687ed1c3a3cda
+          HD addr:   DdzFFzCqrht1aeEzHjtMBKt1WixjyP5dH1N1rt7H7w5VfmtJqfVKFs1EnZ7Tbjd9n7R2m7aNcQDGDge73BEDCFAhB9CemqwCQRmyNQex
+    #3:   addr:      Ae2tdPwUPEZKUpTf4jDurpvX7fdUrmZvFPM56TAwihnBbAuyvMZ47NeHHdY
+          pk:        ulsqNypOZ39xAbW71PxPsyMbXfEc7RUb+NPHFYA6tdjv0IAAkEN8/yaA9CmdVLFUj1FGZxdpdbTiq6hdeLcJBw==
+          pk hash:   81713ef44a9463104d3c7c48d547c20c869536af3da237d8fc12b5fa
+          HD addr:   DdzFFzCqrht5oYxSwcfYag9fESzGjwC3HGA3ZmdfraXf3STPRBrrek9NUSF68HkbXkApwSTUJamGbLDF6vvaRZigdLFpLuX6BCFzvoEU
 ```
 
 #### Propose update
 
 ```
-propose-update 0 0.1.0 csl-daedalus:1 1 15 2000000 win64 daedalus1.exe none macos daedalus1c.pkg none
+propose-update 0 0.1.0 ~software~csl-daedalus:1 (upd-bin "win64" ./daedalus1.exe) (upd-bin "macos" ./daedalus1c.pkg)
 ```
 
 (`none` states for binary diff package)
@@ -87,8 +99,6 @@ propose-update 0 0.1.0 csl-daedalus:1 1 15 2000000 win64 daedalus1.exe none maco
 Replace `0.1.0` with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
 
 Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for config.
-
-Replace argument 4, `1` with actual script version.
 
 After launching `propose-update` command you'll see output like this:
 
@@ -139,19 +149,19 @@ Wait for 30-60 seconds.
 
 Execute
 ```
-vote 1 y <upId>
-vote 2 y <upId>
-vote 3 y <upId>
+vote 1 agree:true <upId>
+vote 2 agree:true <upId>
+vote 3 agree:true <upId>
 ```
 
 This will result in output like:
 
 ```
-> vote 1 y b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
+> vote 1 true b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
 Submitted vote
-> vote 2 y b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
+> vote 2 true b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
 Submitted vote
-> vote 3 y b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
+> vote 3 true b66ae7e037ca3503224e8d5b716443b6480df97be114c899f3e7397419e897c1
 Submitted vote
 ```
 

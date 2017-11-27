@@ -35,16 +35,19 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
-import           Pos.Block.Types (Blund, Undo (undoTx, undoUS))
+import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
                            gbHeader, headerHash)
-import           Pos.Core.Block (Block, GenesisBlock, MainBlock, mbTxPayload, mbUpdatePayload)
+import           Pos.Core.Block (Block, GenesisBlock, MainBlock, mbDlgPayload, mbTxPayload,
+                                 mbUpdatePayload)
+import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Txp (TxPayload)
 import           Pos.Core.Update (UpdateBlock, UpdatePayload)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.DB (sanityCheckDB)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
+import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
 import qualified Pos.GState as GS
 import           Pos.Lrc.Context (HasLrcContext)
@@ -177,7 +180,7 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
     slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blunds
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
@@ -201,7 +204,7 @@ rollbackBlocksUnsafe
     -> m ()
 rollbackBlocksUnsafe bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks bsc scb toRollback
-    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
@@ -234,8 +237,6 @@ toTxpBlock
     => Block -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
-    convertGenesis :: GenesisBlock -> Some IsGenesisHeader
-    convertGenesis = Some . view gbHeader
     convertMain :: MainBlock -> (Some IsMainHeader, TxPayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
 
@@ -245,13 +246,28 @@ toTxpBlund
     => Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
--- [CSL-1156] Sure, totally need something more elegant
+-- [CSL-1156] Sure, totally need something more elegant.
 toUpdateBlock
     :: HasConfiguration
     => Block -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where
-    convertGenesis :: GenesisBlock -> Some IsGenesisHeader
-    convertGenesis = Some . view gbHeader
     convertMain :: MainBlock -> (Some IsMainHeader, UpdatePayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
+
+-- [CSL-1156] Absolutely need something more elegant.
+toDlgBlund
+    :: HasConfiguration
+    => Blund -> DlgBlund
+toDlgBlund = bimap toDlgBlock undoDlg
+  where
+    toDlgBlock
+        :: HasConfiguration
+        => Block -> DlgBlock
+    toDlgBlock = bimap convertGenesis convertMain
+      where
+        convertMain :: MainBlock -> (Some IsMainHeader, DlgPayload)
+        convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbDlgPayload)
+
+convertGenesis :: HasConfiguration => GenesisBlock -> Some IsGenesisHeader
+convertGenesis = Some . view gbHeader

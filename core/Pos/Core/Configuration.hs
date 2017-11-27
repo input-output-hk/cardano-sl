@@ -14,7 +14,6 @@ module Pos.Core.Configuration
 
 import           Universum
 
-import           Control.Lens (coerced)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
@@ -23,7 +22,6 @@ import           System.Wlog (WithLogger, logInfo)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Coin (applyCoinPortionDown, coinToInteger)
 import           Pos.Core.Configuration.BlockVersionData as E
 import           Pos.Core.Configuration.Core as E
 import           Pos.Core.Configuration.GeneratedSecrets as E
@@ -33,10 +31,10 @@ import           Pos.Core.Configuration.Protocol as E
 import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
-                                         GenesisInitializer (..), GenesisSpec (..),
-                                         getGenesisAvvmBalances)
-import           Pos.Core.Types (Coin, Timestamp)
+import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
+                                         GenesisInitializer (..), GenesisSpec (..))
+import           Pos.Core.Types (Timestamp)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
 
@@ -48,6 +46,7 @@ type HasConfiguration =
     , HasGeneratedSecrets
     , HasGenesisBlockVersionData
     , HasProtocolConstants
+    , HasCryptoConfiguration
     )
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
@@ -129,31 +128,25 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
     GCSpec spec -> do
 
         theSystemStart <- case mSystemStart of
-            Just it -> case gsInitializer spec of
-                TestnetInitializer{..} -> do
-                    logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
-                    return it
-                MainnetInitializer{..} -> throwM UnnecessarySystemStartTime
-            Nothing -> case gsInitializer spec of
-                TestnetInitializer{..} -> throwM MissingSystemStartTime
-                MainnetInitializer{..} -> do
-                    logInfo $ sformat ("withConfiguration using genesis configured system start time "%shown) miStartTime
-                    return miStartTime
+            Just it -> do
+                logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
+                return it
+            Nothing -> throwM MissingSystemStartTime
 
         -- Override seed if necessary
-        let overrideSeed :: Integer -> GenesisInitializer -> m GenesisInitializer
-            overrideSeed newSeed ti@TestnetInitializer{} = pure (ti {tiSeed = newSeed})
-            overrideSeed _ _ =
-                throwM $ MeaninglessSeed "Can't override seed for mainnet initializer"
+        let overrideSeed :: Integer -> GenesisInitializer -> GenesisInitializer
+            overrideSeed newSeed gi = gi {giSeed = newSeed}
 
-        theSpec <- case mSeed of
-             Nothing      -> pure spec
-             Just newSeed -> do
-                 newInitializer <- overrideSeed newSeed (gsInitializer spec)
-                 return spec { gsInitializer = newInitializer }
+        let theSpec = case mSeed of
+                Nothing -> spec
+                Just newSeed -> spec
+                    { gsInitializer = overrideSeed newSeed (gsInitializer spec)
+                    }
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
+        logInfo $ "We are going to generate genesis data from genesis spec," <>
+                  " it can take a lot of time if there are many HD addresses!"
         withGenesisSpec theSystemStart theConf act
 
 withGenesisSpec
@@ -166,21 +159,18 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
     GCSpec spec ->
         withProtocolConstants (gsProtocolConstants spec) $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
-            let avvmSum = foldr' ((+) . coinToInteger) 0 $ getGenesisAvvmBalances $ gsAvvmDistr spec
-                maxTnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
+            let
+                -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData (gsInitializer spec) maxTnBalance
+                    generateGenesisData (gsInitializer spec) (gsAvvmDistr spec)
 
-                applyAvvmBalanceFactor :: HashMap k Coin -> HashMap k Coin
-                applyAvvmBalanceFactor = map (applyCoinPortionDown ggdAvvmBalanceFactor)
-                finalAvvmDistr :: GenesisAvvmBalances
-                finalAvvmDistr =
-                    ggdAvvm <> gsAvvmDistr spec & over coerced applyAvvmBalanceFactor
-
+                -- Unite with generated
+                finalHeavyDelegation :: GenesisDelegation
                 finalHeavyDelegation =
                     leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
                     (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
 
+                -- Construct the final value
                 theGenesisData =
                    GenesisData
                       { gdBootStakeholders = ggdBootStakeholders
@@ -190,7 +180,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                       , gdNonAvvmBalances  = ggdNonAvvm
                       , gdBlockVersionData = genesisBlockVersionData
                       , gdProtocolConsts   = protocolConstants
-                      , gdAvvmDistr        = finalAvvmDistr
+                      , gdAvvmDistr        = ggdAvvm
                       , gdFtsSeed          = gsFtsSeed spec
                       }
                 -- Anything will do for the genesis hash. A hash of "patak" was used
@@ -198,7 +188,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                 theGenesisHash = unsafeHash @Text "patak"
              in withCoreConfiguration conf $
                   withGenesisHash theGenesisHash $
-                  withGeneratedSecrets ggdSecrets $
+                  withGeneratedSecrets (Just ggdSecrets) $
                   withGenesisData theGenesisData val
 
 data ConfigurationError =

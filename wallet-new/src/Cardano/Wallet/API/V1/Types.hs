@@ -107,7 +107,7 @@ deriveJSON Serokell.defaultOptions ''PerPage
 -- This value is currently arbitrary and it might need to be tweaked down to strike
 -- the right balance between number of requests and load of each of them on the system.
 maxPerPageEntries :: Int
-maxPerPageEntries = 500
+maxPerPageEntries = 50
 
 -- | If not specified otherwise, a default number of 10 entries from the collection will
 -- be returned as part of each paginated response.
@@ -115,7 +115,7 @@ defaultPerPageEntries :: Int
 defaultPerPageEntries = 10
 
 instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, 500)
+  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
 
 instance FromHttpApiData PerPage where
     parseQueryParam qp = case parseQueryParam qp of
@@ -247,8 +247,6 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
-type Coins = Int
-
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !BackupPhrase
@@ -299,7 +297,7 @@ type AccountId = Text
 data Account = Account
   { accId        :: !AccountId
   , accAddresses :: [Core.Address]
-  , accAmount    :: !Coins
+  , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
   , accWalletId  :: WalletId
@@ -311,7 +309,7 @@ deriveJSON Serokell.defaultOptions ''Account
 instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
                                    <*> listOf1 arbitrary
-                                   <*> fmap getPositive arbitrary
+                                   <*> arbitrary
                                    <*> pure "My account"
                                    <*> arbitrary
 

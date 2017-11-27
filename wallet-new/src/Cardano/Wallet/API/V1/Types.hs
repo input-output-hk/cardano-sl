@@ -36,6 +36,7 @@ module Cardano.Wallet.API.V1.Types (
   , PaymentDistribution (..)
   , Transaction (..)
   , TransactionType (..)
+  , TransactionDirection (..)
   , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
@@ -48,6 +49,7 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import qualified Data.Char as C
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
@@ -401,20 +403,37 @@ instance Arbitrary Payment where
 
 type TxId = Text
 
+-- | The 'Transaction' type.
 data TransactionType =
     LocalTransaction
-  -- ^ This transaction is local to this node.
-  | IncomingTransaction
-  -- ^ This represents an incoming transaction.
-  | OutgoingTransaction
-  -- ^ This qualifies external transaction.
+  -- ^ This transaction is local, which means all the inputs
+  -- and all the outputs belongs to the wallet from which the
+  -- transaction was originated.
+  | ForeignTransaction
+  -- ^ This transaction is not local to this wallet.
   deriving (Show, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse } ''TransactionType
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionType
+
+-- | The 'Transaction' @direction@
+data TransactionDirection =
+    IncomingTransaction
+  -- ^ This represents an incoming transactions.
+  | OutgoingTransaction
+  -- ^ This qualifies external transactions.
+  deriving (Show, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionDirection where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Transaction@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionDirection
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
@@ -429,13 +448,16 @@ data Transaction = Transaction
   , txOutputs       :: !(NonEmpty PaymentDistribution)
     -- ^ The output money distribution.
   , txType          :: TransactionType
-    -- ^ The type for this transaction (e.g local, incoming, etc)
+    -- ^ The type for this transaction (e.g local, foreign, etc).
+  , txDirection     :: TransactionDirection
+    -- ^ The direction for this transaction (e.g incoming, outgoing).
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

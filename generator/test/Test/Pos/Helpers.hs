@@ -11,6 +11,7 @@ import           Test.Hspec.QuickCheck (prop)
 
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
+import           Pos.Delegation (HasDlgConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable)
 
@@ -20,7 +21,7 @@ import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable
 
 -- | Specialized version of 'prop' function from 'hspec'.
 blockPropertySpec ::
-       (HasNodeConfiguration, HasSscConfiguration)
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
     => String
     -> (HasConfiguration => BlockProperty a)
     -> Spec

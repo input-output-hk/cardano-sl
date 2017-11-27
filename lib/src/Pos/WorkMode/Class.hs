@@ -29,6 +29,7 @@ import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.Delegation.Class (MonadDelegation)
+import           Pos.Delegation.Configuration (HasDlgConfiguration)
 import           Pos.DHT.Real.Types (KademliaDHTInstance)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers, MonadKnownPeers)
@@ -90,6 +91,7 @@ type WorkMode ctx m
       , HasSlogGState ctx
       , HasNodeType ctx
       , HasSscConfiguration
+      , HasDlgConfiguration
       )
 
 -- | More relaxed version of 'WorkMode'.

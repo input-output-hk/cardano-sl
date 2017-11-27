@@ -71,7 +71,7 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure (DBPureVar, newDBPureVar)
-import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
@@ -143,12 +143,12 @@ instance Arbitrary TestParams where
 
 genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
 genGenesisInitializer = do
-    tiTestBalance <- arbitrary
-    tiFakeAvvmBalance <- arbitrary
-    tiAvvmBalanceFactor <- arbitrary
-    tiUseHeavyDlg <- arbitrary
-    tiSeed <- arbitrary
-    return TestnetInitializer {..}
+    giTestBalance <- arbitrary
+    giFakeAvvmBalance <- arbitrary
+    giAvvmBalanceFactor <- arbitrary
+    giUseHeavyDlg <- arbitrary
+    giSeed <- arbitrary
+    return GenesisInitializer {..}
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
@@ -225,8 +225,12 @@ instance HasAllSecrets BlockTestContext where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initBlockTestContext
-    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+initBlockTestContext ::
+       ( HasConfiguration
+       , HasSscConfiguration
+       , HasDlgConfiguration
+       , HasNodeConfiguration
+       )
     => TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
@@ -283,8 +287,15 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
-runBlockTestMode :: (HasNodeConfiguration, HasSscConfiguration, HasConfiguration)
-                 => TestParams -> BlockTestMode a -> IO a
+runBlockTestMode ::
+       ( HasNodeConfiguration
+       , HasSscConfiguration
+       , HasDlgConfiguration
+       , HasConfiguration
+       )
+    => TestParams
+    -> BlockTestMode a
+    -> IO a
 runBlockTestMode tp action =
     runEmulation (getTimestamp $ tp ^. tpStartTime) $
     initBlockTestContext tp (runReaderT action)
@@ -298,7 +309,7 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasSscConfiguration)
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -321,7 +332,7 @@ blockPropertyToProperty tpGen blockProperty =
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasSscConfiguration)
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary

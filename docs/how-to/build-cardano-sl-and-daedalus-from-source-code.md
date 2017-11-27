@@ -68,7 +68,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
 -  `cardano-report-server-static`:
    - `cardano-report-server`
 -  `cardano-sl-auxx`:
-   - `cardano-hash-installer`, `cardano-auxx`
+   - `cardano-auxx`
 -  `cardano-sl-explorer-static`:
    - `cardano-explorer`, `cardano-explorer-hs2purs`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools-static`:

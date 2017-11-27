@@ -54,7 +54,7 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Pure (DBPureVar)
-import           Pos.Delegation (DelegationVar)
+import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
 import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
@@ -164,8 +164,12 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 -- Initialization
 ----------------------------------------------------------------------------
 
-initWalletTestContext
-    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+initWalletTestContext ::
+       ( HasConfiguration
+       , HasSscConfiguration
+       , HasDlgConfiguration
+       , HasNodeConfiguration
+       )
     => WalletTestParams
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
@@ -186,8 +190,12 @@ initWalletTestContext WalletTestParams {..} callback =
             pure WalletTestContext {..}
         callback wtc
 
-runWalletTestMode
-    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+runWalletTestMode ::
+       ( HasConfiguration
+       , HasSscConfiguration
+       , HasDlgConfiguration
+       , HasNodeConfiguration
+       )
     => WalletTestParams
     -> WalletTestMode a
     -> IO a
@@ -206,7 +214,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -214,12 +222,12 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec

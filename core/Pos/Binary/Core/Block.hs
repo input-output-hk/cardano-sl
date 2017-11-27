@@ -23,57 +23,57 @@ import           Pos.Crypto (Hash)
 ----------------------------------------------------------------------------
 
 instance Bi (Core.BodyProof BC.MainBlockchain) where
-  encode bc =  encodeListLen 4
-            <> encode (BC.mpTxProof bc)
-            <> encode (BC.mpMpcProof bc)
-            <> encode (BC.mpProxySKsProof bc)
-            <> encode (BC.mpUpdateProof bc)
-  decode = do
-    enforceSize "Core.BodyProof BC.MainBlockChain" 4
-    BC.MainProof <$> decode <*>
-                     decode <*>
-                     decode <*>
-                     decode
+    encode bc =  encodeListLen 4
+              <> encode (BC.mpTxProof bc)
+              <> encode (BC.mpMpcProof bc)
+              <> encode (BC.mpProxySKsProof bc)
+              <> encode (BC.mpUpdateProof bc)
+    decode = do
+        enforceSize "Core.BodyProof BC.MainBlockChain" 4
+        BC.MainProof <$> decode <*>
+                         decode <*>
+                         decode <*>
+                         decode
 
 instance Bi BC.BlockSignature where
-  encode input = case input of
-    BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
-    BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
-    BC.BlockPSignatureHeavy pxy -> encodeListLen 2 <> encode (2 :: Word8) <> encode pxy
-  decode = do
-    enforceSize "BlockSignature" 2
-    tag <- decode @Word8
-    case tag of
-      0 -> BC.BlockSignature <$> decode
-      1 -> BC.BlockPSignatureLight <$> decode
-      2 -> BC.BlockPSignatureHeavy <$> decode
-      _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
+    encode input = case input of
+        BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
+        BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
+        BC.BlockPSignatureHeavy pxy -> encodeListLen 2 <> encode (2 :: Word8) <> encode pxy
+    decode = do
+        enforceSize "BlockSignature" 2
+        tag <- decode @Word8
+        case tag of
+          0 -> BC.BlockSignature <$> decode
+          1 -> BC.BlockPSignatureLight <$> decode
+          2 -> BC.BlockPSignatureHeavy <$> decode
+          _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
 
 instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
-  encode cd =  encodeListLen 4
-            <> encode (BC._mcdSlot cd)
-            <> encode (BC._mcdLeaderKey cd)
-            <> encode (BC._mcdDifficulty cd)
-            <> encode (BC._mcdSignature cd)
-  decode = do
-    enforceSize "BC.ConsensusData BC.MainBlockchain)" 4
-    BC.MainConsensusData <$> decode <*>
-                             decode <*>
-                             decode <*>
-                             decode
+    encode cd =  encodeListLen 4
+              <> encode (BC._mcdSlot cd)
+              <> encode (BC._mcdLeaderKey cd)
+              <> encode (BC._mcdDifficulty cd)
+              <> encode (BC._mcdSignature cd)
+    decode = do
+        enforceSize "BC.ConsensusData BC.MainBlockchain)" 4
+        BC.MainConsensusData <$> decode <*>
+                                 decode <*>
+                                 decode <*>
+                                 decode
 
 instance HasConfiguration => Bi (BC.Body BC.MainBlockchain) where
-  encode bc =  encodeListLen 4
-            <> encode (BC._mbTxPayload  bc)
-            <> encode (BC._mbSscPayload bc)
-            <> encode (BC._mbDlgPayload bc)
-            <> encode (BC._mbUpdatePayload bc)
-  decode = do
-    enforceSize "BC.Body BC.MainBlockchain" 4
-    BC.MainBody <$> decode <*>
-                    decode <*>
-                    decode <*>
-                    decode
+    encode bc =  encodeListLen 4
+              <> encode (BC._mbTxPayload  bc)
+              <> encode (BC._mbSscPayload bc)
+              <> encode (BC._mbDlgPayload bc)
+              <> encode (BC._mbUpdatePayload bc)
+    decode = do
+        enforceSize "BC.Body BC.MainBlockchain" 4
+        BC.MainBody <$> decode <*>
+                        decode <*>
+                        decode <*>
+                        decode
 
 deriveSimpleBi ''BC.MainExtraHeaderData [
     Cons 'BC.MainExtraHeaderData [
@@ -89,19 +89,19 @@ deriveSimpleBi ''BC.MainExtraBodyData [
     ]]
 
 instance HasConfiguration => Bi BC.MainToSign where
-  encode mts = encodeListLen 5
-             <> encode (BC._msHeaderHash mts)
-             <> encode (BC._msBodyProof mts)
-             <> encode (BC._msSlot mts)
-             <> encode (BC._msChainDiff mts)
-             <> encode (BC._msExtraHeader mts)
-  decode = do
-    enforceSize "BC.MainToSign" 5
-    BC.MainToSign <$> decode <*>
-                      decode <*>
-                      decode <*>
-                      decode <*>
-                      decode
+    encode mts = encodeListLen 5
+               <> encode (BC._msHeaderHash mts)
+               <> encode (BC._msBodyProof mts)
+               <> encode (BC._msSlot mts)
+               <> encode (BC._msChainDiff mts)
+               <> encode (BC._msExtraHeader mts)
+    decode = do
+        enforceSize "BC.MainToSign" 5
+        BC.MainToSign <$> decode <*>
+                          decode <*>
+                          decode <*>
+                          decode <*>
+                          decode
 
 -- ----------------------------------------------------------------------------
 -- -- GenesisBlock
@@ -118,17 +118,17 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
     ]]
 
 instance Bi (BC.BodyProof BC.GenesisBlockchain) where
-  encode (BC.GenesisProof h) = encode h
-  decode = BC.GenesisProof <$> decode
+    encode (BC.GenesisProof h) = encode h
+    decode = BC.GenesisProof <$> decode
 
 instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
-  encode bc =  encodeListLen 2
-            <> encode (BC._gcdEpoch bc)
-            <> encode (BC._gcdDifficulty bc)
-  decode = do
-    enforceSize "BC.ConsensusData BC.GenesisBlockchain" 2
-    BC.GenesisConsensusData <$> decode <*> decode
+    encode bc =  encodeListLen 2
+              <> encode (BC._gcdEpoch bc)
+              <> encode (BC._gcdDifficulty bc)
+    decode = do
+      enforceSize "BC.ConsensusData BC.GenesisBlockchain" 2
+      BC.GenesisConsensusData <$> decode <*> decode
 
 instance Bi (BC.Body BC.GenesisBlockchain) where
-  encode = encode . BC._gbLeaders
-  decode = BC.GenesisBody <$> decode
+    encode = encode . BC._gbLeaders
+    decode = BC.GenesisBody <$> decode

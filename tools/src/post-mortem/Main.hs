@@ -1,43 +1,45 @@
+-- | Post-mortem tool main.
+
+import           Universum
+
 import           Data.List (last)
 import qualified Data.Map.Strict as M
 import           System.FilePath
 import           System.IO (hPutStrLn)
 import           Text.Printf (hPrintf)
 
+import           Pos.Util.Util (histogram)
+
 import           Options
 import           Statistics
 import           Types
-import           Universum hiding (head)
 
-import           Pos.Util.Util (histogram)
 
 main :: IO ()
-main = do
-    opts <- parseOptions
-    case opts of
-        Overview sampleProb logDirs -> do
-            showLogDirs logDirs
-            err $ "sample probability: " ++ show sampleProb
-            err ""
-            xs <- forM logDirs $ flip processLogDirOverview sampleProb
-            chart xs "times.png"
-            err "wrote times chart"
-        Focus txHash logDir         -> do
-            err $ "transaction hash: " ++ show txHash
-            err $ "logs directory: " ++ show logDir
-            let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
-            runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
-            err $ "wrote result to " ++ show focusFile
-        TxRelay logDirs             -> do
-            showLogDirs logDirs
-            err ""
-            for_ logDirs processLogDirTxRelay
-        Throughput txWindow waitWindow logDirs   -> do
-            showLogDirs logDirs
-            err $ "tx window: " ++ show txWindow
-            err $ "wait window: " ++ show waitWindow
-            err ""
-            for_ logDirs $ processLogDirThroughput txWindow waitWindow
+main = parseOptions >>= \case
+    Overview sampleProb logDirs -> do
+        showLogDirs logDirs
+        err $ "sample probability: " ++ show sampleProb
+        err ""
+        xs <- forM logDirs $ flip processLogDirOverview sampleProb
+        chart xs "times.png"
+        err "wrote times chart"
+    Focus txHash logDir         -> do
+        err $ "transaction hash: " ++ show txHash
+        err $ "logs directory: " ++ show logDir
+        let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
+        runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
+        err $ "wrote result to " ++ show focusFile
+    TxRelay logDirs             -> do
+        showLogDirs logDirs
+        err ""
+        for_ logDirs processLogDirTxRelay
+    Throughput txWindow waitWindow logDirs   -> do
+        showLogDirs logDirs
+        err $ "tx window: " ++ show txWindow
+        err $ "wait window: " ++ show waitWindow
+        err ""
+        for_ logDirs $ processLogDirThroughput txWindow waitWindow
 
 showLogDirs :: [FilePath] -> IO ()
 showLogDirs logDirs = do

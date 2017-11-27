@@ -196,7 +196,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }
               where
                 mkListeners' v p =
-                    let ls = mkListeners mkL v p
+                    let ls = mkListeners mkLs v p
                         f = wrapListener ("server" <> lname)
                     in  map f ls
 

@@ -27,8 +27,8 @@ import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
 import           Pos.Util.Chrono           (NewestFirst, OldestFirst, NE)
 
--- | The interface to a diffusion layer, i.e. some component which takes care
--- of getting data in from and pushing data out to a network.
+-- | The interface to a logic layer, i.e. some component which encapsulates
+-- blockchain / crypto logic.
 data Logic m = Logic
     { -- The stakeholder id of our node.
       ourStakeholderId   :: StakeholderId

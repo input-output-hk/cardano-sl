@@ -36,6 +36,7 @@ module Cardano.Wallet.API.V1.Types (
   , PaymentDistribution (..)
   , Transaction (..)
   , TransactionType (..)
+  , TransactionDirection (..)
   , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
@@ -59,6 +60,7 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import qualified Data.Char as C
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
@@ -119,7 +121,7 @@ deriveJSON Serokell.defaultOptions ''PerPage
 -- This value is currently arbitrary and it might need to be tweaked down to strike
 -- the right balance between number of requests and load of each of them on the system.
 maxPerPageEntries :: Int
-maxPerPageEntries = 500
+maxPerPageEntries = 50
 
 -- | If not specified otherwise, a default number of 10 entries from the collection will
 -- be returned as part of each paginated response.
@@ -127,7 +129,7 @@ defaultPerPageEntries :: Int
 defaultPerPageEntries = 10
 
 instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, 500)
+  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
 
 instance FromHttpApiData PerPage where
     parseQueryParam qp = case parseQueryParam qp of
@@ -259,8 +261,6 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
-type Coins = Int
-
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !BackupPhrase
@@ -311,7 +311,7 @@ type AccountId = Text
 data Account = Account
   { accId        :: !AccountId
   , accAddresses :: [Core.Address]
-  , accAmount    :: !Coins
+  , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
   , accWalletId  :: WalletId
@@ -323,7 +323,7 @@ deriveJSON Serokell.defaultOptions ''Account
 instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
                                    <*> listOf1 arbitrary
-                                   <*> fmap getPositive arbitrary
+                                   <*> arbitrary
                                    <*> pure "My account"
                                    <*> arbitrary
 
@@ -415,20 +415,37 @@ instance Arbitrary Payment where
 
 type TxId = Text
 
+-- | The 'Transaction' type.
 data TransactionType =
     LocalTransaction
-  -- ^ This transaction is local to this node.
-  | IncomingTransaction
-  -- ^ This represents an incoming transaction.
-  | OutgoingTransaction
-  -- ^ This qualifies external transaction.
+  -- ^ This transaction is local, which means all the inputs
+  -- and all the outputs belongs to the wallet from which the
+  -- transaction was originated.
+  | ForeignTransaction
+  -- ^ This transaction is not local to this wallet.
   deriving (Show, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse } ''TransactionType
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionType
+
+-- | The 'Transaction' @direction@
+data TransactionDirection =
+    IncomingTransaction
+  -- ^ This represents an incoming transactions.
+  | OutgoingTransaction
+  -- ^ This qualifies external transactions.
+  deriving (Show, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionDirection where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Transaction@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionDirection
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
@@ -443,13 +460,16 @@ data Transaction = Transaction
   , txOutputs       :: !(NonEmpty PaymentDistribution)
     -- ^ The output money distribution.
   , txType          :: TransactionType
-    -- ^ The type for this transaction (e.g local, incoming, etc)
+    -- ^ The type for this transaction (e.g local, foreign, etc).
+  , txDirection     :: TransactionDirection
+    -- ^ The direction for this transaction (e.g incoming, outgoing).
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

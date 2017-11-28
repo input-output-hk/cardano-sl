@@ -41,6 +41,17 @@ module Cardano.Wallet.API.V1.Types (
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Settings
+  , NodeSettings (..)
+  , SlotDuration
+  , mkSlotDuration
+  , BlockchainHeight
+  , mkBlockchainHeight
+  , LocalTimeDifference
+  , mkLocalTimeDifference
+  , SyncProgress
+  , mkSyncProgress
+  , NodeInfo (..)
   -- * Core re-exports
   , Core.Address
   ) where
@@ -53,16 +64,19 @@ import qualified Data.Char as C
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
+import           Data.Version (Version)
 import           Formatting (build, sformat)
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
+
 
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
@@ -476,6 +490,144 @@ instance Arbitrary WalletSoftwareUpdate where
   arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
                                    <*> fmap fromString arbitrary
                                    <*> fmap getPositive arbitrary
+
+-- | How many milliseconds a slot lasts for.
+newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
+                     deriving (Show, Eq)
+
+mkSlotDuration :: Word -> SlotDuration
+mkSlotDuration = SlotDuration . MeasuredIn
+
+instance Arbitrary SlotDuration where
+    arbitrary = mkSlotDuration <$> choose (0, 100)
+
+instance ToJSON SlotDuration where
+    toJSON (SlotDuration (MeasuredIn w)) =
+            object [ "quantity" .= toJSON w
+                   , "unit"     .= String "milliseconds"
+                   ]
+
+instance FromJSON SlotDuration where
+    parseJSON = withObject "SlotDuration" $ \sl -> mkSlotDuration <$> sl .: "quantity"
+
+-- | The @static@ settings for this wallet node. In particular, we could group
+-- here protocol-related settings like the slot duration, the transaction max size,
+-- the current software version running on the node, etc.
+data NodeSettings = NodeSettings {
+     setSlotDuration   :: !SlotDuration
+   , setSoftwareInfo   :: !Core.SoftwareVersion
+   , setProjectVersion :: !Version
+   , setGitRevision    :: !Text
+   } deriving (Show, Eq)
+
+-- The following instances are derived manually due to the fact that changing the
+-- way `SoftwareVersion` is represented would break compatibility with V0, so the
+-- solution is either write this manual instance by hand or create a `newtype` wrapper.
+--deriveJSON Serokell.defaultOptions ''NodeSettings
+instance ToJSON NodeSettings where
+    toJSON NodeSettings{..} =
+        let override Core.SoftwareVersion{..} =
+                object [ "applicationName" .= toJSON (Core.getApplicationName svAppName)
+                       , "version" .=  toJSON svNumber
+                       ]
+        in object [ "slotDuration" .= toJSON setSlotDuration
+                  , "softwareInfo" .= override setSoftwareInfo
+                  , "projectVersion" .= toJSON setProjectVersion
+                  , "gitRevision" .= toJSON setGitRevision
+                  ]
+
+instance FromJSON NodeSettings where
+    parseJSON = withObject "NodeSettings" $ \ns -> do
+        si <- ns .: "softwareInfo"
+        let softwareInfo = withObject "SoftwareVersion" $ \sw ->
+                Core.SoftwareVersion <$> sw .: "applicationName"
+                                     <*> sw .: "version"
+        NodeSettings <$> ns .: "slotDuration"
+                     <*> softwareInfo si
+                     <*> ns .: "projectVersion"
+                     <*> ns .: "gitRevision"
+
+instance Arbitrary NodeSettings where
+    arbitrary = NodeSettings <$> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
+                             <*> pure "0e1c9322a"
+
+-- | The different between the local time and the remote NTP server.
+newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Word)
+                            deriving (Show, Eq)
+
+mkLocalTimeDifference :: Word -> LocalTimeDifference
+mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
+
+instance Arbitrary LocalTimeDifference where
+    arbitrary = mkLocalTimeDifference <$> choose (minBound, maxBound)
+
+instance ToJSON LocalTimeDifference where
+    toJSON (LocalTimeDifference (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "microseconds"
+               ]
+
+instance FromJSON LocalTimeDifference where
+    parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
+
+-- | The sync progress with the blockchain.
+newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
+                     deriving (Show, Eq)
+
+mkSyncProgress :: Word8 -> SyncProgress
+mkSyncProgress = SyncProgress . MeasuredIn
+
+instance Arbitrary SyncProgress where
+    arbitrary = mkSyncProgress <$> choose (0, 100)
+
+instance ToJSON SyncProgress where
+    toJSON (SyncProgress (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "percent"
+               ]
+
+instance FromJSON SyncProgress where
+    parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
+
+-- | The absolute or relative height of the blockchain, measured in number
+-- of blocks.
+newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
+                         deriving (Show, Eq)
+
+mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
+mkBlockchainHeight = BlockchainHeight . MeasuredIn
+
+instance Arbitrary BlockchainHeight where
+    arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
+
+instance ToJSON BlockchainHeight where
+    toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
+                                                      , "unit"     .= String "blocks"
+                                                      ]
+
+instance FromJSON BlockchainHeight where
+    parseJSON = withObject "BlockchainHeight" $ \sl ->
+        mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
+
+-- | The @dynamic@ information for this node.
+data NodeInfo = NodeInfo {
+     nfoSyncProgress          :: !SyncProgress
+   , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
+   -- ^ The current blockchain "height", in blocks, if we know it.
+   , nfoLocalBlockchainHeight :: !BlockchainHeight
+   -- ^ The local blockchain "height", in blocks.
+   , nfoLocalTimeDifference   :: !LocalTimeDifference
+   } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''NodeInfo
+
+instance Arbitrary NodeInfo where
+    arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

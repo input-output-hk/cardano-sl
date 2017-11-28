@@ -1,11 +1,13 @@
 name:                cardano-sl-wallet-new
 version:             0.1.0.0
-synopsis:            Auto-generated API bindings for cardano-sl-web-wallet
+synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
 homepage:            https://github.com/swagger-api/swagger-codegen#readme
 author:              IOHK Engineering Team
 maintainer:          operations@iohk.io
 copyright:           2017 - Input Output Hong Honk
+license:             MIT
+license-file:        LICENSE
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -18,6 +20,7 @@ library
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Types
+                       Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Generic
                        Cardano.Wallet.API.V1.Types
@@ -25,6 +28,8 @@ library
                        Cardano.Wallet.API.V1.Addresses
                        Cardano.Wallet.API.V1.Accounts
                        Cardano.Wallet.API.V1.Transactions
+                       Cardano.Wallet.API.V1.Settings
+                       Cardano.Wallet.API.V1.Info
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Updates
@@ -100,6 +105,8 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Handlers.Transactions
+                       Cardano.Wallet.API.V1.Handlers.Settings
+                       Cardano.Wallet.API.V1.Handlers.Info
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
@@ -115,6 +122,7 @@ executable wallet-new-server
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , cardano-sl-update
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp
@@ -139,6 +147,7 @@ executable wallet-new-server
                      , servant-swagger
                      , serokell-util
                      , memory
+                     , node-sketch
                      , stm
                      , string-conv
                      , swagger2
@@ -196,6 +205,7 @@ test-suite wallet-new-specs
                   , cardano-sl-core
                   , cardano-sl-crypto
                   , cardano-sl-util
+                  , cardano-sl-update
                   , cardano-sl-infra
                   , cardano-sl-ssc
                   , cardano-sl-txp
@@ -213,6 +223,7 @@ test-suite wallet-new-specs
                   , neat-interpolation
                   , quickcheck-instances
                   , memory
+                  , node-sketch
                   , serokell-util
                   , servant
                   , servant-quickcheck

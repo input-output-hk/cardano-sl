@@ -21,12 +21,11 @@ module Pos.Arbitrary.Core
 import           Universum
 
 import qualified Data.ByteString as BS (pack)
-import           Data.List ((!!))
 import qualified Data.Map as M
 import           Data.Time.Units (Microsecond, Millisecond, Second, TimeUnit (..), convertUnit)
 import           System.Random (Random)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
-                                  suchThat)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf, oneof, resize,
+                                  scale, shrinkIntegral, sized, suchThat)
 
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances ()
@@ -448,10 +447,8 @@ instance Arbitrary Types.ApplicationName where
     arbitrary =
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
         Types.mkApplicationName .
-        toText . map selectAlpha . take Types.applicationNameMaxLength <$>
-        arbitrary
+        toText <$> resize Types.applicationNameMaxLength (listOf $ elements alphabet)
       where
-        selectAlpha n = alphabet !! (n `mod` length alphabet)
         alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 instance Arbitrary Types.BlockVersion where

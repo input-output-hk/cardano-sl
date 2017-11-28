@@ -219,12 +219,6 @@ instance ToParamSchema ResponseFormat where
 
 instance ToParamSchema WalletId
 
-instance ToDocs APIVersion where
-  descriptionFor _ = "The API version. We currently support v0 and v1."
-
-instance ToDocs WalletVersion where
-  descriptionFor _ = "The Wallet version, including the API version and the Git revision."
-
 instance ToDocs Metadata where
   descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
 
@@ -269,6 +263,24 @@ instance ToDocs Transaction where
 instance ToDocs WalletSoftwareUpdate where
   descriptionFor _ = "A programmed update to the system."
 
+instance ToDocs NodeSettings where
+  descriptionFor _ = "A collection of static settings for this wallet node."
+
+instance ToDocs BlockchainHeight where
+  descriptionFor _ = "The height of the blockchain."
+
+instance ToDocs SyncProgress where
+  descriptionFor _ = "The sync progress with the blockchain."
+
+instance ToDocs SlotDuration where
+  descriptionFor _ = "The duration for a slot."
+
+instance ToDocs LocalTimeDifference where
+  descriptionFor _ = "The time difference between this node clock and the NTP server."
+
+instance ToDocs NodeInfo where
+  descriptionFor _ = "A collection of dynamic information for this wallet node."
+
 instance ToDocs TransactionGroupingPolicy where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "
                   <> "determine how a `Transaction` is assembled. "
@@ -278,12 +290,6 @@ possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
 possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
 -- ToSchema instances
-
-instance ToSchema APIVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
-
-instance ToSchema WalletVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -322,6 +328,12 @@ instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema WalletSoftwareUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema NodeSettings where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema NodeInfo where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

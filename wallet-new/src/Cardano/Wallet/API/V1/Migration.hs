@@ -98,3 +98,13 @@ instance Migrate V0.CCoin Core.Coin where
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
+
+-- | Migrates to a V1 `SyncProgress` by computing the percentage as
+-- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
+instance Migrate V0.SyncProgress V1.SyncProgress where
+    eitherMigrate V0.SyncProgress{..} =
+        let percentage = case _spNetworkCD of
+                Nothing -> (0 :: Word8)
+                Just nd | _spLocalCD >= nd -> 100
+                Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
+        in pure $ V1.mkSyncProgress (fromIntegral percentage)

@@ -9,7 +9,6 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version (showVersion)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core.Types (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Aeson.Options (customOptionsWithTag)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
@@ -51,7 +50,6 @@ deriveJSON defaultOptions ''CWallet
 deriveJSON defaultOptions ''CPtxCondition
 deriveJSON defaultOptions ''CTx
 deriveJSON defaultOptions ''CTExMeta
-deriveJSON defaultOptions ''SoftwareVersion
 deriveJSON defaultOptions ''CUpdateInfo
 
 deriveToJSON defaultOptions ''SyncProgress

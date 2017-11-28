@@ -44,6 +44,7 @@ done
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   ./validate-wallet-swagger.sh
+  ./check-relevancy-wallet-swagger.sh
 fi
 
 ./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs

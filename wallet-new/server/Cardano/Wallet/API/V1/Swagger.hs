@@ -383,12 +383,13 @@ of [Cardano](https://github.com/input-output-hk/cardano-sl).
 ### Request format (all versions)
 
 Issuing requests against this API is conceptually not very different from any other web service out there. The API
-is **versioned**, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.
+is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_
+in the URL.
 
 **For the sake of backward compatibility, we expose the legacy version of the API, available simply as
 unversioned endpoints.**
 
-This means that _omitting_ the version number would call the version 0 of the API. Examples:
+This means that _omitting_ the version number would call the old version of the API. Examples:
 
 ```
 /api/version

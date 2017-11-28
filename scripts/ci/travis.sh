@@ -42,6 +42,10 @@ done
   #./update-haddock.sh
 #fi
 
+if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+  ./validate-wallet-swagger.sh
+fi
+
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
 export XZ_OPT=-1

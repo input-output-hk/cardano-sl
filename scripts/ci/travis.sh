@@ -44,6 +44,7 @@ done
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
   ./validate-wallet-swagger.sh
+  ./check-relevancy-wallet-swagger.sh
 fi
 
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing

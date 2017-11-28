@@ -102,10 +102,3 @@ recvLimited
        ( Monad m, MessageLimited rcv m )
     => ConversationActions snd rcv m -> m (Maybe rcv)
 recvLimited conv = getMsgLenLimit (Proxy @rcv) >>= recv conv . getLimit
-
--- | Wrapper for `Arbitrary` instances to indicate that
--- where an alternative exists, maximum available size is chosen.
--- This is required at first place to generate lists of max available size.
--- newtype MaxSize a = MaxSize
---     { getOfMaxSize :: a
---     } deriving (Eq, Ord, Show, Bi.Bi, Functor, MessageLimitedPure)

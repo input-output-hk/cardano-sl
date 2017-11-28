@@ -19,31 +19,6 @@ import           Pos.Infra.Configuration (HasInfraConfiguration)
 -- Instances of MessageLimited for the relay types.
 ----------------------------------------------------------------------------
 
--- This is the Either a b instance (overlaps, InvOrData is Either).
-{-
-instance (HasInfraConfiguration, MessageLimited (DataMsg contents) m, Monad m)
-      => MessageLimited (InvOrData key contents) m where
-    getMsgLenLimit _ = do
-        Limit invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
-        Limit dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
-        -- 1 byte is added because of `Either`
-        return $ Limit (1 + (invLim `max` dataLim))
--}
-
--- This is the Either a b instance (overlaps, ReqOrRes is Either).
-{-
-instance (HasInfraConfiguration, Monad m) => MessageLimited (ReqOrRes key) m where
-    getMsgLenLimit _ = do
-        Limit reqLim <- getMsgLenLimit $ Proxy @(ReqMsg key)
-        Limit resLim <- getMsgLenLimit $ Proxy @(ResMsg key)
-        -- 1 byte is added because of `Either`
-        return $ Limit (1 + (reqLim `max` resLim))
--}
-
-----------------------------------------------------------------------------
--- Instances of MessageLimitedPure for the relay types.
-----------------------------------------------------------------------------
-
 instance (HasInfraConfiguration, Applicative m) => MessageLimited (InvMsg key) m where
     getMsgLenLimit _ = pure $ Limit Conf.maxInvSize
 

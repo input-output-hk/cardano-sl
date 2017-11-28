@@ -89,10 +89,6 @@ Enter `nix-shell`:
 
     $ nix-shell
 
-And if it is the first project in Haskell on this machine, run `stack setup`:
-
-    [nix-shell:~/cardano-sl]$ stack setup --nix
-
 After that, in order to build Cardano SL with wallet capabilities, run the following script:
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh

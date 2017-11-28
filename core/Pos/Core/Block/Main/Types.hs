@@ -20,8 +20,9 @@ import           Formatting (bprint, build, builder, (%))
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..))
-import           Pos.Core.Types (BlockVersion, ChainDifficulty, HeaderHash, ProxySigHeavy,
-                                 ProxySigLight, SlotId (..), SoftwareVersion)
+import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
+import           Pos.Core.Types (BlockVersion, ChainDifficulty, HeaderHash, SlotId (..),
+                                 SoftwareVersion)
 import           Pos.Crypto (Hash, Signature)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 

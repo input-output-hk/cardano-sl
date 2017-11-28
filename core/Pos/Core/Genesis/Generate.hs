@@ -28,6 +28,7 @@ import           Pos.Core.Coin (applyCoinPortionDown, coinToInteger, mkCoin, sum
                                 unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer (..),
@@ -35,7 +36,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          TestnetBalanceOptions (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
-import           Pos.Core.Types (Coin, ProxySKHeavy, StakeholderId)
+import           Pos.Core.Types (Coin, StakeholderId)
 import           Pos.Crypto (EncryptedSecretKey, HasCryptoConfiguration, RedeemPublicKey, SecretKey,
                              VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
                              keyGen, randomNumberInRange, redeemDeterministicKeyGen, safeKeyGen,

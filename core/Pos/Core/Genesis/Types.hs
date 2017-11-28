@@ -35,9 +35,10 @@ import           Serokell.Util (allDistinct, mapJson)
 
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Coin ()
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Ssc.Types (VssCertificatesMap, getVssCertificatesMap)
-import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, ProxySKHeavy,
-                                 SharedSeed, StakeholderId, Timestamp)
+import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, SharedSeed,
+                                 StakeholderId, Timestamp)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing (RedeemPublicKey)
 

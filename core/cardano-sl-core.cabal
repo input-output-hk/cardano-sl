@@ -102,6 +102,10 @@ library
   other-modules:
                        Pos.Core.Context.PrimaryKey
 
+                       -- Delegation
+                       Pos.Core.Delegation.Types
+                       Pos.Core.Delegation.Util
+
                        -- SSC
                        Pos.Core.Ssc.Types
                        Pos.Core.Ssc.Util

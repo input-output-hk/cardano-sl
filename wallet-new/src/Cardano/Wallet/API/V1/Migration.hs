@@ -108,3 +108,9 @@ instance Migrate V0.SyncProgress V1.SyncProgress where
                 Just nd | _spLocalCD >= nd -> 100
                 Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
         in pure $ V1.mkSyncProgress (fromIntegral percentage)
+
+--
+instance Migrate V0.CProfile V1.UserProfile where
+    eitherMigrate V0.CProfile{..} =
+        let locale = if cpLocale == mempty then "en-US" else cpLocale
+        in pure $ V1.UserProfile (V1.I18n locale)

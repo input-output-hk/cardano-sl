@@ -286,6 +286,9 @@ instance ToDocs TransactionGroupingPolicy where
                   <> "determine how a `Transaction` is assembled. "
                   <> "Possible values: [" <> possibleValuesOf @TransactionGroupingPolicy Proxy <> "]."
 
+instance ToDocs UserProfile where
+  descriptionFor _ = "User settings relative to this wallet, for example the language locale."
+
 possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
 possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
@@ -334,6 +337,9 @@ instance ToSchema NodeSettings where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema NodeInfo where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema UserProfile where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

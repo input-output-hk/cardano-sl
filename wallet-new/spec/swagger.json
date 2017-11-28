@@ -794,6 +794,21 @@
                 }
             }
         },
+        "UserProfile": {
+            "example": {
+                "locale": "ko-KR"
+            },
+            "required": [
+                "locale"
+            ],
+            "type": "object",
+            "description": "User settings relative to this wallet, for example the language locale.",
+            "properties": {
+                "locale": {
+                    "type": "string"
+                }
+            }
+        },
         "Version": {
             "required": [
                 "versionBranch",
@@ -1525,6 +1540,60 @@
                 ],
                 "tags": [
                     "V0"
+                ]
+            }
+        },
+        "/api/v1/user-profile": {
+            "get": {
+                "summary": "Returns the user profile for this wallet.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/UserProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "User Profile",
+                    "V1"
+                ]
+            },
+            "put": {
+                "summary": "Update user-related information.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/UserProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UserProfile"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "User Profile",
+                    "V1"
                 ]
             }
         },

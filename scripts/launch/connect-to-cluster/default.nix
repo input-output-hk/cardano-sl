@@ -5,6 +5,7 @@
 , executable ? "wallet"
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
+, rev ? ""
 }:
 
 # TODO: DEVOPS-462: docker to use this script
@@ -28,7 +29,7 @@ let
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
-  iohkPkgs = import ./../../../default.nix { inherit config system pkgs; };
+  iohkPkgs = import ./../../../default.nix { inherit config system pkgs; gitrev = rev; };
   src = ./../../../.;
   topologyFile = pkgs.writeText "topology-${environment}" ''
     wallet:

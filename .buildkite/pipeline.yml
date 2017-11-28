@@ -1,6 +1,6 @@
 steps:
   - label: ':rocket: Ex-Travis'
-    command: 'source scripts/set_nixpath.sh && TRAVIS_COMMIT=${BUILDKITE_COMMIT} TRAVIS_BRANCH=${BUILDKITE_BRANCH} scripts/ci/travis.sh'
+    command: 'export NIX_PATH="nixpkgs=$(/run/current-system/sw/bin/nix-build "$(dirname -- $(readlink -f -- ${BASH_SOURCE[0]}))/fetch-nixpkgs.nix" -o nixpkgs)"; export NIX_BUILD_SHELL=/run/current-system/sw/bin/bash; /run/current-system/sw/bin/nix-shell -p nix -p bash -p coreutils --run scripts/ci/travis.sh'
     env:
       NIX_REMOTE: daemon
       PATH: bin:/run/current-system/sw/bin

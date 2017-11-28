@@ -2,7 +2,11 @@
 
 set -e
 
-if [[ ("$TRAVIS_OS_NAME" == "linux") && ("$TRAVIS_BRANCH" == "master") ]];
+source scripts/set_nixpath.sh
+
+OS_NAME=$(uname -s | tr A-Z a-z)
+
+if [[ ("$OS_NAME" == "linux") && ("$BUILDKITE_BRANCH" == "master") ]];
   then with_haddock=true
   else with_haddock=false
 fi
@@ -10,7 +14,7 @@ fi
 targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-node"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
-if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+if [[ "$OS_NAME" == "linux" ]]; then
    targets="$targets cardano-sl-explorer-static"
 fi
 
@@ -25,7 +29,7 @@ fi
 
 for trgt in $targets; do
   echo building $trgt with nix
-  nix-build -A $trgt -o $trgt.root --argstr gitrev $TRAVIS_COMMIT
+  nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \
@@ -35,7 +39,7 @@ for trgt in $targets; do
 
 done
 
-#if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
+#if [[ "$OS_NAME" == "linux" && "$BUILDKITE_BRANCH" == "master" && "$BUILDKITE_PULL_REQUEST" == "false" ]]; then
   #./update-wallet-web-api-docs.sh
   #./update-explorer-web-api-docs.sh
   #./update-cli-docs.sh
@@ -47,9 +51,9 @@ done
 # Generate daedalus-bridge
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
-  echo $TRAVIS_BUILD_NUMBER > build-id
-  echo $TRAVIS_COMMIT > commit-id
-  echo https://travis-ci.org/${TRAVIS_REPO_SLUG}/jobs/$TRAVIS_JOB_ID > ci-url
+  echo $BUILDKITE_BUILD_NUMBER > build-id
+  echo $BUILDKITE_COMMIT > commit-id
+  echo https://buildkite.com/input-output-hk/cardano-sl/builds/$BUILDKITE_BUILD_NUMBER > ci-url
   cp ../log-config-prod.yaml .
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
@@ -60,8 +64,8 @@ pushd daedalus
   ./cardano-launcher --help > /dev/null
 popd
 
-# Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
-export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
+# Replace BUILDKITE_BRANCH slash not to fail on subdirectory missing
+export BUILD_UID="$OS_NAME-${BUILDKITE_BRANCH//\//-}"
 export XZ_OPT=-1
 
 mkdir -p s3
@@ -71,7 +75,7 @@ tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
 echo "Done"
 
 # For now we dont have macOS developers on explorer
-if [[ ("$TRAVIS_OS_NAME" == "linux") ]]; then
+if [[ ("$OS_NAME" == "linux") ]]; then
   # Generate explorer frontend
   EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs ./explorer/frontend/scripts/build.sh
 

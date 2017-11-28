@@ -31,7 +31,8 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               blockPageSubParam, fromCAddressOrThrow,
                                               spSessId, subscribeAddr, subscribeBlocksLastPage,
                                               subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam, unsubscribeAddr)
+                                              txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
+                                              unsubscribeEpochsLastPage, unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -81,14 +82,26 @@ spec =
             modifyMaxSize (const 200) $
                 prop "adds sessions of `block last page` subscribers to `ConnectionsState`"
                     subscribeBlocksLastPageProp
+        describe "unsubscribeBlocksLastPage" $
+            modifyMaxSize (const 200) $
+                prop "removes sessions of `block last page` subscribers from `ConnectionsState`"
+                    unsubscribeBlocksLastPageProp
         describe "subscribeTxs" $
             modifyMaxSize (const 200) $
                 prop "adds sessions of `tx` subscribers to `ConnectionsState`"
                     subscribeTxsProp
+        describe "unsubscribeTxs" $
+            modifyMaxSize (const 200) $
+                prop "removes sessions of `tx` subscribers from `ConnectionsState`"
+                    unsubscribeTxsProp
         describe "subscribeEpochsLastPage" $
             modifyMaxSize (const 200) $
                 prop "adds sessions of `epochs last page` subscribers to `ConnectionsState`"
                     subscribeEpochsLastPageProp
+        describe "unsubscribeEpochsLastPage" $
+            modifyMaxSize (const 200) $
+                prop "removes sessions of `epochs last page` subscribers from `ConnectionsState`"
+                    unsubscribeEpochsLastPageProp
 
 
 addressSetByTxsProp :: SecretKey -> Bool
@@ -157,9 +170,28 @@ subscribeBlocksLastPageProp =
             (_, updatedConnState) <- run subscription
 
             -- get sessions of "block last page" subscribers
-            let mSessions = updatedConnState ^. csBlocksPageSubscribers
+            let sessions = updatedConnState ^. csBlocksPageSubscribers
             -- to check whether current session has been added to it or not
-            assert $ S.member socketId mSessions
+            assert $ S.member socketId sessions
+
+unsubscribeBlocksLastPageProp :: Property
+unsubscribeBlocksLastPageProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            let connState = mkSubConnectionState socketId
+            -- add a subscription ...
+            let subscription = runSubTestMode connState $
+                                    subscribeBlocksLastPage socketId
+            (_, updatedConnState) <- run subscription
+            -- and unsubscribe it
+            let unsubscription = runSubTestMode updatedConnState $
+                                    unsubscribeBlocksLastPage socketId
+            (_, updatedConnState') <- run unsubscription
+
+            -- get sessions of "block last page" subscribers
+            let sessions = updatedConnState' ^. csBlocksPageSubscribers
+            -- to check that this session has not been stored anymore
+            assert $ S.size sessions == 0
 
 
 subscribeTxsProp :: Property
@@ -173,9 +205,28 @@ subscribeTxsProp =
             (_, updatedConnState) <- run subscription
 
             -- get sessions of "tx" subscribers
-            let mSessions = updatedConnState ^. csTxsSubscribers
+            let sessions = updatedConnState ^. csTxsSubscribers
             -- to check whether current session has been added to it or not
-            assert $ S.member socketId mSessions
+            assert $ S.member socketId sessions
+
+
+unsubscribeTxsProp :: Property
+unsubscribeTxsProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            -- add a subscription ...
+            let connState = mkSubConnectionState socketId
+            let subscription = runSubTestMode connState $
+                                    subscribeTxs socketId
+            (_, updatedConnState) <- run subscription
+            -- .. and unsubscribe it
+            let unsubscription = runSubTestMode updatedConnState $
+                                    unsubscribeTxs socketId
+            (_, updatedConnState') <- run unsubscription
+            -- get sessions of "tx" subscribers
+            let sessions = updatedConnState' ^. csTxsSubscribers
+            -- to check current session has been removed
+            assert $ S.size sessions == 0
 
 
 subscribeEpochsLastPageProp :: Property
@@ -189,9 +240,29 @@ subscribeEpochsLastPageProp =
             (_, updatedConnState) <- run subscription
 
             -- get sessions of "epoch last page" subscribers
-            let mSessions = updatedConnState ^. csEpochsLastPageSubscribers
+            let sessions = updatedConnState ^. csEpochsLastPageSubscribers
             -- to check whether current session has been added to it or not
-            assert $ S.member socketId mSessions
+            assert $ S.member socketId sessions
+
+
+unsubscribeEpochsLastPageProp :: Property
+unsubscribeEpochsLastPageProp =
+    forAll arbitrary $ \socketId ->
+        monadicIO $ do
+            let connState = mkSubConnectionState socketId
+            -- Add a subscription ...
+            let subscription = runSubTestMode connState $
+                                    subscribeEpochsLastPage socketId
+            (_, updatedConnState) <- run subscription
+            -- and unsubscribe it
+            let unsubscription = runSubTestMode updatedConnState $
+                                      unsubscribeEpochsLastPage socketId
+            (_, updatedConnState') <- run unsubscription
+
+            -- get sessions of "epoch last page" subscribers
+            let sessions = updatedConnState' ^. csEpochsLastPageSubscribers
+            -- to check that current session has been removed
+            assert $ S.size sessions == 0
 
 ----------------------------------------------------------------------------
 -- Helpers

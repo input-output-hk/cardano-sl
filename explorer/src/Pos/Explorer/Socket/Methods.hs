@@ -30,6 +30,7 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeAddr
        , unsubscribeBlocksLastPage
        , unsubscribeEpochsLastPage
+       , unsubscribeFully
        , unsubscribeTxs
 
        -- * Notifications

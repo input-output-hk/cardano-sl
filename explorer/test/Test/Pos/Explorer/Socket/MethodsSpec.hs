@@ -32,7 +32,8 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                                               spSessId, subscribeAddr, subscribeBlocksLastPage,
                                               subscribeEpochsLastPage, subscribeTxs,
                                               txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeTxs)
+                                              unsubscribeEpochsLastPage, unsubscribeFully,
+                                              unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -102,6 +103,10 @@ spec =
             modifyMaxSize (const 200) $
                 prop "removes sessions of `epochs last page` subscribers from `ConnectionsState`"
                     unsubscribeEpochsLastPageProp
+        describe "unsubscribeFully" $
+            modifyMaxSize (const 200) $
+                prop "removes all sessions of subscribers from `ConnectionsState`"
+                    unsubscribeFullyProp
 
 
 addressSetByTxsProp :: SecretKey -> Bool
@@ -261,6 +266,38 @@ unsubscribeEpochsLastPageProp =
 
             -- get sessions of "epoch last page" subscribers
             let sessions = updatedConnState' ^. csEpochsLastPageSubscribers
+            -- to check that current session has been removed
+            assert $ S.size sessions == 0
+
+
+unsubscribeFullyProp :: Property
+unsubscribeFullyProp =
+    forAll arbitrary $ \(socketId, cAddr) ->
+        monadicIO $ do
+            -- create `Address` subscription
+            let connState = mkSubConnectionState socketId
+            let subscriptionA = runSubTestMode connState $
+                                  subscribeAddr cAddr socketId
+            (_, connStateA) <- run subscriptionA
+            -- create `Txs` subscription
+            let subscriptionB = runSubTestMode connStateA $
+                                  subscribeTxs socketId
+            (_, connStateB) <- run subscriptionB
+            -- create `blocks last page` subscription
+            let subscriptionC = runSubTestMode connStateB $
+                                  unsubscribeBlocksLastPage socketId
+            (_, connStateC) <- run subscriptionC
+            -- create `epochs last page` subscription
+            let subscriptionD = runSubTestMode connStateC $
+                                  subscribeEpochsLastPage socketId
+            (_, connStateD) <- run subscriptionD
+            -- unsubscribe all
+            let unsubscription = runSubTestMode connStateD $
+                                      unsubscribeFully socketId
+            (_, connStateFinal) <- run unsubscription
+
+            -- get sessions of "epoch last page" subscribers
+            let sessions = connStateFinal ^. csEpochsLastPageSubscribers
             -- to check that current session has been removed
             assert $ S.size sessions == 0
 

@@ -50,7 +50,7 @@ In the client scenario, the launcher operates as follows:
     1. Assume it's a crash and report (when a report server is available)
     2. Wait for the wallet
     3. If the wallet indicated that it needs to update (exited with code 20)
-       Goto to step 1 of client scenario
+    4. Goto to step 1 of client scenario
 6. If the wallet exited first, check its exit code:
     1. If it indicated that it needs an update (code 20)
         * Wait for the node to die (timeout specified in CLI)

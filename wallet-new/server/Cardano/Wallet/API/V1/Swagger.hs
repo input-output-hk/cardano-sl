@@ -429,3 +429,8 @@ api = toSwagger walletAPI
   where
     makeRow err = [surroundedBy "_" err, "-", "-"]
     surroundedBy wrap context = wrap <> context <> wrap
+
+-- | We store actual swagger spec at this location
+-- (counting from the root of the project).
+specFile :: FilePath
+specFile = "wallet-new/spec/swagger.json"

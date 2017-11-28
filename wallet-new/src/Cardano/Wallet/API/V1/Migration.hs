@@ -98,3 +98,6 @@ instance Migrate V0.CCoin Core.Coin where
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
+
+instance Migrate V1.WalletId (V0.CId V0.Wal) where
+    eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))

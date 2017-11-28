@@ -3,13 +3,14 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Methods.Restore as V0
 
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -66,9 +67,8 @@ deleteWallet :: WalletId
              -> MonadV1 NoContent
 deleteWallet _ = return NoContent
 
-getWallet :: WalletId
-          -> MonadV1 Wallet
-getWallet _ = liftIO $ generate arbitrary
+getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m Wallet
+getWallet = migrate <=< V0.getWallet <=< migrate
 
 updateWallet :: WalletId
              -> WalletUpdate

@@ -1,4 +1,3 @@
-
 -- | Tests of Pos.Explorer.Socket.Methods
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -163,7 +162,7 @@ unsubscribeAddrProp =
             -- to check that no session has been stored anymore
             assert $ M.size sessions == 0
 
-
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 subscribeBlocksLastPageProp :: Property
 subscribeBlocksLastPageProp =
     forAll arbitrary $ \socketId ->

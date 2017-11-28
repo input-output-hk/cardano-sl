@@ -12,6 +12,7 @@ import           Universum hiding (bracket)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Reflection (give)
+import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Mockable, Bracket, bracket, Catch, Throw, throw, withAsync)
 import           Mockable.Production (Production)
@@ -206,7 +207,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.
             runDiffusionLayer :: forall y . d y -> d y
-            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq listeners
+            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq currentSlotDuration listeners
 
             enqueue :: EnqueueMsg d
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
@@ -253,6 +254,9 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 
             sendSscCommitment :: MCCommitment -> d ()
             sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+
+            currentSlotDuration :: d Millisecond
+            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
             -- Derive various message size limits from the latest adopted
             -- block version data (provided by the logic layer).
@@ -303,10 +307,11 @@ runDiffusionLayerFull
     => NetworkConfig KademliaParams
     -> VerInfo
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
+    -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig ourVerInfo oq listeners action =
+runDiffusionLayerFull networkConfig ourVerInfo oq slotDuration listeners action =
     bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
         bracketKademlia networkConfig $ \networkConfig' ->
             timeWarpNode transport ourVerInfo listeners $ \_ converse ->
@@ -330,10 +335,7 @@ runDiffusionLayerFull networkConfig ourVerInfo oq listeners action =
         return ((>>= either throw return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) -> do
-            keepaliveTimer <- error "TIMER"
-            -- TODO update to use logic layer to get next slot interval.
-            let retryInterval = pure 20000
-            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer retryInterval sactions
+            dnsSubscriptionWorker oq networkConfig dnsDomains slotDuration sactions
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
             dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
         Nothing -> pure ()

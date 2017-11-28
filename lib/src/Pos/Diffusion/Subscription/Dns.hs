@@ -21,7 +21,6 @@ import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
 import           Pos.Diffusion.Subscription.Common
-import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker
     :: forall pack kademlia m.
@@ -33,10 +32,9 @@ dnsSubscriptionWorker
     => OQ.OutboundQ pack NodeId Bucket
     -> NetworkConfig kademlia
     -> DnsDomains DNS.Domain
-    -> Timer
     -> m Millisecond
     -> Worker m
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepAliveTimer retryInterval sendActions = do
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} retryInterval sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -88,7 +86,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepAliveTimer retryInterval 
     subscribeToOne dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepAliveTimer sendActions peer
+            void $ subscribeTo retryInterval sendActions peer
             subscribeToOne peers
 
     -- Find peers via DNS, preserving order.

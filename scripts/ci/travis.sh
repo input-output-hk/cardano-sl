@@ -42,6 +42,10 @@ done
   #./update-haddock.sh
 #fi
 
+if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+  ./validate-wallet-swagger.sh
+fi
+
 ./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
 
 # Generate daedalus-bridge

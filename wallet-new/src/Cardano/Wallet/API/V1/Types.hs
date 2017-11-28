@@ -16,10 +16,12 @@ module Cardano.Wallet.API.V1.Types (
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
-  , PasswordUpdate (..)
-  , AccountUpdate (..)
   , Update
   , New
+  -- * RESTful updates
+  , PasswordUpdate (..)
+  , AccountUpdate (..)
+  , UserProfileUpdate
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -52,6 +54,9 @@ module Cardano.Wallet.API.V1.Types (
   , SyncProgress
   , mkSyncProgress
   , NodeInfo (..)
+  -- * User profile
+  , I18nLocale (..)
+  , UserProfile (..)
   -- * Core re-exports
   , Core.Address
   ) where
@@ -629,13 +634,37 @@ instance Arbitrary NodeInfo where
                          <*> arbitrary
                          <*> arbitrary
 
+-- | An <https://en.wikipedia.org/wiki/Internationalization_and_localization i18n> locale.
+-- See: https://github.com/input-output-hk/daedalus/blob/master/translations/translation-runner.js#L7
+newtype I18nLocale = I18n Text deriving (Show, Eq)
+
+deriveJSON defaultOptions { unwrapUnaryRecords = True } ''I18nLocale
+
+instance Arbitrary I18nLocale where
+    arbitrary = I18n <$> elements ["en-US", "hr-HR", "de-DE", "zh-CN", "ko-KR", "ja-JP"]
+
+-- | A 'User' of this wallet.
+data UserProfile = UserProfile {
+    urpLocale :: !I18nLocale
+    } deriving (Show, Eq)
+
+instance Arbitrary UserProfile where
+    arbitrary = UserProfile <$> arbitrary
+
+deriveJSON Serokell.defaultOptions ''UserProfile
+
+-- Initially updating a user profile correspond to send the full
+-- 'User' payload over the wire an input.
+type UserProfileUpdate = UserProfile
+
 --
 -- POST/PUT requests isomorphisms
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet  = WalletUpdate
-  Update Account = AccountUpdate
+  Update Wallet      = WalletUpdate
+  Update Account     = AccountUpdate
+  Update UserProfile = UserProfileUpdate
 
 type family New (original :: *) :: * where
   New Wallet  = NewWallet

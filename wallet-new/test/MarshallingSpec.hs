@@ -34,6 +34,8 @@ spec = describe "Marshalling & Unmarshalling" $ do
     prop "Aeson SyncProgress roundtrips" (aesonRoundtrip @SyncProgress Proxy)
     prop "Aeson NodeInfo roundtrips" (aesonRoundtrip @NodeInfo Proxy)
     prop "Aeson NodeSettings roundtrips" (aesonRoundtrip @NodeSettings Proxy)
+    prop "Aeson I18nLocale roundtrips" (aesonRoundtrip @I18nLocale Proxy)
+    prop "Aeson UserProfile roundtrips" (aesonRoundtrip @UserProfile Proxy)
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do

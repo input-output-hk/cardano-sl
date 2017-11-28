@@ -1,9 +1,15 @@
 # Cardano SL Launcher
 
-The launcher is an executable that manages running, killing, and re-running the
-node and the wallet. For instance, when an update is downloaded, the launcher
-will stop the node and the wallet, apply the update, delete the update archive,
-and relaunch the node and the wallet.
+Launcher is utility that is responsible for:
+ * Launching node, wallet
+ * Executing updates (given update archive is retrieved by node)
+ * Reporting to report server in case node/wallet finish unexpectedly
+
+For example, when an update is downloaded, Launcher will:
+ * Wait for wallet to finish
+ * Stop the node
+ * Execute update (to apply the update), delete the update archive
+ * Relaunch node, wallet
 
 ## Scenarios
 

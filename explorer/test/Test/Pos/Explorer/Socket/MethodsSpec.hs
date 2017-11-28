@@ -291,15 +291,22 @@ unsubscribeFullyProp =
             let subscriptionD = runSubTestMode connStateC $
                                   subscribeEpochsLastPage socketId
             (_, connStateD) <- run subscriptionD
+
             -- unsubscribe all
             let unsubscription = runSubTestMode connStateD $
-                                      unsubscribeFully socketId
+                                    unsubscribeFully socketId
             (_, connStateFinal) <- run unsubscription
 
-            -- get sessions of "epoch last page" subscribers
-            let sessions = connStateFinal ^. csEpochsLastPageSubscribers
-            -- to check that current session has been removed
-            assert $ S.size sessions == 0
+            -- get all sessions of subscribers
+            let sessionsA = connStateFinal ^. csAddressSubscribers
+            let sessionsB = connStateFinal ^. csBlocksPageSubscribers
+            let sessionsC = connStateFinal ^. csTxsSubscribers
+            let sessionsD = connStateFinal ^. csEpochsLastPageSubscribers
+            -- to check that all sessions have to be removed
+            assert $ (M.size sessionsA == 0) &&
+                     (S.size sessionsB == 0) &&
+                     (S.size sessionsC == 0) &&
+                     (S.size sessionsD == 0)
 
 ----------------------------------------------------------------------------
 -- Helpers

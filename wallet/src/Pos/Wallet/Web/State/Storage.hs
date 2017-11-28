@@ -27,7 +27,8 @@ module Pos.Wallet.Web.State.Storage
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncTip
-       , getWalletAddresses
+       , getWalletIds
+       , getWalletWAddresses
        , getAccountWAddresses
        , doesWAddressExist
        , getTxHistoryMeta
@@ -77,6 +78,7 @@ module Pos.Wallet.Web.State.Storage
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , applyModifierToWallet
+       , applyModifierToWallets
        ) where
 
 import           Universum
@@ -254,14 +256,22 @@ getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
 getWalletSyncTip :: CId Wal -> Query (Maybe WalletTip)
 getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 
-getWalletAddresses :: Query [CId Wal]
-getWalletAddresses =
+getWalletIds :: Query [CId Wal]
+getWalletIds =
     map fst . sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
-getAccountWAddresses :: AddressLookupMode
-                  -> AccountId
-                  -> Query (Maybe [CWAddressMeta])
+getWalletWAddresses :: AddressLookupMode -> CId Wal -> Query (Maybe [CWAddressMeta])
+getWalletWAddresses mode walId = preview (wsWalletInfos . ix walId) >>= \case
+    Nothing -> pure Nothing
+    Just _  -> do
+        accIds <- getWalletAccountIds walId
+        Just . concat . catMaybes <$> mapM (getAccountWAddresses mode) accIds
+
+getAccountWAddresses
+    :: AddressLookupMode
+    -> AccountId
+    -> Query (Maybe [CWAddressMeta])
 getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
@@ -522,6 +532,13 @@ flushWalletStorage = modify flushDo
     flushWalletInfo wi = wi { _wiSyncTip = NotSynced
                             , _wiIsReady = False
                             }
+
+applyModifierToWallets
+    :: HeaderHash
+    -> [(CId Wal, WalletModifier)]
+    -> Update ()
+applyModifierToWallets newTip =
+    mapM_ (\(wid, wmod) -> applyModifierToWallet wid newTip wmod)
 
 applyModifierToWallet
     :: CId Wal

@@ -7,7 +7,7 @@ module Pos.Wallet.Web.State.Memory.Types
        , ExtStorageModifierVar
        , HasExtStorageModifier
 
-       , StorageModifier
+       , StorageModifier (..)
        , applyWalModifier
        , applyToWalletStorage
        , applyToWalletStorageForOneWallet
@@ -16,6 +16,7 @@ module Pos.Wallet.Web.State.Memory.Types
 
 import           Universum
 
+import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     (makeLensesWith)
 import qualified Data.HashMap.Strict              as HM
 
@@ -37,8 +38,11 @@ data ExtStorageModifier = ExtStorageModifier
     , esmMemStorageModifier :: !StorageModifier
     }
 
-
-type ExtStorageModifierVar = TVar ExtStorageModifier
+-- TMVar is used here to handle synchronization of wallet-db and ExtStorageModifier.
+-- When a value from TMVar is available then everything is in consistent state,
+-- otherwise chaning tip for wallet-db and ExtStorageModifier
+-- is going atm in a thread taken value from TMVar.
+type ExtStorageModifierVar = STM.TMVar ExtStorageModifier
 type HasExtStorageModifier ctx = HasLens ExtStorageModifierVar ctx ExtStorageModifierVar
 
 ----------------------------------------------------------------------------

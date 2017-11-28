@@ -9,17 +9,18 @@ module Pos.Wallet.Web.Backup
 
 import           Universum
 
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.SemVer                as V
+import qualified Data.HashMap.Strict               as HM
+import qualified Data.SemVer                       as V
 
-import           Pos.Crypto                 (EncryptedSecretKey)
-import           Pos.Util.Util              (maybeThrow)
-import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
-                                             CWalletMeta (..), Wal)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (getAccountMeta, getWalletAccountIds,
-                                             getWalletMeta)
+import           Pos.Crypto                        (EncryptedSecretKey)
+import           Pos.Util.Util                     (maybeThrow)
+import           Pos.Wallet.Web.Account            (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes        (AccountId (..), CAccountMeta (..),
+                                                    CId, CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.Error              (WalletError (..))
+import           Pos.Wallet.Web.State              (getAccountMeta, getWalletAccountIds,
+                                                    getWalletMeta)
+import           Pos.Wallet.Web.State.Memory.Types (HasExtStorageModifier)
 
 currentBackupFormatVersion :: V.Version
 currentBackupFormatVersion = V.initial & V.major .~ 1
@@ -35,7 +36,7 @@ data WalletBackup = WalletBackup
 
 data TotalBackup = TotalBackup WalletBackup
 
-getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
+getWalletBackup :: (HasExtStorageModifier ctx, AccountMode ctx m) => CId Wal -> m WalletBackup
 getWalletBackup wId = do
     sk <- getSKById wId
     meta <- maybeThrow (InternalError "Wallet have no meta") =<<

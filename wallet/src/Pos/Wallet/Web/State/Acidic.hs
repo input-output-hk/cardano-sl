@@ -20,7 +20,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletMetaIncludeUnready (..)
        , GetWalletPassLU (..)
        , GetWalletSyncTip (..)
-       , GetWalletAddresses (..)
+       , GetWalletIds (..)
+       , GetWalletWAddresses (..)
        , GetWalletUtxo (..)
        , GetWalletBalancesAndUtxo (..)
        , UpdateWalletBalancesAndUtxo (..)
@@ -72,6 +73,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletStorage (..)
        , FlushWalletStorage (..)
        , ApplyModifierToWallet (..)
+       , ApplyModifierToWallets (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
        ) where
@@ -126,7 +128,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletMetaIncludeUnready
     , 'WS.getWalletPassLU
     , 'WS.getWalletSyncTip
-    , 'WS.getWalletAddresses
+    , 'WS.getWalletIds
+    , 'WS.getWalletWAddresses
     , 'WS.getWalletUtxo
     , 'WS.getWalletBalancesAndUtxo
     , 'WS.updateWalletBalancesAndUtxo
@@ -178,4 +181,5 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WS.applyModifierToWallet
+    , 'WS.applyModifierToWallets
     ]

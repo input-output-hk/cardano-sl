@@ -8,6 +8,7 @@ module Pos.Wallet.Web.State.State
        , MonadWalletDBAccess
        , MonadWalletDBRead
        , MonadWalletDB
+       , MonadWalletDBReadWithMempool
        , openState
        , openMemState
        , closeState
@@ -21,12 +22,14 @@ module Pos.Wallet.Web.State.State
        , getAccountMetas
        , getAccountMeta
        , getAccountWAddresses
+       , getWalletWAddresses
+       , getWalletWAddressesDB
        , getWalletMetas
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncTip
-       , getWalletAddresses
+       , getWalletIds
        , doesWAddressExist
        , getTxMeta
        , getWalletTxHistory
@@ -69,34 +72,43 @@ module Pos.Wallet.Web.State.State
        , getWalletStorage
        , flushWalletStorage
        , applyModifierToWallet
+       , applyModifierToWallets
        ) where
 
 import           Universum
 
-import           Data.Acid                        (EventResult, EventState, QueryEvent,
-                                                   UpdateEvent)
-import qualified Data.Map                         as Map
-import           Ether.Internal                   (lensOf)
+import qualified Control.Concurrent.STM            as STM
+import           Data.Acid                         (EventResult, EventState, QueryEvent,
+                                                    UpdateEvent)
+import qualified Data.HashMap.Strict               as HM
+import qualified Data.Map                          as Map
+import           Ether.Internal                    (lensOf)
 
-import           Pos.Client.Txp.History           (TxHistoryEntry)
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Txp                          (TxId, Utxo, UtxoModifier)
-import           Pos.Types                        (HeaderHash)
-import           Pos.Util.Servant                 (encodeCType)
-import           Pos.Util.Util                    (HasLens')
-import           Pos.Wallet.Web.ClientTypes       (AccountId, Addr, CAccountMeta, CId,
-                                                   CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                                   CWAddressMeta, CWalletMeta,
-                                                   PassPhraseLU, Wal)
-import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic      (WalletState, closeState, openMemState,
-                                                   openState)
-import           Pos.Wallet.Web.State.Acidic      as A
-import           Pos.Wallet.Web.State.Storage     (AddressLookupMode (..),
-                                                   CustomAddressType (..),
-                                                   PtxMetaUpdate (..), WalletBalances,
-                                                   WalletStorage, WalletTip (..))
-import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier (..))
+import           Pos.Client.Txp.History            (TxHistoryEntry)
+import           Pos.Core.Configuration            (HasConfiguration)
+import           Pos.Txp                           (TxId, Utxo, UtxoModifier)
+import           Pos.Types                         (HeaderHash)
+import           Pos.Util.Servant                  (encodeCType)
+import           Pos.Util.Util                     (HasLens')
+import           Pos.Wallet.Web.ClientTypes        (AccountId (..), Addr, CAccountMeta,
+                                                    CId, CProfile, CTxId, CTxMeta,
+                                                    CUpdateInfo, CWAddressMeta (..),
+                                                    CWalletMeta, PassPhraseLU, Wal)
+import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition)
+import           Pos.Wallet.Web.State.Acidic       (WalletState, closeState, openMemState,
+                                                    openState)
+import           Pos.Wallet.Web.State.Acidic       as A
+import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifier (..),
+                                                    ExtStorageModifierVar,
+                                                    HasExtStorageModifier,
+                                                    StorageModifier (..))
+import           Pos.Wallet.Web.State.Storage      (AddressLookupMode (..),
+                                                    CustomAddressType (..),
+                                                    PtxMetaUpdate (..), WalletBalances,
+                                                    WalletInfo (..), WalletStorage (..),
+                                                    WalletTip (..))
+import qualified Pos.Wallet.Web.State.Storage      as S
+import           Pos.Wallet.Web.Tracking.Modifier  (WalletModifier (..))
 
 -- | No read or write, just access to state handler
 type MonadWalletDBAccess ctx m =
@@ -128,24 +140,96 @@ updateDisk
 updateDisk e = getWalletWebState >>= flip A.update e
 
 ----------------------------------------------------------------------------
+-- Primitives for synchronization with wallet-db
+----------------------------------------------------------------------------
+
+-- | Waits until wallet's modifier is consistent with wallet-db.
+-- Returns WalletStorage from disk with along SModifier applied to it.
+waitWalletCons
+    :: ( MonadWalletDBRead ctx m
+       , HasExtStorageModifier ctx
+       )
+    => CId Wal -> a -> Reader WalletStorage a -> m a
+waitWalletCons wal defRes action = do
+    storage <- getWalletStorage
+    case _wiSyncTip <$> HM.lookup wal (_wsWalletInfos storage) of
+        Just (SyncedWith dbTip) -> do
+            modifierVar <- view (lensOf @ExtStorageModifierVar)
+            ExtStorageModifier{..} <- atomically $ STM.readTMVar modifierVar
+            if esmTip == dbTip then do
+                -- Case when modifier's tip and db's tip are the same
+                -- it's easy case, just apply modifier to db
+                let sm = HM.lookupDefault mempty wal (getStorageModifier esmMemStorageModifier)
+                pure $
+                    runReader action $
+                    execState (S.applyModifierToWallet wal esmTip sm) storage
+            else
+                -- Case when tips are mismatched, hence,
+                -- we took db and modifier at the moment when they were updating
+                -- the next such moment will when new block comes. So just can retry.
+                -- Basically it's lock free: either another thread made some progress or the current thread.
+                waitWalletCons wal defRes action
+        _                       -> pure defRes
+
+----------------------------------------------------------------------------
 -- Query operations affected by mempool
 ----------------------------------------------------------------------------
 
-getWalletAccountIds :: MonadWalletDBRead ctx m => CId Wal -> m [AccountId]
-getWalletAccountIds = queryDisk ... A.GetWalletAccountIds
+type MonadWalletDBReadWithMempool ctx m = (MonadWalletDBRead ctx m, HasExtStorageModifier ctx)
 
-getHistoryCache :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
-getHistoryCache = queryDisk . A.GetHistoryCache
+getWalletAccountIds
+    :: MonadWalletDBReadWithMempool ctx m
+    => CId Wal -> m [AccountId]
+getWalletAccountIds wal = waitWalletCons wal [] (S.getWalletAccountIds wal)
+
+getHistoryCache
+    :: MonadWalletDBReadWithMempool ctx m
+    => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
+getHistoryCache wal = waitWalletCons wal Nothing (S.getHistoryCache wal)
 
 getAccountWAddresses
-    :: MonadWalletDBRead ctx m
+    :: MonadWalletDBReadWithMempool ctx m
     => AddressLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
-getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
+getAccountWAddresses mode accId@AccountId{..} =
+    waitWalletCons aiWId Nothing (S.getAccountWAddresses mode accId)
+
+getWalletWAddresses
+    :: MonadWalletDBReadWithMempool ctx m
+    => AddressLookupMode -> CId Wal -> m (Maybe [CWAddressMeta])
+getWalletWAddresses mode wid =
+    waitWalletCons wid Nothing (S.getWalletWAddresses mode wid)
 
 doesWAddressExist
-    :: MonadWalletDBRead ctx m
+    :: MonadWalletDBReadWithMempool ctx m
     => AddressLookupMode -> CWAddressMeta -> m Bool
-doesWAddressExist mode = queryDisk . A.DoesWAddressExist mode
+doesWAddressExist mode addrId@CWAddressMeta{..} =
+    waitWalletCons cwamWId False (S.doesWAddressExist mode addrId)
+
+getAccountMeta :: MonadWalletDBReadWithMempool ctx m => AccountId -> m (Maybe CAccountMeta)
+getAccountMeta accId@AccountId{..} =
+    waitWalletCons aiWId Nothing (S.getAccountMeta accId)
+
+getTxMeta :: MonadWalletDBReadWithMempool ctx m => CId Wal -> CTxId -> m (Maybe CTxMeta)
+getTxMeta walId txId =
+    waitWalletCons walId Nothing (S.getTxHistoryMeta walId txId)
+
+getWalletTxHistory :: MonadWalletDBReadWithMempool ctx m => CId Wal -> m (Maybe [CTxMeta])
+getWalletTxHistory walId =
+    waitWalletCons walId Nothing (S.getWalletTxHistoryMetas walId)
+
+-- Operations below which wait for synchronization of all wallets.
+-- Some of them should depend on CId Wal, but we can't do it without wallet-db migration
+-- which requires secret keys (it can't be performed in SafeCopy's Migration typeclass).
+
+-- TODO implement synchronization primitive to wait all wallets and use it here.
+getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [CId Addr]
+getCustomAddresses = queryDisk ... A.GetCustomAddresses
+
+getAccountMetas :: MonadWalletDBRead ctx m => m [CAccountMeta]
+getAccountMetas = queryDisk A.GetAccountMetas
+
+isCustomAddress :: MonadWalletDBRead ctx m => CustomAddressType -> CId Addr -> m Bool
+isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 
 getWalletUtxo :: MonadWalletDBRead ctx m => m Utxo
 getWalletUtxo = queryDisk A.GetWalletUtxo
@@ -153,30 +237,17 @@ getWalletUtxo = queryDisk A.GetWalletUtxo
 getWalletBalancesAndUtxo :: MonadWalletDBRead ctx m => m (WalletBalances, Utxo)
 getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
 
-getAccountMeta :: MonadWalletDBRead ctx m => AccountId -> m (Maybe CAccountMeta)
-getAccountMeta = queryDisk . A.GetAccountMeta
-
-getAccountMetas :: MonadWalletDBRead ctx m => m [CAccountMeta]
-getAccountMetas = queryDisk A.GetAccountMetas
-
-getTxMeta :: MonadWalletDBRead ctx m => CId Wal -> CTxId -> m (Maybe CTxMeta)
-getTxMeta cWalId = queryDisk . A.GetTxHistoryMeta cWalId
-
-getWalletTxHistory :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe [CTxMeta])
-getWalletTxHistory = queryDisk . A.GetWalletTxHistoryMetas
-
-isCustomAddress :: MonadWalletDBRead ctx m => CustomAddressType -> CId Addr -> m Bool
-isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
-
-getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [CId Addr]
-getCustomAddresses = queryDisk ... A.GetCustomAddresses
-
 ----------------------------------------------------------------------------
 -- Query operations not affected by mempool
 ----------------------------------------------------------------------------
 
-getWalletAddresses :: MonadWalletDBRead ctx m => m [CId Wal]
-getWalletAddresses = queryDisk A.GetWalletAddresses
+getWalletIds :: MonadWalletDBRead ctx m => m [CId Wal]
+getWalletIds = queryDisk A.GetWalletIds
+
+getWalletWAddressesDB
+    :: MonadWalletDBRead ctx m
+    => AddressLookupMode -> CId Wal -> m (Maybe [CWAddressMeta])
+getWalletWAddressesDB mode = queryDisk . A.GetWalletWAddresses mode
 
 getWalletMetaIncludeUnready :: MonadWalletDBRead ctx m => Bool -> CId Wal -> m (Maybe CWalletMeta)
 getWalletMetaIncludeUnready includeReady = queryDisk . A.GetWalletMetaIncludeUnready includeReady
@@ -304,3 +375,6 @@ flushWalletStorage = updateDisk A.FlushWalletStorage
 
 applyModifierToWallet :: MonadWalletDB ctx m => CId Wal -> HeaderHash -> WalletModifier -> m ()
 applyModifierToWallet = updateDisk ... A.ApplyModifierToWallet
+
+applyModifierToWallets :: MonadWalletDB ctx m => HeaderHash -> [(CId Wal, WalletModifier)] -> m ()
+applyModifierToWallets = updateDisk ... A.ApplyModifierToWallets

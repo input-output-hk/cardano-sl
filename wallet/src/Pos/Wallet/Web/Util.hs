@@ -19,6 +19,7 @@ import           Formatting                 (build, sformat, (%))
 import           Pos.Core                   (BlockCount)
 import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
+
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
@@ -26,11 +27,12 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
 
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, MonadWalletDBRead,
-                                             getAccountWAddresses, getWalletAccountIds,
-                                             getWalletMeta)
+                                             MonadWalletDBReadWithMempool,
+                                             getAccountWAddresses, getWalletMeta,
+                                             getWalletWAddresses)
 
 getAccountAddrsOrThrow
-    :: (MonadWalletDBRead ctx m, MonadThrow m)
+    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
     => AddressLookupMode -> AccountId -> m [CWAddressMeta]
 getAccountAddrsOrThrow mode accId =
     getAccountWAddresses mode accId >>= maybeThrow noAccount
@@ -40,22 +42,19 @@ getAccountAddrsOrThrow mode accId =
         sformat ("No account with id "%build%" found") accId
 
 getWalletAddrMetas
-    :: (MonadWalletDBRead ctx m, MonadThrow m)
+    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
-getWalletAddrMetas lookupMode cWalId =
-    concatMapM (getAccountAddrsOrThrow lookupMode) =<<
-    getWalletAccountIds cWalId
+getWalletAddrMetas mode wid = fmap (fromMaybe []) $ getWalletWAddresses mode wid
 
 getWalletAddrs
-    :: (MonadWalletDBRead ctx m, MonadThrow m)
+    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CId Addr]
-getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
+getWalletAddrs mode wid = (cwamId <<$>>) . fmap (fromMaybe []) $ getWalletWAddresses mode wid
 
 getWalletAddrsSet
-    :: (MonadWalletDBRead ctx m, MonadThrow m)
+    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m (Set (CId Addr))
-getWalletAddrsSet lookupMode cWalId =
-    S.fromList . map cwamId <$> getWalletAddrMetas lookupMode cWalId
+getWalletAddrsSet = fmap S.fromList ... getWalletAddrs
 
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType

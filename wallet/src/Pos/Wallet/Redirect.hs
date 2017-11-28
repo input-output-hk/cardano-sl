@@ -21,6 +21,8 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
+import qualified Control.Concurrent.STM            as STM
+import           Control.Exception.Safe            (onException)
 import           Control.Lens                      (views)
 import qualified Data.HashMap.Strict               as HM
 import           Data.Time.Units                   (Millisecond)
@@ -183,15 +185,28 @@ txpNormalizeWebWallet
        , AccountMode ctx m
        , HasExtStorageModifier ctx
        , HasBlocksStorageModifier ctx
+       , MonadMask m
        ) => m ()
 txpNormalizeWebWallet = do
     txNormalize
-    !memStorageMod <- buildStorageModifier
     memTip <- atomically . readTVar =<< (txpTip <$> askTxpMem)
     memStorageModifierVar <- view (lensOf @ExtStorageModifierVar)
-    blocksStorageModifierVar <- view (lensOf @BlocksStorageModifierVar)
-    blocksStorageModifier <- atomically $ getStorageModifier <$> readTVar blocksStorageModifierVar
-    mapM_ (\(wid, wmod) -> WS.applyModifierToWallet wid memTip wmod) blocksStorageModifierVar
-    atomically $ do
-        writeTVar memStorageModifierVar memStorageMod
-        writeTVar blocksStorageModifierVar mempty
+    -- Take value to show that
+    -- the current thread are going to update wallet-db and modifier
+    void $ STM.tryReadTMVar memStorageModifierVar
+    updateWalletDBAndBuildModifier `onException` STM.tryPutTMVar (ExtStorageModifier memTip mempty)
+  where
+    updateWalletDBAndBuildModifier = do
+        -- Update wallet-db
+        blocksStorageModifierVar <- view (lensOf @BlocksStorageModifierVar)
+        blocksStorageModifier <- atomically $ getStorageModifier <$> readTVar blocksStorageModifierVar
+        WS.applyModifierToWallets memTip blocksStorageModifier
+
+        -- Prepare data to update wallet modifier
+        !memStorageMod <- buildStorageModifier
+        memStorageModifierVar <- view (lensOf @ExtStorageModifierVar)
+
+        atomically $ do
+            -- Update blocks storage modifier and wallet modifier
+            writeTVar blocksStorageModifierVar mempty
+            STM.writeTMVar memStorageModifierVar memStorageMod

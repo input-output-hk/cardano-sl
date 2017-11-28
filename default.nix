@@ -15,6 +15,19 @@ with pkgs.haskell.lib;
 
 let
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
+  addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
+    testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+    preCheck = ''
+      mkdir -p dist/test
+      touch dist/test/test.log
+      tail -F dist/test/test.log &
+      export TAILPID=$!
+    '';
+    postCheck = ''
+      sleep 10
+      kill $TAILPID
+    '';
+  });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
@@ -28,17 +41,6 @@ let
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
         ];
-        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
-        preCheck = ''
-          mkdir -p dist/test
-          touch dist/test/test.log
-          tail -F dist/test/test.log &
-          export TAILPID=$!
-        '';
-        postCheck = ''
-          sleep 10
-          kill $TAILPID
-        '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
         passthru = {
@@ -46,6 +48,7 @@ let
         };
       });
 
+      cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
       cardano-sl-node = addGitRev super.cardano-sl-node;
       cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);

@@ -57,6 +57,7 @@ instance FromJSON V.Version where
 instance FromJSON AccountMetaBackup where
     parseJSON = withObject "AccountMetaBackup" $ \o -> do
         caName <- o .: "name"
+        caAddressIndex <- o .: "address_index"
         return $ AccountMetaBackup $ CAccountMeta {..}
 
 instance FromJSON WalletMetaBackup where
@@ -64,6 +65,7 @@ instance FromJSON WalletMetaBackup where
         cwName <- o .: "name"
         cwAssurance <- strToAssurance =<< o .: "assurance"
         cwUnit <- strToUnit =<< o .: "unit"
+        cwAccountIndex <- o .: "account_index"
         return $ WalletMetaBackup $ CWalletMeta {..}
 
 instance FromJSON IndexedAccountMeta where

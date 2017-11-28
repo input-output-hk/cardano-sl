@@ -8,7 +8,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 10574016894293587,\n        \"addresses\": [\n            \"Un4ZpTvXtoKfUHjDCrusx7xrADRVPP11956y3BPMs6Mrgng4qbEQrjPn2dhLTDiqLtptbiGD5ZYc7FPq2iCVTuD9jnWz2KtaSdfWdU1huyKxd795\",\n            \"3qruzscJwnkDgVrhM7QEbBpsLTKgAfGSGoVkvN6frVXPxwsgjbpooVVvYBdmcUaLsLXNVVi1RrkSinxYiFSV1aH8X8FcP8MbzP1QFDKpicCkV78Z61tUKE3bFBASFJXNpmZ8vFkrY36a6WgyQh8VsXpqnvynLDZyFcURF9bhHWqrMBbmxMqWeYX8zcKGCR84BccQr1Bf7vu6xFL7xcdUZHqH55J3a7gGsHRG2XUjEfkF5WyHz6toRpAzzL4rRLL1K2ypckMUrQNeVdMN7ADhfufhqJQsrk\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 18773007703513614,\n        \"addresses\": [\n            \"5oP9ib6ym3XbH2fmvNAm5dUyE7xFqQztrsN41xg7hbXQbmbQnYUgXXt2rFZUgLyYPd\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 23759697234791994,\n            \"addresses\": [\n                \"Un4ZpTvXtoKN7YiPTJZgXcD8uywHboxG9r7ZQqCRnpvnFAq7Gx4gpUd5Wqti65ZXydvyrg8KVe2oWVXi5PiVosGoEWGZLseimCRBEM61DCbL5hqj\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 39337990575634793,\n            \"addresses\": [\n                \"7J1MaQmKydNVxXeuuEk33yiWbfA9mjA3TSzxsLzVaPq7LzDsx11Wz9qBT738VcPE53sg9sREzDzdRD43AAByWX55rdvigsfAQW1nj7aysmFfmtb\",\n                \"2657WMsDfac6Yj1L8CzH6jr7Xqd82zKm91aYZL61Ft1TV44RtY8YQDgFtJtjoqe5W\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 46,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the version 0 of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 10574016894293587,\n        \"addresses\": [\n            \"Un4ZpTvXtoKfUHjDCrusx7xrADRVPP11956y3BPMs6Mrgng4qbEQrjPn2dhLTDiqLtptbiGD5ZYc7FPq2iCVTuD9jnWz2KtaSdfWdU1huyKxd795\",\n            \"3qruzscJwnkDgVrhM7QEbBpsLTKgAfGSGoVkvN6frVXPxwsgjbpooVVvYBdmcUaLsLXNVVi1RrkSinxYiFSV1aH8X8FcP8MbzP1QFDKpicCkV78Z61tUKE3bFBASFJXNpmZ8vFkrY36a6WgyQh8VsXpqnvynLDZyFcURF9bhHWqrMBbmxMqWeYX8zcKGCR84BccQr1Bf7vu6xFL7xcdUZHqH55J3a7gGsHRG2XUjEfkF5WyHz6toRpAzzL4rRLL1K2ypckMUrQNeVdMN7ADhfufhqJQsrk\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 18773007703513614,\n        \"addresses\": [\n            \"5oP9ib6ym3XbH2fmvNAm5dUyE7xFqQztrsN41xg7hbXQbmbQnYUgXXt2rFZUgLyYPd\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 23759697234791994,\n            \"addresses\": [\n                \"Un4ZpTvXtoKN7YiPTJZgXcD8uywHboxG9r7ZQqCRnpvnFAq7Gx4gpUd5Wqti65ZXydvyrg8KVe2oWVXi5PiVosGoEWGZLseimCRBEM61DCbL5hqj\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 39337990575634793,\n            \"addresses\": [\n                \"7J1MaQmKydNVxXeuuEk33yiWbfA9mjA3TSzxsLzVaPq7LzDsx11Wz9qBT738VcPE53sg9sREzDzdRD43AAByWX55rdvigsfAQW1nj7aysmFfmtb\",\n                \"2657WMsDfac6Yj1L8CzH6jr7Xqd82zKm91aYZL61Ft1TV44RtY8YQDgFtJtjoqe5W\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 46,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
     },
     "definitions": {
         "CPtxCondition": {
@@ -1422,6 +1422,8 @@
                 ]
             }
         },
+=======
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
         "/api/settings/sync/progress": {
             "get": {
                 "summary": "Current sync progress",
@@ -1442,6 +1444,7 @@
                 ]
             }
         },
+<<<<<<< HEAD
         "/api/v0/txs/fee/{from}/{to}/{amount}": {
             "post": {
                 "summary": "Estimate fees for performing given transaction.",
@@ -1502,6 +1505,8 @@
                 ]
             }
         },
+=======
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
         "/api/wallets/new": {
             "post": {
                 "summary": "Create a new wallet.",
@@ -1760,25 +1765,6 @@
                 ]
             }
         },
-        "/api/v0/info": {
-            "get": {
-                "summary": "Get general information about this service.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/ClientInfo"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
         "/api/v1/updates": {
             "post": {
                 "summary": "Applies the update. Returns info about the update being applied.",
@@ -1799,7 +1785,44 @@
                 ]
             }
         },
-        "/api/v0/txs/payments/{address}/{transaction}": {
+        "/api/settings/version": {
+            "get": {
+                "summary": "Get general information about this service.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/SoftwareVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/info": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/ClientInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/txs/fee/{from}/{to}/{amount}": {
             "post": {
                 "summary": "Update payment transaction.",
                 "consumes": [
@@ -1807,12 +1830,15 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "`address` or `transaction` not found"
+                        "description": "`from` or `to` or `amount` not found"
                     },
                     "400": {
                         "description": "Invalid `body`"
                     },
                     "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CCoin"
+                        },
                         "description": ""
                     }
                 },
@@ -1824,19 +1850,27 @@
                         "format": "walletSetAddress@walletKeyIndex",
                         "required": true,
                         "in": "path",
-                        "name": "address",
+                        "name": "from",
                         "type": "string"
                     },
                     {
                         "required": true,
                         "in": "path",
-                        "name": "transaction",
+                        "name": "to",
                         "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "amount",
+                        "type": "integer"
                     },
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/CTxMeta"
+                            "$ref": "#/definitions/InputSelectionPolicy"
                         },
                         "in": "body",
                         "name": "body"
@@ -1847,6 +1881,7 @@
                 ]
             }
         },
+<<<<<<< HEAD
         "/api/v0/test/reset": {
             "post": {
                 "summary": "Clear wallet state and remove all secret key.",
@@ -1864,19 +1899,22 @@
             }
         },
         "/api/v0/backup/import": {
+=======
+        "/api/backup/export/{walletId}": {
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
             "post": {
                 "summary": "Import full information about wallet from a given file.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
                 "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
                     "400": {
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CWallet"
-                        },
                         "description": ""
                     }
                 },
@@ -1884,6 +1922,12 @@
                     "application/json;charset=utf-8"
                 ],
                 "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
                     {
                         "required": true,
                         "schema": {
@@ -1898,13 +1942,13 @@
                 ]
             }
         },
-        "/api/settings/version": {
+        "/api/update": {
             "get": {
                 "summary": "Get current version of the node.",
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/SoftwareVersion"
+                            "$ref": "#/definitions/CUpdateInfo"
                         },
                         "description": ""
                     }
@@ -1917,7 +1961,7 @@
                 ]
             }
         },
-        "/api/v0/txs/payments/{from}/{to}/{amount}": {
+        "/api/txs/payments/{from}/{to}/{amount}": {
             "post": {
                 "summary": "Create a new payment transaction.",
                 "consumes": [
@@ -1981,56 +2025,38 @@
                 ]
             }
         },
+<<<<<<< HEAD
         "/api/v0/accounts": {
             "post": {
                 "summary": "Create a new account in given wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body` or `passphrase`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CAccount"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "passphrase",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/CAccountInit"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            },
+=======
+        "/api/txs/histories": {
             "get": {
-                "summary": "Get information about all available accounts.",
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                 "responses": {
                     "400": {
-                        "description": "Invalid `accountId`"
+                        "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
                     },
                     "200": {
                         "schema": {
-                            "items": {
-                                "$ref": "#/definitions/CAccount"
-                            },
+                            "minItems": 2,
+                            "items": [
+                                {
+                                    "items": {
+                                        "$ref": "#/definitions/CTx"
+                                    },
+                                    "type": "array"
+                                },
+                                {
+                                    "maximum": 1.8446744073709551615e19,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                }
+                            ],
+                            "maxItems": 2,
                             "type": "array"
                         },
                         "description": ""
@@ -2041,6 +2067,70 @@
                 ],
                 "parameters": [
                     {
+                        "in": "query",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "skip",
+                        "type": "integer"
+                    },
+                    {
+                        "maximum": 1.8446744073709551615e19,
+                        "minimum": 0,
+                        "in": "query",
+                        "name": "limit",
+                        "type": "integer"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+<<<<<<< HEAD
+            },
+            "get": {
+                "summary": "Get information about all available accounts.",
+=======
+            }
+        },
+        "/api/v1/wallets": {
+            "post": {
+                "summary": "Creates a new Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "201": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+<<<<<<< HEAD
                         "in": "query",
                         "name": "accountId",
                         "type": "string"
@@ -3112,17 +3202,21 @@
                         "type": "string"
                     },
                     {
+=======
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/CWalletInit"
+                            "$ref": "#/definitions/NewWallet"
                         },
                         "in": "body",
                         "name": "body"
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V1",
+                    "Wallets"
                 ]
+<<<<<<< HEAD
             }
         },
         "/api/accounts": {
@@ -3131,13 +3225,18 @@
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
+=======
+            },
+            "get": {
+                "summary": "Returns all the available wallets.",
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                 "responses": {
                     "400": {
-                        "description": "Invalid `body` or `passphrase`"
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/CAccount"
+                            "$ref": "#/definitions/OneOf [Wallet] (ExtendedResponse [Wallet])"
                         },
                         "description": ""
                     }
@@ -3147,7 +3246,10 @@
                 ],
                 "parameters": [
                     {
+                        "default": 1,
+                        "minimum": 1,
                         "in": "query",
+<<<<<<< HEAD
                         "name": "passphrase",
                         "type": "string"
                     },
@@ -3169,23 +3271,18 @@
                 "responses": {
                     "400": {
                         "description": "Invalid `accountId`"
+=======
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                     },
-                    "200": {
-                        "schema": {
-                            "items": {
-                                "$ref": "#/definitions/CAccount"
-                            },
-                            "type": "array"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
                     {
+                        "maximum": 50,
+                        "default": 10,
+                        "minimum": 1,
                         "in": "query",
+<<<<<<< HEAD
                         "name": "accountId",
                         "type": "string"
                     }
@@ -3204,19 +3301,14 @@
                 "responses": {
                     "400": {
                         "description": "Invalid `body`"
+=======
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                     },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CProfile"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
                     {
+<<<<<<< HEAD
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/CProfile"
@@ -3272,6 +3364,470 @@
                 "responses": {
                     "400": {
                         "description": "Invalid `body`"
+=======
+                        "default": "plain",
+                        "in": "query",
+                        "name": "response_format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                    },
+                    {
+                        "default": "plain",
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/test/reset": {
+            "post": {
+<<<<<<< HEAD
+                "summary": "Send node's report on initialization time.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+=======
+                "responses": {
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/wallets": {
+            "get": {
+                "summary": "Get blockchain slot duration in milliseconds.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CWallet"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/settings/slots/duration": {
+            "get": {
+                "summary": "Get information about all available wallets.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+<<<<<<< HEAD
+        "/api/v0/txs/histories": {
+            "get": {
+                "summary": "Get the history of transactions.",
+=======
+        "/api/v1/wallets/{walletId}/password": {
+            "put": {
+                "summary": "Updates the password for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PasswordUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/wallets/keys": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CWallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/FilePath"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/transactions": {
+            "post": {
+                "summary": "Generates a new transaction from the source to one or multiple target addresses.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Transaction"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Transactions",
+                    "V1"
+                ]
+            },
+            "get": {
+                "summary": "Returns the transaction history, i.e the list of all the past transactions.",
+                "responses": {
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Transaction] (ExtendedResponse [Transaction])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 50,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "query",
+                        "name": "response_format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    },
+                    {
+                        "default": "plain",
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
+                    }
+                ],
+                "tags": [
+                    "Transactions",
+                    "V1"
+                ]
+            }
+        },
+<<<<<<< HEAD
+        "/api/v0/update": {
+            "get": {
+                "summary": "Get information about the next update.",
+=======
+        "/api/papervend/redemptions/ada": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CPaperVendWalletRedeem"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/update/postpone": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/updates/next": {
+            "get": {
+                "summary": "Requests information about the next scheduled update.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Updates",
+                    "V1"
+                ]
+            }
+        },
+        "/api/accounts": {
+            "post": {
+                "summary": "Create a new address in given account.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CAccount"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CAccountInit"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            },
+            "get": {
+                "responses": {
+                    "400": {
+                        "description": "Invalid `accountId`"
+                    },
+                    "200": {
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/CAccount"
+                            },
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/update/apply": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/transactions/fees": {
+            "post": {
+<<<<<<< HEAD
+                "summary": "Postpone last update.",
+=======
+                "summary": "Estimate the fees which would originate from the payment.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -3301,7 +3857,7 @@
         },
         "/api/reporting/initialized": {
             "post": {
-                "summary": "Send node's report on initialization time.",
+                "summary": "Restore existing wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3331,118 +3887,6 @@
                 ]
             }
         },
-        "/api/v0/settings/slots/duration": {
-            "get": {
-                "summary": "Get blockchain slot duration in milliseconds.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "maximum": 1.8446744073709551615e19,
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/v0/wallets": {
-            "get": {
-                "summary": "Get information about all available wallets.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "items": {
-                                "$ref": "#/definitions/CWallet"
-                            },
-                            "type": "array"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/v0/txs/histories": {
-            "get": {
-                "summary": "Get the history of transactions.",
-                "responses": {
-                    "400": {
-                        "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
-                    },
-                    "200": {
-                        "schema": {
-                            "minItems": 2,
-                            "items": [
-                                {
-                                    "items": {
-                                        "$ref": "#/definitions/CTx"
-                                    },
-                                    "type": "array"
-                                },
-                                {
-                                    "maximum": 1.8446744073709551615e19,
-                                    "minimum": 0,
-                                    "type": "integer"
-                                }
-                            ],
-                            "maxItems": 2,
-                            "type": "array"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "format": "walletSetAddress@walletKeyIndex",
-                        "in": "query",
-                        "name": "accountId",
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "address",
-                        "type": "string"
-                    },
-                    {
-                        "maximum": 1.8446744073709551615e19,
-                        "minimum": 0,
-                        "in": "query",
-                        "name": "skip",
-                        "type": "integer"
-                    },
-                    {
-                        "maximum": 1.8446744073709551615e19,
-                        "minimum": 0,
-                        "in": "query",
-                        "name": "limit",
-                        "type": "integer"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
         "/api/v1/node-settings": {
             "get": {
                 "summary": "Retrieves the static settings for this node.",
@@ -3465,7 +3909,11 @@
         },
         "/api/v1/addresses": {
             "post": {
+<<<<<<< HEAD
+                "summary": "Update user profile.",
+=======
                 "summary": "Creates a new Address.",
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3499,8 +3947,38 @@
                 ]
             },
             "get": {
+<<<<<<< HEAD
+                "summary": "Get user profile's meta data.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/txs/payments/{address}/{transaction}": {
+            "post": {
+                "summary": "Update payment transaction.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`address` or `transaction` not found"
+                    },
+=======
                 "summary": "Returns all the addresses.",
                 "responses": {
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                     "400": {
                         "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
                     },
@@ -3561,28 +4039,9 @@
                 ]
             }
         },
-        "/api/v0/update": {
-            "get": {
-                "summary": "Get information about the next update.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CUpdateInfo"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
         "/api/addresses": {
             "post": {
-                "summary": "Create a new address in given account.",
+                "summary": "Import user's secret key from the path to generate wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3620,223 +4079,7 @@
                 ]
             }
         },
-        "/api/v0/update/postpone": {
-            "post": {
-                "summary": "Postpone last update.",
-                "responses": {
-                    "200": {
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
         "/api/wallets/restore": {
-            "post": {
-                "summary": "Restore existing wallet.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body` or `passphrase`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CWallet"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "passphrase",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/CWalletInit"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/v1/node-info": {
-            "get": {
-                "summary": "Retrieves the dynamic information for this node.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/NodeInfo"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "Info",
-                    "V1"
-                ]
-            }
-        },
-        "/api/profile": {
-            "post": {
-                "summary": "Update user profile.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CProfile"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/CProfile"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            },
-            "get": {
-                "summary": "Get user profile's meta data.",
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CProfile"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/txs/payments/{address}/{transaction}": {
-            "post": {
-                "summary": "Update payment transaction.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "404": {
-                        "description": "`address` or `transaction` not found"
-                    },
-                    "400": {
-                        "description": "Invalid `body`"
-                    },
-                    "200": {
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "format": "walletSetAddress@walletKeyIndex",
-                        "required": true,
-                        "in": "path",
-                        "name": "address",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "transaction",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/CTxMeta"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/v0/wallets/keys": {
-            "post": {
-                "summary": "Import user's secret key from the path to generate wallet.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body` or `passphrase`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CWallet"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "passphrase",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/FilePath"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "V0"
-                ]
-            }
-        },
-        "/api/v0/wallets/new": {
             "post": {
                 "summary": "Create a new wallet.",
                 "consumes": [
@@ -3876,56 +4119,50 @@
                 ]
             }
         },
+<<<<<<< HEAD
         "/api/v0/wallets/password/{walletId}": {
             "post": {
                 "summary": "Change passphrase of given wallet.",
+=======
+        "/api/v1/node-info": {
+            "get": {
+                "summary": "Retrieves the dynamic information for this node.",
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                 "responses": {
-                    "404": {
-                        "description": "`walletId` not found"
-                    },
-                    "400": {
-                        "description": "Invalid `new` or `old`"
-                    },
                     "200": {
+                        "schema": {
+                            "$ref": "#/definitions/NodeInfo"
+                        },
                         "description": ""
                     }
                 },
                 "produces": [
                     "application/json;charset=utf-8"
                 ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "old",
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "new",
-                        "type": "string"
-                    }
-                ],
                 "tags": [
-                    "V0"
+                    "Info",
+                    "V1"
                 ]
             }
         },
+<<<<<<< HEAD
         "/api/v0/addresses/{address}": {
             "get": {
                 "summary": "Returns True if given address is valid, False otherwise.",
+=======
+        "/api/profile": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                 "responses": {
-                    "404": {
-                        "description": "`address` not found"
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
-                            "type": "boolean"
+                            "$ref": "#/definitions/CProfile"
                         },
                         "description": ""
                     }
@@ -3936,49 +4173,49 @@
                 "parameters": [
                     {
                         "required": true,
-                        "in": "path",
-                        "name": "address",
-                        "type": "string"
+                        "schema": {
+                            "$ref": "#/definitions/CProfile"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
                     "V0"
                 ]
-            }
-        },
-        "/api/test/state": {
+            },
             "get": {
                 "summary": "Print wallet state as JSON",
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletStateSnapshot"
+                            "$ref": "#/definitions/CProfile"
                         },
                         "description": ""
                     }
                 },
                 "produces": [
-                    "application/octet-stream"
+                    "application/json;charset=utf-8"
                 ],
                 "tags": [
                     "V0"
                 ]
             }
         },
-        "/api/v0/redemptions/ada": {
+        "/api/txs/payments/{address}/{transaction}": {
             "post": {
                 "summary": "Redeem ADA.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
                 "responses": {
+                    "404": {
+                        "description": "`address` or `transaction` not found"
+                    },
                     "400": {
-                        "description": "Invalid `body` or `passphrase`"
+                        "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "$ref": "#/definitions/CTx"
-                        },
                         "description": ""
                     }
                 },
@@ -3987,12 +4224,15 @@
                 ],
                 "parameters": [
                     {
-                        "in": "query",
-                        "name": "passphrase",
+                        "format": "walletSetAddress@walletKeyIndex",
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
                         "type": "string"
                     },
                     {
                         "required": true,
+<<<<<<< HEAD
                         "schema": {
                             "$ref": "#/definitions/CWalletRedeem"
                         },
@@ -4029,12 +4269,16 @@
                     {
                         "in": "query",
                         "name": "passphrase",
+=======
+                        "in": "path",
+                        "name": "transaction",
+>>>>>>> [CSL-1963] Remove v0-prefixed version of the API
                         "type": "string"
                     },
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/CAccountId"
+                            "$ref": "#/definitions/CTxMeta"
                         },
                         "in": "body",
                         "name": "body"
@@ -4045,19 +4289,19 @@
                 ]
             }
         },
-        "/api/v0/settings/version": {
+        "/api/test/state": {
             "get": {
                 "summary": "Get current version of the node.",
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/SoftwareVersion"
+                            "$ref": "#/definitions/WalletStateSnapshot"
                         },
                         "description": ""
                     }
                 },
                 "produces": [
-                    "application/json;charset=utf-8"
+                    "application/octet-stream"
                 ],
                 "tags": [
                     "V0"

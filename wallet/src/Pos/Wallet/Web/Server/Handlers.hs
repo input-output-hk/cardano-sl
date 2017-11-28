@@ -17,7 +17,6 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api (WalletApi, WalletSwaggerApi, walletApi)
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
@@ -55,12 +54,12 @@ servantHandlers =
     :<|>
      M.updateAccount
     :<|>
-     M.newAccount RandomSeed
+     M.newAccount
     :<|>
      M.deleteAccount
     :<|>
 
-     M.newAddress RandomSeed
+     M.newAddress
     :<|>
 
      M.isValidAddress

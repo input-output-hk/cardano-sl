@@ -29,7 +29,7 @@ import           Pos.Util (maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
                                       mkGenesisWalletUserSecret, readUserSecret, usWallet,
                                       wusAccounts, wusWalletName)
-import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Account (genSaveRootKey, nextAccountId)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
                                              CFilePath (..), CId, CWallet (..), CWalletInit (..),
                                              CWalletMeta (..), Wal, encToCId)
@@ -38,11 +38,6 @@ import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State (createAccount, removeHistoryCache, setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 
-
--- | Which index to use to create initial account and address on new wallet
--- creation
-initialAccAddrIdxs :: Word32
-initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
     :: L.MonadWalletLogic ctx m
@@ -56,9 +51,9 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
     CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady
     -- can't return this result, since balances can change
 
-    let accMeta = CAccountMeta { caName = "Initial account" }
+    let accMeta = CAccountMeta { caName = "Initial account", caAddressIndex = firstHardened }
         accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    () <$ L.newAccountIncludeUnready True passphrase accInit
 
     return (skey, cAddr)
 
@@ -123,15 +118,18 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
     importedWallet <- L.createWalletSafe wid wMeta False
 
-    for_ _wusAccounts $ \(walletIndex, walletName) -> do
-        let accMeta = def{ caName = walletName }
-            seedGen = DeterminedSeed walletIndex
-        cAddr <- genUniqueAccountId seedGen wid
-        createAccount cAddr accMeta
+    for_ _wusAccounts $ \(_walletSeed, walletName) -> do
+        let accMeta = def { caName = walletName }
+        accountIdE <- nextAccountId wid
+        case accountIdE of
+            Right accountId ->
+                createAccount accountId accMeta
+            Left err ->
+                throwM $ InternalError err
 
-    for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
+    for_ _wusAddrs $ \(walletIndex, _accountIndex) -> do
         let accId = AccountId wid walletIndex
-        L.newAddress (DeterminedSeed accountIndex) passphrase accId
+        L.newAddress passphrase accId
 
     -- `syncWalletOnImport` automatically marks a wallet as "ready".
     void $ syncWalletOnImport key

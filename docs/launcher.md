@@ -15,46 +15,60 @@ launcher coordinates the node together with the wallet.
 The choice of scenario is determined by whether the optional CLI parameter
 `--wallet` was specified.
 
+### Server scenario
+
 In the server scenario, the launcher operates as follows:
 
-* run the update script (if exists)
-* run the node and wait for it to exit
-* in case the node indicated that it needs to update (exited with code 20),
-  goto the first step
-* in case the node exited with a different code and a report server is
-  available, report a crash
+1. Execute the update script (if exists)
+2. Launch the node and wait for it to exit
+3. Depending on node's exit code
+   * Exit code `20`: node indicated that it needs to update
+      Launcher goes to step 1 of server scenario
+   * Other exit code: 
+        1. If a report server is available, report a crash
+        2. Finish execution of launcher
 
 NB: the node isn't supposed to exit by itself except in case of an update,
 so even with exit code 0 we report a crash
 
+### Client scenario
+
 In the client scenario, the launcher operates as follows:
 
-* run the update script (if exists)
-* run the node
-* run the wallet
-* wait for either the node or the wallet to exit (whichever exists first)
-* in case the node exited first, assume it's a crash and report (when a report
-  server is available); wait for the wallet; in case the wallet indicated that
-  it needs to update (exited with code 20), goto the first step
-* in case the wallet exited first, check its exit code; if it indicated that it
-  needs an update (code 20), wait for the node to die (timeout specified in CLI)
-  or kill the node, and then goto the first step; if the wallet exited with a
-  different code, assume it has crashed and kill the node (without timeout)
+1. Execute the update script (if exists)
+2. Launch in parallel:
+      * node
+      * wallet
+3. Wait for either the node or the wallet to exit (whichever exists first)
+4. In case the node exited first
+    1. Assume it's a crash and report (when a report server is available)
+    2. Wait for the wallet
+    3. If the wallet indicated that it needs to update (exited with code 20)
+       Goto to step 1 of client scenario
+6. If the wallet exited first, check its exit code:
+    1. If it indicated that it needs an update (code 20)
+        * Wait for the node to die (timeout specified in CLI)
+        * Kill the node in case of timeout, and then goto the step 1 of client scenario
+    2. If the wallet exited with a different code, assume it has crashed and kill the node (without timeout)
 
-## Running the Update Script
+## Update script execution
 
-When we run the update script, first we check that it exists. In case it
-doesn't, it's a no-op. We pass the downloaded update archive to it as an
-argument, and check the exit code.
+Here we describe flow of updater execution.
 
-In case the update script failed (non-zero exit code), the archive remains in
-place and we proceed as if nothing happened.
-
-In case the update script succeeded (zero exit code), we mark the update as
-installed in the database. Later, if the node tries to download another update,
-it will check this database entry and skip already installed updates.
-Furthermore, we delete the update archive, as this indicates to the node that
-there's no update pending or in progress.
+1. Check that updater script exists
+    * If it doesn't exist, update script execution finishes
+    * Note, that updater script is passed via CLI parameter `--updater`
+2. Launch updater:
+    * Pass the downloaded update archive (provided via CLI parameter `--update-archive`) to updater script as last
+argument
+3. Wait for updater to finish, check the exit code:
+    * Update script failed (non-zero exit code):
+        * The update archive is not touched
+        * Update script execution finishes
+    * Update script succeeded (zero exit code):
+        1. Mark the update as installed in the database
+           * Later, if the node tries to download another update, it will check this database entry and skip already installed update.
+        2. Delete the update archive, as this indicates to the launcher, node that there's no update pending or in progress.
 
 ## CLI Parameters
 

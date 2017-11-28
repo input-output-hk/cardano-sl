@@ -12,6 +12,12 @@ category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
 
+Flag server-only
+  default:     False
+  manual:      True
+
+  description: Build only components required for server
+
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.Orphans
@@ -177,6 +183,77 @@ executable wallet-new-server
                       RecordWildCards
                       ScopedTypeVariables
                       UndecidableInstances
+
+executable wallet-new-swagger
+  hs-source-dirs:      spec
+                       server
+  main-is:             Main.hs
+  other-modules:       SwaggerGenOptions
+                       Cardano.Wallet.API.V1.Swagger
+  build-depends:       base
+                     , aeson
+                     , aeson-pretty
+                     , bytestring
+                     , cardano-sl-wallet-new
+                     , containers
+                     , data-default
+                     , formatting
+                     , insert-ordered-containers
+                     , lens
+                     , optparse-applicative
+                     , neat-interpolation
+                     , servant
+                     , servant-swagger
+                     , string-conv
+                     , swagger2
+                     , text
+                     , QuickCheck
+                     , unordered-containers
+                     , universum
+                     , cardano-sl
+                     , cardano-sl-wallet
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions: TypeOperators
+                      DataKinds
+                      DefaultSignatures
+                      NoImplicitPrelude
+                      MultiParamTypeClasses
+                      OverloadedStrings
+                      ScopedTypeVariables
+                      FlexibleInstances
+                      FlexibleContexts
+                      TypeFamilies
+                      TypeApplications
+                      TypeOperators
+                      TemplateHaskell
+                      RecordWildCards
+                      ScopedTypeVariables
+                      UndecidableInstances
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   FlexibleContexts
+                        FlexibleInstances
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TypeOperators
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(server-only)
+    buildable: False
+  else
+    buildable: True
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

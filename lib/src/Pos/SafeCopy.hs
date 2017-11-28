@@ -23,7 +23,7 @@ import           Pos.Core.Block
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
-                               SscProof (..))
+                               SscProof (..), VssCertificate (..), VssCertificatesMap)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                                TxPayload (..), TxProof (..))
 import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
@@ -35,7 +35,6 @@ import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
                                  SlotId (..), SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Core.Update (BlockVersionModifier (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
-import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)

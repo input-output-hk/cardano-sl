@@ -19,8 +19,8 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          GenesisNonAvvmBalances, GenesisSpec,
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants, TestnetBalanceOptions)
+import           Pos.Core.Ssc (VssCertificatesMap (..), validateVssCertificatesMap)
 import           Pos.Core.Types (ProxySKHeavy, StakeholderId)
-import           Pos.Core.Vss (VssCertificatesMap (..), validateVssCertificatesMap)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk)
 import           Pos.Util.Util (eitherToFail)
 

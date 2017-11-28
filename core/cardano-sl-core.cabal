@@ -67,8 +67,6 @@ library
                        Pos.Core.Txp
                        Pos.Core.Types
                        Pos.Core.Version
-                       Pos.Core.Vss
-                       Pos.Core.Vss.Types
 
                        Pos.Core.Genesis
                        Pos.Core.Genesis.Canonical
@@ -103,6 +101,11 @@ library
 
   other-modules:
                        Pos.Core.Context.PrimaryKey
+
+                       -- SSC
+                       Pos.Core.Ssc.Types
+                       Pos.Core.Ssc.Util
+                       Pos.Core.Ssc.Vss
 
   build-depends:       QuickCheck
                      , aeson

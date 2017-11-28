@@ -53,8 +53,8 @@ import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), Slo
 import           Pos.Core.Address (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, slotSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
-                               SignedCommitment, SscPayload (..), mkCommitmentsMapUnsafe)
-import           Pos.Core.Vss (VssCertificate (vcExpiryEpoch), VssCertificatesMap (..))
+                               SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
+                               VssCertificatesMap (..), mkCommitmentsMapUnsafe)
 import           Pos.Crypto (Secret, SecretKey, SignTag (SignCommitment), Threshold, VssPublicKey,
                              checkSig, genSharedSecret, getDhSecret, secretToDhSecret, sign,
                              toPublic, verifySecret)

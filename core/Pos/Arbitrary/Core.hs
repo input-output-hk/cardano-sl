@@ -44,9 +44,9 @@ import           Pos.Core.Constants (sharedSeedLength)
 import qualified Pos.Core.Fee as Fee
 import qualified Pos.Core.Genesis as G
 import qualified Pos.Core.Slotting as Types
+import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Types (BlockVersionData (..), Timestamp (..), maxCoinVal)
 import qualified Pos.Core.Types as Types
-import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary (nonrepeating)

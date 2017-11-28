@@ -6,9 +6,9 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment)
+import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
+                               VssCertificate, VssCertificatesMap)
 import           Pos.Core.Types (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Core.Vss (VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
 

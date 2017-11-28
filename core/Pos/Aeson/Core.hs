@@ -22,13 +22,13 @@ import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core ()
 import           Pos.Core.Address (Address, addressF, decodeTextAddress)
 import           Pos.Core.Coin (coinPortionToDouble)
+import           Pos.Core.Ssc.Types (VssCertificate)
 import           Pos.Core.Types (ApplicationName (..), BlockCount (..), BlockVersion,
                                  BlockVersionData, ChainDifficulty, Coin, CoinPortion,
                                  EpochIndex (..), LocalSlotIndex, Script (..), SharedSeed (..),
                                  SlotCount (..), SlotId, SoftforkRule, Timestamp (..),
                                  mkApplicationName, mkCoin, unsafeCoinPortionFromDouble,
                                  unsafeGetCoin)
-import           Pos.Core.Vss (VssCertificate)
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (eitherToFail)
 

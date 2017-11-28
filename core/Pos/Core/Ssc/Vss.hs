@@ -1,10 +1,10 @@
--- | Vss related types and constructors for VssCertificate and VssCertificatesMap
+-- | VSS related functions.
 
-module Pos.Core.Vss
+module Pos.Core.Ssc.Vss
        (
-       -- * Reexports
-         module Pos.Core.Vss.Types
-
+         -- * Types
+         VssCertificate (..)
+       , VssCertificatesMap (..)
        -- * Certificates
        , mkVssCertificate
        , recreateVssCertificate
@@ -34,8 +34,8 @@ import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Address (addressHash)
+import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Core.Types (EpochIndex, StakeholderId)
-import           Pos.Core.Vss.Types
 import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
                              Signature, VssPublicKey, checkSig, sign, toPublic)
 

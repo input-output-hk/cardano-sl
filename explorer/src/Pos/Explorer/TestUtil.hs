@@ -14,6 +14,7 @@ module Pos.Explorer.TestUtil
     , produceSecretKeys
     , generateValidBlocksSlotsNumber
     , createEmptyUndo
+    , secretKeyToAddress
     ) where
 
 import qualified Prelude
@@ -32,14 +33,14 @@ import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, Undo (..), SlogUndo (..))
 import qualified Pos.Communication ()
-import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
                            LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId, HeaderHash,
-                           difficultyL, headerHash)
+                           difficultyL, headerHash, makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (SecretKey,toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -334,4 +335,8 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
         generatedSecretKey = generate arbitrary
 
 
-
+-- | Factory to create an `Address`
+-- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
+-- | TODO: Remove it as soon as ^ is exposed
+secretKeyToAddress :: SecretKey -> Address
+secretKeyToAddress = makePubKeyAddressBoot . toPublic

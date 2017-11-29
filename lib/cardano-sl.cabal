@@ -333,6 +333,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.SeedSpec
                        Test.Pos.Ssc.Toss.BaseSpec
                        Test.Pos.Ssc.VssCertDataSpec
+                       Test.Pos.Ssc.Toss.PureSpec
 
                        -- Everything else
                        Test.Pos.Cbor.CborSpec

@@ -49,7 +49,7 @@ servantHandlers =
      M.changeWalletPassphrase
     :<|>
 
-     fixingCachedAccModifier M.getAccount
+     M.getAccount
     :<|>
      M.getAccounts
     :<|>

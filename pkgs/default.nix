@@ -17,8 +17,8 @@ self: {
           pname = "Cabal";
           version = "1.24.2.0";
           sha256 = "0h33v1716wkqh9wvq2wynvhwzkjjhg4aav0a1i3cmyq36n7fpl5p";
-          revision = "1";
-          editedCabalFile = "0jw809psa2ms9sy1mnirmbj9h7rs76wbmf24zgjqvhp4wq919z3m";
+          revision = "2";
+          editedCabalFile = "15ncrm7x2lg4hn0m5mhc8hy769bzhmajsm6l9i6536plfs2bbbdj";
           libraryHaskellDepends = [
             array
             base
@@ -2684,8 +2684,8 @@ self: {
           pname = "diagrams-lib";
           version = "1.4.1.2";
           sha256 = "0w16cljv9jcvn46hd19qvw1bfvxijlak286nap9qbvyavq2qhvjb";
-          revision = "3";
-          editedCabalFile = "14ni87kwmjhbphcihiivvz0nxga355263q36wvbyvvjmxvbdj98n";
+          revision = "4";
+          editedCabalFile = "0wlb4ng803rhx82msl49b39im4cw8naik0pcyyybpphyqbxxs6dd";
           libraryHaskellDepends = [
             active
             adjunctions
@@ -3792,8 +3792,8 @@ self: {
       hscolour = callPackage ({ base, containers, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hscolour";
-          version = "1.24.1";
-          sha256 = "1j3rpzjygh3igvnd1n2xn63bq68rs047cjxr2qi6xyfnivgf6vz4";
+          version = "1.24.2";
+          sha256 = "08ng635m1qylng1khm9nqvfw2wdhljy1q2wi4ly63nfaznx8dysm";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4742,8 +4742,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "1by8xwjc23l6pa9l4iv7zp82dykpll3vc3hgxk0pgva724n8xhma";
-          revision = "1";
-          editedCabalFile = "1scwm1gs07znkj4ahfyxpwrksj4rdl1pa81xflcqhkqfgcndvgl3";
+          revision = "2";
+          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
           libraryHaskellDepends = [
             base
           ];
@@ -5842,8 +5842,8 @@ self: {
           pname = "servant-blaze";
           version = "0.7.1";
           sha256 = "0ii60xn5khsj8w3glvwqpwrpd6v9yc1n52gk9qsfwfxq49x1rvch";
-          revision = "5";
-          editedCabalFile = "05zz0kvnmai230palf44f72gm1vadqyssk9hl4h0qq5263frbsli";
+          revision = "6";
+          editedCabalFile = "051m44rqmxkl30n96qcbz1xwwsw2n7l7laflnc0xydc40ws0bj96";
           libraryHaskellDepends = [
             base
             blaze-html

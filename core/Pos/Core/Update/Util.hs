@@ -67,31 +67,26 @@ mkUpdateProposal
         pure UnsafeUpdateProposal{..}
 
 mkUpdateProposalWSign
-    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
     -> HM.HashMap SystemTag UpdateData
     -> UpAttributes
     -> SafeSigner
-    -> m UpdateProposal
-mkUpdateProposalWSign
-    upBlockVersion
-    upBlockVersionMod
-    upSoftwareVersion
-    upData
-    upAttributes
-    ss = do
-        let toSign =
-                UpdateProposalToSign
-                    upBlockVersion
-                    upBlockVersionMod
-                    upSoftwareVersion
-                    upData
-                    upAttributes
-        let upFrom = safeToPublic ss
-        let upSignature = safeSign SignUSProposal ss toSign
-        pure UnsafeUpdateProposal{..}
+    -> UpdateProposal
+mkUpdateProposalWSign upBlockVersion upBlockVersionMod upSoftwareVersion upData upAttributes ss =
+    UnsafeUpdateProposal {..}
+  where
+    toSign =
+        UpdateProposalToSign
+            upBlockVersion
+            upBlockVersionMod
+            upSoftwareVersion
+            upData
+            upAttributes
+    upFrom = safeToPublic ss
+    upSignature = safeSign SignUSProposal ss toSign
 
 mkVoteId :: UpdateVote -> VoteId
 mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)

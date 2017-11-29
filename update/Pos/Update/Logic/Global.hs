@@ -1,7 +1,9 @@
 -- | Logic of local data processing in Update System.
 
 module Pos.Update.Logic.Global
-       ( usApplyBlocks
+       ( UpdateBlock
+
+       , usApplyBlocks
        , usCanCreateBlock
        , usRollbackBlocks
        , usVerifyBlocks
@@ -16,7 +18,8 @@ import           System.Wlog (WithLogger, modifyLoggerName)
 import           Pos.Core (ApplicationName, BlockVersion, HasConfiguration, NumSoftwareVersion,
                            SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
                            epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateBlock)
+import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.Exception (reportFatalError)
@@ -34,6 +37,19 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, Mon
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Some (Some)
+
+----------------------------------------------------------------------------
+-- Stripped block type
+----------------------------------------------------------------------------
+
+-- TODO: I don't like that 'Some' is used here
+-- —@neongreen
+type UpdateBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, UpdatePayload)
+
+----------------------------------------------------------------------------
+-- Constraints
+----------------------------------------------------------------------------
 
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
@@ -50,6 +66,10 @@ type USGlobalApplyMode ctx m =
     , MonadSlotsData ctx m
     , MonadReporting ctx m
     )
+
+----------------------------------------------------------------------------
+-- Implementation
+----------------------------------------------------------------------------
 
 withUSLogger :: WithLogger m => m a -> m a
 withUSLogger = modifyLoggerName (<> "us")

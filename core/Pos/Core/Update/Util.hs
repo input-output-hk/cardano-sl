@@ -10,9 +10,6 @@ module Pos.Core.Update.Util
 
        -- * Formatters
        , softforkRuleF
-
-       -- * Block
-       , UpdateBlock
        ) where
 
 import           Universum
@@ -23,7 +20,6 @@ import           Instances.TH.Lift ()
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule,
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
@@ -31,7 +27,6 @@ import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..),
                                         UpdateProposalToSign (..), UpdateVote (..), VoteId)
 import           Pos.Crypto (PublicKey, SafeSigner, SignTag (SignUSProposal), Signature, checkSig,
                              hash, safeSign, safeToPublic)
-import           Pos.Util.Some (Some)
 
 -- | 'SoftforkRule' formatter which restricts type.
 softforkRuleF :: Format r (SoftforkRule -> r)
@@ -95,11 +90,3 @@ mkUpdateProof
     :: Bi UpdatePayload
     => UpdatePayload -> UpdateProof
 mkUpdateProof = hash
-
-----------------------------------------------------------------------------
--- Block
-----------------------------------------------------------------------------
-
--- TODO: I don't like that 'Some' is used here
--- —@neongreen
-type UpdateBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, UpdatePayload)

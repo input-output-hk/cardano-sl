@@ -40,14 +40,15 @@ import           Pos.Util.Some (Some (..))
 type ApplyMode m =
     ( MonadError PollVerFailure m
     , MonadPoll m
-    , HasConfiguration)
+    , HasConfiguration
+    )
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
 --
 -- The first argument specifies whether we should perform unknown data
--- checks.  Currently it means that if it's 'True', then proposal (if
+-- checks. Currently it means that if it's 'True', then proposal (if
 -- it exists) must not have unknown attributes.
 --
 -- When the second argument is 'Left epoch', it means that temporary payload
@@ -127,16 +128,17 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- Do all necessary checks of new proposal and votes for it.
 -- If it's valid, apply. Specifically, these checks are done:
 --
--- 1. Proposal must not exceed maximal proposal size.
--- 2. Check that there is no active proposal with the same id.
--- 3. Check script version, it should be consistent with existing
---    script version dependencies. New dependency can be added.
--- 4. Check that numeric software version of application is 1 more than
---    of last confirmed proposal for this application.
--- 5. If 'slotOrHeader' is 'Right', also check that sum of positive votes
---    for this proposal is enough (at least 'updateProposalThd').
--- 6. If 'verifyAllIsKnown' is 'True', check that proposal has
+-- 1. Check that no one stakeholder sent two update proposals within current epoch.
+-- 2. If 'verifyAllIsKnown' is 'True', check that proposal has
 --    no unknown attributes.
+-- 3. Proposal must not exceed maximal proposal size.
+-- 4. Check that there is no active proposal with the same id.
+-- 5. Verify consistenty with BlockVersionState for protocol version from proposal.
+-- 6. Verify that protocol version from proposal can follow last adopted protocol version.
+-- 7. Check that numeric software version of application is 1 more than
+--    of last confirmed proposal for this application.
+-- 8. If 'slotOrHeader' is 'Right', also check that sum of positive votes
+--    for this proposal is enough (at least 'updateProposalThd').
 --
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
@@ -175,7 +177,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId epoch up
     -- Then we verify that protocol version from proposal can follow last
-    -- adopted software version.
+    -- adopted protocol version.
     verifyBlockVersion upId up
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
@@ -276,6 +278,8 @@ applyImplicitAgreement
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
     let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
+    -- There is no one implicit agreed proposal
+    -- when slot of block is less than @bvdUpdateImplicit@
     unless (slotId < bvdUpdateImplicit) $
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where
@@ -300,27 +304,32 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: ApplyMode m
+    :: forall m . ApplyMode m
     => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
 applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
         deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
+        -- 1. Group proposals by application name
+        -- 2. Sort proposals in each group by tuple
+        --     (decision, whether decision is implicit, positive stake, slot when it has been proposed)
+        -- 3. We discard all proposals in each group except the head
+        -- 4. Concatenate all groups and process all proposals
         let winners =
-                concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
+                concatMap (toList . discardAllExceptHead . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
         mapM_ applyDepthCheckDo winners
   where
     upsAppName = svAppName . upSoftwareVersion . upsProposal
-    resetAllDecisions (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
-    groupCriterion a =
-        ( upsAppName $ dpsUndecided a
-        , dpsDifficulty a)
+    discardAllExceptHead (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs
+    groupCriterion = upsAppName . dpsUndecided
     mkTuple a extra =
         ( dpsDecision a
         , not $ deImplicit extra
         , upsPositiveStake $ dpsUndecided a
-        , upsSlot $ dpsUndecided a)
+        , upsSlot $ dpsUndecided a
+        )
+
     -- This comparator chooses the most appropriate proposal among
     -- proposals of one app and with same chain difficulty.
     proposalCmp a b
@@ -333,6 +342,8 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
       | Just _ <- dpsExtra b = GT
       | otherwise =
           compare  (upsSlot $ dpsUndecided b) (upsSlot $ dpsUndecided a)
+
+    applyDepthCheckDo :: DecidedProposalState -> m ()
     applyDepthCheckDo DecidedProposalState {..} = do
         let UndecidedProposalState {..} = dpsUndecided
         let sv = upSoftwareVersion upsProposal

@@ -16,6 +16,8 @@ module Pos.Script
        , isKnownScriptVersion
        ) where
 
+import           Universum hiding (lift)
+
 import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
                                     Handler (..), PatternMatchFail (..), SomeException (..),
                                     catches, displayException, throwIO)
@@ -32,16 +34,15 @@ import           Language.Haskell.TH.Syntax (Lift (..), runIO)
 import qualified PlutusCore.EvaluatorTypes as PLCore
 import qualified PlutusCore.Program as PL
 import           System.IO.Unsafe (unsafePerformIO)
-import           Universum hiding (lift)
 import qualified Utils.Names as PL
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Core.Txp ()
+import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
+import           Pos.Core.Common (Script (..), ScriptVersion, Script_v0)
 import           Pos.Core.Script ()
 import           Pos.Core.Txp (TxSigData (..))
-import           Pos.Core.Types (Script (..), ScriptVersion, Script_v0)
 
 {- NOTE
 

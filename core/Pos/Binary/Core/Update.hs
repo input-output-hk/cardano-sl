@@ -11,13 +11,12 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi,
                                    deriveSimpleBiCxt, encodeListLen, enforceSize)
+import           Pos.Binary.Core.Common ()
+import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
-import           Pos.Binary.Core.Types ()
+import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Fee (TxFeePolicy)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Core.Types (CoinPortion, ScriptVersion)
-import qualified Pos.Core.Types as T
 import qualified Pos.Core.Update as U
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
                                         SoftwareVersion)
@@ -51,20 +50,20 @@ deriveSimpleBi ''SoftforkRule [
 
 deriveSimpleBi ''BlockVersionData [
     Cons 'BlockVersionData [
-        Field [| bvdScriptVersion     :: T.ScriptVersion |],
-        Field [| bvdSlotDuration      :: Millisecond     |],
-        Field [| bvdMaxBlockSize      :: Byte            |],
-        Field [| bvdMaxHeaderSize     :: Byte            |],
-        Field [| bvdMaxTxSize         :: Byte            |],
-        Field [| bvdMaxProposalSize   :: Byte            |],
-        Field [| bvdMpcThd            :: CoinPortion     |],
-        Field [| bvdHeavyDelThd       :: CoinPortion     |],
-        Field [| bvdUpdateVoteThd     :: CoinPortion     |],
-        Field [| bvdUpdateProposalThd :: CoinPortion     |],
-        Field [| bvdUpdateImplicit    :: FlatSlotId      |],
-        Field [| bvdSoftforkRule      :: SoftforkRule    |],
-        Field [| bvdTxFeePolicy       :: TxFeePolicy     |],
-        Field [| bvdUnlockStakeEpoch  :: EpochIndex      |]
+        Field [| bvdScriptVersion     :: ScriptVersion |],
+        Field [| bvdSlotDuration      :: Millisecond   |],
+        Field [| bvdMaxBlockSize      :: Byte          |],
+        Field [| bvdMaxHeaderSize     :: Byte          |],
+        Field [| bvdMaxTxSize         :: Byte          |],
+        Field [| bvdMaxProposalSize   :: Byte          |],
+        Field [| bvdMpcThd            :: CoinPortion   |],
+        Field [| bvdHeavyDelThd       :: CoinPortion   |],
+        Field [| bvdUpdateVoteThd     :: CoinPortion   |],
+        Field [| bvdUpdateProposalThd :: CoinPortion   |],
+        Field [| bvdUpdateImplicit    :: FlatSlotId    |],
+        Field [| bvdSoftforkRule      :: SoftforkRule  |],
+        Field [| bvdTxFeePolicy       :: TxFeePolicy   |],
+        Field [| bvdUnlockStakeEpoch  :: EpochIndex    |]
     ]]
 
 deriveSimpleBi ''U.BlockVersionModifier [

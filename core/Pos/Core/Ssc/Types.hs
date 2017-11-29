@@ -51,9 +51,8 @@ import           Formatting (Format, bprint, build, int, (%))
 import           Serokell.Util (listJson)
 
 import           Pos.Binary.Class (AsBinary (..), Bi, serialize')
-import           Pos.Core.Address (addressHash)
+import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
-import           Pos.Core.Types (StakeholderId)
 import           Pos.Crypto (DecShare, EncShare, Hash, PublicKey, Secret, SecretProof, Signature,
                              VssPublicKey, shortHashF)
 

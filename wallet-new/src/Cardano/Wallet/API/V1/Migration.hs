@@ -1,7 +1,7 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Cardano.Wallet.API.V1.Migration (
       MonadV1
     , V1Context
@@ -22,7 +22,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Pos.Core.Types as Core
+import qualified Pos.Core.Common as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Monad.Catch as Catch

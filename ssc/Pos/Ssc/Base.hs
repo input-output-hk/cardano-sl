@@ -46,11 +46,10 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinaryM)
-import           Pos.Binary.Core.Ssc ()
+import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
-                           StakeholderId, unsafeMkLocalSlotIndex)
-import           Pos.Core.Address (addressHash)
+                           StakeholderId, addressHash, unsafeMkLocalSlotIndex)
 import           Pos.Core.Configuration (HasConfiguration, slotSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),

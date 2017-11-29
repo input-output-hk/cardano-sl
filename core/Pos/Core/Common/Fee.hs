@@ -1,4 +1,4 @@
-module Pos.Core.Fee
+module Pos.Core.Common.Fee
        ( Coeff(..)
        , TxSizeLinear(..)
        , calculateTxSizeLinear

@@ -14,8 +14,8 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Core (Coin, CoinPortion, mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Coin (coinPortionToDouble)
+import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble, mkCoin, unsafeAddCoin,
+                                  unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
 import           Pos.Lrc.Types (RichmenStakes)

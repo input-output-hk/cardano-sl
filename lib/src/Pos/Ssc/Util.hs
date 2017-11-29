@@ -4,8 +4,7 @@ module Pos.Ssc.Util
 
 import           Universum
 
-import           Pos.Binary.Core.Block ()
-import           Pos.Binary.Core.Blockchain ()
+import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader, gbBody, gbHeader)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock, mbSscPayload)

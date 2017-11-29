@@ -28,8 +28,8 @@ import           Control.Lens (makeLenses)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
+import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Core.Types (StakeholderId)
 import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
                                   NumSoftwareVersion, SoftwareVersion (..), UpId,
                                   UpdateProposal (..))

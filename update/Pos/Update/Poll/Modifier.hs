@@ -21,7 +21,7 @@ import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
-import           Pos.Core.Types (StakeholderId)
+import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
                                   NumSoftwareVersion, SoftwareVersion, UpId)
 import           Pos.Slotting.Types (SlottingData)

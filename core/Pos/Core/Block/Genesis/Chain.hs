@@ -17,8 +17,8 @@ import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,
                                                GenesisExtraBodyData, GenesisExtraHeaderData)
 import           Pos.Core.Block.Union.Types (Block, BlockHeader)
+import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting.Types (EpochIndex (..))
-import           Pos.Core.Types (ChainDifficulty, SlotLeaders)
 import           Pos.Crypto (Hash, hash)
 
 instance Blockchain GenesisBlockchain where

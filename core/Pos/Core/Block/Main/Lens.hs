@@ -75,13 +75,12 @@ import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttr
                                             BlockSignature, MainBlock, MainBlockHeader,
                                             MainBlockchain, MainExtraBodyData, MainExtraHeaderData,
                                             MainToSign (..))
+import           Pos.Core.Common (ChainDifficulty, HeaderHash)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Slotting.Types (SlotId)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (Tx, TxPayload, TxWitness, txpTxs, txpWitnesses)
-import           Pos.Core.Types (ChainDifficulty, HeaderHash)
-import           Pos.Core.Update (UpdatePayload)
-import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload)
 import           Pos.Crypto (Hash, PublicKey)
 import           Pos.Merkle (MerkleTree)
 

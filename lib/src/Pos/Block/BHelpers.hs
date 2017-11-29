@@ -13,8 +13,6 @@ import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Core.Txp ()
-import           Pos.Binary.Core.Update ()
 import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..),
                                             GenericBlock (..), GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,

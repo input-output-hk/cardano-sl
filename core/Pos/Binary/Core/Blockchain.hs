@@ -7,16 +7,10 @@ module Pos.Binary.Core.Blockchain
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
-import qualified Pos.Core.Types as T
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
 import           Pos.Util.Util (eitherToFail)
-
--- | This instance required only for Arbitrary instance of HeaderHash
--- due to @instance Bi a => Hash a@.
-instance Bi T.BlockHeaderStub where
-    encode = error "somebody tried to binary encode BlockHeaderStub"
-    decode = fail  "somebody tried to binary decode BlockHeaderStub"
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)

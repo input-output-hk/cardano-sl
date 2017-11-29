@@ -36,18 +36,16 @@ import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVar
                                    UnsignedVarInt (..))
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Address (makeAddress)
-import           Pos.Core.Coin (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
+import qualified Pos.Core.Common.Fee as Fee
+import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
                                          epochSlots)
 import           Pos.Core.Constants (sharedSeedLength)
-import qualified Pos.Core.Fee as Fee
 import qualified Pos.Core.Genesis as G
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Slotting.Types (Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
-import           Pos.Core.Types (maxCoinVal)
-import qualified Pos.Core.Types as Types
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)

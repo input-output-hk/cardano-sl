@@ -10,7 +10,6 @@ import           Universum
 import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Infra ()
 import qualified Pos.Core as T
-import qualified Pos.Core.Fee as Fee
 import           Pos.Data.Attributes (Attributes (..))
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
@@ -45,9 +44,9 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
             binaryTest @(Attributes ())
             binaryTest @(Attributes T.AddrAttributes)
         describe "Core.Fee" $ do
-            binaryTest @Fee.Coeff
-            binaryTest @Fee.TxSizeLinear
-            binaryTest @Fee.TxFeePolicy
+            binaryTest @T.Coeff
+            binaryTest @T.TxSizeLinear
+            binaryTest @T.TxFeePolicy
         describe "Core.Script" $ do
             binaryTest @T.Script
         describe "Core.Vss" $ do

@@ -20,18 +20,18 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..), Address (..),
+                                  Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
+                                  Coin, CoinPortion (..), Script (..), SharedSeed (..),
+                                  TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
                                SscProof (..), VssCertificate (..), VssCertificatesMap)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                                TxPayload (..), TxProof (..))
-import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
-                                 AddrStakeDistribution (..), AddrType (..), Address (..),
-                                 Address' (..), BlockCount (..), ChainDifficulty (..), Coin,
-                                 CoinPortion (..), Script (..), SharedSeed (..))
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),

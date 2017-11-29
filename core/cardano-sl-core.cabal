@@ -25,8 +25,10 @@ library
                        Pos.Aeson.Fee
                        Pos.Aeson.Genesis
 
+                       Pos.Binary.Core
+                       Pos.Binary.Merkle
+
                        Pos.Core
-                       Pos.Core.Address
 
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
@@ -35,39 +37,21 @@ library
                        Pos.Core.Block.Union
 
                        Pos.Core.Class
-                       Pos.Core.Coin
+                       Pos.Core.Common
                        Pos.Core.Configuration
                        Pos.Core.Constants
                        Pos.Core.Context
                        Pos.Core.Delegation
-                       Pos.Core.Fee
+                       Pos.Core.Genesis
                        Pos.Core.Script
-                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Ssc
                        Pos.Core.Txp
-                       Pos.Core.Types
                        Pos.Core.Update
 
-                       Pos.Core.Genesis
-
-                       Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
-
-                       Pos.Binary.Core
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Block
-                       Pos.Binary.Core.Blockchain
-                       Pos.Binary.Core.Coin
-                       Pos.Binary.Core.Delegation
-                       Pos.Binary.Core.Fee
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Txp
-                       Pos.Binary.Core.Types
-                       Pos.Binary.Core.Update
-                       Pos.Binary.Merkle
+                       Pos.Merkle
 
                        Pos.System.Metrics.Constants
 
@@ -76,6 +60,19 @@ library
                        Pos.Util.Limits
 
   other-modules:
+                       -- Binary
+                       Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
+                       Pos.Binary.Core.Blockchain
+                       Pos.Binary.Core.Common
+                       Pos.Binary.Core.Delegation
+                       Pos.Binary.Core.Fee
+                       Pos.Binary.Core.Script
+                       Pos.Binary.Core.Slotting
+                       Pos.Binary.Core.Ssc
+                       Pos.Binary.Core.Txp
+                       Pos.Binary.Core.Update
+
                        -- Block
                        Pos.Core.Block.Genesis.Chain
                        Pos.Core.Block.Genesis.Lens
@@ -87,6 +84,12 @@ library
                        Pos.Core.Block.Main.Types
                        Pos.Core.Block.Union.Instances
                        Pos.Core.Block.Union.Types
+
+                       -- Common
+                       Pos.Core.Common.Address
+                       Pos.Core.Common.Coin
+                       Pos.Core.Common.Fee
+                       Pos.Core.Common.Types
 
                        -- Configuration
                        Pos.Core.Configuration.BlockVersionData

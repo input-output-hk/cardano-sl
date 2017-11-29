@@ -37,7 +37,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, S
                            Timestamp (Timestamp), blkSecurityParam, difficultyL, epochSlots,
                            fixedTimeCQSec, flattenSlotId, gbHeader, getSlotIndex, slotIdF,
                            unflattenSlotId)
-import           Pos.Core.Address (addressHash)
+import           Pos.Core.Common (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))

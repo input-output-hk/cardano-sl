@@ -20,14 +20,13 @@ import           Pos.Aeson.Crypto ()
 import           Pos.Aeson.Fee ()
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core ()
-import           Pos.Core.Address (Address, addressF, decodeTextAddress)
-import           Pos.Core.Coin (coinPortionToDouble)
+import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coin, CoinPortion,
+                                  Script (..), SharedSeed (..), addressF, coinPortionToDouble,
+                                  decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble,
+                                  unsafeGetCoin)
 import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
-import           Pos.Core.Types (BlockCount (..), ChainDifficulty, Coin, CoinPortion, Script (..),
-                                 SharedSeed (..), mkCoin, unsafeCoinPortionFromDouble,
-                                 unsafeGetCoin)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
                                         SoftforkRule, mkApplicationName)
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))

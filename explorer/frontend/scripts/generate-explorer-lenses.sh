@@ -6,7 +6,7 @@ ROOT_DIR=${1:-.}
 # Define and remove all lenses so we can be sure it's a fresh new state.
 # Also, if we ever decide to remove a generated Lens folder, we can add it here.
 DIR_GENERATED_WEB=$ROOT_DIR/src/Generated/Pos/Explorer/Web/Lenses
-DIR_GENERATED_TYPES=$ROOT_DIR/src/Generated/Pos/Core/Lenses
+DIR_GENERATED_TYPES=$ROOT_DIR/src/Generated/Pos/Core/Slotting/Lenses
 DIR_TYPES_LENSES=$ROOT_DIR/src/Explorer/Lenses
 DIR_TIME_LENSES=$ROOT_DIR/src/Data/Time/Lenses
 DIR_VIEW_LENSES=$ROOT_DIR/src/Explorer/View/Lenses
@@ -40,7 +40,7 @@ echo "Generating $DIR_GENERATED_TYPES lenses."
 
 purescript-derive-lenses \
   < $DIR_GENERATED_TYPES/../Types.purs \
-  --moduleName Pos.Core.Lenses.Types \
+  --moduleName Pos.Core.Slotting.Lenses.Types \
   > $DIR_GENERATED_TYPES/Types.purs
 
 #FRONTEND

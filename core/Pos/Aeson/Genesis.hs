@@ -13,6 +13,7 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()
 import           Pos.Binary.Core.Address ()
+import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances, recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (..),
@@ -21,7 +22,6 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants, TestnetBalanceOptions)
 import           Pos.Core.Ssc (VssCertificatesMap (..), validateVssCertificatesMap)
-import           Pos.Core.Types (StakeholderId)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk)
 import           Pos.Util.Util (eitherToFail)
 

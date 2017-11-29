@@ -1,6 +1,6 @@
--- | Core types.
+-- | Common core types essential for multiple components.
 
-module Pos.Core.Types
+module Pos.Core.Common.Types
        (
        -- * Address and StakeholderId
          AddressHash
@@ -55,14 +55,18 @@ import           Universum
 import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
+import qualified Data.ByteString as BS (pack, zipWith)
+import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
+import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, formatToString, int, (%))
 import qualified PlutusCore.Program as PLCore
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
 
+import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
@@ -213,6 +217,15 @@ newtype SharedSeed = SharedSeed
 
 instance Buildable SharedSeed where
     build = formatBase16 . getSharedSeed
+
+instance Semigroup SharedSeed where
+    (<>) (SharedSeed a) (SharedSeed b) =
+        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+
+instance Monoid SharedSeed where
+    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
+    mappend = (Data.Semigroup.<>)
+    mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId

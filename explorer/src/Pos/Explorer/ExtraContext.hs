@@ -166,30 +166,30 @@ instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
     getPageBlocksCSLI page = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        emmGetPageBlocks explorerMockMode $ page
+        emmGetPageBlocks explorerMockMode page
 
     getBlundFromHHCSLI headerHash = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        emmGetBlundFromHH explorerMockMode $ headerHash
+        emmGetBlundFromHH explorerMockMode headerHash
 
     getSlotStartCSLI slotId = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        emmGetSlotStart explorerMockMode $ slotId
+        emmGetSlotStart explorerMockMode slotId
 
     getLeadersFromEpochCSLI epochIndex = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        emmGetLeadersFromEpoch explorerMockMode $ epochIndex
+        emmGetLeadersFromEpoch explorerMockMode epochIndex
 
     getEpochBlocksCSLI epoch page = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        (emmGetEpochBlocks explorerMockMode) epoch page
+        emmGetEpochBlocks explorerMockMode epoch page
 
     getEpochPagesCSLI epoch = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
-        emmGetEpochPages explorerMockMode $ epoch
+        emmGetEpochPages explorerMockMode epoch
 

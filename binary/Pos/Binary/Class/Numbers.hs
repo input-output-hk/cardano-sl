@@ -66,66 +66,70 @@ newtype FixedSizeInt a = FixedSizeInt {getFixedSizeInt :: a}
 -- Int
 
 instance Bi (UnsignedVarInt Int) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 instance Bi (SignedVarInt Int) where
-  encode = encode . getSignedVarInt
-  decode = SignedVarInt <$> decode
+    encode = encode . getSignedVarInt
+    decode = SignedVarInt <$> decode
 
 -- Int64
 
 instance Bi (FixedSizeInt Int) where
-  encode = encode . getFixedSizeInt
-  decode = FixedSizeInt <$> decode
+    encode = encode . getFixedSizeInt
+    decode = FixedSizeInt <$> decode
 
 instance Bi (UnsignedVarInt Int64) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 instance Bi (SignedVarInt Int64) where
-  encode = encode . getSignedVarInt
-  decode = SignedVarInt <$> decode
+    encode = encode . getSignedVarInt
+    decode = SignedVarInt <$> decode
 
 instance Bi (FixedSizeInt Int64) where
-  encode = encode . getFixedSizeInt
-  decode = FixedSizeInt <$> decode
+    encode = encode . getFixedSizeInt
+    decode = FixedSizeInt <$> decode
 
 -- Word
 
 instance Bi (UnsignedVarInt Word) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 instance Bi (FixedSizeInt Word) where
-  encode = encode . getFixedSizeInt
-  decode = FixedSizeInt <$> decode
+    encode = encode . getFixedSizeInt
+    decode = FixedSizeInt <$> decode
 
 -- Word16
 
 instance Bi (UnsignedVarInt Word16) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 -- Word32
 
 instance Bi (UnsignedVarInt Word32) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 -- Word64
 
 instance Bi (UnsignedVarInt Word64) where
-  encode = encode . getUnsignedVarInt
-  decode = UnsignedVarInt <$> decode
+    encode = encode . getUnsignedVarInt
+    decode = UnsignedVarInt <$> decode
 
 -- TinyVarInt
--- The new CBOR instance is going to automatically offload on the `encodeWord16` from the CBOR library.
--- The reasoning behind this is that the old implementation was taking 1 or 2 bytes according to the size,
--- but due to the fact we need flat-term encoding for CBOR instances, we need (in case the TinyVarInt occupies
--- two bytes) to store this as a list, so the space-saving would be lost anyway due to the list size, even
--- in the case the `Int` occupies only 1 byte. Therefore, it's simpler to always encode this as a `Word16`
+--
+-- The new CBOR instance is going to automatically offload on the
+-- `encodeWord16` from the CBOR library.  The reasoning behind this is
+-- that the old implementation was taking 1 or 2 bytes according to
+-- the size, but due to the fact we need flat-term encoding for CBOR
+-- instances, we need (in case the TinyVarInt occupies two bytes) to
+-- store this as a list, so the space-saving would be lost anyway due
+-- to the list size, even in the case the `Int` occupies only 1
+-- byte. Therefore, it's simpler to always encode this as a `Word16`
 -- directly.
 instance Bi TinyVarInt where
-  encode = encode . getTinyVarInt
-  decode = TinyVarInt <$> decode
+    encode = encode . getTinyVarInt
+    decode = TinyVarInt <$> decode

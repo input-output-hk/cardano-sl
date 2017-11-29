@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 if [ -z "$1" ]; then
     echo "Supply single argument -- version to update CSL to"
@@ -25,6 +25,9 @@ updateVersion ssc/cardano-sl-ssc.cabal
 updateVersion update/cardano-sl-update.cabal
 updateVersion tools/cardano-sl-tools.cabal
 updateVersion txp/cardano-sl-txp.cabal
+updateVersion client/cardano-sl-client.cabal
+updateVersion generator/cardano-sl-generator.cabal
+updateVersion delegation/cardano-sl-delegation.cabal
 updateVersion wallet/cardano-sl-wallet.cabal
 updateVersion node/cardano-sl-node.cabal
 

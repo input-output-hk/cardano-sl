@@ -29,7 +29,7 @@ module Pos.Crypto.Signing.Signing
        , module Pos.Crypto.Signing.Types.Signing
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom, getRandomBytes)

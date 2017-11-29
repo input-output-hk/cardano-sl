@@ -1803,9 +1803,12 @@ self: {
             containers
             cryptonite
             data-default
+            engine-io
             hspec
+            lens
             log-warper
             MonadRandom
+            mtl
             QuickCheck
             universum
             warp

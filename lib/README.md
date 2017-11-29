@@ -45,7 +45,7 @@ Supported platforms are Windows, macOS and Linux. There are
 which include a main node and [Daedalus wallet](https://github.com/input-output-hk/daedalus).
 
 Linux installer is going to be released soon. For now, to
-get Cardano SL on Linux, please refer to the [Bulding Cardano SL and Daedalus from
+get Cardano SL on Linux, please refer to the [Building Cardano SL and Daedalus from
 Source](https://cardanodocs.com/for-contributors/building-from-source) chapter.
 <!-- CARDANO_SL_README_END_3 -->
 <!-- CARDANO_SL_README_BEGIN_4 -->

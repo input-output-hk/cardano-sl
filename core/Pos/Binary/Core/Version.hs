@@ -8,10 +8,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleB
 import qualified Pos.Core.Types as V
 
 instance Bi V.ApplicationName where
-  encode appName = encode (V.getApplicationName appName)
-  decode = do
-    appName <- decode
-    V.mkApplicationName appName
+    encode appName = encode (V.getApplicationName appName)
+    decode = do
+        appName <- decode
+        V.mkApplicationName appName
 
 deriveSimpleBi ''V.SoftwareVersion [
     Cons 'V.SoftwareVersion [

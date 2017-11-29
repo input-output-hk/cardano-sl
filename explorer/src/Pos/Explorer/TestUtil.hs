@@ -14,6 +14,7 @@ module Pos.Explorer.TestUtil
     , produceSecretKeys
     , generateValidBlocksSlotsNumber
     , createEmptyUndo
+    , secretKeyToAddress
     ) where
 
 import qualified Prelude
@@ -23,6 +24,7 @@ import           Control.Lens (at)
 import           Data.Default (def)
 import           Data.List (groupBy)
 import           Data.Map (fromList, fromListWith, unions, keys)
+import           Data.Function (on)
 import qualified Data.List.NonEmpty as NE
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Property, Testable, Gen, counterexample, forAll,
@@ -33,14 +35,14 @@ import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, Undo (..), SlogUndo (..))
 import qualified Pos.Communication ()
-import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
                            LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId, HeaderHash,
-                           difficultyL, headerHash)
+                           difficultyL, headerHash, makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (SecretKey,toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -137,9 +139,9 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         -> Map Epoch Page
     createMapEpochMaxPages epochPages = do
         let groupedEpochPages :: [[(Epoch, Page)]]
-            groupedEpochPages = groupBy (\(a,_) (b,_) -> a == b) epochPages
+            groupedEpochPages = groupBy ((==) `on` fst) epochPages
 
-        fromList $ maximumBy (\(a,_) (b,_) -> compare a b) <$> groupedEpochPages
+        fromList $ maximumBy (compare `on` fst) <$> groupedEpochPages
 
 -- | The first aproximation. Ideally, I wanted to have something to generate @Undo@ from
 -- @Block@. We could generate @Undo@ from _produceBlocksByBlockNumberAndSlots_, but we
@@ -373,4 +375,10 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
         generatedSecretKey :: IO SecretKey
         generatedSecretKey = generate arbitrary
 
+
+-- | Factory to create an `Address`
+-- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
+-- | TODO: Remove it as soon as ^ is exposed
+secretKeyToAddress :: SecretKey -> Address
+secretKeyToAddress = makePubKeyAddressBoot . toPublic
 

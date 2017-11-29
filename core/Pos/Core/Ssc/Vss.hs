@@ -49,7 +49,7 @@ mkVssCertificate
     -> EpochIndex
     -> VssCertificate
 mkVssCertificate sk vk expiry =
-    VssCertificate vk expiry signature (toPublic sk)
+    UnsafeVssCertificate vk expiry signature (toPublic sk)
   where
     signature = sign SignVssCert sk (vk, expiry)
 
@@ -67,7 +67,7 @@ recreateVssCertificate vssKey epoch sig pk =
     (unless (checkCertSign res) $ fail "recreateVssCertificate: invalid sign")
   where
     res =
-        VssCertificate
+        UnsafeVssCertificate
         { vcVssKey = vssKey
         , vcExpiryEpoch = epoch
         , vcSignature = sig
@@ -79,7 +79,7 @@ recreateVssCertificate vssKey epoch sig pk =
 -- #checkPubKeyAddress
 -- #checkSig
 checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
-checkCertSign VssCertificate {..} =
+checkCertSign UnsafeVssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 getCertId :: VssCertificate -> StakeholderId

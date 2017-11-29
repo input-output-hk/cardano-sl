@@ -174,7 +174,7 @@ instance Buildable (StakeholderId, Word16) where
 -- stake.
 --
 -- Invariant: 'checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature'.
-data VssCertificate = VssCertificate
+data VssCertificate = UnsafeVssCertificate
     { vcVssKey      :: !(AsBinary VssPublicKey)
     , vcExpiryEpoch :: !EpochIndex
     -- ^ Epoch up to which certificate is valid.
@@ -194,15 +194,15 @@ instance NFData VssCertificate
 instance Ord VssCertificate where
     compare a b = toTuple a `compare` toTuple b
       where
-        toTuple VssCertificate {..} =
+        toTuple UnsafeVssCertificate {..} =
             (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
 instance Bi PublicKey => Buildable VssCertificate where
-    build VssCertificate {..} = bprint
+    build UnsafeVssCertificate {..} = bprint
         ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
 
 instance Hashable VssCertificate where
-    hashWithSalt s VssCertificate{..} =
+    hashWithSalt s UnsafeVssCertificate{..} =
         hashWithSalt s (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
 -- | VssCertificatesMap contains all valid certificates collected

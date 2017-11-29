@@ -344,7 +344,7 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
         signature <- fromJSField obj "signature"
         signingKey <- fromJSField obj "signingKey"
-        return $ VssCertificate
+        return $ UnsafeVssCertificate
             { vcVssKey      = vssKey
             , vcExpiryEpoch = expiryEpoch
             , vcSignature   = signature

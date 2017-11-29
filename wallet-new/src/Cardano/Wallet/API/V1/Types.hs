@@ -95,7 +95,7 @@ newtype Page = Page Int
 deriveJSON Serokell.defaultOptions ''Page
 
 instance Arbitrary Page where
-  arbitrary = Page <$> fmap getPositive arbitrary
+  arbitrary = Page . getPositive <$> arbitrary
 
 instance FromHttpApiData Page where
     parseQueryParam qp = case parseQueryParam qp of

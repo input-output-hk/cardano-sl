@@ -314,7 +314,8 @@ data Account = Account
   , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
-  , accWalletId  :: WalletId
+  -- , accWalletId  :: WalletId
+  -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
   -- ^ The 'WalletId' this 'Account' belongs to.
   } deriving (Show, Eq, Generic)
 
@@ -325,7 +326,8 @@ instance Arbitrary Account where
                                    <*> listOf1 arbitrary
                                    <*> arbitrary
                                    <*> pure "My account"
-                                   <*> arbitrary
+                                  --  <*> arbitrary
+                                  -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
 
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text

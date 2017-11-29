@@ -36,6 +36,7 @@ import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
 type MonadV1   = WalletWebMode
@@ -70,6 +71,7 @@ migrate from = case eitherMigrate from of
 --
 -- Instances
 --
+
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =
@@ -108,3 +110,28 @@ instance Migrate V0.SyncProgress V1.SyncProgress where
                 Just nd | _spLocalCD >= nd -> 100
                 Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
         in pure $ V1.mkSyncProgress (fromIntegral percentage)
+
+
+--
+instance Migrate V0.CAccount V1.Account where
+    eitherMigrate V0.CAccount{..} =
+        V1.Account <$> eitherMigrate caId
+                  -- ^ accId
+                  <*> mapM eitherMigrate caAddresses
+                  -- ^ accAddresses
+                  <*> eitherMigrate caAmount
+                  -- ^ accAmount
+                  <*> pure (V0.caName caMeta)
+                  -- ^ accName
+                  -- <*> pure ???             -- accWalletId
+                  -- TODO (jk) Migrate `WalletId` from `CAccount`
+
+
+instance Migrate V0.CAccountId V1.AccountId where
+    eitherMigrate (V0.CAccountId i) = pure i
+
+
+instance Migrate V0.CAddress Core.Address where
+       eitherMigrate V0.CAddress {..} =
+          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+              Right $ decodeCTypeOrFail cadId

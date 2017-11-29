@@ -60,7 +60,8 @@ newAccount w@(WalletId wId) _ AccountUpdate{..} = do
            , accAmount = Core.mkCoin 0
            , accAddresses = mempty
            , accName = uaccName
-           , accWalletId = w
+          --  , accWalletId = w
+          -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
            }
 
 updateAccount :: WalletId -> AccountId -> AccountUpdate -> Handler Account

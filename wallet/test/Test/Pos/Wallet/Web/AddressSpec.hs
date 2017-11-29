@@ -9,8 +9,6 @@ import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (memory)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Discard (..), arbitrary)
-import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
@@ -19,7 +17,7 @@ import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
+import           Pos.Wallet.Web.Account (nextAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId, cwamId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
@@ -36,7 +34,7 @@ spec = withCompileInfo def $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $
             fakeAddressHasMaxSizeTest changeAddressGenerator
-        prop "genUniqueAddress" $
+        prop "nextAddress" $
             fakeAddressHasMaxSizeTest commonAddressGenerator
 
 type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
@@ -44,11 +42,14 @@ type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
 fakeAddressHasMaxSizeTest
     :: (HasConfigurations, HasCompileInfo)
     => AddressGenerator -> Word32 -> WalletProperty ()
-fakeAddressHasMaxSizeTest generator accSeed = do
+fakeAddressHasMaxSizeTest generator _accSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
+
     wid <- expectedOne "wallet addresses" =<< getWalletAddresses
+
     accId <- lift $ decodeCTypeOrFail . caId
-         =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
+         =<< newAccount passphrase (CAccountInit def wid)
+
     address <- generator accId passphrase
 
     largeAddress <- lift getFakeChangeAddress
@@ -66,13 +67,9 @@ changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphras
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: HasConfigurations => AddressGenerator
 commonAddressGenerator accId passphrase = do
-    addrSeed <- pick arbitrary
-    let genAddress = genUniqueAddress (DeterminedSeed addrSeed) passphrase accId
-    -- can't catch under 'PropertyM', workarounding
-    maddr <- lift $ (Just <$> genAddress) `catch` seedBusyHandler
-    addr <- maybe (stop Discard) pure maddr
-    lift $ decodeCTypeOrFail (cwamId addr)
-  where
-    seedBusyHandler (InternalError "address generation: this index is already taken")
-                      = pure Nothing
-    seedBusyHandler e = throwM e
+    addressE <- lift $ nextAddress accId passphrase
+    case addressE of
+        Right address -> do
+            lift $ decodeCTypeOrFail (cwamId address)
+        Left err ->
+            lift $ throwM $ InternalError err

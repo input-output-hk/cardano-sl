@@ -78,6 +78,7 @@ import           Servant.Multipart (FileData, Mem)
 
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
                                  SoftwareVersion, unsafeGetCoin)
+import           Pos.Crypto.HD (firstHardened)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
@@ -212,9 +213,12 @@ instance Buildable CWalletAssurance where
 
 -- | Meta data of 'CWallet'
 data CWalletMeta = CWalletMeta
-    { cwName      :: !Text
-    , cwAssurance :: !CWalletAssurance
-    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    { cwName         :: !Text
+    , cwAssurance    :: !CWalletAssurance
+    -- | FIXME Cannot access this comment https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    , cwUnit         :: !Int
+    -- | The last account derivation index (firstHardened + N accounts)
+    , cwAccountIndex :: !Word32
     } deriving (Show, Eq, Generic)
 
 instance Buildable CWalletMeta where
@@ -226,11 +230,13 @@ instance Buildable (SecureLog CWalletMeta) where
     build = buildUnsecure
 
 instance Default CWalletMeta where
-    def = CWalletMeta "Personal Wallet Set" CWANormal 0
+    def = CWalletMeta "Personal Wallet Set" CWANormal 0 firstHardened
 
 -- Includes data which are not provided by Cardano
 data CAccountMeta = CAccountMeta
-    { caName      :: !Text
+    { caName         :: !Text
+    -- | The last address derivation index (firstHardened + N addresses)
+    , caAddressIndex :: !Word32
     } deriving (Eq, Show, Generic)
 
 instance Buildable CAccountMeta where
@@ -241,7 +247,7 @@ instance Buildable (SecureLog CAccountMeta) where
     build (SecureLog CAccountMeta{..}) = "<meta>"
 
 instance Default CAccountMeta where
-    def = CAccountMeta "Personal Wallet"
+    def = CAccountMeta "Personal Wallet" firstHardened
 
 ----------------------------------------------------------------------------
 -- Wallet structure - requests

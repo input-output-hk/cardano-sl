@@ -16,7 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat, stext, (%))
 
 import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAccountId)
+import           Pos.Wallet.Web.Account (nextAccountId)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CAccountInit (..), CAccountMeta (..), CFilePath (..),
@@ -47,20 +47,21 @@ restoreWalletFromBackup WalletBackup {..} = do
             let (WalletMetaBackup wMeta) = wbMeta
                 accList = HM.toList wbAccounts
                           & each . _2 %~ \(AccountMetaBackup am) -> am
-                defaultAccAddrIdx = DeterminedSeed firstHardened
 
             addSecretKey wbSecretKey
             -- If there are no existing accounts, then create one
             if null accList
                 then do
-                    let accMeta = CAccountMeta { caName = "Initial account" }
+                    let accMeta = CAccountMeta { caName = "Initial account", caAddressIndex = firstHardened }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
-                    () <$ L.newAccountIncludeUnready True defaultAccAddrIdx emptyPassphrase accInit
-                else for_ accList $ \(idx, meta) -> do
-                    let aIdx = fromInteger $ fromIntegral idx
-                        seedGen = DeterminedSeed aIdx
-                    accId <- genUniqueAccountId seedGen wId
-                    createAccount accId meta
+                    () <$ L.newAccountIncludeUnready True emptyPassphrase accInit
+                else for_ accList $ \(_seed, meta) -> do
+                    accountIdE <- nextAccountId wId
+                    case accountIdE of
+                        Right accountId ->
+                            createAccount accountId meta
+                        Left err ->
+                            throwM $ InternalError err
 
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -74,7 +75,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             for_ wAccIds $ \accId -> getAccountWAddresses Ever accId >>= \case
                 Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
                                                   \an existing account of newly imported wallet"
-                Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
+                Just [] -> void $ L.newAddress emptyPassphrase accId
                 Just _  -> pure ()
 
             -- Get wallet again to return correct balance and stuff

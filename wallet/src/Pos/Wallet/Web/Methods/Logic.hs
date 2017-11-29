@@ -47,8 +47,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (MonadBalances (..), WalletMempoolExt)
-import           Pos.Wallet.Web.Account (AddrGenSeed, genUniqueAccountId, genUniqueAddress,
-                                         getSKById)
+import           Pos.Wallet.Web.Account (nextAccountId, nextAddress, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
                                              CAccountMeta (..), CAddress (..), CCoin, CId,
                                              CWAddressMeta (..), CWallet (..), CWalletMeta (..),
@@ -56,7 +55,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
-                                       MonadWalletDBRead, addWAddress, createAccount, createWallet,
+                                       addWAddress, createAccount, createWallet,
                                        getAccountIds, getAccountMeta, getWalletAddresses,
                                        getWalletMetaIncludeUnready, getWalletPassLU,
                                        isCustomAddress, removeAccount, removeHistoryCache,
@@ -76,7 +75,7 @@ type MonadWalletLogicRead ctx m =
     , MonadSlots ctx m
     , MonadDBRead m
     , MonadBalances m
-    , MonadWalletDBRead ctx m
+    , MonadWalletDB ctx m
     , MonadKeysRead m
     , MonadTxpMem WalletMempoolExt ctx m  -- TODO: remove these two once 'fixingCachedAccModifier' becomes useless
     , BlockLockMode ctx m
@@ -181,35 +180,42 @@ getWallets = getWalletAddresses >>= mapM getWallet
 
 newAddress
     :: MonadWalletLogic ctx m
-    => AddrGenSeed
-    -> PassPhrase
+    => PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId =
+newAddress passphrase accId =
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
         _ <- getAccount accMod accId
 
-        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
-        addWAddress cAccAddr
-        getWAddress accMod cAccAddr
+        addressE <- nextAddress accId passphrase
+        case addressE of
+            Left err ->
+                throwM $ InternalError err
+            Right address -> do
+                addWAddress address
+                getWAddress accMod address
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} =
+    => Bool -> PassPhrase -> CAccountInit -> m CAccount
+newAccountIncludeUnready includeUnready passphrase CAccountInit {..} =
     fixCachedAccModifierFor caInitWId $ \accMod -> do
         -- check wallet exists
         _ <- getWalletIncludeUnready includeUnready caInitWId
 
-        cAddr <- genUniqueAccountId addGenSeed caInitWId
-        createAccount cAddr caInitMeta
-        () <$ newAddress addGenSeed passphrase cAddr
-        getAccount accMod cAddr
+        accountIdE <- nextAccountId caInitWId
+        case accountIdE of
+            Right accountId -> do
+                createAccount accountId caInitMeta
+                () <$ newAddress passphrase accountId
+                getAccount accMod accountId
+            Left err ->
+                throwM $ InternalError err
 
 newAccount
     :: MonadWalletLogic ctx m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+    => PassPhrase -> CAccountInit -> m CAccount
 newAccount = newAccountIncludeUnready False
 
 createWalletSafe

@@ -19,7 +19,6 @@ import           Pos.Crypto (PassPhrase, aesDecrypt, deriveAesKeyBS, hash,
                              redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.BackupPhrase (toSeed)
-import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
                                              CPaperVendWalletRedeem (..), CTx (..),
                                              CWalletRedeem (..))
@@ -84,7 +83,7 @@ redeemAdaInternal passphrase cAccId seedBs = do
     _ <- fixingCachedAccModifier L.getAccount accId
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
-               L.newAddress RandomSeed passphrase accId
+               L.newAddress passphrase accId
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
                 prepareRedemptionTx redeemSK dstAddr

@@ -10,6 +10,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import           Pos.Crypto (firstHardened)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -37,6 +38,7 @@ newWallet NewWallet{..} = do
   initMeta <- V0.CWalletMeta <$> pure newwalName
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0
+                             <*> pure firstHardened
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
   V0.newWallet spendingPassword walletInit >>= migrate
 

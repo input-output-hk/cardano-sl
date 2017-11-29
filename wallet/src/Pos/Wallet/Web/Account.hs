@@ -6,40 +6,38 @@ module Pos.Wallet.Web.Account
        , getSKByAddress
        , getSKByAddressPure
        , genSaveRootKey
-       , genUniqueAccountId
-       , genUniqueAddress
+       , nextAccountId
+       , nextAddress
        , deriveAddressSK
        , deriveAddress
        , AccountMode
-       , GenSeed (..)
-       , AddrGenSeed
 
        , MonadKeySearch (..)
        ) where
 
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
-import           System.Random (randomIO)
 import           System.Wlog (WithLogger)
 import           Universum
 
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..), isHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..))
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWalletMeta(..), CWAddressMeta (..), Wal,
+                                             CAccountMeta(..),
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDBRead,
-                                       doesWAddressExist, getAccountMeta)
+import           Pos.Wallet.Web.State (MonadWalletDB, getAccountMeta, setAccountMeta,
+                                       getWalletMetaIncludeUnready, setWalletMeta)
 
 type AccountMode ctx m =
     ( MonadThrow m
     , WithLogger m
     , MonadKeysRead m
-    , MonadWalletDBRead ctx m
+    , MonadWalletDB ctx m
     )
 
 myRootAddresses :: MonadKeysRead m => m [CId Wal]
@@ -106,65 +104,50 @@ genSaveRootKey passphrase ph = do
     keyFromPhraseFailed msg =
         throwM . RequestError $ "Key creation from phrase failed: " <> msg
 
-data GenSeed a
-    = DeterminedSeed a
-    | RandomSeed
-
-type AddrGenSeed = GenSeed Word32   -- with derivation index
-
-generateUnique
-    :: (MonadIO m, MonadThrow m)
-    => Text -> AddrGenSeed -> (Word32 -> m b) -> (Word32 -> b -> m Bool) -> m b
-generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
-  where
-    loop 0 = throwM . RequestError $
-             sformat (build%": generation of unique item seems too difficult, \
-                      \you are approaching the limit") desc
-    loop i = do
-        rand  <- liftIO randomIO
-        value <- generator rand
-        bad   <- orM
-            [ isDuplicate rand value
-            , pure $ isHardened rand  -- using hardened keys only for now
-            ]
-        if bad
-            then loop (i - 1)
-            else return value
-generateUnique desc (DeterminedSeed seed) generator notFit = do
-    value <- generator (fromIntegral seed)
-    whenM (notFit seed value) $
-        throwM . InternalError $
-        sformat (build%": this index is already taken")
-        desc
-    return value
-
-genUniqueAccountId
+nextAccountId
     :: AccountMode ctx m
-    => AddrGenSeed
-    -> CId Wal
-    -> m AccountId
-genUniqueAccountId genSeed wsCAddr =
-    generateUnique
-        "account generation"
-        genSeed
-        (return . AccountId wsCAddr)
-        notFit
+    => CId Wal                   -- FIXME Confusing name
+    -> m (Either Text AccountId)
+nextAccountId walletId = do
+  walletMetaMay <- getWalletMetaIncludeUnready True walletId
+  case walletMetaMay of
+      Just walletMeta -> do
+          updateWalletMeta walletMeta (cwAccountIndex walletMeta + 1)
+      Nothing -> do
+          return $ Left "No wallet was found"
   where
-    notFit _idx addr = isJust <$> getAccountMeta addr
+    updateWalletMeta walletMeta nextAccountIndex
+        | nextAccountIndex > maxBound = do
+            return $ Left "Account index max bound exceeded"
+        | otherwise = do
+            let nextWalletMeta = walletMeta { cwAccountIndex = nextAccountIndex }
+            setWalletMeta walletId nextWalletMeta
+            return $ Right AccountId
+                { aiWId   = walletId
+                , aiIndex = cwAccountIndex walletMeta
+                }
 
-genUniqueAddress
+nextAddress
     :: AccountMode ctx m
-    => AddrGenSeed
+    => AccountId
     -> PassPhrase
-    -> AccountId
-    -> m CWAddressMeta
-genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
-    generateUnique "address generation" genSeed mkAddress notFit
+    -> m (Either Text CWAddressMeta)
+nextAddress accountId passphrase = do
+    accountMetaMay <- getAccountMeta accountId
+    case accountMetaMay of
+        Just accountMeta -> do
+            updateAccountMeta accountMeta (caAddressIndex accountMeta + 1)
+        Nothing -> do
+            return $ Left "No account was found"
   where
-    mkAddress :: AccountMode ctx m => Word32 -> m CWAddressMeta
-    mkAddress cwamAddressIndex =
-        deriveAddress passphrase wCAddr cwamAddressIndex
-    notFit _idx addr = doesWAddressExist Ever addr
+    updateAccountMeta accountMeta nextAddressIndex
+        | nextAddressIndex > maxBound = do
+            return $ Left "Address index max bound exceeded"
+        | otherwise = do
+            let nextAccountMeta = accountMeta { caAddressIndex = nextAddressIndex }
+            setAccountMeta accountId nextAccountMeta
+            addressMeta <- deriveAddress passphrase accountId (caAddressIndex accountMeta)
+            return $ Right addressMeta
 
 deriveAddressSK
     :: AccountMode ctx m

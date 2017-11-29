@@ -229,6 +229,9 @@ instance ToDocs Account where
 instance ToDocs AccountUpdate where
   descriptionFor _ = updateDescr (Proxy @Account)
 
+instance ToDocs AddressValidity where
+  descriptionFor _ = "Whether an address is valid or not."
+
 instance ToDocs Address where
   descriptionFor _ = "An Address."
 
@@ -295,6 +298,9 @@ instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema AccountUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema AddressValidity where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Address where

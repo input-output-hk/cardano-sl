@@ -62,6 +62,8 @@ import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | The full diffusion layer.
 --
 -- NB: we could do the whole logic/diffusion layer interface using typeclasses

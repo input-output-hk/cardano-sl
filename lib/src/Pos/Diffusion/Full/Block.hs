@@ -536,8 +536,8 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                             --failMalformed
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
-  where
   {-
+  where
     FIXME this makes no sense. Diffusion layer should not make judgements about
     malformedness of the database.
     failMalformed =

@@ -17,7 +17,7 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Core (Coin, CoinPortion, mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
-import           Pos.Core.Types (BlockVersionData (bvdMpcThd))
+import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
 import           Pos.Lrc.Types (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the

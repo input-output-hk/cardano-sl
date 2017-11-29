@@ -29,9 +29,10 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Core.Types (ApplicationName, BlockVersion, BlockVersionData,
-                                 NumSoftwareVersion, SoftwareVersion (..), StakeholderId)
-import           Pos.Core.Update (UpId, UpdateProposal (..))
+import           Pos.Core.Types (StakeholderId)
+import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
+                                  NumSoftwareVersion, SoftwareVersion (..), UpId,
+                                  UpdateProposal (..))
 import           Pos.Lrc.DB.Issuers (IssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Slotting.Types (SlottingData)

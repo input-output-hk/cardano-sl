@@ -21,9 +21,9 @@ import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
-import           Pos.Core.Types (ApplicationName, BlockVersion, BlockVersionData,
-                                 NumSoftwareVersion, SoftwareVersion, StakeholderId)
-import           Pos.Core.Update (UpId)
+import           Pos.Core.Types (StakeholderId)
+import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
+                                  NumSoftwareVersion, SoftwareVersion, UpId)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState)
 import           Pos.Util.Modifier (MapModifier)

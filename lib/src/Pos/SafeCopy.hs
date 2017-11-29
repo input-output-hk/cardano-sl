@@ -30,11 +30,11 @@ import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxPayload (..), TxProof (..))
 import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
                                  AddrStakeDistribution (..), AddrType (..), Address (..),
-                                 Address' (..), ApplicationName (..), BlockCount (..),
-                                 BlockVersion (..), BlockVersionData (..), ChainDifficulty (..),
-                                 Coin, CoinPortion (..), Script (..), SharedSeed (..),
-                                 SoftforkRule (..), SoftwareVersion (..))
-import           Pos.Core.Update (BlockVersionModifier (..), SystemTag (..), UpdateData (..),
+                                 Address' (..), BlockCount (..), ChainDifficulty (..), Coin,
+                                 CoinPortion (..), Script (..), SharedSeed (..))
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
+                                  BlockVersionModifier (..), SoftforkRule (..),
+                                  SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))

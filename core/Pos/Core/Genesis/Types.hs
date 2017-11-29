@@ -38,8 +38,8 @@ import           Pos.Core.Coin ()
 import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Slotting.Types (Timestamp)
 import           Pos.Core.Ssc.Types (VssCertificatesMap, getVssCertificatesMap)
-import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, SharedSeed,
-                                 StakeholderId)
+import           Pos.Core.Types (Address, Coin, CoinPortion, SharedSeed, StakeholderId)
+import           Pos.Core.Update.Types (BlockVersionData)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing (RedeemPublicKey)
 

@@ -2,17 +2,12 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Data.Time.Units (Millisecond)
-import           Serokell.Data.Memory.Units (Byte)
-
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi,
                                    deriveSimpleBiCxt)
 import           Pos.Binary.Core.Coin ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
-import           Pos.Binary.Core.Version ()
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import qualified Pos.Core.Fee as T
 import qualified Pos.Core.Slotting as T
 import qualified Pos.Core.Types as T
 import qualified Pos.Data.Attributes as A
@@ -81,29 +76,4 @@ deriveSimpleBi ''T.SharedSeed [
 deriveSimpleBi ''T.ChainDifficulty [
     Cons 'T.ChainDifficulty [
         Field [| T.getChainDifficulty :: T.BlockCount |]
-    ]]
-
-deriveSimpleBi ''T.SoftforkRule [
-    Cons 'T.SoftforkRule [
-        Field [| T.srInitThd      :: T.CoinPortion |],
-        Field [| T.srMinThd       :: T.CoinPortion |],
-        Field [| T.srThdDecrement :: T.CoinPortion |]
-    ]]
-
-deriveSimpleBi ''T.BlockVersionData [
-    Cons 'T.BlockVersionData [
-        Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
-        Field [| T.bvdSlotDuration      :: Millisecond     |],
-        Field [| T.bvdMaxBlockSize      :: Byte            |],
-        Field [| T.bvdMaxHeaderSize     :: Byte            |],
-        Field [| T.bvdMaxTxSize         :: Byte            |],
-        Field [| T.bvdMaxProposalSize   :: Byte            |],
-        Field [| T.bvdMpcThd            :: T.CoinPortion   |],
-        Field [| T.bvdHeavyDelThd       :: T.CoinPortion   |],
-        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
-        Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
-        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Field [| T.bvdSoftforkRule      :: T.SoftforkRule  |],
-        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
-        Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

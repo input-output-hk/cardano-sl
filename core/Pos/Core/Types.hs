@@ -20,19 +20,6 @@ module Pos.Core.Types
        -- * ChainDifficulty
        , ChainDifficulty (..)
 
-       -- * Version
-       , ApplicationName
-       , getApplicationName
-       , BlockVersion (..)
-       , NumSoftwareVersion
-       , SoftwareVersion (..)
-       , applicationNameMaxLength
-       , mkApplicationName
-
-       -- * Update system
-       , SoftforkRule (..)
-       , BlockVersionData (..)
-
        -- * HeaderHash related types and functions
        , BlockHeaderStub
        , HeaderHash
@@ -68,22 +55,14 @@ import           Universum
 import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
-import           Data.Char (isAscii)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
-import qualified Data.Text as T
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Units (Millisecond)
-import           Formatting (Format, bprint, build, formatToString, int, shown, stext, (%))
+import           Formatting (Format, bprint, build, formatToString, int, (%))
 import qualified PlutusCore.Program as PLCore
-import qualified Prelude
-import           Serokell.AcidState ()
-import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
 
-import           Pos.Core.Fee (TxFeePolicy)
-import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
@@ -207,104 +186,6 @@ instance NFData Address
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: BlockCount
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
-
-----------------------------------------------------------------------------
--- Version
-----------------------------------------------------------------------------
-
--- | Communication protocol version.
-data BlockVersion = BlockVersion
-    { bvMajor :: !Word16
-    , bvMinor :: !Word16
-    , bvAlt   :: !Word8
-    } deriving (Eq, Generic, Ord, Typeable)
-
-newtype ApplicationName = ApplicationName
-    { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
-
--- | Smart constructor of 'ApplicationName'.
-mkApplicationName :: MonadFail m => Text -> m ApplicationName
-mkApplicationName appName
-    | length appName > applicationNameMaxLength =
-        fail "ApplicationName: too long string passed"
-    | T.any (not . isAscii) appName =
-        fail "ApplicationName: not ascii string passed"
-    | otherwise = pure $ ApplicationName appName
-
-applicationNameMaxLength :: Integral i => i
-applicationNameMaxLength = 12
-
--- | Numeric software version associated with ApplicationName.
-type NumSoftwareVersion = Word32
-
--- | Software version.
-data SoftwareVersion = SoftwareVersion
-    { svAppName :: !ApplicationName
-    , svNumber  :: !NumSoftwareVersion
-    } deriving (Eq, Generic, Ord, Typeable)
-
-instance Buildable SoftwareVersion where
-    build SoftwareVersion {..} =
-        bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
-
-instance Show SoftwareVersion where
-    show = toString . pretty
-
-instance Show BlockVersion where
-    show BlockVersion {..} =
-        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
-
-instance Buildable BlockVersion where
-    build = bprint shown
-
-instance Hashable SoftwareVersion
-instance Hashable BlockVersion
-
-instance NFData BlockVersion
-instance NFData SoftwareVersion
-
-----------------------------------------------------------------------------
--- Values updatable by update system
-----------------------------------------------------------------------------
-
--- | Values defining softfork resolution rule.
--- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold
--- at the 't'-th epoch will be
--- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
---
--- Softfork resolution threshold is the portion of total stake such
--- that if total stake of issuers of blocks with some block version is
--- greater than this portion, this block version becomes adopted.
-data SoftforkRule = SoftforkRule
-    { srInitThd      :: !CoinPortion
-    -- ^ Initial threshold (right after proposal is confirmed).
-    , srMinThd       :: !CoinPortion
-    -- ^ Minimal threshold (i. e. threshold can't become less than
-    -- this one).
-    , srThdDecrement :: !CoinPortion
-    -- ^ Theshold will be decreased by this value after each epoch.
-    } deriving (Show, Eq, Ord, Generic)
-
-instance Hashable SoftforkRule
-
--- | Data which is associated with 'BlockVersion'.
-data BlockVersionData = BlockVersionData
-    { bvdScriptVersion     :: !ScriptVersion
-    , bvdSlotDuration      :: !Millisecond
-    , bvdMaxBlockSize      :: !Byte
-    , bvdMaxHeaderSize     :: !Byte
-    , bvdMaxTxSize         :: !Byte
-    , bvdMaxProposalSize   :: !Byte
-    , bvdMpcThd            :: !CoinPortion
-    , bvdHeavyDelThd       :: !CoinPortion
-    , bvdUpdateVoteThd     :: !CoinPortion
-    , bvdUpdateProposalThd :: !CoinPortion
-    , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdSoftforkRule      :: !SoftforkRule
-    , bvdTxFeePolicy       :: !TxFeePolicy
-    , bvdUnlockStakeEpoch  :: !EpochIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
 
 ----------------------------------------------------------------------------
 -- HeaderHash

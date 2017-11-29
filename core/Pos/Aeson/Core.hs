@@ -25,10 +25,11 @@ import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
-import           Pos.Core.Types (ApplicationName (..), BlockCount (..), BlockVersion,
-                                 BlockVersionData, ChainDifficulty, Coin, CoinPortion, Script (..),
-                                 SharedSeed (..), SoftforkRule, mkApplicationName, mkCoin,
-                                 unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Types (BlockCount (..), ChainDifficulty, Coin, CoinPortion, Script (..),
+                                 SharedSeed (..), mkCoin, unsafeCoinPortionFromDouble,
+                                 unsafeGetCoin)
+import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
+                                        SoftforkRule, mkApplicationName)
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (eitherToFail)
 

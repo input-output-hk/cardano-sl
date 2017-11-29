@@ -34,7 +34,6 @@ library
                        Pos.Core.Block.Main
                        Pos.Core.Block.Union
 
-                       Pos.Core.BlockVersionData
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Configuration
@@ -42,14 +41,13 @@ library
                        Pos.Core.Context
                        Pos.Core.Delegation
                        Pos.Core.Fee
-                       Pos.Core.Update
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Ssc
                        Pos.Core.Txp
                        Pos.Core.Types
-                       Pos.Core.Version
+                       Pos.Core.Update
 
                        Pos.Core.Genesis
 
@@ -69,7 +67,6 @@ library
                        Pos.Binary.Core.Txp
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Update
-                       Pos.Binary.Core.Version
                        Pos.Binary.Merkle
 
                        Pos.System.Metrics.Constants
@@ -121,6 +118,11 @@ library
                        Pos.Core.Ssc.Types
                        Pos.Core.Ssc.Util
                        Pos.Core.Ssc.Vss
+
+                       -- Update
+                       Pos.Core.Update.Types
+                       Pos.Core.Update.Util
+                       Pos.Core.Update.Version
 
   build-depends:       QuickCheck
                      , aeson

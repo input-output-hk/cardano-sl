@@ -1,4 +1,6 @@
-module Pos.Core.Version
+-- | Functions related to Block/Software versions.
+
+module Pos.Core.Update.Version
        ( parseBlockVersion
        , parseSoftwareVersion
        ) where
@@ -11,7 +13,7 @@ import           Text.Parsec.Char (alphaNum, char, letter, string)
 import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text (Parser)
 
-import           Pos.Core.Types (BlockVersion (..), SoftwareVersion (..), mkApplicationName)
+import           Pos.Core.Update.Types (BlockVersion (..), SoftwareVersion (..), mkApplicationName)
 import           Pos.Util.Orphans ()
 
 parseBlockVersion :: Parser BlockVersion

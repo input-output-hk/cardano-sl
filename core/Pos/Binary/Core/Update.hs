@@ -16,23 +16,55 @@ import           Pos.Binary.Core.Types ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Fee (TxFeePolicy)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Core.Types (BlockVersion, CoinPortion, ScriptVersion, SoftforkRule,
-                                 SoftwareVersion)
+import           Pos.Core.Types (CoinPortion, ScriptVersion)
+import qualified Pos.Core.Types as T
 import qualified Pos.Core.Update as U
+import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
+                                        SoftwareVersion)
 import           Pos.Crypto (Hash, SignTag (SignUSVote), checkSig)
 
-instance Bi U.SystemTag where
-    encode = encode . U.getSystemTag
-    decode = decode >>= \decoded -> case U.mkSystemTag decoded of
-        Left e   -> fail e
-        Right st -> pure st
+instance Bi U.ApplicationName where
+    encode appName = encode (U.getApplicationName appName)
+    decode = do
+        appName <- decode
+        U.mkApplicationName appName
 
-deriveSimpleBi ''U.UpdateData [
-    Cons 'U.UpdateData [
-        Field [| U.udAppDiffHash  :: Hash Raw |],
-        Field [| U.udPkgHash      :: Hash Raw |],
-        Field [| U.udUpdaterHash  :: Hash Raw |],
-        Field [| U.udMetadataHash :: Hash Raw |]
+deriveSimpleBi ''U.BlockVersion [
+    Cons 'U.BlockVersion [
+        Field [| U.bvMajor :: Word16 |],
+        Field [| U.bvMinor :: Word16 |],
+        Field [| U.bvAlt   :: Word8  |]
+    ]]
+
+deriveSimpleBi ''U.SoftwareVersion [
+    Cons 'U.SoftwareVersion [
+        Field [| U.svAppName :: U.ApplicationName    |],
+        Field [| U.svNumber  :: U.NumSoftwareVersion |]
+    ]]
+
+deriveSimpleBi ''SoftforkRule [
+    Cons 'SoftforkRule [
+        Field [| srInitThd      :: CoinPortion |],
+        Field [| srMinThd       :: CoinPortion |],
+        Field [| srThdDecrement :: CoinPortion |]
+    ]]
+
+deriveSimpleBi ''BlockVersionData [
+    Cons 'BlockVersionData [
+        Field [| bvdScriptVersion     :: T.ScriptVersion |],
+        Field [| bvdSlotDuration      :: Millisecond     |],
+        Field [| bvdMaxBlockSize      :: Byte            |],
+        Field [| bvdMaxHeaderSize     :: Byte            |],
+        Field [| bvdMaxTxSize         :: Byte            |],
+        Field [| bvdMaxProposalSize   :: Byte            |],
+        Field [| bvdMpcThd            :: CoinPortion     |],
+        Field [| bvdHeavyDelThd       :: CoinPortion     |],
+        Field [| bvdUpdateVoteThd     :: CoinPortion     |],
+        Field [| bvdUpdateProposalThd :: CoinPortion     |],
+        Field [| bvdUpdateImplicit    :: FlatSlotId      |],
+        Field [| bvdSoftforkRule      :: SoftforkRule    |],
+        Field [| bvdTxFeePolicy       :: TxFeePolicy     |],
+        Field [| bvdUnlockStakeEpoch  :: EpochIndex      |]
     ]]
 
 deriveSimpleBi ''U.BlockVersionModifier [
@@ -51,6 +83,20 @@ deriveSimpleBi ''U.BlockVersionModifier [
         Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule  |],
         Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
         Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
+    ]]
+
+instance Bi U.SystemTag where
+    encode = encode . U.getSystemTag
+    decode = decode >>= \decoded -> case U.mkSystemTag decoded of
+        Left e   -> fail e
+        Right st -> pure st
+
+deriveSimpleBi ''U.UpdateData [
+    Cons 'U.UpdateData [
+        Field [| U.udAppDiffHash  :: Hash Raw |],
+        Field [| U.udPkgHash      :: Hash Raw |],
+        Field [| U.udUpdaterHash  :: Hash Raw |],
+        Field [| U.udMetadataHash :: Hash Raw |]
     ]]
 
 deriveSimpleBi ''U.UpdateProposalToSign [

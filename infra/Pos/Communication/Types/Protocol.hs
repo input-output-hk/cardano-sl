@@ -41,6 +41,8 @@ module Pos.Communication.Types.Protocol
        , MsgSubscribe (..)
        ) where
 
+import           Universum
+
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base64 as B64 (decode, encode)
@@ -57,14 +59,13 @@ import           Mockable.Concurrent (Async, async, wait)
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode)
-import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson, mapJson)
-import           Universum
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Communication.BiP (BiP)
-import           Pos.Core.Types (BlockVersion)
+import           Pos.Core.Update (BlockVersion)
+import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 
 type PackingType = BiP
 type PeerData = VerInfo

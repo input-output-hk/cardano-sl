@@ -21,6 +21,7 @@ module Pos.Core.Address
        , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
+       , deriveLvl3KeyPair
        , deriveFirstHDAddress
 
        -- * Pattern-matching helpers
@@ -184,7 +185,7 @@ newtype IsBootstrapEraAddr = IsBootstrapEraAddr Bool
 
 -- | A function for making an address from 'PublicKey'.
 makePubKeyAddress :: Bi Address' => IsBootstrapEraAddr -> PublicKey -> Address
-makePubKeyAddress = makePubKeyAddressImpl Nothing
+makePubKeyAddress isBootstrap = makePubKeyHdwAddress isBootstrap Nothing
 
 -- | A function for making an address from 'PublicKey' for bootstrap era.
 makePubKeyAddressBoot :: Bi Address' => PublicKey -> Address
@@ -198,30 +199,24 @@ makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
 makeRootPubKeyAddress :: Bi Address' => PublicKey -> Address
 makeRootPubKeyAddress = makePubKeyAddressBoot
 
--- | A function for making an HDW address.
+-- | Creates an address from a public key and a packed derivation path.
 makePubKeyHdwAddress
-    :: Bi Address'
-    => IsBootstrapEraAddr
-    -> HDAddressPayload    -- ^ Derivation path
-    -> PublicKey
-    -> Address
-makePubKeyHdwAddress ibe path = makePubKeyAddressImpl (Just path) ibe
-
-makePubKeyAddressImpl
-    :: Bi Address'
-    => Maybe HDAddressPayload
-    -> IsBootstrapEraAddr
-    -> PublicKey
-    -> Address
-makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
-    makeAddress spendingData attrs
+  :: Bi Address'
+  => IsBootstrapEraAddr
+  -> Maybe HDAddressPayload -- ^ The ChaCha20 + Poly1305 encrypted derivation path.
+  -> PublicKey
+  -> Address
+makePubKeyHdwAddress isBootstrap mPath pubKey =
+    makeAddress (PubKeyASD pubKey) AddrAttributes{..}
   where
-    spendingData = PubKeyASD key
-    distr
-        | isBootstrapEra = BootstrapEraDistr
-        | otherwise = SingleKeyDistr (addressHash key)
-    attrs =
-        AddrAttributes {aaStakeDistribution = distr, aaPkDerivationPath = path}
+    aaStakeDistribution =
+        case isBootstrap of
+            IsBootstrapEraAddr True ->
+                BootstrapEraDistr
+            IsBootstrapEraAddr False ->
+                SingleKeyDistr (addressHash pubKey)
+
+    aaPkDerivationPath = mPath
 
 -- | A function for making an address from a validation 'Script'.  It
 -- takes an optional 'StakeholderId'. If it's given, it will receive
@@ -249,16 +244,12 @@ createHDAddressH
     => IsBootstrapEraAddr
     -> ShouldCheckPassphrase
     -> PassPhrase
-    -> HDPassphrase
     -> EncryptedSecretKey
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH ibea scp passphrase hdPassphrase parent parentPath childIndex = do
-    derivedSK <- deriveHDSecretKey scp passphrase parent childIndex
-    let addressPayload = packHDAddressAttr hdPassphrase $ parentPath ++ [childIndex]
-    let pk = encToPublic derivedSK
-    return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
+createHDAddressH isBootstrap checkPass passphrase rootKey branchIndices leafIndex =
+    deriveHDAddressKeyH isBootstrap checkPass passphrase rootKey (branchIndices ++ [leafIndex])
 
 -- | Create address from public key via non-hardened way.
 createHDAddressNH
@@ -272,7 +263,7 @@ createHDAddressNH
 createHDAddressNH ibea passphrase parent parentPath childIndex = do
     let derivedPK = deriveHDPublicKey parent childIndex
     let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
-    (makePubKeyHdwAddress ibea addressPayload derivedPK, derivedPK)
+    (makePubKeyHdwAddress ibea (Just addressPayload) derivedPK, derivedPK)
 
 ----------------------------------------------------------------------------
 -- Checks
@@ -330,21 +321,63 @@ addrSpendingDataToType =
 addrAttributesUnwrapped :: Address -> AddrAttributes
 addrAttributesUnwrapped = attrData . addrAttributes
 
--- | Makes account secret key for given wallet set.
+-- | Derives a HD wallet address and private key from a root key and a path
+-- which is 2 levels deep (Account -> Address).
 deriveLvl2KeyPair
     :: Bi Address'
     => IsBootstrapEraAddr
     -> ShouldCheckPassphrase
     -> PassPhrase
-    -> EncryptedSecretKey -- ^ key of wallet
-    -> Word32 -- ^ account derivation index
-    -> Word32 -- ^ address derivation index
+    -> EncryptedSecretKey
+    -> Word32 -- ^ The first derivation index (the account index)
+    -> Word32 -- ^ The second derivation index (the address index)
     -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
-    wKey <- deriveHDSecretKey scp passphrase wsKey accountIndex
-    let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    -- We don't need to check passphrase twice
-    createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
+deriveLvl2KeyPair isBootstrap checkPass passphrase rootKey accountIndex addressIndex = do
+    deriveHDAddressKeyH isBootstrap checkPass passphrase rootKey
+      [accountIndex, addressIndex]
+
+-- | Derives a HD wallet address and private key from a root key and a path
+-- which is 3 levels deep (Account -> KeyChain -> Address).
+deriveLvl3KeyPair
+    :: Bi Address'
+    => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> Word32 -- ^ The first derivation index (the account index)
+    -> Word32 -- ^ The second derivation index (the chain index)
+    -> Word32 -- ^ The third derivation index (the address index)
+    -> Maybe (Address, EncryptedSecretKey)
+deriveLvl3KeyPair isBootstrap checkPass passphrase rootKey accountIndex chainIndex addressIndex =
+    deriveHDAddressKeyH isBootstrap checkPass passphrase rootKey
+      [accountIndex, chainIndex, addressIndex]
+
+-- | Derives a HD wallet address and private key from a root key and a path of
+-- arbitrary length where each is hardened.
+deriveHDAddressKeyH
+    :: Bi Address'
+    => IsBootstrapEraAddr    -- ^ Whether the address is BootStrap Era or beyond.
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> [Word32]              -- ^ The derivation path as 32-bit integers.
+    -> Maybe (Address, EncryptedSecretKey)
+deriveHDAddressKeyH isBootstrap checkPass passphrase rootKey path = do
+    let hdPassphrase = deriveHDPassphrase $ encToPublic rootKey
+    let hdAddressPayload = packHDAddressAttr hdPassphrase path
+    childKey <- deriveChildKey path checkPass rootKey
+    let publicKey = encToPublic childKey
+    return (makePubKeyHdwAddress isBootstrap (Just hdAddressPayload) publicKey, childKey)
+  where
+    deriveChildKey [] _ key = return key
+    -- On the first iteration we check the passphrase since checkFirst is True.
+    deriveChildKey (i:is) checkFirst@(ShouldCheckPassphrase True) key =
+        deriveHDSecretKey checkFirst passphrase key i >>= deriveChildKey is dontCheck
+    -- On the next iterations we do not check the passphrase.
+    deriveChildKey (i:is) checkNext@(ShouldCheckPassphrase False) key =
+        deriveHDSecretKey checkNext passphrase key i >>= deriveChildKey is dontCheck
+
+    dontCheck = ShouldCheckPassphrase False
 
 deriveFirstHDAddress
     :: Bi Address'

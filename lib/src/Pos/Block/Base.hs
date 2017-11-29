@@ -22,8 +22,8 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
                                  MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
                                  MainToSign (..), mkGenericHeader, recreateGenericBlock)
-import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
+import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
+import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)

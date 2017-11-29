@@ -12,7 +12,6 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Pos.Arbitrary.Core ()
 import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData, GenesisDelegation,
                                    GenesisWStakeholders, ProtocolConstants)
-import           Pos.Core.Genesis.Canonical ()
 
 import           Test.Pos.Helpers (canonicalJsonTest)
 import           Test.Pos.Util (withDefConfiguration)

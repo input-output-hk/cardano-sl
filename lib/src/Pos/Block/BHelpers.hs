@@ -17,10 +17,9 @@ import           Pos.Binary.Core.Txp ()
 import           Pos.Binary.Core.Update ()
 import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..),
                                             GenericBlock (..), GenericBlockHeader (..), gbExtra)
-import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main.Lens (mainBlockEBDataProof)
-import           Pos.Core.Block.Main.Types (MainBlockHeader, MainBlockchain, MainToSign (..))
-import           Pos.Core.Block.Union.Types (BlockHeader, BlockSignature (..))
+import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
+                                      MainBlockchain, MainToSign (..), mainBlockEBDataProof)
+import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (SlotId (..))

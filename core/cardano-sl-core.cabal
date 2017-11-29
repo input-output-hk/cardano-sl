@@ -31,30 +31,14 @@ library
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
-                       Pos.Core.Block.Genesis.Chain
-                       Pos.Core.Block.Genesis.Lens
-                       Pos.Core.Block.Genesis.Instances
-                       Pos.Core.Block.Genesis.Types
                        Pos.Core.Block.Main
-                       Pos.Core.Block.Main.Chain
-                       Pos.Core.Block.Main.Lens
-                       Pos.Core.Block.Main.Instances
-                       Pos.Core.Block.Main.Types
                        Pos.Core.Block.Union
-                       Pos.Core.Block.Union.Instances
-                       Pos.Core.Block.Union.Types
 
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
-                       Pos.Core.Configuration
-                       Pos.Core.Configuration.BlockVersionData
-                       Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GeneratedSecrets
-                       Pos.Core.Configuration.GenesisData
-                       Pos.Core.Configuration.GenesisHash
-                       Pos.Core.Configuration.Protocol
-                       Pos.Core.Constants
                        Pos.Core.Coin
+                       Pos.Core.Configuration
+                       Pos.Core.Constants
                        Pos.Core.Context
                        Pos.Core.Delegation
                        Pos.Core.Fee
@@ -68,10 +52,6 @@ library
                        Pos.Core.Version
 
                        Pos.Core.Genesis
-                       Pos.Core.Genesis.Canonical
-                       Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.Helpers
-                       Pos.Core.Genesis.Types
 
                        Pos.Merkle
                        Pos.Data.Attributes
@@ -99,11 +79,38 @@ library
                        Pos.Util.Limits
 
   other-modules:
+                       -- Block
+                       Pos.Core.Block.Genesis.Chain
+                       Pos.Core.Block.Genesis.Lens
+                       Pos.Core.Block.Genesis.Instances
+                       Pos.Core.Block.Genesis.Types
+                       Pos.Core.Block.Main.Chain
+                       Pos.Core.Block.Main.Lens
+                       Pos.Core.Block.Main.Instances
+                       Pos.Core.Block.Main.Types
+                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.Types
+
+                       -- Configuration
+                       Pos.Core.Configuration.BlockVersionData
+                       Pos.Core.Configuration.Core
+                       Pos.Core.Configuration.GeneratedSecrets
+                       Pos.Core.Configuration.GenesisData
+                       Pos.Core.Configuration.GenesisHash
+                       Pos.Core.Configuration.Protocol
+
+                       -- Context
                        Pos.Core.Context.PrimaryKey
 
                        -- Delegation
                        Pos.Core.Delegation.Types
                        Pos.Core.Delegation.Util
+
+                       -- Genesis
+                       Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Generate
+                       Pos.Core.Genesis.Helpers
+                       Pos.Core.Genesis.Types
 
                        -- Slotting
                        Pos.Core.Slotting.Timestamp

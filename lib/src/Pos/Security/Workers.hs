@@ -15,7 +15,7 @@ import           Pos.Block.Logic (needRecovery)
 import           Pos.Block.Network (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec, worker)
 import           Pos.Configuration (HasNodeConfiguration, mdNoBlocksSlotThreshold)
-import           Pos.Context (getOurPublicKey, getUptime, recoveryCommGuard)
+import           Pos.Context (getOurPublicKey, getUptime, recoveryCommGuard, recoveryInProgress)
 import           Pos.Core (SlotId (..), flattenEpochOrSlot, flattenSlotId, headerHash,
                            headerLeaderKeyL, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
@@ -82,8 +82,14 @@ checkForReceivedBlocksWorkerImpl
        (WorkMode ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . recoveryCommGuard "security worker" $
-        whenM (needRecovery @ctx) $ triggerRecovery enqueueMsg
+    repeatOnInterval (const (sec' 4)) $ do
+        -- TODO we should be in fact checking this predicate more often.
+        -- I suggest checking it, eg, every second. But if we succeeded
+        -- and triggered recovery, we make a longer delay, say slot duration/2,
+        -- so that we don't overload the retrieval worker.
+        need <- needRecovery @ctx
+        recoveryHappening <- recoveryInProgress
+        when (need && not recoveryHappening) $ triggerRecovery enqueueMsg
     -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard "security worker" $ do
         ourPk <- getOurPublicKey

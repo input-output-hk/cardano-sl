@@ -52,7 +52,8 @@ type BalancesEnv ext ctx m =
     , MonadGState m
     , WebWalletModeDB ctx m
     , MonadMask m
-    , MonadTxpMem ext ctx m)
+    , MonadTxpMem ext ctx m
+    )
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do

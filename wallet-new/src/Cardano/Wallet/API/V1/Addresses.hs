@@ -15,5 +15,6 @@ type API = "addresses" :> WalletRequestParams
                        :> Summary "Creates a new Address."
                        :> Post '[JSON] Address
       :<|> "addresses" :> Capture "address" Text
+                       :> "validity"
                        :> Summary "Checks the validity of an address."
                        :> Get '[JSON] AddressValidity

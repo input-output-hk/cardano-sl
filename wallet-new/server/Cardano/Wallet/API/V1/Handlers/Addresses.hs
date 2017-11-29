@@ -4,6 +4,7 @@ module Cardano.Wallet.API.V1.Handlers.Addresses where
 
 import           Universum
 
+import           Pos.Core (decodeTextAddress)
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
 
@@ -13,6 +14,7 @@ import           Test.QuickCheck (arbitrary, generate, vectorOf)
 handlers :: Server Addresses.API
 handlers =  listAddresses
        :<|> newAddress
+       :<|> verifyAddress
 
 listAddresses :: PaginationParams
               -> Handler (OneOf [Address] (ExtendedResponse [Address]))
@@ -33,3 +35,13 @@ listAddresses PaginationParams {..} = do
 
 newAddress :: Address -> Handler Address
 newAddress a = return a
+
+verifyAddress :: Text -> Handler AddressValidity
+verifyAddress address
+  | length address > 78 = return $ AddressValidity False
+  | otherwise           =
+      case decodeTextAddress address of
+          Right _ ->
+              return $ AddressValidity True
+          Left _  ->
+              return $ AddressValidity False

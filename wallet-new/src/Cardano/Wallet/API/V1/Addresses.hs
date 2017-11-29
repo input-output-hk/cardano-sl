@@ -1,6 +1,7 @@
 
 module Cardano.Wallet.API.V1.Addresses where
 
+import           Universum (Text)
 import           Servant
 
 import           Cardano.Wallet.API.V1.Parameters
@@ -13,3 +14,6 @@ type API = "addresses" :> WalletRequestParams
       :<|> "addresses" :> ReqBody '[JSON] Address
                        :> Summary "Creates a new Address."
                        :> Post '[JSON] Address
+      :<|> "addresses" :> Capture "address" Text
+                       :> Summary "Checks the validity of an address."
+                       :> Get '[JSON] AddressValidity

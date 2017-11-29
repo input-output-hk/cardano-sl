@@ -7,8 +7,8 @@ module Pos.Explorer.Core.Types
 
 import           Universum
 
+import           Pos.Core (HeaderHash, Timestamp)
 import           Pos.Core.Txp (TxId, TxUndo)
-import           Pos.Core.Types (HeaderHash, Timestamp)
 import           Pos.Util.Chrono (NewestFirst)
 
 type AddrHistory = NewestFirst [] TxId

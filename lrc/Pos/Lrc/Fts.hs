@@ -12,9 +12,8 @@ import           Universum
 
 import           Pos.Core.Coin (coinToInteger, unsafeGetCoin)
 import           Pos.Core.Configuration (HasConfiguration, epochSlots)
-import           Pos.Core.Slotting ()
-import           Pos.Core.Types (Coin, LocalSlotIndex (..), SharedSeed (..), SlotLeaders,
-                                 StakeholderId, mkCoin)
+import           Pos.Core.Slotting (LocalSlotIndex (..))
+import           Pos.Core.Types (Coin, SharedSeed (..), SlotLeaders, StakeholderId, mkCoin)
 import           Pos.Crypto (deterministic, randomNumber)
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier

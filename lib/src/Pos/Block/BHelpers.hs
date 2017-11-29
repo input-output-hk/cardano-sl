@@ -23,7 +23,7 @@ import           Pos.Core.Block.Main.Types (MainBlockHeader, MainBlockchain, Mai
 import           Pos.Core.Block.Union.Types (BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (SlotId (..))
+import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
                              proxyVerify)
 import           Pos.Delegation.Helpers (dlgVerifyPayload)

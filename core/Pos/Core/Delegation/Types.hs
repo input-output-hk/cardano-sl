@@ -17,7 +17,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, int, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Core.Types (EpochIndex)
+import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature)
 
 ----------------------------------------------------------------------------

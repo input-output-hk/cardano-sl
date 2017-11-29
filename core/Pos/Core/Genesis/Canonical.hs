@@ -30,11 +30,12 @@ import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants (..))
+import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
-import           Pos.Core.Types (Address, BlockVersionData (..), Coin, CoinPortion, EpochIndex (..),
-                                 SharedSeed (..), SoftforkRule (..), StakeholderId, Timestamp (..),
-                                 getCoinPortion, mkCoin, mkCoinPortion, unsafeGetCoin)
+import           Pos.Core.Types (Address, BlockVersionData (..), Coin, CoinPortion, SharedSeed (..),
+                                 SoftforkRule (..), StakeholderId, getCoinPortion, mkCoin,
+                                 mkCoinPortion, unsafeGetCoin)
 import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,

@@ -53,9 +53,10 @@ import qualified Data.Text.Buildable
 import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types (ApplicationName, BlockVersion, ChainDifficulty, Coin, EpochIndex,
-                                 HeaderHash, NumSoftwareVersion, ScriptVersion, SlotId,
-                                 SoftwareVersion, StakeholderId, mkCoin)
+import           Pos.Core.Slotting (EpochIndex, SlotId)
+import           Pos.Core.Types (ApplicationName, BlockVersion, ChainDifficulty, Coin, HeaderHash,
+                                 NumSoftwareVersion, ScriptVersion, SoftwareVersion, StakeholderId,
+                                 mkCoin)
 import           Pos.Core.Update (BlockVersionModifier (..), UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Crypto (PublicKey)
 import           Pos.Slotting.Types (SlottingData)

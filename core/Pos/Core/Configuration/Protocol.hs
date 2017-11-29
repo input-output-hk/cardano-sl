@@ -20,7 +20,8 @@ import           Universum
 import           Data.Reflection (Given (..), give)
 
 import           Pos.Core.Genesis.Types (ProtocolConstants (..))
-import           Pos.Core.Types (BlockCount (..), SlotCount)
+import           Pos.Core.Slotting.Types (SlotCount)
+import           Pos.Core.Types (BlockCount (..))
 import qualified Pos.Crypto.Configuration as CC
 
 type HasProtocolConstants = Given ProtocolConstants

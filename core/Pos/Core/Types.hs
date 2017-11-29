@@ -17,9 +17,6 @@ module Pos.Core.Types
        , StakesMap
        , StakesList
 
-       , Timestamp (..)
-       , TimeDiff (..)
-
        -- * ChainDifficulty
        , ChainDifficulty (..)
 
@@ -56,16 +53,6 @@ module Pos.Core.Types
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
-       -- * Slotting
-       , EpochIndex (..)
-       , FlatSlotId
-       , LocalSlotIndex (..)
-       , SlotId (..)
-       , siEpochL
-       , siSlotL
-       , slotIdF
-       , EpochOrSlot (..)
-
        -- * Scripting
        , Script(..)
        , Script_v0
@@ -74,22 +61,20 @@ module Pos.Core.Types
        -- * Newtypes
        -- ** for amounts
        , BlockCount(..)
-       , SlotCount(..)
        ) where
 
 import           Universum
 
-import           Control.Lens (makeLensesFor, makePrisms)
+import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
 import           Data.Char (isAscii)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
-import           Data.Ix (Ix)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Units (Millisecond)
-import           Formatting (Format, bprint, build, formatToString, int, ords, shown, stext, (%))
+import           Formatting (Format, bprint, build, formatToString, int, shown, stext, (%))
 import qualified PlutusCore.Program as PLCore
 import qualified Prelude
 import           Serokell.AcidState ()
@@ -98,7 +83,7 @@ import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
 
 import           Pos.Core.Fee (TxFeePolicy)
-import           Pos.Core.Timestamp (TimeDiff (..), Timestamp (..))
+import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
@@ -437,68 +422,6 @@ unsafeCoinPortionFromDouble x
 {-# INLINE unsafeCoinPortionFromDouble #-}
 
 ----------------------------------------------------------------------------
--- Slotting
-----------------------------------------------------------------------------
-
--- | Index of epoch.
-newtype EpochIndex = EpochIndex
-    { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
-
-instance Buildable EpochIndex where
-    build = bprint ("epoch #"%int)
-
--- instance Buildable (EpochIndex,EpochIndex) where
---     build = bprint ("epochIndices: "%pairF)
-
--- | Index of slot inside a concrete epoch.
-newtype LocalSlotIndex = UnsafeLocalSlotIndex
-    { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
-
-
--- | Slot is identified by index of epoch and index of slot in
--- this epoch. This is a global index, an index to a global
--- slot position.
-data SlotId = SlotId
-    { siEpoch :: !EpochIndex
-    , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
-
-instance Buildable SlotId where
-    build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
-
--- | Specialized formatter for 'SlotId'.
-slotIdF :: Format r (SlotId -> r)
-slotIdF = build
-
--- | FlatSlotId is a flat version of SlotId
-type FlatSlotId = Word64
-
--- | Represents SlotId or EpochIndex. Useful because genesis blocks
--- have only EpochIndex, while main blocks have SlotId.
-newtype EpochOrSlot = EpochOrSlot
-    { unEpochOrSlot :: Either EpochIndex SlotId
-    } deriving (Show, Eq, Generic, NFData)
-
-instance Ord EpochOrSlot where
-    compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
-        (Left s1, Left s2)                      -> compare s1 s2
-        (Right s1, Left s2) | (siEpoch s1) < s2 -> LT
-                            | otherwise         -> GT
-        (Left s1, Right s2) | s1 > (siEpoch s2) -> GT
-                            | otherwise         -> LT
-        (Right s1, Right s2)
-            | siEpoch s1 == siEpoch s2 -> siSlot s1 `compare` siSlot s2
-            | otherwise -> siEpoch s1 `compare` siEpoch s2
-
-instance Buildable EpochOrSlot where
-    build = either Buildable.build Buildable.build . unEpochOrSlot
-
-instance NFData SlotId
-
-----------------------------------------------------------------------------
 -- Script
 ----------------------------------------------------------------------------
 
@@ -528,17 +451,9 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
     deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
               Buildable, Generic, Typeable, NFData, Hashable, Random)
 
-newtype SlotCount = SlotCount {getSlotCount :: Word64}
-    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
-              Buildable, Generic, Typeable, NFData, Hashable, Random)
-
 ----------------------------------------------------------------------------
 -- Template Haskell invocations, banished to the end of the module because
 -- we don't want to topsort the whole module
 ----------------------------------------------------------------------------
-
-flip makeLensesFor ''SlotId [
-    ("siEpoch", "siEpochL"),
-    ("siSlot" , "siSlotL") ]
 
 makePrisms ''Address

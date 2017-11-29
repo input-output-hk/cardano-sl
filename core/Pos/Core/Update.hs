@@ -58,8 +58,9 @@ import           Pos.Core.BlockVersionData ()
 import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Fee (TxFeePolicy)
-import           Pos.Core.Types (BlockVersion, BlockVersionData (..), CoinPortion, EpochIndex,
-                                 FlatSlotId, ScriptVersion, SoftforkRule, SoftwareVersion)
+import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
+import           Pos.Core.Types (BlockVersion, BlockVersionData (..), CoinPortion, ScriptVersion,
+                                 SoftforkRule, SoftwareVersion)
 import           Pos.Crypto (Hash, PublicKey, SafeSigner, SignTag (SignUSProposal), Signature,
                              checkSig, hash, safeSign, safeToPublic, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)

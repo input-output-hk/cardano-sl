@@ -22,6 +22,8 @@ import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
+                                    SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
                                SscProof (..), VssCertificate (..), VssCertificatesMap)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
@@ -30,9 +32,8 @@ import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
                                  AddrStakeDistribution (..), AddrType (..), Address (..),
                                  Address' (..), ApplicationName (..), BlockCount (..),
                                  BlockVersion (..), BlockVersionData (..), ChainDifficulty (..),
-                                 Coin, CoinPortion (..), EpochIndex (..), EpochOrSlot (..),
-                                 LocalSlotIndex (..), Script (..), SharedSeed (..), SlotCount (..),
-                                 SlotId (..), SoftforkRule (..), SoftwareVersion (..))
+                                 Coin, CoinPortion (..), Script (..), SharedSeed (..),
+                                 SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Core.Update (BlockVersionModifier (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))

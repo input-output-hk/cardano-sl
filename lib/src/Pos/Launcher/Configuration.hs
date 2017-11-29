@@ -27,7 +27,7 @@ import           Pos.Aeson.Core.Configuration ()
 
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Types (Timestamp)
+import           Pos.Core.Slotting (Timestamp)
 import           Pos.Delegation.Configuration
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration

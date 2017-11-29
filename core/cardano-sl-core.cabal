@@ -63,7 +63,6 @@ library
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Ssc
-                       Pos.Core.Timestamp
                        Pos.Core.Txp
                        Pos.Core.Types
                        Pos.Core.Version
@@ -105,6 +104,11 @@ library
                        -- Delegation
                        Pos.Core.Delegation.Types
                        Pos.Core.Delegation.Util
+
+                       -- Slotting
+                       Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
 
                        -- SSC
                        Pos.Core.Ssc.Types

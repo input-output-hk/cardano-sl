@@ -34,8 +34,9 @@ import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Address (addressHash)
+import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Core.Types (EpochIndex, StakeholderId)
+import           Pos.Core.Types (StakeholderId)
 import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
                              Signature, VssPublicKey, checkSig, sign, toPublic)
 

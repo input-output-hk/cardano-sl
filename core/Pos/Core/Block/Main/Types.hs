@@ -21,8 +21,8 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..))
 import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Types (BlockVersion, ChainDifficulty, HeaderHash, SlotId (..),
-                                 SoftwareVersion)
+import           Pos.Core.Slotting.Types (SlotId (..))
+import           Pos.Core.Types (BlockVersion, ChainDifficulty, HeaderHash, SoftwareVersion)
 import           Pos.Crypto (Hash, Signature)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 

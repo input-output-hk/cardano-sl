@@ -15,8 +15,9 @@ import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Core.Types ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Fee (TxFeePolicy)
-import           Pos.Core.Types (BlockVersion, CoinPortion, EpochIndex, FlatSlotId, ScriptVersion,
-                                 SoftforkRule, SoftwareVersion)
+import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
+import           Pos.Core.Types (BlockVersion, CoinPortion, ScriptVersion, SoftforkRule,
+                                 SoftwareVersion)
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (Hash, SignTag (SignUSVote), checkSig)
 

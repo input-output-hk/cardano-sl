@@ -22,6 +22,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
     prop "Aeson Payment roundtrips" (aesonRoundtrip @Payment Proxy)
     prop "Aeson PaymentDistribution roundtrips" (aesonRoundtrip @PaymentDistribution Proxy)
     prop "Aeson NewWallet roundtrips" (aesonRoundtrip @NewWallet Proxy)
+    prop "Aeson NewAddress roundtrips" (aesonRoundtrip @NewAddress Proxy)
     prop "Aeson Coin roundtrips" (aesonRoundtrip @Core.Coin Proxy)
     prop "Aeson TransactionGroupingPolicy roundtrips" (aesonRoundtrip @TransactionGroupingPolicy Proxy)
     prop "Aeson TransactionType roundtrips" (aesonRoundtrip @TransactionType Proxy)

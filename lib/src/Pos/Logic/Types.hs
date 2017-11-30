@@ -91,8 +91,7 @@ data Logic m = Logic
       -- TODO get rid of this eventually.
     , recoveryInProgress :: m Bool
 
-      -- TBD does this need to be in the monad? It's not constant?
-    , securityParams     :: m SecurityParams
+    , securityParams     :: SecurityParams
     }
 
 -- | First iteration solution to the inv/req/data/mempool system.
@@ -192,7 +191,7 @@ dummyLogicLayer = LogicLayer
         , postSscShares      = dummyKeyVal
         , postSscVssCert     = dummyKeyVal
         , recoveryInProgress = pure False
-        , securityParams     = pure def
+        , securityParams     = def
         }
 
     dummyKeyVal :: Applicative m => KeyVal key val m

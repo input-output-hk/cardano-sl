@@ -372,11 +372,11 @@ announceBlock logic enqueue header =  do
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
         -- TODO figure out what this security stuff is doing and judge whether
         -- it needs to change / be removed.
-        sparams <- securityParams logic
+        let sparams = securityParams logic
         -- Copied from Pos.Security.Util but made pure. The existing
         -- implementation was tied to a reader rather than taking a
         -- SecurityParams value as a function argument.
-        let shouldIgnoreAddress :: NetworkAddress -> Bool
+            shouldIgnoreAddress :: NetworkAddress -> Bool
             shouldIgnoreAddress addr = and
                 [ AttackNoBlocks `elem` spAttackTypes sparams
                 , NetworkAddressTarget addr `elem` spAttackTargets sparams

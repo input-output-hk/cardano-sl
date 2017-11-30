@@ -14,7 +14,7 @@ import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasTxpLimits)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), NodeId,
                                              MkListeners)
 import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode,
@@ -32,7 +32,7 @@ import           Pos.Txp.Network.Types (TxMsgContents (..))
 -- Returns 'True' if any peer accepted and applied this transaction.
 sendTx
     :: ( MinRelayWorkMode m
-       , HasTxpLimits m
+       , HasAdoptedBlockVersionData m
        )
     => EnqueueMsg m
     -> TxAux
@@ -54,7 +54,7 @@ sendTx enqueue txAux = do
 
 txListeners
     :: ( DiffusionWorkMode m
-       , HasTxpLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -77,7 +77,7 @@ txInvReqDataParams logic =
 
 txRelays
     :: ( DiffusionWorkMode m
-       , HasTxpLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> [Relay m]

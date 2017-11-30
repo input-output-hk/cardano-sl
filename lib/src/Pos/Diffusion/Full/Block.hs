@@ -34,7 +34,7 @@ import           Pos.Binary.Class (biSize)
 -- TODO move Pos.Block.Network.Types to Pos.Diffusion hierarchy.
 -- Logic layer won't know of it.
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
-import           Pos.Communication.Limits (HasBlockLimits, recvLimited)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
@@ -147,7 +147,7 @@ enqueueMsgSingle enqueue msg conv = do
 getBlocks
     :: forall d .
        ( DiffusionWorkMode d
-       , HasBlockLimits d
+       , HasAdoptedBlockVersionData d
        )
     => Logic d
     -> EnqueueMsg d
@@ -336,7 +336,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
 requestTip
     :: forall d t .
        ( DiffusionWorkMode d
-       , HasBlockLimits d
+       , HasAdoptedBlockVersionData d
        )
     => EnqueueMsg d
     -> (BlockHeader -> NodeId -> d t)
@@ -480,7 +480,7 @@ import           Pos.DB.Error (DBError (DBMalformed))
 -- | All block-related listeners.
 blockListeners
     :: ( DiffusionWorkMode m
-       , HasBlockLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -554,7 +554,7 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 handleBlockHeaders
     :: forall pack m.
        ( DiffusionWorkMode m
-       , HasBlockLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket

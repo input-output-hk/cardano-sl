@@ -16,7 +16,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
-import           Pos.Communication.Limits (HasSscLimits)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
@@ -33,7 +33,7 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 
 sscListeners
     :: ( DiffusionWorkMode m
-       , HasSscLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket

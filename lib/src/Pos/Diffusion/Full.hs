@@ -11,7 +11,7 @@ import           Universum hiding (bracket)
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
-import           Data.Reflection (give)
+import           Data.Reflection (Given, given, give)
 import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Mockable, Bracket, bracket, Catch, Throw, throw, withAsync)
@@ -31,12 +31,11 @@ import           System.Wlog (WithLogger, CanLog, logError, getLoggerName, using
 
 import           Pos.Block.Network.Types (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
-import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..))
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
-import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (protocolMagic)
 import           Pos.Core.Types (HeaderHash, BlockVersionData (..), StakeholderId, ProxySKHeavy)
 import           Pos.Core.Txp (TxAux)
@@ -63,6 +62,10 @@ import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
+-- Orphan instance to get the adopted block version data through reflection.
+instance (Given (m BlockVersionData)) => HasAdoptedBlockVersionData m where
+  adoptedBVData = given
 
 -- | The full diffusion layer.
 --
@@ -186,11 +189,11 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             mkL :: MkListeners d
             --mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
             mkL = mconcat $
-                [ lmodifier "block"       $ give blockLimits $ Diffusion.Block.blockListeners logic oq
-                , lmodifier "tx"          $ give txpLimits $ Diffusion.Txp.txListeners logic oq enqueue
-                , lmodifier "update"      $ give updateLimits $ Diffusion.Update.updateListeners logic oq enqueue
+                [ lmodifier "block"       $ give (getAdoptedBVData logic) $ Diffusion.Block.blockListeners logic oq
+                , lmodifier "tx"          $ give (getAdoptedBVData logic) $ Diffusion.Txp.txListeners logic oq enqueue
+                , lmodifier "update"      $ give (getAdoptedBVData logic) $ Diffusion.Update.updateListeners logic oq enqueue
                 , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
-                , lmodifier "ssc"         $ give sscLimits $ Diffusion.Ssc.sscListeners logic oq enqueue
+                , lmodifier "ssc"         $ give (getAdoptedBVData logic) $ Diffusion.Ssc.sscListeners logic oq enqueue
                 ] ++ [
                   lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
                 | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
@@ -221,22 +224,22 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
                       -> BlockHeader
                       -> [HeaderHash]
                       -> d (Either GetBlocksError [Block])
-            getBlocks = give blockLimits $ Diffusion.Block.getBlocks logic enqueue
+            getBlocks = give (getAdoptedBVData logic) $ Diffusion.Block.getBlocks logic enqueue
 
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
-            requestTip = give blockLimits $ Diffusion.Block.requestTip enqueue
+            requestTip = give (getAdoptedBVData logic) $ Diffusion.Block.requestTip enqueue
 
             announceBlock :: MainBlockHeader -> d ()
             announceBlock = void . Diffusion.Block.announceBlock logic enqueue
 
             sendTx :: TxAux -> d Bool
-            sendTx = give txpLimits $ Diffusion.Txp.sendTx enqueue
+            sendTx = give (getAdoptedBVData logic) $ Diffusion.Txp.sendTx enqueue
 
             sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> d ()
-            sendUpdateProposal = give updateLimits $ Diffusion.Update.sendUpdateProposal enqueue
+            sendUpdateProposal = give (getAdoptedBVData logic) $ Diffusion.Update.sendUpdateProposal enqueue
 
             sendVote :: UpdateVote -> d ()
-            sendVote = give updateLimits $ Diffusion.Update.sendVote enqueue
+            sendVote = give (getAdoptedBVData logic) $ Diffusion.Update.sendVote enqueue
 
             -- FIXME
             -- SSC stuff has a 'waitUntilSend' motif before it. Must remember to
@@ -262,35 +265,6 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 
             currentSlotDuration :: d Millisecond
             currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
-
-            -- Derive various message size limits from the latest adopted
-            -- block version data (provided by the logic layer).
-
-            sscLimits :: SscLimits d
-            sscLimits = SscLimits
-                -- Copied from existing implementation, formerly in
-                -- Pos.Communication.Limits.
-                { commitmentsNumLimit = succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$> getAdoptedBVData logic
-                }
-
-            txpLimits :: TxpLimits d
-            txpLimits = TxpLimits
-                { maxTxSize = bvdMaxTxSize <$> getAdoptedBVData logic
-                }
-
-            updateLimits :: UpdateLimits d
-            updateLimits = UpdateLimits
-                -- Copied from existing implementation, formerly in
-                -- Pos.Communication.Limits
-                { updateVoteNumLimit = succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$> getAdoptedBVData logic
-                , maxProposalSize = bvdMaxProposalSize <$> getAdoptedBVData logic
-                }
-
-            blockLimits :: BlockLimits d
-            blockLimits = BlockLimits
-                { maxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData logic
-                , maxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData logic
-                }
 
             diffusion :: Diffusion d
             diffusion = Diffusion {..}

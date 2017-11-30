@@ -22,7 +22,7 @@ import           Pos.Core.Configuration.GenesisData (HasGenesisData)
 import           Pos.Core.Configuration.GenesisHash (HasGenesisHash)
 import           Pos.Core.Configuration.GeneratedSecrets (HasGeneratedSecrets)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Communication.Limits (HasUpdateLimits)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
                                              NodeId, MkListeners)
@@ -40,7 +40,7 @@ import           Pos.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
 -- Send UpdateVote to given addresses.
 sendVote
     :: ( MinRelayWorkMode m
-       , HasUpdateLimits m
+       , HasAdoptedBlockVersionData m
        , HasCoreConfiguration
        , HasGenesisData
        , HasGenesisHash
@@ -63,7 +63,7 @@ sendVote enqueue vote =
 -- Send UpdateProposal to given address.
 sendUpdateProposal
     :: ( MinRelayWorkMode m
-       , HasUpdateLimits m
+       , HasAdoptedBlockVersionData m
        , HasCoreConfiguration
        , HasGenesisData
        , HasGenesisHash
@@ -88,7 +88,7 @@ sendUpdateProposal enqueue upid proposal votes = do
 
 updateListeners
     :: ( DiffusionWorkMode m
-       , HasUpdateLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -100,7 +100,7 @@ updateListeners logic oq enqueue = relayListeners oq enqueue (usRelays logic)
 usRelays
     :: forall m .
        ( DiffusionWorkMode m
-       , HasUpdateLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> [Relay m]
@@ -112,7 +112,7 @@ usRelays logic = [proposalRelay logic, voteRelay logic]
 
 proposalRelay
     :: ( DiffusionWorkMode m
-       , HasUpdateLimits m
+       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> Relay m

@@ -24,6 +24,7 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import qualified Data.Map as M
+import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
 import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
                            killThread, throw)
@@ -46,12 +47,13 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
                                     Msg, OutSpecs (..), PackingType, PeerData, SendActions,
                                     VerInfo (..), allListeners, bipPacking, hoistSendActions,
                                     makeEnqueueMsg, makeSendActions)
-import           Pos.Communication.Limits (HasSscLimits, HasBlockLimits, HasTxpLimits,
-                                           HasUpdateLimits)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Core (BlockVersionData)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.DB (gsAdoptedBVData)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
@@ -111,20 +113,19 @@ runRealBasedMode
        -- we can't remove @ext@ from @RealMode@ because
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
-       , HasUpdateLimits (RealMode ext)
-       , HasTxpLimits (RealMode ext)
-       , HasBlockLimits (RealMode ext)
-       , HasSscLimits (RealMode ext)
        )
     => (forall b. m b -> RealMode ext b)
     -> (forall b. RealMode ext b -> m b)
     -> NodeResources ext m
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) =
+runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) = giveAdoptedBVData $
     runRealModeDo (hoistNodeResources unwrap nr) outSpecs $
     ActionSpec $ \vI sendActions ->
         unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    giveAdoptedBVData :: ((HasAdoptedBlockVersionData (RealMode ext)) => r) -> r
+    giveAdoptedBVData = give (gsAdoptedBVData :: RealMode ext BlockVersionData)
 
 -- | RealMode runner.
 runRealModeDo
@@ -133,17 +134,13 @@ runRealModeDo
        , HasCompileInfo
        , Default ext
        , MonadTxpLocal (RealMode ext)
-       , HasUpdateLimits (RealMode ext)
-       , HasTxpLimits (RealMode ext)
-       , HasBlockLimits (RealMode ext)
-       , HasSscLimits (RealMode ext)
+       , HasAdoptedBlockVersionData (RealMode ext)
        )
     => NodeResources ext (RealMode ext)
     -> OutSpecs
     -> ActionSpec (RealMode ext) a
     -> Production a
-runRealModeDo NodeResources {..} outSpecs action =
-    do
+runRealModeDo NodeResources {..} outSpecs action = do
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
             jsonLogConfigFromHandle

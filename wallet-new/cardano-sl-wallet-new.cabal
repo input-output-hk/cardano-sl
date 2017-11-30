@@ -99,7 +99,10 @@ library
 executable wallet-new-server
   hs-source-dirs:      server
   main-is:             Main.hs
-  ghc-options:         -Wall
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
   other-modules:       Cardano.Wallet.API.V0.Handlers
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Accounts

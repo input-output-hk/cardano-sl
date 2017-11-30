@@ -228,7 +228,7 @@ data BlockVersionState = BlockVersionState
     { bvsModifier          :: !BlockVersionModifier
     -- ^ 'BlockVersionModifier' associated with this block version.
     , bvsConfirmedEpoch    :: !(Maybe EpochIndex)
-    -- ^ Epoch when proposal which generated this block block version
+    -- ^ Epoch when proposal which generated this block version
     -- was confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this

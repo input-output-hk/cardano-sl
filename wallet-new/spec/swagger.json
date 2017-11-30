@@ -1137,6 +1137,7 @@
     "paths": {
         "/api/backup/import": {
             "post": {
+                "summary": "Import full information about wallet from a given file.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1171,6 +1172,7 @@
         },
         "/api/wallets/password/{walletId}": {
             "post": {
+                "summary": "Change passphrase of given wallet.",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -1210,6 +1212,7 @@
         },
         "/api/addresses/{address}": {
             "get": {
+                "summary": "Returns True if given address is valid, False otherwise.",
                 "responses": {
                     "404": {
                         "description": "`address` not found"
@@ -1239,6 +1242,7 @@
         },
         "/api/accounts/{accountId}": {
             "get": {
+                "summary": "Get information about a account by its ID",
                 "responses": {
                     "404": {
                         "description": "`accountId` not found"
@@ -1267,6 +1271,7 @@
                 ]
             },
             "delete": {
+                "summary": "Delete an account by ID.",
                 "responses": {
                     "404": {
                         "description": "`accountId` not found"
@@ -1292,6 +1297,7 @@
                 ]
             },
             "put": {
+                "summary": "Update account's meta information.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1336,6 +1342,7 @@
         },
         "/api/redemptions/ada": {
             "post": {
+                "summary": "Redeem ADA.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1375,6 +1382,7 @@
         },
         "/api/v0/backup/export/{walletId}": {
             "post": {
+                "summary": "Export full information about wallet to a given file",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1408,6 +1416,7 @@
                         "name": "body"
                     }
                 ],
+                "description": "Wallet may be later restored from this file with  endpoint above.",
                 "tags": [
                     "V0"
                 ]
@@ -1415,6 +1424,7 @@
         },
         "/api/settings/sync/progress": {
             "get": {
+                "summary": "Current sync progress",
                 "responses": {
                     "200": {
                         "schema": {
@@ -1426,6 +1436,7 @@
                 "produces": [
                     "application/json;charset=utf-8"
                 ],
+                "description": "Fetch info about local chain difficulty, network chain difficulty and connected peers.",
                 "tags": [
                     "V0"
                 ]
@@ -1433,6 +1444,7 @@
         },
         "/api/v0/txs/fee/{from}/{to}/{amount}": {
             "post": {
+                "summary": "Estimate fees for performing given transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1484,6 +1496,7 @@
                         "name": "body"
                     }
                 ],
+                "description": "Evaluate fee which would be used for transaction created with given parameters. Note that fee may change on any operation on wallet occurs. Transaction will not be actually created.",
                 "tags": [
                     "V0"
                 ]
@@ -1491,6 +1504,7 @@
         },
         "/api/wallets/new": {
             "post": {
+                "summary": "Create a new wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1630,6 +1644,7 @@
         },
         "/api/settings/time/difference": {
             "get": {
+                "summary": "Get local time difference in milliseconds.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -1650,6 +1665,7 @@
         },
         "/api/wallets/{walletId}": {
             "get": {
+                "summary": "Get information about a wallet by its ID (address).",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -1677,6 +1693,7 @@
                 ]
             },
             "delete": {
+                "summary": "Delete given wallet with all contained accounts.",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -1701,6 +1718,7 @@
                 ]
             },
             "put": {
+                "summary": "Update wallet's meta information.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1744,6 +1762,7 @@
         },
         "/api/v0/info": {
             "get": {
+                "summary": "Get general information about this service.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -1782,6 +1801,7 @@
         },
         "/api/v0/txs/payments/{address}/{transaction}": {
             "post": {
+                "summary": "Update payment transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1829,6 +1849,7 @@
         },
         "/api/v0/test/reset": {
             "post": {
+                "summary": "Clear wallet state and remove all secret key.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -1844,6 +1865,7 @@
         },
         "/api/v0/backup/import": {
             "post": {
+                "summary": "Import full information about wallet from a given file.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1878,6 +1900,7 @@
         },
         "/api/settings/version": {
             "get": {
+                "summary": "Get current version of the node.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -1896,6 +1919,7 @@
         },
         "/api/v0/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "summary": "Create a new payment transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1959,6 +1983,7 @@
         },
         "/api/v0/accounts": {
             "post": {
+                "summary": "Create a new account in given wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -1996,6 +2021,7 @@
                 ]
             },
             "get": {
+                "summary": "Get information about all available accounts.",
                 "responses": {
                     "400": {
                         "description": "Invalid `accountId`"
@@ -2027,6 +2053,7 @@
         },
         "/api/v0/update/apply": {
             "post": {
+                "summary": "Apply last update.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -2042,6 +2069,7 @@
         },
         "/api/info": {
             "get": {
+                "summary": "Get general information about this service.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2060,6 +2088,7 @@
         },
         "/api/v0/accounts/{accountId}": {
             "get": {
+                "summary": "Get information about a account by its ID",
                 "responses": {
                     "404": {
                         "description": "`accountId` not found"
@@ -2088,6 +2117,7 @@
                 ]
             },
             "delete": {
+                "summary": "Delete an account by ID.",
                 "responses": {
                     "404": {
                         "description": "`accountId` not found"
@@ -2113,6 +2143,7 @@
                 ]
             },
             "put": {
+                "summary": "Update account's meta information.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2157,6 +2188,7 @@
         },
         "/api/v0/wallets/{walletId}": {
             "get": {
+                "summary": "Get information about a wallet by its ID (address).",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -2184,6 +2216,7 @@
                 ]
             },
             "delete": {
+                "summary": "Delete given wallet with all contained accounts.",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -2208,6 +2241,7 @@
                 ]
             },
             "put": {
+                "summary": "Update wallet's meta information.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2251,6 +2285,7 @@
         },
         "/api/v0/settings/time/difference": {
             "get": {
+                "summary": "Get local time difference in milliseconds.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2271,6 +2306,7 @@
         },
         "/api/txs/fee/{from}/{to}/{amount}": {
             "post": {
+                "summary": "Estimate fees for performing given transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2322,6 +2358,7 @@
                         "name": "body"
                     }
                 ],
+                "description": "Evaluate fee which would be used for transaction created with given parameters. Note that fee may change on any operation on wallet occurs. Transaction will not be actually created.",
                 "tags": [
                     "V0"
                 ]
@@ -2329,6 +2366,7 @@
         },
         "/api/v0/papervend/redemptions/ada": {
             "post": {
+                "summary": "Redeem ADA, paper vending.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2368,6 +2406,7 @@
         },
         "/api/backup/export/{walletId}": {
             "post": {
+                "summary": "Export full information about wallet to a given file",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2401,6 +2440,7 @@
                         "name": "body"
                     }
                 ],
+                "description": "Wallet may be later restored from this file with  endpoint above.",
                 "tags": [
                     "V0"
                 ]
@@ -2408,6 +2448,7 @@
         },
         "/api/v0/settings/sync/progress": {
             "get": {
+                "summary": "Current sync progress",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2419,6 +2460,7 @@
                 "produces": [
                     "application/json;charset=utf-8"
                 ],
+                "description": "Fetch info about local chain difficulty, network chain difficulty and connected peers.",
                 "tags": [
                     "V0"
                 ]
@@ -2426,6 +2468,7 @@
         },
         "/api/update": {
             "get": {
+                "summary": "Get information about the next update.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2444,6 +2487,7 @@
         },
         "/api/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "summary": "Create a new payment transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2507,6 +2551,7 @@
         },
         "/api/txs/histories": {
             "get": {
+                "summary": "Get the history of transactions.",
                 "responses": {
                     "400": {
                         "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
@@ -2673,6 +2718,7 @@
         },
         "/api/test/reset": {
             "post": {
+                "summary": "Clear wallet state and remove all secret key.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -2688,6 +2734,7 @@
         },
         "/api/wallets": {
             "get": {
+                "summary": "Get information about all available wallets.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2709,6 +2756,7 @@
         },
         "/api/settings/slots/duration": {
             "get": {
+                "summary": "Get blockchain slot duration in milliseconds.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2729,6 +2777,7 @@
         },
         "/api/v0/reporting/initialized": {
             "post": {
+                "summary": "Send node's report on initialization time.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2805,6 +2854,7 @@
         },
         "/api/wallets/keys": {
             "post": {
+                "summary": "Import user's secret key from the path to generate wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2844,6 +2894,7 @@
         },
         "/api/v0/test/state": {
             "get": {
+                "summary": "Print wallet state as JSON",
                 "responses": {
                     "200": {
                         "schema": {
@@ -2960,6 +3011,7 @@
         },
         "/api/papervend/redemptions/ada": {
             "post": {
+                "summary": "Redeem ADA, paper vending.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -2999,6 +3051,7 @@
         },
         "/api/update/postpone": {
             "post": {
+                "summary": "Postpone last update.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -3034,6 +3087,7 @@
         },
         "/api/v0/wallets/restore": {
             "post": {
+                "summary": "Restore existing wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3073,6 +3127,7 @@
         },
         "/api/accounts": {
             "post": {
+                "summary": "Create a new account in given wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3110,6 +3165,7 @@
                 ]
             },
             "get": {
+                "summary": "Get information about all available accounts.",
                 "responses": {
                     "400": {
                         "description": "Invalid `accountId`"
@@ -3141,6 +3197,7 @@
         },
         "/api/v0/profile": {
             "post": {
+                "summary": "Update user profile.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3173,6 +3230,7 @@
                 ]
             },
             "get": {
+                "summary": "Get user profile's meta data.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3191,6 +3249,7 @@
         },
         "/api/update/apply": {
             "post": {
+                "summary": "Apply last update.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -3242,6 +3301,7 @@
         },
         "/api/reporting/initialized": {
             "post": {
+                "summary": "Send node's report on initialization time.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3273,6 +3333,7 @@
         },
         "/api/v0/settings/slots/duration": {
             "get": {
+                "summary": "Get blockchain slot duration in milliseconds.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3293,6 +3354,7 @@
         },
         "/api/v0/wallets": {
             "get": {
+                "summary": "Get information about all available wallets.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3314,6 +3376,7 @@
         },
         "/api/v0/txs/histories": {
             "get": {
+                "summary": "Get the history of transactions.",
                 "responses": {
                     "400": {
                         "description": "Invalid `limit` or `skip` or `address` or `accountId` or `walletId`"
@@ -3500,6 +3563,7 @@
         },
         "/api/v0/update": {
             "get": {
+                "summary": "Get information about the next update.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3518,6 +3582,7 @@
         },
         "/api/addresses": {
             "post": {
+                "summary": "Create a new address in given account.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3557,6 +3622,7 @@
         },
         "/api/v0/update/postpone": {
             "post": {
+                "summary": "Postpone last update.",
                 "responses": {
                     "200": {
                         "description": ""
@@ -3572,6 +3638,7 @@
         },
         "/api/wallets/restore": {
             "post": {
+                "summary": "Restore existing wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3631,6 +3698,7 @@
         },
         "/api/profile": {
             "post": {
+                "summary": "Update user profile.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3663,6 +3731,7 @@
                 ]
             },
             "get": {
+                "summary": "Get user profile's meta data.",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3681,6 +3750,7 @@
         },
         "/api/txs/payments/{address}/{transaction}": {
             "post": {
+                "summary": "Update payment transaction.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3728,6 +3798,7 @@
         },
         "/api/v0/wallets/keys": {
             "post": {
+                "summary": "Import user's secret key from the path to generate wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3767,6 +3838,7 @@
         },
         "/api/v0/wallets/new": {
             "post": {
+                "summary": "Create a new wallet.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3806,6 +3878,7 @@
         },
         "/api/v0/wallets/password/{walletId}": {
             "post": {
+                "summary": "Change passphrase of given wallet.",
                 "responses": {
                     "404": {
                         "description": "`walletId` not found"
@@ -3845,6 +3918,7 @@
         },
         "/api/v0/addresses/{address}": {
             "get": {
+                "summary": "Returns True if given address is valid, False otherwise.",
                 "responses": {
                     "404": {
                         "description": "`address` not found"
@@ -3874,6 +3948,7 @@
         },
         "/api/test/state": {
             "get": {
+                "summary": "Print wallet state as JSON",
                 "responses": {
                     "200": {
                         "schema": {
@@ -3892,6 +3967,7 @@
         },
         "/api/v0/redemptions/ada": {
             "post": {
+                "summary": "Redeem ADA.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3931,6 +4007,7 @@
         },
         "/api/v0/addresses": {
             "post": {
+                "summary": "Create a new address in given account.",
                 "consumes": [
                     "application/json;charset=utf-8"
                 ],
@@ -3970,6 +4047,7 @@
         },
         "/api/v0/settings/version": {
             "get": {
+                "summary": "Get current version of the node.",
                 "responses": {
                     "200": {
                         "schema": {

@@ -600,10 +600,6 @@ has the following values:
   block across the network. In practice this value determines when
   slot leaders create a block (it's done `networkDiameter` seconds
   before the end of the slot).
-* `mdNoBlocksSlotThreshold` — number of slots after which node will
-  actively requests blocks if it doesn't receive any blocks without
-  requesting them (in normal cases blocks are announced). Should be
-  less than `2 · k`.
 * `recoveryHeadersMessage` — how many headers will be sent in a
   batch. This value should be greater than `k`.
 
@@ -678,8 +674,7 @@ depend on particular task:
 * `slotDuration`, `k` are parameters of the protocol, set to
   reasonable defaults, but sometimes we may want to use different
   values. Reminder: number of slots in an epoch is `10 · k`.
-* `mdNoBlocksSlotThreshold` and
-  `recoveryHeadersMessage` depend on `k`. Set their values properly if
+* `recoveryHeadersMessage` depends on `k`. Set their values properly if
   you modify `k`. See [node configuration](#node-configuration).
 * `genesis.spec.initializer.richmen` is basically
   the number of core nodes. Should be the same as the number of core

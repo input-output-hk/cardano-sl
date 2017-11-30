@@ -19,7 +19,6 @@ import           Pos.DHT.Workers (dhtWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Network.Types (NetworkConfig (..), SubscriptionWorker (..),
                                     topologyRunKademlia, topologySubscriptionWorker)
-import           Pos.Security.Workers (securityWorkers)
 import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
 import           Pos.Ssc (sscRelays)
 import           Pos.Ssc.Worker (sscWorkers)
@@ -44,7 +43,6 @@ allWorkers NodeResources {..} = mconcatPair
       -- I have no idea what this ↑ comment means (@gromak).
 
       wrap' "ssc"        $ sscWorkers
-    , wrap' "security"   $ securityWorkers
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers

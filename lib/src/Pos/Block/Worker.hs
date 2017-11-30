@@ -21,15 +21,16 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
-                                  createMainBlockAndApply)
+                                  createMainBlockAndApply, needRecovery)
 import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
+import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
-                                             onNewSlotWorker)
+                                             onNewSlotWorker, worker)
 import           Pos.Configuration (networkDiameter)
 import           Pos.Context (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),
@@ -71,6 +72,7 @@ blkWorkers keepAliveTimer =
     merge $ [ blkCreatorWorker
             , blkMetricCheckerWorker
             , retrievalWorker keepAliveTimer
+            , recoveryTriggerWorker
             ]
   where
     merge = mconcatPair . map (first pure)
@@ -196,6 +198,30 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
             jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ announceBlock enqueueMsg $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+
+----------------------------------------------------------------------------
+-- Recovery trigger worker
+----------------------------------------------------------------------------
+
+recoveryTriggerWorker ::
+       forall ctx m. (WorkMode ctx m)
+    => (WorkerSpec m, OutSpecs)
+recoveryTriggerWorker =
+    worker requestTipOuts recoveryTriggerWorkerImpl
+
+recoveryTriggerWorkerImpl
+    :: forall ctx m.
+       (WorkMode ctx m)
+    => SendActions m -> m ()
+recoveryTriggerWorkerImpl SendActions{..} =
+    repeatOnInterval $ recoveryCommGuard "security worker" $
+        whenM (needRecovery @ctx) $ triggerRecovery enqueueMsg
+  where
+    repeatOnInterval action = void $ do
+        delay $ sec 4
+        -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
+        void $ action `catchAny` \e -> reportOrLogE "Security worker" e
+        repeatOnInterval action
 
 ----------------------------------------------------------------------------
 -- Metric worker

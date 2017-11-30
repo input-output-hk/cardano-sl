@@ -38,6 +38,9 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
+
+import           Data.Text (splitOn)
+
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
 type MonadV1   = WalletWebMode
 type V1Context = WalletWebModeContext
@@ -130,6 +133,25 @@ instance Migrate V0.CAccount V1.Account where
 instance Migrate V0.CAccountId V1.AccountId where
     eitherMigrate (V0.CAccountId i) = pure i
 
+instance Migrate V1.AccountId V0.CAccountId where
+    eitherMigrate accId = pure $ V0.CAccountId accId
+
+instance Migrate V1.AccountId V0.AccountId where
+    eitherMigrate accId =
+        -- Following routine based on `FromCType CAccountId`
+        -- defined in `Pos.Wallet.Web.ClientTypes.Instances`
+        case splitOn "@" accId of
+            [part1, part2] -> do
+                aiWId  <- eitherMigrate part1
+                aiIndex <- maybe (Left $ Errors.MigrationFailed $ msg "Invalid wallet index") Right $
+                            readMaybe $ toString part2
+                return V0.AccountId{..}
+            _ -> Left $ Errors.MigrationFailed $ msg "Expected 2 parts separated by '@'"
+            where
+              msg = (<>) "Error migrating V1.AccountId -> V0.AccountId: "
+
+instance Migrate V1.AccountId (V0.CId V0.Wal) where
+      eitherMigrate txt = pure . V0.CId $ V0.CHash txt
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =

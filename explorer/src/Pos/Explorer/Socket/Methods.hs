@@ -90,7 +90,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..)
                                                EpochIndex (..), TxInternal (..),
                                                fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Explorer.Web.Server (epochPageSearch, getBlocksLastPage,
+import           Pos.Explorer.Web.Server (getEpochPage, getBlocksLastPage,
                                           getEpochPagesOrThrow, topsortTxsOrFail)
 
 -- * Event names
@@ -345,9 +345,9 @@ notifyEpochsLastPageSubscribers
 notifyEpochsLastPageSubscribers currentEpoch = do
     recipients <- view $ csEpochsLastPageSubscribers
     -- ^ subscriber
-    lastPage <- getEpochPagesOrThrow currentEpoch
+    lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- ^ last epoch page
-    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just lastPage
+    epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
     -- ^ epochs of last page
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 

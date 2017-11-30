@@ -11,7 +11,7 @@ module Pos.Diffusion.Types
 import           Universum
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core.Types                   (HeaderHash)
+import           Pos.Core.Types                   (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Txp                     (TxAux)
 import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
 import           Pos.Ssc.Message                  (MCOpening, MCShares, MCCommitment,
@@ -53,6 +53,8 @@ data Diffusion m = Diffusion
       -- SSC: send our commitment (diffusion layer takes care of relaying
       -- commitments for other stakeholders).
     , sendSscCommitment  :: MCCommitment -> m ()
+      -- Delegation: send a heavy certificate.
+    , sendPskHeavy       :: ProxySKHeavy -> m ()
     }
 
 -- | Failure description for getting blocks from the diffusion layer.
@@ -85,4 +87,5 @@ dummyDiffusionLayer = DiffusionLayer
         , sendSscOpening     = \_ -> pure ()
         , sendSscShares      = \_ -> pure ()
         , sendSscCommitment  = \_ -> pure ()
+        , sendPskHeavy       = \_ -> pure ()
         }

@@ -1,11 +1,10 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Server listeners for delegation logic
---
--- TBD where is the other half of the story: delegation requests?
+-- | Send and receive for delegation.
 
 module Pos.Diffusion.Full.Delegation
        ( delegationListeners
+       , sendPskHeavy
        ) where
 
 import           Universum
@@ -17,7 +16,8 @@ import           Pos.Communication.Limits ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), NodeId, EnqueueMsg, MkListeners)
 import           Pos.Communication.Relay (DataParams (..), Relay (..),
-                                          relayListeners)
+                                          relayListeners, dataFlow)
+import           Pos.Core.Types (ProxySKHeavy)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)
@@ -43,3 +43,11 @@ pskHeavyRelay
     => Logic m
     -> Relay m
 pskHeavyRelay logic = Data $ DataParams MsgTransaction $ \_ _ -> postPskHeavy logic
+
+sendPskHeavy
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => EnqueueMsg m
+    -> ProxySKHeavy
+    -> m ()
+sendPskHeavy enqueue = dataFlow "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)

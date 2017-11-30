@@ -38,7 +38,7 @@ import           Pos.Configuration (HasNodeConfiguration, conversationEstablishT
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
 import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (protocolMagic)
-import           Pos.Core.Types (HeaderHash, BlockVersionData (..), StakeholderId)
+import           Pos.Core.Types (HeaderHash, BlockVersionData (..), StakeholderId, ProxySKHeavy)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
@@ -256,6 +256,9 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 
             sendSscCommitment :: MCCommitment -> d ()
             sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+
+            sendPskHeavy :: ProxySKHeavy -> d ()
+            sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue
 
             currentSlotDuration :: d Millisecond
             currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic

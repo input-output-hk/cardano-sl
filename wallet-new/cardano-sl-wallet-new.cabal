@@ -173,7 +173,6 @@ executable wallet-new-server
                       ScopedTypeVariables
                       FlexibleInstances
                       FlexibleContexts
-                      TupleSections
                       TypeFamilies
                       TypeApplications
                       TypeOperators

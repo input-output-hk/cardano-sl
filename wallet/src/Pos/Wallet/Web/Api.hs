@@ -74,8 +74,8 @@ import           Universum
 import           Control.Lens (from)
 import           Control.Monad.Catch (try)
 import           Data.Reflection (Reifies (..))
-import           Servant.API ((:<|>), (:>), Capture, Delete, Get, JSON, Post, Put, QueryParam,
-                              ReqBody, Verb)
+import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get, JSON, Post, Put,
+                              QueryParam, ReqBody, Summary, Verb)
 import           Servant.API.ContentTypes (NoContent, OctetStream)
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
@@ -126,11 +126,13 @@ type WRes verbType a = WalletVerb (verbType '[JSON] a)
 type TestReset =
        "test"
     :> "reset"
+    :> Summary "Clear wallet state and remove all secret key."
     :> WRes Post NoContent
 
 type TestState =
        "test"
     :> "state"
+    :> Summary "Print wallet state as JSON"
     :> Get '[OctetStream] WalletStateSnapshot
 
 -------------------------------------------------------------------------
@@ -139,22 +141,26 @@ type TestState =
 
 type GetWallet =
        "wallets"
+    :> Summary "Get information about a wallet by its ID (address)."
     :> Capture "walletId" (CId Wal)
     :> WRes Get CWallet
 
 type GetWallets =
        "wallets"
+    :> Summary "Get information about all available wallets."
     :> WRes Get [CWallet]
 
 type NewWallet =
        "wallets"
     :> "new"
+    :> Summary "Create a new wallet."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
 type UpdateWallet =
        "wallets"
+    :> Summary "Update wallet's meta information."
     :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] CWalletMeta
     :> WRes Put CWallet
@@ -162,18 +168,21 @@ type UpdateWallet =
 type RestoreWallet =
        "wallets"
     :> "restore"
+    :> Summary "Restore existing wallet."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
 type DeleteWallet =
        "wallets"
+    :> Summary "Delete given wallet with all contained accounts."
     :> Capture "walletId" (CId Wal)
     :> WRes Delete NoContent
 
 type ImportWallet =
        "wallets"
     :> "keys"
+    :> Summary "Import user's secret key from the path to generate wallet."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CFilePath
     :> WRes Post CWallet
@@ -181,6 +190,7 @@ type ImportWallet =
 type ChangeWalletPassphrase =
        "wallets"
     :> "password"
+    :> Summary "Change passphrase of given wallet."
     :> Capture "walletId" (CId Wal)
     :> DCQueryParam "old" CPassPhrase
     :> DCQueryParam "new" CPassPhrase
@@ -192,28 +202,33 @@ type ChangeWalletPassphrase =
 
 type GetAccount =
        "accounts"
+    :> Summary "Get information about a account by its ID"
     :> CCapture "accountId" CAccountId
     :> WRes Get CAccount
 
 type GetAccounts =
        "accounts"
+    :> Summary "Get information about all available accounts."
     :> QueryParam "accountId" (CId Wal)
     :> WRes Get [CAccount]
 
 type UpdateAccount =
        "accounts"
+    :> Summary "Update account's meta information."
     :> CCapture "accountId" CAccountId
     :> ReqBody '[JSON] CAccountMeta
     :> WRes Put CAccount
 
 type NewAccount =
        "accounts"
+    :> Summary "Create a new account in given wallet."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CAccountInit
     :> WRes Post CAccount
 
 type DeleteAccount =
        "accounts"
+    :> Summary "Delete an account by ID."
     :> CCapture "accountId" CAccountId
     :> WRes Delete NoContent
 
@@ -223,6 +238,7 @@ type DeleteAccount =
 
 type NewAddress =
        "addresses"
+    :> Summary "Create a new address in given account."
     :> DCQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
     :> WRes Post CAddress
@@ -233,6 +249,7 @@ type NewAddress =
 
 type IsValidAddress =
        "addresses"
+    :> Summary "Returns True if given address is valid, False otherwise."
     :> Capture "address" (CId Addr)  -- exact type of 'CId' shouldn't matter
     :> WRes Get Bool
 
@@ -242,10 +259,12 @@ type IsValidAddress =
 
 type GetProfile =
        "profile"
+    :> Summary "Get user profile's meta data."
     :> WRes Get CProfile
 
 type UpdateProfile =
        "profile"
+    :> Summary "Update user profile."
     :> ReqBody '[JSON] CProfile
     :> WRes Post CProfile
 
@@ -256,6 +275,7 @@ type UpdateProfile =
 type NewPayment =
        "txs"
     :> "payments"
+    :> Summary "Create a new payment transaction."
     :> DCQueryParam "passphrase" CPassPhrase
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
@@ -266,6 +286,12 @@ type NewPayment =
 type TxFee =
        "txs"
     :> "fee"
+    :> Summary "Estimate fees for performing given transaction."
+    :> Description
+        "Evaluate fee which would be used for transaction created with given \
+        \parameters. Note that fee may change on any operation on wallet \
+        \occurs. \
+        \Transaction will not be actually created."
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
@@ -275,6 +301,7 @@ type TxFee =
 type UpdateTx =
        "txs"
     :> "payments"
+    :> Summary "Update payment transaction."
     :> CCapture "address" CAccountId
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
@@ -283,6 +310,7 @@ type UpdateTx =
 type GetHistory =
        "txs"
     :> "histories"
+    :> Summary "Get the history of transactions."
     :> QueryParam "walletId" (CId Wal)
     :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
@@ -296,16 +324,19 @@ type GetHistory =
 
 type NextUpdate =
        "update"
+    :> Summary "Get information about the next update."
     :> WRes Get CUpdateInfo
 
 type PostponeUpdate =
        "update"
     :> "postpone"
+    :> Summary "Postpone last update."
     :> WRes Post NoContent
 
 type ApplyUpdate =
        "update"
     :> "apply"
+    :> Summary "Apply last update."
     :> WRes Post NoContent
 
 -------------------------------------------------------------------------
@@ -315,6 +346,7 @@ type ApplyUpdate =
 type RedeemADA =
        "redemptions"
     :> "ada"
+    :> Summary "Redeem ADA."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletRedeem
     :> WRes Post CTx
@@ -323,6 +355,7 @@ type RedeemADAPaperVend =
        "papervend"
     :> "redemptions"
     :> "ada"
+    :> Summary "Redeem ADA, paper vending."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CPaperVendWalletRedeem
     :> WRes Post CTx
@@ -334,6 +367,7 @@ type RedeemADAPaperVend =
 type ReportingInitialized =
        "reporting"
     :> "initialized"
+    :> Summary "Send node's report on initialization time."
     :> ReqBody '[JSON] CInitialized
     :> WRes Post NoContent
 
@@ -345,23 +379,30 @@ type GetSlotsDuration =
        "settings"
     :> "slots"
     :> "duration"
+    :> Summary "Get blockchain slot duration in milliseconds."
     :> WRes Get Word
 
 type GetVersion =
        "settings"
     :> "version"
+    :> Summary "Get current version of the node."
     :> WRes Get SoftwareVersion
 
 type GetSyncProgress =
        "settings"
     :> "sync"
     :> "progress"
+    :> Summary "Current sync progress"
+    :> Description
+        "Fetch info about local chain difficulty, \
+        \network chain difficulty and connected peers."
     :> WRes Get SyncProgress
 
 type LocalTimeDifference =
        "settings"
     :> "time"
     :> "difference"
+    :> Summary "Get local time difference in milliseconds."
     :> WRes Get Word
 
 -------------------------------------------------------------------------
@@ -371,12 +412,17 @@ type LocalTimeDifference =
 type ImportBackupJSON =
        "backup"
     :> "import"
+    :> Summary "Import full information about wallet from a given file."
     :> ReqBody '[JSON] CFilePath
     :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
+    :> Summary "Export full information about wallet to a given file"
+    :> Description
+        "Wallet may be later restored from this file with \
+        \ endpoint above."
     :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] CFilePath
     :> WRes Post NoContent
@@ -387,6 +433,8 @@ type ExportBackupJSON =
 
 type GetClientInfo =
        "info"
+    :> Summary
+        "Get general information about this service."
     :> WRes Get ClientInfo
 
 -- | Servant API which provides access to wallet.

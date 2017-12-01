@@ -22,7 +22,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Pos.Core.Types as Core
+import qualified Pos.Core.Common as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Monad.Catch as Catch

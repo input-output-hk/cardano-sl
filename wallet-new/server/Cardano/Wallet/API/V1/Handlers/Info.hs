@@ -11,7 +11,7 @@ import           Pos.NtpCheck (NtpCheckMonad)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
-import qualified Pos.Core.Types as Core
+import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 

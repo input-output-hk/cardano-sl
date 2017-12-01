@@ -29,8 +29,8 @@ import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeade
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Security (AttackType (..), NodeAttackedError (..), SecurityParams (..),
-                               shouldIgnoreAddress)
+import           Pos.Security.Params (AttackType (..), NodeAttackedError (..), SecurityParams (..))
+import           Pos.Security.Util (shouldIgnoreAddress)
 import           Pos.Util.TimeWarp (nodeIdToAddress)
 import           Pos.WorkMode.Class (WorkMode)
 

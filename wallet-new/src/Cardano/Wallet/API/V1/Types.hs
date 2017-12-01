@@ -80,8 +80,9 @@ import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
-import qualified Pos.Core.Types as Core
-import qualified Pos.Crypto.Signing as Core
+import qualified Pos.Core.Common as Core
+import qualified Pos.Core.Update.Types as Core
+import qualified Pos.Crypto.Signing.Types.Safe as Core
 
 --
 -- Swagger & REST-related types

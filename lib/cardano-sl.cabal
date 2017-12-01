@@ -66,10 +66,6 @@ library
                         Pos.Communication.Types
                         Pos.Lrc.DB
 
-                        -- Something
-                        Pos.Security
-                        Pos.Security.Workers
-
                         -- Statistics
                         Pos.Statistics
 

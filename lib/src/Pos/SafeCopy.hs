@@ -20,22 +20,22 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class (AsBinary (..), Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..), Address (..),
+                                  Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
+                                  Coin, CoinPortion (..), Script (..), SharedSeed (..),
+                                  TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
+                                    SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
-                               SscProof (..))
+                               SscProof (..), VssCertificate (..), VssCertificatesMap)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                                TxPayload (..), TxProof (..))
-import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
-                                 AddrStakeDistribution (..), AddrType (..), Address (..),
-                                 Address' (..), ApplicationName (..), BlockCount (..),
-                                 BlockVersion (..), BlockVersionData (..), ChainDifficulty (..),
-                                 Coin, CoinPortion (..), EpochIndex (..), EpochOrSlot (..),
-                                 LocalSlotIndex (..), Script (..), SharedSeed (..), SlotCount (..),
-                                 SlotId (..), SoftforkRule (..), SoftwareVersion (..))
-import           Pos.Core.Update (BlockVersionModifier (..), SystemTag (..), UpdateData (..),
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
+                                  BlockVersionModifier (..), SoftforkRule (..),
+                                  SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
-import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)

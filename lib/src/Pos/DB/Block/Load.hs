@@ -20,7 +20,7 @@ import           Universum
 import           Control.Lens (_Wrapped)
 import           Formatting (sformat, (%))
 
-import           Pos.Binary.Core.Block ()
+import           Pos.Binary.Core ()
 import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockCount, HasConfiguration, HasDifficulty (difficultyL),
                            HasPrevBlock (prevBlockL), HeaderHash)

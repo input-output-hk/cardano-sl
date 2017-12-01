@@ -50,8 +50,8 @@ Two steps remain, then:
 
     ..and then add two following lines:
 
-        $ binary-caches             = https://cache.nixos.org https://hydra.iohk.io
-        $ binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+        binary-caches             = https://cache.nixos.org https://hydra.iohk.io
+        binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:

@@ -21,10 +21,9 @@ import           Pos.Communication (MsgType (..), Origin (..), SendActions, data
                                     immediateConcurrentConversations)
 import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
                            addressHash, mkMultiKeyDistr, unsafeGetCoin)
-import           Pos.Core.Address (makeAddress)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))

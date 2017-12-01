@@ -13,9 +13,8 @@ import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 import           Universum
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinaryM)
-import           Pos.Core.Address (addressHash)
+import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Ssc (Commitment (..), getCommitmentsMap)
-import           Pos.Core.Types (StakeholderId)
 import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey, decryptShare,
                              toVssPublicKey)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)

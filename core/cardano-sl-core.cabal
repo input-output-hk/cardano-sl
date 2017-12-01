@@ -25,75 +25,33 @@ library
                        Pos.Aeson.Fee
                        Pos.Aeson.Genesis
 
+                       Pos.Binary.Core
+                       Pos.Binary.Merkle
+
                        Pos.Core
-                       Pos.Core.Address
 
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis
-                       Pos.Core.Block.Genesis.Chain
-                       Pos.Core.Block.Genesis.Lens
-                       Pos.Core.Block.Genesis.Instances
-                       Pos.Core.Block.Genesis.Types
                        Pos.Core.Block.Main
-                       Pos.Core.Block.Main.Chain
-                       Pos.Core.Block.Main.Lens
-                       Pos.Core.Block.Main.Instances
-                       Pos.Core.Block.Main.Types
                        Pos.Core.Block.Union
-                       Pos.Core.Block.Union.Instances
-                       Pos.Core.Block.Union.Types
 
-                       Pos.Core.BlockVersionData
                        Pos.Core.Class
+                       Pos.Core.Common
                        Pos.Core.Configuration
-                       Pos.Core.Configuration.BlockVersionData
-                       Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GeneratedSecrets
-                       Pos.Core.Configuration.GenesisData
-                       Pos.Core.Configuration.GenesisHash
-                       Pos.Core.Configuration.Protocol
                        Pos.Core.Constants
-                       Pos.Core.Coin
                        Pos.Core.Context
                        Pos.Core.Delegation
-                       Pos.Core.Fee
-                       Pos.Core.Update
+                       Pos.Core.Genesis
                        Pos.Core.Script
-                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Ssc
-                       Pos.Core.Timestamp
                        Pos.Core.Txp
-                       Pos.Core.Types
-                       Pos.Core.Version
-                       Pos.Core.Vss
-                       Pos.Core.Vss.Types
+                       Pos.Core.Update
 
-                       Pos.Core.Genesis
-                       Pos.Core.Genesis.Canonical
-                       Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.Helpers
-                       Pos.Core.Genesis.Types
-
-                       Pos.Merkle
                        Pos.Data.Attributes
                        Pos.Exception
-
-                       Pos.Binary.Core
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Block
-                       Pos.Binary.Core.Blockchain
-                       Pos.Binary.Core.Coin
-                       Pos.Binary.Core.Delegation
-                       Pos.Binary.Core.Fee
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Txp
-                       Pos.Binary.Core.Types
-                       Pos.Binary.Core.Update
-                       Pos.Binary.Core.Version
-                       Pos.Binary.Merkle
+                       Pos.Merkle
 
                        Pos.System.Metrics.Constants
 
@@ -101,8 +59,76 @@ library
                        Pos.Util.Chrono
                        Pos.Util.Limits
 
+                       -- Update
+                       -- (Needed for wallet-new)
+                       Pos.Core.Update.Types
+
   other-modules:
+                       -- Binary
+                       Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
+                       Pos.Binary.Core.Blockchain
+                       Pos.Binary.Core.Common
+                       Pos.Binary.Core.Delegation
+                       Pos.Binary.Core.Fee
+                       Pos.Binary.Core.Script
+                       Pos.Binary.Core.Slotting
+                       Pos.Binary.Core.Ssc
+                       Pos.Binary.Core.Txp
+                       Pos.Binary.Core.Update
+
+                       -- Block
+                       Pos.Core.Block.Genesis.Chain
+                       Pos.Core.Block.Genesis.Lens
+                       Pos.Core.Block.Genesis.Instances
+                       Pos.Core.Block.Genesis.Types
+                       Pos.Core.Block.Main.Chain
+                       Pos.Core.Block.Main.Lens
+                       Pos.Core.Block.Main.Instances
+                       Pos.Core.Block.Main.Types
+                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.Types
+
+                       -- Common
+                       Pos.Core.Common.Address
+                       Pos.Core.Common.Coin
+                       Pos.Core.Common.Fee
+                       Pos.Core.Common.Types
+
+                       -- Configuration
+                       Pos.Core.Configuration.BlockVersionData
+                       Pos.Core.Configuration.Core
+                       Pos.Core.Configuration.GeneratedSecrets
+                       Pos.Core.Configuration.GenesisData
+                       Pos.Core.Configuration.GenesisHash
+                       Pos.Core.Configuration.Protocol
+
+                       -- Context
                        Pos.Core.Context.PrimaryKey
+
+                       -- Delegation
+                       Pos.Core.Delegation.Types
+                       Pos.Core.Delegation.Util
+
+                       -- Genesis
+                       Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Generate
+                       Pos.Core.Genesis.Helpers
+                       Pos.Core.Genesis.Types
+
+                       -- Slotting
+                       Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
+
+                       -- SSC
+                       Pos.Core.Ssc.Types
+                       Pos.Core.Ssc.Util
+                       Pos.Core.Ssc.Vss
+
+                       -- Update
+                       Pos.Core.Update.Util
+                       Pos.Core.Update.Version
 
   build-depends:       QuickCheck
                      , aeson

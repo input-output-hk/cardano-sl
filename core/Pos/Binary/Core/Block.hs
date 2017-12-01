@@ -15,7 +15,7 @@ import qualified Pos.Core.Block.Genesis.Types as BC
 import qualified Pos.Core.Block.Main.Chain as BC
 import qualified Pos.Core.Block.Main.Types as BC
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (BlockVersion, SoftwareVersion)
+import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (Hash)
 
 ----------------------------------------------------------------------------

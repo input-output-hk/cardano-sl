@@ -24,8 +24,9 @@ import           Universum
 
 import           Control.Lens (Getter, choosing, to)
 
-import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex, EpochOrSlot (..),
-                                 HeaderHash, SlotId, SoftwareVersion)
+import           Pos.Core.Common (ChainDifficulty, HeaderHash)
+import           Pos.Core.Slotting.Types (EpochIndex, EpochOrSlot (..), SlotId)
+import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto.Signing (PublicKey)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 

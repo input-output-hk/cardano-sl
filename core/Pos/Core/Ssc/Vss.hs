@@ -1,10 +1,10 @@
--- | Vss related types and constructors for VssCertificate and VssCertificatesMap
+-- | VSS related functions.
 
-module Pos.Core.Vss
+module Pos.Core.Ssc.Vss
        (
-       -- * Reexports
-         module Pos.Core.Vss.Types
-
+         -- * Types
+         VssCertificate (..)
+       , VssCertificatesMap (..)
        -- * Certificates
        , mkVssCertificate
        , recreateVssCertificate
@@ -33,9 +33,9 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
-import           Pos.Core.Address (addressHash)
-import           Pos.Core.Types (EpochIndex, StakeholderId)
-import           Pos.Core.Vss.Types
+import           Pos.Core.Common (StakeholderId, addressHash)
+import           Pos.Core.Slotting.Types (EpochIndex)
+import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
                              Signature, VssPublicKey, checkSig, sign, toPublic)
 
@@ -48,7 +48,7 @@ mkVssCertificate
     -> EpochIndex
     -> VssCertificate
 mkVssCertificate sk vk expiry =
-    VssCertificate vk expiry signature (toPublic sk)
+    UnsafeVssCertificate vk expiry signature (toPublic sk)
   where
     signature = sign SignVssCert sk (vk, expiry)
 
@@ -66,7 +66,7 @@ recreateVssCertificate vssKey epoch sig pk =
     (unless (checkCertSign res) $ fail "recreateVssCertificate: invalid sign")
   where
     res =
-        VssCertificate
+        UnsafeVssCertificate
         { vcVssKey = vssKey
         , vcExpiryEpoch = epoch
         , vcSignature = sig
@@ -78,7 +78,7 @@ recreateVssCertificate vssKey epoch sig pk =
 -- #checkPubKeyAddress
 -- #checkSig
 checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
-checkCertSign VssCertificate {..} =
+checkCertSign UnsafeVssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 getCertId :: VssCertificate -> StakeholderId

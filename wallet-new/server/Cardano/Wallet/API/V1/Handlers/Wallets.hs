@@ -9,9 +9,7 @@ import qualified Pos.Wallet.Web.Methods.Restore as V0
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
-import           Pos.Update.Configuration (curSoftwareVersion)
-import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)
-import           Pos.Wallet.WalletMode (MonadBlockchainInfo, blockchainSlotDuration)
+import           Pos.Update.Configuration ()
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant

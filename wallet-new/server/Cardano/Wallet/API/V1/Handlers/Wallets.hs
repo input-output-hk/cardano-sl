@@ -3,7 +3,7 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.Restore as V0
+import qualified Pos.Wallet.Web.Methods as V0
 
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
@@ -57,10 +57,13 @@ listWallets PaginationParams {..} = do
       }
     _ -> return $ OneOf $ Left example
 
-updatePassword :: WalletId
-               -> PasswordUpdate
-               -> MonadV1 Wallet
-updatePassword _ _ = liftIO $ generate arbitrary
+updatePassword
+    :: (MonadWalletLogic ctx m)
+    => WalletId -> PasswordUpdate -> m Wallet
+updatePassword wid PasswordUpdate{..} = do
+    wid' <- migrate wid
+    _ <- V0.changeWalletPassphrase wid' pwdOld pwdNew
+    V0.getWallet wid' >>= migrate
 
 deleteWallet :: WalletId
              -> MonadV1 NoContent

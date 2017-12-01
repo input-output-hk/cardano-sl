@@ -148,7 +148,6 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcConnectedPeers   :: !ConnectedPeers
     -- ^ Stub
-
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
     }

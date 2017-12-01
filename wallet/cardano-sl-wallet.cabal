@@ -362,6 +362,7 @@ test-suite cardano-wallet-test
 
                        Test.Pos.Wallet.Web.Methods.LogicSpec
                        Test.Pos.Wallet.Web.Methods.PaymentSpec
+                       Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
 
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
 

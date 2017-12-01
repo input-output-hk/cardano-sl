@@ -205,7 +205,7 @@ instance Hashable CWAddressMeta
 data CWalletAssurance
     = CWAStrict
     | CWANormal
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Enum, Bounded, Generic)
 
 instance Buildable CWalletAssurance where
     build = bprint shown

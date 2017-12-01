@@ -1,6 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
-
 -- | Block generation.
 
 module Command.BlockGen
@@ -27,7 +24,7 @@ import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
 
-generateBlocks :: forall m . MonadAuxxMode m => GenBlocksParams -> m ()
+generateBlocks :: MonadAuxxMode m => GenBlocksParams -> m ()
 generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
@@ -45,7 +42,6 @@ generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> d
                 , _bgpSkipNoKey       = True
                 , _bgpTxpGlobalSettings = txpGlobalSettings
                 }
-
     withCompileInfo def $ evalRandT (genBlocks bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.

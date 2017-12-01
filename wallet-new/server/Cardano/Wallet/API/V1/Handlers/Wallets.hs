@@ -67,7 +67,7 @@ updatePassword _ _ = liftIO $ generate arbitrary
 
 -- | Deletes an exisiting wallet.
 deleteWallet
-    :: (HasConfigurations, MonadWalletLogic ctx m)
+    :: (MonadWalletLogic ctx m)
     => WalletId
     -> m NoContent
 deleteWallet (WalletId walletId) =

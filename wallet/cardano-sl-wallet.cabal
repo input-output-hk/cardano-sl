@@ -83,8 +83,6 @@ library
                       Pos.Wallet.Web.State.Util
 
                       Pos.Wallet.Web.Swagger
-                      Pos.Wallet.Web.Swagger.CustomSwagger
-                      Pos.Wallet.Web.Swagger.Description
                       Pos.Wallet.Web.Swagger.Instances.Schema
                       Pos.Wallet.Web.Swagger.Instances.Swagger
                       Pos.Wallet.Web.Swagger.Spec

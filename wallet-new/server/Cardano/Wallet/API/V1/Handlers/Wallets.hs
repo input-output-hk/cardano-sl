@@ -3,11 +3,15 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Methods.Restore as V0
 
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
+import           Pos.Update.Configuration (curSoftwareVersion)
+import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, blockchainSlotDuration)
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant
@@ -57,20 +61,26 @@ listWallets PaginationParams {..} = do
       }
     _ -> return $ OneOf $ Left example
 
-updatePassword :: WalletId
-               -> PasswordUpdate
-               -> MonadV1 Wallet
+updatePassword
+    :: WalletId
+    -> PasswordUpdate
+    -> MonadV1 Wallet
 updatePassword _ _ = liftIO $ generate arbitrary
 
-deleteWallet :: WalletId
-             -> MonadV1 NoContent
-deleteWallet _ = return NoContent
+-- | Deletes an exisiting wallet.
+deleteWallet
+    :: (HasConfigurations)
+    => WalletId
+    -> MonadV1 NoContent
+deleteWallet (WalletId walletId) =
+    V0.deleteWallet . V0.CId . V0.CHash $ walletId
 
 getWallet :: WalletId
           -> MonadV1 Wallet
 getWallet _ = liftIO $ generate arbitrary
 
-updateWallet :: WalletId
-             -> WalletUpdate
-             -> MonadV1 Wallet
+updateWallet
+    :: WalletId
+    -> WalletUpdate
+    -> MonadV1 Wallet
 updateWallet _ _ = liftIO $ generate arbitrary

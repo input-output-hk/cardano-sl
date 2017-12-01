@@ -15,10 +15,10 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Address (addressHash, decodeTextAddress)
-import           Pos.Core.Coin (unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Common (Address, Coin, StakeholderId, addressHash, decodeTextAddress,
+                                  unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Genesis.Types (GenesisDelegation (..), GenesisNonAvvmBalances (..))
-import           Pos.Core.Types (Address, Coin, ProxySKHeavy, StakeholderId)
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | Safe constructor of 'GenesisDelegation' from a list of PSKs.

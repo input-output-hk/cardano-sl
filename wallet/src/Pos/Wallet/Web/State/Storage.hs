@@ -93,9 +93,9 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Serokell.Util (zoom')
 
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
+import           Pos.Core (HeaderHash, SlotId, Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.Core.Types (HeaderHash, SlotId, Timestamp)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
                           utxoToAddressCoinMap)

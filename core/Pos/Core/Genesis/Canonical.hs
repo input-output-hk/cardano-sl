@@ -23,18 +23,19 @@ import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, 
 
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core.Address ()
-import           Pos.Core.Address (addressF, decodeTextAddress)
-import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Common (Address, Coeff (..), Coin, CoinPortion, SharedSeed (..),
+                                  StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
+                                  decodeTextAddress, getCoinPortion, mkCoin, mkCoinPortion,
+                                  unsafeGetCoin)
 import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants (..))
-import           Pos.Core.Types (Address, BlockVersionData (..), Coin, CoinPortion, EpochIndex (..),
-                                 SharedSeed (..), SoftforkRule (..), StakeholderId, Timestamp (..),
-                                 getCoinPortion, mkCoin, mkCoinPortion, unsafeGetCoin)
-import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap (..),
-                               validateVssCertificatesMap)
+import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
+import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
+import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
+import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
@@ -343,7 +344,7 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
         signature <- fromJSField obj "signature"
         signingKey <- fromJSField obj "signingKey"
-        return $ VssCertificate
+        return $ UnsafeVssCertificate
             { vcVssKey      = vssKey
             , vcExpiryEpoch = expiryEpoch
             , vcSignature   = signature

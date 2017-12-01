@@ -22,7 +22,8 @@ import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader,
 import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
-import           Pos.Core.Types (EpochOrSlot (..), HeaderHash)
+import           Pos.Core.Common (HeaderHash)
+import           Pos.Core.Slotting.Types (EpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
 
 ----------------------------------------------------------------------------

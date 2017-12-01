@@ -1,6 +1,6 @@
 -- | Functionality related to 'Address' data type and related types.
 
-module Pos.Core.Address
+module Pos.Core.Common.Address
        (
          -- * Re-exports
          Address (..)
@@ -70,11 +70,11 @@ import           Serokell.Util (mapJson)
 import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Coin ()
+import           Pos.Core.Common.Coin ()
+import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (..),
+                                        AddrStakeDistribution (..), AddrType (..), Address (..),
+                                        Address' (..), AddressHash, Script, StakeholderId)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
-                                 AddrStakeDistribution (..), AddrType (..), Address (..),
-                                 Address' (..), AddressHash, Script, StakeholderId)
 import           Pos.Crypto.Hashing (AbstractHash (AbstractHash), hashHexF, shortHashF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
                                 deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey,

@@ -19,7 +19,7 @@ import           Options.Applicative (Parser, auto, command, execParser, fullDes
                                       short, strOption, subparser, switch, value)
 
 import           Pos.Client.CLI (configurationOptionsParser)
-import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestnetBalanceOptions (..))
+import           Pos.Core.Genesis (FakeAvvmOptions (..), TestnetBalanceOptions (..))
 import           Pos.Launcher (ConfigurationOptions)
 
 import           Paths_cardano_sl (version)

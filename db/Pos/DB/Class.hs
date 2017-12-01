@@ -59,7 +59,7 @@ import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, decodeFull)
-import           Pos.Binary.Core.Blockchain ()
+import           Pos.Binary.Core ()
 import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
                            isBootstrapEra)
 import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)

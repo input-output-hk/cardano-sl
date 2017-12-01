@@ -36,8 +36,8 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Context (LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
-import           Pos.Core.Address (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
                              emptyPassphrase, firstHardened)

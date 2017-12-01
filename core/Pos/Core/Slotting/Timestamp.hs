@@ -1,6 +1,6 @@
--- | Slotting functionality.
+-- | Timestamp/diff types and helpers.
 
-module Pos.Core.Timestamp
+module Pos.Core.Slotting.Timestamp
        ( Timestamp (..)
        , timestampF
        , getCurrentTimestamp
@@ -15,7 +15,6 @@ module Pos.Core.Timestamp
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (Microsecond)

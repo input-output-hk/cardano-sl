@@ -28,8 +28,9 @@ import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
 import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
                                  HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
                                  IsHeader, IsMainHeader (..))
+import           Pos.Core.Common (HeaderHash)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (EpochOrSlot (..), HeaderHash, slotIdF)
+import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 
 

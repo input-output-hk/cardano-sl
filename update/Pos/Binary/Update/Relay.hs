@@ -5,7 +5,7 @@ module Pos.Binary.Update.Relay
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Binary.Core.Update ()
+import           Pos.Binary.Core ()
 import           Pos.Binary.Infra ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (HasConfiguration)

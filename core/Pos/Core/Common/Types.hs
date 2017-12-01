@@ -1,6 +1,6 @@
--- | Core types.
+-- | Common core types essential for multiple components.
 
-module Pos.Core.Types
+module Pos.Core.Common.Types
        (
        -- * Address and StakeholderId
          AddressHash
@@ -17,34 +17,13 @@ module Pos.Core.Types
        , StakesMap
        , StakesList
 
-       , Timestamp (..)
-       , TimeDiff (..)
-
        -- * ChainDifficulty
        , ChainDifficulty (..)
-
-       -- * Version
-       , ApplicationName
-       , getApplicationName
-       , BlockVersion (..)
-       , NumSoftwareVersion
-       , SoftwareVersion (..)
-       , applicationNameMaxLength
-       , mkApplicationName
-
-       -- * Update system
-       , SoftforkRule (..)
-       , BlockVersionData (..)
 
        -- * HeaderHash related types and functions
        , BlockHeaderStub
        , HeaderHash
        , headerHashF
-
-       , ProxySigLight
-       , ProxySKLight
-       , ProxySigHeavy
-       , ProxySKHeavy
 
        , SharedSeed (..)
        , SlotLeaders
@@ -61,16 +40,6 @@ module Pos.Core.Types
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
-       -- * Slotting
-       , EpochIndex (..)
-       , FlatSlotId
-       , LocalSlotIndex (..)
-       , SlotId (..)
-       , siEpochL
-       , siSlotL
-       , slotIdF
-       , EpochOrSlot (..)
-
        -- * Scripting
        , Script(..)
        , Script_v0
@@ -79,34 +48,28 @@ module Pos.Core.Types
        -- * Newtypes
        -- ** for amounts
        , BlockCount(..)
-       , SlotCount(..)
        ) where
 
 import           Universum
 
-import           Control.Lens (makeLensesFor, makePrisms)
+import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
-import           Data.Char (isAscii)
+import qualified Data.ByteString as BS (pack, zipWith)
+import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
-import           Data.Ix (Ix)
-import qualified Data.Text as T
+import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Units (Millisecond)
-import           Formatting (Format, bprint, build, formatToString, int, ords, shown, stext, (%))
+import           Formatting (Format, bprint, build, formatToString, int, (%))
 import qualified PlutusCore.Program as PLCore
-import qualified Prelude
-import           Serokell.AcidState ()
-import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
 
-import           Pos.Core.Fee (TxFeePolicy)
-import           Pos.Core.Timestamp (TimeDiff (..), Timestamp (..))
+import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
-import           Pos.Crypto.Signing (ProxySecretKey, ProxySignature, PublicKey, RedeemPublicKey)
+import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes (Attributes)
 
 ----------------------------------------------------------------------------
@@ -229,104 +192,6 @@ newtype ChainDifficulty = ChainDifficulty
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
--- Version
-----------------------------------------------------------------------------
-
--- | Communication protocol version.
-data BlockVersion = BlockVersion
-    { bvMajor :: !Word16
-    , bvMinor :: !Word16
-    , bvAlt   :: !Word8
-    } deriving (Eq, Generic, Ord, Typeable)
-
-newtype ApplicationName = ApplicationName
-    { getApplicationName :: Text
-    } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
-
--- | Smart constructor of 'ApplicationName'.
-mkApplicationName :: MonadFail m => Text -> m ApplicationName
-mkApplicationName appName
-    | length appName > applicationNameMaxLength =
-        fail "ApplicationName: too long string passed"
-    | T.any (not . isAscii) appName =
-        fail "ApplicationName: not ascii string passed"
-    | otherwise = pure $ ApplicationName appName
-
-applicationNameMaxLength :: Integral i => i
-applicationNameMaxLength = 12
-
--- | Numeric software version associated with ApplicationName.
-type NumSoftwareVersion = Word32
-
--- | Software version.
-data SoftwareVersion = SoftwareVersion
-    { svAppName :: !ApplicationName
-    , svNumber  :: !NumSoftwareVersion
-    } deriving (Eq, Generic, Ord, Typeable)
-
-instance Buildable SoftwareVersion where
-    build SoftwareVersion {..} =
-        bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
-
-instance Show SoftwareVersion where
-    show = toString . pretty
-
-instance Show BlockVersion where
-    show BlockVersion {..} =
-        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
-
-instance Buildable BlockVersion where
-    build = bprint shown
-
-instance Hashable SoftwareVersion
-instance Hashable BlockVersion
-
-instance NFData BlockVersion
-instance NFData SoftwareVersion
-
-----------------------------------------------------------------------------
--- Values updatable by update system
-----------------------------------------------------------------------------
-
--- | Values defining softfork resolution rule.
--- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold
--- at the 't'-th epoch will be
--- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
---
--- Softfork resolution threshold is the portion of total stake such
--- that if total stake of issuers of blocks with some block version is
--- greater than this portion, this block version becomes adopted.
-data SoftforkRule = SoftforkRule
-    { srInitThd      :: !CoinPortion
-    -- ^ Initial threshold (right after proposal is confirmed).
-    , srMinThd       :: !CoinPortion
-    -- ^ Minimal threshold (i. e. threshold can't become less than
-    -- this one).
-    , srThdDecrement :: !CoinPortion
-    -- ^ Theshold will be decreased by this value after each epoch.
-    } deriving (Show, Eq, Ord, Generic)
-
-instance Hashable SoftforkRule
-
--- | Data which is associated with 'BlockVersion'.
-data BlockVersionData = BlockVersionData
-    { bvdScriptVersion     :: !ScriptVersion
-    , bvdSlotDuration      :: !Millisecond
-    , bvdMaxBlockSize      :: !Byte
-    , bvdMaxHeaderSize     :: !Byte
-    , bvdMaxTxSize         :: !Byte
-    , bvdMaxProposalSize   :: !Byte
-    , bvdMpcThd            :: !CoinPortion
-    , bvdHeavyDelThd       :: !CoinPortion
-    , bvdUpdateVoteThd     :: !CoinPortion
-    , bvdUpdateProposalThd :: !CoinPortion
-    , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdSoftforkRule      :: !SoftforkRule
-    , bvdTxFeePolicy       :: !TxFeePolicy
-    , bvdUnlockStakeEpoch  :: !EpochIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
-
-----------------------------------------------------------------------------
 -- HeaderHash
 ----------------------------------------------------------------------------
 
@@ -338,31 +203,6 @@ data BlockHeaderStub
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash -> r)
 headerHashF = build
-
-----------------------------------------------------------------------------
--- Proxy signatures and delegation
-----------------------------------------------------------------------------
-
--- Notice: light delegation was removed as part of CSL-1856 and should
--- be reworked later. Though some parts of it are left to support
--- backward compatibility.
-
--- | Proxy signature, that holds a pair of epoch indices. Block is
--- valid if its epoch index is inside this range.
-type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
-
--- | Same alias for the proxy secret key (see 'ProxySigLight').
-type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
-
-
--- | Simple proxy signature without ttl/epoch index
--- constraints. 'EpochIndex' inside is needed for replay attack
--- prevention (it should match epoch of the block psk is announced
--- in).
-type ProxySigHeavy a = ProxySignature EpochIndex a
-
--- | Heavy delegation psk.
-type ProxySKHeavy = ProxySecretKey EpochIndex
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -377,6 +217,15 @@ newtype SharedSeed = SharedSeed
 
 instance Buildable SharedSeed where
     build = formatBase16 . getSharedSeed
+
+instance Semigroup SharedSeed where
+    (<>) (SharedSeed a) (SharedSeed b) =
+        SharedSeed $ BS.pack (BS.zipWith xor a b) -- fast due to rewrite rules
+
+instance Monoid SharedSeed where
+    mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
+    mappend = (Data.Semigroup.<>)
+    mconcat = foldl' mappend mempty
 
 -- | 'NonEmpty' list of slot leaders.
 type SlotLeaders = NonEmpty StakeholderId
@@ -467,68 +316,6 @@ unsafeCoinPortionFromDouble x
 {-# INLINE unsafeCoinPortionFromDouble #-}
 
 ----------------------------------------------------------------------------
--- Slotting
-----------------------------------------------------------------------------
-
--- | Index of epoch.
-newtype EpochIndex = EpochIndex
-    { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
-
-instance Buildable EpochIndex where
-    build = bprint ("epoch #"%int)
-
--- instance Buildable (EpochIndex,EpochIndex) where
---     build = bprint ("epochIndices: "%pairF)
-
--- | Index of slot inside a concrete epoch.
-newtype LocalSlotIndex = UnsafeLocalSlotIndex
-    { getSlotIndex :: Word16
-    } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
-
-
--- | Slot is identified by index of epoch and index of slot in
--- this epoch. This is a global index, an index to a global
--- slot position.
-data SlotId = SlotId
-    { siEpoch :: !EpochIndex
-    , siSlot  :: !LocalSlotIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
-
-instance Buildable SlotId where
-    build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
-
--- | Specialized formatter for 'SlotId'.
-slotIdF :: Format r (SlotId -> r)
-slotIdF = build
-
--- | FlatSlotId is a flat version of SlotId
-type FlatSlotId = Word64
-
--- | Represents SlotId or EpochIndex. Useful because genesis blocks
--- have only EpochIndex, while main blocks have SlotId.
-newtype EpochOrSlot = EpochOrSlot
-    { unEpochOrSlot :: Either EpochIndex SlotId
-    } deriving (Show, Eq, Generic, NFData)
-
-instance Ord EpochOrSlot where
-    compare (EpochOrSlot e1) (EpochOrSlot e2) = case (e1,e2) of
-        (Left s1, Left s2)                      -> compare s1 s2
-        (Right s1, Left s2) | (siEpoch s1) < s2 -> LT
-                            | otherwise         -> GT
-        (Left s1, Right s2) | s1 > (siEpoch s2) -> GT
-                            | otherwise         -> LT
-        (Right s1, Right s2)
-            | siEpoch s1 == siEpoch s2 -> siSlot s1 `compare` siSlot s2
-            | otherwise -> siEpoch s1 `compare` siEpoch s2
-
-instance Buildable EpochOrSlot where
-    build = either Buildable.build Buildable.build . unEpochOrSlot
-
-instance NFData SlotId
-
-----------------------------------------------------------------------------
 -- Script
 ----------------------------------------------------------------------------
 
@@ -558,17 +345,9 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
     deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
               Buildable, Generic, Typeable, NFData, Hashable, Random)
 
-newtype SlotCount = SlotCount {getSlotCount :: Word64}
-    deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,
-              Buildable, Generic, Typeable, NFData, Hashable, Random)
-
 ----------------------------------------------------------------------------
 -- Template Haskell invocations, banished to the end of the module because
 -- we don't want to topsort the whole module
 ----------------------------------------------------------------------------
-
-flip makeLensesFor ''SlotId [
-    ("siEpoch", "siEpochL"),
-    ("siSlot" , "siSlotL") ]
 
 makePrisms ''Address

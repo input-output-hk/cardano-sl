@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Pos.Core.Coin
+module Pos.Core.Common.Coin
        ( coinF
        , sumCoins
 
@@ -29,8 +29,8 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, float, int, (%))
 
-import           Pos.Core.Types (Coin, CoinPortion (getCoinPortion), coinF, coinPortionDenominator,
-                                 mkCoin, unsafeGetCoin)
+import           Pos.Core.Common.Types (Coin, CoinPortion (getCoinPortion), coinF,
+                                        coinPortionDenominator, mkCoin, unsafeGetCoin)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a

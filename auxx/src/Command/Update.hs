@@ -78,7 +78,6 @@ propose sendActions ProposeUpdateParams{..} = do
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
     let udata = HM.fromList updateData
-    let whenCantCreate = error . mappend "Failed to create update proposal: "
     skeys <- if not puVoteAll then pure [skey]
              else getSecretKeysPlain
     withSafeSigners skeys (pure emptyPassphrase) $ \ss -> do
@@ -86,7 +85,7 @@ propose sendActions ProposeUpdateParams{..} = do
             reportFatalError $ "Number of safe signers: " <> show (length ss) <>
                                ", expected " <> show (length skeys)
         let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
-        let updateProposal = either whenCantCreate identity $
+        let updateProposal =
                 mkUpdateProposalWSign
                     puBlockVersion
                     puBlockVersionModifier

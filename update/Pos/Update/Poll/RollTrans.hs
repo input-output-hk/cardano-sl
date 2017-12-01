@@ -17,7 +17,7 @@ import           Universum
 
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (SoftwareVersion (..))
+import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion, maybeToPrev,

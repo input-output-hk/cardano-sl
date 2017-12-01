@@ -36,17 +36,18 @@ import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVar
                                    UnsignedVarInt (..))
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Address (makeAddress)
-import           Pos.Core.Coin (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
+import qualified Pos.Core.Common.Fee as Fee
+import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
                                          epochSlots)
 import           Pos.Core.Constants (sharedSeedLength)
-import qualified Pos.Core.Fee as Fee
 import qualified Pos.Core.Genesis as G
 import qualified Pos.Core.Slotting as Types
-import           Pos.Core.Types (BlockVersionData (..), Timestamp (..), maxCoinVal)
-import qualified Pos.Core.Types as Types
-import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.Slotting.Types (Timestamp (..))
+import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.Update.Types (BlockVersionData (..))
+import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary (nonrepeating)
@@ -432,11 +433,11 @@ instance Arbitrary Types.SharedSeed where
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ Types.SharedSeed $ BS.pack bs
 
-instance Arbitrary Types.SoftforkRule where
+instance Arbitrary U.SoftforkRule where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.BlockVersionData where
+instance Arbitrary U.BlockVersionData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -444,21 +445,21 @@ instance Arbitrary Types.BlockVersionData where
 -- Arbitrary types from MainExtra[header/body]data
 ----------------------------------------------------------------------------
 
-instance Arbitrary Types.ApplicationName where
+instance Arbitrary U.ApplicationName where
     arbitrary =
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
-        Types.mkApplicationName .
-        toText . map selectAlpha . take Types.applicationNameMaxLength <$>
+        U.mkApplicationName .
+        toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
       where
         selectAlpha n = alphabet !! (n `mod` length alphabet)
         alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-instance Arbitrary Types.BlockVersion where
+instance Arbitrary U.BlockVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.SoftwareVersion where
+instance Arbitrary U.SoftwareVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

@@ -69,7 +69,6 @@ import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
                           TxOutAux (..), TxSigData (..), Utxo)
 import           Pos.Types (Address, Coin, StakeholderId, mkCoin, sumCoins)
-import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -152,9 +151,6 @@ instance Buildable InputSelectionPolicy where
     build = \case
         OptimizeForSecurity -> "securely"
         OptimizeForSize -> "simple"
-
-instance Buildable (SecureLog InputSelectionPolicy) where
-    build = buildUnsecure
 
 instance Default InputSelectionPolicy where
     def = OptimizeForSecurity

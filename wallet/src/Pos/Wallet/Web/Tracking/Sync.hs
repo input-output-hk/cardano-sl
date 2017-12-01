@@ -43,6 +43,7 @@ import           Control.Monad.Catch (handleAll)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
+import qualified Data.Set as S
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, sformat, (%))
 import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
@@ -304,7 +305,7 @@ trackingApplyTxs
     -> (BlockHeader -> Maybe PtxBlockInfo)         -- ^ Function to determine pending tx's block info
     -> [(TxAux, TxUndo, BlockHeader)]              -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingApplyTxs (eskToWalletDecrCredentials -> wdc) allAddresses getDiff getTs getPtxBlkInfo txs =
+trackingApplyTxs (eskToWalletDecrCredentials -> wdc) _ getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
   where
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
@@ -321,7 +322,7 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) allAddresses getDiff getTs 
             addedHistory = maybe camAddedHistory (flip DL.cons camAddedHistory) (isTxEntryInteresting thee)
 
             usedAddrs = map (cwamId . snd) theeOutputs
-            changeAddrs = evalChange allAddresses (map snd theeInputs) (map snd theeOutputs)
+            changeAddrs = evalChange mempty (map snd theeInputs) (map snd theeOutputs)
 
             mPtxBlkInfo = getPtxBlkInfo blkHeader
             addedPtxCandidates =
@@ -349,7 +350,7 @@ trackingRollbackTxs
     -> (BlockHeader -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
     -> [(TxAux, TxUndo, BlockHeader)] -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddresses getDiff getTs txs =
+trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) _ getDiff getTs txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
@@ -367,7 +368,7 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddresses getDiff get
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
         let usedAddrs = map (cwamId . snd) theeOutputs
-            changeAddrs = evalChange allAddresses (map snd theeInputs) (map snd theeOutputs)
+            changeAddrs = evalChange mempty (map snd theeInputs) (map snd theeOutputs)
         CAccModifier
             (deleteAndInsertIMM (map snd theeOutputs) [] camAddresses)
             (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
@@ -423,16 +424,41 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
 
+-- Change address is an address which money remainder is sent to.
+-- We will consider output address as "change" if:
+-- 1. it belongs to source account (taken from one of source addresses)
+-- 2. itsn't mentioned in the blockchain (aka isn't "used" address)
+-- 3. there is at least one non "change" address among all outputs ones
+
+-- The first point is very intuitive and needed for case when we
+-- send tx to somebody, i.e. to not our address.
+-- The second point is needed for case when
+-- we send a tx from our account to the same account.
+-- The third point is needed for case when we just created address
+-- in an account and then send a tx from the address belonging to this account
+-- to the created.
+-- In this case both output addresses will be treated as "change"
+-- by the first two rules.
+-- But the third rule will make them not "change".
+-- This decision is controversial, but we can't understand from the blockchain
+-- which of them is really "change".
+-- There is an option to treat both of them as "change", but it seems to be more puzzling.
 evalChange
-    :: [CWAddressMeta] -- ^ All adresses
-    -> [CWAddressMeta]  -- ^ Own input addresses of tx
-    -> [CWAddressMeta]  -- ^ Own outputs addresses of tx
+    :: Set (CId Addr)
+    -> [CWAddressMeta] -- ^ Own input addresses of tx
+    -> [CWAddressMeta] -- ^ Own outputs addresses of tx
     -> [CId Addr]
-evalChange _ inputs outputs
-    | [] <- inputs = []
+evalChange allUsed inputs outputs
+    | [] <- inputs = [] -- It means this transaction isn't our outgoing transaction.
     | inp : _ <- inputs =
-        let srcAccount = addrMetaToAccount inp
-        in  map cwamId $ filter ((== srcAccount) . addrMetaToAccount) outputs
+        let srcAccount = addrMetaToAccount inp in
+        -- Apply the first point.
+        let addrFromSrcAccount = S.fromList $ map cwamId $ filter ((== srcAccount) . addrMetaToAccount) outputs in
+        -- Apply the second point.
+        let potentialChange = addrFromSrcAccount `S.difference` allUsed in
+        -- Apply the third point.
+        if potentialChange == S.fromList (map cwamId outputs) then []
+        else S.toList potentialChange
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")

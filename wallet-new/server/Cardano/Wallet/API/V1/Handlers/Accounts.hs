@@ -9,7 +9,7 @@ import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 
 
-import qualified Pos.Core.Coin as Core
+import qualified Pos.Core as Core
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, listOf1, resize)
 

@@ -12,7 +12,7 @@ import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
-import qualified Pos.Core.Types as Core
+import qualified Pos.Core as Core
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
 spec :: Spec

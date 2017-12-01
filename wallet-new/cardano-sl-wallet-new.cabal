@@ -96,7 +96,7 @@ library
                       ScopedTypeVariables
                       UndecidableInstances
 
-executable cardano-node-new
+executable cardano-node
   hs-source-dirs:      server
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts

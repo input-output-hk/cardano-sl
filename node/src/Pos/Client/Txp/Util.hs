@@ -153,7 +153,7 @@ instance Buildable InputSelectionPolicy where
         OptimizeForSize -> "simple"
 
 instance Default InputSelectionPolicy where
-    def = OptimizeForSecurity
+    def = OptimizeForSize
 
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m

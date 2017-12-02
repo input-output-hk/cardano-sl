@@ -46,6 +46,7 @@ import           Control.Monad.Catch (handleAll)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, sformat, (%))
@@ -69,7 +70,7 @@ import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
 import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
-                          unGenesisUtxo, utxoToModifier)
+                          unGenesisUtxo, utxoToModifier, _txOutputs)
 import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier as MM
@@ -335,7 +336,11 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
             addedHistory = maybe camAddedHistory (flip DL.cons camAddedHistory) (isTxEntryInteresting thee)
 
             usedAddrs = map (cwamId . snd) theeOutputs
-            changeAddrs = evalChange (constructAllUsed dbUsed camUsed) (map snd theeInputs) (map snd theeOutputs)
+            changeAddrs = evalChange
+                              (constructAllUsed dbUsed camUsed)
+                              (map snd theeInputs)
+                              (map snd theeOutputs)
+                              (length theeOutputs == NE.length (_txOutputs $ taTx tx))
 
             mPtxBlkInfo = getPtxBlkInfo blkHeader
             addedPtxCandidates =
@@ -381,7 +386,12 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
         let usedAddrs = map (cwamId . snd) theeOutputs
-            changeAddrs = evalChange (constructAllUsed dbUsed camUsed) (map snd theeInputs) (map snd theeOutputs)
+            changeAddrs =
+                evalChange
+                    (constructAllUsed dbUsed camUsed)
+                    (map snd theeInputs)
+                    (map snd theeOutputs)
+                    (length theeOutputs == NE.length (_txOutputs $ taTx tx))
         CAccModifier
             (deleteAndInsertIMM (map snd theeOutputs) [] camAddresses)
             (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
@@ -460,8 +470,9 @@ evalChange
     :: HashSet (CId Addr)
     -> [CWAddressMeta] -- ^ Own input addresses of tx
     -> [CWAddressMeta] -- ^ Own outputs addresses of tx
+    -> Bool            -- ^ Whether all tx's outputs are our own
     -> [CId Addr]
-evalChange allUsed inputs outputs
+evalChange allUsed inputs outputs allOutputsOur
     | [] <- inputs = [] -- It means this transaction isn't our outgoing transaction.
     | inp : _ <- inputs =
         let srcAccount = addrMetaToAccount inp in
@@ -470,7 +481,7 @@ evalChange allUsed inputs outputs
         -- Apply the second point.
         let potentialChange = addrFromSrcAccount `HS.difference` allUsed in
         -- Apply the third point.
-        if potentialChange == HS.fromList (map cwamId outputs) then []
+        if allOutputsOur && potentialChange == HS.fromList (map cwamId outputs) then []
         else HS.toList potentialChange
 
 setLogger :: HasLoggerName m => m a -> m a

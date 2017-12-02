@@ -9,8 +9,8 @@ import qualified Data.HashSet as HS
 import           Data.List ((\\))
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, choose, elements, shuffle, sublistOf,
-                                  suchThat, vectorOf, (===))
+import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
+                                  vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
@@ -97,19 +97,17 @@ newtype AddressesFromDiffAccounts = AddressesFromDiffAccounts InpOutChangeUsedAd
 instance Arbitrary AddressesFromDiffAccounts where
     arbitrary = do
         (wId1, accIdx1) <- arbitrary
-        (wId2, accIdx2) <- arbitrary
         let genAddrs1 n = map (uncurry $ CWAddressMeta wId1 accIdx1) <$> vectorOf n arbitrary
-        let genAddrs2 n = map (uncurry $ CWAddressMeta wId2 accIdx2) <$> vectorOf n arbitrary
         inpAddrs <- choose (1, 5) >>= genAddrs1
         changeAddrsL <- choose (1, 3) >>= genAddrs1
-        outAddrs <- shuffle =<< fmap (changeAddrsL ++) (choose (1, 5) >>= genAddrs2)
+        let outAddrs = changeAddrsL
         let changeAddrs = HS.fromList $ map cwamId changeAddrsL
         let usedAddrs = HS.fromList $ map cwamId inpAddrs
         pure $ AddressesFromDiffAccounts $ InpOutUsedAddresses {..}
 
 evalChangeDiffAccounts :: AddressesFromDiffAccounts -> Property
 evalChangeDiffAccounts (AddressesFromDiffAccounts InpOutUsedAddresses {..}) =
-   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs)
+   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs False)
 
 newtype AddressesFromSameAccounts = AddressesFromSameAccounts InpOutChangeUsedAddresses
     deriving Show
@@ -122,18 +120,19 @@ instance Arbitrary AddressesFromSameAccounts where
         inpAddrs <- choose (1, 5) >>= genAddrs
         outAddrs <- choose (1, 5) >>= genAddrs
         usedBase <- (inpAddrs ++) <$> (choose (1, 10) >>= flip vectorOf arbitrary)
-        (changeAddrs, extraUsed) <- elements [False, True] >>= \case
+        (changeAddrs, extraUsed) <- oneof [
             -- Case when all outputs addresses are fresh and
             -- weren't mentioned in the blockchain
-            False -> pure (mempty, [])
-            True
-                | length outAddrs == 1 -> pure (mempty, [])
-                | otherwise -> do
+            pure (mempty, [])
+            , do
+                if length outAddrs == 1 then pure (mempty, [])
+                else do
                     ext <- sublistOf outAddrs `suchThat` (not . null)
                     pure (HS.fromList $ map cwamId (outAddrs \\ ext), ext)
+            ]
         let usedAddrs = HS.fromList $ map cwamId $ usedBase ++ extraUsed
         pure $ AddressesFromSameAccounts $ InpOutUsedAddresses {..}
 
 evalChangeSameAccounts :: AddressesFromSameAccounts -> Property
 evalChangeSameAccounts (AddressesFromSameAccounts InpOutUsedAddresses {..}) =
-   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs)
+   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs True)

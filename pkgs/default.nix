@@ -6729,15 +6729,11 @@ self: {
           description = "multipart/form-data (e.g file upload) support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, fetchgit, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
+      servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
       mkDerivation {
           pname = "servant-quickcheck";
           version = "0.0.4";
-          src = fetchgit {
-            url = "https://github.com/haskell-servant/servant-quickcheck.git";
-            sha256 = "0s50czgy5sw8xh8lqlnsq9q0r9j7ijwz2v73r4k5xrcpaxm6av2c";
-            rev = "6e6595f68c947107beba185392b350abd2009ba0";
-          };
+          sha256 = "d19defae3714d3928b1e972d5f2fac4b3c1b8b31b2aba2949a6cb21bf0478d61";
           libraryHaskellDepends = [
             aeson
             base

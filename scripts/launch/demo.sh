@@ -78,7 +78,7 @@ fi
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 20))
+    system_start=$((`date +%s` + 15))
 fi
 
 # This enables to select different wallet executables, since we have a 

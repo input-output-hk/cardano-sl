@@ -111,12 +111,6 @@ packages:
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
   extra-dep: true
 
-# Unreleased support for servant-0.12
-- location:
-    git: https://github.com/haskell-servant/servant-quickcheck.git
-    commit: 6e6595f68c947107beba185392b350abd2009ba0
-  extra-dep: true
-
 nix:
   shell-file: shell.nix
 
@@ -139,6 +133,7 @@ extra-deps:
 - servant-docs-0.11.1             # needed for servant-0.12
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
+- servant-quickcheck-0.0.4
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
 - rocksdb-haskell-1.0.0

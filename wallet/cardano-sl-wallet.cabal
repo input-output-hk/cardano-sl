@@ -20,7 +20,8 @@ Flag for-installer
 
 library
   hs-source-dirs:     src
-  exposed-modules:    Pos.Wallet
+  exposed-modules:    Pos.Arbitrary.Wallet.Web.ClientTypes
+                      Pos.Wallet
                       Pos.Wallet.Redirect
                       Pos.Wallet.WalletMode
 
@@ -399,6 +400,7 @@ test-suite cardano-wallet-test
                      , node-sketch
                      , serokell-util >= 0.1.3.4
                      , stm
+                     , unordered-containers
                      , text-format
                      , universum >= 0.1.11
 

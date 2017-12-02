@@ -33,6 +33,9 @@ module Pos.Wallet.Web.Tracking.Sync
 
        , buildTHEntryExtra
        , isTxEntryInteresting
+
+       -- For tests
+       , evalChange
        ) where
 
 import           Universum

@@ -144,7 +144,7 @@ updateDisk e = getWalletWebState >>= flip A.update e
 ----------------------------------------------------------------------------
 
 -- | Waits until wallet's modifier is consistent with wallet-db.
--- Returns WalletStorage from disk with along SModifier applied to it.
+-- Call action from WalletStorage from disk along with SModifier applied to it.
 waitWalletCons
     :: ( MonadWalletDBRead ctx m
        , HasExtStorageModifier ctx
@@ -170,6 +170,32 @@ waitWalletCons wal defRes action = do
                 -- Basically it's lock free: either another thread made some progress or the current thread.
                 waitWalletCons wal defRes action
         _                       -> pure defRes
+
+-- | Waits until wallets' modifiers are consistent with wallet-db.
+-- Call action from WalletStorage from disk along with SModifier applied to it.
+waitWalletsCons
+    :: ( MonadWalletDBRead ctx m
+       , HasExtStorageModifier ctx
+       )
+    => a -> Reader WalletStorage a -> m a
+waitWalletsCons defRes action = do
+    storage <- getWalletStorage
+    let walletIds = runReader S.getWalletIds storage
+    let wTips = mapMaybe (\wid -> _wiSyncTip <$> HM.lookup wid (_wsWalletInfos storage)) walletIds
+    modifierVar <- view (lensOf @ExtStorageModifierVar)
+    ExtStorageModifier{..} <- atomically $ STM.readTMVar modifierVar
+    if all (SyncedWith esmTip ==) wTips then do
+        -- Case when modifier's tip and db's tips are the same
+        let modifiers = getStorageModifier esmMemStorageModifier
+        let modifiersL =
+                zip walletIds $
+                map (\wal -> HM.lookupDefault mempty wal modifiers) walletIds
+        pure $
+            runReader action $
+            execState (S.applyModifierToWallets esmTip modifiersL) storage
+    else
+        -- Similar to case from @waitWalletCons@.
+        waitWalletsCons defRes action
 
 ----------------------------------------------------------------------------
 -- Query operations affected by mempool
@@ -221,21 +247,23 @@ getWalletTxHistory walId =
 -- Some of them should depend on CId Wal, but we can't do it without wallet-db migration
 -- which requires secret keys (it can't be performed in SafeCopy's Migration typeclass).
 
--- TODO implement synchronization primitive to wait all wallets and use it here.
-getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [CId Addr]
-getCustomAddresses = queryDisk ... A.GetCustomAddresses
+getCustomAddresses :: MonadWalletDBReadWithMempool ctx m => CustomAddressType -> m [CId Addr]
+getCustomAddresses cType =
+    waitWalletsCons [] (S.getCustomAddresses cType)
 
-getAccountMetas :: MonadWalletDBRead ctx m => m [CAccountMeta]
-getAccountMetas = queryDisk A.GetAccountMetas
+getAccountMetas :: MonadWalletDBReadWithMempool ctx m => m [CAccountMeta]
+getAccountMetas =
+    waitWalletsCons [] S.getAccountMetas
 
-isCustomAddress :: MonadWalletDBRead ctx m => CustomAddressType -> CId Addr -> m Bool
-isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
+isCustomAddress :: MonadWalletDBReadWithMempool ctx m => CustomAddressType -> CId Addr -> m Bool
+isCustomAddress cType addrId =
+    waitWalletsCons False (fmap isJust $ S.getCustomAddress cType addrId)
 
-getWalletUtxo :: MonadWalletDBRead ctx m => m Utxo
-getWalletUtxo = queryDisk A.GetWalletUtxo
+getWalletUtxo :: MonadWalletDBReadWithMempool ctx m => m Utxo
+getWalletUtxo = waitWalletsCons mempty S.getWalletUtxo
 
-getWalletBalancesAndUtxo :: MonadWalletDBRead ctx m => m (WalletBalances, Utxo)
-getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
+getWalletBalancesAndUtxo :: MonadWalletDBReadWithMempool ctx m => m (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = waitWalletsCons mempty S.getWalletBalancesAndUtxo
 
 ----------------------------------------------------------------------------
 -- Query operations not affected by mempool

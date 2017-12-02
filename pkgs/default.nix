@@ -3455,6 +3455,29 @@ self: {
           description = "Generic finger-tree structure, with example instances";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      fmt = callPackage ({ base, base16-bytestring, base64-bytestring, bytestring, containers, microlens, mkDerivation, stdenv, text, text-format, time, time-locale-compat }:
+      mkDerivation {
+          pname = "fmt";
+          version = "0.5.0.0";
+          sha256 = "ce3e15e87c04b1dcafcea8d65f894de9427a89d296e1c26a358c625558d9d194";
+          libraryHaskellDepends = [
+            base
+            base16-bytestring
+            base64-bytestring
+            bytestring
+            containers
+            microlens
+            text
+            text-format
+            time
+            time-locale-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/aelve/fmt";
+          description = "A new formatting library";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       focus = callPackage ({ base, mkDerivation, stdenv }:
       mkDerivation {
           pname = "focus";
@@ -4511,11 +4534,11 @@ self: {
           description = "ListT done right";
           license = stdenv.lib.licenses.mit;
         }) {};
-      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
+      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.3.1";
-          sha256 = "47dd0a5a3209290527d9d4c329267a1ac8dcd976f1e2bd6a4062a2ff810a163b";
+          version = "1.3.4";
+          sha256 = "155aa9316e4d3fbd55a4f91fee163e7cf27420008d80e15c296947c2466cc772";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4530,6 +4553,7 @@ self: {
             exceptions
             extra
             filepath
+            fmt
             formatting
             hashable
             lens
@@ -4981,11 +5005,11 @@ self: {
       node-sketch = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, optparse-simple, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
-          version = "0.2.0.0";
+          version = "0.2.0.1";
           src = fetchgit {
-            url = "https://github.com/arybczak/time-warp-nt.git";
-            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
-            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
+            url = "https://github.com/serokell/time-warp-nt.git";
+            sha256 = "0p100l3gxdsclcv7yr91zqph2bzidx9m74wbcignxnhms028fq12";
+            rev = "0f58f145425650f5e68b838668f36c8342e4a0a8";
           };
           isLibrary = true;
           isExecutable = true;
@@ -7017,8 +7041,8 @@ self: {
       universum = callPackage ({ base, bytestring, containers, deepseq, exceptions, ghc-prim, hashable, microlens, microlens-mtl, mkDerivation, mtl, safe, safe-exceptions, stdenv, stm, text, text-format, transformers, type-operators, unordered-containers, utf8-string, vector }:
       mkDerivation {
           pname = "universum";
-          version = "0.6.1";
-          sha256 = "538bff64be0fba8902cd7c5b0fc40d50848567886078227a5ee388ce9a9f04a3";
+          version = "0.7.0";
+          sha256 = "2eb3398cafb621a0b8966e5d6af16989a3dac0ec7467c62fd3c9a127e84148b4";
           libraryHaskellDepends = [
             base
             bytestring

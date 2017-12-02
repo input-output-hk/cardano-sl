@@ -254,7 +254,7 @@ main =
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    Log.setupLogging $
+    Log.setupLogging Nothing $
         Log.productionB
             & Log.lcTermSeverity .~ Just Log.Debug
             & Log.lcFilePrefix .~ loLauncherLogsPrefix

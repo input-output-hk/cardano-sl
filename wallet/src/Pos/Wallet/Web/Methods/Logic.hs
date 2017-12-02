@@ -25,7 +25,7 @@ module Pos.Wallet.Web.Methods.Logic
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex, notElem)
+import           Data.List                  (findIndex)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 

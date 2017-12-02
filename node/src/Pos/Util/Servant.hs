@@ -52,6 +52,7 @@ import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX   (getPOSIXTime)
 import           Formatting              (bprint, build, builder, formatToString, sformat,
                                           shown, stext, string, (%))
+import           GHC.TypeLits            (KnownSymbol, symbolVal)
 import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,

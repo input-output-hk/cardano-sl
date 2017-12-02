@@ -5,19 +5,25 @@ module Test.Pos.Wallet.Web.Tracking.SyncSpec
 import           Universum
 
 import           Data.Default (def)
+import qualified Data.HashSet as HS
+import           Data.List ((\\))
 import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (choose)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
+                                  vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (BlockCount (..), blkSecurityParam)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta (..))
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
+import           Pos.Wallet.Web.Tracking.Sync (evalChange)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
 import           Test.Pos.Util (assertProperty, withDefConfigurations)
 
@@ -25,10 +31,17 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withCompileInfo def $
-       withDefConfigurations $
-       describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
-    describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
+spec = withCompileInfo def $ withDefConfigurations $ do
+    describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
+        describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
+    describe "Pos.Wallet.Web.Tracking.evalChange" $ do
+        prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
+        prop evalChangeSameAccountsDesc evalChangeSameAccounts
+  where
+    evalChangeDiffAccountsDesc =
+      "An outgoing transaction to another account."
+    evalChangeSameAccountsDesc =
+      "Outgoing transcation from account to the same account."
 
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
@@ -66,3 +79,60 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
         "then rollback second batch and compare wallet-db " <>
         "with wallet-db after first application.\n" <>
         "Rollback first batch of blocks and compare wallet-db with genesis one."
+
+----------------------------------------------------------------------------
+-- evalChange properties
+----------------------------------------------------------------------------
+
+data InpOutChangeUsedAddresses = InpOutUsedAddresses
+    { inpAddrs    :: [CWAddressMeta]
+    , outAddrs    :: [CWAddressMeta]
+    , changeAddrs :: HashSet (CId Addr)
+    , usedAddrs   :: HashSet (CId Addr)
+    } deriving Show
+
+newtype AddressesFromDiffAccounts = AddressesFromDiffAccounts InpOutChangeUsedAddresses
+    deriving Show
+
+instance Arbitrary AddressesFromDiffAccounts where
+    arbitrary = do
+        (wId1, accIdx1) <- arbitrary
+        let genAddrs1 n = map (uncurry $ CWAddressMeta wId1 accIdx1) <$> vectorOf n arbitrary
+        inpAddrs <- choose (1, 5) >>= genAddrs1
+        changeAddrsL <- choose (1, 3) >>= genAddrs1
+        let outAddrs = changeAddrsL
+        let changeAddrs = HS.fromList $ map cwamId changeAddrsL
+        let usedAddrs = HS.fromList $ map cwamId inpAddrs
+        pure $ AddressesFromDiffAccounts $ InpOutUsedAddresses {..}
+
+evalChangeDiffAccounts :: AddressesFromDiffAccounts -> Property
+evalChangeDiffAccounts (AddressesFromDiffAccounts InpOutUsedAddresses {..}) =
+   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs False)
+
+newtype AddressesFromSameAccounts = AddressesFromSameAccounts InpOutChangeUsedAddresses
+    deriving Show
+
+instance Arbitrary AddressesFromSameAccounts where
+    arbitrary = do
+        wId <- arbitrary
+        accIdx <- arbitrary
+        let genAddrs n = map (uncurry $ CWAddressMeta wId accIdx) <$> vectorOf n arbitrary
+        inpAddrs <- choose (1, 5) >>= genAddrs
+        outAddrs <- choose (1, 5) >>= genAddrs
+        usedBase <- (inpAddrs ++) <$> (choose (1, 10) >>= flip vectorOf arbitrary)
+        (changeAddrs, extraUsed) <- oneof [
+            -- Case when all outputs addresses are fresh and
+            -- weren't mentioned in the blockchain
+            pure (mempty, [])
+            , do
+                if length outAddrs == 1 then pure (mempty, [])
+                else do
+                    ext <- sublistOf outAddrs `suchThat` (not . null)
+                    pure (HS.fromList $ map cwamId (outAddrs \\ ext), ext)
+            ]
+        let usedAddrs = HS.fromList $ map cwamId $ usedBase ++ extraUsed
+        pure $ AddressesFromSameAccounts $ InpOutUsedAddresses {..}
+
+evalChangeSameAccounts :: AddressesFromSameAccounts -> Property
+evalChangeSameAccounts (AddressesFromSameAccounts InpOutUsedAddresses {..}) =
+   changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs True)

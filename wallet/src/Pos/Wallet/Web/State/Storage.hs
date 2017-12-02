@@ -301,8 +301,8 @@ getNextUpdate = preview (wsReadyUpdates . _head)
 getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
-getCustomAddresses :: CustomAddressType -> Query [CId Addr]
-getCustomAddresses t = HM.keys <$> view (customAddressL t)
+getCustomAddresses :: CustomAddressType -> Query [(CId Addr, HeaderHash)]
+getCustomAddresses t = HM.toList <$> view (customAddressL t)
 
 getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr

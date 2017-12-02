@@ -42,7 +42,6 @@ import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
                                                trackingApplyTxs, trackingRollbackTxs)
-import           Pos.Wallet.Web.Util (getWalletAddrMetas)
 
 walletGuard ::
     ( AccountMode ctx m
@@ -93,10 +92,10 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet curTip newTipH blkTxsWUndo wAddr = walletGuard curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        allAddresses <- getWalletAddrMetas WS.Ever wAddr
+        dbUsed <- WS.getCustomAddresses WS.UsedAddr
         encSK <- getSKById wAddr
         let mapModifier =
-                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
+                trackingApplyTxs encSK dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
@@ -134,11 +133,10 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
-        allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
-
-        let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
+        dbUsed <- WS.getCustomAddresses WS.UsedAddr
+        let mapModifier = trackingRollbackTxs encSK dbUsed gbDiff blkHeaderTs txs
         rollbackModifierFromWallet wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 

@@ -8,7 +8,6 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , mkCTx
       , toCUpdateInfo
       , addrMetaToAccount
-      , isTxLocalAddress
       ) where
 
 import           Universum
@@ -51,47 +50,6 @@ cIdToAddress (CId (CHash h)) = decodeTextAddress h
 -- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
 encToCId = encodeCType . makePubKeyAddressBoot . encToPublic
-
--- [CSM-309] This may work until transaction have multiple source accounts
--- | Get all addresses of source account of given transaction.
-getTxSourceAccountAddresses
-    :: [CWAddressMeta]      -- ^ All addresses in wallet
-    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> Maybe [CId Addr]     -- ^ `Just` addrs if the wallet is source of
-                            --   transaction, `Nothing` otherwise
-getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
-    someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
-    let srcAccount = addrMetaToAccount someSrcAddrMeta
-    return $
-        map cwamId $
-        filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
-
--- | Produces a function which for a given address says whether this address
--- belongs to the same account as the addresses which are the sources
--- of a given transaction. This assumes that the source addresses belong
--- to the same account.
--- Note that if you apply this function to the outputs of a transaction,
--- you will effectively get /change/ addresses.
-isTxLocalAddress
-    :: [CWAddressMeta]      -- ^ All addresses in wallet
-    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> (CId Addr -> Bool)
-isTxLocalAddress wAddrMetas inputs = do
-    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs
-    case mLocalAddrs of
-       Just changeAddrs -> do
-           -- if given wallet is source of tx, /local addresses/
-           -- can be fetched according to definition
-           let changeAddrsSet = S.fromList changeAddrs
-           flip S.member changeAddrsSet
-       Nothing -> do
-           -- if given wallet is *not* source of tx, then it's incoming
-           -- transaction, and only addresses of given wallet are *not*
-           -- local addresses
-           -- [CSM-309] This may work until transaction have multiple
-           -- destination addresses
-           let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
-           not . flip S.member nonLocalAddrsSet
 
 mergeTxOuts :: [TxOut] -> [TxOut]
 mergeTxOuts = map stick . NE.groupWith txOutAddress

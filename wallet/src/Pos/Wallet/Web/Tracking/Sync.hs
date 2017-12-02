@@ -74,6 +74,7 @@ import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Util (getKeys)
 
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))
@@ -299,8 +300,7 @@ constructAllUsed
     -> HashSet (CId Addr)
 constructAllUsed dbUsed modif =
     HS.map fst $
-    HS.fromMap $
-    void $
+    getKeys $
     MM.modifyHashMap modif $
     HM.fromList $
     zip dbUsed (repeat ()) -- not so good performance :(

@@ -31,10 +31,9 @@ updateStorageModifierOnTx
        )
     => (TxId, TxAux, TxUndo) -> m ()
 updateStorageModifierOnTx (_, txAux, txUndo) = do
-    walIds <- WS.getWalletAddresses
+    walIds <- WS.getWalletIds
     walMods <- forM walIds $ \wal -> do
-        -- TODO pass not only db addresses
-        allAddresses <- getWalletAddrMetas WS.Ever wal
+        allAddresses <- getWalletWAddresses WS.Ever wal
         newMod <- trackingApplyTxToModifierM wal allAddresses mempty (txAux, txUndo)
         pure (wal, newMod)
     walletsVar <- view (lensOf @ExtStorageModifierVar)
@@ -42,7 +41,7 @@ updateStorageModifierOnTx (_, txAux, txUndo) = do
         \e -> e {esmMemStorageModifier = foldr SM.applyWalModifier (esmMemStorageModifier e) walMods}
 
 buildStorageModifier
-    :: ( WalletTrackingMempoolEnv ctx m
+    :: ( TxpMempoolToModifierEnv ctx m
        , AccountMode ctx m
        )
     => m ExtStorageModifier
@@ -51,6 +50,38 @@ buildStorageModifier = do
     walIds <- WS.getWalletAddresses
     walMods <- forM walIds $ \wal -> do
         encSK <- getSKById wal
-        newMod <- txMempoolToModifier encSK
+        newMod <- txpMempoolToWalModifier encSK
         pure (wal, newMod)
     pure $ ExtStorageModifier memTip (foldr SM.applyWalModifier mempty walMods)
+
+type TxpMempoolToModifierEnv ctx m =
+     ( BlockLockMode ctx m
+     , MonadTxpMem WalletMempoolExt ctx m
+     , WS.MonadWalletDBRead ctx m
+     , MonadSlotsData ctx m
+     , WithLogger m
+     , HasConfiguration
+     )
+
+txpMempoolToWalModifier :: TxpMempoolToModifierEnv ctx m => EncryptedSecretKey -> m WalletModifier
+txpMempoolToWalModifier encSK = do
+    let wHash (i, TxAux {..}, _) = WithHash taTx i
+        wId = encToCId encSK
+        fInfo = \_ -> (Nothing, Nothing, Nothing) -- no difficulty, no timestamp, no slot for mempool
+    (txs, undoMap) <- getLocalTxsNUndo
+
+    txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
+        Just undo -> pure (id, tx, undo)
+        Nothing -> do
+            let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
+            logError errMsg
+            throwM $ InternalError errMsg
+
+    tipH <- DB.getTipHeader
+    allAddressesDB <- getWalletWAddressesDB WS.Ever wId
+    case topsortTxs wHash txsWUndo of
+        Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Just ordered ->
+            pure $
+                trackingApplyTxs encSK allAddressesDB fInfo
+                    (map (\(_, tx, undo) -> (tx, undo, tipH)) ordered)

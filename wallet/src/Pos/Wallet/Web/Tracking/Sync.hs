@@ -18,21 +18,14 @@
 
 module Pos.Wallet.Web.Tracking.Sync
        ( syncWalletsWithGState
-       , trackingApplyTxs
-       , trackingApplyTxToModifierM
-       , trackingRollbackTxs
+       , syncWalletOnImport
        , BlockLockMode
        , WalletTrackingSyncEnv
        , WalletTrackingMempoolEnv
 
-       , syncWalletOnImport
-       , txMempoolToModifier
-
-       , fixingCachedAccModifier
-       , fixCachedAccModifierFor
-
-       , buildTHEntryExtra
-       , isTxEntryInteresting
+       , trackingApplyTxs
+       , trackingApplyTxToModifierM
+       , trackingRollbackTxs
        ) where
 
 import           Universum
@@ -107,16 +100,6 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingMempoolEnv ctx m =
-     ( BlockLockMode ctx m
-     , MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletDBRead ctx m
-     , MonadSlotsData ctx m
-     , WithLogger m
-     -- , HasExtStorageModifier ctx
-     , HasConfiguration
-     )
-
 type WalletTrackingSyncEnv ctx m =
      ( WalletTrackingMempoolEnv ctx m
      , MonadSlots ctx m
@@ -125,28 +108,6 @@ type WalletTrackingSyncEnv ctx m =
 
 syncWalletOnImport :: WalletTrackingSyncEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
-
-txMempoolToModifier :: WalletTrackingMempoolEnv ctx m => EncryptedSecretKey -> m WalletModifier
-txMempoolToModifier encSK = do
-    let wHash (i, TxAux {..}, _) = WithHash taTx i
-        wId = encToCId encSK
-        fInfo = \_ -> (Nothing, Nothing, Nothing) -- no difficulty, no timestamp, no slot for mempool
-    (txs, undoMap) <- getLocalTxsNUndo
-
-    txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
-        Just undo -> pure (id, tx, undo)
-        Nothing -> do
-            let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
-            logError errMsg
-            throwM $ InternalError errMsg
-
-    tipH <- DB.getTipHeader
-    allAddresses <- getWalletAddrMetas Ever wId
-    case topsortTxs wHash txsWUndo of
-        Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
-        Just ordered -> pure $
-            trackingApplyTxs encSK allAddresses fInfo $
-            map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
 -- Logic
@@ -174,6 +135,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
   where
     onErr encSK = logWarningS . sformat fmt (encToCId encSK)
     fmt = "Sync of wallet "%build%" failed: "%build
+
     syncDo :: EncryptedSecretKey -> Maybe BlockHeader -> m ()
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
@@ -331,6 +293,7 @@ trackingApplyTxs
     -> [(TxAux, TxUndo, BlockHeader)] -- ^ Txs of blocks and corresponding header hash
     -> WalletModifier
 trackingApplyTxs (eskToWalletDecrCredentials -> wdc) allAddresses fInfo txs =
+    -- TODO use used addresses instead of all addresses and update them on each iteration
     foldl' (trackingApplyTxToModifier wdc allAddresses fInfo) mempty txs
 
 trackingApplyTxToModifier
@@ -426,24 +389,3 @@ evalChange allAddresses inputs outputs
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
-
-----------------------------------------------------------------------------
--- Cached modifier
-----------------------------------------------------------------------------
-
--- | Evaluates `txMempoolToModifier` and provides result as a parameter
--- to given function.
-fixingCachedAccModifier
-    :: (WalletTrackingMempoolEnv ctx m, MonadKeySearch key m)
-    => (CachedWalletModifier -> key -> m a)
-    -> key -> m a
-fixingCachedAccModifier action key =
-    findKey key >>= txMempoolToModifier >>= flip action key
-
-fixCachedAccModifierFor
-    :: (WalletTrackingMempoolEnv ctx m, MonadKeySearch key m)
-    => key
-    -> (CachedWalletModifier -> m a)
-    -> m a
-fixCachedAccModifierFor key action =
-    fixingCachedAccModifier (const . action) key

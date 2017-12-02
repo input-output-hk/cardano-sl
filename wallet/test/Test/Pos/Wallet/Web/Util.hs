@@ -30,10 +30,9 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, 
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Block.Types (Blund, LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Context (LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
 import           Pos.Core.Block (blockHeader)

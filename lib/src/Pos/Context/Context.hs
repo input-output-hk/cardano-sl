@@ -13,17 +13,10 @@ module Pos.Context.Context
        , BaseParams(..)
        , TxpGlobalSettings
        , StartTime(..)
-       , LastKnownHeader
-       , LastKnownHeaderTag
-       , MonadLastKnownHeader
-       , ProgressHeader
-       , ProgressHeaderTag
-       , MonadProgressHeader
+
        , BlockRetrievalQueueTag
        , BlockRetrievalQueue
-       , RecoveryHeaderTag
-       , RecoveryHeader
-       , MonadRecoveryHeader
+
        , ConnectedPeers(..)
        ) where
 
@@ -36,10 +29,11 @@ import           Ether.Internal (HasLens (..))
 import           System.Wlog (LoggerConfig)
 
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
-import           Pos.Block.Slog.Types (HasSlogContext (..), HasSlogGState (..), SlogContext (..))
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..), SlogContext (..))
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressHeader,
+                                  ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
-import           Pos.Core.Block (BlockHeader)
 import           Pos.DHT.Real.Types (KademliaDHTInstance)
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
@@ -60,21 +54,6 @@ import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 ----------------------------------------------------------------------------
 -- NodeContext
 ----------------------------------------------------------------------------
-
-data LastKnownHeaderTag
-type LastKnownHeader = TVar (Maybe BlockHeader)
-type MonadLastKnownHeader ctx m
-     = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
-
-data ProgressHeaderTag
-type ProgressHeader = STM.TMVar BlockHeader
-type MonadProgressHeader ctx m
-     = (MonadReader ctx m, HasLens ProgressHeaderTag ctx ProgressHeader)
-
-data RecoveryHeaderTag
-type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
-type MonadRecoveryHeader ctx m
-     = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)
 
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
 newtype StartTime = StartTime { unStartTime :: UTCTime }

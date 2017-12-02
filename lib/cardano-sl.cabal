@@ -18,35 +18,17 @@ library
                         Pos.AllSecrets
 
                         -- Arbitrary instances
-                        Pos.Arbitrary.Block
-
                         Pos.Aeson
                         Pos.Binary
-                        Pos.Block.Base
-                        Pos.Block.BListener
-                        Pos.Block.Error
-                        Pos.Block.Logic
-                        Pos.Block.Network
-                        Pos.Block.Pure
-                        Pos.Block.RetrievalQueue
-                        Pos.Block.Slog
-                        Pos.Block.Types
                         Pos.Context
                         Pos.Communication
                         Pos.Configuration
                         Pos.Constants
 
                         Pos.DB.DB
-                        Pos.DB.Block
-                        Pos.DB.Block.Load
 
                         -- GState
                         Pos.GState
-                        Pos.GState.BlockExtra
-
-                        -- LRC
-                        Pos.Lrc
-                        Pos.Lrc.FtsPure
 
                         -- Behavior
                         Pos.Behavior
@@ -64,7 +46,6 @@ library
                         Pos.Communication.Limits
                         Pos.Communication.Message
                         Pos.Communication.Types
-                        Pos.Lrc.DB
 
                         -- Statistics
                         Pos.Statistics
@@ -78,7 +59,6 @@ library
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.Monitor
-                        Pos.Util.JsonLog
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
@@ -95,10 +75,8 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Communication
-                        Pos.Binary.Block.Types
 
                         -- Exposed for tests
-                        Pos.Block.Logic.VAR
                         Test.Pos.Helpers
                         Test.Pos.Cbor.Canonicity
                         Test.Pos.Cbor.RefImpl
@@ -110,22 +88,6 @@ library
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
-
-                        -- Block processing
-                        Pos.Block.BHelpers
-                        Pos.Block.Logic.Util
-                        Pos.Block.Logic.Creation
-                        Pos.Block.Logic.Header
-                        Pos.Block.Logic.Internal
-                        Pos.Block.Network.Announce
-                        Pos.Block.Network.Types
-                        Pos.Block.Network.Listeners
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Slog.Context
-                        Pos.Block.Slog.Logic
-                        Pos.Block.Slog.Types
-                        Pos.Block.Worker
 
                         -- Client
                         Pos.Client.CLI.NodeOptions
@@ -154,18 +116,7 @@ library
                         -- Network
                         Pos.Communication.Server
 
-                        -- LRC
-                        Pos.Lrc.Consumers
-                        Pos.Lrc.DB.Leaders
-                        Pos.Lrc.DB.Lrc
-                        Pos.Lrc.DB.Richmen
-                        Pos.Lrc.Logic
-                        Pos.Lrc.Worker
-
                         Pos.Recovery.Instance
-
-                        -- SSC
-                        Pos.Ssc.Util
 
                         -- Health Checks
                         Pos.HealthCheck.Route53
@@ -186,6 +137,7 @@ library
                       , canonical-json
                       , cardano-crypto
                       , cardano-sl-binary
+                      , cardano-sl-block
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
@@ -366,6 +318,7 @@ test-suite cardano-test
                      , canonical-json
                      , cardano-sl
                      , cardano-sl-binary
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db

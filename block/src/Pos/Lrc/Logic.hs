@@ -19,7 +19,8 @@ import qualified Data.HashSet as HS
 import           Pos.Core (Coin, CoinPortion, StakeholderId, applyCoinPortionUp, sumCoins,
                            unsafeIntegerToCoin)
 import           Pos.DB.Class (MonadDBRead, MonadGState)
-import           Pos.GState (getDelegators, getRealStake, isIssuerByAddressHash)
+import           Pos.DB.GState.Stakes (getRealStake)
+import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Types (FullRichmenData, RichmenStakes)
 

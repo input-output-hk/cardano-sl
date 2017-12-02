@@ -4,19 +4,20 @@ module Pos.Block.Network.Listeners
        ( blockListeners
        ) where
 
+import           Universum
+
 import           Formatting (build, int, sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
-import           Universum
 
-import           Pos.Binary.Communication ()
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
                                           MsgHeaders (..))
-import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
@@ -24,10 +25,9 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
 import           Pos.Util.Chrono (NewestFirst (..))
-import           Pos.WorkMode.Class (WorkMode)
 
 blockListeners
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
 blockListeners oq = constantListeners $ map ($ oq)
@@ -45,7 +45,7 @@ blockListeners oq = constantListeners $ map ($ oq)
 -- field.
 handleGetHeaders
     :: forall pack ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -54,7 +54,7 @@ handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 
 handleGetBlocks
     :: forall pack ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -91,7 +91,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall pack ctx m.
-       WorkMode ctx m
+       BlockWorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do

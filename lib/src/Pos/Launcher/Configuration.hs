@@ -25,6 +25,7 @@ import           System.Wlog (WithLogger, logInfo)
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
 
+import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Core.Slotting (Timestamp)
@@ -40,6 +41,7 @@ data Configuration = Configuration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
+    , ccBlock  :: !BlockConfiguration
     , ccDlg    :: !DlgConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
@@ -52,6 +54,7 @@ type HasConfigurations =
     , HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
+    , HasBlockConfiguration
     , HasDlgConfiguration
     , HasNodeConfiguration
     )
@@ -97,4 +100,5 @@ withConfigurations co@ConfigurationOptions{..} act = do
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
         withDlgConfiguration ccDlg $
+        withBlockConfiguration ccBlock $
         withNodeConfiguration ccNode $ act

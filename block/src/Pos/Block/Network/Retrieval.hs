@@ -24,7 +24,7 @@ import           Serokell.Util (listJson, sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Binary.Communication ()
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
@@ -32,13 +32,13 @@ import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpect
                                           mkBlocksRequest, mkHeadersRequest, requestHeaders,
                                           triggerRecovery)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
-import           Pos.Block.RetrievalQueue (BlockRetrievalTask (..))
-import           Pos.Communication.Limits (recvLimited)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
+import           Pos.Block.Types (ProgressHeaderTag, RecoveryHeaderTag)
+import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH, toOutSpecs,
                                              waitForConversations, worker)
-import           Pos.Context (BlockRetrievalQueueTag, ProgressHeaderTag, RecoveryHeaderTag)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
@@ -47,11 +47,10 @@ import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
-import           Pos.WorkMode.Class (WorkMode)
 
 retrievalWorker
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => Timer -> (WorkerSpec m, OutSpecs)
 retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer)
   where
@@ -75,7 +74,7 @@ retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer
 --
 retrievalWorkerImpl
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => Timer -> SendActions m -> m ()
 retrievalWorkerImpl keepAliveTimer SendActions {..} =
     handleAll mainLoopE $ do
@@ -213,7 +212,7 @@ data UpdateRecoveryResult ssc
 -- condition can occur where we are caught in the recovery mode
 -- indefinitely.
 updateRecoveryHeader
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> BlockHeader
     -> m ()
@@ -247,7 +246,7 @@ updateRecoveryHeader nodeId hdr = do
             rNodeId
             (headerHash rHeader)
 
-dropUpdateHeader :: WorkMode ctx m => m ()
+dropUpdateHeader :: BlockWorkMode ctx m => m ()
 dropUpdateHeader = do
     progressHeaderVar <- view (lensOf @ProgressHeaderTag)
     void $ atomically $ tryTakeTMVar progressHeaderVar
@@ -262,7 +261,7 @@ dropUpdateHeader = do
 -- to continue working with P2 and ignore the exception that happened with P.
 -- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
-    :: WorkMode ctx m
+    :: BlockWorkMode ctx m
     => NodeId
     -> m Bool
 dropRecoveryHeader nodeId = do
@@ -282,7 +281,7 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops recovery header and, if it was successful, queries tips.
 dropRecoveryHeaderAndRepeat
-    :: (WorkMode ctx m)
+    :: (BlockWorkMode ctx m)
     => EnqueueMsg m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat enqueue nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -306,7 +305,7 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
     :: forall ctx m.
-       (WorkMode ctx m)
+       (BlockWorkMode ctx m)
     => EnqueueMsg m
     -> NodeId
     -> BlockHeader
@@ -365,7 +364,7 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
 ----------------------------------------------------------------------------
 
 retrieveBlocks
-    :: (WorkMode ctx m)
+    :: (BlockWorkMode ctx m)
     => ConversationActions MsgGetBlocks MsgBlock m
     -> BlockHeader
     -> HeaderHash
@@ -381,7 +380,7 @@ retrieveBlocks conv lcaChild endH = do
                 (b0 ^. blockHeader) lcaChild
 
 retrieveBlocksDo
-    :: (WorkMode ctx m)
+    :: (BlockWorkMode ctx m)
     => Int        -- ^ Index of block we're requesting
     -> ConversationActions MsgGetBlocks MsgBlock m
     -> HeaderHash -- ^ We're expecting a child of this block

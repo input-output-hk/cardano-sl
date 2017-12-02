@@ -112,10 +112,12 @@ dev: &dev
     dlgCacheParam: 500
     messageCacheTimeout: 30
 
-  node: &dev_node
+  block: &dev_block
     networkDiameter: 3
-    defaultPeers: []
     recoveryHeadersMessage: 20 # should be greater than k
+
+  node: &dev_node
+    defaultPeers: []
     networkConnectionTimeout: 2000 # ms
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
@@ -301,10 +303,12 @@ mainnet_base: &mainnet_base
     dlgCacheParam: 500
     messageCacheTimeout: 30
 
-  node: &mainnet_base_node
+  block: &mainnet_base_block
     networkDiameter: 18
-    defaultPeers: []
     recoveryHeadersMessage: 2200 # should be greater than k
+
+  node: &mainnet_base_node
+    defaultPeers: []
     networkConnectionTimeout: 2000
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100

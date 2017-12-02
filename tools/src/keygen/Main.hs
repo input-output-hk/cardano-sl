@@ -155,7 +155,7 @@ genVssCert path = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
+    setupLogging Nothing $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of

@@ -14,7 +14,7 @@ import           Control.Lens               (at, uses, (%=), (.=), (?=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (notElem, (!!))
+import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V

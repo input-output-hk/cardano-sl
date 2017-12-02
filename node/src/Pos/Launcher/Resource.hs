@@ -240,7 +240,7 @@ getRealLoggerConfig LoggingParams{..} = do
     pure $ cfg <> cfgBuilder
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers params = setupLogging =<< getRealLoggerConfig params
+setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
 loggerBracket :: LoggingParams -> IO a -> IO a

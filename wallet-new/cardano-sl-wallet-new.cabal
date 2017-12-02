@@ -184,8 +184,10 @@ executable wallet-new-server
 test-suite wallet-new-specs
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
-  hs-source-dirs:   server test
   main-is:          Spec.hs
+  default-language: Haskell2010
+  hs-source-dirs:   server test
+
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
@@ -201,45 +203,7 @@ test-suite wallet-new-specs
                     Cardano.Wallet.API.V1.Handlers.Wallets
                     Cardano.Wallet.API.V1.Handlers.Updates
                     Cardano.Wallet.API.V1.Swagger
-  build-depends:    base
-                  , QuickCheck
-                  , aeson
-                  , aeson-pretty
-                  , bytestring
-                  , cardano-sl
-                  , cardano-sl-core
-                  , cardano-sl-crypto
-                  , cardano-sl-util
-                  , cardano-sl-update
-                  , cardano-sl-infra
-                  , cardano-sl-ssc
-                  , cardano-sl-txp
-                  , cardano-sl-wallet
-                  , cardano-sl-wallet-new
-                  , containers
-                  , data-default
-                  , exceptions
-                  , formatting
-                  , hspec
-                  , http-client
-                  , http-types
-                  , insert-ordered-containers
-                  , lens
-                  , neat-interpolation
-                  , quickcheck-instances
-                  , memory
-                  , node-sketch
-                  , serokell-util
-                  , servant
-                  , servant-quickcheck
-                  , servant-server
-                  , servant-swagger
-                  , string-conv
-                  , stm
-                  , swagger2
-                  , text
-                  , universum
-                  , unordered-containers
+
   default-language: Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -257,3 +221,45 @@ test-suite wallet-new-specs
                       RecordWildCards
                       ScopedTypeVariables
                       UndecidableInstances
+
+  build-depends:      base
+
+  if !os(windows)
+      build-depends:    QuickCheck
+                      , aeson
+                      , aeson-pretty
+                      , bytestring
+                      , cardano-sl
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-util
+                      , cardano-sl-update
+                      , cardano-sl-infra
+                      , cardano-sl-ssc
+                      , cardano-sl-txp
+                      , cardano-sl-wallet
+                      , cardano-sl-wallet-new
+                      , containers
+                      , data-default
+                      , exceptions
+                      , formatting
+                      , hspec
+                      , http-client
+                      , http-types
+                      , insert-ordered-containers
+                      , lens
+                      , neat-interpolation
+                      , quickcheck-instances
+                      , memory
+                      , node-sketch
+                      , serokell-util
+                      , servant
+                      , servant-quickcheck
+                      , servant-server
+                      , servant-swagger
+                      , string-conv
+                      , stm
+                      , swagger2
+                      , text
+                      , universum
+                      , unordered-containers

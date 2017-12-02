@@ -13,7 +13,7 @@ import           Test.Hspec
 -- Temporarily disable specs on AppVeyor: https://iohk.myjetbrains.com/youtrack/issue/CSL-2002
 main :: IO ()
 main = do
-    let platform = T.pack System.Info.os
+    let platform = toText System.Info.os
     case "darwin" `T.isInfixOf` platform || "linux" `T.isInfixOf` platform of
         True -> hspec $ do
             Marshalling.spec

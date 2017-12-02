@@ -16,7 +16,7 @@ packages:
     extra-dep: true
   - location:
       git: https://github.com/serokell/network-transport-tcp
-      commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
+      commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-inmemory

@@ -37,7 +37,6 @@ module Node.Internal (
     nodeStatistics,
     ChannelIn(..),
     ChannelOut(..),
-    closeChannel,
     startNode,
     stopNode,
     withInOutChannel,
@@ -242,9 +241,6 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 
 -- | Output to the wire.
 newtype ChannelOut m = ChannelOut (NT.Connection m)
-
-closeChannel :: ChannelOut m -> m ()
-closeChannel (ChannelOut conn) = NT.close conn
 
 -- | Do multiple sends on a 'ChannelOut'.
 writeMany
@@ -1064,9 +1060,8 @@ nodeDispatcher node handlerInOut =
                           chanVar <- newSharedAtomic (Just channel)
                           let dumpBytes mBytes = withSharedAtomic chanVar $
                                   maybe (return ()) (flip Channel.writeChannel mBytes)
-                          let provenance = Remote peer connid
-                          let acquire = connectToPeer node (NodeId peer)
-                          let respondAndHandle conn = do
+                              provenance = Remote peer connid
+                              respondAndHandle conn = do
                                   outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
                                   case outcome of
                                       Left err -> throw err
@@ -1075,17 +1070,16 @@ nodeDispatcher node handlerInOut =
                           -- Resource releaser for bracketWithException.
                           -- No matter what, we must update the node state to
                           -- indicate that we've disconnected from the peer.
-                          let cleanup conn (me :: Maybe SomeException) = do
+                              cleanup (me :: Maybe SomeException) = do
                                   modifySharedAtomic chanVar $ \_ -> return (Nothing, ())
-                                  disconnectFromPeer node (NodeId peer) conn
                                   case me of
                                       Nothing -> return ()
                                       Just e -> logError $
                                           sformat (shown % " error in conversation response " % shown) nonce e
-                          let handler = bracketWithException
-                                            acquire
-                                            cleanup
-                                            respondAndHandle
+                              handler = bracketWithException
+                                  (return ())
+                                  (const cleanup)
+                                  (const (connectToPeer node (NodeId peer) respondAndHandle))
                           -- Establish the other direction in a separate thread.
                           (_, incrBytes) <- spawnHandler nstate provenance handler
                           let bs = LBS.toStrict ws'
@@ -1449,9 +1443,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
                       cancelWith promise Timeout
                 }
             wait promise
-    bracket (connectToPeer node nodeid)
-            (\conn -> disconnectFromPeer node nodeid conn >> closeChannel)
-            action'
+    connectToPeer node nodeid action' `finally` closeChannel
 
 data OutboundConnectionState m =
       -- | A stable outbound connection has some positive number of established
@@ -1579,12 +1571,9 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
 --   other connections to that peer. Subsequent connections to that peer
 --   will block until the peer-data is sent; it must be the first thing to
 --   arrive when the first lightweight connection to a peer is opened.
---
---   A use of `connectToPeer` must be followed by `disconnectFromPeer`, in order
---   to keep the node state consistent. Please use safe exceptional handling
---   functions like `bracket` to make this guarantee.
 connectToPeer
-    :: ( Mockable Throw m
+    :: forall packingType peerData m r .
+       ( Mockable Throw m
        , Mockable Bracket m
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
@@ -1593,11 +1582,18 @@ connectToPeer
        )
     => Node packingType peerData m
     -> NodeId
-    -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvironment} (NodeId peer) = do
-    conn <- establish
-    sendPeerDataIfNecessary conn
-    return conn
+    -> (NT.Connection m -> m r)
+    -> m r
+connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvironment} nid@(NodeId peer) act =
+    -- 'establish' will update shared state indicating the nature of
+    -- connections to this peer: how many are coming up, going down, or
+    -- established. It's essential to bracket that against 'disconnectFromPeer'
+    -- so that if there's an exception when sending the peer data or when
+    -- doing the 'act' continuation, the state is always brought back to
+    -- consistency.
+    bracket establish (disconnectFromPeer node nid) $ \conn -> do
+        sendPeerDataIfNecessary conn
+        act conn
 
     where
 

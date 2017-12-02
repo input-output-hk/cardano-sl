@@ -2513,7 +2513,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, generics-sop, hspec, http-api-data, http-client, http-types, insert-ordered-containers, json-sop, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2536,9 +2536,11 @@ self: {
             data-default
             exceptions
             formatting
+            generics-sop
             http-api-data
             http-client
             http-types
+            json-sop
             lens
             memory
             mtl
@@ -2549,10 +2551,13 @@ self: {
             servant
             servant-client
             servant-server
+            template-haskell
             text
             text-format
             transformers
             universum
+            unordered-containers
+            vector
             warp
           ];
           executableHaskellDepends = [
@@ -2566,6 +2571,7 @@ self: {
             cardano-sl-infra
             cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cardano-sl-util
             cardano-sl-wallet
             containers
@@ -2611,6 +2617,7 @@ self: {
             cardano-sl-infra
             cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cardano-sl-util
             cardano-sl-wallet
             containers
@@ -2624,6 +2631,7 @@ self: {
             lens
             memory
             neat-interpolation
+            node-sketch
             QuickCheck
             quickcheck-instances
             serokell-util
@@ -2641,8 +2649,8 @@ self: {
           doHaddock = false;
           doCheck = true;
           homepage = "https://github.com/swagger-api/swagger-codegen#readme";
-          description = "Auto-generated API bindings for cardano-sl-web-wallet";
-          license = stdenv.lib.licenses.unfree;
+          description = "The Wallet Backend for a Cardano node";
+          license = stdenv.lib.licenses.mit;
         }) {};
       case-insensitive = callPackage ({ base, bytestring, deepseq, hashable, mkDerivation, stdenv, text }:
       mkDerivation {
@@ -3893,6 +3901,25 @@ self: {
           description = "A fast logging system";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      fclabels = callPackage ({ base, mkDerivation, mtl, stdenv, template-haskell, transformers }:
+      mkDerivation {
+          pname = "fclabels";
+          version = "2.0.3.2";
+          sha256 = "4d5d83ffc3c8bc610e9c42e19c2e07a1ca68666310261de15703c605047182b0";
+          revision = "3";
+          editedCabalFile = "19gd2jwjpfrmq80gpjk05djhn42vvj88fgka5yr7yaq6mfx103by";
+          libraryHaskellDepends = [
+            base
+            mtl
+            template-haskell
+            transformers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/sebastiaanvisser/fclabels";
+          description = "First class accessor labels implemented as lenses";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       fgl = callPackage ({ array, base, containers, deepseq, mkDerivation, stdenv, transformers }:
       mkDerivation {
           pname = "fgl";
@@ -4851,6 +4878,28 @@ self: {
           description = "Strip version restrictions from build dependencies in Cabal files";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      json-sop = callPackage ({ aeson, base, generics-sop, lens-sop, mkDerivation, stdenv, tagged, text, time, transformers, unordered-containers, vector }:
+      mkDerivation {
+          pname = "json-sop";
+          version = "0.2.0.3";
+          sha256 = "3065f11df636f9b72d988247bcc1273de9155255d8b31ed9105929e2ab67c22b";
+          libraryHaskellDepends = [
+            aeson
+            base
+            generics-sop
+            lens-sop
+            tagged
+            text
+            time
+            transformers
+            unordered-containers
+            vector
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "Generics JSON (de)serialization using generics-sop";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       kademlia = callPackage ({ MonadRandom, base, binary, bytestring, containers, contravariant, cryptonite, data-default, extra, fetchgit, memory, mkDerivation, mtl, network, random, random-shuffle, stdenv, stm, time, transformers, transformers-compat }:
       mkDerivation {
           pname = "kademlia";
@@ -4975,6 +5024,22 @@ self: {
           homepage = "http://github.com/ekmett/lens/";
           description = "Lenses, Folds and Traversals";
           license = stdenv.lib.licenses.bsd2;
+        }) {};
+      lens-sop = callPackage ({ base, fclabels, generics-sop, mkDerivation, stdenv, transformers }:
+      mkDerivation {
+          pname = "lens-sop";
+          version = "0.2.0.2";
+          sha256 = "7f6800088634aeb6788c1bc65dcdaeb7f0c8cdaee288a24bf9f946cc59496d99";
+          libraryHaskellDepends = [
+            base
+            fclabels
+            generics-sop
+            transformers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "Computing lenses generically using generics-sop";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       lifted-async = callPackage ({ async, base, constraints, lifted-base, mkDerivation, monad-control, stdenv, transformers-base }:
       mkDerivation {

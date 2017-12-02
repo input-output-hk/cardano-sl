@@ -13,29 +13,28 @@ import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Errors            as Errors
+import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens                            ((?~))
-import           Data.Aeson                              (ToJSON (..),
-                                                          Value (Number, Object, String))
+import           Control.Lens ((?~))
+import           Data.Aeson (ToJSON (..), Value (Number, Object, String))
 import           Data.Aeson.Encode.Pretty
-import           Data.Default                            (Default (def))
-import qualified Data.HashMap.Strict                     as HM
-import           Data.HashMap.Strict.InsOrd              (InsOrdHashMap)
-import qualified Data.HashMap.Strict.InsOrd              as InsOrdHM
-import           Data.Map                                (Map)
-import qualified Data.Map.Strict                         as M
-import           Data.Set                                (Set)
-import qualified Data.Set                                as Set
+import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HM
+import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
+import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
+import           Data.Map (Map)
+import qualified Data.Map.Strict as M
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Data.String.Conv
-import           Data.Swagger                            hiding (Header)
+import           Data.Swagger hiding (Header)
 import           Data.Swagger.Declare
-import qualified Data.Text                               as T
+import qualified Data.Text as T
 import           Data.Typeable
-import           Formatting                              (build, sformat)
+import           Formatting (build, sformat)
 import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
@@ -220,12 +219,6 @@ instance ToParamSchema ResponseFormat where
 
 instance ToParamSchema WalletId
 
-instance ToDocs APIVersion where
-  descriptionFor _ = "The API version. We currently support v0 and v1."
-
-instance ToDocs WalletVersion where
-  descriptionFor _ = "The Wallet version, including the API version and the Git revision."
-
 instance ToDocs Metadata where
   descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
 
@@ -258,7 +251,11 @@ instance ToDocs EstimatedFees where
   descriptionFor _ = "Estimated fees for a `Payment`."
 
 instance ToDocs Payment where
-  descriptionFor _ = "A request for exchange of `Coins` from one entity to another."
+  descriptionFor _ = "A transfer of `Coin`(s) from one source to one or more destinations."
+
+instance ToDocs PaymentDistribution where
+  descriptionFor _ = "Maps an `Address` to some `Coin`s and it's typically "
+                  <> "used to specify where to send money during a `Payment`."
 
 instance ToDocs Transaction where
   descriptionFor _ = "A Wallet Transaction."
@@ -266,13 +263,33 @@ instance ToDocs Transaction where
 instance ToDocs WalletSoftwareUpdate where
   descriptionFor _ = "A programmed update to the system."
 
+instance ToDocs NodeSettings where
+  descriptionFor _ = "A collection of static settings for this wallet node."
+
+instance ToDocs BlockchainHeight where
+  descriptionFor _ = "The height of the blockchain."
+
+instance ToDocs SyncProgress where
+  descriptionFor _ = "The sync progress with the blockchain."
+
+instance ToDocs SlotDuration where
+  descriptionFor _ = "The duration for a slot."
+
+instance ToDocs LocalTimeDifference where
+  descriptionFor _ = "The time difference between this node clock and the NTP server."
+
+instance ToDocs NodeInfo where
+  descriptionFor _ = "A collection of dynamic information for this wallet node."
+
+instance ToDocs TransactionGroupingPolicy where
+  descriptionFor _ = "A policy to be passed to each new `Payment` request to "
+                  <> "determine how a `Transaction` is assembled. "
+                  <> "Possible values: [" <> possibleValuesOf @TransactionGroupingPolicy Proxy <> "]."
+
+possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
+possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
+
 -- ToSchema instances
-
-instance ToSchema APIVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
-
-instance ToSchema WalletVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -311,6 +328,12 @@ instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema WalletSoftwareUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema NodeSettings where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema NodeInfo where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where
@@ -428,7 +451,7 @@ api = toSwagger walletAPI
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty Errors.walletNotFound
+      errorExample = toS $ encodePretty Errors.WalletNotFound
     , defaultPerPage = fromString (show defaultPerPageEntries)
     , accountExample = toS $ encodePretty (genExample @[Account])
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))

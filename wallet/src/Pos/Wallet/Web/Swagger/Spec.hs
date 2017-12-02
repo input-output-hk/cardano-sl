@@ -12,10 +12,10 @@ import           Data.Swagger (Swagger, description, info, title, version)
 import           Data.Text.Buildable (build)
 import           Data.Version (showVersion)
 import qualified Paths_cardano_sl as CSL
+import           Servant.Swagger (toSwagger)
 
 import           Pos.Wallet.Web.Api (walletApi)
-import           Pos.Wallet.Web.Swagger.CustomSwagger (toCustomSwagger)
-import           Pos.Wallet.Web.Swagger.Description ()
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 import           Servant.API.ContentTypes (NoContent (..))
 
 
@@ -24,7 +24,7 @@ instance Buildable NoContent where
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger
-swaggerSpecForWalletApi = toCustomSwagger walletApi
+swaggerSpecForWalletApi = toSwagger walletApi
     & info . title       .~ "Cardano SL Wallet Web API"
     & info . version     .~ toText (showVersion CSL.version)
     & info . description ?~ "This is an API for Cardano SL wallet."

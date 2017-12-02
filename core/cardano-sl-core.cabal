@@ -59,6 +59,10 @@ library
                        Pos.Util.Chrono
                        Pos.Util.Limits
 
+                       -- Update
+                       -- (Needed for wallet-new)
+                       Pos.Core.Update.Types
+
   other-modules:
                        -- Binary
                        Pos.Binary.Core.Address
@@ -123,7 +127,6 @@ library
                        Pos.Core.Ssc.Vss
 
                        -- Update
-                       Pos.Core.Update.Types
                        Pos.Core.Update.Util
                        Pos.Core.Update.Version
 

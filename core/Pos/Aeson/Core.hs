@@ -28,7 +28,7 @@ import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotC
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
-                                        SoftforkRule, mkApplicationName)
+                                        SoftforkRule, SoftwareVersion (..), mkApplicationName)
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (eitherToFail)
 
@@ -56,6 +56,7 @@ deriveFromJSON S.defaultOptions ''Second
 deriveFromJSON S.defaultOptions ''SoftforkRule
 deriveFromJSON S.defaultOptions ''BlockVersionData
 deriveToJSON   S.defaultOptions ''Microsecond
+deriveJSON       defaultOptions ''SoftwareVersion
 
 deriving instance FromJSON Timestamp
 deriving instance ToJSON Timestamp

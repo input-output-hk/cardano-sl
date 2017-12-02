@@ -2440,6 +2440,7 @@ self: {
             stm
             text-format
             universum
+            unordered-containers
           ];
           testToolDepends = [ cpphs ];
           doHaddock = false;

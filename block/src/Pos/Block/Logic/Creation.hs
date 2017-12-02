@@ -28,12 +28,12 @@ import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, n
 import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Context (HasPrimaryKey, getOurSecretKey, lrcActionOnEpochReason)
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
                            HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
                            flattenSlotId, getEpochOrSlot, headerHash)
 import           Pos.Core.Block (BlockHeader, GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
+import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
@@ -44,6 +44,7 @@ import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), Prox
                                  clearDlgMemPool, getDlgMempool, mkDlgPayload)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
+import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Reporting (reportError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)

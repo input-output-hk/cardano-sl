@@ -9,8 +9,8 @@ import           Universum
 
 import           Control.Concurrent.STM (TBQueue)
 
-import           Pos.Communication.Types (NodeId)
 import           Pos.Core.Block (BlockHeader)
+import           Pos.Network.Types (NodeId)
 
 -- | Task that block retrieval queue is asked to do.
 data BlockRetrievalTask = BlockRetrievalTask

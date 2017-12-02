@@ -2,12 +2,12 @@ module Pos.Communication.Message
        (
        ) where
 
-import           Data.Tagged (Tagged)
 import           Universum
 
+import           Data.Tagged (Tagged)
 import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
                                                 ReqOrRes)

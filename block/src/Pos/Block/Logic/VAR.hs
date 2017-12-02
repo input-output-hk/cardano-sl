@@ -27,16 +27,17 @@ import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            MonadBlockVerify, MonadMempoolNormalization,
                                            applyBlocksUnsafe, normalizeMempool,
-                                           rollbackBlocksUnsafe, toTxpBlock, toUpdateBlock)
+                                           rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import qualified Pos.GState as GS
 import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
 import           Pos.Ssc (sscVerifyBlocks)
-import           Pos.Ssc.Util (toSscBlock)
 import           Pos.Txp.Settings (TxpGlobalSettings (..))
+import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)

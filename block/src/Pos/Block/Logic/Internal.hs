@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE Rank2Types          #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
 -- lrc requires to apply and rollback blocks, but applying many blocks
@@ -21,6 +21,7 @@ module Pos.Block.Logic.Internal
          -- * Garbage
        , toUpdateBlock
        , toTxpBlock
+       , toSscBlock
        ) where
 
 import           Universum
@@ -38,24 +39,21 @@ import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, Monad
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
                            gbHeader, headerHash)
-import           Pos.Core.Block (Block, GenesisBlock, MainBlock, mbDlgPayload, mbTxPayload,
-                                 mbUpdatePayload)
-import           Pos.Core.Delegation (DlgPayload)
-import           Pos.Core.Txp (TxPayload)
-import           Pos.Core.Update (UpdatePayload)
+import           Pos.Core.Block (Block, Body, GenesisBlock, MainBlock, MainBlockchain, mbDlgPayload,
+                                 mbSscPayload, mbTxPayload, mbUpdatePayload)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
-import           Pos.DB.DB (sanityCheckDB)
+import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Logic (dlgApplyBlocks, dlgNormalizeOnRollback, dlgRollbackBlocks)
 import           Pos.Delegation.Types (DlgBlock, DlgBlund)
 import           Pos.Exception (assertionFailed)
-import qualified Pos.GState as GS
+import           Pos.GState.SanityCheck (sanityCheckDB)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Logic (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Ssc.Util (toSscBlock)
+import           Pos.Ssc.Types (SscBlock)
 import           Pos.Txp.MemState (MonadTxpLocal (..))
 import           Pos.Txp.Settings (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Context (UpdateContext)
@@ -235,10 +233,7 @@ rollbackBlocksUnsafe bsc scb toRollback = do
 toTxpBlock
     :: HasConfiguration
     => Block -> TxpBlock
-toTxpBlock = bimap convertGenesis convertMain
-  where
-    convertMain :: MainBlock -> (Some IsMainHeader, TxPayload)
-    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
+toTxpBlock = bimap convertGenesis (convertMain mbTxPayload)
 
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
@@ -250,10 +245,13 @@ toTxpBlund = bimap toTxpBlock undoTx
 toUpdateBlock
     :: HasConfiguration
     => Block -> UpdateBlock
-toUpdateBlock = bimap convertGenesis convertMain
-  where
-    convertMain :: MainBlock -> (Some IsMainHeader, UpdatePayload)
-    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
+toUpdateBlock = bimap convertGenesis (convertMain mbUpdatePayload)
+
+-- [CSL-1156] Totally need something more elegant.
+toSscBlock
+    :: HasConfiguration
+    => Block -> SscBlock
+toSscBlock = bimap convertGenesis (convertMain mbSscPayload)
 
 -- [CSL-1156] Absolutely need something more elegant.
 toDlgBlund
@@ -264,10 +262,14 @@ toDlgBlund = bimap toDlgBlock undoDlg
     toDlgBlock
         :: HasConfiguration
         => Block -> DlgBlock
-    toDlgBlock = bimap convertGenesis convertMain
-      where
-        convertMain :: MainBlock -> (Some IsMainHeader, DlgPayload)
-        convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbDlgPayload)
+    toDlgBlock = bimap convertGenesis (convertMain mbDlgPayload)
 
 convertGenesis :: HasConfiguration => GenesisBlock -> Some IsGenesisHeader
 convertGenesis = Some . view gbHeader
+
+convertMain
+    :: HasConfiguration
+    => Lens' (Body MainBlockchain) a
+    -> MainBlock
+    -> (Some IsMainHeader, a)
+convertMain payload blk = (Some $ blk ^. gbHeader, blk ^. gbBody . payload)

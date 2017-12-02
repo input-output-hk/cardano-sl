@@ -25,7 +25,7 @@ import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
-import           Pos.Block.Slog.Types (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
                               NodeContext)
 import           Pos.Core (HasConfiguration)

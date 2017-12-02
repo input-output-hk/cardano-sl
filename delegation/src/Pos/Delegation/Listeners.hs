@@ -40,7 +40,6 @@ type DlgListenerConstraint ctx m
        , Mockable CurrentTime m
        , MonadGState m
        , MonadBlockDBRead m
-       , MonadDelegation ctx m
        , HasLens' ctx StateLock
        , HasLrcContext ctx
        , WithLogger m

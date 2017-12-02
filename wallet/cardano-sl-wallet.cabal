@@ -139,6 +139,7 @@ library
                       , random
                       , reflection
                       , safecopy
+                      , safe-exceptions
                       , semver
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1

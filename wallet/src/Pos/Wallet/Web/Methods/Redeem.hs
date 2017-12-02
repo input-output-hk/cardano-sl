@@ -33,7 +33,6 @@ import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, rewrapTxErro
                                                  submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsSet)
 
 
@@ -84,7 +83,7 @@ redeemAdaInternal passphrase cAccId seedBs = do
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
     -- new redemption wallet
-    _ <- fixingCachedAccModifier L.getAccount accId
+    _ <- L.getAccount accId
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId

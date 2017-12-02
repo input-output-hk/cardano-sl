@@ -45,9 +45,9 @@ import           Pos.StateLock                     (Priority (..), withStateLock
 import           Pos.Txp                           (MonadTxpLocal (..), ToilVerFailure,
                                                     Tx, TxAux (..), TxId, TxUndo,
                                                     TxpNormalizeMempoolMode,
-                                                    TxpProcessTransactionMode,
+                                                    TxpProcessTransactionMode, askTxpMem,
                                                     getLocalTxsNUndo, txNormalize,
-                                                    txProcessTransactionNoLock)
+                                                    txProcessTransactionNoLock, txpTip)
 import           Pos.Update.Context                (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types             (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
@@ -56,15 +56,16 @@ import           Pos.Wallet.Web.Account            (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes        (CId, Wal)
 import           Pos.Wallet.Web.Methods.History    (addHistoryTxMeta)
 import qualified Pos.Wallet.Web.State              as WS
-import           Pos.Wallet.Web.State.Memory.Logic (buildStorageModifier,
+import           Pos.Wallet.Web.State.Memory.Logic (TxpMempoolToModifierEnv,
+                                                    buildStorageModifier,
                                                     updateStorageModifierOnTx)
-import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifierVar,
-                                                    HasExtStorageModifier)
+import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifier (..),
+                                                    ExtStorageModifierVar,
+                                                    HasExtStorageModifier,
+                                                    StorageModifier (..))
 import           Pos.Wallet.Web.Tracking           (BlocksStorageModifierVar,
                                                     HasBlocksStorageModifier,
-                                                    THEntryExtra,
-                                                    WalletTrackingMempoolEnv,
-                                                    buildTHEntryExtra,
+                                                    THEntryExtra, buildTHEntryExtra,
                                                     eskToWalletDecrCredentials,
                                                     isTxEntryInteresting)
 
@@ -170,7 +171,7 @@ txpProcessTxWebWallet tx@(txId, txAux) =
     addTxToWallets txUndo = do
         ts <- getCurrentTimestamp
         let txWithUndo = (WithHash (taTx txAux) txId, txUndo)
-        thees <- mapM (toThee txWithUndo ts) =<< WS.getWalletAddresses
+        thees <- mapM (toThee txWithUndo ts) =<< WS.getWalletIds
         let interestingThees = mapMaybe (\ (id, t) -> (id,) <$> isTxEntryInteresting t) thees
         mapM_ (uncurry addHistoryTxMeta) interestingThees
 
@@ -181,10 +182,11 @@ txpProcessTxWebWallet tx@(txId, txAux) =
 
 txpNormalizeWebWallet
     :: ( TxpNormalizeMempoolMode ctx m
-       , WalletTrackingMempoolEnv ctx m
+       , TxpMempoolToModifierEnv ctx m
        , AccountMode ctx m
        , HasExtStorageModifier ctx
        , HasBlocksStorageModifier ctx
+       , WS.MonadWalletDB ctx m
        , MonadMask m
        ) => m ()
 txpNormalizeWebWallet = do
@@ -193,14 +195,15 @@ txpNormalizeWebWallet = do
     memStorageModifierVar <- view (lensOf @ExtStorageModifierVar)
     -- Take value to show that
     -- the current thread are going to update wallet-db and modifier
-    void $ STM.tryReadTMVar memStorageModifierVar
-    updateWalletDBAndBuildModifier `onException` STM.tryPutTMVar (ExtStorageModifier memTip mempty)
+    void $ atomically $ STM.tryTakeTMVar memStorageModifierVar
+    updateWalletDBAndBuildModifier memTip
+      `onException` atomically (STM.tryPutTMVar memStorageModifierVar (ExtStorageModifier memTip mempty))
   where
-    updateWalletDBAndBuildModifier = do
+    updateWalletDBAndBuildModifier memTip = do
         -- Update wallet-db
         blocksStorageModifierVar <- view (lensOf @BlocksStorageModifierVar)
         blocksStorageModifier <- atomically $ getStorageModifier <$> readTVar blocksStorageModifierVar
-        WS.applyModifierToWallets memTip blocksStorageModifier
+        WS.applyModifierToWallets memTip (HM.toList blocksStorageModifier)
 
         -- Prepare data to update wallet modifier
         !memStorageMod <- buildStorageModifier
@@ -209,4 +212,4 @@ txpNormalizeWebWallet = do
         atomically $ do
             -- Update blocks storage modifier and wallet modifier
             writeTVar blocksStorageModifierVar mempty
-            STM.writeTMVar memStorageModifierVar memStorageMod
+            STM.putTMVar memStorageModifierVar memStorageMod

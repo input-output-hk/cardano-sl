@@ -126,7 +126,7 @@ type MonadWalletDBRead ctx m =
 -- | Writting to wallet state
 class MonadWalletDBRead ctx m => MonadWalletDB ctx m
 
-getWalletWebState :: (MonadReader ctx m, HasLens' ctx WalletState) => m WalletState
+getWalletWebState :: MonadWalletDBAccess ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
 
 queryDisk

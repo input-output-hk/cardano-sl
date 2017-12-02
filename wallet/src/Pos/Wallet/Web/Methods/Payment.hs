@@ -41,7 +41,8 @@ import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToO
                                                  rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever, Existing),
-                                                 MonadWalletDBRead, getWalletAccountIds)
+                                                 MonadWalletDBReadWithMempool,
+                                                 getWalletAccountIds)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
                                                  getWalletAddrsSet)
@@ -62,7 +63,7 @@ newPayment passphrase srcAccount dstAddress coin =
 type MonadFees ctx m =
     ( MonadCatch m
     , MonadGState m
-    , MonadWalletDBRead ctx m
+    , MonadWalletDBReadWithMempool ctx m
     , MonadAddresses m
     , MonadBalances m
     )
@@ -87,7 +88,7 @@ data MoneySource
     deriving (Show, Eq)
 
 getMoneySourceAddresses
-    :: (MonadThrow m, MonadWalletDBRead ctx m)
+    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m)
     => MoneySource -> m [CWAddressMeta]
 getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses (AccountMoneySource accId) =
@@ -97,7 +98,7 @@ getMoneySourceAddresses (WalletMoneySource wid) =
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
 
 getSomeMoneySourceAccount
-    :: (MonadThrow m, MonadWalletDBRead ctx m)
+    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m)
     => MoneySource -> m AccountId
 getSomeMoneySourceAccount (AddressMoneySource addrId) =
     return $ addrMetaToAccount addrId
@@ -114,7 +115,7 @@ getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 getMoneySourceUtxo
-    :: (MonadThrow m, MonadWalletDBRead ctx m, MonadBalances m)
+    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m, MonadBalances m)
     => MoneySource -> m Utxo
 getMoneySourceUtxo =
     getMoneySourceAddresses >=>

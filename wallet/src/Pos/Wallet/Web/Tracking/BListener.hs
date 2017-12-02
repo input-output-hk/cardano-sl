@@ -89,7 +89,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         txsWUndo = concatMap gbTxsWUndo oldestFirst
     currentTipHH <- GS.getTip
     mapM_ (catchInSync "apply" $ syncWallet currentTipHH txsWUndo)
-       =<< WS.getWalletAddresses
+       =<< WS.getWalletIds
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
@@ -134,7 +134,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     curSlot <- getCurrentSlotInaccurate
     currentTipHH <- GS.getTip
     mapM_ (catchInSync "rollback" $ syncWallet curSlot currentTipHH txs)
-        =<< WS.getWalletAddresses
+        =<< WS.getWalletIds
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.

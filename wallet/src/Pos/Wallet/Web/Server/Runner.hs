@@ -57,7 +57,8 @@ runWRealMode
 runWRealMode db conn res spec = do
     saVar <- atomically STM.newEmptyTMVar
     blocksModifierVar <- atomically $ STM.newTVar mempty
-    memStorageModifierVar <- atomically $ STM.newTVar $ ExtStorageModifier genesisHash mempty
+    -- TODO must pass the current tip, not genesisHash
+    memStorageModifierVar <- atomically $ STM.newTMVar $ ExtStorageModifier genesisHash mempty
     runRealBasedMode
         (Mtl.withReaderT (WalletWebModeContext db conn saVar memStorageModifierVar blocksModifierVar))
         (Mtl.withReaderT (\(WalletWebModeContext _ _ _ _ _ rmc) -> rmc))

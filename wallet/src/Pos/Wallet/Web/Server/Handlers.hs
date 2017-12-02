@@ -21,7 +21,6 @@ import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
 import qualified Pos.Wallet.Web.Methods      as M
 import           Pos.Wallet.Web.Mode         (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.Tracking     (fixingCachedAccModifier)
 
 servantHandlers
     :: MonadFullWalletWebMode ctx m
@@ -49,7 +48,7 @@ servantHandlers =
      M.changeWalletPassphrase
     :<|>
 
-     fixingCachedAccModifier M.getAccount
+     M.getAccount
     :<|>
      M.getAccounts
     :<|>

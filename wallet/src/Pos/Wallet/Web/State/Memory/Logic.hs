@@ -3,26 +3,35 @@
 module Pos.Wallet.Web.State.Memory.Logic
        ( updateStorageModifierOnTx
        , buildStorageModifier
+       , TxpMempoolToModifierEnv
        ) where
 
 import           Universum
 
 import qualified Control.Concurrent.STM            as STM
+import qualified Data.HashMap.Strict               as HM
 import           Ether.Internal                    (HasLens (..))
+import           System.Wlog                       (WithLogger, logError, logWarning)
 
+import           Formatting                        (build, sformat, (%))
+import           Pos.Crypto                        (EncryptedSecretKey, WithHash (..))
 import           Pos.DB.Block                      (MonadBlockDB)
-import           Pos.Txp                           (TxAux (..), TxId, TxUndo, askTxpMem,
-                                                    txpTip)
+import qualified Pos.DB.DB                         as DB
+import           Pos.Txp                           (MonadTxpMem, TxAux (..), TxId, TxUndo,
+                                                    askTxpMem, getLocalTxsNUndo,
+                                                    topsortTxs, txpTip)
+import           Pos.Wallet.WalletMode             (WalletMempoolExt)
 import           Pos.Wallet.Web.Account            (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes        (encToCId)
+import           Pos.Wallet.Web.Error              (WalletError (..))
 import qualified Pos.Wallet.Web.State              as WS
 import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifier (..),
                                                     ExtStorageModifierVar,
                                                     HasExtStorageModifier)
 import qualified Pos.Wallet.Web.State.Memory.Types as SM
-import           Pos.Wallet.Web.Tracking           (WalletTrackingMempoolEnv,
+import           Pos.Wallet.Web.Tracking           (WalletModifier,
                                                     trackingApplyTxToModifierM,
-                                                    txMempoolToModifier)
-import           Pos.Wallet.Web.Util               (getWalletAddrMetas)
+                                                    trackingApplyTxs)
 
 updateStorageModifierOnTx
     :: ( HasExtStorageModifier ctx
@@ -33,12 +42,14 @@ updateStorageModifierOnTx
 updateStorageModifierOnTx (_, txAux, txUndo) = do
     walIds <- WS.getWalletIds
     walMods <- forM walIds $ \wal -> do
-        allAddresses <- getWalletWAddresses WS.Ever wal
+        allAddresses <- fromMaybe [] <$> WS.getWalletWAddresses WS.Ever wal
         newMod <- trackingApplyTxToModifierM wal allAddresses mempty (txAux, txUndo)
         pure (wal, newMod)
     walletsVar <- view (lensOf @ExtStorageModifierVar)
-    atomically $ STM.modifyTVar walletsVar $
-        \e -> e {esmMemStorageModifier = foldr SM.applyWalModifier (esmMemStorageModifier e) walMods}
+    atomically $ do
+        ExtStorageModifier{..} <- STM.readTMVar walletsVar
+        void $ STM.swapTMVar walletsVar $
+            ExtStorageModifier esmTip (foldr SM.applyWalModifier esmMemStorageModifier walMods)
 
 buildStorageModifier
     :: ( TxpMempoolToModifierEnv ctx m
@@ -47,7 +58,7 @@ buildStorageModifier
     => m ExtStorageModifier
 buildStorageModifier = do
     memTip <- atomically . readTVar =<< (txpTip <$> askTxpMem)
-    walIds <- WS.getWalletAddresses
+    walIds <- WS.getWalletIds
     walMods <- forM walIds $ \wal -> do
         encSK <- getSKById wal
         newMod <- txpMempoolToWalModifier encSK
@@ -55,12 +66,10 @@ buildStorageModifier = do
     pure $ ExtStorageModifier memTip (foldr SM.applyWalModifier mempty walMods)
 
 type TxpMempoolToModifierEnv ctx m =
-     ( BlockLockMode ctx m
-     , MonadTxpMem WalletMempoolExt ctx m
+     ( MonadTxpMem WalletMempoolExt ctx m
      , WS.MonadWalletDBRead ctx m
-     , MonadSlotsData ctx m
      , WithLogger m
-     , HasConfiguration
+     , MonadBlockDB m
      )
 
 txpMempoolToWalModifier :: TxpMempoolToModifierEnv ctx m => EncryptedSecretKey -> m WalletModifier
@@ -78,7 +87,7 @@ txpMempoolToWalModifier encSK = do
             throwM $ InternalError errMsg
 
     tipH <- DB.getTipHeader
-    allAddressesDB <- getWalletWAddressesDB WS.Ever wId
+    allAddressesDB <- fromMaybe [] <$> WS.getWalletWAddressesDB WS.Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered ->

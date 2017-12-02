@@ -118,7 +118,8 @@ import           Pos.Wallet.Web.ClientTypes        (AccountId, cadId)
 import           Pos.Wallet.Web.Methods            (MonadWalletLogic, newAddress)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
-import           Pos.Wallet.Web.State              (MonadWalletDB, MonadWalletDBRead,
+import           Pos.Wallet.Web.State              (MonadWalletDB,
+                                                    MonadWalletDBReadWithMempool,
                                                     WalletState, getWalletBalancesAndUtxo,
                                                     getWalletUtxo)
 import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifierVar,
@@ -312,9 +313,10 @@ instance (HasConfiguration, HasSscConfiguration, HasInfraConfiguration) =>
 type BalancesEnv ext ctx m =
     ( MonadDBRead m
     , MonadGState m
-    , MonadWalletDBRead ctx m
+    , MonadWalletDBReadWithMempool ctx m
     , MonadMask m
-    , MonadTxpMem ext ctx m)
+    , MonadTxpMem ext ctx m
+    )
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do

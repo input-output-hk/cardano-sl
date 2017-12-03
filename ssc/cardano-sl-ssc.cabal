@@ -94,7 +94,7 @@ library
                      , node-sketch
                      , parsec
                      , reflection
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell >= 1.0.1
                      , serokell-util
                      , stm
                      , tagged

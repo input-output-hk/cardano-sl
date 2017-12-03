@@ -111,7 +111,7 @@ library
                      , node-sketch
                      , reflection
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell >= 1.0.1
                      , safe-exceptions
                      , serokell-util
                      , stm

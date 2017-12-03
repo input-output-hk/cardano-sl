@@ -457,3 +457,8 @@ api = toSwagger walletAPI
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+
+-- | We store actual swagger spec at this location
+-- (counting from the root of the project).
+specFile :: FilePath
+specFile = "wallet-new/spec/swagger.json"

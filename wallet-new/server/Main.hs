@@ -117,7 +117,7 @@ startEdgeNode WalletStartupOptions{..} = do
 -- better-looking YAMLs.
 generateSwaggerDocumentation :: IO ()
 generateSwaggerDocumentation = do
-    BL8.writeFile "wallet-new/spec/swagger.json" (encodePretty Swagger.api)
+    BL8.writeFile Swagger.specFile (encodePretty Swagger.api)
     putText "Swagger API written on disk."
 
 -- | The main entrypoint for the Wallet.

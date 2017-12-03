@@ -111,7 +111,7 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
-- rocksdb-haskell-1.0.0
+- rocksdb-haskell-1.0.1
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151

@@ -17,6 +17,8 @@ module Pos.Wallet.Web.Methods.Misc
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
+
+       , resetAllFailedPtxs
        ) where
 
 import           Universum
@@ -24,13 +26,15 @@ import           Universum
 import           Data.Aeson                   (encode)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Core                     (SoftwareVersion (..))
-import           Pos.Update.Configuration     (curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
 import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 
+
+import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.Storage            ()
+import           Pos.Core                     (SoftwareVersion (..))
+import           Pos.Slotting                 (getCurrentSlotBlocking)
+import           Pos.Update.Configuration     (curSoftwareVersion)
+import           Pos.Util                     (maybeThrow)
 import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
@@ -41,7 +45,7 @@ import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (getNextUpdate, getProfile,
                                                getWalletStorage, removeNextUpdate,
-                                               setProfile, testReset)
+                                               resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 
@@ -128,3 +132,10 @@ instance Buildable WalletStateSnapshot where
 
 dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
+
+----------------------------------------------------------------------------
+-- Tx resubmitting
+----------------------------------------------------------------------------
+
+resetAllFailedPtxs :: MonadWalletWebMode m => m ()
+resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs

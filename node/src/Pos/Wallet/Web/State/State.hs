@@ -76,6 +76,7 @@ module Pos.Wallet.Web.State.State
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , resetFailedPtxs
        , getWalletStorage
        , flushWalletStorage
        ) where
@@ -90,7 +91,7 @@ import           Universum
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
-import           Pos.Types                    (HeaderHash)
+import           Pos.Types                    (HeaderHash, SlotId)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
@@ -325,6 +326,9 @@ ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+
+resetFailedPtxs :: WebWalletModeDB ctx m => SlotId -> m ()
+resetFailedPtxs = updateDisk ... A.ResetFailedPtxs
 
 flushWalletStorage :: WebWalletModeDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage

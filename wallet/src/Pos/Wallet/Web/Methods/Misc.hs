@@ -43,17 +43,17 @@ import           Pos.Wallet.WalletMode        (MonadBlockchainInfo, MonadUpdates
 import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
                                                SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead,
+import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead (..),
                                                getNextUpdate, getProfile,
-                                               getWalletStorage, removeNextUpdate,
-                                               setProfile, testReset)
+                                               removeNextUpdate, setProfile, testReset,
+                                               unDBWalletStorage)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletDBRead ctx m => m CProfile
+getUserProfile :: MonadWalletDBRead m => m CProfile
 getUserProfile = getProfile
 
 updateUserProfile :: MonadWalletDB ctx m => CProfile -> m CProfile
@@ -147,5 +147,5 @@ instance MimeRender OctetStream WalletStateSnapshot where
 instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
 
-dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
-dumpState = WalletStateSnapshot <$> getWalletStorage
+dumpState :: MonadWalletDBRead m => m WalletStateSnapshot
+dumpState = WalletStateSnapshot . unDBWalletStorage <$> getDBWalletStorage

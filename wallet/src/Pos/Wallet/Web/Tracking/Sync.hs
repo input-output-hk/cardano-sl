@@ -253,7 +253,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 type TxInfoFunctor = BlockHeader -> (Maybe ChainDifficulty, Maybe Timestamp, Maybe PtxBlockInfo)
 
 trackingApplyTxToModifierM
-    :: ( AccountMode ctx m
+    :: ( AccountMode m
        , DB.MonadBlockDB m
        )
     => CId Wal         -- ^ Wallet's secret key

@@ -57,7 +57,11 @@ type BlocksStorageModifierVar = TVar StorageModifier
 type HasBlocksStorageModifier ctx = HasLens' ctx BlocksStorageModifierVar
 
 walletGuard
-    :: AccountMode ctx m
+    ::
+    ( WithLogger m
+    , WS.MonadWalletDBRead m
+    , MonadIO m
+    )
     => HeaderHash
     -> CId Wal
     -> m ()
@@ -75,13 +79,12 @@ walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
 -- Perform this action under block lock.
 onApplyBlocksWebWallet
     :: forall ctx m .
-    ( AccountMode ctx m
+    ( AccountMode m
     , HasBlocksStorageModifier ctx
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
     , CanLogInParallel m
-    , HasConfiguration
     )
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
@@ -118,7 +121,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
     :: forall ctx m .
-    ( AccountMode ctx m
+    ( AccountMode m
     , HasBlocksStorageModifier ctx
     , WS.MonadWalletDB ctx m
     , MonadDBRead m

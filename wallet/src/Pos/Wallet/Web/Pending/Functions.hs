@@ -16,6 +16,7 @@ import           Universum
 import           Formatting                   (build, sformat, (%))
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core                     (HasConfiguration)
 import           Pos.Slotting.Class           (MonadSlots (..))
 import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
 import           Pos.Util.Util                (maybeThrow)
@@ -35,7 +36,7 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (MonadThrow m, MonadIO m, MonadWalletDBRead ctx m, MonadSlots ctx m)
+    :: (HasConfiguration, MonadThrow m, MonadIO m, MonadWalletDBRead m, MonadSlots ctx m)
     => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
 mkPendingTx wid _ptxTxId _ptxTxAux th = do
     void $ maybeThrow noWallet =<< getWalletMeta wid

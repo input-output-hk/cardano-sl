@@ -19,7 +19,8 @@ import           Pos.Client.Txp.Balances        (MonadBalances (..))
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (prepareMTx)
-import           Pos.Core                       (Coin, getCurrentTimestamp)
+import           Pos.Core                       (Coin, HasConfiguration,
+                                                 getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
                                                  checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
@@ -41,7 +42,7 @@ import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToO
                                                  rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever, Existing),
-                                                 MonadWalletDBReadWithMempool,
+                                                 MonadWalletDBMempoolRead,
                                                  getWalletAccountIds)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
@@ -60,16 +61,17 @@ newPayment passphrase srcAccount dstAddress coin =
         (AccountMoneySource srcAccount)
         (one (dstAddress, coin))
 
-type MonadFees ctx m =
+type MonadFees m =
     ( MonadCatch m
     , MonadGState m
-    , MonadWalletDBReadWithMempool ctx m
+    , MonadWalletDBMempoolRead m
     , MonadAddresses m
     , MonadBalances m
+    , HasConfiguration
     )
 
 getTxFee
-     :: MonadFees ctx m
+     :: MonadFees m
      => AccountId
      -> CId Addr
      -> Coin
@@ -88,7 +90,7 @@ data MoneySource
     deriving (Show, Eq)
 
 getMoneySourceAddresses
-    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m)
+    :: (MonadThrow m, MonadWalletDBMempoolRead m)
     => MoneySource -> m [CWAddressMeta]
 getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses (AccountMoneySource accId) =
@@ -98,7 +100,7 @@ getMoneySourceAddresses (WalletMoneySource wid) =
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
 
 getSomeMoneySourceAccount
-    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m)
+    :: (MonadThrow m, MonadWalletDBMempoolRead m)
     => MoneySource -> m AccountId
 getSomeMoneySourceAccount (AddressMoneySource addrId) =
     return $ addrMetaToAccount addrId
@@ -115,7 +117,7 @@ getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 getMoneySourceUtxo
-    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m, MonadBalances m)
+    :: (MonadThrow m, MonadWalletDBMempoolRead m, MonadBalances m)
     => MoneySource -> m Utxo
 getMoneySourceUtxo =
     getMoneySourceAddresses >=>

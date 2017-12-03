@@ -56,7 +56,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
-                                             MonadWalletDB, MonadWalletDBReadWithMempool,
+                                             MonadWalletDB, MonadWalletDBMempoolRead,
                                              addWAddress, createAccount, createWallet,
                                              getAccountMeta, getWalletAccountIds,
                                              getWalletIds, getWalletMetaIncludeUnready,
@@ -77,7 +77,7 @@ type MonadWalletLogicRead ctx m =
     , MonadSlots ctx m
     , MonadBlockDB m
     , MonadBalances m
-    , MonadWalletDBReadWithMempool ctx m
+    , MonadWalletDBMempoolRead m
     , MonadKeysRead m
     , MonadTxpMem WalletMempoolExt ctx m  -- TODO: remove these two once 'fixingCachedAccModifier' becomes useless
     , BlockLockMode ctx m

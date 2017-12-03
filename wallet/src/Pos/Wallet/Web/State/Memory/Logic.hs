@@ -35,8 +35,10 @@ import           Pos.Wallet.Web.Tracking           (WalletModifier,
 
 updateStorageModifierOnTx
     :: ( HasExtStorageModifier ctx
-       , AccountMode ctx m
+       , AccountMode m
        , MonadBlockDB m
+       , MonadReader ctx m
+       , WS.MonadWalletDBRead m
        )
     => (TxId, TxAux, TxUndo) -> m ()
 updateStorageModifierOnTx (_, txAux, txUndo) = do
@@ -53,7 +55,7 @@ updateStorageModifierOnTx (_, txAux, txUndo) = do
 
 buildStorageModifier
     :: ( TxpMempoolToModifierEnv ctx m
-       , AccountMode ctx m
+       , AccountMode m
        )
     => m ExtStorageModifier
 buildStorageModifier = do
@@ -67,8 +69,9 @@ buildStorageModifier = do
 
 type TxpMempoolToModifierEnv ctx m =
      ( MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletDBRead ctx m
+     , WS.MonadWalletDBRead m
      , WithLogger m
+     , MonadIO m
      , MonadBlockDB m
      )
 

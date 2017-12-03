@@ -119,8 +119,11 @@ import           Pos.Wallet.Web.Methods            (MonadWalletLogic, newAddress
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
 import           Pos.Wallet.Web.State              (MonadWalletDB,
-                                                    MonadWalletDBReadWithMempool,
-                                                    WalletState, getWalletBalancesAndUtxo,
+                                                    MonadWalletDBMempoolRead (..),
+                                                    MonadWalletDBRead (..), WalletState,
+                                                    getDBWalletStorage,
+                                                    getWalletBalancesAndUtxo,
+                                                    getWalletStoragesWebWallet,
                                                     getWalletUtxo)
 import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifierVar,
                                                     StorageModifier)
@@ -226,7 +229,7 @@ type MonadWalletWebMode ctx m =
     , HasNodeType ctx
     , HasReportingContext ctx
     , HasShutdownContext ctx
-    , AccountMode ctx m
+    , AccountMode m
     , MonadBlockchainInfo m
     , MonadBalances m
     , MonadUpdates m
@@ -310,12 +313,19 @@ instance (HasConfiguration, HasSscConfiguration, HasInfraConfiguration) =>
     connectedPeers = connectedPeersWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
 
+instance HasConfiguration => MonadWalletDBRead WalletWebMode where
+    getDBWalletStorage = getDBWalletStorage
+
+instance HasConfiguration => MonadWalletDBMempoolRead WalletWebMode where
+    getWalletStorages = getWalletStoragesWebWallet
+
 type BalancesEnv ext ctx m =
     ( MonadDBRead m
     , MonadGState m
-    , MonadWalletDBReadWithMempool ctx m
+    , MonadWalletDBMempoolRead m
     , MonadMask m
     , MonadTxpMem ext ctx m
+    , MonadIO m
     )
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo

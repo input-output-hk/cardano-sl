@@ -35,10 +35,9 @@ import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
-                                               MonadWalletDBRead,
-                                               MonadWalletDBReadWithMempool,
-                                               addOnlyNewTxMetas, getHistoryCache,
-                                               getPendingTx, getTxMeta,
+                                               MonadWalletDBMempoolRead,
+                                               MonadWalletDBRead, addOnlyNewTxMetas,
+                                               getHistoryCache, getPendingTx, getTxMeta,
                                                getWalletAccountIds, getWalletPendingTxs,
                                                setWalletTxMeta)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddrsOrThrow,
@@ -173,7 +172,10 @@ addHistoryTxsMeta cWalId historyEntries = do
         Just ts -> pure $ timestampToPosix ts
 
 constructCTx
-    :: (MonadThrow m, MonadWalletDBReadWithMempool ctx m)
+    :: ( MonadWalletDBMempoolRead m
+       , MonadIO m
+       , MonadThrow m
+       )
     => CId Wal
     -> Set (CId Addr)
     -> ChainDifficulty
@@ -195,7 +197,7 @@ updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
 
 addRecentPtxHistory
-    :: (WithLogger m, MonadWalletDBRead ctx m)
+    :: (WithLogger m, MonadIO m, MonadWalletDBRead m)
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid

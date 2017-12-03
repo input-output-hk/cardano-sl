@@ -38,27 +38,28 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta 
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever),
-                                             MonadWalletDBReadWithMempool,
-                                             doesWAddressExist, getAccountMeta)
+                                             MonadWalletDBMempoolRead, doesWAddressExist,
+                                             getAccountMeta)
 
-type AccountMode ctx m =
+type AccountMode m =
     ( MonadThrow m
     , WithLogger m
+    , MonadIO m
     , MonadKeysRead m
-    , MonadWalletDBReadWithMempool ctx m
+    , MonadWalletDBMempoolRead m
     )
 
 myRootAddresses :: MonadKeysRead m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeysPlain
 
-getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
+getAddrIdx :: AccountMode m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where
     notFound =
         RequestError $ sformat ("No wallet with address "%build%" found") addr
 
 getSKById
-    :: AccountMode ctx m
+    :: AccountMode m
     => CId Wal
     -> m EncryptedSecretKey
 getSKById wid = do
@@ -77,7 +78,7 @@ getSKByIdPure (AllUserSecrets secrets) wid =
         RequestError $ sformat ("No wallet with address "%build%" found") wid
 
 getSKByAddress
-    :: AccountMode ctx m
+    :: AccountMode m
     => ShouldCheckPassphrase
     -> PassPhrase
     -> CWAddressMeta
@@ -105,7 +106,7 @@ getSKByAddressPure secrets scp passphrase addrMeta@CWAddressMeta {..} = do
         else pure addressKey
 
 genSaveRootKey
-    :: (AccountMode ctx m, MonadKeys m)
+    :: (AccountMode m, MonadKeys m)
     => PassPhrase
     -> BackupPhrase
     -> m EncryptedSecretKey
@@ -151,7 +152,7 @@ generateUnique desc (DeterminedSeed seed) generator notFit = do
     return value
 
 genUniqueAccountId
-    :: AccountMode ctx m
+    :: AccountMode m
     => AddrGenSeed
     -> CId Wal
     -> m AccountId
@@ -165,7 +166,7 @@ genUniqueAccountId genSeed wsCAddr =
     notFit _idx addr = isJust <$> getAccountMeta addr
 
 genUniqueAddress
-    :: AccountMode ctx m
+    :: AccountMode m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
@@ -173,13 +174,13 @@ genUniqueAddress
 genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAddress notFit
   where
-    mkAddress :: AccountMode ctx m => Word32 -> m CWAddressMeta
+    mkAddress :: AccountMode m => Word32 -> m CWAddressMeta
     mkAddress cwamAddressIndex =
         deriveAddress passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist Ever addr
 
 deriveAddressSK
-    :: AccountMode ctx m
+    :: AccountMode m
     => ShouldCheckPassphrase
     -> PassPhrase
     -> AccountId
@@ -211,7 +212,7 @@ deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
     badPass = RequestError "Passphrase doesn't match"
 
 deriveAddress
-    :: AccountMode ctx m
+    :: AccountMode m
     => PassPhrase
     -> AccountId
     -> Word32
@@ -227,11 +228,11 @@ deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
 class MonadKeySearch id m where
     findKey :: id -> m EncryptedSecretKey
 
-instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
+instance AccountMode m => MonadKeySearch (CId Wal) m where
     findKey = getSKById
 
-instance AccountMode ctx m => MonadKeySearch AccountId m where
+instance AccountMode m => MonadKeySearch AccountId m where
     findKey = findKey . aiWId
 
-instance AccountMode ctx m => MonadKeySearch CWAddressMeta m where
+instance AccountMode m => MonadKeySearch CWAddressMeta m where
     findKey = findKey . cwamWId

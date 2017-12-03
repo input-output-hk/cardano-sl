@@ -6,9 +6,13 @@ module Pos.Wallet.Web.State.State
        , PtxMetaUpdate (..)
        , getWalletWebState
        , MonadWalletDBAccess
-       , MonadWalletDBRead
+       , MonadWalletDBRead (..)
+       , MonadWalletDBMempoolRead (..)
        , MonadWalletDB
-       , MonadWalletDBReadWithMempool
+       , DBWalletStorage (..)
+       , UnionWalletStorage (..)
+       , getDBWalletStorageWebWallet
+       , getWalletStoragesWebWallet
        , openState
        , openMemState
        , closeState
@@ -69,7 +73,6 @@ module Pos.Wallet.Web.State.State
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
-       , getWalletStorage
        , flushWalletStorage
        , applyModifierToWallet
        , applyModifierToWallets
@@ -110,27 +113,68 @@ import           Pos.Wallet.Web.State.Storage      (AddressLookupMode (..),
 import qualified Pos.Wallet.Web.State.Storage      as S
 import           Pos.Wallet.Web.Tracking.Modifier  (WalletModifier (..))
 
+----------------------------------------------------------------------------
+-- MonadWalletDBRead and MonadWalletDBMempoolRead classes
+----------------------------------------------------------------------------
+
+-- | Wrapper around persistent WalletStorage
+newtype DBWalletStorage = DBWalletStorage
+    { unDBWalletStorage :: WalletStorage
+    }
+
+-- | Get persistent WalletStorage
+class Monad m => MonadWalletDBRead m where
+    getDBWalletStorage :: m DBWalletStorage
+
+performDBReadAction
+    :: MonadWalletDBRead m
+    => Reader WalletStorage a
+    -> m a
+performDBReadAction act = runReader act . unDBWalletStorage <$> getDBWalletStorage
+
+-- | Wrapper around union of persistent WalletStorage and mempool
+newtype UnionWalletStorage = UnionWalletStorage
+    { unUnionWalletStorage :: WalletStorage
+    }
+
+-- | Typeclass provides ability to get WalletStorage with applied mempool.
+-- It's needed to read parts of WalletStorage and
+-- perform several read actions in one snapshot.
+-- Method returns DBWalletStorage and corresponding UnionWalletStorage.
+class MonadWalletDBRead m => MonadWalletDBMempoolRead m where
+    getWalletStorages :: m (DBWalletStorage, UnionWalletStorage)
+
+getUnionWalletStorage :: MonadWalletDBMempoolRead m => m UnionWalletStorage
+getUnionWalletStorage = snd <$> getWalletStorages
+
+performReadAction
+    :: MonadWalletDBMempoolRead m
+    => Reader WalletStorage a
+    -> m a
+performReadAction act = runReader act . unUnionWalletStorage <$> getUnionWalletStorage
+
+----------------------------------------------------------------------------
+-- Acidic specific constraints
+----------------------------------------------------------------------------
+
 -- | No read or write, just access to state handler
 type MonadWalletDBAccess ctx m =
     ( HasLens' ctx WalletState
     , MonadReader ctx m
     )
 
--- | Wallet state reading
-type MonadWalletDBRead ctx m =
-    ( MonadIO m
-    , MonadWalletDBAccess ctx m
+type MonadWalletDB ctx m =
+    ( MonadWalletDBAccess ctx m
+    , MonadWalletDBMempoolRead m
+    , MonadIO m
     , HasConfiguration
     )
-
--- | Writting to wallet state
-class MonadWalletDBRead ctx m => MonadWalletDB ctx m
 
 getWalletWebState :: MonadWalletDBAccess ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
 
 queryDisk
-    :: (EventState event ~ WalletStorage, QueryEvent event, MonadWalletDBRead ctx m)
+    :: (EventState event ~ WalletStorage, QueryEvent event, MonadWalletDBAccess ctx m, MonadIO m)
     => event -> m (EventResult event)
 queryDisk e = getWalletWebState >>= flip A.query e
 
@@ -143,43 +187,21 @@ updateDisk e = getWalletWebState >>= flip A.update e
 -- Primitives for synchronization with wallet-db
 ----------------------------------------------------------------------------
 
--- | Waits until wallet's modifier is consistent with wallet-db.
--- Call action from WalletStorage from disk along with SModifier applied to it.
-waitWalletCons
-    :: ( MonadWalletDBRead ctx m
-       , HasExtStorageModifier ctx
-       )
-    => CId Wal -> a -> Reader WalletStorage a -> m a
-waitWalletCons wal defRes action = do
-    storage <- getWalletStorage
-    case _wiSyncTip <$> HM.lookup wal (_wsWalletInfos storage) of
-        Just (SyncedWith dbTip) -> do
-            modifierVar <- view (lensOf @ExtStorageModifierVar)
-            ExtStorageModifier{..} <- atomically $ STM.readTMVar modifierVar
-            if esmTip == dbTip then do
-                -- Case when modifier's tip and db's tip are the same
-                -- it's easy case, just apply modifier to db
-                let sm = HM.lookupDefault mempty wal (getStorageModifier esmMemStorageModifier)
-                pure $
-                    runReader action $
-                    execState (S.applyModifierToWallet wal esmTip sm) storage
-            else
-                -- Case when tips are mismatched, hence,
-                -- we took db and modifier at the moment when they were updating
-                -- the next such moment will when new block comes. So just can retry.
-                -- Basically it's lock free: either another thread made some progress or the current thread.
-                waitWalletCons wal defRes action
-        _                       -> pure defRes
+type MonadWalletDBReadWithMempool ctx m
+    = ( MonadWalletDBRead m
+      , HasExtStorageModifier ctx
+      , MonadReader ctx m
+      , MonadIO m
+      , HasConfiguration
+      )
 
 -- | Waits until wallets' modifiers are consistent with wallet-db.
--- Call action from WalletStorage from disk along with SModifier applied to it.
+-- Returns persistent WalletStorage and WalletStorage along with applied mempool.
 waitWalletsCons
-    :: ( MonadWalletDBRead ctx m
-       , HasExtStorageModifier ctx
-       )
-    => a -> Reader WalletStorage a -> m a
-waitWalletsCons defRes action = do
-    storage <- getWalletStorage
+    :: MonadWalletDBReadWithMempool ctx m
+    => m (DBWalletStorage, UnionWalletStorage)
+waitWalletsCons = do
+    storage <- unDBWalletStorage <$> getDBWalletStorage
     let walletIds = runReader S.getWalletIds storage
     let wTips = mapMaybe (\wid -> _wiSyncTip <$> HM.lookup wid (_wsWalletInfos storage)) walletIds
     modifierVar <- view (lensOf @ExtStorageModifierVar)
@@ -190,131 +212,137 @@ waitWalletsCons defRes action = do
         let modifiersL =
                 zip walletIds $
                 map (\wal -> HM.lookupDefault mempty wal modifiers) walletIds
-        pure $
-            runReader action $
-            execState (S.applyModifierToWallets esmTip modifiersL) storage
+        pure $ (DBWalletStorage storage,
+                UnionWalletStorage $ execState (S.applyModifierToWallets esmTip modifiersL) storage)
     else
         -- Similar to case from @waitWalletCons@.
-        waitWalletsCons defRes action
+        waitWalletsCons
+
+----------------------------------------------------------------------------
+-- Default implementations for MonadWalletDBRead and MonadWalletDBMempoolRead
+----------------------------------------------------------------------------
+
+getDBWalletStorageWebWallet :: (MonadWalletDBAccess ctx m, MonadIO m) => m DBWalletStorage
+getDBWalletStorageWebWallet = DBWalletStorage <$> queryDisk A.GetWalletStorage
+
+getWalletStoragesWebWallet
+    :: MonadWalletDBReadWithMempool ctx m => m (DBWalletStorage, UnionWalletStorage)
+getWalletStoragesWebWallet = waitWalletsCons
 
 ----------------------------------------------------------------------------
 -- Query operations affected by mempool
 ----------------------------------------------------------------------------
 
-type MonadWalletDBReadWithMempool ctx m = (MonadWalletDBRead ctx m, HasExtStorageModifier ctx)
-
 getWalletAccountIds
-    :: MonadWalletDBReadWithMempool ctx m
+    :: MonadWalletDBMempoolRead m
     => CId Wal -> m [AccountId]
-getWalletAccountIds wal = waitWalletCons wal [] (S.getWalletAccountIds wal)
+getWalletAccountIds wal = performReadAction (S.getWalletAccountIds wal)
 
 getHistoryCache
-    :: MonadWalletDBReadWithMempool ctx m
+    :: MonadWalletDBMempoolRead m
     => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
-getHistoryCache wal = waitWalletCons wal Nothing (S.getHistoryCache wal)
+getHistoryCache wal = performReadAction (S.getHistoryCache wal)
 
 getAccountWAddresses
-    :: MonadWalletDBReadWithMempool ctx m
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
 getAccountWAddresses mode accId@AccountId{..} =
-    waitWalletCons aiWId Nothing (S.getAccountWAddresses mode accId)
+    performReadAction (S.getAccountWAddresses mode accId)
 
 getWalletWAddresses
-    :: MonadWalletDBReadWithMempool ctx m
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> CId Wal -> m (Maybe [CWAddressMeta])
 getWalletWAddresses mode wid =
-    waitWalletCons wid Nothing (S.getWalletWAddresses mode wid)
+    performReadAction (S.getWalletWAddresses mode wid)
 
 doesWAddressExist
-    :: MonadWalletDBReadWithMempool ctx m
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> CWAddressMeta -> m Bool
 doesWAddressExist mode addrId@CWAddressMeta{..} =
-    waitWalletCons cwamWId False (S.doesWAddressExist mode addrId)
+    performReadAction (S.doesWAddressExist mode addrId)
 
-getAccountMeta :: MonadWalletDBReadWithMempool ctx m => AccountId -> m (Maybe CAccountMeta)
+getAccountMeta :: MonadWalletDBMempoolRead m => AccountId -> m (Maybe CAccountMeta)
 getAccountMeta accId@AccountId{..} =
-    waitWalletCons aiWId Nothing (S.getAccountMeta accId)
+    performReadAction (S.getAccountMeta accId)
 
-getTxMeta :: MonadWalletDBReadWithMempool ctx m => CId Wal -> CTxId -> m (Maybe CTxMeta)
+getTxMeta :: MonadWalletDBMempoolRead m => CId Wal -> CTxId -> m (Maybe CTxMeta)
 getTxMeta walId txId =
-    waitWalletCons walId Nothing (S.getTxHistoryMeta walId txId)
+    performReadAction (S.getTxHistoryMeta walId txId)
 
-getWalletTxHistory :: MonadWalletDBReadWithMempool ctx m => CId Wal -> m (Maybe [CTxMeta])
+getWalletTxHistory :: MonadWalletDBMempoolRead m => CId Wal -> m (Maybe [CTxMeta])
 getWalletTxHistory walId =
-    waitWalletCons walId Nothing (S.getWalletTxHistoryMetas walId)
+    performReadAction (S.getWalletTxHistoryMetas walId)
 
 -- Operations below which wait for synchronization of all wallets.
 -- Some of them should depend on CId Wal, but we can't do it without wallet-db migration
 -- which requires secret keys (it can't be performed in SafeCopy's Migration typeclass).
 
-getCustomAddresses :: MonadWalletDBReadWithMempool ctx m => CustomAddressType -> m [CId Addr]
+getCustomAddresses :: MonadWalletDBMempoolRead m => CustomAddressType -> m [CId Addr]
 getCustomAddresses cType =
-    waitWalletsCons [] (S.getCustomAddresses cType)
+    performReadAction (S.getCustomAddresses cType)
 
-getAccountMetas :: MonadWalletDBReadWithMempool ctx m => m [CAccountMeta]
+getAccountMetas :: MonadWalletDBMempoolRead m => m [CAccountMeta]
 getAccountMetas =
-    waitWalletsCons [] S.getAccountMetas
+    performReadAction S.getAccountMetas
 
-isCustomAddress :: MonadWalletDBReadWithMempool ctx m => CustomAddressType -> CId Addr -> m Bool
+isCustomAddress :: MonadWalletDBMempoolRead m => CustomAddressType -> CId Addr -> m Bool
 isCustomAddress cType addrId =
-    waitWalletsCons False (fmap isJust $ S.getCustomAddress cType addrId)
+    performReadAction (fmap isJust $ S.getCustomAddress cType addrId)
 
-getWalletUtxo :: MonadWalletDBReadWithMempool ctx m => m Utxo
-getWalletUtxo = waitWalletsCons mempty S.getWalletUtxo
+getWalletUtxo :: MonadWalletDBMempoolRead m => m Utxo
+getWalletUtxo = performReadAction S.getWalletUtxo
 
-getWalletBalancesAndUtxo :: MonadWalletDBReadWithMempool ctx m => m (WalletBalances, Utxo)
-getWalletBalancesAndUtxo = waitWalletsCons mempty S.getWalletBalancesAndUtxo
+getWalletBalancesAndUtxo :: MonadWalletDBMempoolRead m => m (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = performReadAction S.getWalletBalancesAndUtxo
 
 ----------------------------------------------------------------------------
 -- Query operations not affected by mempool
 ----------------------------------------------------------------------------
 
-getWalletIds :: MonadWalletDBRead ctx m => m [CId Wal]
-getWalletIds = queryDisk A.GetWalletIds
+getWalletIds :: MonadWalletDBRead m => m [CId Wal]
+getWalletIds = performDBReadAction S.getWalletIds
 
 getWalletWAddressesDB
-    :: MonadWalletDBRead ctx m
+    :: MonadWalletDBRead m
     => AddressLookupMode -> CId Wal -> m (Maybe [CWAddressMeta])
-getWalletWAddressesDB mode = queryDisk . A.GetWalletWAddresses mode
+getWalletWAddressesDB mode wid = performDBReadAction (S.getWalletWAddresses mode wid)
 
-getWalletMetaIncludeUnready :: MonadWalletDBRead ctx m => Bool -> CId Wal -> m (Maybe CWalletMeta)
-getWalletMetaIncludeUnready includeReady = queryDisk . A.GetWalletMetaIncludeUnready includeReady
+getWalletMetaIncludeUnready :: MonadWalletDBRead m => Bool -> CId Wal -> m (Maybe CWalletMeta)
+getWalletMetaIncludeUnready includeReady wid =
+    performDBReadAction (S.getWalletMetaIncludeUnready includeReady wid)
 
-getWalletMeta :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe CWalletMeta)
-getWalletMeta = queryDisk . A.GetWalletMeta
+getWalletMeta :: MonadWalletDBRead m => CId Wal -> m (Maybe CWalletMeta)
+getWalletMeta wid = performDBReadAction (S.getWalletMeta wid)
 
-getWalletMetas :: MonadWalletDBRead ctx m => m [CWalletMeta]
-getWalletMetas = queryDisk A.GetWalletMetas
+getWalletMetas :: MonadWalletDBRead m => m [CWalletMeta]
+getWalletMetas = performDBReadAction S.getWalletMetas
 
-getWalletPassLU :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe PassPhraseLU)
-getWalletPassLU = queryDisk . A.GetWalletPassLU
+getWalletPassLU :: MonadWalletDBRead m => CId Wal -> m (Maybe PassPhraseLU)
+getWalletPassLU wid = performDBReadAction (S.getWalletPassLU wid)
 
-getWalletSyncTip :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe WalletTip)
-getWalletSyncTip = queryDisk . A.GetWalletSyncTip
+getWalletSyncTip :: MonadWalletDBRead m => CId Wal -> m (Maybe WalletTip)
+getWalletSyncTip wid = performDBReadAction (S.getWalletSyncTip wid)
 
-getProfile :: MonadWalletDBRead ctx m => m CProfile
-getProfile = queryDisk A.GetProfile
+getProfile :: MonadWalletDBRead m => m CProfile
+getProfile = performDBReadAction S.getProfile
 
-getUpdates :: MonadWalletDBRead ctx m => m [CUpdateInfo]
-getUpdates = queryDisk A.GetUpdates
+getUpdates :: MonadWalletDBRead m => m [CUpdateInfo]
+getUpdates = performDBReadAction S.getUpdates
 
-getNextUpdate :: MonadWalletDBRead ctx m => m (Maybe CUpdateInfo)
-getNextUpdate = queryDisk A.GetNextUpdate
+getNextUpdate :: MonadWalletDBRead m => m (Maybe CUpdateInfo)
+getNextUpdate = performDBReadAction S.getNextUpdate
 
 -- Though CWalletModifier contains pending txs,
 -- but they will be empty for mempool so
 -- we can access to pending txs directly from wallet-db.
-getPendingTxs :: MonadWalletDBRead ctx m => m [PendingTx]
-getPendingTxs = queryDisk ... A.GetPendingTxs
+getPendingTxs :: MonadWalletDBRead m => m [PendingTx]
+getPendingTxs = performDBReadAction S.getPendingTxs
 
-getWalletPendingTxs :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe [PendingTx])
-getWalletPendingTxs = queryDisk ... A.GetWalletPendingTxs
+getWalletPendingTxs :: MonadWalletDBRead m => CId Wal -> m (Maybe [PendingTx])
+getWalletPendingTxs wid = performDBReadAction (S.getWalletPendingTxs wid)
 
-getPendingTx :: MonadWalletDBRead ctx m => CId Wal -> TxId -> m (Maybe PendingTx)
-getPendingTx = queryDisk ... A.GetPendingTx
-
-getWalletStorage :: MonadWalletDBRead ctx m => m WalletStorage
-getWalletStorage = queryDisk A.GetWalletStorage
+getPendingTx :: MonadWalletDBRead m => CId Wal -> TxId -> m (Maybe PendingTx)
+getPendingTx wid txid = performDBReadAction (S.getPendingTx wid txid)
 
 ----------------------------------------------------------------------------
 -- Modification operations

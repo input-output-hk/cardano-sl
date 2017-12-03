@@ -26,13 +26,12 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal, cwAssurance)
 
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode, MonadWalletDBRead,
-                                             MonadWalletDBReadWithMempool,
-                                             getAccountWAddresses, getWalletMeta,
-                                             getWalletWAddresses)
+import           Pos.Wallet.Web.State       (AddressLookupMode, MonadWalletDBMempoolRead,
+                                             MonadWalletDBRead, getAccountWAddresses,
+                                             getWalletMeta, getWalletWAddresses)
 
 getAccountAddrsOrThrow
-    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
+    :: (MonadWalletDBMempoolRead m, MonadThrow m)
     => AddressLookupMode -> AccountId -> m [CWAddressMeta]
 getAccountAddrsOrThrow mode accId =
     getAccountWAddresses mode accId >>= maybeThrow noAccount
@@ -42,17 +41,17 @@ getAccountAddrsOrThrow mode accId =
         sformat ("No account with id "%build%" found") accId
 
 getWalletAddrMetas
-    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetas mode wid = fmap (fromMaybe []) $ getWalletWAddresses mode wid
 
 getWalletAddrs
-    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs mode wid = (cwamId <<$>>) . fmap (fromMaybe []) $ getWalletWAddresses mode wid
 
 getWalletAddrsSet
-    :: (MonadWalletDBReadWithMempool ctx m, MonadThrow m)
+    :: MonadWalletDBMempoolRead m
     => AddressLookupMode -> CId Wal -> m (Set (CId Addr))
 getWalletAddrsSet = fmap S.fromList ... getWalletAddrs
 
@@ -60,7 +59,7 @@ decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType
 
 getWalletAssuredDepth
-    :: (MonadWalletDBRead ctx m)
+    :: MonadWalletDBRead m
     => CId Wal -> m (Maybe BlockCount)
 getWalletAssuredDepth wid =
     assuredBlockDepth HighAssurance . cwAssurance <<$>>

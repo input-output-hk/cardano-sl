@@ -147,7 +147,7 @@ applyLastUpdateWebWallet = triggerShutdown
 txpProcessTxWebWallet
     :: forall ctx m .
     ( TxpProcessTransactionMode ctx m
-    , AccountMode ctx m
+    , AccountMode m
     , WS.MonadWalletDB ctx m
     , MonadBlockDB m
     , HasExtStorageModifier ctx
@@ -183,7 +183,7 @@ txpProcessTxWebWallet tx@(txId, txAux) =
 txpNormalizeWebWallet
     :: ( TxpNormalizeMempoolMode ctx m
        , TxpMempoolToModifierEnv ctx m
-       , AccountMode ctx m
+       , AccountMode m
        , HasExtStorageModifier ctx
        , HasBlocksStorageModifier ctx
        , WS.MonadWalletDB ctx m

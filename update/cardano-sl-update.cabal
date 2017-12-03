@@ -96,7 +96,7 @@ library
                      , parsec
                      , reflection
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell >= 1.0.1
                      , safecopy
                      , serokell-util
                      , stm

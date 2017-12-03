@@ -16,6 +16,7 @@ module Pos.Wallet.Web.State.State
        , openState
        , openMemState
        , closeState
+       , waitWalletsCons
 
        , AddressLookupMode (..)
        , CustomAddressType (..)

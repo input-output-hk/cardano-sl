@@ -43,6 +43,15 @@ type KeyData = TVar UserSecret
 class Monad m => MonadKeysRead m where
     getSecret :: m UserSecret
 
+instance {-# OVERLAPPABLE #-}
+    ( MonadKeysRead m
+    , MonadTrans t
+    , Monad (t m)
+    ) =>
+        MonadKeysRead (t m)
+  where
+    getSecret = lift getSecret
+
 class MonadKeysRead m => MonadKeys m where
     modifySecret :: (UserSecret -> UserSecret) -> m ()
 

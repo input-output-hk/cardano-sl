@@ -80,6 +80,7 @@ library
                       Pos.Wallet.Web.State.Memory.Logic
                       Pos.Wallet.Web.State.Memory.Types
                       Pos.Wallet.Web.State.Acidic
+                      Pos.Wallet.Web.State.Snapshot
                       Pos.Wallet.Web.State.State
                       Pos.Wallet.Web.State.Storage
                       Pos.Wallet.Web.State.Util
@@ -157,6 +158,7 @@ library
                       , time
                       , time-units
                       , transformers
+                      , transformers-base
                       , universum >= 0.1.11
                       , unordered-containers
                       , wai

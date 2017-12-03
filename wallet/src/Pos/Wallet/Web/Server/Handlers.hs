@@ -21,6 +21,7 @@ import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
 import qualified Pos.Wallet.Web.Methods      as M
 import           Pos.Wallet.Web.Mode         (MonadFullWalletWebMode)
+import           Pos.Wallet.Web.State        (withSnapshot)
 
 servantHandlers
     :: MonadFullWalletWebMode ctx m
@@ -31,9 +32,9 @@ servantHandlers =
      M.dumpState
     :<|>
 
-     M.getWallet
+     (withSnapshot . M.getWallet)
     :<|>
-     M.getWallets
+     withSnapshot M.getWallets
     :<|>
      M.newWallet
     :<|>
@@ -48,9 +49,9 @@ servantHandlers =
      M.changeWalletPassphrase
     :<|>
 
-     M.getAccount
+     (withSnapshot . M.getAccount)
     :<|>
-     M.getAccounts
+     (withSnapshot . M.getAccounts)
     :<|>
      M.updateAccount
     :<|>
@@ -72,11 +73,11 @@ servantHandlers =
 
      M.newPayment
     :<|>
-     M.getTxFee
+     (withSnapshot ... M.getTxFee)
     :<|>
      M.updateTransaction
     :<|>
-     M.getHistoryLimited
+     (withSnapshot ... M.getHistoryLimited)
     :<|>
 
      M.nextUpdate

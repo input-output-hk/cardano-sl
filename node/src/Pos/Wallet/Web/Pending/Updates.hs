@@ -41,15 +41,15 @@ ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
     unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
 
--- | If given transaction is in 'PtxWontApply' condition, sets its condition to 'PtxApplying'.
--- This allows "stuck" transactions to be resubmitted again.
--- | Has no effect for transactions in other conditions.
+-- | If given transaction is in 'PtxWontApply' condition, sets its condition
+-- to 'PtxApplying'. This allows "stuck" transactions to be resubmitted
+-- again.
+--
+-- Has no effect for transactions in other conditions.
 resetFailedPtx :: HasConfiguration => SlotId -> PendingTx -> PendingTx
 resetFailedPtx curSlot ptx@PendingTx{..}
     | PtxWontApply _ poolInfo <- _ptxCond =
-        PendingTx
-        { _ptxCond = PtxApplying poolInfo
-        , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
-        , ..
-        }
+          ptx { _ptxCond = PtxApplying poolInfo
+              , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
+              }
     | otherwise = ptx

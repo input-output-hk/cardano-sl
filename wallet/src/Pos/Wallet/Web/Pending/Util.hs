@@ -78,3 +78,4 @@ isReclaimableFailure = \case
 
 usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a
 usingPtxCoords f PendingTx{..} = f _ptxWallet _ptxTxId
+

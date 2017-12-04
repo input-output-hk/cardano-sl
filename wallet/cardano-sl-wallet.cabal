@@ -194,7 +194,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-executable cardano-node
+executable cardano-node-old
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions

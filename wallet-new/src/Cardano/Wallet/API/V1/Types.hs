@@ -20,8 +20,6 @@ module Cardano.Wallet.API.V1.Types (
   , AccountUpdate (..)
   , Update
   , New
-  -- * Error handling
-  , WalletError (..)
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -30,38 +28,59 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , SpendingPassword
-  -- * Addresses
-  , Address (..)
+  -- * Accounts
   , Account (..)
   , AccountId
   -- * Payments
   , Payment (..)
+  , PaymentDistribution (..)
   , Transaction (..)
+  , TransactionType (..)
+  , TransactionDirection (..)
+  , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Settings
+  , NodeSettings (..)
+  , SlotDuration
+  , mkSlotDuration
+  , BlockchainHeight
+  , mkBlockchainHeight
+  , LocalTimeDifference
+  , mkLocalTimeDifference
+  , SyncProgress
+  , mkSyncProgress
+  , NodeInfo (..)
+  -- * Core re-exports
+  , Core.Address
   ) where
 
 import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import qualified Data.Char as C
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
+import           Data.Version (Version)
 import           Formatting (build, sformat)
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
+
+import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
-import qualified Pos.Core.Common as Core
+import qualified Pos.Core as Core
 import qualified Pos.Crypto.Signing as Core
 
 --
@@ -76,7 +95,7 @@ newtype Page = Page Int
 deriveJSON Serokell.defaultOptions ''Page
 
 instance Arbitrary Page where
-  arbitrary = Page <$> fmap getPositive arbitrary
+  arbitrary = Page . getPositive <$> arbitrary
 
 instance FromHttpApiData Page where
     parseQueryParam qp = case parseQueryParam qp of
@@ -102,7 +121,7 @@ deriveJSON Serokell.defaultOptions ''PerPage
 -- This value is currently arbitrary and it might need to be tweaked down to strike
 -- the right balance between number of requests and load of each of them on the system.
 maxPerPageEntries :: Int
-maxPerPageEntries = 500
+maxPerPageEntries = 50
 
 -- | If not specified otherwise, a default number of 10 entries from the collection will
 -- be returned as part of each paginated response.
@@ -110,7 +129,7 @@ defaultPerPageEntries :: Int
 defaultPerPageEntries = 10
 
 instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, 500)
+  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
 
 instance FromHttpApiData PerPage where
     parseQueryParam qp = case parseQueryParam qp of
@@ -202,29 +221,10 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
                               , fmap Right (arbitrary :: Gen b)]
 
 --
--- Error handling
---
-
--- | Models a Wallet Error as a Jsend <https://labs.omniti.com/labs/jsend> response.
-data WalletError = WalletError
-  { errCode    :: !Int
-  , errMessage :: Text
-  } deriving (Show, Eq, Generic)
-
-instance ToJSON WalletError where
-    toJSON WalletError{..} = object [ "code"    .= toJSON errCode
-                                    , "status"  .= String "error"
-                                    , "message" .= toJSON errMessage
-                                    ]
-
-instance Arbitrary WalletError where
-    arbitrary = WalletError <$> choose (1,999) <*> pure "The given AccountId is not correct."
-
---
 -- Domain-specific types, mostly placeholders.
 --
 
--- A 'SpendingPassword' represent a secret piece of information which can be
+-- | A 'SpendingPassword' represent a secret piece of information which can be
 -- optionally supplied by the user to encrypt the private keys. As private keys
 -- are needed to spend funds and this password secures spending, here the name
 -- 'SpendingPassword'.
@@ -232,9 +232,12 @@ instance Arbitrary WalletError where
 -- base16-encoded string.
 type SpendingPassword = Core.PassPhrase
 
-data AssuranceLevel =  NormalAssurance
-                     | StrictAssurance
-                     deriving (Eq, Show, Enum, Bounded)
+type WalletName = Text
+
+data AssuranceLevel =
+    NormalAssurance
+  | StrictAssurance
+  deriving (Eq, Show, Enum, Bounded)
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -258,16 +261,14 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
-type Coins = Int
-
--- | A type modelling the request for a new wallet.
+-- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !BackupPhrase
     -- ^ The backup phrase to restore the wallet.
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ The spending password to encrypt the private keys.
     , newwalAssuranceLevel   :: !AssuranceLevel
-    , newwalName             :: !Text
+    , newwalName             :: !WalletName
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
@@ -290,9 +291,7 @@ instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> arbitrary
                            <*> pure "My Wallet"
 
-type WalletName = Text
-
--- | A Wallet.
+-- | A 'Wallet'.
 data Wallet = Wallet {
       walId      :: !WalletId
     , walName    :: !WalletName
@@ -306,27 +305,17 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
--- Placeholder.
-newtype Address = Address
-  { addrId :: Text -- ^ A base58 Public Key.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Address
-
-instance Arbitrary Address where
-  arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
-
 type AccountId = Text
 
--- | A wallet 'Account'.
+-- | A wallet's 'Account'.
 data Account = Account
   { accId        :: !AccountId
-  , accAddresses :: [Address]
-  , accAmount    :: !Coins
-  -- | The Account name.
+  , accAddresses :: [Core.Address]
+  , accAmount    :: !Core.Coin
   , accName      :: !Text
-  -- | The parent Wallet Id.
+  -- ^ The Account name.
   , accWalletId  :: WalletId
+  -- ^ The 'WalletId' this 'Account' belongs to.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
@@ -334,12 +323,12 @@ deriveJSON Serokell.defaultOptions ''Account
 instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
                                    <*> listOf1 arbitrary
-                                   <*> fmap getPositive arbitrary
+                                   <*> arbitrary
                                    <*> pure "My account"
                                    <*> arbitrary
 
-data AccountUpdate = AccountUpdate
-  { uaccName      :: !Text
+data AccountUpdate = AccountUpdate {
+    uaccName      :: !Text
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''AccountUpdate
@@ -348,39 +337,72 @@ instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate . fromString <$> pure "myAccount"
 
 -- | A type incapsulating a password update request.
-data PasswordUpdate = PasswordUpdate
-  { -- | The old password.
-    pwdOld :: !Text
-    -- | The new password.
-  , pwdNew :: !Text
+data PasswordUpdate = PasswordUpdate {
+    pwdOld :: !SpendingPassword
+    -- ^ The old 'SpendingPassword'.
+  , pwdNew :: !SpendingPassword
+    -- ^ The new 'SpendingPassword'.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PasswordUpdate
 
 instance Arbitrary PasswordUpdate where
-  arbitrary = PasswordUpdate <$> fmap fromString arbitrary
-                             <*> fmap fromString arbitrary
+  arbitrary = PasswordUpdate <$> arbitrary
+                             <*> arbitrary
 
--- | `EstimatedFees` represents the fees which would be generated
--- for a payment in case the latter would actually be performed.
-data EstimatedFees = EstimatedFees
-  { -- | The estimated fees, as coins.
-    feeEstimatedAmount :: !Coins
+-- | 'EstimatedFees' represents the fees which would be generated
+-- for a 'Payment' in case the latter would actually be performed.
+data EstimatedFees = EstimatedFees {
+    feeEstimatedAmount :: !Core.Coin
+    -- ^ The estimated fees, as coins.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''EstimatedFees
 
 instance Arbitrary EstimatedFees where
-  arbitrary = EstimatedFees <$> fmap getPositive arbitrary
+  arbitrary = EstimatedFees <$> arbitrary
 
--- | Stub type for a `Payment`.
+-- | Maps an 'Address' to some 'Coin's, and it's
+-- typically used to specify where to send money during a 'Payment'.
+data PaymentDistribution = PaymentDistribution {
+      pdAddress :: Core.Address
+    , pdAmount  :: Core.Coin
+    } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''PaymentDistribution
+
+instance Arbitrary PaymentDistribution where
+  arbitrary = PaymentDistribution <$> arbitrary
+                                  <*> arbitrary
+
+-- | A policy to be passed to each new payment request to
+-- determine how a 'Transaction' is assembled.
+data TransactionGroupingPolicy =
+    OptimiseForSizePolicy
+  -- ^ Tries to minimise the size of the created transaction
+  -- by choosing only the biggest value available up until
+  -- the stake sum is greater or equal the payment amount.
+  | OptimiseForSecurityPolicy
+  -- ^ Tries to minimise the number of addresses left with
+  -- unspent funds after the transaction has been created.
+  deriving (Show, Ord, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionGroupingPolicy where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Policy@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
+
+-- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
-  { -- | The source Account.
-    pmtSourceAccount      :: !Account
-    -- | The destination Address.
-  , pmtDestinationAddress :: !Address
-    -- | The amount for this payment.
-  , pmtAmount             :: !Coins
+  { pmtSourceWallet   :: !WalletId
+    -- ^ The source Wallet.
+  , pmtSourceAccount  :: !AccountId
+    -- ^ The source Account.
+  , pmtDestinations   :: !(NonEmpty PaymentDistribution)
+    -- ^ The destinations for this payment.
+  , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
+    -- ^ Which strategy use in grouping the input transactions.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
@@ -388,26 +410,71 @@ deriveJSON Serokell.defaultOptions ''Payment
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
                       <*> arbitrary
-                      <*> fmap getPositive arbitrary
+                      <*> arbitrary
+                      <*> arbitrary
 
 type TxId = Text
 
--- | A Wallet Transaction.
+-- | The 'Transaction' type.
+data TransactionType =
+    LocalTransaction
+  -- ^ This transaction is local, which means all the inputs
+  -- and all the outputs belongs to the wallet from which the
+  -- transaction was originated.
+  | ForeignTransaction
+  -- ^ This transaction is not local to this wallet.
+  deriving (Show, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionType where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Transaction@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionType
+
+-- | The 'Transaction' @direction@
+data TransactionDirection =
+    IncomingTransaction
+  -- ^ This represents an incoming transactions.
+  | OutgoingTransaction
+  -- ^ This qualifies external transactions.
+  deriving (Show, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionDirection where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Transaction@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+                          } ''TransactionDirection
+
+-- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
-  { -- | The Tx Id.
-    txId            :: TxId
-    -- | The number of confirmations.
-  , txConfirmations :: !Int
-    -- | The coins moved as part of this transaction.
-  , txAmount        :: !Coins
+  { txId            :: !TxId
+    -- ^ The Tx Id.
+  , txConfirmations :: !Word
+    -- ^ The number of confirmations.
+  , txAmount        :: !Core.Coin
+    -- ^ The 'Coin' moved as part of this transaction.
+  , txInputs        :: !(NonEmpty PaymentDistribution)
+    -- ^ The input money distribution.
+  , txOutputs       :: !(NonEmpty PaymentDistribution)
+    -- ^ The output money distribution.
+  , txType          :: TransactionType
+    -- ^ The type for this transaction (e.g local, foreign, etc).
+  , txDirection     :: TransactionDirection
+    -- ^ The direction for this transaction (e.g incoming, outgoing).
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
-                          <*> fmap getPositive arbitrary
-                          <*> fmap getPositive arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
@@ -423,6 +490,144 @@ instance Arbitrary WalletSoftwareUpdate where
   arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
                                    <*> fmap fromString arbitrary
                                    <*> fmap getPositive arbitrary
+
+-- | How many milliseconds a slot lasts for.
+newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
+                     deriving (Show, Eq)
+
+mkSlotDuration :: Word -> SlotDuration
+mkSlotDuration = SlotDuration . MeasuredIn
+
+instance Arbitrary SlotDuration where
+    arbitrary = mkSlotDuration <$> choose (0, 100)
+
+instance ToJSON SlotDuration where
+    toJSON (SlotDuration (MeasuredIn w)) =
+            object [ "quantity" .= toJSON w
+                   , "unit"     .= String "milliseconds"
+                   ]
+
+instance FromJSON SlotDuration where
+    parseJSON = withObject "SlotDuration" $ \sl -> mkSlotDuration <$> sl .: "quantity"
+
+-- | The @static@ settings for this wallet node. In particular, we could group
+-- here protocol-related settings like the slot duration, the transaction max size,
+-- the current software version running on the node, etc.
+data NodeSettings = NodeSettings {
+     setSlotDuration   :: !SlotDuration
+   , setSoftwareInfo   :: !Core.SoftwareVersion
+   , setProjectVersion :: !Version
+   , setGitRevision    :: !Text
+   } deriving (Show, Eq)
+
+-- The following instances are derived manually due to the fact that changing the
+-- way `SoftwareVersion` is represented would break compatibility with V0, so the
+-- solution is either write this manual instance by hand or create a `newtype` wrapper.
+--deriveJSON Serokell.defaultOptions ''NodeSettings
+instance ToJSON NodeSettings where
+    toJSON NodeSettings{..} =
+        let override Core.SoftwareVersion{..} =
+                object [ "applicationName" .= toJSON (Core.getApplicationName svAppName)
+                       , "version" .=  toJSON svNumber
+                       ]
+        in object [ "slotDuration" .= toJSON setSlotDuration
+                  , "softwareInfo" .= override setSoftwareInfo
+                  , "projectVersion" .= toJSON setProjectVersion
+                  , "gitRevision" .= toJSON setGitRevision
+                  ]
+
+instance FromJSON NodeSettings where
+    parseJSON = withObject "NodeSettings" $ \ns -> do
+        si <- ns .: "softwareInfo"
+        let softwareInfo = withObject "SoftwareVersion" $ \sw ->
+                Core.SoftwareVersion <$> sw .: "applicationName"
+                                     <*> sw .: "version"
+        NodeSettings <$> ns .: "slotDuration"
+                     <*> softwareInfo si
+                     <*> ns .: "projectVersion"
+                     <*> ns .: "gitRevision"
+
+instance Arbitrary NodeSettings where
+    arbitrary = NodeSettings <$> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
+                             <*> pure "0e1c9322a"
+
+-- | The different between the local time and the remote NTP server.
+newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Word)
+                            deriving (Show, Eq)
+
+mkLocalTimeDifference :: Word -> LocalTimeDifference
+mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
+
+instance Arbitrary LocalTimeDifference where
+    arbitrary = mkLocalTimeDifference <$> choose (minBound, maxBound)
+
+instance ToJSON LocalTimeDifference where
+    toJSON (LocalTimeDifference (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "microseconds"
+               ]
+
+instance FromJSON LocalTimeDifference where
+    parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
+
+-- | The sync progress with the blockchain.
+newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
+                     deriving (Show, Eq)
+
+mkSyncProgress :: Word8 -> SyncProgress
+mkSyncProgress = SyncProgress . MeasuredIn
+
+instance Arbitrary SyncProgress where
+    arbitrary = mkSyncProgress <$> choose (0, 100)
+
+instance ToJSON SyncProgress where
+    toJSON (SyncProgress (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "percent"
+               ]
+
+instance FromJSON SyncProgress where
+    parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
+
+-- | The absolute or relative height of the blockchain, measured in number
+-- of blocks.
+newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
+                         deriving (Show, Eq)
+
+mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
+mkBlockchainHeight = BlockchainHeight . MeasuredIn
+
+instance Arbitrary BlockchainHeight where
+    arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
+
+instance ToJSON BlockchainHeight where
+    toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
+                                                      , "unit"     .= String "blocks"
+                                                      ]
+
+instance FromJSON BlockchainHeight where
+    parseJSON = withObject "BlockchainHeight" $ \sl ->
+        mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
+
+-- | The @dynamic@ information for this node.
+data NodeInfo = NodeInfo {
+     nfoSyncProgress          :: !SyncProgress
+   , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
+   -- ^ The current blockchain "height", in blocks, if we know it.
+   , nfoLocalBlockchainHeight :: !BlockchainHeight
+   -- ^ The local blockchain "height", in blocks.
+   , nfoLocalTimeDifference   :: !LocalTimeDifference
+   } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''NodeInfo
+
+instance Arbitrary NodeInfo where
+    arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 --
 -- POST/PUT requests isomorphisms

@@ -9,12 +9,8 @@ module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
     ExtendedResponse (..)
   , Metadata (..)
-  , Page(..)
-  , PerPage(..)
   , ResponseFormat (..)
   , PaginationParams (..)
-  , maxPerPageEntries
-  , defaultPerPageEntries
   , OneOf (..)
   , PasswordUpdate (..)
   , AccountUpdate (..)
@@ -71,6 +67,7 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
+import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
@@ -86,64 +83,6 @@ import qualified Pos.Crypto.Signing as Core
 --
 -- Swagger & REST-related types
 --
-
--- | A `Page` is used in paginated endpoints to request access to a particular
--- subset of a collection.
-newtype Page = Page Int
-             deriving (Show, Eq, Ord, Num)
-
-deriveJSON Serokell.defaultOptions ''Page
-
-instance Arbitrary Page where
-  arbitrary = Page . getPositive <$> arbitrary
-
-instance FromHttpApiData Page where
-    parseQueryParam qp = case parseQueryParam qp of
-        Right (p :: Int) | p < 1 -> Left "A page number cannot be less than 1."
-        Right (p :: Int) -> Right (Page p)
-        Left e           -> Left e
-
-instance ToHttpApiData Page where
-    toQueryParam (Page p) = fromString (show p)
-
--- | If not specified otherwise, return first page.
-instance Default Page where
-    def = Page 1
-
--- | A `PerPage` is used to specify the number of entries which should be returned
--- as part of a paginated response.
-newtype PerPage = PerPage Int
-                deriving (Show, Eq, Num, Ord)
-
-deriveJSON Serokell.defaultOptions ''PerPage
-
--- | The maximum number of entries a paginated request can return on a single call.
--- This value is currently arbitrary and it might need to be tweaked down to strike
--- the right balance between number of requests and load of each of them on the system.
-maxPerPageEntries :: Int
-maxPerPageEntries = 50
-
--- | If not specified otherwise, a default number of 10 entries from the collection will
--- be returned as part of each paginated response.
-defaultPerPageEntries :: Int
-defaultPerPageEntries = 10
-
-instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
-
-instance FromHttpApiData PerPage where
-    parseQueryParam qp = case parseQueryParam qp of
-        Right (p :: Int) | p < 1 -> Left "per_page should be at least 1."
-        Right (p :: Int) | p > maxPerPageEntries ->
-                           Left $ fromString $ "per_page cannot be greater than " <> show maxPerPageEntries <> "."
-        Right (p :: Int) -> Right (PerPage p)
-        Left e           -> Left e
-
-instance ToHttpApiData PerPage where
-    toQueryParam (PerPage p) = fromString (show p)
-
-instance Default PerPage where
-    def = PerPage defaultPerPageEntries
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata

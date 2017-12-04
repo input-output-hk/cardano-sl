@@ -12,6 +12,7 @@ module Cardano.Wallet.API.V1.Swagger where
 import           Universum
 
 import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters

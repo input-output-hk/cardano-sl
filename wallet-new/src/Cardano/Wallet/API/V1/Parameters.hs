@@ -7,6 +7,7 @@ import           Universum
 
 import           Servant
 
+import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
 import           Cardano.Wallet.API.Types (AlternativeApiArg, DQueryParam, WithDefaultApiArg,
                                            mapRouter)
 import           Cardano.Wallet.API.V1.Types

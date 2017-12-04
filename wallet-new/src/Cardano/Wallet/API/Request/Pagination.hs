@@ -1,11 +1,15 @@
 {- | Support for resource pagination.
 -}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
 module Cardano.Wallet.API.Request.Pagination (
       Page(..)
     , PerPage(..)
     , maxPerPageEntries
     , defaultPerPageEntries
+    , PaginationMetadata(..)
+    , PaginationParams(..)
     ) where
 
 import           Universum
@@ -73,3 +77,24 @@ instance ToHttpApiData PerPage where
 
 instance Default PerPage where
     def = PerPage defaultPerPageEntries
+
+-- | Extra information associated with pagination
+data PaginationMetadata = PaginationMetadata
+  { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
+  , metaPage         :: Page    -- ^ The current page number (index starts at 1).
+  , metaPerPage      :: PerPage -- ^ The number of entries contained in this page.
+  , metaTotalEntries :: Int     -- ^ The total number of entries in the collection.
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''PaginationMetadata
+
+instance Arbitrary PaginationMetadata where
+  arbitrary = PaginationMetadata <$> fmap getPositive arbitrary
+                                 <*> arbitrary
+                                 <*> arbitrary
+                                 <*> fmap getPositive arbitrary
+
+data PaginationParams = PaginationParams
+    { ppPage    :: Page
+    , ppPerPage :: PerPage
+    } deriving (Show, Eq, Generic)

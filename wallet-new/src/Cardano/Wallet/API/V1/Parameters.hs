@@ -7,7 +7,7 @@ import           Universum
 
 import           Servant
 
-import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
+import           Cardano.Wallet.API.Request.Pagination (Page, PaginationParams (..), PerPage)
 import           Cardano.Wallet.API.Types (AlternativeApiArg, DQueryParam, WithDefaultApiArg,
                                            mapRouter)
 import           Cardano.Wallet.API.V1.Types
@@ -33,9 +33,11 @@ data WalletRequestParams
 instance HasServer subApi ctx =>
          HasServer (WalletRequestParams :> subApi) ctx where
     type ServerT (WalletRequestParams :> subApi) m =
-        PaginationParams -> ServerT subApi m
+        RequestParams -> ServerT subApi m
     route =
         mapRouter @(WithWalletRequestParams subApi) route $
-        \f ppPage ppPerPage ppResponseFormat -> f $ PaginationParams {..}
-
+        \f ppPage ppPerPage rpResponseFormat -> f $ RequestParams {
+              rpResponseFormat   = rpResponseFormat
+            , rpPaginationParams = PaginationParams {..}
+            }
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s

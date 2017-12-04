@@ -10,7 +10,7 @@ module Cardano.Wallet.API.V1.Types (
     ExtendedResponse (..)
   , Metadata (..)
   , ResponseFormat (..)
-  , PaginationParams (..)
+  , RequestParams (..)
   , OneOf (..)
   , PasswordUpdate (..)
   , AccountUpdate (..)
@@ -67,7 +67,7 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
-import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
+import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata, PaginationParams)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
@@ -86,19 +86,14 @@ import qualified Pos.Crypto.Signing as Core
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
-  { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
-  , metaPage         :: Page    -- ^ The current page number (index starts at 1).
-  , metaPerPage      :: PerPage -- ^ The number of entries contained in this page.
-  , metaTotalEntries :: Int     -- ^ The total number of entries in the collection.
+  { metaPagination   :: PaginationMetadata
+    -- ^ Pagination-specific metadata
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
-  arbitrary = Metadata <$> fmap getPositive arbitrary
-                       <*> arbitrary
-                       <*> arbitrary
-                       <*> fmap getPositive arbitrary
+  arbitrary = Metadata <$> arbitrary
 
 -- | An `ExtendedResponse` allows the consumer of the API to ask for
 -- more than simply the result of the RESTful endpoint, but also for
@@ -140,11 +135,12 @@ instance Arbitrary ResponseFormat where
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together
 
-data PaginationParams = PaginationParams
-    { ppPage           :: Page
-    , ppPerPage        :: PerPage
-    , ppResponseFormat :: ResponseFormat
-    } deriving (Show, Eq, Generic)
+data RequestParams = RequestParams
+    { rpResponseFormat   :: ResponseFormat
+    -- ^ The user-specified 'Response' format.
+    , rpPaginationParams :: PaginationParams
+    -- ^ The pagination-related parameters
+    }
 
 -- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
 -- depending from some query or header parameters. In this context, this represents an HTTP Response which can

@@ -16,7 +16,7 @@ handlers =   newTransaction
 newTransaction :: Payment -> Handler Transaction
 newTransaction _ = liftIO $ generate arbitrary
 
-allTransactions :: PaginationParams -> Handler (OneOf [Transaction] (ExtendedResponse [Transaction]))
+allTransactions :: RequestParams -> Handler (OneOf [Transaction] (ExtendedResponse [Transaction]))
 allTransactions _ = liftIO $ generate arbitrary
 
 estimateFees :: Payment -> Handler EstimatedFees

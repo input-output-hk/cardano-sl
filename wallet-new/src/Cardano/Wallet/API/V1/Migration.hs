@@ -152,17 +152,15 @@ instance Migrate V0.CAccountId V0.AccountId where
 
 instance Migrate V0.CAccountId V1.AccountId where
     eitherMigrate cAccId = do
-        -- V0.CAccountId -> V0.AccountId -> V1.AccountId
-        a :: V0.AccountId <- eitherMigrate cAccId
-        b :: (V1.WalletId, V1.AccountId) <- eitherMigrate a
-        pure $ snd b
+        oldAccountId :: V0.AccountId <- eitherMigrate cAccId
+        (_, newAccountId) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
+        pure newAccountId
 
 instance Migrate V0.CAccountId V1.WalletId where
     eitherMigrate cAccId = do
-        -- V0.CAccountId -> V0.AccountId -> V1.WalletId
-        a :: V0.AccountId <- eitherMigrate cAccId
-        b :: (V1.WalletId, V1.AccountId) <- eitherMigrate a
-        pure $ fst b
+        oldAccountId :: V0.AccountId <- eitherMigrate cAccId
+        (walletId, _) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
+        pure walletId
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =

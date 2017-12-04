@@ -322,7 +322,7 @@ deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
   arbitrary = Account <$> arbitrary
-                      <*> listOf1 arbitrary
+                      <*> arbitrary
                       <*> arbitrary
                       <*> pure "My account"
                       <*> arbitrary

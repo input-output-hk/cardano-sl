@@ -110,7 +110,6 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
   # Prepare files for frontend build
   - copy log-config-prod.yaml daedalus\
   - copy lib\configuration.yaml daedalus\

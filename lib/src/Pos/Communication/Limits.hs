@@ -28,7 +28,7 @@ import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHead
                                     MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
+import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (EpochIndex, VssCertificate, BlockVersionData (..),
                            coinPortionToDouble)
 import           Pos.Core.Block (MainBlock, GenesisBlock, Block, MainBlockHeader, GenesisBlockHeader, BlockHeader)
@@ -330,7 +330,7 @@ instance (HasConfiguration, Applicative m) => MessageLimited MsgGetHeaders m whe
         maxGetHeadersNum = ceiling $
             log (fromIntegral blkSecurityParam) + (5 :: Double)
 
-instance (HasNodeConfiguration, HasAdoptedBlockVersionData m, Monad m) => MessageLimited MsgHeaders m where
+instance (HasBlockConfiguration, HasNodeConfiguration, HasAdoptedBlockVersionData m, Monad m) => MessageLimited MsgHeaders m where
     getMsgLenLimit _ = do
         headerLimit <- getMsgLenLimit (Proxy @BlockHeader)
         return $

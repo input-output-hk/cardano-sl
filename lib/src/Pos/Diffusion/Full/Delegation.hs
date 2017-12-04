@@ -17,7 +17,7 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), NodeId, EnqueueMsg, MkListeners)
 import           Pos.Communication.Relay (DataParams (..), Relay (..),
                                           relayListeners, dataFlow)
-import           Pos.Core.Types (ProxySKHeavy)
+import           Pos.Core       (ProxySKHeavy)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)

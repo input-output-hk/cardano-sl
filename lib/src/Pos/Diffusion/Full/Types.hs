@@ -18,6 +18,7 @@ import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
 import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
@@ -30,6 +31,7 @@ type DiffusionWorkMode m
       , MonadMockable m
       , MonadIO m
       , HasConfiguration
+      , HasBlockConfiguration
       , HasInfraConfiguration
       , HasUpdateConfiguration
       , HasSscConfiguration

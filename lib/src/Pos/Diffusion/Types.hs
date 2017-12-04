@@ -11,7 +11,7 @@ module Pos.Diffusion.Types
 import           Universum
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core.Types                   (HeaderHash, ProxySKHeavy)
+import           Pos.Core                         (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Txp                     (TxAux)
 import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
 import           Pos.Ssc.Message                  (MCOpening, MCShares, MCCommitment,

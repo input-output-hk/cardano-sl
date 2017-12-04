@@ -38,7 +38,7 @@ import           Pos.Util.Util (HasLens')
 -- @Pos.Communication.Message@ and @Pos.Communication.Limits@, which
 -- are unavailable at this point, hence we defer providing them
 -- to the calling site.
-type BlockInstancesConstraint =
+type BlockInstancesConstraint m =
     ( Each '[Bi]
         [ MsgGetHeaders
         , MsgHeaders
@@ -49,16 +49,15 @@ type BlockInstancesConstraint =
         , MsgHeaders
         , MsgGetBlocks
         , MsgBlock ]
-    , Each '[MessageLimited]
-        [ MsgGetHeaders
-        , MsgHeaders
-        , MsgGetBlocks
-        , MsgBlock ]
+    , MessageLimited MsgGetHeaders m
+    , MessageLimited MsgHeaders m
+    , MessageLimited MsgGetBlocks m
+    , MessageLimited MsgBlock m
     )
 
 -- | A subset of @WorkMode@.
 type BlockWorkMode ctx m =
-    ( BlockInstancesConstraint
+    ( BlockInstancesConstraint m
 
     , Default (MempoolExt m)
     , Mockables m [Catch, Delay, Fork, SharedAtomic, Throw]

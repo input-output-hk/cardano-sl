@@ -18,11 +18,11 @@ import           Data.Tagged               (Tagged)
 
 import           Pos.Communication         (NodeId, TxMsgContents)
 import           Pos.Core.Block            (Block, BlockHeader)
-import           Pos.Core.Types            (HeaderHash, StakeholderId,
+import           Pos.Core                  (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
 import           Pos.Core.Txp              (TxId)
 import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData)
-import           Pos.Security              (SecurityParams (..))
+import           Pos.Security.Params       (SecurityParams (..))
 import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
 import           Pos.Util.Chrono           (NewestFirst, OldestFirst, NE)

@@ -16,12 +16,9 @@ import           System.Wlog (logInfo)
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Txp ()
-import           Pos.Core.Configuration (HasCoreConfiguration)
-import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
-import           Pos.Core.Configuration.GenesisData (HasGenesisData)
-import           Pos.Core.Configuration.GenesisHash (HasGenesisHash)
-import           Pos.Core.Configuration.GeneratedSecrets (HasGeneratedSecrets)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Core.Configuration (HasCoreConfiguration, HasGenesisBlockVersionData,
+                                         HasGenesisData, HasGenesisHash,
+                                         HasGeneratedSecrets, HasProtocolConstants)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),

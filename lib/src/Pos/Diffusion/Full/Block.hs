@@ -31,9 +31,7 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Binary.Class (biSize)
--- TODO move Pos.Block.Network.Types to Pos.Diffusion hierarchy.
--- Logic layer won't know of it.
-import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
+import           Pos.Block.Network (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
@@ -53,8 +51,8 @@ import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 -- NB: the logic-layer security policy is actually available here in the
 -- diffusion layer by way of the WorkMode constraint.
-import           Pos.Security (AttackType (..), NodeAttackedError (..),
-                               AttackTarget (..), SecurityParams (..))
+import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
+                                      AttackTarget (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE)
 import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
@@ -456,26 +454,6 @@ handleHeadersCommunication logic conv = do
 
 -- |
 -- = Listeners
-
-{-
-import           Formatting (build, int, sformat, (%))
-import           Serokell.Util.Text (listJson)
-import           System.Wlog (logDebug, logWarning)
-import           Universum
-
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce (handleHeadersCommunication)
-import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
-                                          MsgHeaders (..))
-import           Pos.Communication.Limits (recvLimited)
-import           Pos.Communication.Listener (listenerConv)
-import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
-                                             MkListeners, OutSpecs, constantListeners)
-import qualified Pos.DB.Block as DB
-import           Pos.DB.Error (DBError (DBMalformed))
--}
 
 -- | All block-related listeners.
 blockListeners

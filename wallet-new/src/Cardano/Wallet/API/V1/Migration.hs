@@ -23,6 +23,7 @@ import           Universum
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
+import           Pos.Util.Servant (decodeCType)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Monad.Catch as Catch
@@ -37,9 +38,6 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-
-
-import           Data.Text (splitOn)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
 type MonadV1   = WalletWebMode
@@ -129,29 +127,35 @@ instance Migrate V0.CAccount V1.Account where
                   -- <*> pure ???             -- accWalletId
                   -- TODO (jk) Migrate `WalletId` from `CAccount`
 
+instance Migrate V1.WalletId (V0.CId V0.Wal) where
+    eitherMigrate (V1.WalletId h) = pure $ V0.CId (V0.CHash h)
+
+--
+-- Following instances are friendly borrowed from @martoon's PR https://github.com/input-output-hk/cardano-sl/pull/2008
+-- TODO (jk): Use instances of his PR when it has been merged
+
+-- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
+instance Migrate (V1.WalletId, V1.AccountId) V0.AccountId where
+    eitherMigrate (walId, accId) =
+        V0.AccountId <$> eitherMigrate walId <*> pure accId
+
+instance Migrate V0.AccountId (V1.WalletId, V1.AccountId) where
+    eitherMigrate accId =
+        (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
+
+instance Migrate V0.CAccountId V0.AccountId where
+    eitherMigrate = first Errors.MigrationFailed . decodeCType
+
+--
+-- #end of TODO (jk) ^
+--
 
 instance Migrate V0.CAccountId V1.AccountId where
-    eitherMigrate (V0.CAccountId i) = pure i
-
-instance Migrate V1.AccountId V0.CAccountId where
-    eitherMigrate accId = pure $ V0.CAccountId accId
-
-instance Migrate V1.AccountId V0.AccountId where
-    eitherMigrate accId =
-        -- Following routine based on `FromCType CAccountId`
-        -- defined in `Pos.Wallet.Web.ClientTypes.Instances`
-        case splitOn "@" accId of
-            [part1, part2] -> do
-                aiWId  <- eitherMigrate part1
-                aiIndex <- maybe (Left $ Errors.MigrationFailed $ msg "Invalid wallet index") Right $
-                            readMaybe $ toString part2
-                return V0.AccountId{..}
-            _ -> Left $ Errors.MigrationFailed $ msg "Expected 2 parts separated by '@'"
-            where
-              msg = (<>) "Error migrating V1.AccountId -> V0.AccountId: "
-
-instance Migrate V1.AccountId (V0.CId V0.Wal) where
-      eitherMigrate txt = pure . V0.CId $ V0.CHash txt
+    eitherMigrate cAccId = do
+        -- V0.CAccountId -> V0.AccountId -> V1.AccountId
+        a :: V0.AccountId <- eitherMigrate cAccId
+        b :: (V1.WalletId, V1.AccountId) <- eitherMigrate a
+        pure $ snd b
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =

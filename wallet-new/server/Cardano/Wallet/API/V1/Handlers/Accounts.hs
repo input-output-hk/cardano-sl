@@ -5,7 +5,6 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 import           Universum
 
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
 
@@ -14,7 +13,7 @@ import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Tracking as V0
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, listOf1, resize)
+import           Test.QuickCheck (arbitrary, generate, resize)
 
 handlers
     :: (HasCompileInfo, HasConfigurations)
@@ -32,10 +31,8 @@ deleteAccount _ _ = return NoContent
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
     => WalletId -> AccountId -> m Account
-getAccount _ accId =
-  -- TODO (jk) We have to deal with `WalletId`
-  -- if we know how to migrate `WalletId` from `CAccount`
-    migrate accId >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
+getAccount wId accId =
+    migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
 
 --
 listAccounts :: PaginationParams
@@ -61,13 +58,12 @@ listAccounts PaginationParams {..} = do
 -- custom monad as a base of the Handler stack, so the example here is just to
 -- give the idea of how it will look like on Swagger.
 newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 Account
-newAccount (WalletId wId) _ AccountUpdate{..} = do
-    when (wId /= "testwallet") $ throwM $ Errors.toError Errors.WalletNotFound
+newAccount _ _ AccountUpdate{..} = do
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
-    newId <- liftIO $ generate (listOf1 arbitrary)
+    newId <- liftIO $ generate arbitrary
     return Account
-        { accId = fromString newId
+        { accId = newId
         , accAmount = Core.mkCoin 0
         , accAddresses = mempty
         , accName = uaccName

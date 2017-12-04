@@ -305,7 +305,7 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
-type AccountId = Text
+type AccountId = Word32
 
 -- | A wallet's 'Account'.
 data Account = Account
@@ -322,12 +322,12 @@ data Account = Account
 deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
-  arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
-                                   <*> listOf1 arbitrary
-                                   <*> arbitrary
-                                   <*> pure "My account"
-                                  --  <*> arbitrary
-                                  -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
+  arbitrary = Account <$> arbitrary
+                      <*> listOf1 arbitrary
+                      <*> arbitrary
+                      <*> pure "My account"
+                     --  <*> arbitrary
+                     -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
 
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text

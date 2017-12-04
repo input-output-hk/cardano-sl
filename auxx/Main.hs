@@ -11,7 +11,7 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (logInfo)
+import           System.Wlog (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
@@ -31,7 +31,10 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
-import           Repl (WithCommandAction(..), withAuxxRepl)
+import           Repl (WithCommandAction (..), withAuxxRepl)
+
+loggerName :: LoggerName
+loggerName = "auxx"
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
@@ -88,7 +91,7 @@ action opts@AuxxOptions {..} command = do
                   $ withConfigurations conf configToDict
             mode <$ case mode of
                 Nothing -> printAction "Mode: light"
-                _ -> printAction "Mode: with-config"
+                _       -> printAction "Mode: with-config"
         Light -> return Nothing
         _ -> withConfigurations conf configToDict
 
@@ -99,7 +102,7 @@ action opts@AuxxOptions {..} command = do
           t <- currentTime
           logInfo $ sformat ("Current time is "%shown) (Timestamp t)
           (nodeParams, tempDbUsed) <-
-              correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
+              correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
           let
               toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
               toRealMode auxxAction = do
@@ -136,7 +139,7 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
                   \lp -> lp { lpConsoleLog = Just False }
             | otherwise = identity
         loggingParams = disableConsoleLog $
-            CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+            CLI.loggingParams loggerName (aoCommonNodeArgs opts)
     loggerBracket loggingParams $ do
         let runAction a = runProduction $ action opts a
         case aoAction opts of

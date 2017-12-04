@@ -31,10 +31,14 @@ import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
-    { lpRunnerTag     :: !LoggerName        -- ^ Prefix for logger, like "time-slave"
-    , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ Prefix of path for all logs
-    , lpConfigPath    :: !(Maybe FilePath)  -- ^ Path to logger configuration
-    , lpConsoleLog    :: !(Maybe Bool)      -- ^ Enable console logging (override)
+    { lpDefaultName   :: !LoggerName
+    -- ^ Logger name which will be used by default
+    , lpHandlerPrefix :: !(Maybe FilePath)
+    -- ^ Prefix of path for all logs
+    , lpConfigPath    :: !(Maybe FilePath)
+    -- ^ Path to logger configuration
+    , lpConsoleLog    :: !(Maybe Bool)
+    -- ^ Enable console logging (override)
     } deriving (Show)
 
 -- | Contains basic & networking parameters for running node.

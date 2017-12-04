@@ -9,10 +9,3 @@ node:
       - file: pub/node.pub    # NB. the / will work on Windows too
         round: 5              # because we do filepath normalization
       - file: node
-    comm:
-        severity: Info
-    dht:
-        severity: Info
-    worker:
-      us:
-        severity: Debug

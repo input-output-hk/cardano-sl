@@ -58,7 +58,7 @@ listAccounts PaginationParams {..} = do
 -- custom monad as a base of the Handler stack, so the example here is just to
 -- give the idea of how it will look like on Swagger.
 newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 Account
-newAccount _ _ AccountUpdate{..} = do
+newAccount wId _ AccountUpdate{..} = do
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
     newId <- liftIO $ generate arbitrary
@@ -67,8 +67,7 @@ newAccount _ _ AccountUpdate{..} = do
         , accAmount = Core.mkCoin 0
         , accAddresses = mempty
         , accName = uaccName
-        --  , accWalletId = w
-        -- TODO (jk) ^ Uncomment it if we know how to migrate `WalletId` from `CAccount`
+        , accWalletId = wId
         }
 
 updateAccount :: WalletId -> AccountId -> AccountUpdate -> MonadV1 Account

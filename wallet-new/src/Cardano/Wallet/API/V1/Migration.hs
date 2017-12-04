@@ -124,8 +124,8 @@ instance Migrate V0.CAccount V1.Account where
                   -- ^ accAmount
                   <*> pure (V0.caName caMeta)
                   -- ^ accName
-                  -- <*> pure ???             -- accWalletId
-                  -- TODO (jk) Migrate `WalletId` from `CAccount`
+                  <*> eitherMigrate caId
+                  -- ^ accWalletId
 
 instance Migrate V1.WalletId (V0.CId V0.Wal) where
     eitherMigrate (V1.WalletId h) = pure $ V0.CId (V0.CHash h)
@@ -156,6 +156,13 @@ instance Migrate V0.CAccountId V1.AccountId where
         a :: V0.AccountId <- eitherMigrate cAccId
         b :: (V1.WalletId, V1.AccountId) <- eitherMigrate a
         pure $ snd b
+
+instance Migrate V0.CAccountId V1.WalletId where
+    eitherMigrate cAccId = do
+        -- V0.CAccountId -> V0.AccountId -> V1.WalletId
+        a :: V0.AccountId <- eitherMigrate cAccId
+        b :: (V1.WalletId, V1.AccountId) <- eitherMigrate a
+        pure $ fst b
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =

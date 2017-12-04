@@ -510,12 +510,16 @@ observed in our codebase.
 
 Point-by-point rundown:
 
-* Flexibility: LOW. Extension of environment requires declaring a new type,
-  writing ``Has`` instances for it, and potentially monad instances (although the
+* Flexibility: LOW/MODERATE (depends on whether we have a newtype over
+  ``ReaderT``). Extension of environment requires declaring a new type, writing
+  ``Has`` instances for it, and potentially monad instances -- but there are
+  ways to work around that (using overlappable tuple instances). Although the
   approach recommends avoiding monad classes in favor of ``Has`` classes, not
-  everything is under our control and there are classes by external libraries).
-  There's no way to partially run effects -- one needs to supply the entire
-  ``ReaderT`` environment up front.
+  everything is under our control and there are classes by external libraries.
+  In case there's a newtype over ``ReaderT``, there's no way to partially run
+  effects -- one needs to supply the entire ``ReaderT`` environment up front. In
+  case there's no newtype over ``ReaderT``, we can extend the envirnoment using
+  ``withReaderT``.
 
 * Extensibility: MODERATE. Defining new effects boils down to declaring a method
   record and a ``Has`` class for it. Then, for each field in the method record we
@@ -541,11 +545,13 @@ Point-by-point rundown:
   manually defined method records, modify them at will, etc. However, we need to
   figure out a good story for method records that depend on other method
   records, because it's the same pitfall as with ``SendActions``: how can we
-  ensure that if we change the something (say, a logging method) with ``local``,
+  ensure that if we change something (say, a logging method) with ``local``,
   other method records that use logging will be updated accordingly?
 
-* Predictability: LOW/HIGH. Depends on whether we have a ``newtype`` over
-  ``ReaderT``.
+* Predictability: LOW/MODERATE (depends on whether we have a ``newtype`` over
+  ``ReaderT``). In case there's no newtype, ``runReaderT`` can change the
+  behavior, which is counter-intuitive. In case there's a newtype, there's too
+  much freedom with regards to what can be put into method records.
 
 Verdict: the approach is viable but has its costs.
 
@@ -569,11 +575,11 @@ As we understand ideas behind it:
 
 Point-by-point rundown:
 
-* Flexibility: LOW. (Same as above).
+* Flexibility: MODERATE. (Same as above).
 
 * Extensibility: GOOD. (Same as above, minus a bit of boilerplate helpers).
 
-* Ease of use: LOW. (Same as above, plus one needs to manually pass a the
+* Ease of use: LOW. (Same as above, plus one needs to manually pass the
   context everywhere).
 
 * Compile-time performance: SUPERB. (Same as above).
@@ -582,8 +588,9 @@ Point-by-point rundown:
 
 * Run-time configurability: SUPERB. (Same as above)
 
-* Predictability: HIGH. Checking what implementation is used is easy as tracing
-  the provenance of the input context.
+* Predictability: MODERATE. Checking what implementation is used is easy as tracing
+  the provenance of the input context, but there's too much freedom with regards to
+  what can be put into the method records.
 
 Compared to the ``ReaderT``-based approach, explicit dictionary passing trades
 ease of use for simpler types (not a single monad transformer), less boilerplate at

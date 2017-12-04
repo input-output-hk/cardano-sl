@@ -226,11 +226,15 @@ instance ToDocs Account where
   readOnlyFields   = readOnlyFieldsFromJSON
   descriptionFor _ = "An Account."
 
+instance ToDocs WalletAddress where
+  readOnlyFields   = readOnlyFieldsFromJSON
+  descriptionFor _ = "An Address."
+
 instance ToDocs AccountUpdate where
   descriptionFor _ = updateDescr (Proxy @Account)
 
 instance ToDocs Address where
-  descriptionFor _ = "An Address."
+  descriptionFor _ = "An Address ID."
 
 instance ToDocs WalletId where
   descriptionFor _ = "A Wallet ID."
@@ -240,6 +244,9 @@ instance ToDocs Wallet where
 
 instance ToDocs NewWallet where
   descriptionFor _ = newDescr (Proxy @Wallet)
+
+instance ToDocs NewAddress where
+  descriptionFor _ = newDescr (Proxy @WalletAddress)
 
 instance ToDocs WalletUpdate where
   descriptionFor _ = updateDescr (Proxy @Wallet)
@@ -294,6 +301,9 @@ possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound.
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
 
+instance ToSchema WalletAddress where
+  declareNamedSchema = annotate fromArbitraryJSON
+
 instance ToSchema AccountUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -310,6 +320,9 @@ instance ToSchema Wallet where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema NewWallet where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema NewAddress where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema WalletUpdate where

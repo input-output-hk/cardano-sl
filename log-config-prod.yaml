@@ -1,11 +1,9 @@
 rotation:
     logLimit: 5242880 # 5MB
     keepFiles: 20
-severity: Info
+severity: Debug
 termSeverity: Debug
-node:
-    severity: Debug
-    handlers:
-      - file: pub/node.pub    # NB. the / will work on Windows too
-        round: 5              # because we do filepath normalization
-      - file: node
+handlers:
+  - file: pub/node.pub    # NB. the / will work on Windows too
+    round: 5              # because we do filepath normalization
+  - file: node

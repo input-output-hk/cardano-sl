@@ -5,9 +5,7 @@ rotation:
     keepFiles: 20
 severity: Debug
 termSeverity: Debug
-node:
-    severity: Debug
-    handlers:
-      - file: node.pub
-        round: 5
-      - file: node
+handlers:
+  - file: node.pub
+    round: 5
+  - file: node

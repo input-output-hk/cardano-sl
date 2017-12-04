@@ -29,10 +29,12 @@ type WithWalletRequestParams c =
 -- grouped pagination parameters.
 data WalletRequestParams
 
-instance HasServer (WithWalletRequestParams subApi) ctx =>
+instance HasServer subApi ctx =>
          HasServer (WalletRequestParams :> subApi) ctx where
     type ServerT (WalletRequestParams :> subApi) m =
         PaginationParams -> ServerT subApi m
     route =
         mapRouter @(WithWalletRequestParams subApi) route $
         \f ppPage ppPerPage ppResponseFormat -> f $ PaginationParams {..}
+
+    hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s

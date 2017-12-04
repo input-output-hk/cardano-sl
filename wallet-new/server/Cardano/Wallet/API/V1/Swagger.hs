@@ -1,4 +1,3 @@
-
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -438,6 +437,8 @@ application. For example, here's a typical error which might be issued:
 $errorExample
 ```
 
+List of all existing wallet error tags: $walletErrorList.
+
 |]
 
 data DescriptionEnvironment = DescriptionEnvironment {
@@ -445,6 +446,7 @@ data DescriptionEnvironment = DescriptionEnvironment {
   , defaultPerPage         :: !T.Text
   , accountExample         :: !T.Text
   , accountExtendedExample :: !T.Text
+  , walletErrorList        :: !T.Text
   }
 
 api :: Swagger
@@ -457,5 +459,8 @@ api = toSwagger walletAPI
     , defaultPerPage = fromString (show defaultPerPageEntries)
     , accountExample = toS $ encodePretty (genExample @[Account])
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
+    , walletErrorList = T.intercalate ", " $ map (wrapWith "`") Errors.allErrorsList
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  where
+    wrapWith wrap context = wrap <> context <> wrap

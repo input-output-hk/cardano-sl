@@ -155,8 +155,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "be52e67113332280911bcc4924d42f90e21f1144";
-      sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
+      rev = "3a95621ea44548b25e75c6169dd5071531a3a5f3";
+      sha256 = "13cp43424hj4sami4h547qi67p5d3dl8kcjj9qi1jy1p0r8nasik";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     inherit rawDockerImage dockerImage;

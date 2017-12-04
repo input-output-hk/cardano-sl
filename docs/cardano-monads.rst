@@ -739,6 +739,60 @@ rather benign here. A technical issue is that need ``FooContext`` to be a data
 family (rather than a type family) in order for this to work, but it's a simple
 change.
 
+For instance, consider ``NtpMonad``. Right now we pass ``NtpSlottingVar`` manually
+there. Instead we could add a ``HasNtpSlottingVar ctx`` constraint, and when running
+the methods write ``withReaderT (ntpSlottingVar,)``.
+
+Another example is passing ``SendActions``. With the new approach instead of ``SendActions``
+we might be passing ``SendContext`` (that contains the IP of the target, etc), and
+add pass it as ``withReaderT (sendContext,)``.
+
+Finally, now that we know how to define effects with these approach, let's see
+how to use them. Let's take a look at a concrete example, ``usNormalize``::
+
+    usNormalize :: (USLocalLogicMode ctx m) => m ()
+    usNormalize = do
+        tip <- DB.getTip
+        stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
+        atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+
+The type signature will change a little, so that we have an explicit ``ReaderT``,
+but an abstract base monad::
+
+    usNormalize :: (USLocalLogicMode ctx m) => ReaderT ctx m ()
+    usNormalize = ...
+
+The implementation will change too, but only a little. We won't use ``MonadIO``
+anymore, so instead of using ``atomically :: STM a -> IO a`` we will use our
+version of it, ``atomically :: MonadSTM m => STM a -> m a``. Since ``STM`` requires
+``IO`` in the end, it will be mocked only in ``TestIO``, not in ``TestPure``.
+
+Another example is ``verifyBlocks``::
+
+    type TxpGlobalVerifyMode m =
+        ( TxpCommonMode m
+        , MonadError ToilVerFailure m
+        )
+
+    verifyBlocks
+        :: forall m. TxpGlobalVerifyMode m
+        => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+
+In this case it also requires ``MonadError``, which is later satisfied with
+``ExceptT``. We don't allow ``ExceptT`` anymore (except in 100% pure code),
+so it must be rewritten to use ``MonadThrow``. The reason is that if we have
+multiple ways to throw, we need multiple ways to catch (and bracket). With the
+new approach, the type of ``verifyBlocks`` will look like this::
+
+    type TxpGlobalVerifyMode ctx m =
+        ( TxpCommonMode ctx m
+        , MonadThrow m
+        )
+
+    verifyBlocks
+        :: forall m. TxpGlobalVerifyMode ctx m
+        => Bool -> OldestFirst NE TxpBlock -> ReaderT ctx m (OldestFirst NE TxpUndo)
+
 Let us have a point-by-point rundown of the approach properties:
 
 * Flexibility: GOOD. We can use an effect locally by extending the reader

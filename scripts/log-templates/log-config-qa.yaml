@@ -1,8 +1,8 @@
 # This template is used in scripts to connect to a running cluster.
 
 rotation:
-    logLimit: 2097152 # 2MB
-    keepFiles: 20
+    logLimit: 104857600 # 100MB
+    keepFiles: 2
 severity: Debug
 termSeverity: Debug
 handlers:

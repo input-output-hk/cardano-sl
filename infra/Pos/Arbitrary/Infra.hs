@@ -14,7 +14,7 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
                                                 ReqMsg (..))
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.DHT (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData

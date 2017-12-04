@@ -53,10 +53,12 @@ import qualified Data.Text.Buildable
 import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types (ApplicationName, BlockVersion, ChainDifficulty, Coin, EpochIndex,
-                                 HeaderHash, NumSoftwareVersion, ScriptVersion, SlotId,
-                                 SoftwareVersion, StakeholderId, mkCoin)
-import           Pos.Core.Update (BlockVersionModifier (..), UpId, UpdateProposal (..), UpdateVote)
+import           Pos.Core.Common (ChainDifficulty, Coin, HeaderHash, ScriptVersion, StakeholderId,
+                                  mkCoin)
+import           Pos.Core.Slotting (EpochIndex, SlotId)
+import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionModifier (..),
+                                  NumSoftwareVersion, SoftwareVersion, UpId, UpdateProposal (..),
+                                  UpdateVote)
 import           Pos.Crypto (PublicKey)
 import           Pos.Slotting.Types (SlottingData)
 
@@ -228,7 +230,7 @@ data BlockVersionState = BlockVersionState
     { bvsModifier          :: !BlockVersionModifier
     -- ^ 'BlockVersionModifier' associated with this block version.
     , bvsConfirmedEpoch    :: !(Maybe EpochIndex)
-    -- ^ Epoch when proposal which generated this block block version
+    -- ^ Epoch when proposal which generated this block version
     -- was confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this

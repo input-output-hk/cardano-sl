@@ -1,7 +1,7 @@
 module Explorer.Util.Factory where
 
 import Prelude
-import Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
+import Pos.Core.Slotting.Types (EpochIndex(..), LocalSlotIndex(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CCoin(..), CHash(..), CTxId(..))
 
 

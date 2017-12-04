@@ -58,8 +58,8 @@ import           Formatting (bprint, build, builder, formatToString, sformat, sh
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
-import           Servant.API ((:<|>) (..), (:>), Capture, QueryParam, ReflectMethod (..), ReqBody,
-                              Verb)
+import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
+                              ReflectMethod (..), ReqBody, Summary, Verb)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
@@ -166,12 +166,12 @@ instance HasSwagger v => HasSwagger (VerbMod mod v) where
 type family OriginType ctype :: *
 
 class FromCType c where
-   -- | Way to decode from @CType@.
-   decodeCType :: c -> Either Text (OriginType c)
+    -- | Way to decode from @CType@.
+    decodeCType :: c -> Either Text (OriginType c)
 
 class ToCType c where
-   -- | Way to encode to @CType@.
-   encodeCType :: OriginType c -> c
+    -- | Way to encode to @CType@.
+    encodeCType :: OriginType c -> c
 
 type instance OriginType (Maybe a) = Maybe $ OriginType a
 
@@ -225,6 +225,7 @@ instance ( HasServer (apiType a :> res) ctx
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (CDecodeApiArg apiType a :> res) where
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults
 -------------------------------------------------------------------------
@@ -457,6 +458,14 @@ instance ( HasServer (apiType a :> res) ctx
                 paramInfo =
                     \sl -> sformat (string%": "%stext) paramName (paramVal sl)
             _ApiParamsLogInfo %~ (paramInfo :)
+
+instance HasLoggingServer config res ctx =>
+         HasLoggingServer config (Summary s :> res) ctx where
+    routeWithLog = inRouteServer @(Summary s :> LoggingApiRec config res) route identity
+
+instance HasLoggingServer config res ctx =>
+         HasLoggingServer config (Description d :> res) ctx where
+    routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
 
 -- | Modify an action so that it performs all the required logging.
 applyServantLogging

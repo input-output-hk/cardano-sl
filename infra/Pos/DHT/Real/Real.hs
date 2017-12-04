@@ -16,6 +16,9 @@ module Pos.DHT.Real.Real
        , withKademliaLogger
        ) where
 
+
+import           Universum hiding (catch)
+
 import qualified Data.ByteString.Char8 as B8 (unpack)
 import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
@@ -30,7 +33,6 @@ import           Serokell.Util (listJson, ms, sec)
 import           System.Directory (doesFileExist)
 import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logDebug, logError,
                               logInfo, logWarning, usingLoggerName)
-import           Universum hiding (bracket, catch)
 
 import           Pos.Binary.Class (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()

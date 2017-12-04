@@ -12,8 +12,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 
 import qualified Pos.Arbitrary.Core as C
-import qualified Pos.Core.Coin as C
-import qualified Pos.Core.Types as C
+import qualified Pos.Core.Common as C
 
 import           Test.Pos.Helpers (shouldThrowException, (.=.), (>=.))
 

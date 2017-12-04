@@ -188,7 +188,7 @@ getNextUpdate = queryDisk A.GetNextUpdate
 getHistoryCache :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
-getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [CId Addr]
+getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [(CId Addr, HeaderHash)]
 getCustomAddresses = queryDisk ... A.GetCustomAddresses
 
 getCustomAddress :: MonadWalletDBRead ctx m => CustomAddressType -> CId Addr -> m (Maybe HeaderHash)

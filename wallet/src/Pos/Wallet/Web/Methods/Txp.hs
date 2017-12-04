@@ -19,8 +19,8 @@ import           Formatting (build, sformat, stext, (%))
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (isCheckedTxError)
+import           Pos.Core.Common (Coin)
 import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
-import           Pos.Core.Types (Coin)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
@@ -63,4 +63,3 @@ submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
     => PendingTx -> m ()
 submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
-

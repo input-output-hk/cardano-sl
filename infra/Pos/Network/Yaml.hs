@@ -187,41 +187,41 @@ instance ToJSON KademliaAddress where
 ----------------------------------------------------------------------------
 
 instance FromJSON NodeRegion where
-  parseJSON = fmap NodeRegion . parseJSON
+    parseJSON = fmap NodeRegion . parseJSON
 
 instance FromJSON NodeName where
-  parseJSON = fmap NodeName . parseJSON
+    parseJSON = fmap NodeName . parseJSON
 
 instance FromJSON NodeRoutes where
-  parseJSON = fmap NodeRoutes . parseJSON
+    parseJSON = fmap NodeRoutes . parseJSON
 
 instance FromJSON NodeType where
-  parseJSON = A.withText "NodeType" $ \typ -> do
-      case toString typ of
-        "core"     -> return NodeCore
-        "edge"     -> return NodeEdge
-        "relay"    -> return NodeRelay
-        _otherwise -> fail $ "Invalid NodeType " ++ show typ
+    parseJSON = A.withText "NodeType" $ \typ -> do
+        case toString typ of
+          "core"     -> return NodeCore
+          "edge"     -> return NodeEdge
+          "relay"    -> return NodeRelay
+          _otherwise -> fail $ "Invalid NodeType " ++ show typ
 
 instance FromJSON OQ.Precedence where
-  parseJSON = A.withText "Precedence" $ \typ -> do
-      case toString typ of
-        "lowest"   -> return OQ.PLowest
-        "low"      -> return OQ.PLow
-        "medium"   -> return OQ.PMedium
-        "high"     -> return OQ.PHigh
-        "highest"  -> return OQ.PHighest
-        _otherwise -> fail $ "Invalid Precedence" ++ show typ
+    parseJSON = A.withText "Precedence" $ \typ -> do
+        case toString typ of
+          "lowest"   -> return OQ.PLowest
+          "low"      -> return OQ.PLow
+          "medium"   -> return OQ.PMedium
+          "high"     -> return OQ.PHigh
+          "highest"  -> return OQ.PHighest
+          _otherwise -> fail $ "Invalid Precedence" ++ show typ
 
 instance FromJSON (DnsDomains DNS.Domain) where
-  parseJSON = fmap DnsDomains . parseJSON
+    parseJSON = fmap DnsDomains . parseJSON
 
 instance FromJSON (NodeAddr DNS.Domain) where
-  parseJSON = A.withObject "NodeAddr" $ extractNodeAddr aux
-    where
-      aux :: Maybe DNS.Domain -> A.Parser DNS.Domain
-      aux Nothing    = fail "Missing domain name or address"
-      aux (Just dom) = return dom
+    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr aux
+      where
+        aux :: Maybe DNS.Domain -> A.Parser DNS.Domain
+        aux Nothing    = fail "Missing domain name or address"
+        aux (Just dom) = return dom
 
 -- Useful when we have a 'NodeAddr' as part of a larger object
 extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
@@ -255,66 +255,66 @@ extractNodeAddr mkA obj = do
           return $ NodeAddrDNS a mPort
 
 instance FromJSON NodeMetadata where
-  parseJSON = A.withObject "NodeMetadata" $ \obj -> do
-      nmType       <- obj .: "type"
-      nmRegion     <- obj .: "region"
-      nmRoutes     <- obj .:? "static-routes"     .!= NodeRoutes []
-      nmSubscribe  <- obj .:? "dynamic-subscribe" .!= DnsDomains []
-      nmValency    <- obj .:? "valency"   .!= 1
-      nmFallbacks  <- obj .:? "fallbacks" .!= 1
-      nmAddress    <- extractNodeAddr return obj
-      nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
-      nmPublicDNS  <- obj .:? "public"   .!= defaultInPublicDNS nmType
-      nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
-      case (nmRoutes, nmSubscribe) of
-        (NodeRoutes [], DnsDomains []) ->
-          fail "One of 'static-routes' or 'dynamic-subscribe' must be given"
-        (NodeRoutes (_:_), DnsDomains (_:_)) ->
-          fail "Only one of 'static-routes' or 'dynamic-subscribe' may be given"
-        _ -> return ()
-      return NodeMetadata{..}
-   where
-     defaultRunKademlia :: NodeType -> RunKademlia
-     defaultRunKademlia NodeCore  = False
-     defaultRunKademlia NodeRelay = True
-     defaultRunKademlia NodeEdge  = False
+    parseJSON = A.withObject "NodeMetadata" $ \obj -> do
+        nmType       <- obj .: "type"
+        nmRegion     <- obj .: "region"
+        nmRoutes     <- obj .:? "static-routes"     .!= NodeRoutes []
+        nmSubscribe  <- obj .:? "dynamic-subscribe" .!= DnsDomains []
+        nmValency    <- obj .:? "valency"   .!= 1
+        nmFallbacks  <- obj .:? "fallbacks" .!= 1
+        nmAddress    <- extractNodeAddr return obj
+        nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
+        nmPublicDNS  <- obj .:? "public"   .!= defaultInPublicDNS nmType
+        nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
+        case (nmRoutes, nmSubscribe) of
+            (NodeRoutes [], DnsDomains []) ->
+              fail "One of 'static-routes' or 'dynamic-subscribe' must be given"
+            (NodeRoutes (_:_), DnsDomains (_:_)) ->
+              fail "Only one of 'static-routes' or 'dynamic-subscribe' may be given"
+            _ -> return ()
+        return NodeMetadata{..}
+     where
+       defaultRunKademlia :: NodeType -> RunKademlia
+       defaultRunKademlia NodeCore  = False
+       defaultRunKademlia NodeRelay = True
+       defaultRunKademlia NodeEdge  = False
 
-     defaultInPublicDNS :: NodeType -> InPublicDNS
-     defaultInPublicDNS NodeCore  = False
-     defaultInPublicDNS NodeRelay = True
-     defaultInPublicDNS NodeEdge  = False
+       defaultInPublicDNS :: NodeType -> InPublicDNS
+       defaultInPublicDNS NodeCore  = False
+       defaultInPublicDNS NodeRelay = True
+       defaultInPublicDNS NodeEdge  = False
 
 instance FromJSON AllStaticallyKnownPeers where
-  parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
-      AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
-    where
-      aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
-      aux (name, val) = (NodeName name, ) <$> parseJSON val
+    parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
+        AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
+      where
+        aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
+        aux (name, val) = (NodeName name, ) <$> parseJSON val
 
 instance FromJSON Topology where
-  parseJSON = A.withObject "Topology" $ \obj -> do
-      mNodes  <- obj .:? "nodes"
-      mWallet <- obj .:? "wallet"
-      mP2p    <- obj .:? "p2p"
-      case (mNodes, mWallet, mP2p) of
-        (Just nodes, Nothing, Nothing) ->
-            TopologyStatic <$> parseJSON nodes
-        (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
-            topologyDnsDomains <- walletObj .:  "relays"
-            topologyValency    <- walletObj .:? "valency"   .!= 1
-            topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
-            return TopologyBehindNAT{..}
-        (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-            variantTxt         <- p2pObj .: "variant"
-            topologyValency    <- p2pObj .:? "valency"   .!= 3
-            topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
-            topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
-            flip (A.withText "P2P variant") variantTxt $ \txt -> case txt of
-              "traditional" -> return TopologyTraditional{..}
-              "normal"      -> return TopologyP2P{..}
-              _             -> fail "P2P variant: expected 'traditional' or 'normal'"
-        _ ->
-          fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
+    parseJSON = A.withObject "Topology" $ \obj -> do
+        mNodes  <- obj .:? "nodes"
+        mWallet <- obj .:? "wallet"
+        mP2p    <- obj .:? "p2p"
+        case (mNodes, mWallet, mP2p) of
+          (Just nodes, Nothing, Nothing) ->
+              TopologyStatic <$> parseJSON nodes
+          (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
+              topologyDnsDomains <- walletObj .:  "relays"
+              topologyValency    <- walletObj .:? "valency"   .!= 1
+              topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
+              return TopologyBehindNAT{..}
+          (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
+              variantTxt         <- p2pObj .: "variant"
+              topologyValency    <- p2pObj .:? "valency"   .!= 3
+              topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
+              topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
+              flip (A.withText "P2P variant") variantTxt $ \case
+                  "traditional" -> return TopologyTraditional{..}
+                  "normal"      -> return TopologyP2P{..}
+                  _             -> fail "P2P variant: expected 'traditional' or 'normal'"
+          _ ->
+            fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 
 maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
@@ -395,7 +395,7 @@ instance FromJSON t => FromJSON (ByMsgType t) where
         requestBlocks       <- obj .: "requestBlocks"
         transaction         <- obj .: "transaction"
         mpc                 <- obj .: "mpc"
-        return $ ByMsgType $ \msg -> case msg of
+        return $ ByMsgType $ \case
             MsgAnnounceBlockHeader _                 -> announceBlockHeader
             MsgRequestBlockHeaders _                 -> requestBlockHeaders
             MsgRequestBlocks       _                 -> requestBlocks
@@ -409,7 +409,7 @@ instance FromJSON t => FromJSON (ByNodeType t) where
         core  <- obj .: "core"
         relay <- obj .: "relay"
         edge  <- obj .: "edge"
-        return $ ByNodeType $ \nodeType -> case nodeType of
+        return $ ByNodeType $ \case
             NodeCore  -> core
             NodeRelay -> relay
             NodeEdge  -> edge

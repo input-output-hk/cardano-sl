@@ -10,7 +10,7 @@ import           Data.Time.Units (Millisecond)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Timestamp (TimeDiff)
+import           Pos.Core.Slotting (TimeDiff)
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createSlottingDataUnsafe,
                                      getSlottingDataMap, isValidSlottingDataMap)
 

@@ -18,7 +18,7 @@ import           Pos.Arbitrary.Lrc (GenesisMpcThd, InvalidRichmenStakes (..),
                                     ValidRichmenStakes (..))
 import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin, unsafeAddressHash,
                            unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Coin (applyCoinPortionDown, sumCoins)
+import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
 import           Pos.Core.Ssc (SharesDistribution)
 import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
 import           Pos.Ssc (SscVerifyError, computeSharesDistrPure, isDistrInaccuracyAcceptable,

@@ -52,8 +52,7 @@ instance HasConfiguration => Arbitrary UpdateProposal where
         upData <- HM.fromList <$> listOf1 arbitrary
         let upAttributes = mkAttributes ()
         ss <- fakeSigner <$> arbitrary
-        let onFailure = error . mappend "arbitrary @UpdateProposal failed: "
-        either onFailure pure $
+        pure $
             mkUpdateProposalWSign
                 upBlockVersion
                 upBlockVersionMod

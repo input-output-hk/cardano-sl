@@ -9,22 +9,22 @@ import           Pos.Communication.Types.Relay (InvMsg (..), MempoolMsg (..), Re
                                                 ResMsg (..))
 
 instance Bi key => Bi (InvMsg key) where
-  encode = encode . imKey
-  decode = InvMsg <$> decode
+    encode = encode . imKey
+    decode = InvMsg <$> decode
 
 instance Bi key => Bi (ReqMsg key) where
-  encode = encode . rmKey
-  decode = ReqMsg <$> decode
+    encode = encode . rmKey
+    decode = ReqMsg <$> decode
 
 instance Bi key => Bi (ResMsg key) where
-  encode (ResMsg {..}) = encode (resKey, resOk)
-  decode = uncurry ResMsg <$> decode
+    encode (ResMsg {..}) = encode (resKey, resOk)
+    decode = uncurry ResMsg <$> decode
 
 instance Typeable tag => Bi (MempoolMsg tag) where
-  -- The extra byte is needed because time-warp doesn't work with
-  -- possibly-empty messages. 228 was chosen as homage to @pva701
-  encode MempoolMsg = encode (228 :: Word8)
-  decode = do
-    x <- decode @Word8
-    when (x /= 228) $ fail "wrong byte"
-    pure MempoolMsg
+    -- The extra byte is needed because time-warp doesn't work with
+    -- possibly-empty messages. 228 was chosen as homage to @pva701
+    encode MempoolMsg = encode (228 :: Word8)
+    decode = do
+        x <- decode @Word8
+        when (x /= 228) $ fail "wrong byte"
+        pure MempoolMsg

@@ -29,10 +29,10 @@ let
   };
   connect = import ./scripts/launch/connect-to-cluster/default.nix;
   connectScripts = {
-    mainnetWallet = connect { };
-    mainnetExplorer = connect { executable = "explorer"; };
-    stagingWallet = connect { environment = "mainnet-staging"; };
-    stagingExplorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
+    mainnetWallet = connect { inherit (cardano) rev; };
+    mainnetExplorer = connect { inherit (cardano) rev; executable = "explorer"; };
+    stagingWallet = connect { inherit (cardano) rev; environment = "mainnet-staging"; };
+    stagingExplorer = connect { inherit (cardano) rev; executable = "explorer"; environment = "mainnet-staging"; };
   };
 in { connect = connectScripts; }
    // mapTestOn platforms

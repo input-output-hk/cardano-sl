@@ -10,11 +10,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize)
-import           Pos.Binary.Core.Block ()
-import           Pos.Binary.Core.Blockchain ()
+import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                          MsgHeaders (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                    MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
 import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
@@ -78,15 +77,17 @@ instance Bi MsgSubscribe where
 ----------------------------------------------------------------------------
 
 instance Bi HandlerSpec where
-  encode input = case input of
-    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
-    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
-  decode = do
-    enforceSize "HandlerSpec" 2
-    tag <- decode @Word8
-    case tag of
-      0 -> ConvHandler        <$> decodeKnownCborDataItem
-      _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
+    encode input = case input of
+        ConvHandler mname        ->
+            encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+        UnknownHandler word8 bs  ->
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+    decode = do
+        enforceSize "HandlerSpec" 2
+        tag <- decode @Word8
+        case tag of
+          0 -> ConvHandler        <$> decodeKnownCborDataItem
+          _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

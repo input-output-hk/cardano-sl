@@ -21,7 +21,7 @@ import           Universum
 
 import           Control.Monad.STM (retry)
 
-import           Pos.Core.Types (EpochIndex, Timestamp)
+import           Pos.Core.Slotting (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (EpochSlottingData, SlottingData, getAllEpochIndices,
                                      getCurrentEpochIndex, getCurrentEpochSlottingData,
                                      getNextEpochIndex, getNextEpochSlottingData,
@@ -137,4 +137,3 @@ waitCurrentEpochEqualsM target = do
         currentEpoch <- getCurrentEpochIndex <$> readTVar var
         --  Wait until current epoch is >= target.
         when (currentEpoch < target) retry
-

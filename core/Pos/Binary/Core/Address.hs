@@ -15,11 +15,12 @@ import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCan
                                    decodeUnknownCborDataItem, deserialize', encodeCrcProtected,
                                    encodeListLen, encodeUnknownCborDataItem, enforceSize,
                                    serialize')
-import           Pos.Binary.Core.Types ()
+import           Pos.Binary.Core.Common ()
+import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
-                                 AddrStakeDistribution (..), AddrType (..), Address (..),
-                                 Address' (..), mkMultiKeyDistr)
+import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (..),
+                                        AddrStakeDistribution (..), AddrType (..), Address (..),
+                                        Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import           Pos.Util.Util (eitherToFail)
 

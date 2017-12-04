@@ -18,7 +18,7 @@ module Pos.Util.Chrono
        , splitAtOldestFirst
        ) where
 
-import           Universum hiding (mapMaybe)
+import           Universum
 
 import           Control.Lens (makePrisms, makeWrapped, _Wrapped)
 import qualified Control.Lens as Lens (Each (..))

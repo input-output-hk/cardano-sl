@@ -14,7 +14,7 @@ module Pos.Lrc.Class
 import           Universum
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Types (CoinPortion)
+import           Pos.Core.Common (CoinPortion)
 import           Pos.Lrc.Types (FullRichmenData)
 
 ----------------------------------------------------------------------------

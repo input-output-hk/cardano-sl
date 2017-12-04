@@ -19,8 +19,7 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           NTP.Example ()
 
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (unflattenSlotId)
-import           Pos.Core.Types (SlotId (..), Timestamp (..))
+import           Pos.Core.Slotting (SlotId (..), Timestamp (..), unflattenSlotId)
 import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
                                         waitCurrentEpochEqualsM)

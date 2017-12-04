@@ -8,6 +8,7 @@ module Test.Pos.Util
        , withDefNodeConfiguration
        , withDefSscConfiguration
        , withDefUpdateConfiguration
+       , withDefBlockConfiguration
        , withDefDlgConfiguration
        , withDefConfigurations
        , withStaticConfigurations
@@ -37,6 +38,7 @@ import           Test.QuickCheck.Gen (choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
 
+import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
@@ -53,6 +55,7 @@ type HasStaticConfigurations =
     ( HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
+    , HasBlockConfiguration
     , HasNodeConfiguration
     , HasDlgConfiguration
     )
@@ -69,6 +72,9 @@ withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 withDefInfraConfiguration :: (HasInfraConfiguration => r) -> r
 withDefInfraConfiguration = withInfraConfiguration (ccInfra defaultTestConf)
 
+withDefBlockConfiguration :: (HasBlockConfiguration => r) -> r
+withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
+
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
@@ -80,6 +86,7 @@ withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
+    withDefBlockConfiguration $
     withDefDlgConfiguration $
     withDefInfraConfiguration patak
 

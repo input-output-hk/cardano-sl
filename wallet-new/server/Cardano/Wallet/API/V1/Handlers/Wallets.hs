@@ -9,6 +9,7 @@ import qualified Pos.Wallet.Web.Methods.Restore as V0
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
+import           Pos.Update.Configuration ()
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
@@ -58,19 +59,25 @@ listWallets PaginationParams {..} = do
       }
     _ -> return $ OneOf $ Left example
 
-updatePassword :: WalletId
-               -> PasswordUpdate
-               -> MonadV1 Wallet
+updatePassword
+    :: WalletId
+    -> PasswordUpdate
+    -> MonadV1 Wallet
 updatePassword _ _ = liftIO $ generate arbitrary
 
-deleteWallet :: WalletId
-             -> MonadV1 NoContent
-deleteWallet _ = return NoContent
+-- | Deletes an exisiting wallet.
+deleteWallet
+    :: (MonadWalletLogic ctx m)
+    => WalletId
+    -> m NoContent
+deleteWallet (WalletId walletId) =
+    V0.deleteWallet . V0.CId . V0.CHash $ walletId
 
 getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m Wallet
 getWallet = migrate <=< V0.getWallet <=< migrate
 
-updateWallet :: WalletId
-             -> WalletUpdate
-             -> MonadV1 Wallet
+updateWallet
+    :: WalletId
+    -> WalletUpdate
+    -> MonadV1 Wallet
 updateWallet _ _ = liftIO $ generate arbitrary

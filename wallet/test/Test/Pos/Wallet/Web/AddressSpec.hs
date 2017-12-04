@@ -14,7 +14,7 @@ import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
-import           Pos.Core.Address (Address)
+import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)

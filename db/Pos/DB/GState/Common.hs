@@ -32,11 +32,10 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core.Blockchain ()
-import           Pos.Binary.Core.Types ()
+import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
+import           Pos.Core.Common (ChainDifficulty, HeaderHash)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (ChainDifficulty, HeaderHash)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete), MonadDBRead (..))

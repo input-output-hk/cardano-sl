@@ -20,6 +20,7 @@ library
                         Pos.Explorer.ExtraContext
                         Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Holder
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
 
@@ -39,7 +40,6 @@ library
                         Pos.Arbitrary.Explorer
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
-                        Pos.Explorer.Socket.Holder
 
                         Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
@@ -83,6 +83,7 @@ library
                       -- cardano sl
                       , cardano-sl
                       , cardano-sl-binary
+                      , cardano-sl-block
                       , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
@@ -338,6 +339,7 @@ test-suite cardano-explorer-test
                      , base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-explorer
@@ -346,9 +348,12 @@ test-suite cardano-explorer-test
                      , containers
                      , cryptonite
                      , data-default
+                     , engine-io
                      , hspec
+                     , lens
                      , log-warper
                      , MonadRandom
+                     , mtl
                      , universum >= 0.1.11
                      , warp
   hs-source-dirs:      test

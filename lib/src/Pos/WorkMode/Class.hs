@@ -20,11 +20,12 @@ import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
 import           Pos.Block.BListener (MonadBListener)
-import           Pos.Block.Slog.Types (HasSlogContext, HasSlogGState)
+import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
+import           Pos.Block.Types (MonadLastKnownHeader, MonadProgressHeader, MonadRecoveryHeader)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext,
-                              MonadLastKnownHeader, MonadProgressHeader, MonadRecoveryHeader,
-                              StartTime, TxpGlobalSettings)
+import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
+                              TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
@@ -104,4 +105,5 @@ type MinWorkMode m
       , HasInfraConfiguration
       , HasUpdateConfiguration
       , HasNodeConfiguration
+      , HasBlockConfiguration
       )

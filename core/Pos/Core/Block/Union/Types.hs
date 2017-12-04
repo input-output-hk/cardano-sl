@@ -13,7 +13,7 @@ module Pos.Core.Block.Union.Types
 import           Universum
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Types (HeaderHash)
+import           Pos.Core.Common (HeaderHash)
 import           Pos.Crypto (unsafeHash)
 
 -- Re-exports

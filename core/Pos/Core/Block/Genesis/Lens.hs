@@ -46,7 +46,8 @@ import           Pos.Core.Block.Genesis.Chain (Body (..), BodyProof (..), Consen
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBlockchain,
                                                GenesisBodyAttributes, GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..), GenesisHeaderAttributes)
-import           Pos.Core.Types (ChainDifficulty, EpochIndex (..), HeaderHash, SlotLeaders)
+import           Pos.Core.Common (ChainDifficulty, HeaderHash, SlotLeaders)
+import           Pos.Core.Slotting.Types (EpochIndex (..))
 
 ----------------------------------------------------------------------------
 -- Extra types

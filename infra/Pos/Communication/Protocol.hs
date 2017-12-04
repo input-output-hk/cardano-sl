@@ -43,7 +43,7 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (SlotId)
+import           Pos.Core.Slotting (SlotId)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)

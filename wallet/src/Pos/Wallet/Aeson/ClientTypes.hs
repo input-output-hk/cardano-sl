@@ -7,9 +7,9 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version (showVersion)
+import           Servant.API.ContentTypes (NoContent (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core.Types (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Aeson.Options (customOptionsWithTag)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
@@ -22,7 +22,6 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
-import           Servant.API.ContentTypes (NoContent (..))
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta
@@ -51,7 +50,6 @@ deriveJSON defaultOptions ''CWallet
 deriveJSON defaultOptions ''CPtxCondition
 deriveJSON defaultOptions ''CTx
 deriveJSON defaultOptions ''CTExMeta
-deriveJSON defaultOptions ''SoftwareVersion
 deriveJSON defaultOptions ''CUpdateInfo
 
 deriveToJSON defaultOptions ''SyncProgress

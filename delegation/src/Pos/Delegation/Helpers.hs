@@ -16,8 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.List (partition)
 
 import           Pos.Core (EpochIndex)
-import           Pos.Core.Block.Main.Lens (mainBlockDlgPayload)
-import           Pos.Core.Block.Main.Types (MainBlock)
+import           Pos.Core.Block.Main (MainBlock, mainBlockDlgPayload)
 import           Pos.Crypto (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Delegation.Types (DlgMemPool, DlgPayload (getDlgPayload))
 

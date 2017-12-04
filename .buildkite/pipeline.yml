@@ -1,7 +1,22 @@
 steps:
-  - label: ':rocket: Ex-Travis'
-    command: 'export NIX_PATH="nixpkgs=$(/run/current-system/sw/bin/nix-build "$(dirname -- $(readlink -f -- ${BASH_SOURCE[0]}))/fetch-nixpkgs.nix" -o nixpkgs)"; export NIX_BUILD_SHELL=/run/current-system/sw/bin/bash; /run/current-system/sw/bin/nix-shell -p nix -p bash -p coreutils --run scripts/ci/travis.sh'
-    env:
-      NIX_REMOTE: daemon
-      PATH: bin:/run/current-system/sw/bin
-      TRAVIS_OS_NAME: linux
+  - label: 'hlint'
+    command: 'scripts/ci/nix-shell.sh -p hlint moreutils --run scripts/haskell/lint.sh'
+    agents:
+      system: x86_64-linux
+
+  - label: 'stack2nix'
+    command: 'scripts/ci/nix-shell.sh -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run scripts/check-stack2nix.sh'
+    agents:
+      system: x86_64-linux
+
+  - wait
+
+  - label: 'cardano-x86_64-linux'
+    command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
+    agents:
+      system: x86_64-linux
+
+  - label: 'cardano-x86_64-darwin'
+    command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
+    agents:
+      system: x86_64-darwin

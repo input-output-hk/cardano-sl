@@ -6,6 +6,7 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
 
 import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
+import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -13,7 +14,9 @@ import           Pos.Update.Configuration ()
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, resize)
+import           Test.QuickCheck (arbitrary, generate, vectorOf)
+import           Test.QuickCheck.Gen (unGen)
+import           Test.QuickCheck.Random (mkQCGen)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -42,15 +45,19 @@ newWallet NewWallet{..} = do
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
   V0.newWallet spendingPassword walletInit >>= migrate
 
-listWallets :: PaginationParams
+-- TODO(adinapoli): Implement this properly with CSL-1891.
+-- Providing here just a stub.
+listWallets :: RequestParams
             -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))
-listWallets PaginationParams {..} = do
-  example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseFormat of
+listWallets RequestParams {..} = do
+  -- Use a static seed to simulate the pagination properly.
+  -- Use `pure` to simulate a monadic action.
+  example <- pure $ (unGen (vectorOf 1000 arbitrary)) (mkQCGen 42) 42
+  case rpResponseFormat of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example
-      , extMeta = Metadata {
+      , extMeta = Metadata $ PaginationMetadata {
           metaTotalPages = 1
         , metaPage = 1
         , metaPerPage = 20

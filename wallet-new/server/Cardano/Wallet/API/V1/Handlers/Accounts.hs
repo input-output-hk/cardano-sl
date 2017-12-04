@@ -4,9 +4,10 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 
 import           Universum
 
+import           Cardano.Wallet.API.Request.Pagination
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
+import           Cardano.Wallet.API.V1.Types
 
 
 import qualified Pos.Core as Core
@@ -34,22 +35,21 @@ getAccount
 getAccount wId accId =
     migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
 
---
-listAccounts :: PaginationParams
-             -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))
-listAccounts PaginationParams {..} = do
+listAccounts :: RequestParams
+             -> Handler (OneOf [Account] (ExtendedResponse [Account]))
+listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseFormat of
-    Extended -> return $ OneOf $ Right
-        ExtendedResponse {
-            extData = example
-          , extMeta = Metadata {
-                  metaTotalPages = 1
-                , metaPage = 1
-                , metaPerPage = 20
-                , metaTotalEntries = 3
-              }
-          }
+  case rpResponseFormat of
+    Extended -> return $ OneOf $ Right $
+      ExtendedResponse {
+        extData = example
+      , extMeta = Metadata $ PaginationMetadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 3
+      }
+      }
     _ -> return $ OneOf $ Left example
 
 -- | This is an example of how POST requests might look like.

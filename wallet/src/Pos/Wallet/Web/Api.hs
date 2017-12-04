@@ -42,6 +42,7 @@ module Pos.Wallet.Web.Api
 
        , NewPayment
        , TxFee
+       , ResetFailedPtxs
        , UpdateTx
        , GetHistory
 
@@ -298,6 +299,17 @@ type TxFee =
     :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
     :> WRes Post CCoin
 
+type ResetFailedPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reset"
+    :> Summary "Clear the 'do not resubmit' flag from transactions that have it."
+    :> Description
+        "For all transactions in CPtxWontApply condition, \
+        \reset them to CPtxApplying condition so that they will \
+        \be passed to resubmition"
+    :> WRes Get ()
+
 type UpdateTx =
        "txs"
     :> "payments"
@@ -501,6 +513,8 @@ type WalletApiNoPrefix = (
      NewPayment
     :<|>
      TxFee
+    :<|>
+     ResetFailedPtxs
     :<|>
      UpdateTx
     :<|>

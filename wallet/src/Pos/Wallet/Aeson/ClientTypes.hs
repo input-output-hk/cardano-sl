@@ -4,8 +4,8 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, withArray, withObject, (.!=), (.:),
-                             (.:?), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (String), object, withArray,
+                             withObject, (.!=), (.:), (.:?), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Default (def)
 import           Data.Version (showVersion)
@@ -89,3 +89,17 @@ instance FromJSON NewBatchPayment where
             \o -> (,)
                 <$> o .: "address"
                 <*> o .: "amount"
+
+instance ToJSON NewBatchPayment where
+    toJSON NewBatchPayment {..} =
+        object
+            [ "from" .= toJSON npbFrom
+            , "to" .= map toRecipient (toList npbTo)
+            , "groupingPolicy" .= String (show npbInputSelectionPolicy)
+            ]
+      where
+        toRecipient (address, amount) =
+            object
+                [ "address" .= address
+                , "amount" .= amount
+                ]

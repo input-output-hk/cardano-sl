@@ -289,6 +289,7 @@ type NewPaymentBatch =
        "txs"
     :> "payments"
     :> "batch"
+    :> Summary "Create a new payment transaction (can send to multiple recipients)."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] NewBatchPayment
     :> WRes Post CTx

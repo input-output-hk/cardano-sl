@@ -1,8 +1,6 @@
 Overview
 ========
 
-TODO CSL-1819 This document is outdated!
-
 Software update is a protocol mechanism that allows nodes to agree on
 software changes without altering protocol constants and update to
 this software version.

@@ -79,8 +79,8 @@ import           Serokell.Util (listJsonIndent, mapBuilder)
 import           Servant.Multipart (FileData, Mem)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core.Types (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
-                                 SoftwareVersion, unsafeGetCoin)
+import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
+                           unsafeGetCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog (..), buildUnsecure, secretOnlyF,
                                    secure, secureListF, unsecure)
@@ -209,7 +209,7 @@ instance Hashable CWAddressMeta
 data CWalletAssurance
     = CWAStrict
     | CWANormal
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Enum, Bounded, Generic)
 
 instance Buildable CWalletAssurance where
     build = bprint shown

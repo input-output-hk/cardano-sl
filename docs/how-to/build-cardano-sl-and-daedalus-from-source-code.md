@@ -50,8 +50,8 @@ Two steps remain, then:
 
     ..and then add two following lines:
 
-        $ binary-caches             = https://cache.nixos.org https://hydra.iohk.io
-        $ binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+        binary-caches             = https://cache.nixos.org https://hydra.iohk.io
+        binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:
@@ -88,10 +88,6 @@ Please, see the previous section on how to enable use of the IOHK binary cache.
 Enter `nix-shell`:
 
     $ nix-shell
-
-And if it is the first project in Haskell on this machine, run `stack setup`:
-
-    [nix-shell:~/cardano-sl]$ stack setup --nix
 
 After that, in order to build Cardano SL with wallet capabilities, run the following script:
 

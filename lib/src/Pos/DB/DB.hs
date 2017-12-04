@@ -6,24 +6,19 @@
 
 module Pos.DB.DB
        ( initNodeDBs
-       , sanityCheckDB
        , gsAdoptedBVDataDefault
        ) where
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
-import           System.Wlog (WithLogger)
-
 import           Pos.Context.Functions (genesisBlock0)
 import           Pos.Core (BlockVersionData, HasConfiguration, headerHash)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
-import           Pos.GState.GState (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.GState.GState (prepareGStateDB)
 import           Pos.Lrc.DB (prepareLrcDB)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util.AssertMode (inAssertMode)
 
 -- | Initialize DBs if necessary.
 initNodeDBs
@@ -39,15 +34,6 @@ initNodeDBs = do
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
-
-sanityCheckDB ::
-       ( MonadMask m
-       , WithLogger m
-       , MonadDBRead m
-       , MonadReader ctx m
-       )
-    => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 ----------------------------------------------------------------------------
 -- MonadGState instance

@@ -166,12 +166,12 @@ instance HasSwagger v => HasSwagger (VerbMod mod v) where
 type family OriginType ctype :: *
 
 class FromCType c where
-   -- | Way to decode from @CType@.
-   decodeCType :: c -> Either Text (OriginType c)
+    -- | Way to decode from @CType@.
+    decodeCType :: c -> Either Text (OriginType c)
 
 class ToCType c where
-   -- | Way to encode to @CType@.
-   encodeCType :: OriginType c -> c
+    -- | Way to encode to @CType@.
+    encodeCType :: OriginType c -> c
 
 type instance OriginType (Maybe a) = Maybe $ OriginType a
 
@@ -225,6 +225,7 @@ instance ( HasServer (apiType a :> res) ctx
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (CDecodeApiArg apiType a :> res) where
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults
 -------------------------------------------------------------------------

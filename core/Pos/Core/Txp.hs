@@ -57,8 +57,7 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, veri
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Address (Address (..), addressHash)
-import           Pos.Core.Types (Coin, Script, coinF, mkCoin)
+import           Pos.Core.Common (Address (..), Coin, Script, addressHash, coinF, mkCoin)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)

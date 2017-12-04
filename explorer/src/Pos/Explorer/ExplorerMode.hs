@@ -1,13 +1,17 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Explorer.ExplorerMode
-    ( ExplorerMode
+    ( -- Explorer
+      ExplorerMode
     , ExplorerTestMode
     , ExplorerTestParams
     , runExplorerTestMode
     , etcParams_L
     , ExplorerProperty
     , explorerPropertyToProperty
+    -- Explorer Socket Subscription
+    , SubscriptionTestMode
+    , runSubTestMode
     ) where
 
 import           Universum
@@ -15,7 +19,7 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
-import           System.Wlog (HasLoggerName (..), LoggerName)
+import           System.Wlog (HasLoggerName (..), LoggerName (..), CanLog)
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
@@ -40,6 +44,7 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExpl
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
                                             runExtraContextT)
 import           Pos.Explorer.Txp (ExplorerExtra (..))
+import           Pos.Explorer.Socket.Holder (ConnectionsState)
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
@@ -263,6 +268,23 @@ instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
 
 instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
     jsonLog = jsonLogDefault
+
+
+----------------------------------------------------------------------------
+-- SubscriptionMode
+----------------------------------------------------------------------------
+
+newtype SubscriptionTestMode a = SubscriptionTestMode
+    { runSubscriptionTestMode :: (StateT ConnectionsState IO a)
+    } deriving (Functor, Applicative, Monad, MonadThrow, CanLog, MonadState ConnectionsState)
+
+runSubTestMode :: ConnectionsState -> SubscriptionTestMode a -> IO (a, ConnectionsState)
+runSubTestMode connectionsState m =
+    runStateT (runSubscriptionTestMode m) connectionsState
+
+instance HasLoggerName SubscriptionTestMode where
+    getLoggerName        = pure "explorer-subscription-test"
+    modifyLoggerName _ a = a
 
 ----------------------------------------------------------------------------
 -- Property

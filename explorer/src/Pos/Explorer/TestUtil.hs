@@ -14,6 +14,7 @@ module Pos.Explorer.TestUtil
     , produceSecretKeys
     , generateValidBlocksSlotsNumber
     , createEmptyUndo
+    , secretKeyToAddress
     ) where
 
 import qualified Prelude
@@ -21,7 +22,9 @@ import           Universum
 
 import           Control.Lens (at)
 import           Data.Default (def)
-import           Data.Map (fromList, fromListWith)
+import           Data.List (groupBy)
+import           Data.Map (fromList, fromListWith, unions, keys)
+import           Data.Function (on)
 import qualified Data.List.NonEmpty as NE
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Property, Testable, Gen, counterexample, forAll,
@@ -32,21 +35,21 @@ import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, Undo (..), SlogUndo (..))
 import qualified Pos.Communication ()
-import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
                            LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId, HeaderHash,
-                           difficultyL, headerHash)
+                           difficultyL, headerHash, makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (SecretKey,toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Util (withDefConfigurations)
 
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
-import           Pos.Explorer.DB (Page)
+import           Pos.Explorer.DB (Epoch, Page, EpochPagedBlocksKey, convertToPagedMap)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 
 
@@ -79,17 +82,22 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     blocks <- withDefConfigurations $
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
-    let tipBlock  = Prelude.last blocks
-    let pagedHHs  = withDefConfigurations $ createMapPageHHs blocks
-    let hHsBlunds = withDefConfigurations $ createMapHHsBlund blocks
+    let tipBlock         = Prelude.last blocks
+    let pagedHHs         = withDefConfigurations $ createMapPageHHs blocks
+    let hHsBlunds        = withDefConfigurations $ createMapHHsBlund blocks
+    let epochPageHHs     = withDefConfigurations $ createMapEpochPageHHs blocks slotsPerEpoch
+    let mapEpochMaxPages = withDefConfigurations $ createMapEpochMaxPages $ keys epochPageHHs
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock
-        , emmGetPageBlocks        = \page -> pure $ pagedHHs ^. at page
-        , emmGetBlundFromHH       = \hh   -> pure $ hHsBlunds ^. at hh
-        , emmGetSlotStart         = \_    -> pure $ Just slotStart
-        , emmGetLeadersFromEpoch  = \_    -> pure $ Just slotLeaders
+        , emmGetPageBlocks        = \page       -> pure $ pagedHHs ^. at page
+        , emmGetBlundFromHH       = \hh         -> pure $ hHsBlunds ^. at hh
+        , emmGetSlotStart         = \_          -> pure $ Just slotStart
+        , emmGetLeadersFromEpoch  = \_          -> pure $ Just slotLeaders
+        , emmGetEpochBlocks       = \epoch page -> pure $ epochPageHHs ^. at (epoch, page)
+        , emmGetEpochPages        = \epoch      -> pure $ mapEpochMaxPages ^. at epoch
         }
+
   where
     createMapPageHHs :: (HasConfiguration) => [Block] -> Map Page [HeaderHash]
     createMapPageHHs blocks =
@@ -100,6 +108,40 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
       where
         blockHH :: Block -> (HeaderHash, Blund)
         blockHH block = (headerHash block, (block, createEmptyUndo))
+
+    -- | TODO(ks): Need to add `getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot`.
+    createMapEpochPageHHs
+        :: (HasConfiguration)
+        => [Block]
+        -> SlotsPerEpoch
+        -> Map EpochPagedBlocksKey [HeaderHash]
+    createMapEpochPageHHs blocks slotsPerEpoch' =
+        unions $ map convertToPagedMap epochBlock
+      where
+        epochBlock :: [(EpochIndex, [HeaderHash])]
+        epochBlock = zip [minBound..] epochHHs
+
+        epochHHs :: [[HeaderHash]]
+        epochHHs = headerHash <<$>> epochBlocks
+
+        epochBlocks :: [[Block]]
+        epochBlocks = splitEvery (fromIntegral slotsPerEpoch') blocks
+          where
+            splitEvery :: Int -> [a] -> [[a]]
+            splitEvery _ [] = []
+            splitEvery n xs = as : splitEvery n bs
+              where
+                (as,bs) = splitAt n xs
+
+    createMapEpochMaxPages
+        :: (HasConfiguration)
+        => [EpochPagedBlocksKey]
+        -> Map Epoch Page
+    createMapEpochMaxPages epochPages = do
+        let groupedEpochPages :: [[(Epoch, Page)]]
+            groupedEpochPages = groupBy ((==) `on` fst) epochPages
+
+        fromList $ maximumBy (compare `on` fst) <$> groupedEpochPages
 
 -- | The first aproximation. Ideally, I wanted to have something to generate @Undo@ from
 -- @Block@. We could generate @Undo@ from _produceBlocksByBlockNumberAndSlots_, but we
@@ -334,4 +376,9 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
         generatedSecretKey = generate arbitrary
 
 
+-- | Factory to create an `Address`
+-- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
+-- | TODO: Remove it as soon as ^ is exposed
+secretKeyToAddress :: SecretKey -> Address
+secretKeyToAddress = makePubKeyAddressBoot . toPublic
 

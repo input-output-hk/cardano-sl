@@ -6,14 +6,14 @@ module Pos.Lrc.Core
        , findRichmenStakes
        ) where
 
+import           Universum
+
 import           Data.Conduit (Sink, await)
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Universum
 
-import           Pos.Core.Coin (mkCoin, unsafeAddCoin)
-import           Pos.Core.Types (Coin, StakeholderId)
+import           Pos.Core.Common (Coin, StakeholderId, mkCoin, unsafeAddCoin)
 import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Util.Util (getKeys)
 

@@ -15,6 +15,19 @@ with pkgs.haskell.lib;
 
 let
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
+  addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
+    testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+    preCheck = ''
+      mkdir -p dist/test
+      touch dist/test/test.log
+      tail -F dist/test/test.log &
+      export TAILPID=$!
+    '';
+    postCheck = ''
+      sleep 10
+      kill $TAILPID
+    '';
+  });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
@@ -28,17 +41,6 @@ let
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
         ];
-        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
-        preCheck = ''
-          mkdir -p dist/test
-          touch dist/test/test.log
-          tail -F dist/test/test.log &
-          export TAILPID=$!
-        '';
-        postCheck = ''
-          sleep 10
-          kill $TAILPID
-        '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
         passthru = {
@@ -46,6 +48,8 @@ let
         };
       });
 
+      cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
+      cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
       cardano-sl-node = addGitRev super.cardano-sl-node;
       cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
@@ -156,8 +160,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "be52e67113332280911bcc4924d42f90e21f1144";
-      sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
+      rev = "8d70f7e632fe7c665ce0a5432515b918e88fe76c";
+      sha256 = "1ippcbki5hgsanh2xi6wzgwbpqcl6iq81wqvfz91j0rldyh7kbl8";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     inherit rawDockerImage dockerImage;

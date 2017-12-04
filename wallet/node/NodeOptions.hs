@@ -10,13 +10,14 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
+import           Universum
+
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
                                       helper, info, infoOption, long, metavar, option, progDesc,
                                       strOption, switch, value)
 import qualified Options.Applicative as Opt
-import           Universum hiding (show)
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))

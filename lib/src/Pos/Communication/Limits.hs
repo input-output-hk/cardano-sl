@@ -21,11 +21,12 @@ import           Data.Coerce (coerce)
 import           GHC.Exts (IsList (..))
 
 import           Pos.Binary.Class (AsBinary (..))
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                          MsgHeaders (..))
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                    MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
+import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
@@ -283,7 +284,8 @@ instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
 
 instance HasConfiguration => MessageLimited MsgGetHeaders
 
-instance HasNodeConfiguration => MessageLimited MsgHeaders where
+instance (HasBlockConfiguration, HasNodeConfiguration) => MessageLimited MsgHeaders
+  where
     getMsgLenLimit _ = do
         headerLimit <- getMsgLenLimit (Proxy @BlockHeader)
         return $

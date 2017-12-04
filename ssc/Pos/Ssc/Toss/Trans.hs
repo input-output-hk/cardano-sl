@@ -15,7 +15,7 @@ import           Control.Lens (at, (%=), (.=))
 import qualified Ether
 import           Mockable (ChannelT, Promise, SharedAtomicT, ThreadId)
 
-import           Pos.Core.Vss (insertVss)
+import           Pos.Core.Ssc (insertVss)
 import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTossRead (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..), tmCertificates, tmCommitments, tmOpenings,

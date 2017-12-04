@@ -60,7 +60,7 @@ import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), lo
 import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
 import           System.Wlog.Logger (logMCond)
 
-import           Pos.Core.Types (Coin)
+import           Pos.Core.Common (Coin)
 import           Pos.Crypto (PassPhrase)
 
 

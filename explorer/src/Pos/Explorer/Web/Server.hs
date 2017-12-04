@@ -19,10 +19,11 @@ module Pos.Explorer.Web.Server
        , getBlocksTotal
        , getBlocksPagesTotal
        , getBlocksPage
+       , getEpochSlot
+       , getEpochPage
 
        -- function useful for socket-io server
        , topsortTxsOrFail
-       , epochPageSearch
        , getMempoolTxs
        , getBlocksLastPage
        , getEpochPagesOrThrow
@@ -50,7 +51,7 @@ import           Pos.Communication (SendActions)
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
 import           Pos.DB.Block (getBlund)
-import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead)
+import           Pos.DB.Class (MonadDBRead)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
@@ -70,8 +71,7 @@ import           Pos.Web (serveImpl)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
-                                  getEpochBlocks, getEpochPages, getLastTransactions, getTxExtra,
-                                  getUtxoSum)
+                                  getLastTransactions, getTxExtra, getUtxoSum)
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
                                             HasGenesisRedeemAddressInfo (..))
@@ -87,6 +87,8 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), C
                                                mkCCoinMB, tiToTxEntry, toBlockEntry, toBlockSummary,
                                                toCAddress, toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
+
+
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -128,9 +130,9 @@ explorerHandlers _sendActions =
     :<|>
       getAddressSummary
     :<|>
-      epochPageSearch
+      getEpochPage
     :<|>
-      epochSlotSearch
+      getEpochSlot
     :<|>
       getGenesisSummary
     :<|>
@@ -591,12 +593,12 @@ getGenesisPagesTotal mPageSize addrFilt = do
     pageSize = fromIntegral $ toPageSize mPageSize
 
 -- | Search the blocks by epoch and slot.
-epochSlotSearch
+getEpochSlot
     :: ExplorerMode ctx m
     => EpochIndex
     -> Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = do
+getEpochSlot epochIndex slotIndex = do
 
     -- The slots start from 0 so we need to modify the calculation of the index.
     let page = fromIntegral $ (slotIndex `div` 10) + 1
@@ -631,23 +633,23 @@ epochSlotSearch epochIndex slotIndex = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadDBRead m, MonadThrow m)
+        :: (HasExplorerCSLInterface m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
     getPageHHsOrThrow epoch page =
-        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
+        getEpochBlocksCSLI epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
 -- | Search the blocks by epoch and epoch page number.
-epochPageSearch
+getEpochPage
     :: ExplorerMode ctx m
     => EpochIndex
     -> Maybe Int
     -> m (Int, [CBlockEntry])
-epochPageSearch epochIndex mPage = do
+getEpochPage epochIndex mPage = do
 
     -- Get the page if it exists, return first page otherwise.
     let page = fromMaybe 1 mPage
@@ -672,12 +674,12 @@ epochPageSearch epochIndex mPage = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadDBRead m, MonadThrow m)
+        :: (HasExplorerCSLInterface m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
     getPageHHsOrThrow epoch page' =
-        getEpochBlocks epoch page' >>= maybeThrow (Internal errMsg)
+        getEpochBlocksCSLI epoch page' >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page'
@@ -878,8 +880,8 @@ getTxMain id TxExtra {..} = case teBlockchainPlace of
 
 -- | Get @Page@ numbers from an @Epoch@ or throw an exception.
 getEpochPagesOrThrow
-    :: (MonadBlockDBRead m, MonadThrow m)
+    :: (HasExplorerCSLInterface m, MonadThrow m)
     => EpochIndex
     -> m Page
 getEpochPagesOrThrow epochIndex =
-    getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+    getEpochPagesCSLI epochIndex >>= maybeThrow (Internal "No epoch pages.")

@@ -19,6 +19,7 @@ import qualified Control.Monad.Reader as Mtl
 import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
+import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
@@ -63,27 +64,25 @@ runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
 liftToExplorerProd :: RealModeE a -> ExplorerProd a
 liftToExplorerProd = lift . lift
 
+type HasExplorerConfiguration =
+    ( HasConfiguration
+    , HasBlockConfiguration
+    , HasNodeConfiguration
+    , HasInfraConfiguration
+    , HasUpdateConfiguration
+    , HasSscConfiguration
+    , HasCompileInfo
+    )
+
 notifierPlugin
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasSscConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => NotifierSettings
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp settings
 
 explorerPlugin
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin port =
@@ -91,13 +90,7 @@ explorerPlugin port =
     (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()

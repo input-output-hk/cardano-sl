@@ -8,7 +8,7 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, stext, (%))
 
-import           Pos.Core.Types (EpochIndex)
+import           Pos.Core.Slotting (EpochIndex)
 
 data LrcError
     = LrcDataUnknown !EpochIndex !Text

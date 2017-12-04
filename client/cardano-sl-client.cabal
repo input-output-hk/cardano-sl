@@ -27,6 +27,7 @@ library
 
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
@@ -85,7 +86,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-test
+test-suite cardano-client-test
   main-is:             Test.hs
   other-modules:
                        Spec

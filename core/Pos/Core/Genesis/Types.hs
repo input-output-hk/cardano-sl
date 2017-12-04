@@ -21,7 +21,6 @@ module Pos.Core.Genesis.Types
 
        -- * GenesisData
        , GenesisData (..)
-       , genesisDataFromSpec
        ) where
 
 import           Universum
@@ -35,10 +34,11 @@ import           Formatting (bprint, build, fixed, int, (%))
 import           Serokell.Util (allDistinct, mapJson)
 
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Coin ()
-import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, ProxySKHeavy,
-                                 SharedSeed, StakeholderId, Timestamp)
-import           Pos.Core.Vss.Types (VssCertificatesMap, getVssCertificatesMap)
+import           Pos.Core.Common (Address, Coin, CoinPortion, SharedSeed, StakeholderId)
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Slotting.Types (Timestamp)
+import           Pos.Core.Ssc.Types (VssCertificatesMap, getVssCertificatesMap)
+import           Pos.Core.Update.Types (BlockVersionData)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing (RedeemPublicKey)
 
@@ -127,66 +127,48 @@ data FakeAvvmOptions = FakeAvvmOptions
 instance Buildable FakeAvvmOptions where
     build = genericF
 
--- | This data type contains various options presense of which depends
--- on whether we want genesis for mainnet or testnet.
-data GenesisInitializer
-    = TestnetInitializer {
-      tiTestBalance       :: !TestnetBalanceOptions
-    , tiFakeAvvmBalance   :: !FakeAvvmOptions
-    , tiAvvmBalanceFactor :: !CoinPortion
+-- | This data type contains various options which determine genesis
+-- stakes, balanaces, heavy delegation, etc.
+data GenesisInitializer = GenesisInitializer
+    { giTestBalance       :: !TestnetBalanceOptions
+    , giFakeAvvmBalance   :: !FakeAvvmOptions
+    , giAvvmBalanceFactor :: !CoinPortion
     -- ^ Avvm balances will be multiplied by this factor.
-    , tiUseHeavyDlg       :: !Bool
+    , giUseHeavyDlg       :: !Bool
     -- ^ Whether to use heavyweight delegation for bootstrap era
     -- stakeholders.
-    , tiSeed              :: !Integer
-      -- ^ Seed to use to generate secret data. It's used only in
-      -- testnet, shouldn't be used for anything important.
-    }
-    | MainnetInitializer {
-      miStartTime        :: !Timestamp
-    , miBootStakeholders :: !GenesisWStakeholders
-    , miVssCerts         :: !GenesisVssCertificatesMap
-    , miNonAvvmBalances  :: !GenesisNonAvvmBalances
+    , giSeed              :: !Integer
+      -- ^ Seed to use to generate secret data. There are two
+      -- ways to use it:
+      --
+      -- 1. Keep it secret and use genesis data generated from it.
+      -- 2. Just use it directly and keep it public if you want
+      -- to deploy testing cluster.
     } deriving (Show)
 
 instance (Hashable Address, Buildable Address) =>
          Buildable GenesisInitializer where
-    build =
-        \case
-            TestnetInitializer {..} ->
-                bprint
-                    ("TestnetInitializer {\n"%
-                     "  "%build%"\n"%
-                     "  "%build%"\n"%
-                     "  avvm balance factor: "%build%"\n"%
-                     "  heavyDlg: "%build%"\n"%
-                     "  seed: "%int%"\n"%
-                     "}\n"
-                    )
-
-                    tiTestBalance
-                    tiFakeAvvmBalance
-                    tiAvvmBalanceFactor
-                    tiUseHeavyDlg
-                    tiSeed
-            MainnetInitializer {..} ->
-                bprint
-                    ("MainnetInitializer {\n"%
-                     "  system start: "%build%"\n" %
-                     "  bootstrap stakeholders: "%build%"\n"%
-                     "  vss certificates: "%build%"\n"%
-                     "  non-avvm balances: "%build%"\n"%
-                     "}\n"
-                    )
-                    miStartTime
-                    miBootStakeholders
-                    miVssCerts
-                    miNonAvvmBalances
+    build GenesisInitializer {..} = bprint
+        ("GenesisInitializer {\n"%
+            "  "%build%"\n"%
+            "  "%build%"\n"%
+            "  avvm balance factor: "%build%"\n"%
+            "  heavyDlg: "%build%"\n"%
+            "  seed: "%int%"\n"%
+            "}\n"
+        )
+        giTestBalance
+        giFakeAvvmBalance
+        giAvvmBalanceFactor
+        giUseHeavyDlg
+        giSeed
 
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
-    } deriving (Show, Eq, Monoid)
+    } deriving (Show, Eq, Monoid, Container, NontrivialContainer)
+
+type instance Element GenesisAvvmBalances = Coin
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
@@ -268,20 +250,3 @@ data GenesisData = GenesisData
     , gdAvvmDistr        :: !GenesisAvvmBalances
     , gdFtsSeed          :: !SharedSeed
     } deriving (Show, Eq)
-
--- | 'GenesisData' is determined by 'GenesisSpec' whenever it has a
--- 'MainnetInitializer'.
-genesisDataFromSpec :: GenesisSpec -> Maybe GenesisData
-genesisDataFromSpec UnsafeGenesisSpec{..}
-  | MainnetInitializer{..} <- gsInitializer =
-        let gdBootStakeholders = miBootStakeholders
-            gdHeavyDelegation = gsHeavyDelegation
-            gdStartTime = miStartTime
-            gdVssCerts = miVssCerts
-            gdNonAvvmBalances = miNonAvvmBalances
-            gdBlockVersionData = gsBlockVersionData
-            gdProtocolConsts = gsProtocolConstants
-            gdAvvmDistr = gsAvvmDistr
-            gdFtsSeed = gsFtsSeed
-        in  Just GenesisData{..}
-  | otherwise = Nothing

@@ -11,9 +11,8 @@ import           Universum
 import           Data.ByteArray (convert)
 
 import           Pos.Core.Block (BlockHeader)
+import           Pos.Core.Common (HeaderHash)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types (HeaderHash)
-
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead)
 import           Pos.DB.Functions (dbGetBi)
 import           Pos.DB.GState.Common (getTipSomething)

@@ -30,6 +30,7 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeAddr
        , unsubscribeBlocksLastPage
        , unsubscribeEpochsLastPage
+       , unsubscribeFully
        , unsubscribeTxs
 
        -- * Notifications
@@ -47,6 +48,9 @@ module Pos.Explorer.Socket.Methods
        , addressSetByTxs
        , addrsTouchedByTx
        , fromCAddressOrThrow
+
+       -- needed by tests
+       , SubscriptionMode
        ) where
 
 import           Universum
@@ -75,17 +79,18 @@ import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
-import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSockets,
-                                             ccAddress, ccConnection, csAddressSubscribers,
-                                             csBlocksPageSubscribers, csClients,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             mkClientContext)
+import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState,
+                                             ExplorerSocket(..), ExplorerSockets,
+                                             _ProdSocket, ccAddress, ccConnection,
+                                             csAddressSubscribers, csBlocksPageSubscribers,
+                                             csClients, csEpochsLastPageSubscribers,
+                                             csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..),
                                                EpochIndex (..), TxInternal (..),
                                                fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Explorer.Web.Server (epochPageSearch, getBlocksLastPage,
+import           Pos.Explorer.Web.Server (getEpochPage, getBlocksLastPage,
                                           getEpochPagesOrThrow, topsortTxsOrFail)
 
 -- * Event names
@@ -149,9 +154,9 @@ data SubscriptionParam cli = SubscriptionParam
 startSession
     :: SubscriptionMode m
     => Socket -> m ()
-startSession conn = do
-    let cc = mkClientContext conn
-        id = socketId conn
+startSession socket = do
+    let cc = mkClientContext $ ProdSocket socket
+        id = socketId socket
     csClients . at id .= Just cc
     logDebug $ sformat ("New session has started (#"%shown%")") id
 
@@ -303,10 +308,10 @@ broadcast
     => event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . ix sockid . ccConnection
+        mSock <- preview $ csClients . ix sockid . ccConnection . _ProdSocket
         case mSock of
             Nothing   -> logWarning $
-                sformat ("No socket with SocketId="%shown%" registered") sockid
+                sformat ("No socket with SocketId="%shown%" registered for using in production") sockid
             Just sock -> emitTo sock event args
                 `catchAny` handler sockid
   where
@@ -340,9 +345,9 @@ notifyEpochsLastPageSubscribers
 notifyEpochsLastPageSubscribers currentEpoch = do
     recipients <- view $ csEpochsLastPageSubscribers
     -- ^ subscriber
-    lastPage <- getEpochPagesOrThrow currentEpoch
+    lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- ^ last epoch page
-    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just lastPage
+    epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
     -- ^ epochs of last page
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 

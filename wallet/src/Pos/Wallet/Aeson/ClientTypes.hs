@@ -9,9 +9,10 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), object, withArray, with
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Default (def)
 import           Data.Version (showVersion)
+import           Servant.API.ContentTypes (NoContent (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core.Types (SoftwareVersion (..))
+import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Wallet.Aeson.Options (customOptionsWithTag)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
@@ -24,7 +25,6 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
-import           Servant.API.ContentTypes (NoContent (..))
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta

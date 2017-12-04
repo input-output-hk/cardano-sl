@@ -105,4 +105,6 @@ corsMiddleware = cors (const $ Just policy)
     where
       policy = simpleCorsResourcePolicy
         { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods }
+        , corsMethods = "PUT" : simpleMethods
+        }
+

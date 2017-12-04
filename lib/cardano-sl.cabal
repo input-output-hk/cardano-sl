@@ -133,6 +133,7 @@ library
                       , base
                       , binary
                       , bytestring
+                      , cborg
                       , canonical-json
                       , cardano-crypto
                       , cardano-sl-binary

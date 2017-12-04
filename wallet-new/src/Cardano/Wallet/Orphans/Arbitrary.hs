@@ -24,3 +24,4 @@ instance Arbitrary CTxMeta
 instance Arbitrary CWalletRedeem
 instance Arbitrary CPaperVendWalletRedeem
 instance Arbitrary CInitialized
+instance Arbitrary NewBatchPayment

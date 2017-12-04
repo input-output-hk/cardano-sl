@@ -84,8 +84,6 @@ library
                       Pos.Wallet.Web.State.Util
 
                       Pos.Wallet.Web.Swagger
-                      Pos.Wallet.Web.Swagger.CustomSwagger
-                      Pos.Wallet.Web.Swagger.Description
                       Pos.Wallet.Web.Swagger.Instances.Schema
                       Pos.Wallet.Web.Swagger.Instances.Swagger
                       Pos.Wallet.Web.Swagger.Spec
@@ -222,11 +220,6 @@ executable cardano-node
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

@@ -59,25 +59,13 @@ lowerV1Monad ctx handler =
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
-    eitherMigrate :: from -> Either V1.WalletError to
+    eitherMigrate :: from -> Either Errors.WalletError to
 
 -- | "Run" the migration.
 migrate :: ( Catch.MonadThrow m, Migrate from to ) => from -> m to
 migrate from = case eitherMigrate from of
-    Left e   -> Catch.throwM (migrationError e)
+    Left e   -> Catch.throwM e
     Right to -> pure to
-
--- | A 'ServantError' representing a migration error,
--- represented here with a <https://httpstatuses.com/422 422> HTTP status code.
-migrationError :: V1.WalletError -> ServantErr
-migrationError = Errors.toError err422
-
--- | A 'WalletError' representing a failed migration.
-migrationFailed :: Text -> V1.WalletError
-migrationFailed e = V1.WalletError {
-      V1.errCode = 422
-    , V1.errMessage = e
-    }
 
 --
 -- Instances
@@ -101,7 +89,7 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
 --
 instance Migrate V0.CCoin Core.Coin where
     eitherMigrate =
-        maybe (Left $ migrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
+        maybe (Left $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
         . fmap Core.mkCoin
         . readMaybe
         . toString
@@ -110,3 +98,13 @@ instance Migrate V0.CCoin Core.Coin where
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
+
+-- | Migrates to a V1 `SyncProgress` by computing the percentage as
+-- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
+instance Migrate V0.SyncProgress V1.SyncProgress where
+    eitherMigrate V0.SyncProgress{..} =
+        let percentage = case _spNetworkCD of
+                Nothing -> (0 :: Word8)
+                Just nd | _spLocalCD >= nd -> 100
+                Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
+        in pure $ V1.mkSyncProgress (fromIntegral percentage)

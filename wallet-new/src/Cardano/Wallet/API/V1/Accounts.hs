@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeApplications #-}
 module Cardano.Wallet.API.V1.Accounts where
 
 import           Universum

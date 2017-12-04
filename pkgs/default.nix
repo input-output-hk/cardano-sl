@@ -2378,7 +2378,7 @@ self: {
           description = "Cardano SL - general utilities";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, node-sketch, optparse-applicative, purescript-bridge, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
+      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, node-sketch, optparse-applicative, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
       mkDerivation {
           pname = "cardano-sl-wallet";
           version = "1.0.3";
@@ -2450,7 +2450,6 @@ self: {
             base
             bytestring
             cardano-sl
-            cardano-sl-client
             cardano-sl-core
             cardano-sl-infra
             cardano-sl-ssc
@@ -2461,7 +2460,6 @@ self: {
             log-warper
             node-sketch
             optparse-applicative
-            purescript-bridge
             servant
             servant-multipart
             servant-server

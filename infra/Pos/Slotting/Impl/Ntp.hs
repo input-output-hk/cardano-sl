@@ -41,8 +41,7 @@ import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (unflattenSlotId)
-import           Pos.Core.Types (EpochIndex, SlotId (..), Timestamp (..))
+import           Pos.Core.Slotting (EpochIndex, SlotId (..), Timestamp (..), unflattenSlotId)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import qualified Pos.Infra.Configuration as Infra
 import qualified Pos.Slotting.Configuration as C

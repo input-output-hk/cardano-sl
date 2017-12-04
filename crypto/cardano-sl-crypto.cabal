@@ -27,6 +27,7 @@ library
                        Pos.Crypto.Signing
                        Pos.Crypto.Signing.Redeem
                        Pos.Crypto.Signing.Safe
+                       Pos.Crypto.Signing.Types.Safe
                        Pos.Crypto.Signing.Signing
 
   other-modules:
@@ -40,7 +41,6 @@ library
                        Pos.Crypto.Signing.Types
                        Pos.Crypto.Signing.Types.Tag
                        Pos.Crypto.Signing.Types.Redeem
-                       Pos.Crypto.Signing.Types.Safe
                        Pos.Crypto.Signing.Types.Signing
 
   build-depends:       QuickCheck

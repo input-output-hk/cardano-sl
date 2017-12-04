@@ -5,11 +5,13 @@ module Main where
 import           Universum hiding (bracket)
 
 import           Mockable (Production, bracket, runProduction)
+import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
+                                   withCurrentDirectory)
+
 import           Pos.Block.Types (Undo)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (HasConfiguration, headerHash)
+import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block)
-import           Pos.Core.Types (HeaderHash)
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
 import qualified Pos.DB.Block.Load as DB
@@ -17,8 +19,6 @@ import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
 import           Pos.Util.Chrono (NewestFirst (..))
-import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
-                                   withCurrentDirectory)
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)

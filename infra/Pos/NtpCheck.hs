@@ -12,19 +12,19 @@ module Pos.NtpCheck
 import           Universum hiding (bracket)
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
-
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Mockable (Bracket, CurrentTime, Delay, Fork, Mockable, Mockables, bracket,
                            currentTime)
 import           NTP.Client (NtpClientSettings (..), ntpSingleShot, pressNtpStopButton,
                              startNtpClient)
-import           Pos.Core.Timestamp (Timestamp (..), diffTimestamp)
+import           Serokell.Util (sec)
+import           System.Wlog (WithLogger)
+
+import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
 import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
-import           Serokell.Util (sec)
-import           System.Wlog (WithLogger)
 
 type NtpCheckMonad m =
     ( MonadIO m

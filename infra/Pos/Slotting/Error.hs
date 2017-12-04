@@ -4,12 +4,13 @@ module Pos.Slotting.Error
        ( SlottingError (..)
        ) where
 
+import           Universum
+
 import           Control.Exception (Exception (..))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, (%))
-import           Universum
 
-import           Pos.Core.Types (SlotId, slotIdF)
+import           Pos.Core.Slotting (SlotId, slotIdF)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 
 -- | Type aggregating run-time errors related to Slotting.

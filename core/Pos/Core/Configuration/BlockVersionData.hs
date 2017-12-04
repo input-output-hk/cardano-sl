@@ -9,7 +9,7 @@ module Pos.Core.Configuration.BlockVersionData
 
 import           Data.Reflection (Given (..), give)
 
-import           Pos.Core.Types (BlockVersionData)
+import           Pos.Core.Update.Types (BlockVersionData)
 
 type HasGenesisBlockVersionData = Given BlockVersionData
 

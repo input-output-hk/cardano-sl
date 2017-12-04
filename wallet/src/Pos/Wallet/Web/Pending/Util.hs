@@ -11,8 +11,7 @@ import           Universum
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (flatSlotId)
-import           Pos.Core.Types (FlatSlotId, SlotId)
+import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..), pstNextDelay,
                                                pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 

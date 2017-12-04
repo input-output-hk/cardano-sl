@@ -29,9 +29,9 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
                            BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
                            isRedeemAddress)
-import           Pos.Core.Coin (integerToCoin)
+import           Pos.Core.Common (integerToCoin)
+import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Configuration (HasConfiguration, memPoolLimitTx)
-import qualified Pos.Core.Fee as Fee
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
                                txInputs, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)

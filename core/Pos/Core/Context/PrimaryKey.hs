@@ -10,8 +10,7 @@ module Pos.Core.Context.PrimaryKey
 
 import           Universum
 
-import           Pos.Core.Address (addressHash)
-import           Pos.Core.Types (StakeholderId)
+import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Crypto (PublicKey, SecretKey, toPublic)
 
 -- | Access to primary key of the node.

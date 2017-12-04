@@ -37,6 +37,8 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressHeader,
+                                  ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -44,8 +46,7 @@ import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Context (ConnectedPeers (..), LastKnownHeader, LastKnownHeaderTag,
-                              ProgressHeader, ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
@@ -148,7 +149,6 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcConnectedPeers   :: !ConnectedPeers
     -- ^ Stub
-
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
     }

@@ -12,8 +12,8 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    encodeUnknownCborDataItem, enforceSize, matchSize)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Merkle ()
+import qualified Pos.Core.Common as Common
 import qualified Pos.Core.Txp as T
-import qualified Pos.Core.Types as T
 
 ----------------------------------------------------------------------------
 -- Core
@@ -37,8 +37,8 @@ instance Bi T.TxIn where
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [
-        Field [| T.txOutAddress :: T.Address |],
-        Field [| T.txOutValue   :: T.Coin    |]
+        Field [| T.txOutAddress :: Common.Address |],
+        Field [| T.txOutValue   :: Common.Coin    |]
     ]]
 
 deriveSimpleBi ''T.TxOutAux [

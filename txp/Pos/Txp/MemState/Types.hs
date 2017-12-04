@@ -16,7 +16,7 @@ import           Universum
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 
 import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Core.Types (HeaderHash)
+import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 
 -- | LocalData of transactions processing.

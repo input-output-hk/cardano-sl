@@ -22,20 +22,21 @@ import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, ve
 
 import           Pos.Binary.Class (asBinary, serialize')
 import           Pos.Binary.Core.Address ()
-import           Pos.Core.Address (Address, IsBootstrapEraAddr (..), addressHash,
-                                   deriveFirstHDAddress, makePubKeyAddressBoot)
-import           Pos.Core.Coin (applyCoinPortionDown, coinToInteger, mkCoin, sumCoins,
-                                unsafeIntegerToCoin)
+import           Pos.Binary.Core.Slotting ()
+import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), StakeholderId,
+                                  addressHash, applyCoinPortionDown, coinToInteger,
+                                  deriveFirstHDAddress, makePubKeyAddressBoot, mkCoin, sumCoins,
+                                  unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer (..),
                                          GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          TestnetBalanceOptions (..))
-import           Pos.Core.Types (Coin, ProxySKHeavy, StakeholderId)
-import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
+import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, HasCryptoConfiguration, RedeemPublicKey, SecretKey,
                              VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
                              keyGen, randomNumberInRange, redeemDeterministicKeyGen, safeKeyGen,

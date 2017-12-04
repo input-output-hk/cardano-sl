@@ -10,7 +10,7 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
-import           Pos.Core.Types (SlotId (..), Timestamp)
+import           Pos.Core.Slotting (SlotId (..), Timestamp)
 import           Pos.Slotting.MemState (MonadSlotsData)
 
 
@@ -41,4 +41,3 @@ instance {-# OVERLAPPABLE #-}
     getCurrentSlotBlocking   = lift getCurrentSlotBlocking
     currentTimeSlotting      = lift currentTimeSlotting
     getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
-

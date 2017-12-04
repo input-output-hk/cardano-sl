@@ -10,11 +10,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize)
-import           Pos.Binary.Core.Block ()
-import           Pos.Binary.Core.Blockchain ()
+import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                          MsgHeaders (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                    MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
 import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)

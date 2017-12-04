@@ -8,6 +8,8 @@ import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 
+
+import qualified Pos.Core as Core
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, listOf1, resize)
 
@@ -42,24 +44,20 @@ listAccounts PaginationParams {..} = do
       }
     _ -> return $ OneOf $ Left example
 
--- | This is an example of how POST requests might look like. The user would be
--- required to submit the whole `Account`, with all the non-Maybe fields properly
--- populated, and the backend will simply ignore things which are not for user
--- to specify. For an `Account`, obvious choices are the amount of coins.
---
+-- | This is an example of how POST requests might look like.
 -- It also shows an example of how an error might look like.
 -- NOTE: This will probably change drastically as soon as we start using our
 -- custom monad as a base of the Handler stack, so the example here is just to
 -- give the idea of how it will look like on Swagger.
 newAccount :: WalletId -> Maybe Text -> AccountUpdate -> Handler Account
 newAccount w@(WalletId wId) _ AccountUpdate{..} = do
-    when (wId /= "testwallet") $ throwError (toError err404 Errors.walletNotFound)
+    when (wId /= "testwallet") $ throwError $ Errors.toError Errors.WalletNotFound
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
     newId <- liftIO $ generate (listOf1 arbitrary)
     return $ Account {
              accId = fromString newId
-           , accAmount = 0
+           , accAmount = Core.mkCoin 0
            , accAddresses = mempty
            , accName = uaccName
            , accWalletId = w

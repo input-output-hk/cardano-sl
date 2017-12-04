@@ -78,8 +78,16 @@ fi
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 15))
+    system_start=$((`date +%s` + 20))
 fi
+
+# This enables to select different wallet executables, since we have a 
+# migration from the old to the new wallet.
+if [ -z "$WALLET_EXE_NAME" ]
+  then
+    WALLET_EXE_NAME="cardano-node"
+fi
+
 
 echo "Using system start time "$system_start
 
@@ -106,7 +114,9 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
           wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-          exec_name='cardano-node'
+          # We are using the different wallet exe here, depending on what was passed when the script was called.
+          exec_name=$WALLET_EXE_NAME
+          echo "Using wallet $exec_name."
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"
           fi

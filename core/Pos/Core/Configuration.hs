@@ -33,7 +33,7 @@ import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateG
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
                                          GenesisInitializer (..), GenesisSpec (..))
-import           Pos.Core.Types (Timestamp)
+import           Pos.Core.Slotting.Types (Timestamp)
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)

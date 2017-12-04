@@ -16,10 +16,10 @@ import           Formatting (int, sformat, (%))
 import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatFirstError,
                                 verResToMonadError, verifyGeneric)
 
-import           Pos.Binary.Core.Txp ()
+import           Pos.Binary.Core ()
 import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
                            isRedeemAddress, isUnknownAddressType, sumCoins)
-import           Pos.Core.Address (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
                                isTxInUnknown)

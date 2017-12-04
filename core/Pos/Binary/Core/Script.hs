@@ -14,8 +14,8 @@ import qualified Utils.Vars as Vars
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, genericDecode,
                                    genericEncode, serialize')
+import           Pos.Core.Common (Script (..), ScriptVersion)
 import           Pos.Core.Script ()
-import           Pos.Core.Types (Script (..), ScriptVersion)
 
 
 instance Bi Vars.FreeVar where

@@ -50,6 +50,7 @@ module Cardano.Wallet.API.V1.Types (
   , NodeInfo (..)
   -- * Core re-exports
   , Core.Address
+  , respondWith
   ) where
 
 import           Universum
@@ -67,7 +68,7 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
-import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata, PaginationParams)
+import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata (..), PaginationParams)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
@@ -154,6 +155,23 @@ instance (ToJSON a, ToJSON b) => ToJSON (OneOf a b) where
 instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
   arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
                               , fmap Right (arbitrary :: Gen b)]
+
+
+respondWith :: (MonadPlus p, Monad m) => RequestParams -> m (p a) -> m (OneOf (p a) (ExtendedResponse (p a)))
+respondWith RequestParams{..} generator = do
+  theData <- generator
+  case rpResponseFormat of
+    Extended -> return $ OneOf $ Right $
+      ExtendedResponse {
+        extData = theData
+      , extMeta = Metadata $ PaginationMetadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 3
+      }
+      }
+    _ -> return $ OneOf $ Left theData
 
 --
 -- Domain-specific types, mostly placeholders.

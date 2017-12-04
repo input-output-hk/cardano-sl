@@ -5,8 +5,8 @@ import           Universum
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
 
-import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.Request.Pagination
+import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -49,22 +49,11 @@ newWallet NewWallet{..} = do
 -- Providing here just a stub.
 listWallets :: RequestParams
             -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))
-listWallets RequestParams {..} = do
+listWallets params = do
   -- Use a static seed to simulate the pagination properly.
   -- Use `pure` to simulate a monadic action.
-  example <- pure $ (unGen (vectorOf 1000 arbitrary)) (mkQCGen 42) 42
-  case rpResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = example
-      , extMeta = Metadata $ PaginationMetadata {
-          metaTotalPages = 1
-        , metaPage = 1
-        , metaPerPage = 20
-        , metaTotalEntries = 3
-      }
-      }
-    _ -> return $ OneOf $ Left example
+  let generator = pure $ (unGen (vectorOf 1000 arbitrary)) (mkQCGen 42) 42
+  respondWith params generator
 
 updatePassword
     :: (MonadWalletLogic ctx m)

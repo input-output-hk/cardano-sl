@@ -12,11 +12,11 @@ steps:
   - wait
 
   - label: 'cardano-x86_64-linux'
-    command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
+    command: 'scripts/ci/nix-shell.sh -p stack --run scripts/ci/ci.sh'
     agents:
       system: x86_64-linux
 
   - label: 'cardano-x86_64-darwin'
-    command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
+    command: 'scripts/ci/nix-shell.sh -p stack --run scripts/ci/ci.sh'
     agents:
       system: x86_64-darwin

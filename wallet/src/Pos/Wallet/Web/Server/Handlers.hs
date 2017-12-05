@@ -73,6 +73,8 @@ servantHandlers =
 
      M.newPayment
     :<|>
+     M.newPaymentBatch
+    :<|>
      M.getTxFee
     :<|>
      M.resetAllFailedPtxs

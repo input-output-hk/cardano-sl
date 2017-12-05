@@ -2,14 +2,14 @@
 
 This manual describes how to build Cardano SL and Daedalus from the source code.
 
-## Cardano SL and Daedalus Bridge
+## Cardano SL and Daedalus
 
 Cardano SL consists of a collection of binaries that constitute
 the backend, a PureScript API for the Electron-based wallet, and the
 Electron-based wallet called “Daedalus”.
 
-The source code for both Cardano SL and Daedalus Bridge can be obtained
-from the [official repository](https://github.com/input-output-hk/cardano-sl).
+The source code of Cardano SL can be obtained from the
+[official repository](https://github.com/input-output-hk/cardano-sl).
 
 Cardano SL supports two ways for building itself:
 
@@ -70,11 +70,11 @@ NOTE: the various other Cardano components can be obtained through other attribu
 -  `cardano-sl-auxx`:
    - `cardano-auxx`
 -  `cardano-sl-explorer-static`:
-   - `cardano-explorer`, `cardano-explorer-hs2purs`, `cardano-explorer-swagger`, `cardano-explorer-mock`
--  `cardano-sl-tools`:
+   - `cardano-explorer`, `cardano-explorer-swagger`, `cardano-explorer-mock`
+-  `cardano-sl-tools-static`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
 -  `cardano-sl-wallet`:
-   - `cardano-node`, `cardano-wallet-hs2purs`, `cardano-swagger`
+   - `cardano-node`, `cardano-swagger`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a
 corresponding Nix attribute for it -- `PACKAGE`, and sometimes, in case of
@@ -99,21 +99,7 @@ After the project is built - it can take quite a long time -  the built binaries
 
 ## Daedalus Wallet
 
-Let's proceed with building the wallet. First of all, let's build Daedalus Bridge.
-
-### Building Daedalus Bridge
-
-Currently Nix expressions don't install Node.js and NPM, so those have to be installed manually.
-To do that, consult the repositories of the package manager of the according OS, or [download binaries](https://nodejs.org/en/download/). Please make sure you have Node.js version 6. You can use [nvm](https://github.com/creationix/nvm#installation)
-to install proper version.
-
-Now run the following script:
-
-    [nix-shell:~/cardano-sl]$ ./scripts/build/daedalus-bridge.sh
-
-After that `daedalus-client-api` will be registered in the local NPM package repository. This way, at any time, `daedalus-client-api` dependency can be satisfied in any project that depends on it by manually running following command:
-
-    [nix-shell:~/cardano-sl]$ npm link daedalus-client-api
+Let's proceed with building the wallet.
 
 ### Building Daedalus
 
@@ -122,10 +108,6 @@ Clone Daedalus repository and go to the root directory:
     [nix-shell:~/cardano-sl]$ cd
     [nix-shell:~]$ git clone https://github.com/input-output-hk/daedalus.git
     [nix-shell:~]$ cd daedalus
-
-Then run the following script:
-
-    [nix-shell:~/daedalus]$ ./scripts/link-bridge.sh
     [nix-shell:~/daedalus]$ npm install
 
 ### Running acceptance tests

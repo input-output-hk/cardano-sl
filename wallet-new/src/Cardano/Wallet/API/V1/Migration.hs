@@ -23,7 +23,7 @@ import           Universum
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
-import           Pos.Util.Servant (decodeCType)
+import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Monad.Catch as Catch
@@ -92,15 +92,15 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
 --
 instance Migrate V0.CCoin Core.Coin where
     eitherMigrate =
-        maybe (Left $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
-        . fmap Core.mkCoin
-        . readMaybe
-        . toString
-        . V0.getCCoin
+        first (const $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") .
+        V0.decodeCType
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)
+
+instance Migrate V1.WalletId (V0.CId V0.Wal) where
+    eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
@@ -127,9 +127,6 @@ instance Migrate V0.CAccount V1.Account where
                   <*> eitherMigrate caId
                   -- ^ accWalletId
 
-instance Migrate V1.WalletId (V0.CId V0.Wal) where
-    eitherMigrate (V1.WalletId h) = pure $ V0.CId (V0.CHash h)
-
 --
 -- Following instances are friendly borrowed from @martoon's PR https://github.com/input-output-hk/cardano-sl/pull/2008
 -- TODO (jk): Use instances of his PR when it has been merged
@@ -144,7 +141,7 @@ instance Migrate V0.AccountId (V1.WalletId, V1.AccountId) where
         (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
 
 instance Migrate V0.CAccountId V0.AccountId where
-    eitherMigrate = first Errors.MigrationFailed . decodeCType
+    eitherMigrate = first Errors.MigrationFailed . V0.decodeCType
 
 --
 -- #end of TODO (jk) ^

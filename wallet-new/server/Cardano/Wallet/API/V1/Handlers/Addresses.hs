@@ -24,6 +24,7 @@ listAddresses RequestParams {..} = do
         Extended -> return $ OneOf $ Right $
             ExtendedResponse {
                 extData = addresses
+              , extStatus = SuccessStatus
               , extMeta = Metadata $ PaginationMetadata {
                       metaTotalPages = 1
                     , metaPage = 1

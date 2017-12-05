@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Cardano.Wallet.API.Response (
     Metadata (..)
+  , ResponseStatus(..)
   , OneOf(..)
   , ExtendedResponse(..)
   , respondWith
@@ -10,6 +11,7 @@ import           Prelude
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import qualified Data.Char as Char
 import           Data.Foldable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
@@ -30,22 +32,33 @@ deriveJSON Serokell.defaultOptions ''Metadata
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> arbitrary
 
+data ResponseStatus =
+      SuccessStatus
+    | FailStatus
+    | ErrorStatus
+    deriving (Show, Eq, Ord, Enum, Bounded)
+
+deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
+
+instance Arbitrary ResponseStatus where
+    arbitrary = elements [minBound .. maxBound]
+
 -- | An `ExtendedResponse` allows the consumer of the API to ask for
 -- more than simply the result of the RESTful endpoint, but also for
 -- extra informations like pagination parameters etc.
 data ExtendedResponse a = ExtendedResponse
-  { extData :: a        -- ^ The wrapped domain object.
-  , extMeta :: Metadata -- ^ Extra metadata to be returned.
+  { extData   :: a
+  -- ^ The wrapped domain object.
+  , extStatus :: ResponseStatus
+  -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
+  , extMeta   :: Metadata
+  -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''ExtendedResponse
 
 instance Arbitrary a => Arbitrary (ExtendedResponse a) where
-  arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
-
--- | `PaginationParams` is datatype which combines request params related
--- to pagination together
-
+  arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary <*> arbitrary
 
 -- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
 -- depending from some query or header parameters. In this context, this represents an HTTP Response which can
@@ -80,14 +93,14 @@ respondWith :: (Foldable f, Monad m)
             -> (RequestParams -> m (f a))
             -> m (OneOf [a] (ExtendedResponse [a]))
 respondWith params@RequestParams{..} generator = do
-  (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
-  case rpResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = theData
-      , extMeta = Metadata paginationMetadata
-      }
-    _ -> return $ OneOf $ Left theData
+    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
+    case rpResponseFormat of
+        Extended -> return $ OneOf $ Right $ ExtendedResponse {
+              extData = theData
+            , extStatus = SuccessStatus
+            , extMeta = Metadata paginationMetadata
+            }
+        _ -> return $ OneOf $ Left theData
 
 
 paginate :: Foldable f => PaginationParams -> f a -> ([a], PaginationMetadata)

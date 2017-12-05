@@ -796,9 +796,10 @@ but an abstract base monad::
     usNormalize = ...
 
 The implementation will change too, but only a little. We won't use ``MonadIO``
-anymore, so instead of using ``atomically :: STM a -> IO a`` we will use our
-version of it, ``atomically :: MonadSTM m => STM a -> m a``. Since ``STM`` requires
-``IO`` in the end, it will be mocked only in ``TestIO``, not in ``TestPure``.
+anymore, so instead of using ``atomically :: STM a -> IO a`` we will use either a
+``Mockable``-based version of it or an mtl-style class, ``atomically :: MonadSTM
+m => STM a -> m a``. Since ``STM`` requires ``IO`` in the end, it will be mocked
+only in ``TestIO``, not in ``TestPure``.
 
 Another example is ``verifyBlocks``::
 
@@ -857,6 +858,9 @@ Having two constraints provides better visibility for where we actually need the
 ``IO`` capabilities (and can launch missilies, which isn't nice), and we can
 gradually remove these occurences from our codebase.
 
+``Mockable`` and ``MonadIO`` after transition
+_____________________________________________
+
 After the transition is complete, all ``MonadIO`` constraints will be replaced
 with abstract ones, such as ``Mockable``::
 
@@ -871,6 +875,15 @@ In case of ``MonadCatch``, we use it rather than ``Mockable Catch`` to have
 better compatibility with other libraries. In the grand scheme of things it's
 not important whether we use ``Mockable``-based machinery or mtl-style classes
 to abstract ``IO`` functionality.
+
+However, we prefer to have mtl-style classes rather than ``Mockable`` for
+reasons of simplicity. The idea behind ``Mockable`` was to provide a unified
+framework for lifting (just define ``liftMockable`` once, instead of ``N*M``),
+but we don't have lifting anymore. On the other hand, when we compare ``MonadF``
+and ``Mockable F``, the ``Mockable`` approach has additional cost of having to
+duplicate methods of ``F`` as GADT constructors and top-level methods, doubling
+the size of effect definition. The mtl-style class does not require
+understanding GADTs, nor does it need this sort of code duplication.
 
 Point-by-point rundown
 ______________________

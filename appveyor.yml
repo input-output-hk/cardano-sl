@@ -111,24 +111,35 @@ test_script:
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   # Prepare files for frontend build
-  - copy log-config-prod.yaml daedalus\
-  - copy lib\configuration.yaml daedalus\
-  - copy lib\*genesis*.json daedalus\
-  - copy cardano-launcher.exe daedalus\
-  - copy cardano-node.exe daedalus\
+  - copy log-config-prod.yaml "%WORK_DIR%\daedalus"
+  - copy lib\configuration.yaml "%WORK_DIR%\daedalus"
+  - copy lib\*genesis*.json "%WORK_DIR%\daedalus"
+  - copy cardano-launcher.exe "%WORK_DIR%\daedalus"
+  - copy cardano-node.exe "%WORK_DIR%\daedalus"
   # Build the bridge
-  - cd daedalus
+  #  - cd daedalus
+  #  - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  #  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
+  #  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
+  #  - ps: Install-Product node 7
+  #  - ..\scripts\ci\appveyor-retry call npm install
+  #  - npm run build:prod
+  #  - dir "%WORK_DIR%\daedalus\"
+  #  - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  #  - echo Stack cache content
+  #  - dir "%WORK_DIR%\%STACK_WORK%"
+  #  - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
+  # Finalize
+  - cd "%WORK_DIR%\daedalus"
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - Echo %APPVEYOR_REPO_COMMIT% > commit-id
   - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
-  - ps: Install-Product node 7
-  - ..\scripts\ci\appveyor-retry call npm install
-  - npm run build:prod
   - dir "%WORK_DIR%\daedalus\"
   - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
   - echo Stack cache content
   - dir "%WORK_DIR%\%STACK_WORK%"
   - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
+
 
 after_test:
  # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:
@@ -136,7 +147,7 @@ after_test:
  - cd "%WORK_DIR%"
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
- - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
+ # - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
 
 artifacts:
   - path: daedalus/

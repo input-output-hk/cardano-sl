@@ -857,6 +857,21 @@ Having two constraints provides better visibility for where we actually need the
 ``IO`` capabilities (and can launch missilies, which isn't nice), and we can
 gradually remove these occurences from our codebase.
 
+After the transition is complete, all ``MonadIO`` constraints will be replaced
+with abstract ones, such as ``Mockable``::
+
+    type BaseX m =
+      ( Mockable CurrentTime m
+      , Mockable Async m
+      , Mockable XXX m
+      , Mockable YYY m
+      , MonadCath m )
+
+In case of ``MonadCatch``, we use it rather than ``Mockable Catch`` to have
+better compatibility with other libraries. In the grand scheme of things it's
+not important whether we use ``Mockable``-based machinery or mtl-style classes
+to abstract ``IO`` functionality.
+
 Point-by-point rundown
 ______________________
 

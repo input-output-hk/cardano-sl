@@ -5,7 +5,7 @@
   "main": "output/Daedalus.ClientApi/index.js",
   "scripts": {
     "start": "npm run build:dev",
-    "preinstall": "which psc || which purs || npm install purescript@0.11.5",
+    "preinstall": "type -P psc || type -P purs || npm install purescript@0.11.5",
     "postinstall": "bower cache clean && bower install",
     "clean": "rimraf dist && rimraf output",
     "build:prod": "npm run clean && mkdir dist && cross-env NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.babel.js --progress && cross-env NODE_ENV=prod ./node_modules/.bin/webpack --config webpack.config.babel.js --progress --bail",

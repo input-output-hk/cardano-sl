@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -xe
 
 source scripts/set_nixpath.sh
 
@@ -50,6 +50,7 @@ done
 
 # Generate daedalus-bridge
 pushd daedalus
+  rm -rf node_modules
   nix-shell --run "npm install && npm run build:prod"
   echo $BUILDKITE_BUILD_NUMBER > build-id
   echo $BUILDKITE_COMMIT > commit-id
@@ -76,7 +77,8 @@ echo "Done"
 # For now we dont have macOS developers on explorer
 if [[ ("$OS_NAME" == "linux") ]]; then
   # Generate explorer frontend
-  EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs ./explorer/frontend/scripts/build.sh
+  export EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs
+  ./explorer/frontend/scripts/build.sh
 
   echo "Packing up explorer-frontend ..."
   tar cJf s3/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist

@@ -94,6 +94,8 @@ instance Arbitrary PaginationMetadata where
                                  <*> arbitrary
                                  <*> fmap getPositive arbitrary
 
+-- | `PaginationParams` is datatype which combines request params related
+-- to pagination together.
 data PaginationParams = PaginationParams
     { ppPage    :: Page
     , ppPerPage :: PerPage

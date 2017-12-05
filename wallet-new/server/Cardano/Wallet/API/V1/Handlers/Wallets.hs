@@ -52,11 +52,11 @@ newWallet NewWallet{..} = do
 listWallets :: RequestParams
             -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))
 listWallets params = do
-  -- Use a static seed to simulate the pagination properly.
-  -- Use `pure` to simulate a monadic action.
-  let zipped  = zip [1..] (unGen (vectorOf 100000 arbitrary) (mkQCGen 42) 42)
-  let dataSet = pure $ map (\(idx, w) -> w { walBalance = Core.mkCoin idx}) zipped
-  respondWith params (const dataSet)
+    -- Use a static seed to simulate the pagination properly.
+    -- Use `pure` to simulate a monadic action.
+    let zipped  = zip [1..] (unGen (vectorOf 100000 arbitrary) (mkQCGen 42) 42)
+    let dataSet = pure $ map (\(idx, w) -> w { walBalance = Core.mkCoin idx}) zipped
+    respondWith params (const dataSet)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

@@ -7,11 +7,11 @@ import           Universum
 
 import           Servant
 
+import           Cardano.Wallet.API.Request (RequestParams (..), ResponseFormat (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationParams (..),
                                                         PerPage (..))
 import           Cardano.Wallet.API.Types (AlternativeApiArg, DQueryParam, WithDefaultApiArg,
                                            mapRouter)
-import           Cardano.Wallet.API.V1.Types
 
 
 -- | A special parameter which combines `response_format` query argument and

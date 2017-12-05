@@ -1,6 +1,7 @@
 
 module Cardano.Wallet.API.V1.Transactions where
 
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 

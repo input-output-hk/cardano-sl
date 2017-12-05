@@ -4,7 +4,8 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 
 import           Universum
 
-import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types

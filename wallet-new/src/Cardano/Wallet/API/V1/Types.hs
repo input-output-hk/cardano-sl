@@ -7,12 +7,7 @@
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
-    ExtendedResponse (..)
-  , Metadata (..)
-  , ResponseFormat (..)
-  , RequestParams (..)
-  , OneOf (..)
-  , PasswordUpdate (..)
+    PasswordUpdate (..)
   , AccountUpdate (..)
   , Update
   , New
@@ -50,7 +45,6 @@ module Cardano.Wallet.API.V1.Types (
   , NodeInfo (..)
   -- * Core re-exports
   , Core.Address
-  , respondWith
   ) where
 
 import           Universum
@@ -58,17 +52,13 @@ import           Universum
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as C
-import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
-import qualified Data.Text.Buildable
 import           Data.Version (Version)
-import           Formatting (build, sformat)
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
-import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata (..), PaginationParams)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
 
@@ -80,98 +70,6 @@ import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core as Core
 import qualified Pos.Crypto.Signing as Core
-
---
--- Swagger & REST-related types
---
-
--- | Extra information associated with an HTTP response.
-data Metadata = Metadata
-  { metaPagination   :: PaginationMetadata
-    -- ^ Pagination-specific metadata
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Metadata
-
-instance Arbitrary Metadata where
-  arbitrary = Metadata <$> arbitrary
-
--- | An `ExtendedResponse` allows the consumer of the API to ask for
--- more than simply the result of the RESTful endpoint, but also for
--- extra informations like pagination parameters etc.
-data ExtendedResponse a = ExtendedResponse
-  { extData :: a        -- ^ The wrapped domain object.
-  , extMeta :: Metadata -- ^ Extra metadata to be returned.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''ExtendedResponse
-
-instance Arbitrary a => Arbitrary (ExtendedResponse a) where
-  arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
-
--- | A `ResponseFormat` determines which type of response we want to return.
--- For now there's only two response formats - plain and extended with pagination data.
-data ResponseFormat = Plain | Extended
-    deriving (Show, Eq, Generic, Enum, Bounded)
-
-instance Buildable ResponseFormat where
-    build Plain    = "plain"
-    build Extended = "extended"
-
-instance FromHttpApiData ResponseFormat where
-    parseQueryParam qp = parseQueryParam @Text qp >>= \case
-        "plain"    -> Right Plain
-        "extended" -> Right Extended
-        _          -> Right def -- yield the default
-
-instance ToHttpApiData ResponseFormat where
-    toQueryParam = sformat build
-
-instance Default ResponseFormat where
-    def = Plain
-
-instance Arbitrary ResponseFormat where
-    arbitrary = oneof $ map pure [minBound..maxBound]
-
--- | `PaginationParams` is datatype which combines request params related
--- to pagination together
-
-data RequestParams = RequestParams
-    { rpResponseFormat   :: ResponseFormat
-    -- ^ The user-specified 'Response' format.
-    , rpPaginationParams :: PaginationParams
-    -- ^ The pagination-related parameters
-    }
-
--- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
--- depending from some query or header parameters. In this context, this represents an HTTP Response which can
--- return the wrapped object OR the ExtendedResponse.
-newtype OneOf a b = OneOf { oneOf :: Either a b } deriving (Show, Eq, Generic)
-
-instance (ToJSON a, ToJSON b) => ToJSON (OneOf a b) where
-  toJSON (OneOf (Left x))  = toJSON x -- Simply "unwrap" the type.
-  toJSON (OneOf (Right x)) = toJSON x -- Simply "unwrap" the type.
-
-instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
-  arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
-                              , fmap Right (arbitrary :: Gen b)]
-
-
-respondWith :: (MonadPlus p, Monad m) => RequestParams -> m (p a) -> m (OneOf (p a) (ExtendedResponse (p a)))
-respondWith RequestParams{..} generator = do
-  theData <- generator
-  case rpResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = theData
-      , extMeta = Metadata $ PaginationMetadata {
-          metaTotalPages = 1
-        , metaPage = 1
-        , metaPerPage = 20
-        , metaTotalEntries = 3
-      }
-      }
-    _ -> return $ OneOf $ Left theData
 
 --
 -- Domain-specific types, mostly placeholders.

@@ -1,6 +1,7 @@
 module Cardano.Wallet.API.V1.Wallets where
 
 import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts

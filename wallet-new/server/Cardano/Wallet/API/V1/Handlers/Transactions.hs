@@ -2,6 +2,8 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 

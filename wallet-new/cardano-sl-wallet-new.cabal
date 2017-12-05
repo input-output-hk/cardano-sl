@@ -19,7 +19,9 @@ library
                        Cardano.Wallet.Orphans.Arbitrary
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
+                       Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
+                       Cardano.Wallet.API.Response
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1

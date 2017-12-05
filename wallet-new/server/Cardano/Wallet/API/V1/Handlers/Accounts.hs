@@ -44,6 +44,7 @@ listAccounts RequestParams {..} = do
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example
+      , extStatus = SuccessStatus
       , extMeta = Metadata $ PaginationMetadata {
           metaTotalPages = 1
         , metaPage = 1

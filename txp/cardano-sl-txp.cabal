@@ -89,7 +89,7 @@ library
                      , node-sketch
                      , plutus-prototype
                      , resourcet
-                     , rocksdb-haskell >= 1.0.1
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

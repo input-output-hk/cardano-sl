@@ -5680,17 +5680,16 @@ self: {
           description = "Deterministic allocation and freeing of scarce resources";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      rocksdb-haskell = callPackage ({ base, binary, bytestring, data-default, directory, filepath, mkDerivation, resourcet, rocksdb, stdenv, transformers }:
+      rocksdb-haskell = callPackage ({ base, binary, bytestring, data-default, filepath, mkDerivation, resourcet, rocksdb, stdenv, transformers }:
       mkDerivation {
           pname = "rocksdb-haskell";
-          version = "1.0.1";
-          sha256 = "b8407c933f503c2e21578a558b829288917f0f6f5ff7c32229cf5b11abed4dff";
+          version = "1.0.0";
+          sha256 = "eddbc713b2203787c2218c40989bf244b216105ac528e9738204aaca15bf5165";
           libraryHaskellDepends = [
             base
             binary
             bytestring
             data-default
-            directory
             filepath
             resourcet
             transformers

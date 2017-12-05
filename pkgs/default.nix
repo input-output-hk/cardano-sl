@@ -1541,6 +1541,7 @@ self: {
             monad-control
             mtl
             node-sketch
+            QuickCheck
             serokell-util
             stm
             text-format

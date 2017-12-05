@@ -51,6 +51,7 @@ library
                      , universum
                      , unordered-containers
                      , vector
+                     , QuickCheck
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

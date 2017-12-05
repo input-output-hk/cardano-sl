@@ -29,7 +29,6 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , SpendingPassword
   -- * Addresses
-  , Address (..)
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
@@ -312,15 +311,6 @@ instance Arbitrary Wallet where
 -- Addresses
 --------------------------------------------------------------------------------
 
-newtype Address = Address
-  { addrId :: Text -- ^ A base58 Public Key.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Address
-
-instance Arbitrary Address where
-  arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
-
 -- | Whether an address is valid or not.
 newtype AddressValidity = AddressValidity { getValid :: Bool }
   deriving (Eq, Show, Generic)
@@ -328,13 +318,13 @@ newtype AddressValidity = AddressValidity { getValid :: Bool }
 deriveJSON Serokell.defaultOptions ''AddressValidity
 
 instance Arbitrary AddressValidity where
-  arbitrary = AddressValidity <$> elements [True, False]
+  arbitrary = AddressValidity <$> arbitrary
 
 --------------------------------------------------------------------------------
 -- Accounts
 --------------------------------------------------------------------------------
 
-type AccountId = Text
+type AccountId = Word32
 
 -- | A wallet 'Account'.
 data Account = Account

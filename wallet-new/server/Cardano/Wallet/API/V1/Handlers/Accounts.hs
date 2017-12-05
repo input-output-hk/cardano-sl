@@ -71,5 +71,11 @@ newAccount wId _ AccountUpdate{..} = do
         , accWalletId = wId
         }
 
-updateAccount :: WalletId -> AccountId -> AccountUpdate -> MonadV1 Account
-updateAccount w _ u = newAccount w Nothing u
+updateAccount
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountId -> AccountUpdate -> m Account
+updateAccount wId accId accUpdate = do
+    newAccId <- migrate (wId, accId)
+    accMeta <- migrate accUpdate
+    cAccount <- V0.updateAccount newAccId accMeta
+    migrate cAccount

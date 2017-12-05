@@ -603,6 +603,20 @@ convenience.
 ReaderT over Abstract Base
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Previous two solutions are widely known and used.
+One proposed here is more exotic, but has some benefits over previous two:
+
+- Allows to have visibility which functions have full `IO` access
+
+  - Which is not the case with first approach
+  
+- Doesn't require high transition costs from current codebase yet being general
+
+  - In fact `Mockable` type classes already utilize very similar ideas
+
+Motivation
+____________________
+
 After a discussion, @georgeee and @int-index came up with a hybrid
 approach that combines many elements of other approaches to provide a
 comprehensive solution.
@@ -629,6 +643,9 @@ And here are some observations:
 
 * presumably, any effect dictionary can be separated into its closure (context)
   and top-level operations
+  
+Proposed approach
+________________________
 
 With these facts established, let us consider the approach from multiple angles:
 how effect definitions would look like, and how effect implementatinos look like.
@@ -663,6 +680,9 @@ A few things to notice:
 * we are fine with this monad being used in a negative position (in
   ``patanize``), because it is not meant to be lifted/unlifted in any
   circumstances.
+
+Usage examples
+__________________
 
 This is how we could define database-related monads this way::
 
@@ -728,6 +748,9 @@ While effect context sums are closed, we are fine with it because we don't
 need extensibility at instance definition site, while the implementations
 themselves are defined independently.
 
+Context extensibility
+____________________________________
+
 In order to address the issue of extensibility, for each ``Has``-class we can
 define two instances in a generic way::
 
@@ -754,6 +777,9 @@ Another example is passing ``SendActions``. With the new approach instead of ``S
 we might be passing ``SendContext`` (that contains the IP of the target, etc), and
 add pass it as ``withReaderT (sendContext,)``.
 
+Usage examples from codebase
+________________________________
+
 Finally, now that we know how to define effects with these approach, let's see
 how to use them. Let's take a look at a concrete example, ``usNormalize``::
 
@@ -766,7 +792,7 @@ how to use them. Let's take a look at a concrete example, ``usNormalize``::
 The type signature will change a little, so that we have an explicit ``ReaderT``,
 but an abstract base monad::
 
-    usNormalize :: (USLocalLogicMode ctx m) => ReaderT ctx m ()
+    usNormalize :: (USLocalLogicMode ctx b) => ReaderT ctx b ()
     usNormalize = ...
 
 The implementation will change too, but only a little. We won't use ``MonadIO``
@@ -799,6 +825,9 @@ new approach, the type of ``verifyBlocks`` will look like this::
     verifyBlocks
         :: forall m. TxpGlobalVerifyMode ctx m
         => Bool -> OldestFirst NE TxpBlock -> ReaderT ctx m (OldestFirst NE TxpUndo)
+
+Point-by-point rundown
+_______________________________
 
 Let us have a point-by-point rundown of the approach properties:
 

@@ -20,9 +20,7 @@ module Pos.Wallet.Web.State.Storage
        , getProfile
        , setProfile
        , getAccountIds
-       , getAccountMetas
        , getAccountMeta
-       , getWalletMetas
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
@@ -31,7 +29,6 @@ module Pos.Wallet.Web.State.Storage
        , getAccountWAddresses
        , doesWAddressExist
        , getTxMeta
-       , getUpdates
        , getNextUpdate
        , getHistoryCache
        , getCustomAddresses
@@ -44,13 +41,11 @@ module Pos.Wallet.Web.State.Storage
        , createAccount
        , createWallet
        , addWAddress
-       , addRemovedAccount
        , setAccountMeta
        , setWalletMeta
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
-       , setWalletTxHistory
        , getWalletTxHistory
        , getWalletUtxo
        , getWalletBalancesAndUtxo
@@ -65,7 +60,6 @@ module Pos.Wallet.Web.State.Storage
        , removeHistoryCache
        , removeAccount
        , removeWAddress
-       , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
        , testReset
@@ -276,17 +270,9 @@ setProfile cProfile = wsProfile .= cProfile
 getAccountIds :: Query [AccountId]
 getAccountIds = HM.keys <$> view wsAccountInfos
 
--- | Get meta infos for all existing accounts.
-getAccountMetas :: Query [CAccountMeta]
-getAccountMetas = map (view aiMeta) . toList <$> view wsAccountInfos
-
 -- | Get account meta info by given account ID.
 getAccountMeta :: AccountId -> Query (Maybe CAccountMeta)
 getAccountMeta accId = preview (wsAccountInfos . ix accId . aiMeta)
-
--- | Get meta infos for all existing accounts.
-getWalletMetas :: Query [CWalletMeta]
-getWalletMetas = toList . fmap _wiMeta . HM.filter _wiIsReady <$> view wsWalletInfos
 
 -- | Get wallet meta info considering sync status of wallet.
 getWalletMetaIncludeUnready ::
@@ -379,10 +365,6 @@ setWalletUtxo utxo = do
     wsUtxo .= utxo
     wsBalances .= utxoToAddressCoinMap utxo
 
--- | Get list of pending updates.
-getUpdates :: Query [CUpdateInfo]
-getUpdates = view wsReadyUpdates
-
 -- | Get next pending update if it exists.
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
@@ -457,17 +439,6 @@ addWAddress addrMeta@CWAddressMeta{..} = do
             let key = info ^. aiUnusedKey
             accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
 
--- | TODO: what happens here?...
--- see also 'removeWAddress'
-addRemovedAccount :: CWAddressMeta -> Update ()
-addRemovedAccount addrMeta@CWAddressMeta{..} = do
-    let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
-    whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
-        accInfo . aiUnusedKey += 1
-        accInfo . aiAddresses        . at cwamId .= Nothing
-        accInfo . aiRemovedAddresses . at cwamId ?= AddressInfo addrMeta key
-
 -- | Update account metadata.
 setAccountMeta :: AccountId -> CAccountMeta -> Update ()
 setAccountMeta accId cAccMeta = wsAccountInfos . ix accId . aiMeta .= cAccMeta
@@ -488,15 +459,6 @@ setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= pa
 -- header hash.
 setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
 setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= SyncedWith hh
-
--- | Update transaction meta data for given wallet id and transaction id.
-addWalletTxHistory :: CId Wal -> CTxId -> CTxMeta -> Update ()
-addWalletTxHistory cWalId cTxId cTxMeta =
-    wsTxHistory . at cWalId . non' _Empty . at cTxId ?= cTxMeta
-
--- | Update meta data for multiple wallet transactions at once.
-setWalletTxHistory :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
-setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTxs
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)
@@ -548,12 +510,6 @@ removeWAddress addrMeta@(addrMetaToAccount -> accId) = do
   where
     accAddresses        accId' = wsAccountInfos . ix accId' . aiAddresses
     accRemovedAddresses accId' = wsAccountInfos . ix accId' . aiRemovedAddresses
-
--- | Delete given address from wallet db completely.
-totallyRemoveWAddress :: CWAddressMeta -> Update ()
-totallyRemoveWAddress addrMeta@(addrMetaToAccount -> accId) = do
-    wsAccountInfos . ix accId . aiAddresses        . at (cwamId addrMeta) .= Nothing
-    wsAccountInfos . ix accId . aiRemovedAddresses . at (cwamId addrMeta) .= Nothing
 
 -- | Add info about new pending update to the end of update info list.
 addUpdate :: CUpdateInfo -> Update ()

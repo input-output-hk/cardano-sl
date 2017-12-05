@@ -1,7 +1,9 @@
 module Cardano.Wallet.API.V1.Wallets where
 
+import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 
 import           Servant
 
@@ -24,5 +26,5 @@ type API =
                         :> ReqBody '[JSON] (Update Wallet)
                         :> Put '[JSON] Wallet
                    -- Nest the Accounts API
-                   -- :<|> Tags '["Accounts"] :> Accounts.API
+                   :<|> Tags '["Accounts"] :> Accounts.API
                    )

@@ -22,7 +22,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Pos.Core as Core
+import qualified Pos.Core.Common as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
@@ -37,6 +37,7 @@ import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
 type MonadV1   = WalletWebMode
@@ -71,6 +72,7 @@ migrate from = case eitherMigrate from of
 --
 -- Instances
 --
+
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =
@@ -109,3 +111,55 @@ instance Migrate V0.SyncProgress V1.SyncProgress where
                 Just nd | _spLocalCD >= nd -> 100
                 Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
         in pure $ V1.mkSyncProgress (fromIntegral percentage)
+
+
+--
+instance Migrate V0.CAccount V1.Account where
+    eitherMigrate V0.CAccount{..} =
+        V1.Account <$> eitherMigrate caId
+                  -- ^ accId
+                  <*> mapM eitherMigrate caAddresses
+                  -- ^ accAddresses
+                  <*> eitherMigrate caAmount
+                  -- ^ accAmount
+                  <*> pure (V0.caName caMeta)
+                  -- ^ accName
+                  <*> eitherMigrate caId
+                  -- ^ accWalletId
+
+--
+-- Following instances are friendly borrowed from @martoon's PR https://github.com/input-output-hk/cardano-sl/pull/2008
+-- TODO (jk): Use instances of his PR when it has been merged
+
+-- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
+instance Migrate (V1.WalletId, V1.AccountId) V0.AccountId where
+    eitherMigrate (walId, accId) =
+        V0.AccountId <$> eitherMigrate walId <*> pure accId
+
+instance Migrate V0.AccountId (V1.WalletId, V1.AccountId) where
+    eitherMigrate accId =
+        (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
+
+instance Migrate V0.CAccountId V0.AccountId where
+    eitherMigrate = first Errors.MigrationFailed . V0.decodeCType
+
+--
+-- #end of TODO (jk) ^
+--
+
+instance Migrate V0.CAccountId V1.AccountId where
+    eitherMigrate cAccId = do
+        oldAccountId :: V0.AccountId <- eitherMigrate cAccId
+        (_, newAccountId) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
+        pure newAccountId
+
+instance Migrate V0.CAccountId V1.WalletId where
+    eitherMigrate cAccId = do
+        oldAccountId :: V0.AccountId <- eitherMigrate cAccId
+        (walletId, _) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
+        pure walletId
+
+instance Migrate V0.CAddress Core.Address where
+       eitherMigrate V0.CAddress {..} =
+          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+              Right $ decodeCTypeOrFail cadId

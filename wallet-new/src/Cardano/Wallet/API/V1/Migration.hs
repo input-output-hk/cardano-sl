@@ -163,3 +163,7 @@ instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =
           either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
               Right $ decodeCTypeOrFail cadId
+
+instance Migrate V1.AccountUpdate V0.CAccountMeta where
+    eitherMigrate V1.AccountUpdate{..} =
+        pure $ V0.CAccountMeta uaccName

@@ -13,6 +13,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Pos.Update.Configuration ()
 
+import qualified Pos.Core as Core
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, vectorOf)
@@ -53,8 +54,9 @@ listWallets :: RequestParams
 listWallets params = do
   -- Use a static seed to simulate the pagination properly.
   -- Use `pure` to simulate a monadic action.
-  let generator = pure $ (unGen (vectorOf 1000 arbitrary)) (mkQCGen 42) 42
-  respondWith params generator
+  let zipped  = zip [1..] (unGen (vectorOf 100000 arbitrary) (mkQCGen 42) 42)
+  let dataSet = pure $ map (\(idx, w) -> w { walBalance = Core.mkCoin idx}) zipped
+  respondWith params (const dataSet)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

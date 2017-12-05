@@ -6,15 +6,18 @@ module Cardano.Wallet.API.Response (
   , respondWith
   ) where
 
-import           Universum
+import           Prelude
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.Foldable
+import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (RequestParams (..), ResponseFormat (..))
-import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata (..))
+import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
+                                                        PaginationParams (..), PerPage (..))
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -58,18 +61,46 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
                               , fmap Right (arbitrary :: Gen b)]
 
 
-respondWith :: (MonadPlus p, Monad m) => RequestParams -> m (p a) -> m (OneOf (p a) (ExtendedResponse (p a)))
-respondWith RequestParams{..} generator = do
-  theData <- generator
+-- | Inefficient function to build a response out of a @generator@ function. When the data layer will
+-- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
+--
+-- 1. Query/Filtering operations (affects the number of total entries for pagination);
+-- 2. Pagination
+-- 3. Sorting operations
+--
+-- See only <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document> which
+-- states:
+-- "Paginating responses should be done after applying the filters in a query, because it’s possible for there
+-- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
+-- requested a number of results."
+--
+-- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
+respondWith :: (Foldable f, Monad m)
+            => RequestParams
+            -> (RequestParams -> m (f a))
+            -> m (OneOf [a] (ExtendedResponse [a]))
+respondWith params@RequestParams{..} generator = do
+  (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
   case rpResponseFormat of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = theData
-      , extMeta = Metadata $ PaginationMetadata {
-          metaTotalPages = 1
-        , metaPage = 1
-        , metaPerPage = 20
-        , metaTotalEntries = 3
-      }
+      , extMeta = Metadata paginationMetadata
       }
     _ -> return $ OneOf $ Left theData
+
+
+paginate :: Foldable f => PaginationParams -> f a -> ([a], PaginationMetadata)
+paginate PaginationParams{..} rawResultSet =
+    let totalEntries = length rawResultSet
+        perPage@(PerPage pp)   = ppPerPage
+        currentPage@(Page cp)  = ppPage
+        totalPages             = ceiling (fromIntegral totalEntries / (fromIntegral pp :: Double))
+        metadata               = PaginationMetadata {
+                                 metaTotalPages = totalPages
+                               , metaPage = currentPage
+                               , metaPerPage = perPage
+                               , metaTotalEntries = totalEntries
+                               }
+        slice                  = take pp . drop ((cp - 1) * pp) . toList
+    in (slice rawResultSet, metadata)

@@ -26,8 +26,11 @@ handlers walletId =
     :<|>  newAccount walletId
     :<|>  updateAccount walletId
 
-deleteAccount :: WalletId -> AccountId -> MonadV1 NoContent
-deleteAccount _ _ = return NoContent
+deleteAccount
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountId -> m NoContent
+deleteAccount wId accId =
+    migrate (wId, accId) >>= V0.deleteAccount
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)

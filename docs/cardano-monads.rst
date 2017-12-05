@@ -748,6 +748,10 @@ While effect context sums are closed, we are fine with it because we don't
 need extensibility at instance definition site, while the implementations
 themselves are defined independently.
 
+Another example is passing ``SendActions``. With the new approach instead of
+``SendActions`` we should be passing ``SendContext`` (that contains the IP of
+the peer, etc), and define ``MonadSend`` to implement the actual sending logic.
+
 Context extensibility
 _____________________
 
@@ -772,10 +776,6 @@ change.
 For instance, consider ``NtpMonad``. Right now we pass ``NtpSlottingVar`` manually
 there. Instead we could add a ``HasNtpSlottingVar ctx`` constraint, and when running
 the methods write ``withReaderT (ntpSlottingVar,)``.
-
-Another example is passing ``SendActions``. With the new approach instead of ``SendActions``
-we might be passing ``SendContext`` (that contains the IP of the target, etc), and
-add pass it as ``withReaderT (sendContext,)``.
 
 Usage examples from codebase
 ____________________________

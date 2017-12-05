@@ -609,7 +609,7 @@ One proposed here is more exotic, but has some benefits over previous two:
 - Allows to have visibility which functions have full `IO` access
 
   - Which is not the case with first approach
-  
+
 - Doesn't require high transition costs from current codebase yet being general
 
   - In fact `Mockable` type classes already utilize very similar ideas
@@ -643,9 +643,9 @@ And here are some observations:
 
 * presumably, any effect dictionary can be separated into its closure (context)
   and top-level operations
-  
+
 Proposed approach
-________________________
+_________________
 
 With these facts established, let us consider the approach from multiple angles:
 how effect definitions would look like, and how effect implementatinos look like.
@@ -682,7 +682,7 @@ A few things to notice:
   circumstances.
 
 Usage examples
-__________________
+______________
 
 This is how we could define database-related monads this way::
 
@@ -749,7 +749,7 @@ need extensibility at instance definition site, while the implementations
 themselves are defined independently.
 
 Context extensibility
-____________________________________
+_____________________
 
 In order to address the issue of extensibility, for each ``Has``-class we can
 define two instances in a generic way::
@@ -778,7 +778,7 @@ we might be passing ``SendContext`` (that contains the IP of the target, etc), a
 add pass it as ``withReaderT (sendContext,)``.
 
 Usage examples from codebase
-________________________________
+____________________________
 
 Finally, now that we know how to define effects with these approach, let's see
 how to use them. Let's take a look at a concrete example, ``usNormalize``::
@@ -826,8 +826,39 @@ new approach, the type of ``verifyBlocks`` will look like this::
         :: forall m. TxpGlobalVerifyMode ctx m
         => Bool -> OldestFirst NE TxpBlock -> ReaderT ctx m (OldestFirst NE TxpUndo)
 
+
+Transition Period
+_________________
+
+Rewriting the entire codebase to this new approach in one go would be an
+unsurmountable task. Fortunately, it is compatible with what we have now,
+and we can do it in chunks.
+
+* the ``Mockable`` machinery that we use can be left almost intact, but
+  the constraints will apply only to the base monad
+
+* the ``reflection`` machinery can be left completely intact (furthermore,
+  it's likely that we don't want to change it at all, as it works well)
+
+* the ``MonadIO`` constraints can be removed over time, localizing the scope
+  of their use.
+
+To elaborate on the point about ``MonadIO``, right now we have constraint
+synonyms like this::
+
+    type MonadX m = (Mockable CurrentTime m, Mockable Async m, MonadIO m)
+
+but we can change it to::
+
+    type BaseX m = (Mockable CurrentTime m, Mockable Async m)
+    type BaseXIO m = (BaseX m, MonadIO m)
+
+Having two constraints provides better visibility for where we actually need the
+``IO`` capabilities (and can launch missilies, which isn't nice), and we can
+gradually remove these occurences from our codebase.
+
 Point-by-point rundown
-_______________________________
+______________________
 
 Let us have a point-by-point rundown of the approach properties:
 

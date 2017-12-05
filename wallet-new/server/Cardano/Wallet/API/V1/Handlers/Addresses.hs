@@ -6,8 +6,7 @@ import           Universum
 
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
-import           Pos.Core (decodeTextAddress)
-import           Pos.Core.Address (maxPubKeyAddressSizeSingleKey)
+import           Pos.Core (decodeTextAddress, maxPubKeyAddressSizeSingleKey)
 
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, vectorOf)

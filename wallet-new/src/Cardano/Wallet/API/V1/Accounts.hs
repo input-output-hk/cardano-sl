@@ -18,7 +18,7 @@ type API
     :<|> "accounts" :> WalletRequestParams
                     :> Summary "Retrieves the full list of Accounts."
                     :> Get '[JSON] (OneOf [Account] (ExtendedResponse [Account]))
-    :<|> "accounts" :> Header  "Daedalus-Passphrase" Text
+    :<|> "accounts" :> Header  "Daedalus-Passphrase" PassPhrase
                     :> Summary "Creates a new Account for the given Wallet."
                     :> ReqBody '[JSON] (New Account)
                     :> Post '[JSON] Account

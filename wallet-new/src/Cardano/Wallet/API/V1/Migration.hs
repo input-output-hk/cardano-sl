@@ -22,6 +22,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Pos.Crypto as Crypto
 import qualified Pos.Core.Common as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -102,6 +103,16 @@ instance Migrate (V0.CId V0.Wal) V1.WalletId where
 instance Migrate V1.WalletId (V0.CId V0.Wal) where
     eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))
 
+instance Migrate V1.AccountUpdate V0.CAccountMeta where
+    eitherMigrate V1.AccountUpdate{..} =
+        pure $ V0.CAccountMeta uaccName
+
+instance Migrate (V1.WalletId, V1.AccountUpdate) V0.CAccountInit where
+    eitherMigrate (wId, accUpdate) = do
+        newWId <- eitherMigrate wId
+        accMeta <- eitherMigrate accUpdate
+        pure $ V0.CAccountInit accMeta newWId
+
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
 instance Migrate V0.SyncProgress V1.SyncProgress where
@@ -160,6 +171,10 @@ instance Migrate V0.CAccountId V1.WalletId where
         pure walletId
 
 instance Migrate V0.CAddress Core.Address where
-       eitherMigrate V0.CAddress {..} =
-          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
-              Right $ decodeCTypeOrFail cadId
+    eitherMigrate V0.CAddress {..} =
+        either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+            Right $ decodeCTypeOrFail cadId
+
+instance Migrate V1.PassPhrase Crypto.PassPhrase where
+    eitherMigrate =
+        first Errors.MigrationFailed . V0.decodeCType . V0.CPassPhrase

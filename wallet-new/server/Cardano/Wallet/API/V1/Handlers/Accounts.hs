@@ -5,13 +5,13 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 import           Universum
 
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
+import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
 
-
-import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Tracking as V0
+import qualified Pos.Wallet.Web.Account as V0
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -52,23 +52,19 @@ listAccounts PaginationParams {..} = do
           }
     _ -> return $ OneOf $ Left example
 
--- | This is an example of how POST requests might look like.
--- It also shows an example of how an error might look like.
--- NOTE: This will probably change drastically as soon as we start using our
--- custom monad as a base of the Handler stack, so the example here is just to
--- give the idea of how it will look like on Swagger.
-newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 Account
-newAccount wId _ AccountUpdate{..} = do
-    -- In real code we would generate things like addresses (if needed) or
-    -- any other form of Id/data.
-    newId <- liftIO $ generate arbitrary
-    return Account
-        { accId = newId
-        , accAmount = Core.mkCoin 0
-        , accAddresses = mempty
-        , accName = uaccName
-        , accWalletId = wId
-        }
+newAccount
+    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    => WalletId -> Maybe PassPhrase -> AccountUpdate -> m Account
+newAccount wId mPassPhrase accUpdate =
+    case mPassPhrase of
+        Nothing -> throwM $ Errors.toError Errors.NoPassPhrase
+        Just passPhrase -> do
+            newPassPhrase <- migrate passPhrase
+            accInit <- migrate (wId, accUpdate)
+            cAccount <- V0.newAccount V0.RandomSeed newPassPhrase accInit
+            migrate cAccount
 
-updateAccount :: WalletId -> AccountId -> AccountUpdate -> MonadV1 Account
-updateAccount w _ u = newAccount w Nothing u
+updateAccount
+   :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    => WalletId -> AccountId -> AccountUpdate -> m Account
+updateAccount w _ = newAccount w Nothing

@@ -16,6 +16,7 @@ module Cardano.Wallet.API.V1.Types (
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
+  , PassPhrase
   , PasswordUpdate (..)
   , AccountUpdate (..)
   , Update
@@ -231,6 +232,8 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
 -- Practically speaking, it's just a type synonym for a PassPhrase, which is a
 -- base16-encoded string.
 type SpendingPassword = Core.PassPhrase
+
+type PassPhrase = Text
 
 type WalletName = Text
 

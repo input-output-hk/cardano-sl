@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Wallet info modifier
-
+-- | A module which contains definition of wallet state modifier
+-- and helper functions to use it.
 module Pos.Wallet.Web.Tracking.Modifier
        ( CAccModifier (..)
        , CachedCAccModifier
@@ -37,37 +37,71 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
 
--- VoidModifier describes a difference between two states.
--- It's (set of added k, set of deleted k) essentially.
+-- | 'VoidModifier' represents a difference between two sets.
+-- It's @(<set of added k>, <set of deleted k>)@ essentially.
 type VoidModifier a = MapModifier a ()
 
+-- | 'IndexedMapModifier' represents a difference between two sets,
+-- where added elements are ordered in a specific way.
 data IndexedMapModifier a = IndexedMapModifier
     { immModifier :: MM.MapModifier a Int
     , immCounter  :: Int
     }
 
+-- | Get all insertions from 'IndexedMapModifier' in order of indices.
 sortedInsertions :: IndexedMapModifier a -> [a]
 sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
 
+-- | Get all deletions from 'IndexedMapModifier'.
 indexedDeletions :: IndexedMapModifier a -> [a]
 indexedDeletions = MM.deletions . immModifier
 
+-- This monoid instance supports this invariant:
+-- prop> sortedInsertions a ++ sortedInsertions b == sortedInsertions (a <> b)
 instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
     mempty = IndexedMapModifier mempty 0
     IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
+-- | 'CAccModifier' is a sum of all modifications which may be
+-- applied to wallet DB after a set of transactions is applied.
+-- Used for accumulating changes to wallet DB from new blocks and mempool.
+-- See "Pos.Wallet.Web.Tracking.Sync" for examples of using.
 data CAccModifier = CAccModifier
     { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
+      -- ^ Changes to set of all existing addresses in wallet.
     , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
+      -- ^ Changes to set of used addresses in wallet.
     , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
+      -- ^ Changes to set of change addresses in wallet.
     , camUtxo                 :: !UtxoModifier
+      -- ^ Changes to common 'Utxo' cache.
     , camAddedHistory         :: !(DList TxHistoryEntry)
+      -- ^ Transactions which should be added in block history
+      -- cache, oldest first.
     , camDeletedHistory       :: !(DList TxHistoryEntry)
+      -- ^ Transactions which should be removed from block history
+      -- cache, newest first. Computed only during rollback processing.
+      -- TODO: as soon as block history cache is stored as map now,
+      -- we may combine 'camAddedHistory' and 'camDeletedHistory'
+      -- using one 'MapModifier'.
     , camAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
+      -- ^ List of transactions, resubmission status of which should
+      -- be changed to 'PtxInNewestBlocks'. Computed only during
+      -- block application.
+      -- TODO: it's more semantically valid to store this data in
+      -- 'Map'.
     , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
+      -- ^ List of transactions which should be resubmitted again.
+      -- Computed only during rollback, only transactions which were
+      -- in rolled back blocks are up to resubmission.
+      -- TODO: it's more semantically valid to store this data in
+      -- 'Map'.
     }
 
+-- Note that 'camAddedHistory' fields are combined in different order
+-- than all other fields, because it's the only list which is stored
+-- in newest first order.
 instance Monoid CAccModifier where
     mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
     (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
@@ -100,7 +134,7 @@ instance Buildable CAccModifier where
 type CachedCAccModifier = CAccModifier
 
 ----------------------------------------------------------------------------
--- Funcs
+-- Utility functions
 ----------------------------------------------------------------------------
 
 -- | This function is alternative for MapModifier's @delete@.
@@ -114,7 +148,7 @@ deleteNotDeep = MM.alter alterDelF
     alterDelF MM.KeyDeleted      = MM.KeyDeleted
     alterDelF (MM.KeyInserted _) = MM.KeyNotFound
 
-
+-- | Appends new insertion to 'IndexedMapModifier'.
 insertIMM
     :: (Eq a, Hashable a)
     => a -> IndexedMapModifier a -> IndexedMapModifier a
@@ -124,6 +158,7 @@ insertIMM k IndexedMapModifier {..} =
     , immCounter  = immCounter + 1
     }
 
+-- | Add a deletion into 'IndexedMapModifier' using 'deleteNotDeep'.
 deleteIMM
     :: (Eq a, Hashable a)
     => a -> IndexedMapModifier a -> IndexedMapModifier a
@@ -133,6 +168,7 @@ deleteIMM k IndexedMapModifier {..} =
     , ..
     }
 
+-- | Batch deletion\/insertion from\/to 'IndexedMapModifier'.
 deleteAndInsertIMM
     :: (Eq a, Hashable a)
     => [a] -> [a] -> IndexedMapModifier a -> IndexedMapModifier a
@@ -142,9 +178,11 @@ deleteAndInsertIMM dels ins mapModifier =
     -- Delete CWAddressMeta coressponding to inputs of tx.
     foldl' (flip deleteIMM) mapModifier dels
 
+-- | Batch deletion\/insertion from\/to 'VoidModifier'.
 deleteAndInsertVM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
 deleteAndInsertVM dels ins mapModifier = deleteAndInsertMM dels (zip ins $ repeat ()) mapModifier
 
+-- | Batch deletion\/insertion from\/to basic 'MapModifier'.
 deleteAndInsertMM :: (Eq k, Hashable k) => [k] -> [(k, v)] -> MM.MapModifier k v -> MM.MapModifier k v
 deleteAndInsertMM dels ins mapModifier =
     -- Insert CWAddressMeta coressponding to outputs of tx (2)

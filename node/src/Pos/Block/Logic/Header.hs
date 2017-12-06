@@ -329,8 +329,9 @@ getHeadersOlderExp upto = do
 
 -- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
 -- is older (not strict) than @to@, and valid chain in between can be
--- found, headers in range @[from..to]@ will be found. If difference
--- between headers is more than @depthLimit@, error will be thrown.
+-- found, headers in range @[from..to]@ will be found. If the number
+-- of headers in the chain (which should be returned) is more than
+-- @depthLimit@, error will be thrown.
 getHeadersRange ::
        forall ssc m. (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
     => Maybe Word
@@ -365,11 +366,12 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
     let genDiff :: Int
         genDiff = fromIntegral $ newerHd ^. epochIndexL - olderHd ^. epochIndexL
     -- Number of blocks is difficulty difference + number of genesis blocks.
+    -- depthDiff + 1 is length of a list we'll return.
     let depthDiff :: Word
         depthDiff = fromIntegral $ genDiff + fromIntegral (newerD - olderD)
 
     whenJust depthLimitM $ \depthLimit ->
-        when (depthDiff > depthLimit) $
+        when (depthDiff + 1 > depthLimit) $
         throwError $
         sformat ("getHeadersRange: requested "%int%" headers, but depthLimit is "%
                  int%". Headers: "%newerOlderF)
@@ -386,6 +388,7 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
     -- Sometimes we will get an empty list, if we've just switched the
     -- branch (after first checks are performed here) and olderHd is
     -- no longer in the main chain.
+    -- CSL-1950 We should use snapshots here.
     when (null $ allExceptNewest ^. _Wrapped) $ throwError $
         "getHeadersRange: loaded 0 headers though checks passed. " <>
         "May be (very rare) concurrency problem, just retry"

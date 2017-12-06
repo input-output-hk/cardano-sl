@@ -76,7 +76,7 @@ handleGetBlocks (Proxy :: Proxy ssc) oq = listenerConv oq $ \__ourVerInfo nodeId
             mgb nodeId
         -- We fail if we're requested to give more than
         -- recoveryHeadersMessage headers at once.
-        getHeadersRange @ssc (Just $ recoveryHeadersMessage - 1) mgbFrom mgbTo >>= \case
+        getHeadersRange @ssc (Just $ recoveryHeadersMessage) mgbFrom mgbTo >>= \case
             Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%

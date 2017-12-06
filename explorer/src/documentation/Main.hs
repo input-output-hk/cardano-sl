@@ -25,9 +25,9 @@ import           Control.Lens (mapped, (?~))
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import           Data.Fixed (Fixed (..), Micro)
-import           Data.Swagger (Operation, Swagger, ToParamSchema (..), ToSchema (..),
-                               declareNamedSchema, defaultSchemaOptions, description,
-                               genericDeclareNamedSchema, host, info, name, title, version)
+import           Data.Swagger (Swagger, ToParamSchema (..), ToSchema (..), declareNamedSchema,
+                               defaultSchemaOptions, description, genericDeclareNamedSchema, host,
+                               info, name, title, version)
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (showVersion)
 import           Options.Applicative (execParser, footer, fullDesc, header, help, helper,
@@ -35,16 +35,13 @@ import           Options.Applicative (execParser, footer, fullDesc, header, help
 import qualified Options.Applicative as Opt
 import           Servant ((:>))
 import           Servant.Multipart (MultipartForm)
-import           Servant.Swagger (HasSwagger (toSwagger), subOperations)
+import           Servant.Swagger (HasSwagger (toSwagger))
 
 import qualified Paths_cardano_sl_explorer as CSLE
 import qualified Pos.Explorer.Web.Api as A
 import qualified Pos.Explorer.Web.ClientTypes as C
 import           Pos.Explorer.Web.Error (ExplorerError)
 
-
-
-import qualified Description as D
 
 main :: IO ()
 main = do
@@ -108,9 +105,6 @@ instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either Explor
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either ExplorerError a)))
 
--- | Helper type for subApi, we use it to create description.
-type Op = Traversal' Swagger Operation
-
 -- | Build Swagger-specification from 'explorerApi'.
 swaggerSpecForExplorerApi :: Swagger
 swaggerSpecForExplorerApi = toSwagger A.explorerApi
@@ -118,25 +112,3 @@ swaggerSpecForExplorerApi = toSwagger A.explorerApi
     & info . version     .~ toText (showVersion CSLE.version)
     & info . description ?~ "This is an API for Cardano SL Explorer."
     & host               ?~ "cardanoexplorer.com"
-    -- Descriptions for all endpoints.
-    & blocksPages       . description ?~ D.blocksPagesDescription
-    & blocksPagesTotal  . description ?~ D.blocksPagesTotalDescription
-    & blocksSummary     . description ?~ D.blocksSummaryDescription
-    & blocksTxs         . description ?~ D.blocksTxsDescription
-    & txsLast           . description ?~ D.txsLastDescription
-    & txsSummary        . description ?~ D.txsSummaryDescription
-    & addressSummary    . description ?~ D.addressSummaryDescription
-    & epochPages        . description ?~ D.epochPagesDescription
-    & epochSlots        . description ?~ D.epochSlotsDescription
-  where
-    -- | SubOperations for all endpoints in 'explorerApi'.
-    -- We need it to fill description sections in produced HTML-documentation.
-    blocksPages         = subOperations (Proxy @A.BlocksPages) A.explorerApi :: Op
-    blocksPagesTotal    = subOperations (Proxy @A.BlocksPagesTotal) A.explorerApi :: Op
-    blocksSummary       = subOperations (Proxy @A.BlocksSummary) A.explorerApi :: Op
-    blocksTxs           = subOperations (Proxy @A.BlocksTxs) A.explorerApi :: Op
-    txsLast             = subOperations (Proxy @A.TxsLast) A.explorerApi :: Op
-    txsSummary          = subOperations (Proxy @A.TxsSummary) A.explorerApi :: Op
-    addressSummary      = subOperations (Proxy @A.AddressSummary) A.explorerApi :: Op
-    epochPages          = subOperations (Proxy @A.EpochPages) A.explorerApi :: Op
-    epochSlots          = subOperations (Proxy @A.EpochSlots) A.explorerApi :: Op

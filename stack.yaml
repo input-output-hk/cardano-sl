@@ -111,6 +111,11 @@ packages:
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
   extra-dep: true
 
+- location:
+    git: https://github.com/serokell/servant-generic.git
+    commit: a163e6d98fc5d0cf82846721dbf0203a6a7caa25
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -152,6 +157,7 @@ extra-deps:
 - loc-0.1.3.1
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
+- servant-generic-0.1.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

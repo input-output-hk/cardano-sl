@@ -126,10 +126,11 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
 
     -- When we have continuation, we just try to get and apply it.
     handleContinues nodeId header = do
-        logDebug $ "handleContinues: " <> pretty header
+        let hHash = headerHash header
+        logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader header >>= \case
             CHContinues ->
-                void $ getProcessBlocks enqueueMsg nodeId header (headerHash header)
+                void $ getProcessBlocks enqueueMsg nodeId header hHash
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -138,7 +139,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
     -- really recovery mode (server side should send us headers as a
     -- proof) and then enter recovery mode.
     handleAlternative nodeId header = do
-        logDebug $ "handleAlternative: " <> pretty header
+        logDebug $ "handleAlternative: " <> pretty (headerHash header)
         classifyNewHeader header >>= \case
             CHInvalid _ ->
                 logError "handleAlternative: invalid header got into retrievalWorker queue"

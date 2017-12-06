@@ -1,5 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
+-- | A module which contains an interface to acidic Wallet DB.
+-- See "Pos.Wallet.Web.State.Storage" for documentation for
+-- DB methods.
 module Pos.Wallet.Web.State.State
        ( WalletState
        , WalletTip (..)
@@ -98,34 +101,56 @@ import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), CustomAdd
                                                PtxMetaUpdate (..), WalletBalances, WalletStorage,
                                                WalletTip (..))
 
--- | No read or write, just access to state handler
+-- | Type constraint which only allows access to
+-- wallet DB state handler.
 type MonadWalletDBAccess ctx m =
     ( HasLens' ctx WalletState
     , MonadReader ctx m
     )
 
--- | Wallet state reading
+-- | Type constraint which only allows reading from
+-- wallet DB.
 type MonadWalletDBRead ctx m =
     ( MonadIO m
     , MonadWalletDBAccess ctx m
     , HasConfiguration
     )
 
--- | Writting to wallet state
+-- | Dummy typeclass which allows writing to wallet DB.
+-- Why it's done this way:
+--
+--   * In practice, 'MonadWalletDBRead' allows applying
+--     update events to database
+--   * To separate type constraints for read-only and writing
+--     modes to database artificially we explicitly require different
+--     constraints for 'queryDisk' and 'updateDisk'
+--   * If 'MonadWalletDB' was simply a type alias, no type error
+--     would arise if 'updateDisk' is used in 'MonadWalletDBRead' context.
 class MonadWalletDBRead ctx m => MonadWalletDB ctx m
 
+-- | Get wallet DB state handler.
 getWalletWebState :: (MonadReader ctx m, HasLens' ctx WalletState) => m WalletState
 getWalletWebState = view (lensOf @WalletState)
 
+-- | Perform a query to wallet DB.
 queryDisk
     :: (EventState event ~ WalletStorage, QueryEvent event, MonadWalletDBRead ctx m)
     => event -> m (EventResult event)
 queryDisk e = getWalletWebState >>= flip A.query e
 
+-- | Perform an update to wallet DB.
 updateDisk
     :: (EventState event ~ WalletStorage, UpdateEvent event, MonadWalletDB ctx m)
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
+
+---------------------------------------------------------------------------------
+-- Wallet DB API
+---------------------------------------------------------------------------------
+
+-- Following methods are wrappers over acidic actions.
+-- For documentation on those methods look up their counterparts of the same name
+-- in "Pos.Wallet.Web.State.Storage".
 
 getAccountIds :: MonadWalletDBRead ctx m => m [AccountId]
 getAccountIds = queryDisk A.GetAccountIds

@@ -4,7 +4,7 @@
 
 -- | Command line options of explorer node.
 
-module NodeOptions
+module ExplorerNodeOptions
        ( ExplorerNodeArgs (..)
        , ExplorerArgs (..)
        , getExplorerNodeOptions

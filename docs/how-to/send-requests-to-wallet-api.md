@@ -45,6 +45,12 @@ Possible response:
 {"Right":{"_spLocalCD":{"getChainDifficulty":19273},"_spNetworkCD":{"getChainDifficulty":19273},"_spPeers":0}}
 ```
 
+This is an example with the certificate:
+
+```
+curl --cacert /home/user/projects/cardano-sl/scripts/tls-files/ca.crt http://localhost:8090/api/settings/sync/progress
+```
+
 Please see [online documentation for wallet API](https://cardanodocs.com/technical/wallet/api/) for complete information.
 
 ## Send requests via Postman

@@ -13,7 +13,6 @@ import           Cardano.Wallet.API.V1.Types
 
 import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.Methods.Logic as V0
-import qualified Pos.Wallet.Web.Tracking as V0
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -34,7 +33,7 @@ getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
     => WalletId -> AccountId -> m Account
 getAccount wId accId =
-    migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
+    migrate (wId, accId) >>= V0.getAccount >>= migrate
 
 listAccounts :: RequestParams
              -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))

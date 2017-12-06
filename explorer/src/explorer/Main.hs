@@ -16,7 +16,8 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
-import           NodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..), getExplorerNodeOptions)
+import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
+                                      getExplorerNodeOptions)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI

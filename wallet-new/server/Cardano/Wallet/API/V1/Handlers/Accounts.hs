@@ -37,7 +37,7 @@ getAccount wId accId =
     migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
 
 listAccounts :: RequestParams
-             -> Handler (OneOf [Account] (ExtendedResponse [Account]))
+             -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))
 listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
   case rpResponseFormat of

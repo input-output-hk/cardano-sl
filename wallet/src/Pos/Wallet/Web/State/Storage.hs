@@ -157,8 +157,9 @@ data WalletInfo = WalletInfo
       -- | Header hash until which wallet has been synced
       -- (or @NotSynced@ if wallet hasn't beed synced at all)
     , _wiSyncTip      :: !WalletTip
-      -- | Set of transactions which are pending for resubmission
-      -- (see "Pos.Wallet.Web.Pending" for resubmission functionality)
+      -- | Pending states for all created transactions (information related
+      -- to transaction resubmission).
+      -- See "Pos.Wallet.Web.Pending" for resubmission functionality.
     , _wsPendingTxs   :: !(HashMap TxId PendingTx)
       -- | Wallets that are being synced are marked as not ready, and
       -- are excluded from api endpoints. This info should not be leaked

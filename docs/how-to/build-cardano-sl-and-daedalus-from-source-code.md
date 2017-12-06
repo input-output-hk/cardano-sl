@@ -15,7 +15,7 @@ Cardano SL supports two ways for building itself:
 -   (preferred) [Nix](https://nixos.org/nix/) package manager (backed by a binary cache by IOHK continuous integration)
 -   [Stack](https://haskellstack.org) with Nix for system libraries
 
-In any case, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already has `stack` and `nix-*` programs.
+In any case, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already have `stack` and `nix-*` programs.
 
 ### Binaries
 
@@ -105,8 +105,8 @@ Let's proceed with building the wallet. First of all, let's build Daedalus.
 Clone Daedalus repository and go to the root directory:
 
     [nix-shell:~/cardano-sl]$ cd
-    [nix-shell:~/cardano-sl]$ git clone https://github.com/input-output-hk/daedalus.git
-    [nix-shell:~/cardano-sl]$ cd daedalus
+    [nix-shell:~]$ git clone https://github.com/input-output-hk/daedalus.git
+    [nix-shell:~]$ cd daedalus
 
 ### Running acceptance tests
 

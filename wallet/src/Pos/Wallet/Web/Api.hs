@@ -41,7 +41,9 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
+       , NewPaymentBatch
        , TxFee
+       , ResetFailedPtxs
        , UpdateTx
        , GetHistory
 
@@ -88,8 +90,9 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo, ScrollLimit,
-                                             ScrollOffset, SyncProgress, Wal)
+                                             CWalletMeta, CWalletRedeem, ClientInfo,
+                                             NewBatchPayment, ScrollLimit, ScrollOffset,
+                                             SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
@@ -283,6 +286,15 @@ type NewPayment =
     :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
     :> WRes Post CTx
 
+type NewPaymentBatch =
+       "txs"
+    :> "payments"
+    :> "batch"
+    :> Summary "Create a new payment transaction (can send to multiple recipients)."
+    :> DCQueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] NewBatchPayment
+    :> WRes Post CTx
+
 type TxFee =
        "txs"
     :> "fee"
@@ -297,6 +309,17 @@ type TxFee =
     :> Capture "amount" Coin
     :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
     :> WRes Post CCoin
+
+type ResetFailedPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reset"
+    :> Summary "Clear the 'do not resubmit' flag from transactions that have it."
+    :> Description
+        "For all transactions in CPtxWontApply condition, \
+        \reset them to CPtxApplying condition so that they will \
+        \be passed to resubmition"
+    :> WRes Get ()
 
 type UpdateTx =
        "txs"
@@ -500,7 +523,11 @@ type WalletApiNoPrefix = (
      -------------------------------------------------------------------------
      NewPayment
     :<|>
+     NewPaymentBatch
+    :<|>
      TxFee
+    :<|>
+     ResetFailedPtxs
     :<|>
      UpdateTx
     :<|>

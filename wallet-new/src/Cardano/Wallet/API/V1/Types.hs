@@ -312,7 +312,7 @@ instance Arbitrary Wallet where
 --------------------------------------------------------------------------------
 
 -- | Whether an address is valid or not.
-newtype AddressValidity = AddressValidity { getValid :: Bool }
+newtype AddressValidity = AddressValidity { isValid :: Bool }
   deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''AddressValidity

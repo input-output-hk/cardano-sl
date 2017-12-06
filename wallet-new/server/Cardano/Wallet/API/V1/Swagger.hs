@@ -230,7 +230,7 @@ instance ToDocs AccountUpdate where
   descriptionFor _ = updateDescr (Proxy @Account)
 
 instance ToDocs AddressValidity where
-  descriptionFor _ = "Whether an address is valid or not."
+  descriptionFor _ = "Verifies that an address is less than the maximum address size and is base58 decodable."
 
 instance ToDocs Address where
   descriptionFor _ = "An Address."

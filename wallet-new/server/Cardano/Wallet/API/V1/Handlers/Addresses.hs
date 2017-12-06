@@ -36,7 +36,7 @@ listAddresses PaginationParams {..} = do
 newAddress :: Address -> Handler Address
 newAddress a = return a
 
--- | Verifies that an address is < 78 and base58 decodable.
+-- | Verifies that an address is < max size and is base58 decodable.
 verifyAddress :: Text -> Handler AddressValidity
 verifyAddress address
   | length address > maxAddressSize =

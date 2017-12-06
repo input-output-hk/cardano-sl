@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
--- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
+-- | A module which derives acidic events from actions defined
+-- in "Pos.Wallet.Web.State.Storage".
 module Pos.Wallet.Web.State.Acidic
        (
          WalletState
@@ -83,6 +84,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 
+-- | Type alias for acidic state which contains 'WalletStorage'.
 type WalletState = ExtendedState WalletStorage
 
 query
@@ -95,17 +97,24 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
+-- | Initialize wallet DB in disk mode. Used in production.
 openState :: (MonadIO m, HasConfiguration) => Bool -> FilePath -> m WalletState
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
+-- | Initialize empty wallet DB in pure (in-memory) mode.
+-- Used primarily for testing.
 openMemState :: (MonadIO m, HasConfiguration) => m WalletState
 openMemState = openMemoryExtendedState def
 
+-- | Close wallet DB resource.
 closeState :: MonadIO m => WalletState -> m ()
 closeState = closeExtendedState
 
+-- | Compress current event log, create a new checkpoint and delete old checkpoints.
 tidyState :: MonadIO m => WalletState -> m ()
 tidyState = tidyExtendedState
+
+-- TH derivations of acidic events
 
 makeAcidic ''WalletStorage
     [

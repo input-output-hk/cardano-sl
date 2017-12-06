@@ -71,18 +71,20 @@ blkWorkers
     => Timer -> ([WorkerSpec m], OutSpecs)
 blkWorkers keepAliveTimer =
     merge $ [ blkCreatorWorker
-            , blkMetricCheckerWorker
+            , informerWorker
             , retrievalWorker keepAliveTimer
             , recoveryTriggerWorker
             ]
   where
     merge = mconcatPair . map (first pure)
 
-blkMetricCheckerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
-blkMetricCheckerWorker =
+informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+informerWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId _ ->
-        recoveryCommGuard "onNewSlot worker, blkMetricCheckerWorker" $
-             metricWorker slotId
+        recoveryCommGuard "onNewSlot worker, informerWorker" $ do
+            tipHeader <- DB.getTipHeader
+            logDebug $ sformat ("Our tip header: "%build) tipHeader
+            metricWorker slotId
 
 ----------------------------------------------------------------------------
 -- Block creation worker

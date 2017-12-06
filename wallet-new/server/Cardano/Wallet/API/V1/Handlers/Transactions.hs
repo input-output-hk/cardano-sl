@@ -2,6 +2,8 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 
@@ -16,7 +18,7 @@ handlers =   newTransaction
 newTransaction :: Payment -> Handler Transaction
 newTransaction _ = liftIO $ generate arbitrary
 
-allTransactions :: PaginationParams -> Handler (OneOf [Transaction] (ExtendedResponse [Transaction]))
+allTransactions :: RequestParams -> Handler (OneOf [Transaction] (ExtendedResponse [Transaction]))
 allTransactions _ = liftIO $ generate arbitrary
 
 estimateFees :: Payment -> Handler EstimatedFees

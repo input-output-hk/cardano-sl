@@ -66,10 +66,10 @@ library
                       , log-warper
                       , memory
                       , node-sketch
-                      , QuickCheck
                       , resourcet
                       , rocksdb-haskell
                       , serokell-util
+                      , servant-generic
                       , stm
                       , text
                       , text-format
@@ -152,7 +152,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       NodeOptions
+  other-modules:       ExplorerNodeOptions
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core
@@ -244,7 +244,6 @@ executable cardano-explorer-hs2purs
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
-  other-modules:       Description
   build-depends:       aeson
                      , base
                      , bytestring

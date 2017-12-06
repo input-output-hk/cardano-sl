@@ -4,6 +4,8 @@ module Cardano.Wallet.API.V1.Handlers.Accounts (
 
 import           Universum
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
@@ -34,22 +36,22 @@ getAccount
 getAccount wId accId =
     migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
 
---
-listAccounts :: PaginationParams
+listAccounts :: RequestParams
              -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))
-listAccounts PaginationParams {..} = do
+listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseFormat of
-    Extended -> return $ OneOf $ Right
-        ExtendedResponse {
-            extData = example
-          , extMeta = Metadata {
-                  metaTotalPages = 1
-                , metaPage = 1
-                , metaPerPage = 20
-                , metaTotalEntries = 3
-              }
-          }
+  case rpResponseFormat of
+    Extended -> return $ OneOf $ Right $
+      ExtendedResponse {
+        extData = example
+      , extStatus = SuccessStatus
+      , extMeta = Metadata $ PaginationMetadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 3
+      }
+      }
     _ -> return $ OneOf $ Left example
 
 newAccount

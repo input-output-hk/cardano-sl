@@ -344,8 +344,16 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
 
             mPtxBlkInfo = getPtxBlkInfo blkHeader
             addedPtxCandidates =
+                -- Here we only need to add wallet's /own outgoing transactions/
+                -- in 'camAddedPtxCandidates', because it's only these transactions
+                -- which may be created inside user's wallet.
+                -- Adding all transactions from block to 'camAddedPtxCandidates' doesn't
+                -- affect correctness of code, but may cause performance problems if
+                -- there's a lot of transactions in blocks.
                 if | Just ptxBlkInfo <- mPtxBlkInfo
-                     -> DL.cons (txId, ptxBlkInfo) camAddedPtxCandidates
+                     -> if not (null theeInputs)
+                        then DL.cons (txId, ptxBlkInfo) camAddedPtxCandidates
+                        else camAddedPtxCandidates
                    | otherwise
                      -> camAddedPtxCandidates
         CAccModifier
@@ -381,7 +389,12 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
 
             ownTxOutIns = map (fst . fst) theeOutputs
             deletedHistory = maybe camDeletedHistory (DL.snoc camDeletedHistory) (isTxEntryInteresting thee)
-            deletedPtxCandidates = DL.cons (txId, theeTxEntry) camDeletedPtxCandidates
+            deletedPtxCandidates =
+                -- See definition of @addedPtxCandidates@ in 'trackingApplyTxs'
+                -- for explanation.
+                if not (null theeInputs)
+                then DL.cons (txId, theeTxEntry) camDeletedPtxCandidates
+                else camDeletedPtxCandidates
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
@@ -442,9 +455,9 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-        let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
-        WS.removeFromHistoryCache wid deletedHistory
-        WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
+    let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
+    WS.removeFromHistoryCache wid deletedHistory
+    WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
 
 -- Change address is an address which money remainder is sent to.

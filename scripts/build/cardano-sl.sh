@@ -161,12 +161,11 @@ fi
 
 # prettify output of stack build
 xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
-# workaround for warning produced by servant-quickcheck
-xperl_workaround='$_ = "" if ( $. <= 11 )'
-xperl="$xperl_pretty ; $xperl_workaround"
+# more stuff can added to `xperl', e. g. "$xperl_pretty ; $xperl_workaround"
+xperl="$xperl_pretty"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
-function cleanPackage () { echo "Cleaning $1"; stack clean $1 2>&1 | perl -pe "$xperl_workaround"; };
+function cleanPackage () { echo "Cleaning $1"; stack clean $1 ; };
 if [[ $clean == true ]]; then
   for prj in $projects; do
     cleanPackage "$(pkgNameToProject $prj)"
@@ -205,8 +204,7 @@ for prj in $to_build; do
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
-  eval $sbuild 2>&1                         \
-    | perl -pe "$xperl_workaround"
+  eval $sbuild 2>&1
 
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
@@ -237,8 +235,7 @@ if [[ $test == true ]]; then
       --no-run-benchmarks                   \
       $fast                                 \
       $args                                 \
-      cardano-sl                            \
-    | perl -pe "$xperl_workaround"
+      cardano-sl
 fi
 
 if [[ $coverage == true ]]; then

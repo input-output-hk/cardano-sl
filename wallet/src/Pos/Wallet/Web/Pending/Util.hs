@@ -4,6 +4,7 @@ module Pos.Wallet.Web.Pending.Util
     ( mkPtxSubmitTiming
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure
+    , resetFailedPtx
     ) where
 
 import           Universum
@@ -12,8 +13,9 @@ import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..), pstNextDelay,
-                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
+                                               ptxPeerAck, ptxSubmitTiming)
 
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
@@ -36,3 +38,16 @@ ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
     unless wasAcked $ ptxSubmitTiming . pstNextDelay *= 8
+
+-- | If given transaction is in 'PtxWontApply' condition, sets its condition
+-- to 'PtxApplying'. This allows "stuck" transactions to be resubmitted
+-- again.
+--
+-- Has no effect for transactions in other conditions.
+resetFailedPtx :: HasConfiguration => SlotId -> PendingTx -> PendingTx
+resetFailedPtx curSlot ptx@PendingTx{..}
+    | PtxWontApply _ poolInfo <- _ptxCond =
+          ptx { _ptxCond = PtxApplying poolInfo
+              , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
+              }
+    | otherwise = ptx

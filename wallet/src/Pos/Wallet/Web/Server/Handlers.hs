@@ -77,6 +77,8 @@ servantHandlers =
     :<|>
      M.getTxFee
     :<|>
+     M.resetAllFailedPtxs
+    :<|>
      M.updateTransaction
     :<|>
      M.getHistoryLimited

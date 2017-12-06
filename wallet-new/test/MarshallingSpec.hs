@@ -2,7 +2,6 @@ module MarshallingSpec where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors (WalletError)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()

@@ -66,30 +66,132 @@
                 }
             }
         },
-        "Wallet": {
+        "WalletResponse NodeInfo": {
             "example": {
-                "balance": 361333354208714,
-                "name": "My wallet",
-                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                "status": "error",
+                "data": {
+                    "blockchainHeight": null,
+                    "localTimeDifference": {
+                        "quantity": 1.2988764939106870466e19,
+                        "unit": "microseconds"
+                    },
+                    "syncProgress": {
+                        "quantity": 77,
+                        "unit": "percent"
+                    },
+                    "localBlockchainHeight": {
+                        "quantity": 1.2513853667654321111e19,
+                        "unit": "blocks"
+                    }
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
             },
             "required": [
-                "balance",
-                "name",
-                "id"
+                "status",
+                "data",
+                "meta"
             ],
             "type": "object",
-            "description": "A Wallet.",
             "properties": {
-                "balance": {
-                    "type": "number",
-                    "readOnly": true
-                },
-                "name": {
+                "status": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "string",
-                    "readOnly": true
+                "data": {
+                    "required": [
+                        "blockchainHeight",
+                        "localTimeDifference",
+                        "syncProgress",
+                        "localBlockchainHeight"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "blockchainHeight": {
+                            "type": "null"
+                        },
+                        "localTimeDifference": {
+                            "required": [
+                                "quantity",
+                                "unit"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "quantity": {
+                                    "type": "number"
+                                },
+                                "unit": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "syncProgress": {
+                            "required": [
+                                "quantity",
+                                "unit"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "quantity": {
+                                    "type": "number"
+                                },
+                                "unit": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "localBlockchainHeight": {
+                            "required": [
+                                "quantity",
+                                "unit"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "quantity": {
+                                    "type": "number"
+                                },
+                                "unit": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -197,61 +299,96 @@
         "CTxId": {
             "type": "string"
         },
-        "NodeSettings": {
+        "WalletResponse Account": {
             "example": {
-                "projectVersion": "2",
-                "gitRevision": "0e1c9322a",
-                "slotDuration": {
-                    "quantity": 77,
-                    "unit": "milliseconds"
+                "status": "error",
+                "data": {
+                    "amount": 7328081618979461,
+                    "addresses": [
+                        "NBimUZYpm3G6AbNtqWY4PEvRQCLjErwu3hj1DfmZSgUJXtrnyYHCcFGDnT1rr7mPWmx",
+                        "Ae2tdPwUPEZJfGVFz1ugT1kJs2mbWp9692jB8BTzt7ZJRoHjrUQ2rEuBmLP"
+                    ],
+                    "name": "My account",
+                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                    "id": 1
                 },
-                "softwareInfo": {
-                    "version": 0,
-                    "applicationName": "1"
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
                 }
             },
             "required": [
-                "projectVersion",
-                "gitRevision",
-                "slotDuration",
-                "softwareInfo"
+                "status",
+                "data",
+                "meta"
             ],
             "type": "object",
-            "description": "A collection of static settings for this wallet node.",
             "properties": {
-                "projectVersion": {
+                "status": {
                     "type": "string"
                 },
-                "gitRevision": {
-                    "type": "string"
-                },
-                "slotDuration": {
+                "data": {
                     "required": [
-                        "quantity",
-                        "unit"
+                        "amount",
+                        "addresses",
+                        "name",
+                        "walletId",
+                        "id"
                     ],
                     "type": "object",
                     "properties": {
-                        "quantity": {
+                        "amount": {
                             "type": "number"
                         },
-                        "unit": {
+                        "addresses": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "name": {
                             "type": "string"
+                        },
+                        "walletId": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "number"
                         }
                     }
                 },
-                "softwareInfo": {
+                "meta": {
                     "required": [
-                        "version",
-                        "applicationName"
+                        "pagination"
                     ],
                     "type": "object",
                     "properties": {
-                        "version": {
-                            "type": "number"
-                        },
-                        "applicationName": {
-                            "type": "string"
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
                         }
                     }
                 }
@@ -383,6 +520,85 @@
                 "CWAStrict",
                 "CWANormal"
             ]
+        },
+        "WalletResponse Wallet": {
+            "example": {
+                "status": "error",
+                "data": {
+                    "balance": 11091176260625603,
+                    "name": "My wallet",
+                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "required": [
+                        "balance",
+                        "name",
+                        "id"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "balance": {
+                            "type": "number"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
         "BackupPhrase": {
             "required": [
@@ -682,49 +898,117 @@
                 }
             }
         },
-        "Account": {
+        "WalletResponse NodeSettings": {
             "example": {
-                "amount": 11091176260625603,
-                "addresses": [
-                    "5oP9ib6ym3XgTkDzFDiWqWnKwN77ePabfEjJEr5gEvEcYWeKvQvkc5pkH6GScDSHRQ",
-                    "5FCjkr138i9vt3aSHyNQbtDjaswc9h12oB8VQnZ5BKm8ykGseTQMDojVXwXXno9XthmNTWeV9fqw1t57x2XNAAVFMig7k7TQ53LGgSziyAr",
-                    "Un4ZpTvXtoKkKvBaZQ5FvvEd1eF7P6fKbVi2ofeVZ82FJ7pVS5H6PXhFw1FiDNkj7JTYg9iMd7eeHFhW57jPyBEZXCLJUUVUvYFJ54cGnhFgkXEW"
-                ],
-                "name": "My account",
-                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "id": 1
+                "status": "error",
+                "data": {
+                    "projectVersion": "1.1",
+                    "gitRevision": "0e1c9322a",
+                    "slotDuration": {
+                        "quantity": 77,
+                        "unit": "milliseconds"
+                    },
+                    "softwareInfo": {
+                        "version": 2,
+                        "applicationName": ""
+                    }
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
             },
             "required": [
-                "amount",
-                "addresses",
-                "name",
-                "walletId",
-                "id"
+                "status",
+                "data",
+                "meta"
             ],
             "type": "object",
-            "description": "An Account.",
             "properties": {
-                "amount": {
-                    "type": "number",
-                    "readOnly": true
-                },
-                "addresses": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "readOnly": true
-                },
-                "name": {
+                "status": {
                     "type": "string"
                 },
-                "walletId": {
-                    "type": "string",
-                    "readOnly": true
+                "data": {
+                    "required": [
+                        "projectVersion",
+                        "gitRevision",
+                        "slotDuration",
+                        "softwareInfo"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "projectVersion": {
+                            "type": "string"
+                        },
+                        "gitRevision": {
+                            "type": "string"
+                        },
+                        "slotDuration": {
+                            "required": [
+                                "quantity",
+                                "unit"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "quantity": {
+                                    "type": "number"
+                                },
+                                "unit": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "softwareInfo": {
+                            "required": [
+                                "version",
+                                "applicationName"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "version": {
+                                    "type": "number"
+                                },
+                                "applicationName": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 },
-                "id": {
-                    "type": "number",
-                    "readOnly": true
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -823,99 +1107,6 @@
                 },
                 "cwId": {
                     "$ref": "#/definitions/CId"
-                }
-            }
-        },
-        "Transaction": {
-            "example": {
-                "amount": 7328081618979461,
-                "inputs": [
-                    {
-                        "amount": 5984331314169693,
-                        "address": "FHnt4NL7yPY8YQvzxKhvgJ8RGDySur5gf34RRH5vo7hJkuJxGVCejsUL2X9MAP9"
-                    },
-                    {
-                        "amount": 22018044474388589,
-                        "address": "NBimUZYpm3Fz5BH5TqVHsYV3SHjoGJYc3Zmh5yJ1yjRg4vWXa2ax3P4ToLjPhieZSM5"
-                    }
-                ],
-                "direction": "outgoing",
-                "outputs": [
-                    {
-                        "amount": 27889372662178400,
-                        "address": "7J1MaQmKydNdKZ8ASMptqTpSiq6k8QwjD5w8hsnMF6iGQSFLZNbjgVjDhKtAa2vWYNCXvRixXTeuxKAfSHUBcjoieTUHcDaFPMgUtnhVnwk2rbz"
-                    },
-                    {
-                        "amount": 33829516096667581,
-                        "address": "2cWKMJemoBamMBMBYJWe5aQR3xitBLbjVbt4yxQUWUWC8KGGHvYF8BfUQwmAs5je5fSii"
-                    }
-                ],
-                "confirmations": 4,
-                "id": "\u0018À",
-                "type": "local"
-            },
-            "required": [
-                "amount",
-                "inputs",
-                "direction",
-                "outputs",
-                "confirmations",
-                "id",
-                "type"
-            ],
-            "type": "object",
-            "description": "A Wallet Transaction.",
-            "properties": {
-                "amount": {
-                    "type": "number"
-                },
-                "inputs": {
-                    "items": {
-                        "required": [
-                            "amount",
-                            "address"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "amount": {
-                                "type": "number"
-                            },
-                            "address": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "type": "array"
-                },
-                "direction": {
-                    "type": "string"
-                },
-                "outputs": {
-                    "items": {
-                        "required": [
-                            "amount",
-                            "address"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "amount": {
-                                "type": "number"
-                            },
-                            "address": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "type": "array"
-                },
-                "confirmations": {
-                    "type": "number"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
                 }
             }
         },
@@ -1030,21 +1221,6 @@
                 }
             }
         },
-        "EstimatedFees": {
-            "example": {
-                "estimatedAmount": 25132995790248024
-            },
-            "required": [
-                "estimatedAmount"
-            ],
-            "type": "object",
-            "description": "Estimated fees for a `Payment`.",
-            "properties": {
-                "estimatedAmount": {
-                    "type": "number"
-                }
-            }
-        },
         "CInitialized": {
             "required": [
                 "cTotalTime",
@@ -1077,6 +1253,65 @@
                 }
             }
         },
+        "WalletResponse Address": {
+            "example": {
+                "status": "error",
+                "data": "NBimUZYpm3G7XADsiwr8dMagbHWtPtgJfvpiLPJHNBc29yqXPre8kFmfeBfFH18gYiG",
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "Version": {
             "required": [
                 "versionBranch",
@@ -1097,6 +1332,80 @@
                         "type": "integer"
                     },
                     "type": "array"
+                }
+            }
+        },
+        "WalletResponse WalletUpdate": {
+            "example": {
+                "status": "error",
+                "data": {
+                    "assuranceLevel": "normal",
+                    "name": "My Wallet"
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "required": [
+                        "assuranceLevel",
+                        "name"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "assuranceLevel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1220,6 +1529,153 @@
                 }
             }
         },
+        "WalletResponse Transaction": {
+            "example": {
+                "status": "error",
+                "data": {
+                    "amount": 28311699119270855,
+                    "inputs": [
+                        {
+                            "amount": 13019322832706804,
+                            "address": "AL91N9VXRTCwikvJJVEQeGTH4wwxtSY8d7m26bFyWD7PmfqUpdYgCV1jigD5ivbzh88BR8FFvdpkU8P3uuispBsdZNXCurGREicGjMW74F7GitSX4oc"
+                        }
+                    ],
+                    "direction": "outgoing",
+                    "outputs": [
+                        {
+                            "amount": 14984536053034711,
+                            "address": "2657WMsDfac6JxtEAjpN9KnwE9kfc6jUzhYXRyY3FFPwEyM5nNjPUBHDbFUwndGNx"
+                        },
+                        {
+                            "amount": 13290197696443539,
+                            "address": "2657WMsDfac6VJfxAHRezMNbBhvYzrDVf5F2W7s7LGAgtp6m9B5Df8EQkwktLsEee"
+                        },
+                        {
+                            "amount": 21095182977599617,
+                            "address": "Un4ZpTvXtoL29niUxfBPFJN3eR135cu799S3t8Pq1Vv48GwBuSEzUPHLDz6SwpewGafkin1iF6itRkKBK4VUiEDZeEH5EKBPg9agUUr9NNKKTsRm"
+                        }
+                    ],
+                    "confirmations": 4,
+                    "id": "C/",
+                    "type": "foreign"
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "required": [
+                        "amount",
+                        "inputs",
+                        "direction",
+                        "outputs",
+                        "confirmations",
+                        "id",
+                        "type"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number"
+                        },
+                        "inputs": {
+                            "items": {
+                                "required": [
+                                    "amount",
+                                    "address"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "amount": {
+                                        "type": "number"
+                                    },
+                                    "address": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "type": "array"
+                        },
+                        "direction": {
+                            "type": "string"
+                        },
+                        "outputs": {
+                            "items": {
+                                "required": [
+                                    "amount",
+                                    "address"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "amount": {
+                                        "type": "number"
+                                    },
+                                    "address": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "type": "array"
+                        },
+                        "confirmations": {
+                            "type": "number"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "CCoin": {
             "required": [
                 "getCCoin"
@@ -1274,6 +1730,75 @@
                 },
                 "spendingPassword": {
                     "type": "null"
+                }
+            }
+        },
+        "WalletResponse EstimatedFees": {
+            "example": {
+                "status": "error",
+                "data": {
+                    "estimatedAmount": 25132995790248024
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "required": [
+                        "estimatedAmount"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "estimatedAmount": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1419,96 +1944,6 @@
         },
         "CId": {
             "type": "string"
-        },
-        "NodeInfo": {
-            "example": {
-                "blockchainHeight": {
-                    "quantity": 1686551422064315977,
-                    "unit": "blocks"
-                },
-                "localTimeDifference": {
-                    "quantity": 1.7174679558469000649e19,
-                    "unit": "microseconds"
-                },
-                "syncProgress": {
-                    "quantity": 77,
-                    "unit": "percent"
-                },
-                "localBlockchainHeight": {
-                    "quantity": 1.4664872184249792035e19,
-                    "unit": "blocks"
-                }
-            },
-            "required": [
-                "blockchainHeight",
-                "localTimeDifference",
-                "syncProgress",
-                "localBlockchainHeight"
-            ],
-            "type": "object",
-            "description": "A collection of dynamic information for this wallet node.",
-            "properties": {
-                "blockchainHeight": {
-                    "required": [
-                        "quantity",
-                        "unit"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "quantity": {
-                            "type": "number"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "localTimeDifference": {
-                    "required": [
-                        "quantity",
-                        "unit"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "quantity": {
-                            "type": "number"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "syncProgress": {
-                    "required": [
-                        "quantity",
-                        "unit"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "quantity": {
-                            "type": "number"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "localBlockchainHeight": {
-                    "required": [
-                        "quantity",
-                        "unit"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "quantity": {
-                            "type": "number"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "paths": {
@@ -1826,7 +2261,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/WalletResponse Wallet"
                         },
                         "description": ""
                     }
@@ -1887,7 +2322,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/WalletResponse Wallet"
                         },
                         "description": ""
                     }
@@ -2050,7 +2485,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Account"
+                            "$ref": "#/definitions/WalletResponse Account"
                         },
                         "description": ""
                     }
@@ -2142,7 +2577,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletUpdate"
+                            "$ref": "#/definitions/WalletResponse WalletUpdate"
                         },
                         "description": ""
                     }
@@ -2460,7 +2895,7 @@
                     },
                     "201": {
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/WalletResponse Wallet"
                         },
                         "description": ""
                     }
@@ -2598,7 +3033,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/WalletResponse Wallet"
                         },
                         "description": ""
                     }
@@ -2637,7 +3072,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Account"
+                            "$ref": "#/definitions/WalletResponse Account"
                         },
                         "description": ""
                     }
@@ -2716,7 +3151,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Account"
+                            "$ref": "#/definitions/WalletResponse Account"
                         },
                         "description": ""
                     }
@@ -2807,7 +3242,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Transaction"
+                            "$ref": "#/definitions/WalletResponse Transaction"
                         },
                         "description": ""
                     }
@@ -2933,7 +3368,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletUpdate"
+                            "$ref": "#/definitions/WalletResponse WalletUpdate"
                         },
                         "description": ""
                     }
@@ -3045,7 +3480,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/EstimatedFees"
+                            "$ref": "#/definitions/WalletResponse EstimatedFees"
                         },
                         "description": ""
                     }
@@ -3107,7 +3542,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/NodeSettings"
+                            "$ref": "#/definitions/WalletResponse NodeSettings"
                         },
                         "description": ""
                     }
@@ -3133,7 +3568,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/Address"
+                            "$ref": "#/definitions/WalletResponse Address"
                         },
                         "description": ""
                     }
@@ -3283,7 +3718,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/NodeInfo"
+                            "$ref": "#/definitions/WalletResponse NodeInfo"
                         },
                         "description": ""
                     }

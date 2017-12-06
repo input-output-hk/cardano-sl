@@ -3,7 +3,10 @@ module Cardano.Wallet.API.Response (
     Metadata (..)
   , ResponseStatus(..)
   , WalletResponse(..)
+  -- * Generating responses for collections
   , respondWith
+  -- * Generating responses for single resources
+  , single
   ) where
 
 import           Prelude
@@ -66,7 +69,7 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- 2. Pagination
 -- 3. Sorting operations
 --
--- See only <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document> which
+-- See also <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document>, which
 -- states:
 -- "Paginating responses should be done after applying the filters in a query, because it’s possible for there
 -- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
@@ -102,3 +105,12 @@ paginate PaginationParams{..} rawResultSet =
                                }
         slice                  = take pp . drop ((cp - 1) * pp) . toList
     in (slice rawResultSet, metadata)
+
+
+-- | Creates a 'WalletResponse' with just a single record into it.
+single :: a -> WalletResponse a
+single theData = WalletResponse {
+      resData = theData
+    , resStatus = SuccessStatus
+    , resMeta = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
+    }

@@ -34,9 +34,9 @@ deleteAccount wId accId =
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountId -> m Account
+    => WalletId -> AccountId -> m (WalletResponse Account)
 getAccount wId accId =
-    migrate (wId, accId) >>= V0.getAccount >>= migrate
+    single <$> (migrate (wId, accId) >>= V0.getAccount >>= migrate)
 
 listAccounts :: RequestParams
              -> MonadV1 (WalletResponse [Account])
@@ -58,12 +58,12 @@ listAccounts RequestParams {..} = do
 -- NOTE: This will probably change drastically as soon as we start using our
 -- custom monad as a base of the Handler stack, so the example here is just to
 -- give the idea of how it will look like on Swagger.
-newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 Account
+newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 (WalletResponse Account)
 newAccount wId _ AccountUpdate{..} = do
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
     newId <- liftIO $ generate arbitrary
-    return Account
+    return $ single Account
         { accId = newId
         , accAmount = Core.mkCoin 0
         , accAddresses = mempty
@@ -73,9 +73,9 @@ newAccount wId _ AccountUpdate{..} = do
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> AccountUpdate -> m Account
+    => WalletId -> AccountId -> AccountUpdate -> m (WalletResponse Account)
 updateAccount wId accId accUpdate = do
     newAccId <- migrate (wId, accId)
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
-    migrate cAccount
+    single <$> (migrate cAccount)

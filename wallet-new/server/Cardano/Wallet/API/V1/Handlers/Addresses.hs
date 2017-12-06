@@ -31,5 +31,5 @@ listAddresses RequestParams {..} = do
                       }
             }
 
-newAddress :: Address -> Handler Address
-newAddress a = return a
+newAddress :: Address -> Handler (WalletResponse Address)
+newAddress a = return $ single a

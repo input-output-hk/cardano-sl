@@ -15,11 +15,11 @@ handlers =   newTransaction
         :<|> allTransactions
         :<|> estimateFees
 
-newTransaction :: Payment -> Handler Transaction
-newTransaction _ = liftIO $ generate arbitrary
+newTransaction :: Payment -> Handler (WalletResponse Transaction)
+newTransaction _ = single <$> (liftIO $ generate arbitrary)
 
 allTransactions :: RequestParams -> Handler (WalletResponse [Transaction])
-allTransactions _ = liftIO $ generate arbitrary
+allTransactions _ = single <$> (liftIO $ generate arbitrary)
 
-estimateFees :: Payment -> Handler EstimatedFees
-estimateFees _ = liftIO $ generate arbitrary
+estimateFees :: Payment -> Handler (WalletResponse EstimatedFees)
+estimateFees _ = single <$> (liftIO $ generate arbitrary)

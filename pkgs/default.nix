@@ -6493,8 +6493,8 @@ self: {
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "serokell-util";
-          version = "0.5.1";
-          sha256 = "6389cdc042489fd1a535386c802c6bec2afef8a3fe6d4c4419d18bdf2d8428ea";
+          version = "0.5.2";
+          sha256 = "7945a013f5e979608be6eb2af84595e1eef865e6af76d5642b89a7edcb11dd72";
           libraryHaskellDepends = [
             acid-state
             aeson

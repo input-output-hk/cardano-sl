@@ -173,7 +173,15 @@ deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
   arbitrary = Account <$> arbitrary
-                      <*> arbitrary
+                      <*> listOf1 arbitrary
+                      -- ^ FIXME(adinapoli): It's crucial we revert this
+                      -- instance to be simply 'arbitrary' as an 'Account'
+                      -- can easily have 0 or more addresses. However, we
+                      -- need to implement CSL-2034 first, otherwise the
+                      -- generated Swagger specs won't be valid, because they
+                      -- will contain a duplicate entry in the 'items' directive
+                      -- for a 'WalletResponse [Account]', which I'm not sure if
+                      -- it's a bug in @servant-swagger@ or in our code.
                       <*> arbitrary
                       <*> pure "My account"
                       <*> arbitrary

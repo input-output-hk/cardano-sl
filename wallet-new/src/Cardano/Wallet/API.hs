@@ -26,7 +26,7 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- * 'Cardano.Wallet.API.V1.Handlers' contains all the @Handler@s serving the V1 API;
 --
 type WalletAPI
-    =    "api" :> Tags '["V0"]
+    =    "api" :> Tags '["V0 (Deprecated)"]
                :> V0.API
     :<|> "api" :> "v1"
                :> Tags '["V1"]

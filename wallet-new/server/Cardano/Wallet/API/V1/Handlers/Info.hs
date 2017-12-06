@@ -2,6 +2,7 @@ module Cardano.Wallet.API.V1.Handlers.Info where
 
 import           Universum
 
+import           Cardano.Wallet.API.Response (WalletResponse, single)
 import qualified Cardano.Wallet.API.V1.Info as Info
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
@@ -30,12 +31,12 @@ getInfo :: ( HasConfigurations
            , MonadMockable m
            , MonadBlockchainInfo m
            )
-        => m NodeInfo
+        => m (WalletResponse NodeInfo)
 getInfo = do
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
     timeDifference <- fmap V1.mkLocalTimeDifference V0.localTimeDifference
-    return NodeInfo {
+    return $ single NodeInfo {
           nfoSyncProgress = syncProgress
         , nfoBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty <$> V0._spNetworkCD spV0
         , nfoLocalBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty . V0._spLocalCD $ spV0

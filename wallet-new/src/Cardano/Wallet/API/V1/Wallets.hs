@@ -11,21 +11,21 @@ import           Servant
 type API =
          "wallets" :> Summary "Creates a new Wallet."
                    :> ReqBody '[JSON] (New Wallet)
-                   :> PostCreated '[JSON] Wallet
+                   :> PostCreated '[JSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
                    :> Get '[JSON] (WalletResponse [Wallet])
     :<|> "wallets" :> Capture "walletId" WalletId
                    :> ( "password" :> Summary "Updates the password for the given Wallet."
                                    :> ReqBody '[JSON] PasswordUpdate
-                                   :> Put '[JSON] Wallet
+                                   :> Put '[JSON] (WalletResponse Wallet)
                    :<|> Summary "Deletes the given Wallet and all its accounts."
                         :> DeleteNoContent '[JSON] NoContent
                    :<|> Summary "Returns the Wallet identified by the given walletId."
-                        :> Get '[JSON] Wallet
+                        :> Get '[JSON] (WalletResponse Wallet)
                    :<|> Summary "Update the Wallet identified by the given walletId."
                         :> ReqBody '[JSON] (Update Wallet)
-                        :> Put '[JSON] Wallet
+                        :> Put '[JSON] (WalletResponse Wallet)
                    -- Nest the Accounts API
                    :<|> Tags '["Accounts"] :> Accounts.API
                    )

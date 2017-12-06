@@ -38,14 +38,14 @@ handlers =   newWallet
 -- | Creates a new @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created
 -- wallet in the 'Wallet' type.
-newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m Wallet
+newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
   let spendingPassword = fromMaybe mempty newwalSpendingPassword
   initMeta <- V0.CWalletMeta <$> pure newwalName
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
-  V0.newWallet spendingPassword walletInit >>= migrate
+  single <$> (V0.newWallet spendingPassword walletInit >>= migrate)
 
 -- TODO(adinapoli): Implement this properly with CSL-1891.
 -- Providing here just a stub.
@@ -60,11 +60,11 @@ listWallets params = do
 
 updatePassword
     :: (MonadWalletLogic ctx m)
-    => WalletId -> PasswordUpdate -> m Wallet
+    => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
     wid' <- migrate wid
     _ <- V0.changeWalletPassphrase wid' pwdOld pwdNew
-    V0.getWallet wid' >>= migrate
+    single <$> (V0.getWallet wid' >>= migrate)
 
 -- | Deletes an exisiting wallet.
 deleteWallet
@@ -76,11 +76,11 @@ deleteWallet (WalletId walletId) =
 
 getWallet
     :: WalletId
-    -> MonadV1 Wallet
-getWallet _ = liftIO $ generate arbitrary
+    -> MonadV1 (WalletResponse Wallet)
+getWallet _ = single <$> (liftIO $ generate arbitrary)
 
 updateWallet
     :: WalletId
     -> WalletUpdate
-    -> MonadV1 Wallet
-updateWallet _ _ = liftIO $ generate arbitrary
+    -> MonadV1 (WalletResponse Wallet)
+updateWallet _ _ = single <$> (liftIO $ generate arbitrary)

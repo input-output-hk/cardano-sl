@@ -168,8 +168,6 @@ requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  , ("response_format", responseFormatDescription)
-  , ("Daedalus-Response-Format", responseFormatDescription)
   ]
 
 pageDescription :: T.Text
@@ -183,15 +181,6 @@ perPageDescription :: T.Text -> T.Text -> T.Text
 perPageDescription maxValue defaultValue = [text|
 The number of entries to display for each page. The minimum is **1**, whereas the maximum
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
-|]
-
-responseFormatDescription :: T.Text
-responseFormatDescription = [text|
-Determines the response format. If set to `extended`, then fetched
-data will be wrapped in an `WalletResponse` (see the Models section).
-Otherwise, it defaults to "plain", which can as well be passed to switch to a
-simpler response format, which includes only the requested payload.
-An `WalletResponse` includes useful metadata which can be used by clients to support pagination.
 |]
 
 instance ToParamSchema PerPage where
@@ -376,23 +365,14 @@ used to modify the shape of the response. In particular, those are:
 
 * `page`: (Default value: **1**).
 * `per_page`: (Default value: **$defaultPerPage**)
-* `extended`: (Default value: `false`)
-* `Daedalus-Response-Format`: (Default value: `null`)
 
 For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
-the first two control how many results and which results to access in a paginated request. The other two
-(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting
-both, the "naked" collection will be returned. For example, requesting for a list of _Accounts_ might issue,
-in this case:
+the first two control how many results and which results to access in a paginated request.
+
+This is an example of a typical (successful) response from the API:
 
 ``` json
-$accountExample
-```
-
-In the second case, instead:
-
-``` json
-$accountExtendedExample
+$walletResponseExample
 ```
 
 ### Dealing with errors (V1 onwards)
@@ -428,11 +408,10 @@ markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
     makeRow = T.intercalate "|"
 
 data DescriptionEnvironment = DescriptionEnvironment {
-    errorExample           :: !T.Text
-  , defaultPerPage         :: !T.Text
-  , accountExample         :: !T.Text
-  , accountExtendedExample :: !T.Text
-  , walletErrorTable       :: !T.Text
+    errorExample          :: !T.Text
+  , defaultPerPage        :: !T.Text
+  , walletResponseExample :: !T.Text
+  , walletErrorTable      :: !T.Text
   }
 
 api :: Swagger
@@ -443,8 +422,7 @@ api = toSwagger walletAPI
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
       errorExample = toS $ encodePretty Errors.WalletNotFound
     , defaultPerPage = fromString (show defaultPerPageEntries)
-    , accountExample = toS $ encodePretty (genExample @[Account])
-    , accountExtendedExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
+    , walletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
     , walletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")

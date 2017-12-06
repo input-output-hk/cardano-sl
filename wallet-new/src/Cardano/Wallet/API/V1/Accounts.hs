@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 module Cardano.Wallet.API.V1.Accounts where
 
 import           Universum
@@ -13,7 +12,7 @@ type API
     =    "accounts" :> Capture "accountId" AccountId
                     :> Summary "Deletes an Account."
                     :> DeleteNoContent '[JSON] NoContent
-    :<|> "accounts" :> Capture "accountId" Text
+    :<|> "accounts" :> Capture "accountId" Word32
                     :> Summary "Retrieves a specific Account, given its Id."
                     :> Get '[JSON] Account
     :<|> "accounts" :> WalletRequestParams

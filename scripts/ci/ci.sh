@@ -68,10 +68,8 @@ popd
 export BUILD_UID="$OS_NAME-${BUILDKITE_BRANCH//\//-}"
 export XZ_OPT=-1
 
-mkdir -p s3
-
 echo "Packing up daedalus-bridge ..."
-tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
+tar cJf daedalus-bridge-$BUILD_UID.tar.xz daedalus/
 echo "Done"
 
 # For now we dont have macOS developers on explorer
@@ -81,6 +79,9 @@ if [[ ("$OS_NAME" == "linux") ]]; then
   ./explorer/frontend/scripts/build.sh
 
   echo "Packing up explorer-frontend ..."
-  tar cJf s3/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
+  tar cJf explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
   echo "Done"
 fi
+
+buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   s3://ci-output-test --job $BUILDKITE_JOB_ID
+buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://ci-output-test --job $BUILDKITE_JOB_ID

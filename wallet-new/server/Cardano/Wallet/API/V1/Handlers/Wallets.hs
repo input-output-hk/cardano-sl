@@ -50,7 +50,7 @@ newWallet NewWallet{..} = do
 -- TODO(adinapoli): Implement this properly with CSL-1891.
 -- Providing here just a stub.
 listWallets :: RequestParams
-            -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))
+            -> MonadV1 (WalletResponse [Wallet])
 listWallets params = do
     -- Use a static seed to simulate the pagination properly.
     -- Use `pure` to simulate a monadic action.

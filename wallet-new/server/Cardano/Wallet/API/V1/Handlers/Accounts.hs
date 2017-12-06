@@ -39,22 +39,19 @@ getAccount wId accId =
     migrate (wId, accId) >>= V0.getAccount >>= migrate
 
 listAccounts :: RequestParams
-             -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))
+             -> MonadV1 (WalletResponse [Account])
 listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case rpResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = example
-      , extStatus = SuccessStatus
-      , extMeta = Metadata $ PaginationMetadata {
+  return WalletResponse {
+        resData = example
+      , resStatus = SuccessStatus
+      , resMeta = Metadata $ PaginationMetadata {
           metaTotalPages = 1
         , metaPage = 1
         , metaPerPage = 20
         , metaTotalEntries = 3
+        }
       }
-      }
-    _ -> return $ OneOf $ Left example
 
 -- | This is an example of how POST requests might look like.
 -- It also shows an example of how an error might look like.

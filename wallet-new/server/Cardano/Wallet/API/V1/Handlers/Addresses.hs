@@ -17,22 +17,19 @@ handlers =  listAddresses
        :<|> newAddress
 
 listAddresses :: RequestParams
-              -> Handler (OneOf [Address] (ExtendedResponse [Address]))
+              -> Handler (WalletResponse [Address])
 listAddresses RequestParams {..} = do
     addresses <- liftIO $ generate (vectorOf 2 arbitrary)
-    case rpResponseFormat of
-        Extended -> return $ OneOf $ Right $
-            ExtendedResponse {
-                extData = addresses
-              , extStatus = SuccessStatus
-              , extMeta = Metadata $ PaginationMetadata {
-                      metaTotalPages = 1
-                    , metaPage = 1
-                    , metaPerPage = 20
-                    , metaTotalEntries = 2
-                    }
-              }
-        _ -> return $ OneOf $ Left addresses
+    return WalletResponse {
+              resData = addresses
+            , resStatus = SuccessStatus
+            , resMeta = Metadata $ PaginationMetadata {
+                        metaTotalPages = 1
+                      , metaPage = 1
+                      , metaPerPage = 20
+                      , metaTotalEntries = 2
+                      }
+            }
 
 newAddress :: Address -> Handler Address
 newAddress a = return a

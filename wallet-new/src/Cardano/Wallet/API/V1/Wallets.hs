@@ -1,10 +1,10 @@
 module Cardano.Wallet.API.V1.Wallets where
 
-import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
-import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 
 import           Servant
 
@@ -14,7 +14,7 @@ type API =
                    :> PostCreated '[JSON] Wallet
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
-                   :> Get '[JSON] (OneOf [Wallet] (ExtendedResponse [Wallet]))
+                   :> Get '[JSON] (WalletResponse [Wallet])
     :<|> "wallets" :> Capture "walletId" WalletId
                    :> ( "password" :> Summary "Updates the password for the given Wallet."
                                    :> ReqBody '[JSON] PasswordUpdate

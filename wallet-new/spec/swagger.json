@@ -8,7 +8,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 10574016894293587,\n        \"addresses\": [\n            \"Un4ZpTvXtoKfUHjDCrusx7xrADRVPP11956y3BPMs6Mrgng4qbEQrjPn2dhLTDiqLtptbiGD5ZYc7FPq2iCVTuD9jnWz2KtaSdfWdU1huyKxd795\",\n            \"3qruzscJwnkDgVrhM7QEbBpsLTKgAfGSGoVkvN6frVXPxwsgjbpooVVvYBdmcUaLsLXNVVi1RrkSinxYiFSV1aH8X8FcP8MbzP1QFDKpicCkV78Z61tUKE3bFBASFJXNpmZ8vFkrY36a6WgyQh8VsXpqnvynLDZyFcURF9bhHWqrMBbmxMqWeYX8zcKGCR84BccQr1Bf7vu6xFL7xcdUZHqH55J3a7gGsHRG2XUjEfkF5WyHz6toRpAzzL4rRLL1K2ypckMUrQNeVdMN7ADhfufhqJQsrk\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 18773007703513614,\n        \"addresses\": [\n            \"5oP9ib6ym3XbH2fmvNAm5dUyE7xFqQztrsN41xg7hbXQbmbQnYUgXXt2rFZUgLyYPd\"\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
     },
     "definitions": {
         "CPtxCondition": {
@@ -138,7 +138,7 @@
         },
         "Payment": {
             "example": {
-                "sourceAccount": "[",
+                "sourceAccount": 1,
                 "groupingPolicy": "OptimiseForSecurity",
                 "destinations": [
                     {
@@ -166,7 +166,7 @@
             "description": "A transfer of `Coin`(s) from one source to one or more destinations.",
             "properties": {
                 "sourceAccount": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "groupingPolicy": {
                     "type": "string"
@@ -257,6 +257,95 @@
                 }
             }
         },
+        "WalletResponse [Wallet]": {
+            "example": {
+                "status": "error",
+                "data": [
+                    {
+                        "balance": 7893389421760074,
+                        "name": "My wallet",
+                        "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                    },
+                    {
+                        "balance": 18464205877436744,
+                        "name": "My wallet",
+                        "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                    }
+                ],
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "items": {
+                        "required": [
+                            "balance",
+                            "name",
+                            "id"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "balance": {
+                                "type": "number"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "CAccountInit": {
             "required": [
                 "caInitMeta",
@@ -282,114 +371,6 @@
                     "type": "string"
                 }
             }
-        },
-        "OneOf [Transaction] (ExtendedResponse [Transaction])": {
-            "example": [
-                {
-                    "amount": 25820424046006543,
-                    "inputs": [
-                        {
-                            "amount": 32003858608147755,
-                            "address": "Ae2tdPwUPEZJnuHHU2MFFR1t9AmxvMTVEXZR8jiYN3siDbfngmCSx4cBGk6"
-                        },
-                        {
-                            "amount": 39122173921310246,
-                            "address": "2Wcg6zEnC1Vo4oJGEFHuhyu8DFzWf8XVRHBg2UjACrHRT6ee6zvccmttPDLa34vbUXVWNbGosEgAzzHWtiLYwWna5MMMDh97ez9agBy97wtZDb6wp8D8i8LNcfLWZMw4Xg7kLmRZhHJWbfd8aWCaBGt6SKmQY6WaxrWmNYJBG5cGkc8ygjtqY"
-                        }
-                    ],
-                    "direction": "incoming",
-                    "outputs": [
-                        {
-                            "amount": 44860519515251501,
-                            "address": "DxiwK26gE3LC9ui1eHgDa39GAYb49NTAVXiLd3nWApv571tVeaDac89jjkvKzm9hygeRaM2eCk3tDXhQmUFEzgUxLPUc1kh74h4kgipG9pAUQ1jKSmT4hxBXoPTaTdBg8XZy7gVXioqhBWpsD2uSHdsPy1gDPVQzwcQjPZsci9Mm8MC2cRb9rNTFXP3pXq9p8oA8SWX2he1SpsH15osvWdMZAF21BQkjp9DYLLP"
-                        },
-                        {
-                            "amount": 33921758618797403,
-                            "address": "eMNXLAmamdhbZqLznEZ4eVGD4htgs5yBuecG97aPKwfM4QvYZ46fDQ5WVLLfNKxhyy2UXe8Ga6iMYeBAhhWbJqvTf8nzsujMVULp9LFBCEu43rVxBUDFNyKeXhtgp46yqpTFaNgg8fddtLyCpSERV9mVLfJ6sGKtsrKfttGmziQw5NBhnnVjEkzKPpGA7v18a8d6ECoEXTs7nmfQG2JUVK9zp7bkBucraNsqAPZPVEyhKZh3s4bn94P8ujAvvhtne62cS8CXZ74Hp1ssEDtE6R6tugBF"
-                        }
-                    ],
-                    "confirmations": 2,
-                    "id": "h}",
-                    "type": "foreign"
-                }
-            ],
-            "items": {
-                "required": [
-                    "amount",
-                    "inputs",
-                    "direction",
-                    "outputs",
-                    "confirmations",
-                    "id",
-                    "type"
-                ],
-                "type": "object",
-                "properties": {
-                    "amount": {
-                        "type": "number"
-                    },
-                    "inputs": {
-                        "items": {
-                            "required": [
-                                "amount",
-                                "address"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "amount": {
-                                    "type": "number"
-                                },
-                                "address": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "type": "array"
-                    },
-                    "direction": {
-                        "type": "string"
-                    },
-                    "outputs": {
-                        "items": {
-                            "required": [
-                                "amount",
-                                "address"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "amount": {
-                                    "type": "number"
-                                },
-                                "address": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "type": "array"
-                    },
-                    "confirmations": {
-                        "type": "number"
-                    },
-                    "id": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "type": "string"
-                    }
-                }
-            },
-            "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Transaction] or [Transaction] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 16574871362077004,\n        \"inputs\": [\n            {\n                \"amount\": 5012561879500490,\n                \"address\": \"37btjrVyb4KBRE7eEEcJburWtkU4mkZPJYabScdytbugxAdZVgQqRMx4MVgKA7jWxy58nkGjotSmniXf9BjTfcPXxo8vtAwntSNMVLzyPNhQsjqYVD\"\n            },\n            {\n                \"amount\": 13145498605296147,\n                \"address\": \"NBimUZYpm3GVtbUCoBhpodaQeNHRDWzuLy155f31wkd8sdaS1YZB6KXfuQLxPpL7ryG\"\n            },\n            {\n                \"amount\": 9421449954585108,\n                \"address\": \"NBimUZYpm3GUrqmW2xVrbszVeYvUMCq1UNebbWoyKck9wJJpizDHvqxjNYFGUjhwS2R\"\n            }\n        ],\n        \"direction\": \"outgoing\",\n        \"outputs\": [\n            {\n                \"amount\": 1334284366964500,\n                \"address\": \"NBimUZYpm3GEuQVbPESLLpUawax3zZey1EmTm7x6jkzWZUYsDxFfFPhEx1sd6B45vAw\"\n            },\n            {\n                \"amount\": 26632435084216427,\n                \"address\": \"2Tp1cYozcWTqJMGexiHSkPar9hP3QuBH1Jnn3JmFmGmB5LUiuYx3Ar1yQADZr1uaGK1bxML1Wg7YC9gq9jDRuwiuLePXi5SuDQktJby1kxhY1cnjN8qDEs8cig9pJRSegXfgHUddYgSgbmZ8tYAQeDZqJRFKW4npXEXrikjt7Sv7PWLHzqmkP4LLAq85vj9eEkJY6LqG3233EpsGBGA2A98gDbeUGSqBDXtpd4ZUQAWPu\"\n            },\n            {\n                \"amount\": 14504884420630507,\n                \"address\": \"Un4ZpTvXtoKkw2SwZn9oWBx94RqdNj6Tt2UvgoKcQGGFivoZavpsMZYN6txB5seL5NFyPMo6b7J3gWQZv7sHLsAhQosJKS4qRW6zDugZ4EdBzR6H\"\n            },\n            {\n                \"amount\": 35142054301558539,\n                \"address\": \"3qruzscJwnkGspjGWXKSCyBACJCXCqh3H3wHyFuxXzg1r97RGoVDBqtE2bgbbgzqrqsAxZhA7c1trZRhHtV5wEZ7yzDP9kr2qrQgshN55nuq6HcpQ9makrDJ2CAxksEXt5V4zJgLyBmWY4BpycXANbNydnXw4ZNLB1bqoApcRQfCzJXx2MyHUkvLwcR22XvzJiNTQrVPN5fRr9W9oJFBrKn5Hudk4JrU3kmXSNbDx8c6k852GSZe7uARiwpmxWpsFo3CQ2k2AJj1ZoLH4dqAx2hnHYYN1C\"\n            }\n        ],\n        \"confirmations\": 0,\n        \"id\": \"\\u0011\",\n        \"type\": \"foreign\"\n    },\n    {\n        \"amount\": 5487253052033782,\n        \"inputs\": [\n            {\n                \"amount\": 2750028793395044,\n                \"address\": \"AL91N9VXRTCtt1stXfTtX74Ji677k2Ay4mfXTdQKESScVf4Hq3RvuCbV9Eh5jgLiM4BZAsnkHAsSsujuuQqy1a2kQFvmEEHWDx8pwdBH8QRapwg4wnn\"\n            },\n            {\n                \"amount\": 43435865335078777,\n                \"address\": \"LDTseZq14n99gv44NRvK6G7gUTRvF5Pm4Hb3jAMnFQycGeN7YAo7N9hMwMkLd1QgmbwAKuSAhyf8kce8ZiSHCN1y9u3NbXPehshhbp9zAKZer4Y9jduyi3wbkf5dHa6i9p6n4ci6XgBapYiGXzM8CiwrM2552BWKDAsifnDWzattJhGYKi5qGarmaSQXnFTmyXZ4q2fiq7KXFd2kLEnERqmp4D3wZ8bxN7pbxXK9Hbt\"\n            },\n            {\n                \"amount\": 24116109030439910,\n                \"address\": \"2657WMsDfac79WyvE2tqb1bGGWnU9euc7NA51qv6etiHjXxQ2YX4oAub6pj8TdVnH\"\n            }\n        ],\n        \"direction\": \"outgoing\",\n        \"outputs\": [\n            {\n                \"amount\": 32003858608147755,\n                \"address\": \"Ae2tdPwUPEZJnuHHU2MFFR1t9AmxvMTVEXZR8jiYN3siDbfngmCSx4cBGk6\"\n            },\n            {\n                \"amount\": 39122173921310246,\n                \"address\": \"2Wcg6zEnC1Vo4oJGEFHuhyu8DFzWf8XVRHBg2UjACrHRT6ee6zvccmttPDLa34vbUXVWNbGosEgAzzHWtiLYwWna5MMMDh97ez9agBy97wtZDb6wp8D8i8LNcfLWZMw4Xg7kLmRZhHJWbfd8aWCaBGt6SKmQY6WaxrWmNYJBG5cGkc8ygjtqY\"\n            }\n        ],\n        \"confirmations\": 4,\n        \"id\": \"kC\",\n        \"type\": \"local\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"amount\": 19321208996093113,\n            \"inputs\": [\n                {\n                    \"amount\": 12068145532878000,\n                    \"address\": \"NBimUZYpm3GTGLq6w1Pc99wieJXwEWLJcGEhiQELFbvcDEzwohgssz8Zu5Lk3J82jrA\"\n                },\n                {\n                    \"amount\": 1825893375695764,\n                    \"address\": \"37btjrVyb4KBmXJFEfFDEj6fbs7oKaekei9eWBxWmZ3t5xw6Yup5tuceqJnF9zT8hpJHWNmuSWoqRRzrRFzgap3nXYKVTpRb7Pr8ihbT2GP4UCwafo\"\n                },\n                {\n                    \"amount\": 13134164389923293,\n                    \"address\": \"AL91N9VXRTCv6vVsbxTwceaCTzGS1Q393kVjyorVcgMQpKBUxsDcXw4rTvwBXgNkomv1R6vF3jYgendY3Z6YS2Z6yE7p74Anm77NhxzSbgVavLVhDAg\"\n                }\n            ],\n            \"direction\": \"outgoing\",\n            \"outputs\": [\n                {\n                    \"amount\": 18810694513310357,\n                    \"address\": \"2reD6PLk2vQ6SgGfupzB3MpyjmzfnfCnQyujonnorUR2k5PppWqTV4Tsb9yVpYrghCGyrfVEpJ2AaFnpmqQc5JN7mDk5b8kRc3aj2HWtXyNJmmawyDgws4GMzvdEDoPArwVGoeGaiZ8534juXyYEgFkwhJFpfqua3yiiSQvM5pNYJFDXRQr9aDiRtkyDPSt9VR3yXKRNkFsVY5x5YpGcb4sEUVCXBvy2wexfzXsEMuzUmaCJVsj7czfPvRzTQvEJC12mTv8ZXDE3yRCnRKTQPWeGGN6c7sZ3YrnyaeGgxg4jkjVWeXUwUv4VMSggVuDkD78AAxZP7fuei2Mzih\"\n                },\n                {\n                    \"amount\": 6214896163653048,\n                    \"address\": \"5oP9ib6ym3XZZWYoC4YVU4UXrw1AfVDhNMrHhCcK6HPbXKFx9Up9jBrmTrdDdvyHeH\"\n                }\n            ],\n            \"confirmations\": 0,\n            \"id\": \"¹\",\n            \"type\": \"foreign\"\n        },\n        {\n            \"amount\": 34638161102038470,\n            \"inputs\": [\n                {\n                    \"amount\": 37567904243452455,\n                    \"address\": \"42wmHXYSz61HK9W9Tj5fi9MbQQ8LCoaMDzQS1nt1n8gda3shKejNrjJGoud6Ttp4goj2VncciNsBUY8F7c6eY1Ny7EpLpSg6axJtPTKieQRKAC8bFabqUMqn1s8nfhaPQDiFFxPyV6J3c8AUxtcJcGmreBk11HMPLiZuDL8asqAhvY\"\n                },\n                {\n                    \"amount\": 11070649850752079,\n                    \"address\": \"2Fc9FhbWKyhDXPvLTSFAmwqPQst4arNECkBkfkkVyS7ZAf1MLJe1aZtsKZuspuD7pq4Bmv53yyTt9ZmgvbMmjsW6765BhALUKJ2wEz5pShXi3i7aYuscZtzcDsi7ZnTo4fpdfDX3jNG4AwhLWDFNNNZQSx9EKFYFxqfk7REfaCE4ebXYpEakkdnqx6NVXB8ULcE6sMiVeGWVXC7kHHuxFdvyoKCRm2J9Su7PzED8HH5R7HBnZuMkCwJ4L9XkVf9VWAe8aTzS9jdAexR8jRR7JhZXksyfEzDwFstMAfiBfX7VEaVJGUSmPNpBt5Kg9oaP4gUQFbsdKQhYac\"\n                }\n            ],\n            \"direction\": \"outgoing\",\n            \"outputs\": [\n                {\n                    \"amount\": 22593715837565850,\n                    \"address\": \"2Tp1cYozcWTniexFcd7XUHE1yZm6SXU99fxmKByYS9FW3EwQLwtcoYCoakitfGVfuVnDp5eng8a7UiLr2C7yMN41LtNYXsm7RAqsD15iMPwBShTL3zx1hQxBY8N4U6i3z2LhuTaPyjFKFAzVnuc7FGA6rwvnxZDqfbbCXg5yP5vSmCemyLcjBh7gdfSBnE87idrBDxrDwtmpd1owvW4n9Fs7uSYwk2UzHA58WAxRTwh51\"\n                },\n                {\n                    \"amount\": 118816001855782,\n                    \"address\": \"5FCjkr138i9v69ZJ5xnkLkmrnqL4TbBju6PbiYn6onnCSnjoq5hSc7b1Q31S1hYeCtd87wNAS42K1px6x2zybb9P6vNesVL4euu6PMx9s7k\"\n                },\n                {\n                    \"amount\": 10816341180192159,\n                    \"address\": \"5MVkCEKjiviVcj4o7aFLZfu4jXeZ3YcYg7WoydzH7tb9MRGeDPrwd5gGfyNGxYy7kYQ2YNt7UHAabDFs24b8rmKDgyKVoCqfz37N4qm3hNhjJybVLxP7doKU6UtWyFpbTNsdMwgz6KrDAWLfdcVrTC3VdoKJuSRkpri7YSnrdzMBANJSc3qRh2D1efmLU9TMp7CdZjBaFFdRFkEK4FfND6KDejiMbQTH64TwHMc1Yb\"\n                },\n                {\n                    \"amount\": 34537982561642603,\n                    \"address\": \"5oP9ib6ym3XkBSbZuy7Xhs1GTPwZ2xmUwiQHJuoPQmuyACkeEjS8YZvqErTFWt7tRh\"\n                }\n            ],\n            \"confirmations\": 1,\n            \"id\": \"~\",\n            \"type\": \"local\"\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}</pre>"
-        },
-        "OneOf [Address] (ExtendedResponse [Address])": {
-            "example": [
-                "FHnt4NL7yPXxrMRzij8zCUMaALwCPE16gYJhSKSNSvW2drR6agf8b42u89VQdHf"
-            ],
-            "items": {
-                "type": "string"
-            },
-            "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Address] or [Address] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    \"7fiTbReGezWNTftLYdM17Yt5auKDTze7NAUgp2k2TEMqHTQKGEUQKdf3ZGCKBcsPd2FdE9NCt37JfP5yJewLYg2uyPAiUTjZcNWV4uLQTcJHXXVxHDxspTSLQEeYZsDEZmuHZJ5zKkPeFdhBzJuxkhQTbby18WVfc31tmhqZZELzY2uvPcvqBJ\",\n    \"2Wcg6zEnC1Vq7xSayKsKyxgqn6KPKpMR5H6ECvz4hNGBksfQWQMQo9F7CvdDBiD5Lv2fwDQZubD4iMuKPb79Bc8VumebkMsAEe7TjhRQjrAnmdFf3zcnzaPshbbJ4bXrM5JqLKbrZsqsVF7t4D8VKyKTox475BNyQ5mMgRDKn1k9kg5membfZ\"\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"status\": \"error\",\n    \"data\": [\n        \"7J1MaQmKydNjjDZjGJbyjnSLtj6H6irfYqx3sxUd4a8L5umQi4UNa3Z88QECYEkCd4eShHE9Sd5fGR5xkz8sn6of5nrjEvS11WjiGSw37XV45v2\",\n        \"AL91N9VXRTCdEAuNHNij1dpotEjcotTHaAavVpXoR1ckgokd1g4owdYN2WCjyRs1u4ChP4fezGK5oviUge4nSaJUdiCFesqnSHcR8vPTepYsscTtgqm\"\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}</pre>"
         },
         "FilePath": {
             "example": "keys/1.key",
@@ -446,6 +427,197 @@
             "example": "NBimUZYpm3Fghc938FCyLqookUReTpSMSePrnXaHce6cVsLXWKnmwATymbSRg6mc6v9",
             "type": "string",
             "description": "An Address."
+        },
+        "WalletResponse [Transaction]": {
+            "example": {
+                "status": "error",
+                "data": [
+                    {
+                        "amount": 19321208996093113,
+                        "inputs": [
+                            {
+                                "amount": 12068145532878000,
+                                "address": "NBimUZYpm3GTGLq6w1Pc99wieJXwEWLJcGEhiQELFbvcDEzwohgssz8Zu5Lk3J82jrA"
+                            },
+                            {
+                                "amount": 1825893375695764,
+                                "address": "37btjrVyb4KBmXJFEfFDEj6fbs7oKaekei9eWBxWmZ3t5xw6Yup5tuceqJnF9zT8hpJHWNmuSWoqRRzrRFzgap3nXYKVTpRb7Pr8ihbT2GP4UCwafo"
+                            },
+                            {
+                                "amount": 13134164389923293,
+                                "address": "AL91N9VXRTCv6vVsbxTwceaCTzGS1Q393kVjyorVcgMQpKBUxsDcXw4rTvwBXgNkomv1R6vF3jYgendY3Z6YS2Z6yE7p74Anm77NhxzSbgVavLVhDAg"
+                            }
+                        ],
+                        "direction": "outgoing",
+                        "outputs": [
+                            {
+                                "amount": 18810694513310357,
+                                "address": "2reD6PLk2vQ6SgGfupzB3MpyjmzfnfCnQyujonnorUR2k5PppWqTV4Tsb9yVpYrghCGyrfVEpJ2AaFnpmqQc5JN7mDk5b8kRc3aj2HWtXyNJmmawyDgws4GMzvdEDoPArwVGoeGaiZ8534juXyYEgFkwhJFpfqua3yiiSQvM5pNYJFDXRQr9aDiRtkyDPSt9VR3yXKRNkFsVY5x5YpGcb4sEUVCXBvy2wexfzXsEMuzUmaCJVsj7czfPvRzTQvEJC12mTv8ZXDE3yRCnRKTQPWeGGN6c7sZ3YrnyaeGgxg4jkjVWeXUwUv4VMSggVuDkD78AAxZP7fuei2Mzih"
+                            },
+                            {
+                                "amount": 6214896163653048,
+                                "address": "5oP9ib6ym3XZZWYoC4YVU4UXrw1AfVDhNMrHhCcK6HPbXKFx9Up9jBrmTrdDdvyHeH"
+                            }
+                        ],
+                        "confirmations": 0,
+                        "id": "¹",
+                        "type": "foreign"
+                    },
+                    {
+                        "amount": 34638161102038470,
+                        "inputs": [
+                            {
+                                "amount": 37567904243452455,
+                                "address": "42wmHXYSz61HK9W9Tj5fi9MbQQ8LCoaMDzQS1nt1n8gda3shKejNrjJGoud6Ttp4goj2VncciNsBUY8F7c6eY1Ny7EpLpSg6axJtPTKieQRKAC8bFabqUMqn1s8nfhaPQDiFFxPyV6J3c8AUxtcJcGmreBk11HMPLiZuDL8asqAhvY"
+                            },
+                            {
+                                "amount": 11070649850752079,
+                                "address": "2Fc9FhbWKyhDXPvLTSFAmwqPQst4arNECkBkfkkVyS7ZAf1MLJe1aZtsKZuspuD7pq4Bmv53yyTt9ZmgvbMmjsW6765BhALUKJ2wEz5pShXi3i7aYuscZtzcDsi7ZnTo4fpdfDX3jNG4AwhLWDFNNNZQSx9EKFYFxqfk7REfaCE4ebXYpEakkdnqx6NVXB8ULcE6sMiVeGWVXC7kHHuxFdvyoKCRm2J9Su7PzED8HH5R7HBnZuMkCwJ4L9XkVf9VWAe8aTzS9jdAexR8jRR7JhZXksyfEzDwFstMAfiBfX7VEaVJGUSmPNpBt5Kg9oaP4gUQFbsdKQhYac"
+                            }
+                        ],
+                        "direction": "outgoing",
+                        "outputs": [
+                            {
+                                "amount": 22593715837565850,
+                                "address": "2Tp1cYozcWTniexFcd7XUHE1yZm6SXU99fxmKByYS9FW3EwQLwtcoYCoakitfGVfuVnDp5eng8a7UiLr2C7yMN41LtNYXsm7RAqsD15iMPwBShTL3zx1hQxBY8N4U6i3z2LhuTaPyjFKFAzVnuc7FGA6rwvnxZDqfbbCXg5yP5vSmCemyLcjBh7gdfSBnE87idrBDxrDwtmpd1owvW4n9Fs7uSYwk2UzHA58WAxRTwh51"
+                            },
+                            {
+                                "amount": 118816001855782,
+                                "address": "5FCjkr138i9v69ZJ5xnkLkmrnqL4TbBju6PbiYn6onnCSnjoq5hSc7b1Q31S1hYeCtd87wNAS42K1px6x2zybb9P6vNesVL4euu6PMx9s7k"
+                            },
+                            {
+                                "amount": 10816341180192159,
+                                "address": "5MVkCEKjiviVcj4o7aFLZfu4jXeZ3YcYg7WoydzH7tb9MRGeDPrwd5gGfyNGxYy7kYQ2YNt7UHAabDFs24b8rmKDgyKVoCqfz37N4qm3hNhjJybVLxP7doKU6UtWyFpbTNsdMwgz6KrDAWLfdcVrTC3VdoKJuSRkpri7YSnrdzMBANJSc3qRh2D1efmLU9TMp7CdZjBaFFdRFkEK4FfND6KDejiMbQTH64TwHMc1Yb"
+                            },
+                            {
+                                "amount": 34537982561642603,
+                                "address": "5oP9ib6ym3XkBSbZuy7Xhs1GTPwZ2xmUwiQHJuoPQmuyACkeEjS8YZvqErTFWt7tRh"
+                            }
+                        ],
+                        "confirmations": 1,
+                        "id": "~",
+                        "type": "local"
+                    }
+                ],
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "items": {
+                        "required": [
+                            "amount",
+                            "inputs",
+                            "direction",
+                            "outputs",
+                            "confirmations",
+                            "id",
+                            "type"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "amount": {
+                                "type": "number"
+                            },
+                            "inputs": {
+                                "items": {
+                                    "required": [
+                                        "amount",
+                                        "address"
+                                    ],
+                                    "type": "object",
+                                    "properties": {
+                                        "amount": {
+                                            "type": "number"
+                                        },
+                                        "address": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "array"
+                            },
+                            "direction": {
+                                "type": "string"
+                            },
+                            "outputs": {
+                                "items": {
+                                    "required": [
+                                        "amount",
+                                        "address"
+                                    ],
+                                    "type": "object",
+                                    "properties": {
+                                        "amount": {
+                                            "type": "number"
+                                        },
+                                        "address": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "array"
+                            },
+                            "confirmations": {
+                                "type": "number"
+                            },
+                            "id": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
         "CWalletInit": {
             "required": [
@@ -507,6 +679,117 @@
                 },
                 "cwAssurance": {
                     "$ref": "#/definitions/CWalletAssurance"
+                }
+            }
+        },
+        "Account": {
+            "example": {
+                "amount": 11091176260625603,
+                "addresses": [
+                    "5oP9ib6ym3XgTkDzFDiWqWnKwN77ePabfEjJEr5gEvEcYWeKvQvkc5pkH6GScDSHRQ",
+                    "5FCjkr138i9vt3aSHyNQbtDjaswc9h12oB8VQnZ5BKm8ykGseTQMDojVXwXXno9XthmNTWeV9fqw1t57x2XNAAVFMig7k7TQ53LGgSziyAr",
+                    "Un4ZpTvXtoKkKvBaZQ5FvvEd1eF7P6fKbVi2ofeVZ82FJ7pVS5H6PXhFw1FiDNkj7JTYg9iMd7eeHFhW57jPyBEZXCLJUUVUvYFJ54cGnhFgkXEW"
+                ],
+                "name": "My account",
+                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                "id": 1
+            },
+            "required": [
+                "amount",
+                "addresses",
+                "name",
+                "walletId",
+                "id"
+            ],
+            "type": "object",
+            "description": "An Account.",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "readOnly": true
+                },
+                "addresses": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "readOnly": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "walletId": {
+                    "type": "string",
+                    "readOnly": true
+                },
+                "id": {
+                    "type": "number",
+                    "readOnly": true
+                }
+            }
+        },
+        "WalletResponse [Address]": {
+            "example": {
+                "status": "error",
+                "data": [
+                    "7J1MaQmKydNjjDZjGJbyjnSLtj6H6irfYqx3sxUd4a8L5umQi4UNa3Z88QECYEkCd4eShHE9Sd5fGR5xkz8sn6of5nrjEvS11WjiGSw37XV45v2",
+                    "AL91N9VXRTCdEAuNHNij1dpotEjcotTHaAavVpXoR1ckgokd1g4owdYN2WCjyRs1u4ChP4fezGK5oviUge4nSaJUdiCFesqnSHcR8vPTepYsscTtgqm"
+                ],
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -922,35 +1205,20 @@
                 }
             }
         },
-        "OneOf [Wallet] (ExtendedResponse [Wallet])": {
-            "example": [
-                {
-                    "balance": 24471984623077811,
-                    "name": "My wallet",
-                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-                }
-            ],
-            "items": {
-                "required": [
-                    "balance",
-                    "name",
-                    "id"
-                ],
-                "type": "object",
-                "properties": {
-                    "balance": {
-                        "type": "number"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "id": {
-                        "type": "string"
-                    }
-                }
+        "AccountUpdate": {
+            "example": {
+                "name": "myAccount"
             },
-            "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": 36547889394682337,\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": 17970494008295748,\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"balance\": 7893389421760074,\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": 18464205877436744,\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}</pre>"
+            "required": [
+                "name"
+            ],
+            "type": "object",
+            "description": "A type represending an update for an existing Account.",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
         },
         "CCoin": {
             "required": [
@@ -1006,6 +1274,115 @@
                 },
                 "spendingPassword": {
                     "type": "null"
+                }
+            }
+        },
+        "WalletResponse [Account]": {
+            "example": {
+                "status": "error",
+                "data": [
+                    {
+                        "amount": 29208924123228353,
+                        "addresses": [
+                            "5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo"
+                        ],
+                        "name": "My account",
+                        "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                        "id": 1
+                    },
+                    {
+                        "amount": 28089727180413548,
+                        "addresses": [
+                            "7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q",
+                            "7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd"
+                        ],
+                        "name": "My account",
+                        "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                        "id": 0
+                    }
+                ],
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "items": {
+                        "required": [
+                            "amount",
+                            "addresses",
+                            "name",
+                            "walletId",
+                            "id"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "amount": {
+                                "type": "number"
+                            },
+                            "addresses": {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "walletId": {
+                                "type": "string"
+                            },
+                            "id": {
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1166,7 +1543,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1206,7 +1583,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1236,7 +1613,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1267,7 +1644,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "delete": {
@@ -1293,7 +1670,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "put": {
@@ -1336,7 +1713,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1376,7 +1753,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1396,7 +1773,7 @@
                 ],
                 "description": "Fetch info about local chain difficulty, network chain difficulty and connected peers.",
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1436,7 +1813,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1557,7 +1934,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1587,7 +1964,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "delete": {
@@ -1612,7 +1989,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "put": {
@@ -1654,7 +2031,108 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
+                ]
+            }
+        },
+        "/api/v1/wallets/{walletId}/accounts": {
+            "post": {
+                "summary": "Creates a new Account for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body` or `Daedalus-Passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Account"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "in": "header",
+                        "name": "Daedalus-Passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AccountUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "get": {
+                "summary": "Retrieves the full list of Accounts.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletResponse [Account]"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 50,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
                 ]
             }
         },
@@ -1693,7 +2171,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1712,7 +2190,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1772,7 +2250,7 @@
                 ],
                 "description": "Evaluate fee which would be used for transaction created with given parameters. Note that fee may change on any operation on wallet occurs. Transaction will not be actually created.",
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1814,7 +2292,7 @@
                 ],
                 "description": "Wallet may be later restored from this file with  endpoint above.",
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1833,7 +2311,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1897,7 +2375,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -1966,7 +2444,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2009,11 +2487,11 @@
                 "summary": "Returns all the available wallets.",
                 "responses": {
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                        "description": "Invalid `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/OneOf [Wallet] (ExtendedResponse [Wallet])"
+                            "$ref": "#/definitions/WalletResponse [Wallet]"
                         },
                         "description": ""
                     }
@@ -2038,28 +2516,6 @@
                         "name": "per_page",
                         "type": "integer",
                         "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "query",
-                        "name": "response_format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "header",
-                        "name": "Daedalus-Response-Format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -2080,7 +2536,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2102,7 +2558,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2123,7 +2579,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2172,6 +2628,133 @@
                 ]
             }
         },
+        "/api/v1/wallets/{walletId}/accounts/{accountId}": {
+            "get": {
+                "summary": "Retrieves a specific Account, given its Id.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Account"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 4294967295,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "integer"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "delete": {
+                "summary": "Deletes an Account.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 4294967295,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "integer"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "put": {
+                "summary": "Update an Account for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Account"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "maximum": 4294967295,
+                        "minimum": 0,
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AccountUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
         "/api/wallets/keys": {
             "post": {
                 "summary": "Import user's secret key from the path to generate wallet.",
@@ -2208,7 +2791,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2251,11 +2834,11 @@
                 "summary": "Returns the transaction history, i.e the list of all the past transactions.",
                 "responses": {
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                        "description": "Invalid `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/OneOf [Transaction] (ExtendedResponse [Transaction])"
+                            "$ref": "#/definitions/WalletResponse [Transaction]"
                         },
                         "description": ""
                     }
@@ -2280,28 +2863,6 @@
                         "name": "per_page",
                         "type": "integer",
                         "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "query",
-                        "name": "response_format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "header",
-                        "name": "Daedalus-Response-Format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -2346,7 +2907,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2362,7 +2923,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2422,7 +2983,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "get": {
@@ -2452,7 +3013,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2468,7 +3029,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2536,7 +3097,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2599,11 +3160,11 @@
                 "summary": "Returns all the addresses.",
                 "responses": {
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
+                        "description": "Invalid `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/OneOf [Address] (ExtendedResponse [Address])"
+                            "$ref": "#/definitions/WalletResponse [Address]"
                         },
                         "description": ""
                     }
@@ -2628,28 +3189,6 @@
                         "name": "per_page",
                         "type": "integer",
                         "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "query",
-                        "name": "response_format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "header",
-                        "name": "Daedalus-Response-Format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -2694,7 +3233,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2734,7 +3273,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2789,7 +3328,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             },
             "get": {
@@ -2806,7 +3345,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2854,7 +3393,7 @@
                     }
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         },
@@ -2873,7 +3412,7 @@
                     "application/octet-stream"
                 ],
                 "tags": [
-                    "V0"
+                    "V0 (Deprecated)"
                 ]
             }
         }

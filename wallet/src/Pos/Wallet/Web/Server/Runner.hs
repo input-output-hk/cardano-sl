@@ -26,7 +26,7 @@ import           System.Wlog                       (logInfo)
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
-import           Pos.Core.Configuration            (genesisHash)
+import qualified Pos.DB.GState.Common              as DB
 import           Pos.Launcher.Configuration        (HasConfigurations)
 import           Pos.Launcher.Resource             (NodeResources)
 import           Pos.Launcher.Runner               (runRealBasedMode)
@@ -57,8 +57,7 @@ runWRealMode
 runWRealMode db conn res spec = do
     saVar <- atomically STM.newEmptyTMVar
     blocksModifierVar <- atomically $ STM.newTVar mempty
-    -- TODO must pass the current tip, not genesisHash
-    memStorageModifierVar <- atomically $ STM.newTMVar $ ExtStorageModifier genesisHash mempty
+    memStorageModifierVar <- atomically $ STM.newEmptyTMVar
     runRealBasedMode
         (Mtl.withReaderT (WalletWebModeContext db conn saVar memStorageModifierVar blocksModifierVar))
         (Mtl.withReaderT (\(WalletWebModeContext _ _ _ _ _ rmc) -> rmc))
@@ -79,11 +78,18 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action :: WalletWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
-        saVar <- asks wwmcSendActions
-        atomically $ STM.putTMVar saVar sendActions
+        initialization
         when debug $ addInitialRichAccount 0
         walletApplication $
             walletServer @WalletWebModeContext @WalletWebMode nat
+
+    initialization :: WalletWebMode ()
+    initialization = do
+        saVar <- asks wwmcSendActions
+        atomically $ STM.putTMVar saVar sendActions
+        tip <- DB.getTip
+        memStorageModifierVar <- asks wwmcMemStorageModifier
+        atomically $ STM.putTMVar memStorageModifierVar (ExtStorageModifier tip mempty)
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do

@@ -17,30 +17,28 @@ module Pos.Wallet.Web.Server.Launcher
 
 import           Universum
 
-import           Network.Wai                      (Application)
+import           Network.Wai (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
-import           Servant.Server                   (Handler, Server, serve)
-import           Servant.Utils.Enter              ((:~>) (..))
+import           Servant.Server (Handler, Server, serve)
 
-import qualified Data.ByteString.Char8            as BS8
-import           Pos.Communication                (OutSpecs, sendTxOuts)
-import           Pos.Launcher.Configuration       (HasConfigurations)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.TimeWarp                (NetworkAddress)
-import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
-import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
-import           Pos.Wallet.Web.Mode              (MonadFullWalletWebMode,
-                                                   MonadWalletWebMode,
-                                                   MonadWalletWebSockets)
-import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
-import           Pos.Wallet.Web.Server.Handlers   (servantHandlersWithSwagger)
-import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
-                                                   getWalletWebSockets, initWSConnections,
-                                                   launchNotifier, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (closeState, openState)
-import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (syncWalletsWithGState)
-import           Pos.Web                          (TlsParams, serveImpl)
+import qualified Data.ByteString.Char8 as BS8
+import           Pos.Client.Txp.Network (sendTxOuts)
+import           Pos.Communication (OutSpecs)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.TimeWarp (NetworkAddress)
+import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
+import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,
+                                      MonadWalletWebSockets)
+import           Pos.Wallet.Web.Pending (startPendingTxsResubmitter)
+import           Pos.Wallet.Web.Server.Handlers (servantHandlersWithSwagger)
+import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, getWalletWebSockets,
+                                         initWSConnections, launchNotifier, upgradeApplicationWS)
+import           Pos.Wallet.Web.State (closeState, openState)
+import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.Tracking (syncWalletsWithGState)
+import           Pos.Web (TlsParams, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
@@ -63,10 +61,9 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => m (m :~> Handler)
+    => (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer natM = do
-    nat <- natM
+walletServer nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter
     launchNotifier nat

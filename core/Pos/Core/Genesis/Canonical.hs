@@ -6,50 +6,41 @@ module Pos.Core.Genesis.Canonical
 
 import           Universum
 
-import           Data.Fixed                 (Fixed (..))
-import qualified Data.HashMap.Strict        as HM
-import           Data.Time.Units            (Millisecond, Second, convertUnit)
-import           Data.Typeable              (typeRep)
-import           Formatting                 (formatToString)
+import           Data.Fixed (Fixed (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Typeable (typeRep)
+import           Formatting (formatToString)
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       (base16F)
-import qualified Serokell.Util.Base16       as B16
-import           Serokell.Util.Base64       (base64F)
-import qualified Serokell.Util.Base64       as B64
-import           Serokell.Util.Text         (readDecimal, readUnsignedDecimal)
-import           Text.JSON.Canonical        (FromJSON (..), FromObjectKey (..), Int54,
-                                             JSValue (..), ReportSchemaErrors (expected),
-                                             ToJSON (..), ToObjectKey (..),
-                                             expectedButGotValue, fromJSField,
-                                             fromJSObject, mkObject)
+import           Serokell.Util.Base16 (base16F)
+import qualified Serokell.Util.Base16 as B16
+import           Serokell.Util.Base64 (base64F)
+import qualified Serokell.Util.Base64 as B64
+import           Serokell.Util.Text (readDecimal, readUnsignedDecimal)
+import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, JSValue (..),
+                                      ReportSchemaErrors (expected), ToJSON (..), ToObjectKey (..),
+                                      expectedButGotValue, fromJSField, fromJSObject, mkObject)
 
-import           Pos.Binary.Class           (AsBinary (..))
-import           Pos.Binary.Core.Address    ()
-import           Pos.Core.Address           (addressF, decodeTextAddress)
-import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
-                                             TxSizeLinear (..))
-import           Pos.Core.Genesis.Helpers   (recreateGenesisDelegation)
-import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
-                                             GenesisDelegation (..),
-                                             GenesisNonAvvmBalances (..),
-                                             GenesisVssCertificatesMap (..),
-                                             GenesisWStakeholders (..),
-                                             ProtocolConstants (..))
-import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
-                                             CoinPortion, EpochIndex (..),
-                                             SharedSeed (..), SoftforkRule (..),
-                                             StakeholderId, Timestamp (..),
-                                             getCoinPortion, mkCoin, mkCoinPortion,
-                                             unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..), VssCertificatesMap (..),
-                                             validateVssCertificatesMap)
-import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
-                                             RedeemPublicKey, Signature,
-                                             decodeAbstractHash, fromAvvmPk,
-                                             fullProxyCertHexF, fullPublicKeyF,
-                                             fullSignatureHexF, hashHexF,
-                                             parseFullProxyCert, parseFullPublicKey,
-                                             parseFullSignature, redeemPkB64UrlF)
+import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Binary.Core.Address ()
+import           Pos.Core.Common (Address, Coeff (..), Coin, CoinPortion, SharedSeed (..),
+                                  StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
+                                  decodeTextAddress, getCoinPortion, mkCoin, mkCoinPortion,
+                                  unsafeGetCoin)
+import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
+import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
+                                         GenesisDelegation (..), GenesisNonAvvmBalances (..),
+                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                                         ProtocolConstants (..))
+import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
+import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
+import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
+import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
+import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
+                             decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
+                             fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
+                             parseFullSignature, redeemPkB64UrlF)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
@@ -193,7 +184,7 @@ instance Monad m => ToJSON m ProtocolConstants where
         mkObject
             -- 'k' definitely won't exceed the limit
             [ ("k", pure . JSNum . fromIntegral $ pcK)
-            , ("protocolMagic", toJSON pcProtocolMagic)
+            , ("protocolMagic", toJSON (getProtocolMagic pcProtocolMagic))
             , ("vssMaxTTL", toJSON pcVssMaxTTL)
             , ("vssMinTTL", toJSON pcVssMinTTL)
             ]
@@ -353,7 +344,7 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
         signature <- fromJSField obj "signature"
         signingKey <- fromJSField obj "signingKey"
-        return $ VssCertificate
+        return $ UnsafeVssCertificate
             { vcVssKey      = vssKey
             , vcExpiryEpoch = expiryEpoch
             , vcSignature   = signature
@@ -424,7 +415,7 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
 instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
     fromJSON obj = do
         pcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        pcProtocolMagic <- fromJSField obj "protocolMagic"
+        pcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
         pcVssMaxTTL <- fromJSField obj "vssMaxTTL"
         pcVssMinTTL <- fromJSField obj "vssMinTTL"
         return ProtocolConstants {..}

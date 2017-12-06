@@ -16,19 +16,18 @@ dev: &dev
       #   hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb
       spec: &dev_core_genesis_spec
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        12
-              richmen:      4
-              richmenShare: 0.99
-              useHDAddresses: True
-              totalBalance: 600000000000000000
-            fakeAvvmBalance:
-              count: 10
-              oneBalance: 100000
-            avvmBalanceFactor: 1
-            useHeavyDlg: True  # it's better to use heavy delegation to test it more often
-            seed: 0
+          testBalance:
+            poors:        12
+            richmen:      4
+            richmenShare: 0.99
+            useHDAddresses: True
+            totalBalance: 600000000000000000
+          fakeAvvmBalance:
+            count: 10
+            oneBalance: 100000
+          avvmBalanceFactor: 1
+          useHeavyDlg: True  # it's better to use heavy delegation to test it more often
+          seed: 0
         blockVersionData: &dev_core_genesis_spec_blockVersionData
           scriptVersion:     0
           slotDuration:      7000
@@ -109,14 +108,16 @@ dev: &dev
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: False
 
-  node: &dev_node
-    networkDiameter: 3
-    defaultPeers: []
-    mdNoBlocksSlotThreshold: 3 # should be less than 2 * k
-    lightDlgConfirmationTimeout: 500
+  dlg: &dev_dlg
     dlgCacheParam: 500
-    recoveryHeadersMessage: 20 # should be greater than k
     messageCacheTimeout: 30
+
+  block: &dev_block
+    networkDiameter: 3
+    recoveryHeadersMessage: 20 # should be greater than k
+
+  node: &dev_node
+    defaultPeers: []
     networkConnectionTimeout: 2000 # ms
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
@@ -140,19 +141,18 @@ bench: &bench
       spec:
         <<: *dev_core_genesis_spec
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        50000
-              richmen:      3
-              richmenShare: 0.99
-              useHDAddresses: False
-              totalBalance: 6000000000
-            fakeAvvmBalance:
-              count: 100
-              oneBalance: 15000000
-            avvmBalanceFactor: 1
-            useHeavyDlg: False
-            seed: 0
+          testBalance:
+            poors:        50000
+            richmen:      3
+            richmenShare: 0.99
+            useHDAddresses: False
+            totalBalance: 6000000000
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 15000000
+          avvmBalanceFactor: 1
+          useHeavyDlg: False
+          seed: 0
         blockVersionData:
           <<: *dev_core_genesis_spec_blockVersionData
           slotDuration:      20000
@@ -192,7 +192,7 @@ test:
         <<: *dev_core_genesis_spec
         protocolConstants:
           <<: *dev_core_genesis_spec_protocolConstants
-          k: 35
+          k: 15
 
 
 ##############################################################################
@@ -205,13 +205,19 @@ mainnet_base: &mainnet_base
   core: &mainnet_base_core
     genesis: &mainnet_base_genesis
       spec: &mainnet_base_spec
-        initializer:
-          mainnetInitializer:
-            startTime: 1505930400000000 # 18:00 UTC on 2017-09-20
-            bootStakeholders:
-              204779e68379f19ad88c3599c22015988febb4c0258f100a61346ce1: 1
-            vssCerts: {}
-            nonAvvmBalances: {}
+        initializer: # set arbitrary, should be overridden
+          testBalance:
+            poors:        0
+            richmen:      7
+            richmenShare: 0.99
+            useHDAddresses: True
+            totalBalance: 600000000000000000
+          fakeAvvmBalance:
+            count: 10
+            oneBalance: 100000
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0
         blockVersionData: &mainnet_base_blockVersionData
           scriptVersion:     0
           slotDuration:      20000
@@ -235,11 +241,12 @@ mainnet_base: &mainnet_base
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &mainnet_base_protocolConstants
           k: 2160
-          protocolMagic: 10000000 #testnet protocolMagic
+          protocolMagic: 10000000 # arbitrary protocolMagic, to be overridden in actual configs
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "dmFzYSBvcGFzYSBza292b3JvZGEgR2d1cmRhIGJvcm9kYSBwcm92b2Rh"
         heavyDelegation: {}
+        # It's defined below and set for each config.
         avvmDistr: {}
 
     dbSerializeVersion: 0
@@ -287,20 +294,21 @@ mainnet_base: &mainnet_base
       bvAlt: 0
     systemTag: none
 
-  # SSC
   ssc:
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: True
 
-  node: &mainnet_base_node
-    networkDiameter: 18
-    defaultPeers: []
-    mdNoBlocksSlotThreshold: 18 # should be less than 2 * k
-    lightDlgConfirmationTimeout: 500
+  dlg: &mainnet_base_dlg
     dlgCacheParam: 500
-    recoveryHeadersMessage: 2200 # should be greater than k
     messageCacheTimeout: 30
+
+  block: &mainnet_base_block
+    networkDiameter: 18
+    recoveryHeadersMessage: 2200 # should be greater than k
+
+  node: &mainnet_base_node
+    defaultPeers: []
     networkConnectionTimeout: 2000
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
@@ -14736,56 +14744,6 @@ mainnet_base_avvmDistr:
           rSQZKCMrGNQN7rg6X66KMI_EvnjJhVMHXRyXlvjNftA=: 1
 
 
-
-##############################################################################
-##                                                                          ##
-##   Generated mainnet sample                                               ##
-##                                                                          ##
-##############################################################################
-
-mainnet_example_generated: &mainnet_example_generated
-  <<: *mainnet_base
-  core:
-    <<: *mainnet_base_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        avvmDistr:
-            acf611Gtde5MqKQU-65vYE9hCX9_II5NS5kgWAbtOS8=: 769230
-            uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
-        initializer:
-          mainnetInitializer:
-            startTime: 1505621332000000
-            bootStakeholders:
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
-            vssCerts:
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da:
-                   expiryEpoch: 1
-                   signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
-                   signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
-                   vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735:
-                   expiryEpoch: 2
-                   signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
-                   signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
-                   vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200:
-                   expiryEpoch: 1
-                   signature: "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506"
-                   signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
-                   vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49:
-                   expiryEpoch: 4
-                   signature: "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d"
-                   signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
-                   vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
-            nonAvvmBalances: {}
-
-
 ##############################################################################
 ##                                                                          ##
 ##   Mainnet final launch config sample                                     ##
@@ -14804,7 +14762,6 @@ mainnet_full: &mainnet_full
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
-    <<:
     applicationName: csl-daedalus
     applicationVersion: 3
     lastKnownBlockVersion:
@@ -14816,7 +14773,6 @@ mainnet_wallet_win64: &mainnet_wallet_win64
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
-    <<:
     applicationName: csl-daedalus
     applicationVersion: 3
     lastKnownBlockVersion:
@@ -14843,9 +14799,8 @@ mainnet_dryrun_full: &mainnet_dryrun_full
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
-    <<:
     applicationName: csl-daedalus
-    applicationVersion: 3
+    applicationVersion: 4
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14855,9 +14810,8 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
-    <<:
     applicationName: csl-daedalus
-    applicationVersion: 3
+    applicationVersion: 4
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14877,9 +14831,8 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
     genesis:
       src:
         file: mainnet-staging-short-epoch-genesis.json
-        hash: f73231256fe6784c408e8a31b7bb8250f80ce64fdbdec137ad1da2faa257a166
+        hash: e7a53de0c136f1da2a8591cac6150ea790dbe428b5f7aa840d2ea210cbb00673
   update:
-    <<:
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -14891,7 +14844,6 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
 mainnet_staging_short_epoch_wallet_win64:
   <<: *mainnet_staging_short_epoch_full
   update:
-    <<:
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -14903,7 +14855,6 @@ mainnet_staging_short_epoch_wallet_win64:
 mainnet_staging_short_epoch_wallet_macos64:
   <<: *mainnet_staging_short_epoch_full
   update:
-    <<:
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -14911,38 +14862,6 @@ mainnet_staging_short_epoch_wallet_macos64:
       bvMinor: 0
       bvAlt: 0
     systemTag: macos64
-
-##############################################################################
-##                                                                          ##
-##   Configs for mainnet launch tooling                                     ##
-##                                                                          ##
-##############################################################################
-
-mainnet_dryrun_base:
-  <<: *mainnet_base
-  core:
-    <<: *mainnet_base_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 633343913 #dryrun protocolMagic
-        avvmDistr: *mainnet_avvmDistr
-
-mainnet_launch_base:
-  <<: *mainnet_base
-  core:
-    <<: *mainnet_base_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 764824073 #mainnet protocolMagic
-        avvmDistr: *mainnet_avvmDistr
 
 ##############################################################################
 ##                                                                          ##
@@ -14967,111 +14886,106 @@ devnet: &devnet
           k: 6 # set to desired value
         avvmDistr: *mainnet_avvmDistr
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        200 # should be enough for developers
-              richmen:      4   # this is the number of core nodes,
-                                # set to desired value
-              richmenShare: 0.96
-              totalBalance: 13887504355000000
-              # We need to use HD addresses, because Daedalus can import
-              # only them and some developers may want to test Daedalus.
-              useHDAddresses: True
-            fakeAvvmBalance:
-              count: 100
-              oneBalance: 15000000
-            avvmBalanceFactor: 1
-            useHeavyDlg: True
-            seed: 0
+          testBalance:
+            poors:        200 # should be enough for developers
+            richmen:      3   # this is the number of core nodes,
+                              # set to desired value
+            richmenShare: 0.96
+            totalBalance: 13887504355000000
+            # We need to use HD addresses, because Daedalus can import
+            # only them and some developers may want to test Daedalus.
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 15000000
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0
+
+  update:
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
 
   node:
     <<: *mainnet_base_node
     networkDiameter: 18 # should be slightly less than slot duration
-    mdNoBlocksSlotThreshold: 5 # should be less than 2 * k
     recoveryHeadersMessage: 200 # should be greater than k
 
-# TODO (@gromak): these testnet configs look wrong.
-# Why are we using 'TestnetRichmenStakeDistr' in testnet, it should be
-# 'TestnetCustomStakeDistr'.
-# Should be investigated!
-
 ##############################################################################
 ##                                                                          ##
-##   Testnet configs (full)                                                 ##
+##   Internal staging configs                                               ##
 ##                                                                          ##
 ##############################################################################
 
-testnet_public_full: &testnet_public_full
+# Should be used to generate genesis
+internal_staging_gen: &internal_staging_gen
   <<: *mainnet_base
-  core: &testnet_public_full_core
+  core: &internal_staging_gen_core
     <<: *mainnet_base_core
-    genesis: &testnet_public_full_genesis
+    genesis:
       <<: *mainnet_base_genesis
-      spec:  &testnet_public_full_spec
+      spec:
         <<: *mainnet_base_spec
         protocolConstants:
           <<: *mainnet_base_protocolConstants
-          protocolMagic: 60987900 #testnet protocolMagic
+          protocolMagic: 60926700
         avvmDistr: *mainnet_avvmDistr
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        24000
-              richmen:      7
-              richmenShare: 0.94
-              totalBalance: 13887504355000000
-              useHDAddresses: False
-            fakeAvvmBalance:
-              count: 100
-              oneBalance: 15000000
-            avvmBalanceFactor: 1
-            useHeavyDlg: True
-            seed: 0
+          testBalance:
+            poors:        12000
+            richmen:      7
+            richmenShare: 0.93
+            totalBalance: 13887504355000000
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 1000000000000 # 1e6 ADA
+          avvmBalanceFactor: 0.1
+          useHeavyDlg: True
+          seed: 0 # should be overridden using --configuration-seed
 
-testnet_staging_full: &testnet_staging_full
-  <<: *testnet_public_full
+# Full nodes
+internal_staging_full: &internal_staging_full
+  <<: *internal_staging_gen
   core:
-    <<: *testnet_public_full_core
+    <<: *internal_staging_gen_core
     genesis:
-      <<: *testnet_public_full_genesis
-      spec:
-        <<: *testnet_public_full_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 60987900 #testnet protocolMagic
-          k: 108
-
-##############################################################################
-##                                                                          ##
-##   Testnet configs (wallet)                                               ##
-##                                                                          ##
-##############################################################################
-
-
-testnet_public_wallet_win64: &testnet_public_wallet_win64
-  <<: *testnet_public_full
+      src:  # TODO: it doesn't exist yet
+        file: internal-staging-genesis.json
+        hash: f73231256fe6784c408e8a31b7bb8250f80ce64fdbdec137ad1da2faa257a166
   update:
-    <<: *mainnet_base_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
+
+# Wallets
+internal_staging_wallet_win64:
+  <<: *internal_staging_full
+  update:
     applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
     systemTag: win64
 
-testnet_public_wallet_macos64: &testnet_public_wallet_macos64
-  <<: *testnet_public_full
+internal_staging_wallet_macos64:
+  <<: *internal_staging_full
   update:
-    <<: *mainnet_base_update
     applicationName: csl-daedalus
-    systemTag: macos64
-
-testnet_staging_wallet_win64: &testnet_staging_wallet_win64
-  <<: *testnet_staging_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: win64
-
-testnet_staging_wallet_macos64: &testnet_staging_wallet_macos64
-  <<: *testnet_staging_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
     systemTag: macos64

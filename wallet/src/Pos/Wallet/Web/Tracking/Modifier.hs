@@ -28,19 +28,19 @@ module Pos.Wallet.Web.Tracking.Modifier
 
 import           Universum
 
-import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
-import           Formatting                   (bprint, build, (%))
-import           Serokell.Util                (listJson, listJsonIndent)
+import           Formatting (bprint, build, (%))
+import           Serokell.Util (listJson, listJsonIndent)
 
-import           Pos.Client.Txp.History       (TxHistoryEntry (..))
-import           Pos.Core                     (HeaderHash, SlotId)
-import           Pos.Txp.Core                 (TxId)
-import           Pos.Txp.Toil                 (UtxoModifier)
-import           Pos.Util.Modifier            (MapModifier)
-import qualified Pos.Util.Modifier            as MM
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core (HeaderHash, SlotId)
+import           Pos.Core.Txp (TxId)
+import           Pos.Txp.Toil (UtxoModifier)
+import           Pos.Util.Modifier (MapModifier)
+import qualified Pos.Util.Modifier as MM
 
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CWAddressMeta)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
 
 ----------------------------------------------------------------------------

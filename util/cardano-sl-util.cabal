@@ -1,0 +1,119 @@
+name:                cardano-sl-util
+version:             1.0.3
+synopsis:            Cardano SL - general utilities
+description:         This package contains utility functions not specific
+                     to Cardano SL which extend 3rd party libraries or implement
+                     something from scratch.
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Pos.Util
+
+                       Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
+
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
+
+                       Pos.Util.Filesystem
+                       Pos.Util.Future
+                       Pos.Util.Justify
+                       Pos.Util.Lens
+                       Pos.Util.LoggerName
+                       Pos.Util.LRU
+                       Pos.Util.Modifier
+                       Pos.Util.Orphans
+                       Pos.Util.Queue
+                       Pos.Util.Some
+                       Pos.Util.Timer
+                       Pos.Util.Util
+
+  other-modules:
+
+  build-depends:       QuickCheck
+                     , aeson
+                     , autoexporter
+                     , base
+                     , bytestring
+                     , containers
+                     , concurrent-extra
+                     , cryptonite
+                     , data-default
+                     , deepseq
+                     , directory
+                     , ether
+                     , exceptions
+                     , filepath
+                     , formatting
+                     , hashable
+                     , lens
+                     , log-warper >= 1.0.3
+                     , lrucache
+                     , mmorph
+                     , mtl
+                     , node-sketch
+                     , parsec
+                     , process
+                     , quickcheck-instances
+                     , random
+                     , reflection
+                     , resourcet
+                     , semigroups
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , template-haskell
+                     , text
+                     , text-format
+                     , th-lift-instances
+                     , time
+                     , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
+                     , universum
+                     , unordered-containers
+                     , vector
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

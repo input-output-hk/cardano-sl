@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
-set -o xtrace
+set -eo xtrace
 
 # Make sure we're in a tmux session.
 if ! [ -n "$TMUX" ]; then
   echo "You must run this script from the tmux session!"
   exit 1
+fi
+
+# Make sure we're using proper version of tmux.
+tmux_actual_version=$(tmux -V | awk '{print $2}')
+# All tmux versions contain two numbers only.
+tmux_proper_versions=("2.3" "2.4" "2.5" "2.6" "master")
+checker=""
+for version in "${tmux_proper_versions[@]}"; do
+    if [ "${version}" == "${tmux_actual_version}" ]; then
+        checker="${version}"; break
+    fi
+done
+# If checker is still empty - we're using wrong tmux version!
+if [ "${checker}" == "" ]; then
+    echo "Please upgrade tmux to the version ${tmux_proper_versions[0]} or higher."
+    exit 1
 fi
 
 base=$(dirname "$0")
@@ -65,6 +81,14 @@ if [ -z "$system_start" ]
     system_start=$((`date +%s` + 15))
 fi
 
+# This enables to select different wallet executables, since we have a 
+# migration from the old to the new wallet.
+if [ -z "$WALLET_EXE_NAME" ]
+  then
+    WALLET_EXE_NAME="cardano-node"
+fi
+
+
 echo "Using system start time "$system_start
 
 echo "Number of panes: $panesCnt"
@@ -90,7 +114,9 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
           wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-          exec_name='cardano-node'
+          # We are using the different wallet exe here, depending on what was passed when the script was called.
+          exec_name=$WALLET_EXE_NAME
+          echo "Using wallet $exec_name."
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"
           fi

@@ -11,10 +11,10 @@ module Pos.Util.Limits
 
 import           Universum
 
-import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashMap.Strict as HM
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi, biSize)
+import           Pos.Binary.Class (Bi, biSize)
 
 -- | Spans hash map into two (almost same) parts.
 spanHashMap :: (Hashable k, Eq k) => HashMap k v -> (HashMap k v, HashMap k v)

@@ -8,26 +8,23 @@ module Test.Pos.Ssc.ComputeSharesSpec
 
 import           Universum
 
-import qualified Data.HashMap.Strict   as HM
-import           Data.Reflection       (Reifies (..))
-import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
+import qualified Data.HashMap.Strict as HM
+import           Data.Reflection (Reifies (..))
+import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Property, (.&&.), (===))
+import           Test.QuickCheck (Property, (.&&.), (===))
 
-import           Pos.Arbitrary.Lrc     (GenesisMpcThd, InvalidRichmenStakes (..),
-                                        ValidRichmenStakes (..))
-import           Pos.Core              (Coin, CoinPortion, StakeholderId, mkCoin,
-                                        unsafeAddressHash, unsafeCoinPortionFromDouble,
-                                        unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Coin         (applyCoinPortionDown, sumCoins)
-import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
-                                        findRichmenPure)
-import           Pos.Ssc               (SharesDistribution, SscVerifyError,
-                                        computeSharesDistrPure,
-                                        isDistrInaccuracyAcceptable,
-                                        sharesDistrMaxSumDistr)
+import           Pos.Arbitrary.Lrc (GenesisMpcThd, InvalidRichmenStakes (..),
+                                    ValidRichmenStakes (..))
+import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin, unsafeAddressHash,
+                           unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
+import           Pos.Core.Ssc (SharesDistribution)
+import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
+import           Pos.Ssc (SscVerifyError, computeSharesDistrPure, isDistrInaccuracyAcceptable,
+                          sharesDistrMaxSumDistr)
 
-import           Test.Pos.Util         (qcIsLeft, withDefConfiguration)
+import           Test.Pos.Util (qcIsLeft, withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "computeSharesDistr" $ do

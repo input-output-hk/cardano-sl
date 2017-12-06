@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {- |
 
 This module contains the Haskeline-based user interface of auxx. The REPL is
@@ -34,9 +35,9 @@ module Repl
 import           Universum
 
 import           Control.Concurrent.Async (race_)
-import           Control.Exception        (Exception (..))
-import           Data.Text                (strip)
-import           Mockable                 (Catch, Mockable, handle)
+import           Control.Exception (Exception (..))
+import           Data.Text (strip)
+import           Mockable (Catch, Mockable, handle)
 import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
 
@@ -56,8 +57,8 @@ data CommandResult
 -- | The external interface of the REPL, used by the auxx plugin to receive new
 -- commands to execute (via 'withCommand') and get the Haskeline-compatible
 -- printing action (via 'getPrintAction').
-data WithCommandAction m = WithCommandAction
-    { withCommand    :: (Text -> m ()) -> m ()
+data WithCommandAction = WithCommandAction
+    { withCommand    :: forall m. (MonadIO m, Mockable Catch m) => (Text -> m ()) -> m ()
         -- ^ Get the next command to execute. Rather than using simple @m
         -- 'Command'@ method, we use a CPS-ed version to guarantee valid
         -- exception handling, automate 'CommandResult' detection, and avoid
@@ -65,7 +66,7 @@ data WithCommandAction m = WithCommandAction
         --
         -- This action blocks until there are commands available.
         --
-    , getPrintAction :: m (PrintAction m)
+    , getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
         -- ^ Get the printing action that doesn't disrupt the Haskeline prompt.
         -- The node (and the auxx plugin) should use this action exclusively for printing.
         --
@@ -82,19 +83,21 @@ type PutCommandAction = Text -> AuxxRepl CommandResult
 -- interact with it ('WithCommandAction'). You are supposed to fork the REPL
 -- action into a separate thread: 'withAuxxRepl' does it for you, so use it
 -- instead unless you need to add special logic.
-createAuxxRepl :: (MonadIO m, Mockable Catch m) => IO (WithCommandAction m, IO ())
+createAuxxRepl :: IO (WithCommandAction, IO ())
 createAuxxRepl = do
     nextCommandVar <- newEmptyMVar
     lastResultVar <- newEmptyMVar
-    printActionVar <- newEmptyMVar
+    (printActionVar :: MVar (PrintAction IO)) <- newEmptyMVar
     let
+        withCommand :: forall m. (MonadIO m, Mockable Catch m) => (Text -> m ()) -> m ()
         withCommand cont = do
             cmd <- takeMVar nextCommandVar
             res <- handle
                 (\e -> return $ CommandFailure e)
                 (CommandSuccess <$ cont cmd)
             putMVar lastResultVar res
-        getPrintAction = readMVar printActionVar
+        getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
+        getPrintAction = liftIO $ (liftIO .) <$> readMVar printActionVar
         putCommand cmd = do
             putMVar nextCommandVar cmd
             takeMVar lastResultVar
@@ -108,7 +111,7 @@ createAuxxRepl = do
 -- auxx, we merely need to end the REPL, and the node will be killed
 -- automatically (and vice versa, if the node dies for some reason, the user
 -- won't be left in an unusable REPL).
-withAuxxRepl :: (MonadIO m, Mockable Catch m) => (WithCommandAction m -> IO ()) -> IO ()
+withAuxxRepl :: (WithCommandAction -> IO ()) -> IO ()
 withAuxxRepl action = do
     (c, auxxRepl) <- createAuxxRepl
     race_ auxxRepl (action c)

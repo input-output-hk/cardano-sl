@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Block.Core and Pos.Block.Pure.
+-- | Specification of Pos.Core.Block and Pos.Block.Pure.
 
 module Test.Pos.Types.BlockSpec
        ( spec
@@ -8,25 +8,24 @@ module Test.Pos.Types.BlockSpec
 
 import           Universum
 
-import           Serokell.Util         (isVerSuccess)
-import           Test.Hspec            (Spec, describe, it)
+import           Serokell.Util (isVerSuccess)
+import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Property, (===), (==>))
+import           Test.QuickCheck (Property, (===), (==>))
 
-import           Pos.Arbitrary.Block   as T
-import           Pos.Binary            (Bi)
-import qualified Pos.Block.Core        as T
-import qualified Pos.Block.Pure        as T
-import           Pos.Core              (HasConfiguration, genesisHash)
-import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        SignTag (..), createPsk, proxySign, sign,
-                                        toPublic)
-import           Pos.Data.Attributes   (mkAttributes)
-import qualified Pos.Types             as T
-import           Pos.Util.Chrono       (NewestFirst (..))
-import           Pos.Util.Util         (leftToPanic)
+import           Pos.Arbitrary.Block as T
+import           Pos.Binary (Bi)
+import qualified Pos.Block.Base as T
+import qualified Pos.Block.Pure as T
+import           Pos.Core (HasConfiguration, genesisHash)
+import qualified Pos.Core as T
+import           Pos.Crypto (ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..), createPsk,
+                             proxySign, sign, toPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Util.Util (leftToPanic)
 
-import           Test.Pos.Util         (withDefConfiguration)
+import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block properties" $ do

@@ -4,18 +4,16 @@ module Test.Auxx.Lang.LexerSpec
 
 import           Universum
 
-import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, property)
+import           Test.QuickCheck (Property, property)
 
-import           Pos.Core              (BlockVersion (..), SoftwareVersion (..),
-                                        decodeTextAddress, mkApplicationName)
-import           Pos.Crypto            (decodeAbstractHash, parseFullPublicKey,
-                                        unsafeCheatingHashCoerce)
+import           Pos.Core (BlockVersion (..), SoftwareVersion (..), decodeTextAddress,
+                           mkApplicationName)
+import           Pos.Crypto (decodeAbstractHash, parseFullPublicKey, unsafeCheatingHashCoerce)
 
-import           Lang.Lexer            (BracketSide (..), Token (..), detokenize,
-                                        tokenize, tokenize')
-import           Lang.Name             (unsafeMkName)
+import           Lang.Lexer (BracketSide (..), Token (..), detokenize, tokenize, tokenize')
+import           Lang.Name (unsafeMkName)
 
 spec :: Spec
 spec = describe "Auxx.Lang.Lexer" $ do
@@ -28,12 +26,12 @@ propAcceptsAnyInput :: Property
 propAcceptsAnyInput = property $ isJust . tokenize' . fromString
 
 propHandlesValidInput :: Property
-propHandlesValidInput = property $ liftA2 (==) (tokenize . detokenize) identity
+propHandlesValidInput = property $ liftA2 (==) (map snd . tokenize . detokenize) identity
 
 unitLexerSample1 :: Expectation
-unitLexerSample1 = tokenize input `shouldBe` output
+unitLexerSample1 = map snd (tokenize input) `shouldBe` output
   where
-    input  = " ( \"Hello\"; [=propose-patak-update ./secret.key /home/a\\ b] \"\\\"\"  ) "
+    input  = " ( \"Hello\"; [=propose-patak-update ./secret.key /home/a_b\\ b-c] \"\\\"\"  ) "
     output =
         [ TokenParenthesis BracketSideOpening
         , TokenString "Hello"
@@ -42,14 +40,14 @@ unitLexerSample1 = tokenize input `shouldBe` output
         , TokenEquals
         , TokenName $ unsafeMkName ["propose", "patak", "update"]
         , TokenFilePath "./secret.key"
-        , TokenFilePath "/home/a b"
+        , TokenFilePath "/home/a_b b-c"
         , TokenSquareBracket BracketSideClosing
         , TokenString "\""
         , TokenParenthesis BracketSideClosing
         ]
 
 unitLexerSample2 :: Expectation
-unitLexerSample2 = tokenize input `shouldBe` output
+unitLexerSample2 = map snd (tokenize input) `shouldBe` output
   where
     input =
         " oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA== \

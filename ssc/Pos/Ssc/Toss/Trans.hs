@@ -11,19 +11,16 @@ module Pos.Ssc.Toss.Trans
 
 import           Universum
 
-import           Control.Lens                  (at, (%=), (.=))
+import           Control.Lens (at, (%=), (.=))
 import qualified Ether
-import           Mockable                      (ChannelT, Promise, SharedAtomicT,
-                                                ThreadId)
+import           Mockable (ChannelT, Promise, SharedAtomicT, ThreadId)
 
-import           Pos.Core.Vss                  (insertVss)
-import           Pos.Ssc.Core                  (deleteSignedCommitment,
-                                                insertSignedCommitment)
-import           Pos.Ssc.Toss.Class            (MonadToss (..), MonadTossEnv (..),
-                                                MonadTossRead (..))
-import           Pos.Ssc.Toss.Types            (TossModifier (..), tmCertificates,
-                                                tmCommitments, tmOpenings, tmShares)
-import           Pos.Util.Util                 (ether)
+import           Pos.Core.Ssc (insertVss)
+import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
+import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTossRead (..))
+import           Pos.Ssc.Toss.Types (TossModifier (..), tmCertificates, tmCommitments, tmOpenings,
+                                     tmShares)
+import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer

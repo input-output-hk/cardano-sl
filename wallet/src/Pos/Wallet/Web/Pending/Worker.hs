@@ -9,47 +9,42 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
-import           Control.Lens                      (has)
-import           Control.Monad.Catch               (handleAll)
-import           Data.Time.Units                   (Microsecond, Second, convertUnit)
-import           Formatting                        (build, sformat, (%))
-import           Mockable                          (delay, fork)
-import           Serokell.Util.Text                (listJson)
-import           System.Wlog                       (logInfo, modifyLoggerName)
+import           Control.Lens (has)
+import           Control.Monad.Catch (handleAll)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
+import           Formatting (build, sformat, (%))
+import           Mockable (delay, fork)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (logInfo, modifyLoggerName)
 
-import           Pos.Client.Txp.Addresses          (MonadAddresses)
-import           Pos.Communication                 (TxMode)
-import           Pos.Configuration                 (HasNodeConfiguration,
-                                                    pendingTxResubmitionPeriod)
-import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
-                                                    difficultyL)
-import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Crypto                        (WithHash (..))
-import           Pos.DB.Block                      (MonadBlockDB)
-import           Pos.DB.DB                         (getTipHeader)
-import           Pos.Recovery.Info                 (MonadRecoveryInfo)
-import           Pos.Reporting                     (MonadReporting)
-import           Pos.Shutdown                      (HasShutdownContext)
-import           Pos.Slotting                      (MonadSlots, getNextEpochSlotDuration,
-                                                    onNewSlot)
-import           Pos.Txp                           (TxAux (..), topsortTxs)
-import           Pos.Util.LogSafe                  (logInfoS)
-import           Pos.Wallet.Web.Networking         (MonadWalletSendActions)
-import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
-import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
-                                                    submitAndSavePtx)
-import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
-                                                    ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.State              (MonadWalletDB,
-                                                    PtxMetaUpdate (PtxIncSubmitTiming),
-                                                    casPtxCondition, getPendingTx,
-                                                    getPendingTxs, ptxUpdateMeta)
-import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
+import           Pos.Client.Txp.Addresses (MonadAddresses)
+import           Pos.Client.Txp.Network (TxMode)
+import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPeriod)
+import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (TxAux (..))
+import           Pos.Crypto (WithHash (..))
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Reporting (MonadReporting)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
+import           Pos.Txp (topsortTxs)
+import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Wallet.Web.Networking (MonadWalletSendActions)
+import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,
+                                               _PtxApplying)
+import           Pos.Wallet.Web.State (MonadWalletDB, PtxMetaUpdate (PtxIncSubmitTiming),
+                                       casPtxCondition, getPendingTx, getPendingTxs, ptxUpdateMeta)
+import           Pos.Wallet.Web.Util (getWalletAssuredDepth)
 
 type MonadPendings ctx m =
     ( TxMode m
     , MonadAddresses m
-    , MonadBlockDB m
+    , MonadDBRead m
     , MonadRecoveryInfo m
     , MonadReporting ctx m
     , HasShutdownContext ctx
@@ -63,7 +58,7 @@ type MonadPendings ctx m =
 processPtxInNewestBlocks :: MonadPendings ctx m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    tipDiff <- view difficultyL <$> getTipHeader
+    tipDiff <- view difficultyL <$> DB.getTipHeader
     if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth ptxDiff tipDiff -> do
@@ -112,11 +107,12 @@ resubmitPtxsDuringSlot ptxs = do
 processPtxsToResubmit
     :: MonadPendings ctx m
     => SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit curSlot ptxs = do
+processPtxsToResubmit _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
-            take ptxsPerSlotLimit $
-            filter ((curSlot >=) . view ptxNextSubmitSlot) $
+            take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
+                                             -- though properly “min 1”
+                                             -- shouldn't be needed
             filter (has _PtxApplying . _ptxCond) $
             ptxs
     unless (null toResubmit) $
@@ -149,7 +145,6 @@ processPtxsOnSlot
 processPtxsOnSlot curSlot = do
     ptxs <- getPendingTxs
     let sortedPtxs =
-            sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             ptxs
 

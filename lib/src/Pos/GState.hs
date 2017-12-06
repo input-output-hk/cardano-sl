@@ -13,8 +13,8 @@ module Pos.GState
        , module Pos.Update.DB
        ) where
 
-import           Pos.DB.GState.Stakes
 import           Pos.DB.GState.Common
+import           Pos.DB.GState.Stakes
 import           Pos.Delegation.DB
 import           Pos.GState.BlockExtra
 import           Pos.GState.Context

@@ -2,7 +2,6 @@
 
 module Pos.Wallet.Web.Account
        ( myRootAddresses
-       , getAddrIdx
        , getSKById
        , getSKByAddress
        , getSKByAddressPure
@@ -18,28 +17,24 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
-import           Control.Monad.Except       (MonadError (throwError), runExceptT)
-import           Data.List                  (elemIndex)
-import           Formatting                 (build, sformat, (%))
-import           System.Random              (randomIO)
-import           System.Wlog                (WithLogger)
+import           Control.Monad.Except (MonadError (throwError), runExceptT)
+import           Formatting (build, sformat, (%))
+import           System.Random (randomRIO)
+import           System.Wlog (WithLogger)
 import           Universum
 
-import           Pos.Client.KeyStorage      (AllUserSecrets (..), MonadKeys,
-                                             MonadKeysRead, addSecretKey, getSecretKeys,
-                                             getSecretKeysPlain)
-import           Pos.Core                   (Address (..), IsBootstrapEraAddr (..),
-                                             deriveLvl2KeyPair)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
-                                             ShouldCheckPassphrase (..), isHardened)
-import           Pos.Util                   (eitherToThrow, maybeThrow)
-import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
+                                        getSecretKeys, getSecretKeysPlain)
+import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
+                             firstHardened)
+import           Pos.Util (eitherToThrow)
+import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever),
-                                             MonadWalletDBMempoolRead, doesWAddressExist,
-                                             getAccountMeta)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDBMempoolRead,
+                                       doesWAddressExist, getAccountMeta)
 
 type AccountMode m =
     ( MonadThrow m
@@ -51,12 +46,6 @@ type AccountMode m =
 
 myRootAddresses :: MonadKeysRead m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeysPlain
-
-getAddrIdx :: AccountMode m => CId Wal -> m Int
-getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
-  where
-    notFound =
-        RequestError $ sformat ("No wallet with address "%build%" found") addr
 
 getSKById
     :: AccountMode m
@@ -134,15 +123,13 @@ generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
              sformat (build%": generation of unique item seems too difficult, \
                       \you are approaching the limit") desc
     loop i = do
-        rand  <- liftIO randomIO
+        rand  <- liftIO $ randomRIO (firstHardened, maxBound)
         value <- generator rand
-        bad   <- orM
-            [ isDuplicate rand value
-            , pure $ isHardened rand  -- using hardened keys only for now
-            ]
-        if bad
-            then loop (i - 1)
-            else return value
+        isDup <- isDuplicate rand value
+        if isDup then
+            loop (i - 1)
+        else
+            return value
 generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
     whenM (notFit seed value) $

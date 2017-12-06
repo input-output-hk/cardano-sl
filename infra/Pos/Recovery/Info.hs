@@ -11,11 +11,10 @@ module Pos.Recovery.Info
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, sformat, stext, (%))
-import           System.Wlog         (WithLogger, logDebug)
+import           Formatting (bprint, build, sformat, stext, (%))
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core            (HasConfiguration, SlotCount, SlotId, slotIdF,
-                                      slotSecurityParam)
+import           Pos.Core (HasConfiguration, SlotCount, SlotId, slotIdF, slotSecurityParam)
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.

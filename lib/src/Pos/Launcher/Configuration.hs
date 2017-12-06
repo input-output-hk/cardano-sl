@@ -15,23 +15,25 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson                       (FromJSON (..), genericParseJSON)
-import           Data.Default                     (Default (..))
-import           Serokell.Aeson.Options           (defaultOptions)
-import           System.FilePath                  (takeDirectory)
-import           System.Wlog                      (WithLogger, logInfo)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Default (Default (..))
+import           Serokell.Aeson.Options (defaultOptions)
+import           System.FilePath (takeDirectory)
+import           System.Wlog (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
-import           Pos.Aeson.Core.Configuration     ()
+import           Pos.Aeson.Core.Configuration ()
 
+import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Types                   (Timestamp)
+import           Pos.Core.Slotting (Timestamp)
+import           Pos.Delegation.Configuration
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
-import           Pos.Util.Config                  (parseYamlConfig)
+import           Pos.Util.Config (parseYamlConfig)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
@@ -39,6 +41,8 @@ data Configuration = Configuration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
+    , ccBlock  :: !BlockConfiguration
+    , ccDlg    :: !DlgConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -50,6 +54,8 @@ type HasConfigurations =
     , HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
+    , HasBlockConfiguration
+    , HasDlgConfiguration
     , HasNodeConfiguration
     )
 
@@ -86,11 +92,13 @@ withConfigurations
     -> (HasConfigurations => m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
-    logInfo $ show co
+    logInfo ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
+        withDlgConfiguration ccDlg $
+        withBlockConfiguration ccBlock $
         withNodeConfiguration ccNode $ act

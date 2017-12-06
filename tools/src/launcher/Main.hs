@@ -1,62 +1,81 @@
-{-# LANGUAGE ApplicativeDo     #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell   #-}
-
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE ApplicativeDo         #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 import           Universum
 
-import           Control.Concurrent           (modifyMVar_)
-import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
-                                               withAsyncWithUnmask)
-import           Data.List                    (isSuffixOf)
-import qualified Data.Text.IO                 as T
-import qualified Data.Text.Lazy.IO            as TL
-import           Data.Time.Units              (Second, convertUnit)
-import           Data.Version                 (showVersion)
-import           Formatting                   (format, int, shown, stext, text, (%))
-import qualified NeatInterpolation            as Q (text)
-import           Options.Applicative          (Mod, OptionFields, Parser, auto,
-                                               execParser, footerDoc, fullDesc, header,
-                                               help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, short,
-                                               strOption)
-import           System.Directory             (createDirectoryIfMissing, doesFileExist,
-                                               getTemporaryDirectory, removeFile)
-import           System.Environment           (getExecutablePath)
-import           System.Exit                  (ExitCode (..))
-import           System.FilePath              (normalise, (</>))
-import qualified System.IO                    as IO
-import           System.Process               (ProcessHandle, readProcessWithExitCode)
-import qualified System.Process               as Process
-import           System.Timeout               (timeout)
-import           System.Wlog                  (lcFilePrefix, usingLoggerName)
+import           Control.Concurrent (modifyMVar_)
+import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
+                                                       withAsyncWithUnmask)
+import           Control.Exception.Safe (tryAny)
+import           Control.Lens (makeLensesWith)
+import qualified Data.ByteString.Lazy as BS.L
+import           Data.List (isSuffixOf)
+import qualified Data.Text.IO as T
+import           Data.Time.Units (Second, convertUnit)
+import           Data.Version (showVersion)
+import           Formatting (int, sformat, shown, stext, (%))
+import qualified NeatInterpolation as Q (text)
+import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
+                                      fullDesc, header, help, helper, info, infoOption, long,
+                                      metavar, option, progDesc, short, strOption)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, getTemporaryDirectory,
+                                   removeFile)
+import           System.Environment (getExecutablePath)
+import           System.Exit (ExitCode (..))
+import           System.FilePath ((</>))
+import qualified System.IO as IO
+import           System.Process (ProcessHandle, readProcessWithExitCode)
+import qualified System.Process as Process
+import           System.Timeout (timeout)
+import           System.Wlog (logError, logInfo, logNotice, logWarning)
+import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
--- Modules needed for system'
-import           Control.Exception            (handle, mask_, throwIO)
-import           Foreign.C.Error              (Errno (..), ePIPE)
-import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
+#ifdef mingw32_HOST_OS
+import qualified System.IO.Silently as Silently
+#endif
 
-import           Paths_cardano_sl             (version)
-import           Pos.Client.CLI               (configurationOptionsParser,
-                                               readLoggerConfig)
-import           Pos.Core                     (Timestamp (..))
-import           Pos.Launcher                 (HasConfigurations, withConfigurations)
-import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
-import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
-import           Pos.ReportServer.Report      (ReportType (..))
-import           Pos.Util                     (directory, sleep)
-import           Pos.Util.CompileInfo         (HasCompileInfo, retrieveCompileTimeInfo,
-                                               withCompileInfo)
+#ifndef mingw32_HOST_OS
+import           System.Posix.Signals (sigKILL, signalProcess)
+import qualified System.Process.Internals as Process
+#endif
+
+-- Modules needed for system'
+import           Control.Exception (handle, mask_, throwIO)
+import           Foreign.C.Error (Errno (..), ePIPE)
+import           GHC.IO.Exception (IOErrorType (..), IOException (..))
+
+import           Paths_cardano_sl (version)
+import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
+import           Pos.Core (HasConfiguration, Timestamp (..))
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
+                               dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
+import           Pos.Launcher (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report (ReportType (..))
+import           Pos.Update (installerHash)
+import           Pos.Update.DB.Misc (affirmUpdateInstalled)
+import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
     , loNodeArgs            :: ![Text]
+    , loNodeDbPath          :: !FilePath
     , loNodeLogConfig       :: !(Maybe FilePath)
     , loNodeLogPath         :: !(Maybe FilePath)
     , loWalletPath          :: !(Maybe FilePath)
@@ -68,7 +87,14 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
+    -- | Launcher logs will be written into this directory (as well as to
+    -- console, except on Windows where we don't output anything to console
+    -- because it crashes).
+    , loLauncherLogsPrefix  :: !(Maybe FilePath)
     }
+
+-- | The concrete monad where everything happens
+type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
@@ -84,24 +110,28 @@ optionsParser = do
         short   'n' <>
         help    "An argument to be passed to the node." <>
         metavar "ARG"
+    loNodeDbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        help    "Path to directory with all DBs used by the node."
     loNodeLogConfig <- optional $ textOption $
         long    "node-log-config" <>
         help    "Path to log config that will be used by the node." <>
         metavar "PATH"
     loNodeLogPath <- optional $ textOption $
         long    "node-log-path" <>
-        help    "File where node stdout/err will be redirected\
-                \ (def: temp file)." <>
+        help    ("File where node stdout/err will be redirected " <>
+                 "(def: temp file).") <>
         metavar "PATH"
 
     -- Wallet-related args
     loWalletPath <- optional $ textOption $
         long    "wallet" <>
-        help    "Path to the wallet executable." <>
+        help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
         metavar "PATH"
     loWalletArgs <- many $ textOption $
         short   'w' <>
-        help    "An argument to be passed to the wallet." <>
+        help    "An argument to be passed to the wallet frontend executable." <>
         metavar "ARG"
 
     -- Update-related args
@@ -125,12 +155,17 @@ optionsParser = do
     -- Other args
     loNodeTimeoutSec <- option auto $
         long    "node-timeout" <>
-        help    "How much to wait for the node to exit before killing it." <>
+        help    ("How much to wait for the node to exit before killing it " <>
+                 "(and then how much to wait after that).") <>
         metavar "SEC"
     loReportServer <- optional $ strOption $
         long    "report-server" <>
         help    "Where to send logs in case of failure." <>
         metavar "URL"
+    loLauncherLogsPrefix <- optional $ strOption $
+        long    "launcher-logs-prefix" <>
+        help    "Where to put launcher logs (def: console only)." <>
+        metavar "DIR"
 
     loConfiguration <- configurationOptionsParser
 
@@ -178,21 +213,65 @@ Command example:
     --node-timeout 5                                               \
     --update-archive updateDownloaded.tar|]
 
+data LauncherModeContext = LauncherModeContext { lmcNodeDBs :: NodeDBs }
+
+makeLensesWith postfixLFields ''LauncherModeContext
+
+type LauncherMode = ReaderT LauncherModeContext IO
+
+instance HasLens NodeDBs LauncherModeContext NodeDBs where
+    lensOf = lmcNodeDBs_L
+
+instance HasConfiguration => MonadDBRead LauncherMode where
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
+
+instance HasConfiguration => MonadDB LauncherMode where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
+
+newtype NodeDbPath = NodeDbPath FilePath
+
+bracketNodeDBs :: NodeDbPath -> (NodeDBs -> IO a) -> IO a
+bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNodeDBs
+
 main :: IO ()
-main = do
+main =
+  withCompileInfo $(retrieveCompileTimeInfo) $
+#ifdef mingw32_HOST_OS
+  -- We don't output anything to console on Windows because on Windows the
+  -- launcher is considered a “GUI application” and so stdout and stderr
+  -- don't even exist.
+  Silently.hSilence [stdout, stderr] $
+#endif
+  do
     LO {..} <- getLauncherOptions
     let realNodeArgs = addConfigurationOptions loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    usingLoggerName "launcher" $
+    Log.setupLogging Nothing $
+        Log.productionB
+            & Log.lcTermSeverity .~ Just Log.Debug
+            & Log.lcFilePrefix .~ loLauncherLogsPrefix
+            & Log.lcTree %~ case loLauncherLogsPrefix of
+                  Nothing ->
+                      identity
+                  Just _  ->
+                      set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
+                      set Log.ltSeverity (Just Log.Debug)
+    Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
-        withCompileInfo $(retrieveCompileTimeInfo) $
-        liftIO $
         case loWalletPath of
             Nothing -> do
-                putText "Running in the server scenario"
+                logNotice "LAUNCHER STARTED"
+                logInfo "Running in the server scenario"
                 serverScenario
+                    (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     ( loUpdaterPath
@@ -201,8 +280,10 @@ main = do
                     , loUpdateArchive)
                     loReportServer
             Just wpath -> do
-                putText "Running in the client scenario"
+                logNotice "LAUNCHER STARTED"
+                logInfo "Running in the client scenario"
                 clientScenario
+                    (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     (wpath, loWalletArgs)
@@ -248,24 +329,26 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: (HasConfigurations, HasCompileInfo)
-    => Maybe FilePath                      -- ^ Logger config
+    :: NodeDbPath
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
-    -> IO ()
-serverScenario logConf node updater report = do
-    runUpdater updater
+    -> M ()
+serverScenario ndbp logConf node updater report = do
+    runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync, nodeLog) <- spawnNode node
+    (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
-    putStrLn $ format ("The node has exited with "%shown) exitCode
-    if exitCode == ExitFailure 20
-        then serverScenario logConf node updater report
-        else whenJust report $ \repServ -> do
-                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
+    if exitCode == ExitFailure 20 then do
+        logNotice $ sformat ("The node has exited with "%shown) exitCode
+        serverScenario ndbp logConf node updater report
+    else do
+        logWarning $ sformat ("The node has exited with "%shown) exitCode
+        whenJust report $ \repServ -> do
+            logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+            reportNodeCrash exitCode logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -273,66 +356,94 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: (HasConfigurations, HasCompileInfo)
-    => Maybe FilePath                      -- ^ Logger config
+    :: NodeDbPath
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
-    -> IO ()
-clientScenario logConf node wallet updater nodeTimeout report = do
-    runUpdater updater
-    (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
+    -> M ()
+clientScenario ndbp logConf node wallet updater nodeTimeout report = do
+    runUpdater ndbp updater
+    (nodeHandle, nodeAsync) <- spawnNode node
     walletAsync <- async (runWallet wallet)
-    (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
+    (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report
     if | someAsync == nodeAsync -> do
-             TL.putStrLn $ format ("The node has exited with "%shown) exitCode
+             logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
-                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
-             putText "Waiting for the wallet to die"
-             void $ wait walletAsync
+                 logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+                 reportNodeCrash exitCode logConf repServ
+             logInfo "Waiting for the wallet to die"
+             walletExitCode <- wait walletAsync
+             logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
+             when (walletExitCode == ExitFailure 20) $
+                 case exitCode of
+                     ExitSuccess{} -> restart
+                     ExitFailure{} ->
+                         -- -- Commented out because shutdown is broken and node
+                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
+                         -- TL.putStrLn $
+                         --   "The wallet has exited with code 20, but\
+                         --   \ we won't update due to node crash"
+                         restart -- remove this after CSL-1855
        | exitCode == ExitFailure 20 -> do
-             putText "The wallet has exited with code 20"
-             TL.putStrLn $ format ("Killing the node in "%int%" seconds") nodeTimeout
+             logNotice "The wallet has exited with code 20"
+             logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
-             putText "Killing the node now"
-             liftIO $ do
-                 Process.terminateProcess nodeHandle
-                 cancel nodeAsync
-             clientScenario logConf node wallet updater nodeTimeout report
+             killNode nodeHandle nodeAsync
+             restart
        | otherwise -> do
-             TL.putStrLn $ format ("The wallet has exited with "%shown) exitCode
+             logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             putText "Killing the node"
-             liftIO $ do
-                 Process.terminateProcess nodeHandle
-                 cancel nodeAsync
+             killNode nodeHandle nodeAsync
+  where
+    killNode nodeHandle nodeAsync = do
+        logInfo "Killing the node"
+        liftIO (tryAny (Process.terminateProcess nodeHandle)) >>= \case
+            Right _ -> pass
+            Left ex -> logError $ "'terminateProcess' failed: " <> show ex
+        cancel nodeAsync
+        -- Give the node some time to die, then complain if it hasn't
+        nodeExitCode <- liftIO $
+            timeout (fromIntegral nodeTimeout) $
+            Process.waitForProcess nodeHandle
+        whenNothing_ nodeExitCode $ do
+            logWarning "The node didn't die after 'terminateProcess'"
+            maybeTrySIGKILL nodeHandle
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: HasConfigurations => (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
-runUpdater (path, args, runnerPath, updateArchive) = do
-    whenM (doesFileExist path) $ do
-        putText "Running the updater"
-        let args' = args ++ maybe [] (one . toText) updateArchive
+runUpdater :: NodeDbPath -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
+runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
+    whenM (liftIO (doesFileExist path)) $ do
+        logNotice "Running the updater"
+        let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
             Just rp -> do
                 -- Write the bat script and pass it the updater with all args
-                liftIO $ writeWindowsUpdaterRunner $ rp
+                writeWindowsUpdaterRunner rp
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
-        TL.putStr $ format ("The updater has exited with "%text%"\n") (show exitCode)
-        when (exitCode == ExitSuccess) $ do
-            -- this will throw an exception if the file doesn't exist but
-            -- hopefully if the updater has succeeded it *does* exist
-            whenJust updateArchive removeFile
+        case exitCode of
+            ExitSuccess -> do
+                logInfo "The updater has exited successfully"
+                -- this will throw an exception if the file doesn't exist but
+                -- hopefully if the updater has succeeded it *does* exist
+                whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
+                    updateArchive <- BS.L.readFile updateArchivePath
+                    bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                        usingReaderT LauncherModeContext{..} $
+                        affirmUpdateInstalled (installerHash updateArchive)
+                    removeFile updateArchivePath
+            ExitFailure code ->
+                logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
-runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> IO ExitCode
-runUpdaterProc path args = do
+runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
+runUpdaterProc path args = liftIO $ do
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
                  , Process.std_out = Process.CreatePipe
@@ -341,8 +452,8 @@ runUpdaterProc path args = do
     phvar <- newEmptyMVar
     system' phvar cr mempty
 
-writeWindowsUpdaterRunner :: FilePath -> IO ()
-writeWindowsUpdaterRunner runnerPath = do
+writeWindowsUpdaterRunner :: FilePath -> M ()
+writeWindowsUpdaterRunner runnerPath = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
     writeFile (toString runnerPath) $ unlines
@@ -364,21 +475,20 @@ writeWindowsUpdaterRunner runnerPath = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: HasConfigurations
-    => (FilePath, [Text], Maybe FilePath)
-    -> IO (ProcessHandle, Async ExitCode, FilePath)
+    :: (FilePath, [Text], Maybe FilePath)
+    -> M (ProcessHandle, Async ExitCode)
 spawnNode (path, args, mbLogPath) = do
-    putText "Starting the node"
+    logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (logPath, logHandle) <- case mbLogPath of
+    (_, logHandle) <- liftIO $ case mbLogPath of
         Just lp -> do
             createDirectoryIfMissing True (directory lp)
             (lp,) <$> openFile lp AppendMode
         Nothing -> do
-            tempdir <- liftIO (fromString <$> getTemporaryDirectory)
+            tempdir <- fromString <$> getTemporaryDirectory
             -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
             -- via the `Managed` monad, which is something we have lost here, and we are back to manual
             -- resource control. In this case, however, shall we really want to nuke the file? It seems
@@ -400,15 +510,18 @@ spawnNode (path, args, mbLogPath) = do
     asc <- async (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 10000000 (takeMVar phvar)
     case mbPh of
-        Nothing -> error "couldn't run the node (it didn't start after 10s)"
+        Nothing -> do
+            logError "Couldn't run the node (it didn't start after 10s)"
+            exitFailure
         Just ph -> do
-            putText "Node started"
-            return (ph, asc, logPath)
+            logInfo "Node has started"
+            return (ph, asc)
 
-runWallet :: (FilePath, [Text]) -> IO ExitCode
+runWallet :: (FilePath, [Text]) -> M ExitCode
 runWallet (path, args) = do
-    putText "Starting the wallet"
-    view _1 <$> readProcessWithExitCode path (map toString args) mempty
+    logNotice "Starting the wallet"
+    view _1 <$>
+        liftIO (readProcessWithExitCode path (map toString args) mempty)
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -423,23 +536,23 @@ runWallet (path, args) = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: (HasConfigurations, HasCompileInfo, MonadIO m)
-    => ExitCode        -- ^ Exit code of the node
+    :: ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
-    -> FilePath        -- ^ Path to the stdout log
-    -> m ()
-reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
+    -> M ()
+reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
-            map ((fromMaybe "" (logConfig ^. lcFilePrefix) </>) . snd) $
+            map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
             retrieveLogFiles logConfig
     let logFiles = filter (".pub" `isSuffixOf`) logFileNames
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
+    bracket (compressLogs logFiles) removeFile $ \txz ->
+        sendReport [txz] (RCrash ec) "cardano-node" reportServ
 
+-- Taken from the 'turtle' library and modified
 system'
     :: (HasConfigurations, MonadIO io)
     => MVar ProcessHandle
@@ -499,3 +612,19 @@ ignoreSIGPIPE = handle (\ex -> case ex of
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
     _ -> throwIO ex )
+
+----------------------------------------------------------------------------
+-- SIGKILL
+----------------------------------------------------------------------------
+
+-- | If we're on Linux or macOS, send a SIGKILL to a process.
+maybeTrySIGKILL :: ProcessHandle -> M ()
+maybeTrySIGKILL _h = do
+#ifdef mingw32_HOST_OS
+    logInfo "Not trying to send a SIGKILL because we're on Windows"
+#else
+    logInfo "Sending SIGKILL"
+    liftIO $ Process.withProcessHandle _h $ \case
+        Process.OpenHandle pid -> signalProcess sigKILL pid
+        _                      -> pass
+#endif

@@ -29,41 +29,30 @@ module Lang.Lexer
 import           Universum
 
 import qualified Control.Applicative.Combinators.NonEmpty as NonEmpty
-import           Control.Lens                             (makePrisms)
-import           Data.Char                                (isAlpha, isAlphaNum)
-import qualified Data.List                                as List
-import qualified Data.List.NonEmpty                       as NonEmpty
-import           Data.Scientific                          (Scientific)
-import qualified Data.Text                                as Text
-import qualified Data.Text.Buildable                      as Buildable
-import           Formatting                               (sformat)
-import           Test.QuickCheck.Arbitrary.Generic        (Arbitrary (..),
-                                                           genericArbitrary,
-                                                           genericShrink)
-import qualified Test.QuickCheck.Gen                      as QC
-import           Test.QuickCheck.Instances                ()
-import           Text.Megaparsec                          (Parsec, between, choice, eof,
-                                                           manyTill, notFollowedBy,
-                                                           parseMaybe, skipMany, takeP,
-                                                           takeWhile1P, try, (<?>))
-import           Text.Megaparsec.Char                     (anyChar, char, satisfy,
-                                                           spaceChar, string)
-import           Text.Megaparsec.Char.Lexer               (charLiteral, decimal,
-                                                           scientific, signed)
+import           Control.Lens (makePrisms)
+import           Data.Char (isAlpha, isAlphaNum)
+import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Loc (Loc, Span, loc, spanFromTo)
+import           Data.Scientific (Scientific)
+import qualified Data.Text as Text
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (sformat)
+import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import qualified Test.QuickCheck.Gen as QC
+import           Test.QuickCheck.Instances ()
+import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, getPosition,
+                                  manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
+                                  try, unPos, (<?>))
+import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
+import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, signed)
 
-import           Lang.Name                                (Letter, Name (..),
-                                                           unsafeMkLetter)
-import           Pos.Arbitrary.Core                       ()
-import           Pos.Crypto                               (AHash (..), PublicKey,
-                                                           decodeAbstractHash,
-                                                           fullPublicKeyF, hashHexF,
-                                                           parseFullPublicKey,
-                                                           unsafeCheatingHashCoerce)
-import           Pos.Types                                (Address, BlockVersion (..),
-                                                           SoftwareVersion (..),
-                                                           StakeholderId,
-                                                           decodeTextAddress,
-                                                           mkApplicationName)
+import           Lang.Name (Letter, Name (..), unsafeMkLetter)
+import           Pos.Arbitrary.Core ()
+import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
+                           decodeTextAddress, mkApplicationName)
+import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
+                             parseFullPublicKey, unsafeCheatingHashCoerce)
 
 data BracketSide = BracketSideOpening | BracketSideClosing
     deriving (Eq, Ord, Show, Generic)
@@ -103,7 +92,7 @@ instance Buildable FilePath' where
                  | otherwise = '\\':[c]
 
 isFilePathChar :: Char -> Bool
-isFilePathChar c = isAlphaNum c || c `elem` ['.', '/']
+isFilePathChar c = isAlphaNum c || c `elem` ['.', '/', '-', '_']
 
 data Token
     = TokenSquareBracket BracketSide
@@ -154,17 +143,27 @@ detokenize = unwords . List.map tokenRender
 
 type Lexer a = Parsec Void Text a
 
-tokenize :: Text -> [Token]
+tokenize :: Text -> [(Span, Token)]
 tokenize = fromMaybe noTokenErr . tokenize'
   where
     noTokenErr =
         error "tokenize: no token could be consumed. This is a bug"
 
-tokenize' :: Text -> Maybe [Token]
+tokenize' :: Text -> Maybe [(Span, Token)]
 tokenize' = parseMaybe (between pSkip eof (many pToken))
 
-pToken :: Lexer Token
-pToken = (try pToken' <|> pUnknown) <* pSkip
+pToken :: Lexer (Span, Token)
+pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
+  where
+    posToLoc :: SourcePos -> Loc
+    posToLoc SourcePos{..} = uncurry loc
+        ( fromIntegral . unPos $ sourceLine
+        , fromIntegral . unPos $ sourceColumn)
+    withPosition p = do
+        pos1 <- posToLoc <$> getPosition
+        t <- p
+        pos2 <- posToLoc <$> getPosition
+        return (spanFromTo pos1 pos2, t)
 
 pUnknown :: Lexer Token
 pUnknown = TokenUnknown . UnknownChar <$> anyChar

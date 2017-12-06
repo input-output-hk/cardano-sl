@@ -75,55 +75,49 @@ module Pos.Wallet.Web.State.Storage
        , removeFromHistoryCache
        , setPtxCondition
        , casPtxCondition
+       , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , applyModifierToWallet
        , applyModifierToWallets
+       , resetFailedPtxs
        ) where
 
 import           Universum
 
-import           Control.Lens                     (at, ix, makeClassy, makeLenses, non',
-                                                   to, toListOf, traversed, (%=), (+=),
-                                                   (.=), (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class        (put)
-import           Data.Default                     (Default, def)
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.Map                         as M
-import           Data.SafeCopy                    (Migrate (..), SafeCopy (..), base,
-                                                   contain, deriveSafeCopySimple,
-                                                   extension, safeGet, safePut)
-import           Data.Time.Clock.POSIX            (POSIXTime)
+import           Control.Lens (at, has, ix, makeClassy, makeLenses, non', to, toListOf, traversed,
+                               (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Monad.State.Class (get, put)
+import qualified Control.Monad.State.Lazy as LS
+import           Data.Default (Default, def)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
+import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Serokell.Util (zoom')
 
-import           Pos.Client.Txp.History           (TxHistoryEntry (..),
-                                                   txHistoryListToMap)
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Core.Timestamp               (timestampToPosix)
-import           Pos.Core.Types                   (SlotId, Timestamp)
-import           Pos.Txp                          (AddrCoinMap, TxAux, TxId, Utxo,
-                                                   UtxoModifier,
-                                                   applyUtxoModToAddrCoinMap,
-                                                   utxoToAddressCoinMap)
-import           Pos.Types                        (HeaderHash)
-import           Pos.Util.BackupPhrase            (BackupPhrase)
-import qualified Pos.Util.Modifier                as MM
-import           Pos.Util.Servant                 (encodeCType)
-
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccountMeta,
-                                                   CCoin, CHash, CId, CProfile, CTxId,
-                                                   CTxMeta (..), CUpdateInfo,
-                                                   CWAddressMeta (..), CWalletAssurance,
-                                                   CWalletMeta, PassPhraseLU, Wal,
-                                                   addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
-                                                   PtxSubmitTiming (..), ptxCond,
-                                                   ptxSubmitTiming)
-import           Pos.Wallet.Web.Pending.Util      (incPtxSubmitTimingPure,
-                                                   mkPtxSubmitTiming,
-                                                   ptxMarkAcknowledgedPure)
-import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..),
-                                                   WalletModifier (..), emmDeletions,
-                                                   emmInsertions, indexedDeletions,
+import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
+import           Pos.Core (HeaderHash, SlotId, Timestamp, timestampToPosix)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (TxAux, TxId)
+import           Pos.SafeCopy ()
+import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
+                          utxoToAddressCoinMap)
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta, CCoin, CHash, CId,
+                                             CProfile, CTxId, CTxMeta (..), CUpdateInfo,
+                                             CWAddressMeta (..), CWalletAssurance, CWalletMeta,
+                                             PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxSubmitTiming (..), ptxCond, ptxSubmitTiming,
+                                               _PtxCreating)
+import           Pos.Wallet.Web.Pending.Util (incPtxSubmitTimingPure, mkPtxSubmitTiming,
+                                              ptxMarkAcknowledgedPure, resetFailedPtx)
+import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..), WalletModifier (..),
+                                                   emmDeletions, emmInsertions, indexedDeletions,
                                                    sortedInsertions)
 
 type AddressSortingKey = Int
@@ -328,8 +322,8 @@ getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
-getCustomAddresses :: CustomAddressType -> Query [CId Addr]
-getCustomAddresses t = HM.keys <$> view (customAddressL t)
+getCustomAddresses :: CustomAddressType -> Query [(CId Addr, HeaderHash)]
+getCustomAddresses t = HM.toList <$> view (customAddressL t)
 
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
@@ -482,14 +476,29 @@ setPtxCondition :: CId Wal -> TxId -> PtxCondition -> Update ()
 setPtxCondition wid txId cond =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond .= cond
 
+-- | Conditional modifier.
+-- Returns 'True' if pending transaction existed and modification was applied.
+checkAndSmthPtx
+    :: CId Wal
+    -> TxId
+    -> (Maybe PtxCondition -> Bool)
+    -> LS.State (Maybe PendingTx) ()
+    -> Update Bool
+checkAndSmthPtx wid txId whetherModify modifier =
+    fmap getAny $ zoom' (wsWalletInfos . ix wid . wsPendingTxs . at txId) $ do
+        matches <- whetherModify . fmap _ptxCond <$> get
+        when matches modifier
+        return (Any matches)
+
 -- | Compare-and-set version of 'setPtxCondition'.
--- Returns 'True' if transaction existed and modification was applied.
 casPtxCondition :: CId Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
-casPtxCondition wid txId expectedCond newCond = do
-    oldCond <- preuse $ wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond
-    let success = oldCond == Just expectedCond
-    when success $ setPtxCondition wid txId newCond
-    return success
+casPtxCondition wid txId expectedCond newCond =
+    checkAndSmthPtx wid txId (== Just expectedCond) (_Just . ptxCond .= newCond)
+
+-- | Removes pending transaction, if its status is 'PtxCreating'.
+removeOnlyCreatingPtx :: CId Wal -> TxId -> Update Bool
+removeOnlyCreatingPtx wid txId =
+    checkAndSmthPtx wid txId (has (_Just . _PtxCreating)) (put Nothing)
 
 data PtxMetaUpdate
     = PtxIncSubmitTiming
@@ -512,6 +521,11 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+resetFailedPtxs :: SlotId -> Update ()
+resetFailedPtxs curSlot =
+    wsWalletInfos . traversed .
+    wsPendingTxs . traversed %= resetFailedPtx curSlot
 
 getWalletStorage :: Query WalletStorage
 getWalletStorage = ask

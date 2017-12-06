@@ -1,7 +1,9 @@
 -- | Logic of local data processing in Update System.
 
 module Pos.Update.Logic.Global
-       ( usApplyBlocks
+       ( UpdateBlock
+
+       , usApplyBlocks
        , usCanCreateBlock
        , usRollbackBlocks
        , usVerifyBlocks
@@ -9,34 +11,45 @@ module Pos.Update.Logic.Global
 
 import           Universum
 
-import           Control.Monad.Except     (MonadError, runExceptT)
-import           Data.Default             (Default (def))
-import           System.Wlog              (WithLogger, modifyLoggerName)
+import           Control.Monad.Except (MonadError, runExceptT)
+import           Data.Default (Default (def))
+import           System.Wlog (WithLogger, modifyLoggerName)
 
-import           Pos.Core                 (ApplicationName, BlockVersion,
-                                           HasConfiguration, NumSoftwareVersion,
-                                           SoftwareVersion (..), StakeholderId,
-                                           addressHash, blockVersionL, epochIndexL,
-                                           headerHashG, headerLeaderKeyL, headerSlotL)
-import qualified Pos.DB.BatchOp           as DB
-import qualified Pos.DB.Class             as DB
-import           Pos.Exception            (reportFatalError)
-import           Pos.Lrc.Context          (HasLrcContext)
-import           Pos.Reporting            (MonadReporting)
-import           Pos.Slotting             (MonadSlotsData, SlottingData, slottingVar)
+import           Pos.Core (ApplicationName, BlockVersion, HasConfiguration, NumSoftwareVersion,
+                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
+                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
+import qualified Pos.DB.BatchOp as DB
+import qualified Pos.DB.Class as DB
+import           Pos.Exception (reportFatalError)
+import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Reporting (MonadReporting)
+import           Pos.Slotting (MonadSlotsData, slottingVar)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
-import           Pos.Update.Core          (BlockVersionData, UpId, UpdateBlock)
-import           Pos.Update.DB            (UpdateOp (..))
-import           Pos.Update.Poll          (BlockVersionState, ConfirmedProposalState,
-                                           MonadPoll, PollModifier (..), PollVerFailure,
-                                           ProposalState, USUndo, canCreateBlockBV,
-                                           execPollT, execRollT, processGenesisBlock,
-                                           recordBlockIssuance, reportUnexpectedError,
-                                           rollbackUS, runDBPoll, runPollT,
-                                           verifyAndApplyUSPayload)
-import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
-import qualified Pos.Util.Modifier        as MM
-import           Pos.Util.Util            (inAssertMode)
+import           Pos.Update.DB (UpdateOp (..))
+import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, MonadPoll,
+                                  PollModifier (..), PollVerFailure, ProposalState, USUndo,
+                                  canCreateBlockBV, execPollT, execRollT, processGenesisBlock,
+                                  recordBlockIssuance, reportUnexpectedError, rollbackUS, runDBPoll,
+                                  runPollT, verifyAndApplyUSPayload)
+import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Some (Some)
+
+----------------------------------------------------------------------------
+-- Stripped block type
+----------------------------------------------------------------------------
+
+-- TODO: I don't like that 'Some' is used here
+-- —@neongreen
+type UpdateBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, UpdatePayload)
+
+----------------------------------------------------------------------------
+-- Constraints
+----------------------------------------------------------------------------
 
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
@@ -53,6 +66,10 @@ type USGlobalApplyMode ctx m =
     , MonadSlotsData ctx m
     , MonadReporting ctx m
     )
+
+----------------------------------------------------------------------------
+-- Implementation
+----------------------------------------------------------------------------
 
 withUSLogger :: WithLogger m => m a -> m a
 withUSLogger = modifyLoggerName (<> "us")

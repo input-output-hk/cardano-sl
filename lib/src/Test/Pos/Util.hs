@@ -8,6 +8,8 @@ module Test.Pos.Util
        , withDefNodeConfiguration
        , withDefSscConfiguration
        , withDefUpdateConfiguration
+       , withDefBlockConfiguration
+       , withDefDlgConfiguration
        , withDefConfigurations
        , withStaticConfigurations
 
@@ -25,29 +27,31 @@ module Test.Pos.Util
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
+       , expectedOne
+
+       -- * Generators
+       , splitWord
+       , sumEquals
        ) where
 
 import           Universum
 
-import           Data.Tagged                      (Tagged (..))
-import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
-                                                   counterexample, property)
-import           Test.QuickCheck.Gen              (choose)
-import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
-import           Test.QuickCheck.Property         (Result (..), failed)
+import           Data.Tagged (Tagged (..))
+import           Test.QuickCheck (Arbitrary (arbitrary), Property, counterexample, property)
+import           Test.QuickCheck.Gen (Gen, choose)
+import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
+import           Test.QuickCheck.Property (Result (..), failed)
 
-import           Pos.Configuration                (HasNodeConfiguration,
-                                                   withNodeConfiguration)
-import           Pos.Core                         (HasConfiguration, withGenesisSpec)
-import           Pos.Infra.Configuration          (HasInfraConfiguration,
-                                                   withInfraConfiguration)
-import           Pos.Launcher.Configuration       (Configuration (..), HasConfigurations)
-import           Pos.Ssc.Configuration            (HasSscConfiguration,
-                                                   withSscConfiguration)
-import           Pos.Update.Configuration         (HasUpdateConfiguration,
-                                                   withUpdateConfiguration)
+import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfiguration)
+import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
+import           Pos.Core (HasConfiguration, withGenesisSpec)
+import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
+import           Pos.Infra.Configuration (HasInfraConfiguration, withInfraConfiguration)
+import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
 
-import           Test.Pos.Configuration           (defaultTestConf)
+import           Test.Pos.Configuration (defaultTestConf)
 
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).
@@ -55,7 +59,9 @@ type HasStaticConfigurations =
     ( HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
+    , HasBlockConfiguration
     , HasNodeConfiguration
+    , HasDlgConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -70,6 +76,12 @@ withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 withDefInfraConfiguration :: (HasInfraConfiguration => r) -> r
 withDefInfraConfiguration = withInfraConfiguration (ccInfra defaultTestConf)
 
+withDefBlockConfiguration :: (HasBlockConfiguration => r) -> r
+withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
+
+withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
+withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
+
 withDefConfiguration :: (HasConfiguration => r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 
@@ -78,6 +90,8 @@ withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
+    withDefBlockConfiguration $
+    withDefDlgConfiguration $
     withDefInfraConfiguration patak
 
 withDefConfigurations :: (HasConfigurations => r) -> r
@@ -150,6 +164,7 @@ maybeStopProperty msg =
         Just x -> pure x
 
 -- | Split given list into chunks with size up to given value.
+-- TODO: consider using `sumEquals maxSize (length items)`
 splitIntoChunks :: Monad m => Word -> [a] -> PropertyM m [NonEmpty a]
 splitIntoChunks 0 _ = error "splitIntoChunks: maxSize is 0"
 splitIntoChunks maxSize items = do
@@ -158,3 +173,33 @@ splitIntoChunks maxSize items = do
     case nonEmpty chunk of
         Nothing      -> return []
         Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest
+
+expectedOne :: Monad m => Text -> [a] -> PropertyM m a
+expectedOne desc = \case
+    [] ->  kickOut "expected exactly one element, but list is empty"
+    [x] -> pure x
+    _ ->   kickOut "expected exactly one element, but list contains more elements"
+  where
+    kickOut err = stopProperty $ err <> " (" <> desc <> ")"
+
+----------------------------------------------------------------------------
+-- Generators
+----------------------------------------------------------------------------
+
+-- | Split given integer `total` into `parts` parts
+-- TODO: improve naming!
+splitWord :: Word64 -> Word64 -> Gen [Word64]
+splitWord total parts | total < parts =
+    error $ "splitWord: can't split " <> show total <> " into " <> show parts <> " parts."
+                      | otherwise = map succ . take iParts <$> ((<> replicate iParts 0) <$> (sumEquals (total `div` parts + 1) $ total - parts))
+  where
+    iParts = fromIntegral parts
+
+-- | Generate list of arbitrary positive integers which sum equals given sum.
+-- All elements in the list will be smaller or equal then first parameter
+sumEquals :: Word64 -> Word64 -> Gen [Word64]
+sumEquals 0 _ = pure []
+sumEquals _ 0 = pure []
+sumEquals maxEl restSum = do
+    el <- choose (1, min maxEl restSum)
+    (el:) <$> sumEquals maxEl (restSum - el)

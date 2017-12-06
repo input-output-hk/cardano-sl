@@ -27,4 +27,12 @@ let
     purescript = supportedSystems;
     dockerImage = [ "x86_64-linux" ];
   };
-in mapTestOn platforms
+  connect = import ./scripts/launch/connect-to-cluster/default.nix;
+  connectScripts = {
+    mainnetWallet = connect { inherit (cardano) rev; };
+    mainnetExplorer = connect { inherit (cardano) rev; executable = "explorer"; };
+    stagingWallet = connect { inherit (cardano) rev; environment = "mainnet-staging"; };
+    stagingExplorer = connect { inherit (cardano) rev; executable = "explorer"; environment = "mainnet-staging"; };
+  };
+in { connect = connectScripts; }
+   // mapTestOn platforms

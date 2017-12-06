@@ -8,57 +8,60 @@ module Pos.Explorer.DB
        ( ExplorerOp (..)
        , Page
        , Epoch
+       , EpochPagedBlocksKey
        , numOfLastTxs
+       , defaultPageSize
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
        , getUtxoSum
        , getPageBlocks
        , getEpochBlocks
+       , getEpochPages
        , getLastTransactions
        , explorerInitDB
        , sanityCheckBalances
+       -- * For testing
+       , convertToPagedMap
+       , findEpochMaxPages
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, non)
+import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Sink, Source, mapOutput, runConduitRes,
-                                               (.|))
-import qualified Data.Conduit.List            as CL
-import qualified Database.RocksDB             as Rocks
-import           Formatting                   (sformat, (%))
-import           Serokell.Util                (Color (Red), colorize, mapJson)
-import           System.Wlog                  (WithLogger, logError)
+import           Data.Conduit (Conduit, Sink, Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List as CL
+import           Data.List (groupBy)
+import           Data.Map (fromList)
+import qualified Data.Map as M
+import qualified Database.RocksDB as Rocks
+import           Formatting (sformat, (%))
+import           Serokell.Util (Color (Red), colorize, mapJson)
+import           System.Wlog (WithLogger, logError)
 
-import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Core                     (Address, Coin, EpochIndex,
-                                               HasConfiguration, HeaderHash,
-                                               coinToInteger, unsafeAddCoin)
-import           Pos.DB                       (DBError (..), DBIteratorClass (..),
-                                               DBTag (GStateDB), MonadDB,
-                                               MonadDBRead (dbGet), RocksBatchOp (..),
-                                               dbIterSource, dbSerializeValue,
-                                               encodeWithKeyPrefix)
-import           Pos.DB.Block                 (MonadBlockDBWrite)
-import           Pos.DB.DB                    (initNodeDBs)
-import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.Ssc                      (HasSscConfiguration)
-import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
-import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
-import           Pos.Txp.GenesisUtxo          (genesisUtxo)
-import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
-                                               utxoToAddressCoinPairs)
-import           Pos.Util.Chrono              (NewestFirst (..))
-import           Pos.Util.Util                (maybeThrow)
+import           Pos.Binary.Class (UnsignedVarInt (..), serialize')
+import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
+                           coinToInteger, unsafeAddCoin)
+import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
+import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
+                         MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
+                         encodeWithKeyPrefix)
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
+import           Pos.Ssc (HasSscConfiguration)
+import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.Txp.GenesisUtxo (genesisUtxo)
+import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Util.Util (maybeThrow)
 
-import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
+
 
 explorerInitDB
     :: forall ctx m.
        ( MonadReader ctx m
-       , MonadBlockDBWrite m
        , MonadDB m
        , HasConfiguration
        , HasSscConfiguration
@@ -74,13 +77,59 @@ explorerInitDB = initNodeDBs >> prepareExplorerDB
 type Page = Int
 type Epoch = EpochIndex
 
--- type PageBlocks = [Block]
--- ^ this is much simpler but we are trading time for space
--- (since space is an issue, it seems)
+type EpochPagedBlocksKey = (Epoch, Page)
 
 -- TODO: In time if we have enough constants, maybe add to explorer Constants?
 numOfLastTxs :: Int
 numOfLastTxs = 20
+
+-- | The default page size.
+defaultPageSize :: Int
+defaultPageSize = 10
+
+----------------------------------------------------------------------------
+-- Util
+----------------------------------------------------------------------------
+
+-- Find max pages for each epoch.
+findEpochMaxPages :: M.Map EpochPagedBlocksKey [HeaderHash] -> [EpochPagedBlocksKey]
+findEpochMaxPages epochPagedBlocksMap' =
+    maximumBy (comparing snd) <$> groupedEpochPagedBlocks
+  where
+    groupedEpochPagedBlocks :: [[EpochPagedBlocksKey]]
+    groupedEpochPagedBlocks =
+        groupBy (\(epoch1,_) (epoch2,_) -> epoch1 == epoch2) epochPagedBlocksMapKeys
+
+    epochPagedBlocksMapKeys :: [EpochPagedBlocksKey]
+    epochPagedBlocksMapKeys = M.keys epochPagedBlocksMap'
+
+-- | Convert a pair of @Epoch@ and a list of @HeaderHash@ to a paged @Map@ containing
+-- @(Epoch, Page)@ as a key and a list of @HeaderHash@ as values.
+convertToPagedMap
+    :: (Epoch, [HeaderHash])
+    -> Map EpochPagedBlocksKey [HeaderHash]
+convertToPagedMap ehh = fromList $ convertToPaged ehh
+  where
+    convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
+    convertToPaged (epoch, headerHashes) =
+        map convertHHsToEpochPages convertHHsToPages
+      where
+        convertHHsToEpochPages
+            :: (Page, [HeaderHash])
+            -> ((Epoch, Page), [HeaderHash])
+        convertHHsToEpochPages (page, headerHashes') =
+            ((epoch, page), headerHashes')
+
+        -- | Take that huge chunk of @HeaderHash@es and page it.
+        convertHHsToPages :: [(Page, [HeaderHash])]
+        convertHHsToPages = zip [1..] $ splitEvery defaultPageSize headerHashes
+          where
+            -- | Split the list every N elements.
+            splitEvery :: Int -> [a] -> [[a]]
+            splitEvery _ [] = []
+            splitEvery n xs = as : splitEvery n bs
+              where
+                (as,bs) = splitAt n xs
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -104,8 +153,11 @@ getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
 
-getEpochBlocks :: MonadDBRead m => Epoch -> m (Maybe [HeaderHash])
-getEpochBlocks = gsGetBi . blockEpochPrefix
+getEpochBlocks :: MonadDBRead m => Epoch -> Page -> m (Maybe [HeaderHash])
+getEpochBlocks epoch page = gsGetBi $ blockEpochPagePrefix epoch page
+
+getEpochPages :: MonadDBRead m => Epoch -> m (Maybe Page)
+getEpochPages = gsGetBi . blockEpochMaxPagePrefix
 
 getLastTransactions :: MonadDBRead m => m (Maybe [Tx])
 getLastTransactions = gsGetBi lastTxsPrefix
@@ -121,9 +173,85 @@ prepareExplorerDB = do
             addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
         putInitFlag
+
     -- Smooth migration for CSE-228.
     unlessM utxoSumInitializedM $ do
         putCurrentUtxoSum
+
+    -- Smooth migration for CSE-236.
+    unlessM blockEpochPagesInitializedM $ do
+        convertOldEpochBlocksFormat
+  where
+    -- | If we have persisted the 0 @Epoch@ with the old format, we need to migrate it.
+    -- Since we start syncing from the start, this will detect if the user has the old
+    -- or the new format.
+    -- Returns @True@ when the old format doesn't exist.
+    blockEpochPagesInitializedM :: MonadDBRead m => m Bool
+    blockEpochPagesInitializedM = isNothing <$> dbGet GStateDB existingOldEpochBlocks
+      where
+        existingOldEpochBlocks :: ByteString
+        existingOldEpochBlocks = oldEpochBlocksPrefix $ EpochIndex minBound
+
+    -- | This is where we convert the old format of @Epoch@ which has 21600 blocks to the
+    -- new and shiny one with @Page@s added.
+    convertOldEpochBlocksFormat :: (MonadDB m) => m ()
+    convertOldEpochBlocksFormat =
+        runConduitRes  $ epochsSource
+                      .| epochPagesConduit
+                      .| epochPagesExplorerOpSink
+      where
+        -- 'Source' corresponding to the old @Epoch@ format that contained all
+        -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
+        epochsSource :: (MonadDBRead m) => Source (ResourceT m) (Epoch, [HeaderHash])
+        epochsSource = dbIterSource GStateDB (Proxy @EpochsIter)
+
+        -- 'Conduit' to turn the old @Epoch@ format that contained all
+        -- 21600 @[HeaderHash]@ in a single @Epoch@ to a new format that contains
+        -- @Epoch@ *and* @Page@ as a key since there are too many @[HeaderHash]@ to
+        -- load - performance reasons.
+        epochPagesConduit
+            :: (MonadDBRead m)
+            => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
+        epochPagesConduit = CL.map convertToPagedMap
+
+        -- | Finally, we persist the map with the new format.
+        epochPagesExplorerOpSink
+            :: (MonadDB m)
+            => Sink (Map EpochPagedBlocksKey [HeaderHash]) m ()
+        epochPagesExplorerOpSink = CL.mapM_ persistEpochBlocks
+          where
+            -- | Persist atomically, all the operations together.
+            persistEpochBlocks
+                :: (MonadDB m)
+                => Map EpochPagedBlocksKey [HeaderHash]
+                -> m ()
+            persistEpochBlocks mapEpochPagedHHs =
+                -- Here we persist all the changes atomically.
+                writeBatchGState $ persistEpochPageBlocks ++ persistMaxPageNumbers
+              where
+                -- | Persist @Epoch@ @Page@ blocks.
+                persistEpochPageBlocks :: [ExplorerOp]
+                persistEpochPageBlocks = putKeyBlocks <$> M.toList mapEpochPagedHHs
+                  where
+                    putKeyBlocks
+                        :: (EpochPagedBlocksKey, [HeaderHash])
+                        -> ExplorerOp
+                    putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
+                      where
+                        key           = keyBlocks ^. _1
+                        epoch         = key ^. _1
+                        page          = key ^. _2
+
+                        blocks        = keyBlocks ^. _2
+
+                -- | Persist @Epoch@ max @Page@.
+                persistMaxPageNumbers :: [ExplorerOp]
+                persistMaxPageNumbers =
+                    [ PutEpochPages epoch maxPageNumber | (epoch, maxPageNumber) <- emp]
+                  where
+                    emp :: [EpochPagedBlocksKey]
+                    emp = findEpochMaxPages mapEpochPagedHHs
+
 
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
@@ -164,7 +292,8 @@ data ExplorerOp
 
     | PutPageBlocks !Page ![HeaderHash]
 
-    | PutEpochBlocks !Epoch ![HeaderHash]
+    | PutEpochBlocks !Epoch !Page ![HeaderHash]
+    | PutEpochPages !Epoch !Page
 
     | PutLastTxs ![Tx]
 
@@ -184,8 +313,10 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (PutPageBlocks page pageBlocks) =
         [Rocks.Put (blockPagePrefix page) (dbSerializeValue pageBlocks)]
 
-    toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (dbSerializeValue pageBlocks)]
+    toBatchOp (PutEpochBlocks epoch page pageBlocks) =
+        [Rocks.Put (blockEpochPagePrefix epoch page) (dbSerializeValue pageBlocks)]
+    toBatchOp (PutEpochPages epoch page) =
+        [Rocks.Put (blockEpochMaxPagePrefix epoch) (dbSerializeValue page)]
 
     toBatchOp (PutLastTxs lastTxs) =
         [Rocks.Put lastTxsPrefix (dbSerializeValue lastTxs)]
@@ -208,6 +339,10 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
 -- Iteration
 ----------------------------------------------------------------------------
 
+----------------------------------------------------------------------------
+--- Balances
+----------------------------------------------------------------------------
+
 data BalancesIter
 
 instance DBIteratorClass BalancesIter where
@@ -225,6 +360,17 @@ balancesSink =
     CL.fold
         (\res (addr, coin) -> res & at addr . non minBound %~ unsafeAddCoin coin)
         mempty
+
+----------------------------------------------------------------------------
+--- Epochs
+----------------------------------------------------------------------------
+
+data EpochsIter
+
+instance DBIteratorClass EpochsIter where
+    type IterKey EpochsIter = Epoch
+    type IterValue EpochsIter = [HeaderHash]
+    iterKeyPrefix = "e/epoch/"
 
 ----------------------------------------------------------------------------
 -- Sanity check
@@ -274,8 +420,18 @@ blockPagePrefix page = "e/page/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
 
-blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
+-- | TODO(ks): To remove in the next version.
+oldEpochBlocksPrefix :: Epoch -> ByteString
+oldEpochBlocksPrefix epoch = "e/epoch/" <> serialize' epoch
+
+-- | Before we had - @oldEpochBlocksPrefix@.
+blockEpochPagePrefix :: Epoch -> Page -> ByteString
+blockEpochPagePrefix epoch page = "e/epochs/" <> serialize' epoch <> "/" <> encodedPage
+  where
+    encodedPage = serialize' $ UnsignedVarInt page
+
+blockEpochMaxPagePrefix :: Epoch -> ByteString
+blockEpochMaxPagePrefix epoch = "e/epochPages/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

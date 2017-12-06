@@ -27,47 +27,41 @@ module Pos.Wallet.Web.Methods.Logic
 
 import           Universum
 
-import           Crypto.Random              (MonadRandom)
-import           Data.List                  (findIndex)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (WithLogger)
+import           Crypto.Random (MonadRandom)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Formatting (build, sformat, (%))
+import           Servant.API.ContentTypes (NoContent (..))
+import           System.Wlog (WithLogger)
 
-import           Pos.Client.KeyStorage      (MonadKeys (..), MonadKeysRead, addSecretKey,
-                                             deleteSecretKey, getSecretKeysPlain)
-import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
-                                             checkPassMatches, emptyPassphrase)
-import           Pos.DB.Block               (MonadBlockDB)
-import           Pos.Slotting               (MonadSlots)
-import           Pos.Txp                    (MonadTxpMem)
-import           Pos.Util                   (maybeThrow)
-import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.Aeson           ()
-import           Pos.Wallet.WalletMode      (MonadBalances (..), WalletMempoolExt)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
-                                             genUniqueAddress, getAddrIdx, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
-                                             CAccountInit (..), CAccountMeta (..),
-                                             CAddress (..), CCoin, CId,
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletMeta (..), Wal, encToCId, mkCCoin)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
-                                             CustomAddressType (ChangeAddr, UsedAddr),
-                                             MonadWalletDB, MonadWalletDBMempoolRead,
-                                             addWAddress, createAccount, createWallet,
-                                             getAccountMeta, getWalletAccountIds,
-                                             getWalletIds, getWalletMetaIncludeUnready,
-                                             getWalletPassLU, isCustomAddress,
-                                             removeAccount, removeHistoryCache,
-                                             removeTxMetas, removeWallet, setAccountMeta,
-                                             setWalletMeta, setWalletPassLU,
-                                             setWalletReady)
-import           Pos.Wallet.Web.Tracking    (BlockLockMode)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow)
-
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
+                                        deleteSecretKeyBy)
+import           Pos.Core (Coin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Slotting (MonadSlots)
+import           Pos.Txp (MonadTxpMem)
+import           Pos.Util (maybeThrow)
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Wallet.Aeson ()
+import           Pos.Wallet.WalletMode (MonadBalances (..), WalletMempoolExt)
+import           Pos.Wallet.Web.Account (AddrGenSeed, genUniqueAccountId, genUniqueAddress,
+                                         getSKById)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
+                                             CAccountMeta (..), CAddress (..), CCoin, CId,
+                                             CWAddressMeta (..), CWallet (..), CWalletMeta (..),
+                                             Wal, encToCId, mkCCoin)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
+                                       CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
+                                       MonadWalletDBMempoolRead, addWAddress, createAccount,
+                                       createWallet, getAccountMeta, getWalletAccountIds,
+                                       getWalletIds, getWalletMetaIncludeUnready, getWalletPassLU,
+                                       isCustomAddress, removeAccount, removeHistoryCache,
+                                       removeTxMetas, removeWallet, setAccountMeta, setWalletMeta,
+                                       setWalletPassLU, setWalletReady)
+import           Pos.Wallet.Web.Tracking (BlockLockMode)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 type MonadWalletLogicRead ctx m =
     ( MonadIO m
@@ -75,7 +69,7 @@ type MonadWalletLogicRead ctx m =
     , WithLogger m
     , MonadRandom m
     , MonadSlots ctx m
-    , MonadBlockDB m
+    , MonadDBRead m
     , MonadBalances m
     , MonadWalletDBMempoolRead m
     , MonadKeysRead m
@@ -212,10 +206,11 @@ createWalletSafe cid wsMeta isReady = do
 
 markWalletReady
   :: MonadWalletLogic ctx m
-  => CId Wal -> Bool -> m ()
+  => CId Wal -> Bool -> m NoContent
 markWalletReady cid isReady = do
     _ <- getWalletMetaIncludeUnready True cid >>= maybeThrow noWallet
     setWalletReady cid isReady
+    return NoContent
   where
     noWallet = RequestError $
         sformat ("No wallet with that id "%build%" found") cid
@@ -225,17 +220,18 @@ markWalletReady cid isReady = do
 -- Deleters
 ----------------------------------------------------------------------------
 
-deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m ()
+deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m NoContent
 deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
     removeWallet wid
     removeTxMetas wid
     removeHistoryCache wid
-    deleteSecretKey . fromIntegral =<< getAddrIdx wid
+    deleteSecretKeyBy ((== wid) . encToCId)
+    return NoContent
 
-deleteAccount :: MonadWalletLogic ctx m => AccountId -> m ()
-deleteAccount = removeAccount
+deleteAccount :: MonadWalletLogic ctx m => AccountId -> m NoContent
+deleteAccount aid = removeAccount aid $> NoContent
 
 ----------------------------------------------------------------------------
 -- Modifiers
@@ -253,20 +249,15 @@ updateAccount accId wMeta = do
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m
-    => CId Wal -> PassPhrase -> PassPhrase -> m ()
+    => CId Wal -> PassPhrase -> PassPhrase -> m NoContent
 changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKById wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
-        deleteSK oldPass
+        deleteSecretKeyBy ((== wid) . encToCId)
         addSecretKey newSK
         setWalletPassLU wid =<< liftIO getPOSIXTime
+    return NoContent
   where
     badPass = RequestError "Invalid old passphrase given"
-    deleteSK passphrase = do
-        let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
-        midx <- findIndex nice <$> getSecretKeysPlain
-        idx  <- RequestError "No key with such address and pass found"
-                `maybeThrow` midx
-        deleteSecretKey (fromIntegral idx)

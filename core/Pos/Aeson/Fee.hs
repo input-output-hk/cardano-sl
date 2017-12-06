@@ -6,12 +6,12 @@ module Pos.Aeson.Fee
 
 import           Universum
 
-import qualified Data.Aeson          as JSON
-import qualified Data.Aeson.Types    as JSON
-import           Data.Fixed          (Fixed (..), resolution)
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Types as JSON
+import           Data.Fixed (Fixed (..), resolution)
 import qualified Data.HashMap.Strict as HM.S
 
-import           Pos.Core.Fee        (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Common.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance JSON.FromJSON Coeff where
     parseJSON = JSON.withScientific "Coeff" $ \sc -> do

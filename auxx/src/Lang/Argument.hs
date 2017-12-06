@@ -21,16 +21,17 @@ module Lang.Argument
        , getArgMany
        , getArgSome
        , getParameters
+       , typeDirectedKwAnn
        ) where
 
 import           Universum
 
-import qualified Data.Set        as Set
+import qualified Data.Set as Set
 import           Numeric.Natural (Natural)
 
-import           Lang.Name       (Name (..))
-import           Lang.Syntax     (Arg (..))
-import           Lang.Value      (Value)
+import           Lang.Name (Name (..))
+import           Lang.Syntax (Arg (..))
+import           Lang.Value (Value)
 
 data ArgumentError = ArgumentError
     { aeMissingKeys    :: !(Set Name)
@@ -243,3 +244,8 @@ getParameters = \case
     GetArg ac tp name -> [(name, tpTypeName tp, SomeArgCardinality ac)]
     AcPure _ -> []
     AcAp f x -> getParameters f <> getParameters x
+
+typeDirectedKwAnn :: Name -> TyProjection a -> Arg Value -> Arg Value
+typeDirectedKwAnn name tp arg = case arg of
+    ArgPos v | isJust (tpMatcher tp v) -> ArgKw name v
+    _ -> arg

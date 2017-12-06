@@ -13,26 +13,25 @@ module Pos.Explorer.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except        (MonadError (..))
-import qualified Data.HashMap.Strict         as HM
-import qualified Data.HashSet                as HS
-import           Data.List                   (delete)
-import qualified Data.List.NonEmpty          as NE
-import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logError)
+import           Control.Monad.Except (MonadError (..))
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import           Data.List (delete)
+import qualified Data.List.NonEmpty as NE
+import           Formatting (build, sformat, (%))
+import           System.Wlog (WithLogger, logError)
 
-import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
-                                              Timestamp, mkCoin, sumCoins, unsafeAddCoin,
-                                              unsafeSubCoin)
-import           Pos.Crypto                  (WithHash (..), hash)
-import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
+import           Pos.Core (Address, Coin, EpochIndex, HeaderHash, Timestamp, mkCoin, sumCoins,
+                           unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxOutAux (..), TxUndo, _TxOut)
+import           Pos.Crypto (WithHash (..), hash)
+import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxOut (..),
-                                              TxOutAux (..), TxUndo, topsortTxs, _TxOut)
-import           Pos.Txp.Toil                (ToilVerFailure (..))
-import qualified Pos.Txp.Toil                as Txp
-import           Pos.Util.Chrono             (NewestFirst (..))
-import           Pos.Util.Util               (Sign (..))
+import           Pos.Txp.Toil (ToilVerFailure (..))
+import qualified Pos.Txp.Toil as Txp
+import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Util.Util (Sign (..))
 
 ----------------------------------------------------------------------------
 -- Global

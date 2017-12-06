@@ -6,7 +6,6 @@ module Pos.Context.Functions
          GenesisUtxo(..)
        , genesisUtxo
        , genesisStakes
-       , genesisLeaders
        , genesisBlock0
 
          -- * LRC synchronization
@@ -20,29 +19,24 @@ module Pos.Context.Functions
 
 import           Universum
 
-import           Control.Lens        (views)
-import           Data.Time           (diffUTCTime, getCurrentTime)
-import           Data.Time.Units     (Microsecond, fromMicroseconds)
+import           Control.Lens (views)
+import           Data.Time (diffUTCTime, getCurrentTime)
+import           Data.Time.Units (Microsecond, fromMicroseconds)
 
-import           Pos.Block.Core      (GenesisBlock, mkGenesisBlock)
+import           Pos.Block.Base (mkGenesisBlock)
+import           Pos.Block.BHelpers ()
 import           Pos.Context.Context (StartTime (..))
-import           Pos.Core            (GenesisData (..), HasConfiguration, SlotLeaders,
-                                      genesisData)
-import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
-import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
+import           Pos.Core (HasConfiguration)
+import           Pos.Core.Block (GenesisBlock)
+import           Pos.Lrc.Context (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Txp.GenesisUtxo (genesisStakes, genesisUtxo)
-import           Pos.Txp.Toil        (GenesisUtxo (..))
-import           Pos.Util.Util       (HasLens (lensOf))
+import           Pos.Txp.Toil (GenesisUtxo (..))
+import           Pos.Util.Util (HasLens (lensOf))
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
-
--- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: HasConfiguration => SlotLeaders
-genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
-  where
-    GenesisUtxo utxo = genesisUtxo
 
 genesisBlock0 :: HasConfiguration => GenesisBlock
 genesisBlock0 = mkGenesisBlock Nothing 0 genesisLeaders

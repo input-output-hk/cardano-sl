@@ -7,26 +7,24 @@ module Command.BlockGen
 import           Universum
 
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.Default                (def)
-import           System.Random               (mkStdGen, randomIO)
-import           System.Wlog                 (logInfo)
+import           Data.Default (def)
+import           System.Random (mkStdGen, randomIO)
+import           System.Wlog (logInfo)
 
-import           Pos.AllSecrets              (mkAllSecretsSimple)
-import           Pos.Client.KeyStorage       (getSecretKeysPlain)
-import           Pos.Core                    (gdBootStakeholders, genesisData)
-import           Pos.Crypto                  (encToSecret)
-import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
-                                              tgpTxCountRange)
-import           Pos.Launcher                (HasConfigurations)
-import           Pos.StateLock               (Priority (..), withStateLock)
-import           Pos.Txp                     (txpGlobalSettings)
-import           Pos.Util.CompileInfo        (withCompileInfo)
+import           Pos.AllSecrets (mkAllSecretsSimple)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Core (gdBootStakeholders, genesisData)
+import           Pos.Crypto (encToSecret)
+import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
+import           Pos.StateLock (Priority (..), withStateLock)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (withCompileInfo)
 
-import           Lang.Value                  (GenBlocksParams (..))
-import           Mode                        (AuxxMode)
+import           Lang.Value (GenBlocksParams (..))
+import           Mode (MonadAuxxMode)
 
 
-generateBlocks :: HasConfigurations => GenBlocksParams -> AuxxMode ()
+generateBlocks :: MonadAuxxMode m => GenBlocksParams -> m ()
 generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed

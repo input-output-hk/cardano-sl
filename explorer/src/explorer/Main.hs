@@ -11,37 +11,30 @@ module Main
 
 import           Universum
 
-import           Data.Maybe                (fromJust)
-import           Formatting                (sformat, shown, (%))
-import           Mockable                  (Production, currentTime, runProduction)
-import           System.Wlog               (logInfo)
+import           Data.Maybe (fromJust)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Production, currentTime, runProduction)
+import           System.Wlog (logInfo)
 
-import           NodeOptions               (ExplorerArgs (..), ExplorerNodeArgs (..),
-                                            getExplorerNodeOptions)
-import           Pos.Binary                ()
-import           Pos.Client.CLI            (CommonNodeArgs (..), NodeArgs (..),
-                                            getNodeParams)
-import qualified Pos.Client.CLI            as CLI
-import           Pos.Communication         (OutSpecs, WorkerSpec)
-import           Pos.Core                  (gdStartTime, genesisData)
-import           Pos.Explorer.DB           (explorerInitDB)
+import           NodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..), getExplorerNodeOptions)
+import           Pos.Binary ()
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Communication (OutSpecs, WorkerSpec)
+import           Pos.Core (Timestamp (Timestamp), gdStartTime, genesisData)
+import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
-import           Pos.Explorer.Socket       (NotifierSettings (..))
-import           Pos.Explorer.Txp          (ExplorerExtra, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
-                                            liftToExplorerProd, notifierPlugin,
-                                            runExplorerProd)
-import           Pos.Launcher              (ConfigurationOptions (..), HasConfigurations,
-                                            NodeParams (..), NodeResources (..),
-                                            bracketNodeResources, hoistNodeResources,
-                                            loggerBracket, runNode, runRealBasedMode,
-                                            withConfigurations)
-import           Pos.Types                 (Timestamp (Timestamp))
-import           Pos.Update                (updateTriggerWorker)
-import           Pos.Util                  (mconcatPair)
-import           Pos.Util.CompileInfo      (HasCompileInfo, retrieveCompileTimeInfo,
-                                            withCompileInfo)
-import           Pos.Util.UserSecret       (usVss)
+import           Pos.Explorer.Socket (NotifierSettings (..))
+import           Pos.Explorer.Txp (ExplorerExtra, explorerTxpGlobalSettings)
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, liftToExplorerProd, notifierPlugin,
+                                   runExplorerProd)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
+                               NodeResources (..), bracketNodeResources, hoistNodeResources,
+                               loggerBracket, runNode, runRealBasedMode, withConfigurations)
+import           Pos.Update (updateTriggerWorker)
+import           Pos.Util (mconcatPair)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret (usVss)
 
 ----------------------------------------------------------------------------
 -- Main action

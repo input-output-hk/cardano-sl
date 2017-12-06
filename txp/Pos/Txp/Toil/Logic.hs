@@ -21,29 +21,28 @@ module Pos.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError (..))
+import           Control.Monad.Except (MonadError (..))
 import           Serokell.Data.Memory.Units (Byte)
-import           System.Wlog                (WithLogger)
+import           System.Wlog (WithLogger)
 
-import           Pos.Binary.Class           (biSize)
-import           Pos.Core                   (AddrAttributes (..),
-                                             AddrStakeDistribution (..), Address,
-                                             BlockVersionData (..), EpochIndex,
-                                             addrAttributesUnwrapped, isRedeemAddress)
-import           Pos.Core.Coin              (integerToCoin)
-import           Pos.Core.Configuration     (HasConfiguration, memPoolLimitTx)
-import qualified Pos.Core.Fee               as Fee
-import           Pos.Crypto                 (WithHash (..), hash)
-import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOut (..),
-                                             TxUndo, TxpUndo, toaOut, topsortTxs,
-                                             txInputs, txOutAddress)
-import           Pos.Txp.Toil.Class         (MonadStakes (..), MonadTxPool (..),
-                                             MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
-import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
-import           Pos.Txp.Toil.Types         (TxFee (..))
-import qualified Pos.Txp.Toil.Utxo          as Utxo
+import           Pos.Binary.Class (biSize)
+import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
+                           BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
+                           isRedeemAddress)
+import           Pos.Core.Common (integerToCoin)
+import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
+import           Pos.Core.Configuration (HasConfiguration, memPoolLimitTx)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
+                               txInputs, txOutAddress)
+import           Pos.Crypto (WithHash (..), hash)
+import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
+import           Pos.Txp.Toil.Class (MonadStakes (..), MonadTxPool (..), MonadUtxo (..),
+                                     MonadUtxoRead (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
+import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
+import           Pos.Txp.Toil.Types (TxFee (..))
+import qualified Pos.Txp.Toil.Utxo as Utxo
+import           Pos.Txp.Topsort (topsortTxs)
 
 ----------------------------------------------------------------------------
 -- Global

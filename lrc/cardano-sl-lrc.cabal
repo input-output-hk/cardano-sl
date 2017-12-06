@@ -25,13 +25,17 @@ library
 
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
-                       Pos.Lrc.DB.Seed
                        Pos.Lrc.DB.RichmenBase
+                       Pos.Lrc.DB.Seed
 
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , base
                      , bytestring
+                     , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
+                     , cardano-sl-util
                      , conduit
                      , ether
                      , formatting
@@ -40,8 +44,8 @@ library
                      , log-warper
                      , node-sketch
                      , reflection
+                     , rocksdb-haskell
                      , text-format
-                     , QuickCheck
                      , universum
                      , unordered-containers
 

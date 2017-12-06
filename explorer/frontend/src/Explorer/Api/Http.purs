@@ -19,8 +19,8 @@ import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Core.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
-import Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import Pos.Core.Slotting.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
+import Pos.Core.Slotting.Types (EpochIndex(..), LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CAddressesFilter(..), CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
@@ -76,14 +76,17 @@ fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
 fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> (encodeURIComponent address)
 
--- search by epoch / slot
-searchEpoch :: forall eff. EpochIndex -> Maybe LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
-searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery mSlot
-  where
-      slotQuery Nothing = ""
-      slotQuery (Just slot) = "?slot=" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+-- search by epoch / page
+epochPageSearch :: forall eff. EpochIndex -> PageNumber -> Aff (ajax::AJAX | eff) (Tuple Int CBlockEntries)
+epochPageSearch (EpochIndex epochIndex) (PageNumber pNumber) = get $ "epochs/"
+    <> show (epochIndex ^. getEpochIndex) <> "?page=" <> show pNumber
 
-      epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
+-- search by epoch and slot
+epochSlotSearch :: forall eff. EpochIndex -> LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
+epochSlotSearch epoch slot = get $ "epochs/" <> show epochIndex <> slotQuery
+    where
+        slotQuery = "/" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+        epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
 
 -- genesis block
 fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary

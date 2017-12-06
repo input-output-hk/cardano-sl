@@ -13,22 +13,21 @@ module Pos.Wallet.Web.Util
 
 import           Universum
 
-import qualified Data.Set                   as S
-import           Formatting                 (build, sformat, (%))
+import qualified Data.Set as S
+import           Formatting (build, sformat, (%))
 
-import           Pos.Core                   (BlockCount)
-import           Pos.Util.Servant           (FromCType (..), OriginType)
-import           Pos.Util.Util              (maybeThrow)
+import           Pos.Core (BlockCount)
+import           Pos.Util.Servant (FromCType (..), OriginType)
+import           Pos.Util.Util (maybeThrow)
 
-import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
-                                             assuredBlockDepth)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, cwAssurance)
+import           Pos.Wallet.Web.Assurance (AssuranceLevel (HighAssurance), assuredBlockDepth)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CWAddressMeta (..), Wal,
+                                             cwAssurance)
 
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode, MonadWalletDBMempoolRead,
-                                             MonadWalletDBRead, getAccountWAddresses,
-                                             getWalletMeta, getWalletWAddresses)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (AddressLookupMode, MonadWalletDBMempoolRead,
+                                       MonadWalletDBRead, getAccountWAddresses, getWalletMeta,
+                                       getWalletWAddresses)
 
 getAccountAddrsOrThrow
     :: (MonadWalletDBMempoolRead m, MonadThrow m)

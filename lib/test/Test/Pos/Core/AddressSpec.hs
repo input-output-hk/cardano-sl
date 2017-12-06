@@ -6,27 +6,23 @@ module Test.Pos.Core.AddressSpec
 
 import           Universum
 
-import qualified Data.ByteString            as BS
-import           Formatting                 (formatToString, int, (%))
+import qualified Data.ByteString as BS
+import           Formatting (formatToString, int, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Test.Hspec                 (Spec, describe, it, shouldBe)
-import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Gen, arbitrary, counterexample, forAll,
-                                             frequency, vectorOf)
+import           Test.Hspec (Spec, describe, it, shouldBe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, frequency, vectorOf)
 
-import           Pos.Arbitrary.Core         ()
-import           Pos.Binary.Class           (biSize)
-import           Pos.Core                   (Address, IsBootstrapEraAddr (..),
-                                             deriveLvl2KeyPair, largestHDAddressBoot,
-                                             largestPubKeyAddressBoot,
-                                             largestPubKeyAddressSingleKey,
-                                             makePubKeyAddress, makePubKeyAddressBoot,
-                                             makePubKeyHdwAddress)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, PublicKey,
-                                             SecretKey (..), ShouldCheckPassphrase (..),
-                                             deterministicKeyGen, emptyPassphrase,
-                                             mkEncSecret, noPassEncrypt, toPublic)
-import           Pos.Crypto.HD              (HDAddressPayload (..))
+import           Pos.Arbitrary.Core ()
+import           Pos.Binary.Class (biSize)
+import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair,
+                           largestHDAddressBoot, largestPubKeyAddressBoot,
+                           largestPubKeyAddressSingleKey, makePubKeyAddress, makePubKeyAddressBoot,
+                           makePubKeyHdwAddress)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, SecretKey (..),
+                             ShouldCheckPassphrase (..), deterministicKeyGen, emptyPassphrase,
+                             mkEncSecretUnsafe, noPassEncrypt, toPublic)
+import           Pos.Crypto.HD (HDAddressPayload (..))
 
 spec :: Spec
 spec = describe "Address" $ do
@@ -68,7 +64,7 @@ spec = describe "Address" $ do
 
             genHDAddrBootSomePass (SecretKey sk) = do
                 passphrase <- arbitrary
-                esk <- mkEncSecret passphrase sk
+                esk <- mkEncSecretUnsafe passphrase sk
                 genHDAddrBoot' passphrase esk <$> arbitrary <*> arbitrary
 
         largestAddressProp "HD address with BootstrapEra distribution"

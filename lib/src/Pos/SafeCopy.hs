@@ -6,62 +6,61 @@ module Pos.SafeCopy
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet           as CC
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519         as ED25519
-import qualified Crypto.Sign.Ed25519             as EDS25519
-import qualified Data.DList                      as DL
-import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                  as Cereal (Serialize (..), getWord8,
-                                                            putWord8)
-import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
+import qualified Crypto.ECC.Edwards25519 as ED25519
+import qualified Crypto.Sign.Ed25519 as EDS25519
+import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveSafeCopySimple,
+                                safeGet, safePut)
+import qualified Data.Serialize as Cereal
+import qualified PlutusCore.Program as PLCore
+import qualified PlutusCore.Term as PLCore
+import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Binary.Class                (Bi)
-import qualified Pos.Binary.Class                as Bi
-import           Pos.Block.Core
-import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
-                                                  TxSizeLinear (..))
-import           Pos.Core.Types                  (AddrAttributes (..),
-                                                  AddrSpendingData (..),
-                                                  AddrStakeDistribution (..),
-                                                  AddrType (..), Address (..),
-                                                  Address' (..), ApplicationName (..),
-                                                  BlockCount (..), BlockVersion (..),
-                                                  BlockVersionData (..),
-                                                  ChainDifficulty (..), Coin,
-                                                  CoinPortion (..), EpochIndex (..),
-                                                  EpochOrSlot (..), LocalSlotIndex (..),
-                                                  Script (..), SharedSeed (..),
-                                                  SlotCount (..), SlotId (..),
-                                                  SoftforkRule (..), SoftwareVersion (..))
-import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
-import           Pos.Crypto.Hashing              (AbstractHash (..))
-import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
-import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
-                                                  RedeemSecretKey (..),
-                                                  RedeemSignature (..))
-import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
-                                                  ProxySignature (..), PublicKey (..),
-                                                  SecretKey (..), Signature (..),
-                                                  Signed (..))
-import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
-import           Pos.Delegation.Types            (DlgPayload (..))
-import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
-                                                  MerkleTree (..))
-import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
-                                                  Opening (..), SscPayload (..),
-                                                  SscProof (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
-                                                  TxOut (..), TxOutAux (..),
-                                                  TxPayload (..), TxProof (..))
-import           Pos.Update.Core.Types           (BlockVersionModifier (..),
-                                                  SystemTag (..), UpdateData (..),
-                                                  UpdatePayload (..), UpdateProposal (..),
-                                                  UpdateVote (..))
-import qualified Pos.Util.Modifier               as MM
+import           Pos.Binary.Class (AsBinary (..), Bi)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Core.Block
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..), Address (..),
+                                  Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
+                                  Coin, CoinPortion (..), Script (..), SharedSeed (..),
+                                  TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
+                                    SlotCount (..), SlotId (..))
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
+                               SscProof (..), VssCertificate (..), VssCertificatesMap)
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
+                               TxPayload (..), TxProof (..))
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
+                                  BlockVersionModifier (..), SoftforkRule (..),
+                                  SoftwareVersion (..), SystemTag (..), UpdateData (..),
+                                  UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
+import           Pos.Crypto.HD (HDAddressPayload (..))
+import           Pos.Crypto.SecretSharing (SecretProof)
+import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
+                                            RedeemSignature (..))
+import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
+                                             ProxySignature (..), PublicKey (..), SecretKey (..),
+                                             Signature (..), Signed (..))
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
+import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
+import qualified Pos.Util.Modifier as MM
 
+----------------------------------------------------------------------------
+-- Bi
+----------------------------------------------------------------------------
+
+putCopyBi :: Bi a => a -> Contained Cereal.Put
+putCopyBi = contain . safePut . Bi.serialize
+
+getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
+getCopyBi = contain $ do
+    bs <- safeGet
+    case Bi.deserializeOrFail bs of
+        Left (err, _) -> fail $ "getCopy@" ++ (Bi.label (Proxy @a)) <> ": " <> show err
+        Right (x, _)  -> return x
 
 ----------------------------------------------------------------------------
 -- Core types
@@ -95,8 +94,8 @@ deriveSafeCopySimple 0 'base ''RedeemPublicKey
 deriveSafeCopySimple 0 'base ''RedeemSecretKey
 
 instance Bi SecretProof => SafeCopy SecretProof where
-    getCopy = Bi.getCopyBi
-    putCopy = Bi.putCopyBi
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 ----------------------------------------------------------------------------
 -- SSC
@@ -239,7 +238,7 @@ instance SafeCopy BlockSignature where
         1 -> BlockPSignatureLight <$> safeGet
         2 -> BlockPSignatureHeavy <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
-    putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
+    putCopy (BlockSignature sig)            = contain $ Cereal.putWord8 0 >> safePut sig
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
@@ -319,16 +318,16 @@ instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
 
 instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
-    getCopy = Bi.getCopyBi
-    putCopy = Bi.putCopyBi
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 instance (Bi (MerkleNode a), Typeable a) => SafeCopy (MerkleNode a) where
-    getCopy = Bi.getCopyBi
-    putCopy = Bi.putCopyBi
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 instance (Bi (MerkleTree a), Typeable a) => SafeCopy (MerkleTree a) where
-    getCopy = Bi.getCopyBi
-    putCopy = Bi.putCopyBi
+    getCopy = getCopyBi
+    putCopy = putCopyBi
 
 instance SafeCopy h => SafeCopy (Attributes h) where
     getCopy =
@@ -343,8 +342,8 @@ instance SafeCopy h => SafeCopy (Attributes h) where
 
 instance (Bi (AbstractHash algo a), Typeable algo, Typeable a) =>
         SafeCopy (AbstractHash algo a) where
-   putCopy = Bi.putCopyBi
-   getCopy = Bi.getCopyBi
+   putCopy = putCopyBi
+   getCopy = getCopyBi
 
 instance Cereal.Serialize Byte where
     get = fromBytes <$> Cereal.get
@@ -356,6 +355,22 @@ instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier 
     getCopy = contain $ MM.fromHashMap <$> safeGet
     putCopy mm = contain $ safePut (MM.toHashMap mm)
 
-instance SafeCopy a => SafeCopy (DL.DList a) where
-    getCopy = contain $ DL.fromList <$> safeGet
-    putCopy dl = contain $ safePut (DL.toList dl)
+instance SafeCopy (AsBinary a) where
+    getCopy = contain $ AsBinary <$> safeGet
+    putCopy = contain . safePut . getAsBinary
+
+instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
+    putCopy = putCopyBi
+    getCopy = getCopyBi
+
+----------------------------------------------------------------------------
+-- Plutus
+----------------------------------------------------------------------------
+
+instance Bi PLCore.Term => SafeCopy PLCore.Term where
+    getCopy = getCopyBi
+    putCopy = putCopyBi
+
+instance Bi PLCore.Program => SafeCopy PLCore.Program where
+    getCopy = getCopyBi
+    putCopy = putCopyBi

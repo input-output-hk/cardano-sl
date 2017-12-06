@@ -5,17 +5,16 @@ module Pos.Lrc.Fts
        ( followTheSatoshiM
        ) where
 
-import           Control.Lens       (makeLenses, makePrisms, uses)
-import           Data.Conduit       (Sink, await)
+import           Control.Lens (makeLenses, makePrisms, uses)
+import           Data.Conduit (Sink, await)
 import           Data.List.NonEmpty (fromList)
 import           Universum
 
-import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
+import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
+                                  mkCoin, unsafeGetCoin)
 import           Pos.Core.Configuration (HasConfiguration, epochSlots)
-import           Pos.Core.Slotting  ()
-import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
-                                     SlotLeaders, StakeholderId, mkCoin)
-import           Pos.Crypto         (deterministic, randomNumber)
+import           Pos.Core.Slotting (LocalSlotIndex (..))
+import           Pos.Crypto (deterministic, randomNumber)
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
 -- for a particular coin.

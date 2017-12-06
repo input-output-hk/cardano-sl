@@ -1,4 +1,4 @@
-import           Spec       (spec)
+import           Spec (spec)
 import           Test.Hspec (hspec)
 import           Universum
 

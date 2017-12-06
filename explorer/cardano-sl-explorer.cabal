@@ -13,27 +13,33 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Core
+  exposed-modules:      Pos.Explorer.ExplorerMode
+
+                        Pos.Explorer.Core
                         Pos.Explorer.DB
                         Pos.Explorer.ExtraContext
                         Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Holder
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
+
                         Pos.Explorer.Txp
+
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
+                        Pos.Explorer.Web.Transform
+
+                        Pos.Explorer.TestUtil
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
-                        Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Web.Transform
 
                         Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
@@ -48,13 +54,10 @@ library
   build-depends:        QuickCheck
                       , aeson
                       , base
-                      , base16-bytestring
-                      , binary
                       , bytestring
-                      , containers
                       , conduit
+                      , containers
                       , data-default
-                      , either
                       , ether >= 0.5.1
                       , exceptions
                       , formatting
@@ -63,11 +66,11 @@ library
                       , log-warper
                       , memory
                       , node-sketch
-                      , rocksdb-haskell
                       , resourcet
+                      , rocksdb-haskell
                       , serokell-util
+                      , servant-generic
                       , stm
-                      , tagged
                       , text
                       , text-format
                       , time
@@ -79,18 +82,22 @@ library
 
                       -- cardano sl
                       , cardano-sl
+                      , cardano-sl-binary
+                      , cardano-sl-block
+                      , cardano-sl-client
                       , cardano-sl-core
-                      , cardano-sl-infra
-                      , cardano-sl-txp
+                      , cardano-sl-crypto
                       , cardano-sl-db
+                      , cardano-sl-delegation
+                      , cardano-sl-generator
+                      , cardano-sl-infra
                       , cardano-sl-ssc
+                      , cardano-sl-txp
                       , cardano-sl-update
+                      , cardano-sl-util
 
                       -- mtl ++
                       , mtl
-                      , lifted-base
-                      , monad-control
-                      , monad-loops
 
                       -- servant
                       , servant
@@ -147,27 +154,17 @@ executable cardano-explorer
   main-is:             Main.hs
   other-modules:       NodeOptions
   build-depends:       base
-                     , bytestring
-                     , ether
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , cardano-sl-ssc
                      , cardano-sl-update
-                     , containers
-                     , data-default
+                     , cardano-sl-util
                      , formatting
-                     , lens
                      , log-warper
-                     , mtl
-                     , network-transport-tcp
                      , node-sketch
                      , optparse-applicative
                      , universum
-                     , serokell-util
-                     , time
-                     , time-units
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -207,7 +204,6 @@ executable cardano-explorer-hs2purs
   other-modules:       PSTypes
                        PSOptions
   build-depends:       base
-                     , cardano-sl
                      , cardano-sl-explorer
                      , purescript-bridge
                      , universum
@@ -248,21 +244,18 @@ executable cardano-explorer-hs2purs
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
-  other-modules:       Description
   build-depends:       aeson
                      , base
                      , bytestring
-                     , cardano-sl
                      , cardano-sl-explorer
                      , lens
-                     , swagger2
-                     , servant-server
+                     , optparse-applicative
                      , servant-multipart
+                     , servant-server
                      , servant-swagger
-                     , servant-swagger-ui
+                     , swagger2
                      , text
                      , universum >= 0.1.11
-                     , optparse-applicative
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -287,10 +280,9 @@ executable cardano-explorer-mock
   main-is:             Main.hs
   other-modules:
   build-depends:       base
-                     , cardano-sl
                      , cardano-sl-explorer
-                     , universum
                      , optparse-applicative
+                     , universum
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -338,50 +330,30 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
+                       -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.
                        Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0
-  build-depends:       MonadRandom
-                     , QuickCheck
+  build-depends:       QuickCheck
                      , base
                      , bytestring
-                     , cardano-sl-explorer
-                     , cardano-sl-core
                      , cardano-sl
-                     , cborg
-                     , cereal
+                     , cardano-sl-block
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-explorer
+                     , cardano-sl-txp
+                     , cardano-sl-util
                      , containers
                      , cryptonite
                      , data-default
-                     , ether
-                     , exceptions
-                     , formatting
-                     , generic-arbitrary
+                     , engine-io
                      , hspec
-                     , kademlia
                      , lens
                      , log-warper
                      , MonadRandom
-                     , memory
-                     , monad-control
                      , mtl
-                     , mmorph
-                     , node-sketch
-                     , pvss
-                     , quickcheck-instances
-                     , random
-                     , reflection
-                     , regex-tdfa
-                     , regex-tdfa-text
-                     , safecopy
-                     , serokell-util >= 0.1.3.4
-                     , tagged
-                     , text-format
-                     , time-units
-                     , transformers-base
                      , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
                      , warp
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -389,6 +361,60 @@ test-suite cardano-explorer-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark cardano-explorer-bench
+  hs-source-dirs:      bench
+  main-is:             Main.hs
+  other-modules:       Bench.Pos.Explorer.ServerBench
+  type:                exitcode-stdio-1.0
+  build-depends:       QuickCheck
+                     , base
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-explorer
+                     , cardano-sl-txp
+                     , criterion
+                     , data-default
+                     , lens
+                     , text-format
+                     , universum >= 0.1.11
+                     , weigh
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
 
   -- linker speed up for linux
   if os(linux)

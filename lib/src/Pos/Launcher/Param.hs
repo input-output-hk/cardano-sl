@@ -11,23 +11,23 @@ module Pos.Launcher.Param
 
 import           Universum
 
-import           Control.Lens                (makeLensesWith)
-import           Ether.Internal              (HasLens (..))
-import           System.Wlog                 (LoggerName)
+import           Control.Lens (makeLensesWith)
+import           Ether.Internal (HasLens (..))
+import           System.Wlog (LoggerName)
 
-import           Pos.Behavior                (BehaviorConfig (..))
-import           Pos.Core                    (HasPrimaryKey (..))
-import           Pos.Crypto                  (SecretKey)
-import           Pos.DHT.Real.Param          (KademliaParams)
-import           Pos.Network.Types           (NetworkConfig)
-import           Pos.Reporting.MemState      (HasReportServers (..))
-import           Pos.Security.Params         (SecurityParams)
-import           Pos.Ssc.Behavior            (SscBehavior)
-import           Pos.Statistics              (EkgParams, StatsdParams)
-import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.TimeWarp           (NetworkAddress)
-import           Pos.Util.UserSecret         (UserSecret)
-import           Pos.Util.Util               (postfixLFields)
+import           Pos.Behavior (BehaviorConfig (..))
+import           Pos.Core (HasPrimaryKey (..))
+import           Pos.Crypto (SecretKey)
+import           Pos.DHT.Real.Param (KademliaParams)
+import           Pos.Network.Types (NetworkConfig)
+import           Pos.Reporting.MemState (HasReportServers (..))
+import           Pos.Security.Params (SecurityParams)
+import           Pos.Ssc.Behavior (SscBehavior)
+import           Pos.Statistics (EkgParams, StatsdParams)
+import           Pos.Update.Params (UpdateParams)
+import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.TimeWarp (NetworkAddress)
+import           Pos.Util.UserSecret (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams

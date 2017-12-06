@@ -8,24 +8,12 @@ module Pos.Configuration
        , nodeConfiguration
        , withNodeConfiguration
 
-       -- * Constants mentioned in paper
-       , networkDiameter
-
        -- * Other constants
        , networkConnectionTimeout
        , conversationEstablishTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
-       , recoveryHeadersMessage
-       , messageCacheTimeout
-
-       -- * Delegation
-       , lightDlgConfirmationTimeout
-       , dlgCacheParam
-
-       -- * Malicious activity detection constants
-       , mdNoBlocksSlotThreshold
 
        -- * Transaction resubmition constants
        , pendingTxResubmitionPeriod
@@ -33,14 +21,14 @@ module Pos.Configuration
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import           Data.Reflection        (Given (..), give)
-import           Data.Time.Units        (Microsecond, Second)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Reflection (Given (..), give)
+import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util          (ms, sec)
-import qualified Text.Parsec            as P
+import           Serokell.Util (ms)
+import qualified Text.Parsec as P
 
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 type HasNodeConfiguration = Given NodeConfiguration
 
@@ -50,25 +38,11 @@ nodeConfiguration = given
 withNodeConfiguration :: NodeConfiguration -> (HasNodeConfiguration => r) -> r
 withNodeConfiguration = give
 
--- | Compile time configuration. See example in /constants.yaml/ file.
+-- | Top-level node configuration. See example in /configuration.yaml/ file.
 data NodeConfiguration = NodeConfiguration
     {
-      ccNetworkDiameter              :: !Int
-      -- ^ Estimated time for broadcasting messages
-    , ccDefaultPeers                 :: ![Text]
+      ccDefaultPeers                 :: ![Text]
       -- ^ List of default peers
-    , ccMdNoBlocksSlotThreshold      :: !Int
-      -- ^ Threshold of slots for malicious activity detection
-    , ccLightDlgConfirmationTimeout  :: !Int
-      -- ^ Timeout for holding light psks confirmations
-    , ccDlgCacheParam                :: !Int
-      -- ^ This value parameterizes size of cache used in Delegation.
-      -- Not bytes, but number of elements.
-    , ccRecoveryHeadersMessage       :: !Int
-      -- ^ Numbers of headers put in message in recovery mode.
-    , ccMessageCacheTimeout          :: !Int
-      -- ^ Interval we ignore cached messages in components that
-      -- support caching
     , ccNetworkConnectionTimeout     :: !Int
       -- ^ Network connection timeout in milliseconds
     , ccConversationEstablishTimeout :: !Int
@@ -86,16 +60,7 @@ instance FromJSON NodeConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
 ----------------------------------------------------------------------------
--- Main constants mentioned in paper
-----------------------------------------------------------------------------
-
--- | Estimated time needed to broadcast message from one node to all
--- other nodes. Also see 'Pos.NodeConfiguration.ccNetworkDiameter'.
-networkDiameter :: HasNodeConfiguration => Microsecond
-networkDiameter = sec . ccNetworkDiameter $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Other constants
+-- Miscellaneous constants
 ----------------------------------------------------------------------------
 
 networkConnectionTimeout :: HasNodeConfiguration => Microsecond
@@ -122,38 +87,6 @@ defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
         either (error . show) identity .
         P.parse addrParser "Compile time config"
 
--- | Maximum amount of headers node can put into headers message while
--- in "after offline" or "recovery" mode. Should be more than
--- 'blkSecurityParam'.
-recoveryHeadersMessage :: (HasNodeConfiguration, Integral a) => a
-recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ nodeConfiguration
-
--- | Timeout for caching system. Components that use caching on
--- messages can use this timeout to invalidate caches.
-messageCacheTimeout :: (HasNodeConfiguration, Integral a) => a
-messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Delegation
-----------------------------------------------------------------------------
-
--- | Amount of time we hold confirmations for light PSKs.
-lightDlgConfirmationTimeout :: (HasNodeConfiguration, Integral a) => a
-lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ nodeConfiguration
-
--- | This value parameterizes size of cache used in Delegation.
--- Not bytes, but number of elements.
-dlgCacheParam :: (HasNodeConfiguration, Integral n) => n
-dlgCacheParam = fromIntegral . ccDlgCacheParam $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Malicious activity
-----------------------------------------------------------------------------
-
--- | Number of slots used by malicious actions detection to check if
--- we are not receiving generated blocks.
-mdNoBlocksSlotThreshold :: (HasNodeConfiguration, Integral i) => i
-mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ nodeConfiguration
 
 ----------------------------------------------------------------------------
 -- Transactions resubmition

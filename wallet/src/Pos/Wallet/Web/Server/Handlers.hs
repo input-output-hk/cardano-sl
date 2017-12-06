@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Wallet endpoints list
@@ -10,18 +11,17 @@ module Pos.Wallet.Web.Server.Handlers
 import           Universum
 
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
-import           Servant.API                 ((:<|>) ((:<|>)))
-import           Servant.Server              (Handler, Server, ServerT)
-import           Servant.Swagger.UI          (swaggerSchemaUIServer)
-import           Servant.Utils.Enter         ((:~>) (..), enter)
+import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Server (Handler, Server, ServerT, hoistServer)
+import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
-import           Pos.Update.Configuration    (curSoftwareVersion)
-import           Pos.Wallet.WalletMode       (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
-import qualified Pos.Wallet.Web.Methods      as M
-import           Pos.Wallet.Web.Mode         (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.State        (withSnapshot)
+import           Pos.Update.Configuration (curSoftwareVersion)
+import           Pos.Wallet.WalletMode (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
+import           Pos.Wallet.Web.Api (WalletApi, WalletSwaggerApi, walletApi)
+import qualified Pos.Wallet.Web.Methods as M
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
+import           Pos.Wallet.Web.State (withSnapshot)
 
 servantHandlers
     :: MonadFullWalletWebMode ctx m
@@ -73,7 +73,11 @@ servantHandlers =
 
      M.newPayment
     :<|>
+     M.newPaymentBatch
+    :<|>
      (withSnapshot ... M.getTxFee)
+    :<|>
+     M.resetAllFailedPtxs
     :<|>
      M.updateTransaction
     :<|>
@@ -110,10 +114,9 @@ servantHandlers =
 
 servantHandlersWithSwagger
     :: MonadFullWalletWebMode ctx m
-    => (m :~> Handler)
+    => (forall x. m x -> Handler x)
     -> Server WalletSwaggerApi
 servantHandlersWithSwagger nat =
-    nat `enter` servantHandlers
+    hoistServer walletApi nat servantHandlers
    :<|>
-    -- doesn't work for arbitrary monad, so we have to 'enter' above
     swaggerSchemaUIServer swaggerSpecForWalletApi

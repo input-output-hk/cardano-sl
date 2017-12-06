@@ -10,50 +10,38 @@ module Command.Update
 
 import           Universum
 
-import qualified Data.ByteString.Lazy     as BSL
-import           Data.Default             (def)
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                ((!!))
-import           Formatting               (sformat, string, (%))
-import           System.Wlog              (logDebug, logError, logInfo)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
+import           Data.List ((!!))
+import           Formatting (sformat, string, (%))
+import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo)
 
-import           Pos.Binary               (Raw)
-import           Pos.Client.KeyStorage    (getSecretKeysPlain)
-import           Pos.Communication        (SendActions, immediateConcurrentConversations,
-                                           submitUpdateProposal, submitVote)
-import           Pos.Configuration        (HasNodeConfiguration)
-import           Pos.Core.Configuration   (HasConfiguration)
-import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
-                                           encToPublic, hash, hashHexF, safeSign,
-                                           unsafeHash, withSafeSigner, withSafeSigners)
-import           Pos.Exception            (reportFatalError)
-import           Pos.Infra.Configuration  (HasInfraConfiguration)
-import           Pos.Update               (SystemTag, UpId, UpdateData (..),
-                                           UpdateVote (..), installerHash,
-                                           mkUpdateProposalWSign)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo     (HasCompileInfo)
+import           Pos.Binary (Raw)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
+import           Pos.Communication (SendActions, immediateConcurrentConversations)
+import           Pos.Crypto (Hash, SignTag (SignUSVote), emptyPassphrase, encToPublic, hash,
+                             hashHexF, safeSign, unsafeHash, withSafeSigner, withSafeSigners)
+import           Pos.Exception (reportFatalError)
+import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), installerHash,
+                             mkUpdateProposalWSign)
 
-import           Lang.Value               (ProposeUpdateParams (..),
-                                           ProposeUpdateSystem (..))
-import           Mode                     (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
+import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
+import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------
 -- Vote
 ----------------------------------------------------------------------------
 
 vote
-    :: ( HasConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasNodeConfiguration
-       , HasCompileInfo
-       )
-    => SendActions AuxxMode
+    :: MonadAuxxMode m
+    => SendActions m
     -> Int
     -> Bool
     -> UpId
-    -> AuxxMode ()
+    -> m ()
 vote sendActions idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
@@ -80,22 +68,16 @@ vote sendActions idx decision upid = do
 ----------------------------------------------------------------------------
 
 propose
-    :: ( HasConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasNodeConfiguration
-       , HasCompileInfo
-       )
-    => SendActions AuxxMode
+    :: MonadAuxxMode m
+    => SendActions m
     -> ProposeUpdateParams
-    -> AuxxMode UpId
+    -> m UpId
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
     let udata = HM.fromList updateData
-    let whenCantCreate = error . mappend "Failed to create update proposal: "
     skeys <- if not puVoteAll then pure [skey]
              else getSecretKeysPlain
     withSafeSigners skeys (pure emptyPassphrase) $ \ss -> do
@@ -103,7 +85,7 @@ propose sendActions ProposeUpdateParams{..} = do
             reportFatalError $ "Number of safe signers: " <> show (length ss) <>
                                ", expected " <> show (length skeys)
         let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
-        let updateProposal = either whenCantCreate identity $
+        let updateProposal =
                 mkUpdateProposalWSign
                     puBlockVersion
                     puBlockVersionModifier
@@ -123,7 +105,7 @@ propose sendActions ProposeUpdateParams{..} = do
                     putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
                 return upid
 
-updateDataElement :: ProposeUpdateSystem -> AuxxMode (SystemTag, UpdateData)
+updateDataElement :: MonadAuxxMode m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do
     diffHash <- hashFile pusBinDiffPath
     pkgHash <- hashFile pusInstallerPath
@@ -132,7 +114,7 @@ updateDataElement ProposeUpdateSystem{..} = do
 dummyHash :: Hash Raw
 dummyHash = unsafeHash (0 :: Integer)
 
-hashFile :: Maybe FilePath -> AuxxMode (Hash Raw)
+hashFile :: (CanLog m, HasLoggerName m, MonadIO m) => Maybe FilePath -> m (Hash Raw)
 hashFile Nothing  = pure dummyHash
 hashFile (Just filename) = do
     fileData <- liftIO $ BSL.readFile filename
@@ -140,7 +122,7 @@ hashFile (Just filename) = do
     logInfo $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
     pure h
 
-hashInstaller :: FilePath -> AuxxMode ()
-hashInstaller path = do
+hashInstaller :: MonadIO m => PrintAction m -> FilePath -> m ()
+hashInstaller printAction path = do
     h <- installerHash <$> liftIO (BSL.readFile path)
-    logInfo $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h
+    printAction $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h

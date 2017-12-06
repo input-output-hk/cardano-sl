@@ -12,6 +12,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CHash (..)
       , CPassPhrase (..)
       , CTxId (..)
+      , NewBatchPayment (..)
       , CAccountId (..)
       , CCoin (..)
       , mkCCoin
@@ -64,23 +65,26 @@ module Pos.Wallet.Web.ClientTypes.Types
 
 import           Universum
 
-import           Control.Lens          (makeLenses)
-import           Data.Default          (Default, def)
-import           Data.Hashable         (Hashable (..))
+import           Control.Lens (makeLenses)
+import           Data.Default (Default, def)
+import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Clock.POSIX (POSIXTime)
-import           Data.Typeable         (Typeable)
-import           Data.Version          (Version)
-import           Formatting            (bprint, build, builder, shown, (%))
+import           Data.Typeable (Typeable)
+import           Data.Version (Version)
+import           Formatting (bprint, build, builder, later, shown, (%))
 import qualified Prelude
-import           Serokell.Util         (listJsonIndent)
-import           Servant.Multipart     (FileData)
+import           Serokell.Util (listJsonIndent, mapBuilder)
+import           Servant.Multipart (FileData, Mem)
 
-import           Pos.Core.Types        (Coin, ScriptVersion, unsafeGetCoin)
-import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
+                           unsafeGetCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe      (SecureLog (..), buildUnsecure)
-import           Pos.Util.Servant      (HasTruncateLogPolicy, WithTruncatedLog (..))
+import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog (..), buildUnsecure, secretOnlyF,
+                                   secure, secureListF, unsecure)
+import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -205,7 +209,7 @@ instance Hashable CWAddressMeta
 data CWalletAssurance
     = CWAStrict
     | CWANormal
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Enum, Bounded, Generic)
 
 instance Buildable CWalletAssurance where
     build = bprint shown
@@ -430,7 +434,8 @@ instance Buildable (SecureLog CTxMeta) where
 -- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
 -- not to provide information which conflicts with 'ctConfirmations'.
 data CPtxCondition
-    = CPtxApplying
+    = CPtxCreating  -- not for displaying to frontend
+    | CPtxApplying
     | CPtxInBlocks
     | CPtxWontApply
     | CPtxNotTracked  -- ^ tx was made not in this life
@@ -490,6 +495,29 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexId          :: CId Addr
     } deriving (Show, Generic)
+
+data NewBatchPayment = NewBatchPayment
+    { npbFrom                 :: CAccountId
+    , npbTo                   :: NonEmpty (CId Addr, Coin)
+    , npbInputSelectionPolicy :: InputSelectionPolicy
+    } deriving (Show, Generic)
+
+buildNewBatchPayment :: LogSecurityLevel -> NewBatchPayment -> Builder
+buildNewBatchPayment sl NewBatchPayment {..} =
+    bprint ("{ from="%secretOnlyF sl build
+            -- TODO: use https://github.com/serokell/serokell-util/pull/19 instead of `later mapBuilder`
+            %" to="%secureListF sl (later mapBuilder)
+            %" inputSelectionPolicy="%secretOnlyF sl build
+            %" }")
+    npbFrom
+    npbTo
+    npbInputSelectionPolicy
+
+instance Buildable NewBatchPayment where
+    build = buildNewBatchPayment unsecure
+
+instance Buildable (SecureLog NewBatchPayment) where
+    build = buildNewBatchPayment secure . getSecureLog
 
 -- | Update system data
 data CUpdateInfo = CUpdateInfo
@@ -557,7 +585,7 @@ data CElectronCrashReport = CElectronCrashReport
     , cecProductName :: Text
     , cecProd        :: Text
     , cecCompanyName :: Text
-    , cecUploadDump  :: FileData
+    , cecUploadDump  :: FileData Mem
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

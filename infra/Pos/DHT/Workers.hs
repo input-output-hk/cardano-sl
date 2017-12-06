@@ -7,26 +7,25 @@ module Pos.DHT.Workers
 
 import           Universum
 
-import qualified Data.ByteString.Lazy       as BSL
-import           Formatting                 (sformat, (%))
-import           Mockable                   (Async, Catch, Delay, Fork, Mockable)
-import           Network.Kademlia           (takeSnapshot)
-import           System.Wlog                (WithLogger, logNotice)
+import qualified Data.ByteString.Lazy as BSL
+import           Formatting (sformat, (%))
+import           Mockable (Async, Catch, Delay, Fork, Mockable)
+import           Network.Kademlia (takeSnapshot)
+import           System.Wlog (WithLogger, logNotice)
 
-import           Pos.Binary.Class           (serialize)
-import           Pos.Binary.Infra.DHTModel  ()
+import           Pos.Binary.Class (serialize)
+import           Pos.Binary.Infra.DHTModel ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Slotting          (flattenSlotId)
-import           Pos.Core.Types             (slotIdF)
-import           Pos.DHT.Configuration      (kademliaDumpInterval)
-import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration    (HasInfraConfiguration)
-import           Pos.KnownPeers             (MonadKnownPeers)
-import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
-import           Pos.Reporting              (MonadReporting)
-import           Pos.Shutdown               (HasShutdownContext)
-import           Pos.Slotting.Class         (MonadSlots)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (flattenSlotId, slotIdF)
+import           Pos.DHT.Configuration (kademliaDumpInterval)
+import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.KnownPeers (MonadKnownPeers)
+import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
+import           Pos.Reporting (MonadReporting)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting.Class (MonadSlots)
 
 type DhtWorkMode ctx m =
     ( WithLogger m

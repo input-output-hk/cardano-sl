@@ -11,57 +11,43 @@ module Command.Tx
 
 import           Universum
 
-import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe           (Exception (..), try)
-import           Control.Monad.Except             (runExceptT)
-import qualified Data.ByteString                  as BS
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        ((!!))
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Text                        as T
-import qualified Data.Text.IO                     as T
-import           Data.Time.Units                  (toMicroseconds)
-import           Formatting                       (build, int, sformat, shown, stext, (%))
-import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
-                                                   bracket, concurrently, currentTime,
-                                                   delay, forConcurrently,
-                                                   modifySharedAtomic, newSharedAtomic)
-import           Serokell.Util                    (ms, sec)
-import           System.IO                        (BufferMode (LineBuffering), hClose,
-                                                   hSetBuffering)
-import           System.Random                    (randomRIO)
-import           System.Wlog                      (logError, logInfo)
+import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
+import           Control.Exception.Safe (Exception (..), try)
+import           Control.Monad.Except (runExceptT)
+import qualified Data.ByteString as BS
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
+import           Data.List ((!!))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import           Data.Time.Units (toMicroseconds)
+import           Formatting (build, int, sformat, shown, stext, (%))
+import           Mockable (Mockable, SharedAtomic, SharedAtomicT, bracket, concurrently,
+                           currentTime, delay, forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Serokell.Util (ms, sec)
+import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
+import           System.Random (randomRIO)
+import           System.Wlog (logError, logInfo)
 
-import           Pos.Binary                       (decodeFull)
-import           Pos.Client.KeyStorage            (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util              (createTx)
-import           Pos.Communication                (SendActions,
-                                                   immediateConcurrentConversations,
-                                                   prepareMTx, submitTxRaw)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (BlockVersionData (bvdSlotDuration),
-                                                   IsBootstrapEraAddr (..),
-                                                   Timestamp (..), deriveFirstHDAddress,
-                                                   makePubKeyAddress, mkCoin)
-import           Pos.Core.Configuration           (HasConfiguration,
-                                                   genesisBlockVersionData,
-                                                   genesisSecretKeys)
-import           Pos.Crypto                       (EncryptedSecretKey, emptyPassphrase,
-                                                   encToPublic, fakeSigner, safeToPublic,
-                                                   toPublic, withSafeSigners)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..),
-                                                   topsortTxAuxes, txaF)
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.UserSecret              (usWallet, userSecret, wusRootKey)
-import           Pos.Util.Util                    (maybeThrow)
+import           Pos.Binary (decodeFull)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
+import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
+import           Pos.Client.Txp.Util (createTx)
+import           Pos.Communication (SendActions, immediateConcurrentConversations)
+import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
+                           Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
+import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
+import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
+                             safeToPublic, toPublic, withSafeSigners)
+import           Pos.Txp (topsortTxAuxes)
+import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
+import           Pos.Util.Util (maybeThrow)
 
-import           Lang.Value                       (SendMode (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
-                                                   makePubKeyAddressAuxx)
+import           Lang.Value (SendMode (..))
+import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx, makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -98,16 +84,10 @@ addTxFailed =
              pure (TxCount submitted (failed + 1) sending, ()))
 
 sendToAllGenesis
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasSscConfiguration
-       , HasCompileInfo
-       )
-    => SendActions AuxxMode
+    :: forall m. MonadAuxxMode m
+    => SendActions m
     -> SendToAllGenesisParams
-    -> AuxxMode ()
+    -> m ()
 sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
@@ -143,7 +123,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             atomically $ writeTQueue txQueue (secretKey, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
-        let writeTPS :: AuxxMode ()
+        let writeTPS :: m ()
             writeTPS = do
                 delay (sec genesisSlotDuration)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
@@ -158,7 +138,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
-            sendTxs :: Int -> AuxxMode ()
+            sendTxs :: Int -> m ()
             sendTxs n
                 | n <= 0 = do
                       logInfo "All done sending transactions on this thread."
@@ -199,17 +179,11 @@ newtype AuxxException = AuxxException Text
 instance Exception AuxxException
 
 send
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasSscConfiguration
-       , HasCompileInfo
-       )
-    => SendActions AuxxMode
+    :: forall m. MonadAuxxMode m
+    => SendActions m
     -> Int
     -> NonEmpty TxOut
-    -> AuxxMode ()
+    -> m ()
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
     skey <- takeSecret
@@ -224,13 +198,13 @@ send sendActions idx outputs = do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx getSigner (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        (txAux,_) <- lift $ prepareMTx getSigner def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
         Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
   where
-    takeSecret :: AuxxMode EncryptedSecretKey
+    takeSecret :: m EncryptedSecretKey
     takeSecret
         | idx == -1 = do
             _userSecret <- view userSecret >>= atomically . readTVar
@@ -244,22 +218,16 @@ send sendActions idx outputs = do
 -- | Read transactions from the given file (ideally generated by
 -- 'rollbackAndDump') and submit them to the network.
 sendTxsFromFile
-    :: ( HasConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
-       , HasCompileInfo
-       )
-    => SendActions AuxxMode
+    :: forall m. MonadAuxxMode m
+    => SendActions m
     -> FilePath
-    -> AuxxMode ()
+    -> m ()
 sendTxsFromFile sendActions txsFile = do
     liftIO (BS.readFile txsFile) <&> decodeFull >>= \case
         Left err -> throwM (AuxxException err)
         Right txs -> sendTxs txs
   where
-    sendTxs :: [TxAux] -> AuxxMode ()
+    sendTxs :: [TxAux] -> m ()
     sendTxs txAuxes = do
         logInfo $
             sformat

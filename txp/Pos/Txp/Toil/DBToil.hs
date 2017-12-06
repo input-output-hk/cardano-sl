@@ -8,13 +8,13 @@ module Pos.Txp.Toil.DBToil
        ) where
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
+import           Data.Coerce (coerce)
 import qualified Ether
 
-import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.DB.GState.Stakes         (getRealStake, getRealTotalStake)
-import           Pos.Txp.DB.Utxo              (getTxOut)
-import           Pos.Txp.Toil.Class           (MonadStakesRead (..), MonadUtxoRead (..))
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.GState.Stakes (getRealStake, getRealTotalStake)
+import           Pos.Txp.DB.Utxo (getTxOut)
+import           Pos.Txp.Toil.Class (MonadStakesRead (..), MonadUtxoRead (..))
 
 data DBToilTag
 

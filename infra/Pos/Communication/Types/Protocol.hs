@@ -41,31 +41,31 @@ module Pos.Communication.Types.Protocol
        , MsgSubscribe (..)
        ) where
 
-import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value)
-import           Data.Aeson.Types           (Parser)
-import qualified Data.ByteString.Base64     as B64 (decode, encode)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Map                   as M
-import qualified Data.Text.Buildable        as B
-import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
-import qualified Data.Text.Internal.Builder as B
-import           Formatting                 (bprint, build, hex, shown, sformat, (%))
--- TODO should not have to import outboundqueue stuff here. MsgType and
--- NodeType should be a cardano-sl notion.
-import           Mockable.Class             (Mockable)
-import           Mockable.Concurrent        (Async, async, wait)
-import           Network.Transport          (EndPointAddress (..))
-import qualified Node                       as N
-import           Node.Message.Class         (Message (..), MessageCode)
-import           Pos.Network.Types          (MsgType (..), NodeId (..), NodeType (..),
-                                             Origin (..))
-import           Serokell.Util.Base16       (base16F)
-import           Serokell.Util.Text         (listJson, mapJson)
 import           Universum
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.BiP      (BiP)
-import           Pos.Core.Types             (BlockVersion)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
+import           Data.Aeson.Types (Parser)
+import qualified Data.ByteString.Base64 as B64 (decode, encode)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M
+import qualified Data.Text.Buildable as B
+import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Internal.Builder as B
+import           Formatting (bprint, build, hex, sformat, shown, (%))
+-- TODO should not have to import outboundqueue stuff here. MsgType and
+-- NodeType should be a cardano-sl notion.
+import           Mockable.Class (Mockable)
+import           Mockable.Concurrent (Async, async, wait)
+import           Network.Transport (EndPointAddress (..))
+import qualified Node as N
+import           Node.Message.Class (Message (..), MessageCode)
+import           Serokell.Util.Base16 (base16F)
+import           Serokell.Util.Text (listJson, mapJson)
+
+import           Pos.Binary.Class (Bi)
+import           Pos.Communication.BiP (BiP)
+import           Pos.Core.Update (BlockVersion)
+import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 
 type PackingType = BiP
 type PeerData = VerInfo

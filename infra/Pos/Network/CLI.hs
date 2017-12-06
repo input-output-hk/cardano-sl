@@ -26,36 +26,34 @@ module Pos.Network.CLI
 import           Universum
 
 import           Control.Concurrent
-import           Control.Exception               (Exception (..))
-import qualified Data.ByteString.Char8           as BS.C8
-import           Data.IP                         (IPv4)
-import qualified Data.Map.Strict                 as M
-import           Data.Maybe                      (fromJust, mapMaybe)
-import qualified Data.Yaml                       as Yaml
-import           Formatting                      (build, sformat, shown, (%))
-import           Mockable                        (Catch, Mockable, Throw, fork, throw,
-                                                  try)
+import           Control.Exception (Exception (..))
+import qualified Data.ByteString.Char8 as BS.C8
+import           Data.IP (IPv4)
+import qualified Data.Map.Strict as M
+import           Data.Maybe (fromJust, mapMaybe)
+import qualified Data.Yaml as Yaml
+import           Formatting (build, sformat, shown, (%))
+import           Mockable (Catch, Mockable, Throw, fork, throw, try)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
-import qualified Network.DNS                     as DNS
-import qualified Network.Transport.TCP           as TCP
-import qualified Options.Applicative             as Opt
-import           Serokell.Util.OptParse          (fromParsec)
-import           System.Wlog.CanLog              (WithLogger, logError, logNotice)
+import qualified Network.DNS as DNS
+import qualified Network.Transport.TCP as TCP
+import qualified Options.Applicative as Opt
+import           Serokell.Util.OptParse (fromParsec)
+import           System.Wlog.CanLog (WithLogger, logError, logNotice)
 
-import qualified Pos.DHT.Real.Param              as DHT (KademliaParams (..),
-                                                         MalformedDHTKey (..),
-                                                         fromYamlConfig)
-import           Pos.Network.DnsDomains          (DnsDomains (..), NodeAddr (..))
-import           Pos.Network.Types               (NodeId, NodeName (..))
-import qualified Pos.Network.Types               as T
-import           Pos.Network.Yaml                (NodeMetadata (..))
-import qualified Pos.Network.Yaml                as Y
-import           Pos.Util.TimeWarp               (NetworkAddress, addrParser,
-                                                  addrParserNoWildcard, addressToNodeId)
+import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
+                                            fromYamlConfig)
+import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Network.Types (NodeId, NodeName (..))
+import qualified Pos.Network.Types as T
+import           Pos.Network.Yaml (NodeMetadata (..))
+import qualified Pos.Network.Yaml as Y
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
+                                    addressToNodeId)
 
 #ifdef POSIX
-import           Pos.Util.SigHandler             (Signal (..), installHandler)
+import           Pos.Util.SigHandler (Signal (..), installHandler)
 #endif
 
 ----------------------------------------------------------------------------

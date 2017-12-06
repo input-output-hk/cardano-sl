@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -12,46 +13,40 @@ module Pos.Web.Server
 
 import           Universum
 
-import qualified Control.Monad.Catch             as Catch
-import           Control.Monad.Except            (MonadError (throwError))
-import qualified Control.Monad.Reader            as Mtl
-import           Data.Aeson.TH                   (defaultOptions, deriveToJSON)
-import           Data.Default                    (Default)
-import           Mockable                        (Production (runProduction))
-import           Network.Wai                     (Application)
-import           Network.Wai.Handler.Warp        (defaultSettings, runSettings, setHost,
-                                                  setPort)
-import           Network.Wai.Handler.WarpTLS     (TLSSettings, runTLS, tlsSettingsChain)
-import           Servant.API                     ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server                  (Handler, ServantErr (errBody), Server,
-                                                  ServerT, err404, err503, serve)
-import           Servant.Utils.Enter             ((:~>) (NT), enter)
+import qualified Control.Monad.Catch as Catch
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Control.Monad.Reader as Mtl
+import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Data.Default (Default)
+import           Mockable (Production (runProduction))
+import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
+import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
+                                 err503, hoistServer, serve)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Pos.Aeson.Txp                   ()
-import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
-                                                  NodeContext, getOurPublicKey)
-import           Pos.Core                        (EpochIndex (..), SlotLeaders)
-import           Pos.Core.Configuration          (HasConfiguration)
-import           Pos.DB                          (MonadDBRead)
-import qualified Pos.DB                          as DB
-import qualified Pos.GState                      as GS
-import qualified Pos.Lrc.DB                      as LrcDB
-import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
-                                                  Topology, topologyMaxBucketSize)
-import           Pos.Ssc                         (scParticipateSsc)
-import           Pos.Txp                         (TxOut (..), toaOut)
-import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
-                                                  askTxpMem, getLocalTxs)
-import           Pos.Update.Configuration        (HasUpdateConfiguration)
-import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
-import           Pos.WorkMode                    (OQ)
-import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Aeson.Txp ()
+import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
+import           Pos.Core (EpochIndex (..), SlotLeaders)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.DB (MonadDBRead)
+import qualified Pos.DB as DB
+import qualified Pos.GState as GS
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Network.Types (Bucket (BucketSubscriptionListener), Topology,
+                                    topologyMaxBucketSize)
+import           Pos.Ssc (scParticipateSsc)
+import           Pos.Txp (TxOut (..), toaOut)
+import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, askTxpMem, getLocalTxs)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Web.Mode (WebMode, WebModeContext (..))
+import           Pos.WorkMode (OQ)
+import           Pos.WorkMode.Class (WorkMode)
 
-import           Pos.Web.Api                     (NodeApi, HealthCheckApi,
-                                                  healthCheckApi, nodeApi)
-import           Pos.Web.Types                   (CConfirmedProposalState (..),
-                                                  TlsParams (..))
+import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
+import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -111,23 +106,28 @@ convertHandler nc nodeDBs txpData handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat
-    :: forall ext ctx m .
-    ( MyWorkMode ctx m, MempoolExt m ~ ext)
-    => m (WebMode ext :~> Handler)
-nat = do
+withNat
+    :: forall ext ctx api m .
+    (MyWorkMode ctx m, MempoolExt m ~ ext, HasServer api '[])
+    => Proxy api -> ServerT api (WebMode ext) -> m (Server api)
+withNat apiP handlers = do
     nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
-    return $ NT (convertHandler nc nodeDBs txpLocalData)
+    return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
 
-servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck
+    :: forall ctx t m.
+       MyWorkMode ctx m
+    => Topology t -> OQ m -> m (Server HealthCheckApi)
 servantServerHealthCheck topology oq =
-    flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
+    withNat (Proxy @HealthCheckApi) $ healthCheckServantHandlers topology oq
 
-servantServer :: forall ctx m . MyWorkMode ctx m => m (Server NodeApi)
-servantServer = flip enter nodeServantHandlers <$>
-    (nat @(MempoolExt m) @ctx @m)
+servantServer
+    :: forall ctx m.
+       MyWorkMode ctx m
+    => m (Server NodeApi)
+servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 
 ----------------------------------------------------------------------------
 -- Node handlers
@@ -158,7 +158,7 @@ getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
-    maybe (throwM err) pure =<< LrcDB.getLeaders epoch
+    maybe (throwM err) pure =<< LrcDB.getLeadersForEpoch epoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 

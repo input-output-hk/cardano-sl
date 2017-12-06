@@ -6,11 +6,11 @@ module Pos.Ssc.Error.Verify
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, ords, stext, (%))
-import           Serokell.Util       (listJson)
+import           Formatting (bprint, build, ords, stext, (%))
+import           Serokell.Util (listJson)
 import           Universum
 
-import           Pos.Core            (EpochIndex, SlotId, StakeholderId, VssCertificate)
+import           Pos.Core (EpochIndex, SlotId, StakeholderId, VssCertificate)
 
 instance Buildable (StakeholderId, VssCertificate) where
     build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b

@@ -11,10 +11,12 @@ import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (AddressesFilter, CBlockEntries, CGenesisAddressInfos, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
-import Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import Pos.Core.Slotting.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary, CHash, CTxId, CTxSummary)
 import Pux.DOM.Events (DOMEvent)
 import Signal.Channel (Channel)
+
+type Page = Int
 
 data Action
     = SetLanguage Language
@@ -34,6 +36,7 @@ data Action
     -- socket endpoints
     | SocketConnected Boolean
     | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
+    | SocketEpochsLastPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketAddressTxsUpdated (Either Error CTxBriefs)
     | SocketAddSubscription SocketSubscriptionItem
@@ -54,8 +57,10 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
-    | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
-    | ReceiveSearchBlocks (Either Error CBlockEntries)
+    | RequestEpochPageSearch EpochIndex PageNumber
+    | ReceiveEpochPageSearch (Either Error (Tuple Int CBlockEntries))
+    | RequestEpochSlotSearch EpochIndex LocalSlotIndex
+    | ReceiveEpochSlotSearch (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
     | RequestGenesisAddressInfoTotalPages AddressesFilter

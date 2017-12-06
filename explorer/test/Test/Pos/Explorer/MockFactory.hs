@@ -5,19 +5,15 @@
 
 module Test.Pos.Explorer.MockFactory
        ( mkTxOut
-       , secretKeyToAddress
        , testLoggerName
        ) where
 
 import           Universum
 
-import           System.Wlog                      (LoggerName)
+import           System.Wlog (LoggerName)
 
-import           Pos.Types                        (Address)
-
-import           Pos.Core                         (makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Crypto                       (SecretKey, toPublic)
-import           Pos.Txp                          (TxOut(..))
+import           Pos.Core (Address, unsafeIntegerToCoin)
+import           Pos.Core.Txp (TxOut (..))
 
 -- | Factory to create `TxOut`
 -- | It is mostly taken from `makeTxOutAux` in `Test.Pos.Client.Txp.UtilSpec`
@@ -25,11 +21,6 @@ mkTxOut :: Integer -> Address -> TxOut
 mkTxOut amount addr =
     let coin = unsafeIntegerToCoin amount in
     TxOut addr coin
-
--- | Factory to create an `Address`
--- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
-secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot . toPublic
 
 -- | Logger name for testing
 testLoggerName :: LoggerName

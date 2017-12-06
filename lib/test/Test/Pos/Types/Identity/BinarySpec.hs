@@ -4,20 +4,18 @@ module Test.Pos.Types.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Core    ()
-import           Pos.Arbitrary.Infra   ()
-import qualified Pos.Core              as T
-import qualified Pos.Core.Fee          as Fee
-import           Pos.Data.Attributes   (Attributes (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Infra ()
+import qualified Pos.Core as T
+import           Pos.Data.Attributes (Attributes (..))
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.Cbor.CborSpec (U)
-import           Test.Pos.Helpers      (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util         (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
@@ -46,9 +44,9 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
             binaryTest @(Attributes ())
             binaryTest @(Attributes T.AddrAttributes)
         describe "Core.Fee" $ do
-            binaryTest @Fee.Coeff
-            binaryTest @Fee.TxSizeLinear
-            binaryTest @Fee.TxFeePolicy
+            binaryTest @T.Coeff
+            binaryTest @T.TxSizeLinear
+            binaryTest @T.TxFeePolicy
         describe "Core.Script" $ do
             binaryTest @T.Script
         describe "Core.Vss" $ do
@@ -58,7 +56,6 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
             binaryTest @T.SoftwareVersion
             binaryTest @T.BlockVersion
         describe "Util" $ do
-            binaryTest @BackupPhrase
             binaryTest @(NewestFirst NE U)
             binaryTest @(OldestFirst NE U)
     describe "Message length limit" $ do

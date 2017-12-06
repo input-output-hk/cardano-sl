@@ -9,27 +9,28 @@ module Pos.Worker
 
 import           Universum
 
-import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, Relay, WorkerSpec, localWorker,
-                                          relayPropagateOut, wrapActionSpec)
-import           Pos.Context             (NodeContext (..))
-import           Pos.Delegation          (delegationRelays, dlgWorkers)
-import           Pos.DHT.Workers         (dhtWorkers)
-import           Pos.Launcher.Resource   (NodeResources (..))
-import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker (..),
-                                          topologyRunKademlia, topologySubscriptionWorker)
-import           Pos.Security.Workers    (securityWorkers)
-import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
-import           Pos.Ssc                 (sscRelays)
-import           Pos.Ssc.Worker          (sscWorkers)
+import           Pos.Block.Worker (blkWorkers)
+import           Pos.Communication (OutSpecs, Relay, WorkerSpec, localWorker, relayPropagateOut,
+                                    wrapActionSpec)
+import           Pos.Context (NodeContext (..))
+import           Pos.Delegation.Listeners (delegationRelays)
+import           Pos.Delegation.Worker (dlgWorkers)
+import           Pos.DHT.Workers (dhtWorkers)
+import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Network.Types (NetworkConfig (..), SubscriptionWorker (..),
+                                    topologyRunKademlia, topologySubscriptionWorker)
+import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
+import           Pos.Ssc (sscRelays)
+import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Subscription.Common (subscriptionWorker)
-import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
-import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
-import           Pos.Txp                 (txRelays)
-import           Pos.Txp.Worker          (txpWorkers)
-import           Pos.Update              (usRelays, usWorkers)
-import           Pos.Util                (mconcatPair)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Subscription.Dht (dhtSubscriptionWorker)
+import           Pos.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Txp (txRelays)
+import           Pos.Update (usRelays, usWorkers)
+import           Pos.Util (mconcatPair)
+import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp (jsonLog)
+import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -42,12 +43,10 @@ allWorkers NodeResources {..} = mconcatPair
       -- I have no idea what this ↑ comment means (@gromak).
 
       wrap' "ssc"        $ sscWorkers
-    , wrap' "security"   $ securityWorkers
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
-    , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
@@ -63,7 +62,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- MAGIC "relay" out specs.
       -- There's no cardano-sl worker for them; they're put out by the outbound
       -- queue system from time-warp (enqueueConversation on SendActions).
-    , ([], relayPropagateOut (mconcat [delegationRelays, sscRelays, txRelays, usRelays] :: [Relay m]))
+    , ([], relayPropagateOut (mconcat [delegationRelays, sscRelays, txRelays logTx, usRelays] :: [Relay m]))
 
       -- Kademlia has some workers to run.
       --
@@ -80,3 +79,4 @@ allWorkers NodeResources {..} = mconcatPair
        fst (localWorker logNewSlotWorker) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
+    logTx = jsonLog . JLTxReceived

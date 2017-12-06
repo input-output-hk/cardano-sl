@@ -11,30 +11,30 @@ module Pos.Txp.Logic.Global
        , runToilAction
        ) where
 
-import           Control.Lens            (choosing)
-import           Control.Monad.Except    (runExceptT)
-import           Data.Default            (Default)
-import qualified Data.HashMap.Strict     as HM
-import qualified Data.List.NonEmpty      as NE
-import           Formatting              (build, sformat, (%))
+import           Control.Lens (choosing)
+import           Control.Monad.Except (runExceptT)
+import           Data.Default (Default)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import           Formatting (build, sformat, (%))
 import           Universum
 
-import           Pos.Core.Class          (epochIndexL)
-import           Pos.Core.Configuration  (HasConfiguration)
-import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
-import           Pos.Exception           (assertionFailed)
-import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
-import qualified Pos.Txp.DB              as DB
+import           Pos.Core.Class (epochIndexL)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
+import           Pos.DB (MonadDBRead, SomeBatchOp (..))
+import           Pos.Exception (assertionFailed)
+import           Pos.Txp.Base (flattenTxPayload)
+import qualified Pos.Txp.DB as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
-import           Pos.Txp.Toil            (DBToil, GenericToilModifier (..),
-                                          GlobalApplyToilMode, StakesView (..),
-                                          ToilModifier, ToilT, applyToil, rollbackToil,
-                                          runDBToil, runToilTGlobal, verifyToil)
-import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
-import qualified Pos.Util.Modifier       as MM
-import           Pos.Util.Util           (inAssertMode)
+import           Pos.Txp.Toil (DBToil, GenericToilModifier (..), GlobalApplyToilMode,
+                               StakesView (..), ToilModifier, ToilT, applyToil, rollbackToil,
+                               runDBToil, runToilTGlobal, verifyToil)
+import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.

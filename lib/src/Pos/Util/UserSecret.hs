@@ -36,40 +36,36 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Control.Exception.Safe (onException, throwString)
-import           Control.Lens           (makeLenses, to)
-import qualified Data.ByteString        as BS
-import           Data.Default           (Default (..))
-import qualified Data.Text.Buildable
-import           Formatting             (Format, bprint, build, formatToString, later,
-                                         (%))
-import qualified Prelude
-import           Serokell.Util.Text     (listJson)
-import           System.Directory       (doesFileExist)
-import           System.FileLock        (FileLock, SharedExclusive (..), lockFile,
-                                         unlockFile, withFileLock)
 import           Universum
 
-import           Pos.Binary.Class       (Bi (..), decodeFull, encodeListLen, enforceSize,
-                                         serialize')
-import           Pos.Binary.Class       (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Crypto      ()
-import           Pos.Core               (accountGenesisIndex, addressF,
-                                         makeRootPubKeyAddress, wAddressGenesisIndex)
-import           Pos.Crypto             (EncryptedSecretKey, SecretKey, VssKeyPair,
-                                         encToPublic)
+import           Control.Exception.Safe (onException, throwString)
+import           Control.Lens (makeLenses, to)
+import qualified Data.ByteString as BS
+import           Data.Default (Default (..))
+import qualified Data.Text.Buildable
+import           Formatting (Format, bprint, build, formatToString, later, (%))
+import qualified Prelude
+import           Serokell.Util.Text (listJson)
+import           System.Directory (doesFileExist)
+import           System.Directory (renameFile)
+import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
+                                  withFileLock)
+import           System.FilePath (takeDirectory, takeFileName)
+import           System.IO (hClose, openBinaryTempFile)
+import           System.Wlog (WithLogger)
 
-import           Pos.Types              (Address)
-import           System.Directory       (renameFile)
-import           System.FilePath        (takeDirectory, takeFileName)
-import           System.IO              (hClose, openBinaryTempFile)
-import           System.Wlog            (WithLogger)
+import           Pos.Binary.Class (Bi (..), decodeFull, encodeListLen, enforceSize, serialize')
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Crypto ()
+import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
+                           wAddressGenesisIndex)
+import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
 #ifdef POSIX
-import           Formatting             (oct, sformat)
-import qualified System.Posix.Files     as PSX
-import qualified System.Posix.Types     as PSX (FileMode)
-import           System.Wlog            (logWarning)
+import           Formatting (oct, sformat)
+import qualified System.Posix.Files as PSX
+import qualified System.Posix.Types as PSX (FileMode)
+import           System.Wlog (logWarning)
 #endif
 
 -- Because of the Formatting import

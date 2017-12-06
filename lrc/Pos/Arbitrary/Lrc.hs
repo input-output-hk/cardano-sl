@@ -8,20 +8,17 @@ module Pos.Arbitrary.Lrc
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
-import           Data.Reflection                   (Reifies (..))
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, vector)
+import qualified Data.HashMap.Strict as HM
+import           Data.Reflection (Reifies (..))
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Core                          (Coin, CoinPortion, mkCoin,
-                                                    unsafeAddCoin, unsafeGetCoin,
-                                                    unsafeSubCoin)
-import           Pos.Core.Coin                     (coinPortionToDouble)
-import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
-                                                    genesisBlockVersionData)
-import           Pos.Core.Types                    (BlockVersionData (bvdMpcThd))
-import           Pos.Lrc.Types                     (RichmenStakes)
+import           Pos.Arbitrary.Core ()
+import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble, mkCoin, unsafeAddCoin,
+                                  unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
+import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
+import           Pos.Lrc.Types (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
 -- stake distribution inside must be valid with respect to the threshold
@@ -69,7 +66,7 @@ genRichmenStakes thd = do
     pure $ HM.fromList $ zip stakeholders coins
   where
     generateCoins :: Word64 -> Word64 -> [Word64] -> [Coin]
-    generateCoins restCoins prev [] = [mkCoin $ restCoins - prev]
+    generateCoins restCoins prev []     = [mkCoin $ restCoins - prev]
     generateCoins restCoins prev (x:xs) = mkCoin (x - prev) : generateCoins restCoins x xs
 
 -- | Utilities moved here to be imported from 'Spec' files needing valid

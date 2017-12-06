@@ -1,0 +1,105 @@
+name:                cardano-sl-delegation
+version:             1.0.3
+synopsis:            Cardano SL - delegation
+description:         Cardano SL - delegation
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2017 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Pos.Delegation
+                       Pos.Delegation.Cede
+                       Pos.Delegation.Class
+                       Pos.Delegation.Configuration
+                       Pos.Delegation.DB
+                       Pos.Delegation.Helpers
+                       Pos.Delegation.Listeners
+                       Pos.Delegation.Logic
+                       Pos.Delegation.Lrc
+                       Pos.Delegation.RichmenComponent
+                       Pos.Delegation.Types
+                       Pos.Delegation.Worker
+
+                       -- Arbitrary instances
+                       Pos.Arbitrary.Delegation
+
+                       -- Binary serialization
+                       Pos.Binary.Delegation
+
+  other-modules:
+                       Pos.Delegation.Cede.Class
+                       Pos.Delegation.Cede.Logic
+                       Pos.Delegation.Cede.Types
+                       Pos.Delegation.Cede.Holders
+                       Pos.Delegation.Logic.Common
+                       Pos.Delegation.Logic.Mempool
+                       Pos.Delegation.Logic.VAR
+
+  build-depends:       QuickCheck
+                     , aeson
+                     , base
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-util
+                     , conduit
+                     , ether
+                     , formatting
+                     , generic-arbitrary
+                     , lens
+                     , log-warper
+                     , lrucache
+                     , mmorph
+                     , mtl
+                     , node-sketch
+                     , reflection
+                     , resourcet
+                     , rocksdb-haskell
+                     , serokell-util
+                     , text-format
+                     , time
+                     , transformers
+                     , universum
+                     , unordered-containers
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

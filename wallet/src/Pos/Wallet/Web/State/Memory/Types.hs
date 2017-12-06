@@ -16,17 +16,18 @@ module Pos.Wallet.Web.State.Memory.Types
 
 import           Universum
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (makeLensesWith)
-import qualified Data.HashMap.Strict              as HM
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens (makeLensesWith)
+import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core                         (HeaderHash)
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Util.Util                    (HasLens, postfixLFields2)
+import           Pos.Core (HeaderHash)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Util.Lens (postfixLFields2)
+import           Pos.Util.Util (HasLens)
 
-import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
-import           Pos.Wallet.Web.State.Storage     (WalletInfo (..), WalletStorage (..),
-                                                   WalletTip (..), applyModifierToWallet)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
+import           Pos.Wallet.Web.State.Storage (WalletInfo (..), WalletStorage (..), WalletTip (..),
+                                               applyModifierToWallet)
 import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier)
 
 ----------------------------------------------------------------------------

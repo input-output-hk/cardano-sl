@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Pending.Types
     , ptxNextSubmitSlot
 
     , PtxCondition (..)
+    , _PtxCreating
     , _PtxApplying
     , _PtxInNewestBlocks
     , _PtxPersisted
@@ -27,13 +28,14 @@ module Pos.Wallet.Web.Pending.Types
 
 import           Universum
 
-import           Control.Lens                     (makeLenses, makePrisms)
+import           Control.Lens (makeLenses, makePrisms)
 import qualified Data.Text.Buildable
-import           Formatting                       (bprint, build, (%))
+import           Formatting (bprint, build, (%))
 
-import           Pos.Client.Txp.History           (TxHistoryEntry)
-import           Pos.Core.Types                   (ChainDifficulty, FlatSlotId, SlotId)
-import           Pos.Txp.Core.Types               (TxAux, TxId)
+import           Pos.Client.Txp.History (TxHistoryEntry)
+import           Pos.Core.Common (ChainDifficulty)
+import           Pos.Core.Slotting (FlatSlotId, SlotId)
+import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
@@ -45,6 +47,10 @@ type PtxPoolInfo = TxHistoryEntry
 
 -- | Current state of pending transaction.
 --
+-- Once transaction creation is initiated, it should be assigned 'PtxCreating'
+-- condition. It indicates that transaction may still fail on creation stage,
+-- in such case the pending transaction should be removed.
+--
 -- Once transaction is created, it should be assigned 'PtxApplying' condition
 -- in order to be tracked by resubmitter.
 --
@@ -52,6 +58,9 @@ type PtxPoolInfo = TxHistoryEntry
 -- condition to 'PtxInNewestBlocks' providing needed information about that
 -- block. Transactions in this state are periodically tried to be submitted
 -- again by special wallet worker.
+-- Full transaction creation cycle may complete later than block with the
+-- transaction gets delivered. In this case, status jumps from 'PtxCreating'
+-- to 'PtxInNewestBlocks', missing 'PtxApplying' stage.
 --
 -- Resubmitter also checks whether transaction is deep enough in blockchain to
 -- be moved to 'PtxPersisted' state.
@@ -74,12 +83,18 @@ data PtxCondition
                                       --   (with up to *high* assurance level)
     | PtxWontApply Text PtxPoolInfo   -- ^ Can't be applyed and requires user's
                                       --   input to reform tx
+    | PtxCreating PtxPoolInfo         -- ^ Transaction is at its creation cycle
+                                      --   (this constructor is at bottom for
+                                      --   the sake of SafeCopy instance's
+                                      --   backward-compatibility)
     deriving (Eq, Show)
 
 makePrisms ''PtxCondition
 
 instance Buildable PtxCondition where
     build = \case
+        PtxCreating{} ->
+            "creating"
         PtxApplying{} ->
             "applying"
         PtxInNewestBlocks cd ->

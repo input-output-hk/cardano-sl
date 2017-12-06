@@ -16,42 +16,37 @@ module Pos.Wallet.Web.Tracking.BListener
 
 import           Universum
 
-import qualified Control.Concurrent.STM            as STM
-import           Control.Lens                      (to)
-import qualified Data.List.NonEmpty                as NE
-import           Data.Time.Units                   (convertUnit)
-import           Formatting                        (build, sformat, (%))
-import           System.Wlog                       (HasLoggerName (modifyLoggerName),
-                                                    WithLogger)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens (to)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (convertUnit)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
-import           Pos.Block.BListener               (MonadBListener (..))
-import           Pos.Block.Core                    (BlockHeader, getBlockHeader,
-                                                    mainBlockTxPayload)
-import           Pos.Block.Types                   (Blund, undoTx)
-import           Pos.Core                          (HasConfiguration, HeaderHash, SlotId,
-                                                    Timestamp, difficultyL, headerSlotL)
-import           Pos.DB.BatchOp                    (SomeBatchOp)
-import           Pos.DB.Class                      (MonadDBRead)
-import qualified Pos.GState                        as GS
-import           Pos.Reporting                     (MonadReporting, reportOrLogW)
-import           Pos.Slotting                      (MonadSlots, MonadSlotsData,
-                                                    getCurrentEpochSlotDuration,
-                                                    getCurrentSlotInaccurate,
-                                                    getSlotStartPure, getSystemStartM)
-import           Pos.Txp.Core                      (TxAux (..), TxUndo, flattenTxPayload)
-import           Pos.Util.Chrono                   (NE, NewestFirst (..),
-                                                    OldestFirst (..))
-import           Pos.Util.LogSafe                  (logInfoS, logWarningS)
-import           Pos.Util.TimeLimit                (CanLogInParallel, logWarningWaitInf)
-import           Pos.Util.Util                     (HasLens', lensOf)
+import           Pos.Block.BListener (MonadBListener (..))
+import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Core (HasConfiguration, HeaderHash, SlotId, Timestamp, difficultyL,
+                           headerSlotL)
+import           Pos.Core.Block (BlockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Txp (TxAux (..), TxUndo)
+import           Pos.DB.BatchOp (SomeBatchOp)
+import           Pos.DB.Class (MonadDBRead)
+import qualified Pos.GState as GS
+import           Pos.Reporting (MonadReporting, reportOrLogW)
+import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
+                               getCurrentSlotInaccurate, getSlotStartPure, getSystemStartM)
+import           Pos.Txp.Base (flattenTxPayload)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
+import           Pos.Util.Util (HasLens', lensOf)
 
-import           Pos.Wallet.Web.Account            (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes        (CId, Wal)
-import qualified Pos.Wallet.Web.State              as WS
+import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
+import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Memory.Types (StorageModifier, applyWalModifier)
-import           Pos.Wallet.Web.Tracking.Modifier  (WalletModifier (..))
-import           Pos.Wallet.Web.Tracking.Sync      (trackingApplyTxs, trackingRollbackTxs)
-import           Pos.Wallet.Web.Util               (getWalletAddrMetas)
+import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier (..))
+import           Pos.Wallet.Web.Tracking.Sync (trackingApplyTxs, trackingRollbackTxs)
 
 type BlocksStorageModifierVar = TVar StorageModifier
 type HasBlocksStorageModifier ctx = HasLens' ctx BlocksStorageModifierVar
@@ -105,15 +100,15 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet curTip blkTxsWUndo wid = walletGuard curTip wid $ do
         blkHeaderTs <- blkHeaderTsGetter
-        allAddresses <- getWalletAddrMetas WS.Ever wid
+        dbUsed <- WS.getCustomAddressesDB WS.UsedAddr
         encSK <- getSKById wid
         let fInfo bh = (gbDiff bh, blkHeaderTs bh, ptxBlkInfo bh)
-        let mapModifier = trackingApplyTxs encSK allAddresses fInfo blkTxsWUndo
+        let mapModifier = trackingApplyTxs encSK dbUsed fInfo blkTxsWUndo
         blocksSModifierVar <- view (lensOf @BlocksStorageModifierVar)
         atomically $
             STM.modifyTVar blocksSModifierVar $
             applyWalModifier (wid, mapModifier)
-        logMsg "Applied" (getOldestFirst blunds) wid mapModifier
+        logMsg "Applied to blocks storage modifier" (getOldestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL
     ptxBlkInfo = either (const Nothing) (Just . view difficultyL)
@@ -150,15 +145,15 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet curSlot curTip txs wid = walletGuard curTip wid $ do
-        allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKById wid
+        dbUsed <- WS.getCustomAddressesDB WS.UsedAddr
         blkHeaderTs <- blkHeaderTsGetter
-        let mapModifier = trackingRollbackTxs encSK allAddresses curSlot (\bh -> (gbDiff bh, blkHeaderTs bh)) txs
+        let mapModifier = trackingRollbackTxs encSK dbUsed curSlot (\bh -> (gbDiff bh, blkHeaderTs bh)) txs
         blocksSModifierVar <- view (lensOf @BlocksStorageModifierVar)
         atomically $
             STM.modifyTVar blocksSModifierVar $
             applyWalModifier (wid, mapModifier)
-        logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+        logMsg "Rolled back from blocks storage modifier" (getNewestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL
 

@@ -4,31 +4,29 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
-import           Crypto.Hash             (Blake2b_224, Blake2b_256)
-import qualified Data.ByteString         as BS
-import qualified Data.HashMap.Strict     as HM
-import           Formatting              (sformat)
-import           Prelude                 ((!!))
-import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
-                                          specify)
-import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Arbitrary (..), Gen, Property, ioProperty,
-                                          property, vector, (===), (==>))
+import           Crypto.Hash (Blake2b_224, Blake2b_256)
+import qualified Data.ByteString as BS
+import qualified Data.HashMap.Strict as HM
+import           Formatting (sformat)
+import           Prelude ((!!))
+import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, specify)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, property, vector,
+                                  (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
-import           Pos.Arbitrary.Crypto    (SharedSecrets (..))
-import           Pos.Binary              (AsBinary, Bi)
-import           Pos.Core                (HasConfiguration)
-import qualified Pos.Crypto              as Crypto
-import           Pos.Ssc                 ()
+import           Pos.Arbitrary.Crypto (SharedSecrets (..))
+import           Pos.Binary (AsBinary, Bi)
+import           Pos.Core (HasConfiguration)
+import qualified Pos.Crypto as Crypto
+import           Pos.SafeCopy ()
+import           Pos.Ssc ()
 
-import           Test.Pos.Cbor.CborSpec  (U)
-import           Test.Pos.Helpers        (binaryEncodeDecode, binaryTest,
-                                          msgLenLimitedTest, safeCopyEncodeDecode,
-                                          safeCopyTest, serDeserId, (.=.))
-import           Test.Pos.Util           (qcIsLeft, withDefConfiguration,
-                                          withDefInfraConfiguration)
+import           Test.Pos.Cbor.CborSpec (U)
+import           Test.Pos.Helpers (binaryEncodeDecode, binaryTest, msgLenLimitedTest,
+                                   safeCopyEncodeDecode, safeCopyTest, serDeserId, (.=.))
+import           Test.Pos.Util (qcIsLeft, withDefConfiguration, withDefInfraConfiguration)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

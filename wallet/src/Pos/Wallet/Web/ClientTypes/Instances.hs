@@ -6,33 +6,28 @@ module Pos.Wallet.Web.ClientTypes.Instances () where
 
 import           Universum
 
-import qualified Data.ByteArray                   as ByteArray
-import qualified Data.ByteString                  as BS
-import           Data.List                        (partition)
-import           Data.Text                        (splitOn)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import           Data.List (partition)
+import           Data.Text (splitOn)
 import qualified Data.Text.Buildable
-import           Formatting                       (bprint, build, int, sformat, (%))
-import qualified Serokell.Util.Base16             as Base16
-import           Servant.API                      (FromHttpApiData (..))
-import           Servant.Multipart                (FromMultipart (..), lookupFile,
-                                                   lookupInput)
+import           Formatting (bprint, build, int, sformat, (%))
+import qualified Serokell.Util.Base16 as Base16
+import           Servant.API (FromHttpApiData (..))
+import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupInput)
 
-import           Pos.Core                         (Address, Coin, decodeTextAddress,
-                                                   mkCoin, unsafeGetCoin)
-import           Pos.Crypto                       (PassPhrase, hashHexF, passphraseLength)
-import           Pos.Txp.Core.Types               (TxId)
-import           Pos.Util.Servant                 (FromCType (..),
-                                                   HasTruncateLogPolicy (..), OriginType,
-                                                   ToCType (..), WithTruncatedLog (..))
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..),
-                                                   CAccountId (..), CAddress (..),
-                                                   CCoin (..), CElectronCrashReport (..),
-                                                   CHash (..), CId (..), CPassPhrase (..),
-                                                   CPtxCondition (..), CTx (..),
-                                                   CTxId (..), CWallet (..),
-                                                   ScrollLimit (..), ScrollOffset (..),
-                                                   mkCTxId)
-import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
+import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin, unsafeGetCoin)
+import           Pos.Core.Txp (TxId)
+import           Pos.Crypto (PassPhrase, hashHexF, passphraseLength)
+import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
+                                   ToCType (..), WithTruncatedLog (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..), CAccountId (..),
+                                                   CAddress (..), CCoin (..),
+                                                   CElectronCrashReport (..), CHash (..), CId (..),
+                                                   CPassPhrase (..), CPtxCondition (..), CTx (..),
+                                                   CTxId (..), CWallet (..), ScrollLimit (..),
+                                                   ScrollOffset (..), mkCTxId)
+import           Pos.Wallet.Web.Pending.Types (PtxCondition (..))
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -109,6 +104,7 @@ type instance OriginType CPtxCondition = Maybe PtxCondition
 
 instance ToCType CPtxCondition where
     encodeCType = maybe CPtxNotTracked $ \case
+        PtxCreating{}       -> CPtxCreating
         PtxApplying{}       -> CPtxApplying
         PtxInNewestBlocks{} -> CPtxInBlocks
         PtxPersisted{}      -> CPtxInBlocks
@@ -125,7 +121,7 @@ instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
 
 instance FromHttpApiData (CId w) where
-    parseUrlPiece = fmap encodeCType . decodeTextAddress
+    parseUrlPiece = pure . CId . CHash
 
 instance FromHttpApiData CAccountId where
     parseUrlPiece = fmap CAccountId . parseUrlPiece
@@ -144,7 +140,7 @@ instance FromHttpApiData ScrollOffset where
 instance FromHttpApiData ScrollLimit where
     parseUrlPiece = fmap ScrollLimit . parseUrlPiece
 
-instance FromMultipart CElectronCrashReport where
+instance FromMultipart Mem CElectronCrashReport where
     fromMultipart form = do
         let look t = lookupInput t form
         CElectronCrashReport

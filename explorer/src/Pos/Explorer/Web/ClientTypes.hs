@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
@@ -48,47 +48,38 @@ module Pos.Explorer.Web.ClientTypes
 import qualified Prelude
 import           Universum
 
-import           Control.Arrow                    ((&&&))
-import           Control.Lens                     (ix, _Left)
-import           Control.Monad.Error.Class        (throwError)
-import qualified Data.ByteArray                   as BA
-import           Data.Default                     (Default (..))
-import           Data.Fixed                       (Micro, showFixed)
-import qualified Data.List.NonEmpty               as NE
-import           Data.Time.Clock.POSIX            (POSIXTime)
-import           Formatting                       (build, sformat, (%))
-import           Pos.Binary                       (Bi, biSize)
-import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
-                                                   mainBlockTxPayload, mcdSlot)
-import           Pos.Block.Types                  (Undo (..))
-import           Pos.Core                         (HasConfiguration, timestampToPosix)
-import           Pos.Crypto                       (Hash, hash)
-import           Pos.DB.Block                     (MonadBlockDB)
-import           Pos.DB.Class                     (MonadDBRead)
-import           Pos.DB.Rocks                     (MonadRealDB)
-import           Pos.Explorer.Core                (TxExtra (..))
-import qualified Pos.GState                       as GS
-import           Pos.Lrc                          (getLeaders)
-import           Pos.Merkle                       (getMerkleRoot, mtRoot)
-import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
-                                                   TxOutAux (..), TxUndo, txpTxs,
-                                                   _txOutputs)
-import           Pos.Types                        (Address, AddressHash, Coin, EpochIndex,
-                                                   LocalSlotIndex, SlotId (..),
-                                                   StakeholderId, Timestamp, addressF,
-                                                   coinToInteger, decodeTextAddress,
-                                                   gbHeader, gbhConsensus, getEpochIndex,
-                                                   getSlotIndex, headerHash, mkCoin,
-                                                   prevBlockL, sumCoins, unsafeAddCoin,
-                                                   unsafeGetCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
-import           Serokell.Data.Memory.Units       (Byte)
-import           Serokell.Util.Base16             as SB16
-import           Servant.API                      (FromHttpApiData (..))
+import           Control.Arrow ((&&&))
+import           Control.Lens (_Left)
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteArray as BA
+import           Data.Default (Default (..))
+import           Data.Fixed (Micro, showFixed)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting (build, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base16 as SB16
+import           Servant.API (FromHttpApiData (..))
+import           Test.QuickCheck (Arbitrary (..))
 
+import           Pos.Binary (Bi, biSize)
+import           Pos.Block.Types (Undo (..))
+import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
+                           Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
+                           gbhConsensus, getEpochIndex, getSlotIndex, headerHash, mkCoin,
+                           prevBlockL, sumCoins, timestampToPosix, unsafeAddCoin, unsafeGetCoin,
+                           unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
+import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo, txpTxs, _txOutputs)
+import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
+import qualified Pos.GState as GS
+import qualified Pos.Lrc as Lrc (getLeader)
+import           Pos.Merkle (getMerkleRoot, mtRoot)
 
+import           Pos.Explorer.Core (TxExtra (..))
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
+import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
+import           Pos.Explorer.TestUtil (secretKeyToAddress)
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
@@ -100,9 +91,11 @@ import           Servant.API                      (FromHttpApiData (..))
 --
 -- The following types explain the situation better:
 --
--- type AddressHash = AbstractHash Blake2b_224
--- type Hash        = AbstractHash Blake2b_256
--- type TxId        = Hash Tx
+-- type AddressHash   = AbstractHash Blake2b_224
+-- type Hash          = AbstractHash Blake2b_256
+--
+-- type TxId          = Hash Tx               = AbstractHash Blake2b_256 Tx
+-- type StakeholderId = AddressHash PublicKey = AbstractHash Blake2b_224 PublicKey
 --
 -- From there on we have the client types that we use to represent the actual hashes.
 -- The client types are really the hash bytes converted to Base16 address.
@@ -123,23 +116,25 @@ newtype CTxId = CTxId CHash
 -- Client-server, server-client transformation functions
 -------------------------------------------------------------------------------------
 
--- | Transformation of core hash-types to client representations and vice versa
-encodeHashHex :: forall a. (Bi a) => Hash a -> Text
+-- | Transformation of core hash-types to client representation.
+encodeHashHex
+    :: forall algo a. (Bi a)
+    => AbstractHash algo a
+    -> Text
 encodeHashHex = SB16.encode . BA.convert
-
--- | We need this for stakeholders
-encodeAHashHex :: forall a. (Bi a) => AddressHash a -> Text
-encodeAHashHex = SB16.encode . BA.convert
 
 -- | A required instance for decoding.
 instance ToString ByteString where
   toString = toString . SB16.encode
 
 -- | Decoding the text to the original form.
-decodeHashHex :: forall a. (Bi (Hash a)) => Text -> Either Text (Hash a)
+decodeHashHex
+    :: forall algo a. (HashAlgorithm algo, Bi (AbstractHash algo a))
+    => Text
+    -> Either Text (AbstractHash algo a)
 decodeHashHex hashText = do
-    hashBinary <- SB16.decode hashText
-    over _Left toText $ readEither hashBinary
+  hashBinary <- SB16.decode hashText
+  over _Left toText $ readEither hashBinary
 
 -------------------------------------------------------------------------------------
 -- Client hashes functions
@@ -169,7 +164,7 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 
 newtype CCoin = CCoin
     { getCoin :: Text
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
@@ -195,23 +190,15 @@ data CBlockEntry = CBlockEntry
     , cbeSize       :: !Word64
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)
 
 toBlockEntry
-    :: forall ctx m .
-    ( MonadBlockDB m
-    , MonadDBRead m
-    , MonadRealDB ctx m
-    , MonadSlots ctx m
-    , MonadThrow m
-    , HasConfiguration
-    , HasSscConfiguration
-    )
+    :: ExplorerMode ctx m
     => (MainBlock, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
 
-    blkSlotStart      <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
+    blkSlotStart      <- getSlotStartCSLI $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
     -- Get the header slot, from which we can fetch epoch and slot index.
     let blkHeaderSlot = blk ^. mainBlockSlot
@@ -219,7 +206,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- getLeaderFromEpochSlot epochIndex slotIndex
+    epochSlotLeader   <- Lrc.getLeader $ SlotId epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -236,28 +223,11 @@ toBlockEntry (blk, Undo{..}) = do
         cbeFees       = mkCCoinMB $ (`unsafeSubCoin` totalSentCoin) <$> totalRecvCoin
 
         -- A simple reconstruction of the AbstractHash, could be better?
-        cbeBlockLead  = encodeAHashHex <$> epochSlotLeader
+        cbeBlockLead  = encodeHashHex <$> epochSlotLeader
 
 
     return CBlockEntry {..}
 
--- | Get leader from epoch and slot in order to display them on the frontend.
--- Returning @Maybe@ is the simplest implementation for now, since it's hard
--- to forsee what is and what will the state of leaders be at any given moment.
-getLeaderFromEpochSlot
-    :: (MonadBlockDB m, MonadDBRead m, MonadRealDB ctx m)
-    => EpochIndex
-    -> LocalSlotIndex
-    -> m (Maybe StakeholderId)
-getLeaderFromEpochSlot epochIndex slotIndex = do
-    -- Get leaders from the database
-    leadersMaybe <- getLeaders epochIndex
-    -- If we have leaders for the given epoch, find the leader that is leading
-    -- the slot we are interested in. If we find it, return it, otherwise
-    -- return @Nothing@.
-    pure $ leadersMaybe >>= \leaders -> leaders ^? ix intSlotIndex
-  where
-    intSlotIndex = fromIntegral $ getSlotIndex slotIndex
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
@@ -290,19 +260,11 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: forall ctx m.
-    ( MonadBlockDB m
-    , MonadDBRead m
-    , MonadRealDB ctx m
-    , MonadSlots ctx m
-    , MonadThrow m
-    , HasConfiguration
-    , HasSscConfiguration
-    )
+    :: ExplorerMode ctx m
     => (MainBlock, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do
-    cbsEntry <- toBlockEntry blund
+    cbsEntry    <- toBlockEntry blund
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
 
     let blockTxs      = blk ^. mainBlockTxPayload . txpTxs
@@ -312,8 +274,8 @@ toBlockSummary blund@(blk, _) = do
 
     return CBlockSummary {..}
 
-data CAddressType =
-      CPubKeyAddress
+data CAddressType
+    = CPubKeyAddress
     | CScriptAddress
     | CRedeemAddress
     | CUnknownAddress
@@ -374,8 +336,8 @@ data CGenesisAddressInfo = CGenesisAddressInfo
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
 
-data CAddressesFilter =
-      RedeemedAddresses
+data CAddressesFilter
+    = RedeemedAddresses
     | NonRedeemedAddresses
     | AllAddresses
     deriving (Show, Generic)
@@ -409,6 +371,14 @@ instance FromHttpApiData CAddressesFilter where
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where
 --     parseUrlPiece = readEither
+
+--------------------------------------------------------------------------------
+-- NFData instances
+--------------------------------------------------------------------------------
+
+instance NFData CBlockEntry
+instance NFData CHash
+instance NFData CCoin
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions
@@ -463,3 +433,10 @@ sumCoinOfInputsOutputs addressListMB
             addressCoinList = addressCoins <$> addressList
         mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList
     | otherwise = mkCCoinMB Nothing
+
+--------------------------------------------------------------------------------
+-- Arbitrary instances
+--------------------------------------------------------------------------------
+
+instance Arbitrary CAddress where
+    arbitrary = toCAddress . secretKeyToAddress <$> arbitrary

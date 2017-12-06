@@ -26,6 +26,7 @@ library
                        Lang
                        Lang.Argument
                        Lang.Command
+                       Lang.DisplayError
                        Lang.Interpreter
                        Lang.Lexer
                        Lang.Name
@@ -38,30 +39,36 @@ library
   build-depends:
                        QuickCheck
                      , Earley
+                     , MonadRandom
                      , ansi-wl-pprint
                      , async
                      , base
-                     , base58-bytestring
                      , bytestring
                      , canonical-json
                      , cardano-sl
+                     , cardano-sl-block
+                     , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
+                     , cardano-sl-generator
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-util
+                     , constraints
+                     , containers
                      , data-default
                      , ether
-                     , containers
                      , formatting
                      , generic-arbitrary
                      , haskeline
                      , lens
+                     , loc
                      , log-warper
                      , megaparsec
                      , mmorph
-                     , MonadRandom
                      , mtl
                      , neat-interpolation
                      , node-sketch
@@ -72,14 +79,15 @@ library
                      , safe-exceptions
                      , scientific
                      , serokell-util >= 0.1.3.4
-                     , stm
                      , split
+                     , stm
                      , text
                      , text-format
                      , time-units
                      , transformers
                      , universum >= 0.1.11
                      , unordered-containers
+
   default-language:    Haskell2010
   ghc-options:        -Wall
                       -O2
@@ -118,10 +126,14 @@ executable cardano-auxx
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
+                     , cardano-sl-util
+                     , constraints
                      , log-warper
                      , temporary
                      , node-sketch
                      , network-transport-tcp
+                     , safe-exceptions
                      , universum
                      , formatting
   default-language:    Haskell2010
@@ -180,8 +192,8 @@ test-suite cardano-auxx-test
                        QuickCheck
                      , cardano-sl-auxx
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , hspec
-                     , scientific
                      , universum >= 0.1.11
 
   hs-source-dirs:      test
@@ -222,16 +234,3 @@ test-suite cardano-auxx-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-executable cardano-hash-installer
-  hs-source-dirs:      src
-  main-is:             HashInstaller.hs
-  build-depends:       base
-                       , bytestring
-                       , formatting
-                       , cardano-sl-core
-                       , cardano-sl
-                       , universum
-  default-extensions:   OverloadedStrings
-  ghc-options:         -threaded -rtsopts
-                       -Wall

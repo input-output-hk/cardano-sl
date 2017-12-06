@@ -7,20 +7,19 @@ module Pos.Slotting.Impl.Util
 
 import           Universum
 
-import           Data.Time.Units       (Microsecond, convertUnit)
-import           NTP.Example           ()
+import           Data.Time.Units (Microsecond, convertUnit)
+import           NTP.Example ()
 
 import           Pos.Core.Configuration (HasConfiguration, epochSlots)
-import           Pos.Core.Slotting     (flattenEpochIndex, mkLocalSlotIndex,
-                                        unflattenSlotId)
-import           Pos.Core.Timestamp    (addTimeDiffToTimestamp)
-import           Pos.Core.Types        (EpochIndex, LocalSlotIndex, SlotId (..), Timestamp (..))
-import           Pos.Util.Util         (leftToPanic)
+import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex, SlotId (..), Timestamp (..),
+                                    addTimeDiffToTimestamp, flattenEpochIndex, mkLocalSlotIndex,
+                                    unflattenSlotId)
+import           Pos.Util.Util (leftToPanic)
 
-import           Pos.Slotting.MemState (MonadSlotsData, getSystemStartM,
-                                        withSlottingVarAtomM)
-import           Pos.Slotting.Types    (EpochSlottingData (..), SlottingData,
-                                        getCurrentEpochIndex, getNextEpochSlottingData, getAllEpochIndices, lookupEpochSlottingData )
+import           Pos.Slotting.MemState (MonadSlotsData, getSystemStartM, withSlottingVarAtomM)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, getAllEpochIndices,
+                                     getCurrentEpochIndex, getNextEpochSlottingData,
+                                     lookupEpochSlottingData)
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
@@ -140,4 +139,3 @@ slotFromTimestamp approxCurTime = do
 
         epochDuration :: Microsecond
         epochDuration = slotDuration * fromIntegral epochSlots
-

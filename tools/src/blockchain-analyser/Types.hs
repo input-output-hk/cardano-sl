@@ -15,18 +15,17 @@ module Types ( initBlockchainAnalyser
 
 import           Universum
 
-import           Control.Lens         (makeLensesWith)
+import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal       (HasLens (..))
-import           Mockable             (Production)
+import           Ether.Internal (HasLens (..))
+import           Mockable (Production)
 
-import           Pos.Block.Core       (Block, BlockHeader)
-import           Pos.Block.Types      (Undo)
-import           Pos.Core             (HasConfiguration, HeaderHash, prevBlockL)
-import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
-import qualified Pos.DB               as DB
-import qualified Pos.DB.Block         as BDB
-import           Pos.Util.Util        (postfixLFields)
+import           Pos.Core (HasConfiguration, HeaderHash, prevBlockL)
+import           Pos.Core.Block (Block)
+import           Pos.DB (MonadDBRead (..))
+import qualified Pos.DB as DB
+import qualified Pos.DB.Block as BDB
+import           Pos.Util (postfixLFields)
 
 type DBFolderStat = (Text, Integer)
 
@@ -60,14 +59,8 @@ instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
 instance HasConfiguration => MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric BlockHeader Block Undo BlockchainInspector
-  where
-    dbGetBlock = BDB.dbGetBlockDefault
-    dbGetUndo = BDB.dbGetUndoDefault
-    dbGetHeader = BDB.dbGetHeaderDefault
+    dbGetSerBlock = BDB.dbGetSerBlockRealDefault
+    dbGetSerUndo = BDB.dbGetSerUndoRealDefault
 
 prevBlock :: HasConfiguration => Block -> HeaderHash
 prevBlock = view prevBlockL

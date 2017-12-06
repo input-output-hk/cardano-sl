@@ -13,34 +13,31 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch              as Catch (Handler (..), catches)
-import           Control.Monad.Except             (MonadError (throwError))
-import qualified Control.Monad.Reader             as Mtl
-import           Mockable                         (runProduction)
-import           Servant.Server                   (Handler)
-import           Servant.Utils.Enter              ((:~>) (..), enter)
+import qualified Control.Monad.Catch as Catch (Handler (..), catches)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Control.Monad.Reader as Mtl
+import           Mockable (runProduction)
+import           Servant.Server (Handler, hoistServer)
 
-import           Pos.Communication                (OutSpecs, SendActions, WorkerSpec,
-                                                   worker)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (HasConfiguration)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Recovery                     ()
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..))
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.WorkMode                     (RealMode, RealModeContext (..))
+import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (HasConfiguration)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Recovery ()
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.WorkMode (RealMode, RealModeContext (..))
 
-import           Pos.Explorer.BListener           (ExplorerBListener,
-                                                   runExplorerBListener)
-import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
-                                                   makeExtraCtx, runExtraContextT)
-import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
-import           Pos.Explorer.Txp                 (ExplorerExtra, eTxNormalize,
-                                                   eTxProcessTransaction)
-import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
-                                                   explorerServeImpl)
+import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
+import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
+                                            runExtraContextT)
+import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
+import           Pos.Explorer.Txp (ExplorerExtra, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Web.Api (explorerApi)
+import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -67,27 +64,25 @@ runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
 liftToExplorerProd :: RealModeE a -> ExplorerProd a
 liftToExplorerProd = lift . lift
 
+type HasExplorerConfiguration =
+    ( HasConfiguration
+    , HasBlockConfiguration
+    , HasNodeConfiguration
+    , HasInfraConfiguration
+    , HasUpdateConfiguration
+    , HasSscConfiguration
+    , HasCompileInfo
+    )
+
 notifierPlugin
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasSscConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => NotifierSettings
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp settings
 
 explorerPlugin
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin port =
@@ -95,23 +90,16 @@ explorerPlugin port =
     (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
-    :: ( HasConfiguration
-       , HasNodeConfiguration
-       , HasSscConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       , HasCompileInfo
-       )
+    :: HasExplorerConfiguration
     => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal sendActions = explorerServeImpl
-    (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
-
-nat :: HasConfiguration => ExplorerProd (ExplorerProd :~> Handler)
-nat = do
+explorerServeWebReal sendActions port = do
     rctx <- ask
-    pure $ NT (convertHandler rctx)
+    let handlers = explorerHandlers sendActions
+        server = hoistServer explorerApi (convertHandler rctx) handlers
+        app = explorerApp (pure server)
+    explorerServeImpl app port
 
 convertHandler
     :: HasConfiguration

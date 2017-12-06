@@ -6,10 +6,10 @@ module Pos.KnownPeers (
   ) where
 
 import           Control.Monad.Trans.Class
-import           Formatting                       (Format)
-import           Network.Broadcast.OutboundQueue  (Peers)
+import           Formatting (Format)
+import           Network.Broadcast.OutboundQueue (Peers)
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Network.Types                (Bucket)
+import           Pos.Network.Types (Bucket)
 import           Universum
 
 class MonadKnownPeers m where

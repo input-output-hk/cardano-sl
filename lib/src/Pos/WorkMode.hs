@@ -18,61 +18,49 @@ module Pos.WorkMode
 
 import           Universum
 
-import           Control.Lens            (makeLensesWith)
-import qualified Control.Monad.Reader    as Mtl
-import           Ether.Internal          (HasLens (..))
-import           Mockable                (Production)
-import           System.Wlog             (HasLoggerName (..), LoggerName)
+import           Control.Lens (makeLensesWith)
+import qualified Control.Monad.Reader as Mtl
+import           Ether.Internal (HasLens (..))
+import           Mockable (Production)
+import           System.Wlog (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener     (MonadBListener (..), onApplyBlocksStub,
-                                          onRollbackBlocksStub)
-import           Pos.Block.Core          (Block, BlockHeader)
-import           Pos.Block.Slog.Types    (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Block.Types         (Undo)
-import           Pos.Context             (HasNodeContext (..), HasPrimaryKey (..),
-                                          HasSscContext (..), NodeContext)
-import           Pos.Core                (HasConfiguration, IsHeader)
-import           Pos.DB                  (MonadGState (..), NodeDBs)
-import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
-                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                          dbGetUndoDefault, dbGetUndoSscDefault,
-                                          dbPutBlundDefault)
-import           Pos.DB.Class            (MonadBlockDBGeneric (..),
-                                          MonadBlockDBGenericWrite (..), MonadDB (..),
-                                          MonadDBRead (..))
-import           Pos.DB.DB               (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks            (dbDeleteDefault, dbGetDefault,
-                                          dbIterSourceDefault, dbPutDefault,
-                                          dbWriteBatchDefault)
-import           Pos.Delegation.Class    (DelegationVar)
-import           Pos.DHT.Real.Types      (KademliaDHTInstance)
+import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
+                              NodeContext)
+import           Pos.Core (HasConfiguration)
+import           Pos.DB (MonadGState (..), NodeDBs)
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
+                               dbWriteBatchDefault)
+import           Pos.Delegation.Class (DelegationVar)
+import           Pos.DHT.Real.Types (KademliaDHTInstance)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers          (MonadFormatPeers (..), MonadKnownPeers (..))
-import           Pos.Network.Types       (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Reporting           (HasReportingContext (..))
-import           Pos.Shutdown            (HasShutdownContext (..))
-import           Pos.Slotting.Class      (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum   (currentTimeSlottingSum,
-                                          getCurrentSlotBlockingSum,
-                                          getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState   (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Mem             (SscMemTag)
-import           Pos.Ssc.Types           (SscBlock, SscState)
-import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
-                                          MonadTxpLocal (..), TxpHolderTag, txNormalize,
-                                          txProcessTransaction)
-import           Pos.Util                (Some (..))
-import           Pos.Util.CompileInfo    (HasCompileInfo)
-import           Pos.Util.JsonLog        (HasJsonLogConfig (..), JsonLogConfig,
-                                          jsonLogDefault)
-import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
-                                          modifyLoggerNameDefault)
-import           Pos.Util.OutboundQueue  (EnqueuedConversation (..), OQ)
-import qualified Pos.Util.OutboundQueue  as OQ.Reader
-import           Pos.Util.TimeWarp       (CanJsonLog (..))
-import           Pos.Util.UserSecret     (HasUserSecret (..))
-import           Pos.Util.Util           (postfixLFields)
-import           Pos.WorkMode.Class      (MinWorkMode, WorkMode)
+import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
+import           Pos.Reporting (HasReportingContext (..))
+import           Pos.Shutdown (HasShutdownContext (..))
+import           Pos.Slotting.Class (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
+                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Ssc.Mem (SscMemTag)
+import           Pos.Ssc.Types (SscState)
+import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpHolderTag,
+                          txNormalize, txProcessTransaction)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
+import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+                                      modifyLoggerNameDefault)
+import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
+import qualified Pos.Util.OutboundQueue as OQ.Reader
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Util.UserSecret (HasUserSecret (..))
+import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
 
 data RealModeContext ext = RealModeContext
@@ -171,37 +159,18 @@ instance HasConfiguration => MonadGState (RealMode ext) where
 instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric BlockHeader Block Undo (RealMode ext)
-  where
-    dbGetBlock  = dbGetBlockDefault
-    dbGetUndo   = dbGetUndoDefault
-    dbGetHeader = dbGetHeaderDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) SscBlock () (RealMode ext)
-  where
-    dbGetBlock  = dbGetBlockSscDefault
-    dbGetUndo   = dbGetUndoSscDefault
-    dbGetHeader = dbGetHeaderSscDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode ext)
-  where
-    dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ext) where
     updatePeersBucket = OQ.Reader.updatePeersBucketReader rmcOutboundQ

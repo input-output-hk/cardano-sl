@@ -12,7 +12,7 @@ set -o pipefail
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   scripts/build/cardano-sl.sh                 build all packages one-by-one
 #   scripts/build/cardano-sl.sh -t              build and run tests
-#   scripts/build/cardano-sl.sh core|db|...|sl  build only a specific project (see below)
+#   scripts/build/cardano-sl.sh core|db|...     build only a specific project (see below)
 #   scripts/build/cardano-sl.sh -k              typecheck but do not build
 #   scripts/build/cardano-sl.sh -c              do stack clean
 #
@@ -24,8 +24,8 @@ set -o pipefail
 #   Project argument                Package name
 #   :
 #   core, db, etc.                  cardano-sl-{core,db,etc.}
-#   sl                              cardano-sl
-#   sl+                             cardano-sl and everything dependent on it
+#   lib                             cardano-sl
+#   sl | all                        all packages at once
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,8 +38,17 @@ set -o pipefail
 # * Pass --no-asserts to disable asserts.
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
-projects="core db lrc infra update ssc txp"
+# Note: this list should be topologically sorted.
+projects="binary util crypto core db lrc infra ssc txp update delegation block lib node client generator auxx tools explorer wallet wallet-new"
+
+# Returns name of a stack project to build, given the alias.
+function pkgNameToProject {
+  if [[ $1 == "lib" ]]; then
+    echo "cardano-sl"
+  else
+    echo "cardano-sl-$1"
+  fi
+}
 
 args=''
 
@@ -51,12 +60,10 @@ spec_prj=''
 
 no_nix=false
 ram=false
-prodMode=
 no_code=false
 werror=false
 for_installer=false
 asserts=true
-bench_mode=false
 no_fast=false
 
 if [ -e .no-nix ]; then
@@ -68,8 +75,6 @@ fi
 if [ -e .Werror ]; then
   werror=true
 fi
-
-prodModesCounter=0
 
 for var in "$@"
 do
@@ -108,24 +113,12 @@ do
     # We want:
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
-    bench_mode=true
     no_fast=true
     asserts=false
-  # project name = build only the project
-  elif [[ $var == "sl" ]] || [[ $var == "sl+" ]] || [[ $var == "all" ]]; then
+  # all = build all at once
+  # package name = build only the package
+  elif [[ $var == "sl" ]] || [[ $var == "all" ]]; then
     spec_prj="all"
-  elif [[ $var == "lib" ]]; then
-    spec_prj="lib"
-  elif [[ $var == "auxx" ]]; then
-    spec_prj="auxx"
-  elif [[ $var == "wallet" ]]; then
-    spec_prj="wallet"
-  elif [[ $var == "explorer" ]]; then
-    spec_prj="explorer"
-  elif [[ $var == "node" ]]; then
-    spec_prj="node"
-  elif [[ $var == "tools" ]]; then
-    spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
   # otherwise pass the arg to stack
@@ -133,18 +126,6 @@ do
     args="$args $var"
   fi
 done
-
-if [[ $prodModesCounter -gt 1 ]]; then
-  echo "More than one build mode specified" >&2
-  exit 23
-fi
-
-if [[ $prodModesCounter -gt 0 ]]; then
-  if [[ $bench_mode == true ]]; then
-    echo "Prod mode can't be used with bench mode" >&2
-    exit 26
-  fi
-fi
 
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
@@ -178,32 +159,16 @@ if [[ $ram == true ]];
   else ghc_opts="$ghc_opts +RTS -A256m -n2m -RTS"
 fi
 
-xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# prettify output of stack build
+xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# more stuff can added to `xperl', e. g. "$xperl_pretty ; $xperl_workaround"
+xperl="$xperl_pretty"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
+function cleanPackage () { echo "Cleaning $1"; stack clean $1 ; };
 if [[ $clean == true ]]; then
-
-  echo "Cleaning cardano-sl-tools"
-  stack clean cardano-sl-tools
-
-  echo "Cleaning cardano-sl-auxx"
-  stack clean cardano-sl-auxx
-
-  echo "Cleaning cardano-sl-wallet"
-  stack clean cardano-sl-wallet
-
-  echo "Cleaning cardano-sl-explorer"
-  stack clean cardano-sl-explorer
-
-  echo "Cleaning cardano-sl-node"
-  stack clean cardano-sl-node
-
-  echo "Cleaning cardano-sl"
-  stack clean cardano-sl
-
   for prj in $projects; do
-    echo "Cleaning cardano-sl-$prj"
-    stack clean "cardano-sl-$prj"
+    cleanPackage "$(pkgNameToProject $prj)"
   done
   exit
 fi
@@ -211,25 +176,19 @@ fi
 to_build=''
 if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
-    to_build="$to_build cardano-sl-$prj"
+    pkgName=$(pkgNameToProject $prj)
+    to_build="$to_build $pkgName"
   done
-
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
-
-elif [[ $spec_prj == "lib" ]]; then
-  to_build="cardano-sl"
-elif [[ $spec_prj == "node" ]]; then
-  to_build="cardano-sl-node"
-elif [[ $spec_prj == "auxx" ]]; then
-  to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
+elif [[ $spec_prj == "wallet-new" ]]; then
+  to_build="cardano-sl-node cardano-sl-wallet-new"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then
   to_build="" # build everything concurrently
 else
-  to_build="cardano-sl-$spec_prj"
+  to_build=$(pkgNameToProject $spec_prj)
 fi
 
 if [[ $to_build == "" ]]; then
@@ -245,7 +204,7 @@ for prj in $to_build; do
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
-  eval $sbuild
+  eval $sbuild 2>&1
 
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"

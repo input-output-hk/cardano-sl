@@ -4,18 +4,17 @@ module Pos.Wallet.Web.State.Util
     ( cleanupAcidStatePeriodically
     ) where
 
-import           Universum                  hiding (over)
+import           Universum
 
-import           Data.Acid                  (createArchive, createCheckpoint)
-import           Data.Time.Units            (TimeUnit)
-import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Delay, Mockable, delay)
-import           Serokell.AcidState         (ExtendedState (..), extendedStateToAcid)
-import           Serokell.Util              (sec)
-import           System.Directory           (getModificationTime, listDirectory,
-                                             removeFile)
-import           System.FilePath            ((</>))
-import           System.Wlog                (WithLogger, logDebug, logError)
+import           Data.Acid (createArchive, createCheckpoint)
+import           Data.Time.Units (TimeUnit)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Delay, Mockable, delay)
+import           Serokell.AcidState (ExtendedState (..), extendedStateToAcid)
+import           Serokell.Util (sec)
+import           System.Directory (getModificationTime, listDirectory, removeFile)
+import           System.FilePath ((</>))
+import           System.Wlog (WithLogger, logDebug, logError)
 
 import           Pos.Wallet.Web.State.State (MonadWalletDBAccess, getWalletWebState)
 

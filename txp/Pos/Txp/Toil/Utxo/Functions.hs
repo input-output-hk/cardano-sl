@@ -9,33 +9,27 @@ module Pos.Txp.Toil.Utxo.Functions
 
 import           Universum
 
-import           Control.Lens              (_Left)
+import           Control.Lens (_Left)
 import           Control.Monad.Error.Class (MonadError (..))
-import qualified Data.List.NonEmpty        as NE
-import           Formatting                (int, sformat, (%))
-import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
-                                            formatFirstError, verResToMonadError,
-                                            verifyGeneric)
+import qualified Data.List.NonEmpty as NE
+import           Formatting (int, sformat, (%))
+import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatFirstError,
+                                verResToMonadError, verifyGeneric)
 
-import           Pos.Binary.Txp.Core       ()
-import           Pos.Core                  (AddrType (..), Address (..), HasConfiguration,
-                                            addressF, integerToCoin, isRedeemAddress,
-                                            isUnknownAddressType, sumCoins)
-import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
-                                            checkScriptAddress)
-import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
-                                            checkSig, hash, redeemCheckSig)
-import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
-import           Pos.Script                (Script (..), isKnownScriptVersion,
-                                            txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
-                                            TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness,
-                                            isTxInUnknown)
-import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..), utxoDel,
-                                            utxoPut)
-import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
-import           Pos.Txp.Toil.Types        (TxFee (..))
+import           Pos.Binary.Core ()
+import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
+                           isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
+                               TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
+                               isTxInUnknown)
+import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
+                             redeemCheckSig)
+import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
+import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
+import           Pos.Txp.Toil.Class (MonadUtxo (..), MonadUtxoRead (..), utxoDel, utxoPut)
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..), WitnessVerFailure (..))
+import           Pos.Txp.Toil.Types (TxFee (..))
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -93,7 +87,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
             minimalReasonableChecks
             resolvedInputs <- mapM resolveInput _txInputs
             txFee <- verifySums resolvedInputs _txOutputs
-            verifyInputs ctx resolvedInputs ta
+            verifyKnownInputs ctx resolvedInputs ta
             when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
             pure (map (Just . snd) resolvedInputs, Just txFee)
   where
@@ -156,13 +150,15 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
           )
         ]
 
-verifyInputs ::
+-- Verify inputs of a transaction after they have been resolved
+-- (implies that they are known).
+verifyKnownInputs ::
        (HasConfiguration, MonadError ToilVerFailure m)
     => VTxContext
     -> NonEmpty (TxIn, TxOutAux)
     -> TxAux
     -> m ()
-verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
+verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
     unless allInputsDifferent $ throwError ToilRepeatedInput
     mapM_ (uncurry3 checkInput) $
         zip3 [0 ..] (toList resolvedInputs) (toList witnesses)
@@ -184,8 +180,6 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     checkInput i (txIn, toa@(TxOutAux txOut@TxOut{..})) witness = do
         unless (checkSpendingData txOutAddress witness) $
             throwError $ ToilWitnessDoesntMatch i txIn txOut witness
-        when (isTxInUnknown txIn && vtcVerifyAllIsKnown) $ throwError $
-            ToilUnknownInput i txIn
         whenLeft (checkWitness toa witness) $ \err ->
             throwError $ ToilInvalidWitness i witness err
 

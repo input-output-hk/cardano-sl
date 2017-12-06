@@ -1,7 +1,7 @@
 
 -- | This module is testing the ClientTypes module.
 
-{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Test.Pos.Explorer.Web.ClientTypesSpec
        ( spec
@@ -9,41 +9,41 @@ module Test.Pos.Explorer.Web.ClientTypesSpec
 
 import           Universum
 
-import           Prelude                      (id)
+import           Crypto.Hash (Blake2b_224, Blake2b_256)
+import           Prelude (id)
 
-import           Pos.Binary                   (Bi)
+import           Pos.Binary (Bi)
+import           Pos.Core (Address)
 import           Pos.Crypto
-import           Pos.Explorer.Web.ClientTypes
-import           Pos.Txp                      (TxId)
-import           Pos.Types                    (Address)
-import           Test.Hspec                   (Spec, describe, it, shouldBe,
-                                               shouldSatisfy)
-import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
-import           Test.QuickCheck              (Arbitrary, Gen, Property, arbitrary,
-                                               forAll, (===))
+import           Pos.Explorer.Web.ClientTypes (CAddress (..), decodeHashHex, encodeHashHex,
+                                               fromCAddress, fromCHash, fromCTxId, toCAddress,
+                                               toCHash, toCTxId)
+import           Pos.Txp (Tx, TxId)
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Arbitrary, Gen, Property, arbitrary, forAll, (===))
 
 
 ----------------------------------------------------------------------------
 -- Utility functions
 ----------------------------------------------------------------------------
 
--- | Copied from `CborSpec`.
-soundInstanceProperty
-    :: forall a. (Arbitrary a, Eq a, Show a, Bi a, Bi (Hash a))
-    => Property
-soundInstanceProperty = forAll (arbitrary :: Gen (Hash a)) $ \input ->
-    decodeEncodeHashHex input === True
-
--- | A reversable function that we can use to test if the hashing works correctly.
-decodeEncodeHashHex
-    :: forall a. (Bi a, Bi (Hash a))
-    => Hash a
-    -> Bool
-decodeEncodeHashHex hashA = case encodeThenDecode hashA of
-    Left _       -> False
-    Right hashA' -> hashA == hashA'
+-- | Generalized property for any @AbstractHash@. Original copied from @CborSpec@.
+soundAbstractHashInstanceProperty
+    :: forall algo a. (Arbitrary a, Typeable algo, HashAlgorithm algo, Bi a)
+    => (AbstractHash algo a -> Either Text (AbstractHash algo a))
+    -> Property
+soundAbstractHashInstanceProperty reversableFunction =
+    forAll (arbitrary :: Gen (AbstractHash algo a)) $ \input ->
+        decodeEncodeHashHex input === True
   where
-    encodeThenDecode = decodeHashHex . encodeHashHex
+    -- | A reversable function that we can use to test if the hashing works correctly.
+    decodeEncodeHashHex
+        :: AbstractHash algo a
+        -> Bool
+    decodeEncodeHashHex hashA = case reversableFunction hashA of
+        Left _       -> False
+        Right hashA' -> hashA == hashA'
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -107,5 +107,70 @@ quickcheckTests :: Spec
 quickcheckTests =
     describe "Hash serialization" $ do
         modifyMaxSuccess (const 10000) $ do
-            prop "TxId" (soundInstanceProperty @TxId)
-            prop "Address" (soundInstanceProperty @Address)
+            prop
+                "TxId"
+                (soundAbstractHashInstanceProperty
+                     @Blake2b_256
+                     @Tx
+                     reversableAbstractHashFunction)
+            prop
+                "Address"
+                (soundAbstractHashInstanceProperty
+                     @Blake2b_224
+                     @Address
+                     reversableAbstractHashFunction)
+            prop
+                "PublicKey"
+                (soundAbstractHashInstanceProperty
+                     @Blake2b_224
+                     @PublicKey
+                     reversableAbstractHashFunction)
+            -- This property has a function that operates on @Hash@ so we don't need
+            -- to instruct it to use a specific algorithm (Blake2b_256) as it will be
+            -- inferred, we just need to reify/specify the free @a@ variable.
+            prop
+                "CHash"
+                (soundAbstractHashInstanceProperty
+                     @_
+                     @Tx
+                     reversableCHashFunction)
+            -- This property has a function that operates on @Tx@ so we don't need
+            -- to instruct it to use a specific algorithm (Blake2b_256) or a type
+            -- variable as it will be inferred.
+            prop
+                "TxId"
+                (soundAbstractHashInstanceProperty reversableCAddressFunction)
+            prop "CAdress" propertyCAddressReversable
+  where
+    -- | This is the most general abstract hash function from source to client and back.
+    reversableAbstractHashFunction
+        :: forall a algo. (Typeable algo, HashAlgorithm algo, Bi a)
+        => AbstractHash algo a
+        -> Either Text (AbstractHash algo a)
+    reversableAbstractHashFunction = decodeHashHex . encodeHashHex
+
+    -- | This is a more specific hash function that deals with @Hash a@ which is
+    -- actually @forall a. AbstractHash Blake2b_256 a@.
+    reversableCHashFunction
+        :: forall a. (Bi a)
+        => Hash a
+        -> Either Text (Hash a)
+    reversableCHashFunction = fromCHash . toCHash
+
+    -- | This is a very specific function that already covers all the free variables
+    -- from @AbstractHash algo a@ with @AbstractHash Blake2b_256 Tx@.
+    reversableCAddressFunction :: TxId -> Either Text TxId
+    reversableCAddressFunction = fromCTxId . toCTxId
+
+    -- | This is a specific property that we use to test valid @Address@ transformation.
+    propertyCAddressReversable :: Property
+    propertyCAddressReversable =
+        forAll (arbitrary :: Gen Address) $ \input ->
+            decodeEncodeHashHex input === True
+      where
+        -- | A reversable function that tests if the transformation works correctly.
+        decodeEncodeHashHex :: Address -> Bool
+        decodeEncodeHashHex hashA =
+            case fromCAddress . toCAddress $ hashA of
+                Left _       -> False
+                Right hashA' -> hashA == hashA'

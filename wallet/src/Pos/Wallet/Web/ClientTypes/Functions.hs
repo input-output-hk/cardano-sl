@@ -8,38 +8,30 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , mkCTx
       , toCUpdateInfo
       , addrMetaToAccount
-      , isTxLocalAddress
       ) where
 
 import           Universum
 
-import           Control.Monad.Error.Class            (throwError)
-import qualified Data.List.NonEmpty                   as NE
-import qualified Data.Set                             as S
-import           Data.Text                            (Text)
-import           Formatting                           (build, sformat)
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Set as S
+import           Data.Text (Text)
+import           Formatting (build, sformat)
 
-import           Pos.Client.Txp.History               (TxHistoryEntry (..))
-import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
-import           Pos.Txp.Core.Types                   (Tx (..), TxOut (..), txOutAddress,
-                                                       txOutValue)
-import           Pos.Types                            (Address, ChainDifficulty,
-                                                       decodeTextAddress,
-                                                       makePubKeyAddressBoot, sumCoins,
-                                                       unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core                      (BlockVersionData (..),
-                                                       BlockVersionModifier (..),
-                                                       StakeholderVotes,
-                                                       UpdateProposal (..),
-                                                       isPositiveVote)
-import           Pos.Update.Poll                      (ConfirmedProposalState (..))
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core (Address, ChainDifficulty, decodeTextAddress, makePubKeyAddressBoot,
+                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
+import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
+                                  UpdateProposal (..))
+import           Pos.Crypto (EncryptedSecretKey, encToPublic)
+import           Pos.Update.Poll.Types (ConfirmedProposalState (..), StakeholderVotes,
+                                        isPositiveVote)
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr, CCoin,
-                                                       CHash (..), CId (..),
-                                                       CPtxCondition (..), CTx (..),
-                                                       CTxMeta, CUpdateInfo (..),
-                                                       CWAddressMeta (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin, CHash (..),
+                                                   CId (..), CPtxCondition (..), CTx (..), CTxMeta,
+                                                   CUpdateInfo (..), CWAddressMeta (..))
 
 -- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
@@ -58,47 +50,6 @@ cIdToAddress (CId (CHash h)) = decodeTextAddress h
 -- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
 encToCId = encodeCType . makePubKeyAddressBoot . encToPublic
-
--- [CSM-309] This may work until transaction have multiple source accounts
--- | Get all addresses of source account of given transaction.
-getTxSourceAccountAddresses
-    :: [CWAddressMeta]      -- ^ All addresses in wallet
-    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> Maybe [CId Addr]     -- ^ `Just` addrs if the wallet is source of
-                            --   transaction, `Nothing` otherwise
-getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
-    someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
-    let srcAccount = addrMetaToAccount someSrcAddrMeta
-    return $
-        map cwamId $
-        filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
-
--- | Produces a function which for a given address says whether this address
--- belongs to the same account as the addresses which are the sources
--- of a given transaction. This assumes that the source addresses belong
--- to the same account.
--- Note that if you apply this function to the outputs of a transaction,
--- you will effectively get /change/ addresses.
-isTxLocalAddress
-    :: [CWAddressMeta]      -- ^ All addresses in wallet
-    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> (CId Addr -> Bool)
-isTxLocalAddress wAddrMetas inputs = do
-    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs
-    case mLocalAddrs of
-       Just changeAddrs -> do
-           -- if given wallet is source of tx, /local addresses/
-           -- can be fetched according to definition
-           let changeAddrsSet = S.fromList changeAddrs
-           flip S.member changeAddrsSet
-       Nothing -> do
-           -- if given wallet is *not* source of tx, then it's incoming
-           -- transaction, and only addresses of given wallet are *not*
-           -- local addresses
-           -- [CSM-309] This may work until transaction have multiple
-           -- destination addresses
-           let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
-           not . flip S.member nonLocalAddrsSet
 
 mergeTxOuts :: [TxOut] -> [TxOut]
 mergeTxOuts = map stick . NE.groupWith txOutAddress

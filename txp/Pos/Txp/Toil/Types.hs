@@ -34,18 +34,17 @@ module Pos.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens           (makeLenses, makePrisms, makeWrapped)
-import           Data.Default           (Default, def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.Map               as M (lookup, member, toList)
+import           Control.Lens (makeLenses, makePrisms, makeWrapped)
+import           Data.Default (Default, def)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M (lookup, member, toList)
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, later)
-import           Serokell.Util.Text     (mapBuilderJson)
+import           Formatting (Format, later)
+import           Serokell.Util.Text (mapBuilderJson)
 
-import           Pos.Core               (Address, Coin, StakeholderId, unsafeAddCoin,
-                                         unsafeSubCoin)
-import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo, _TxOut)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core (Address, Coin, StakeholderId, unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux (..), TxUndo, _TxOut)
+import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
 -- UTXO

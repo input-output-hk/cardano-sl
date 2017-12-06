@@ -18,35 +18,35 @@ module Pos.Wallet.Web.Methods.Misc
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
+
+       , resetAllFailedPtxs
        ) where
 
 import           Universum
 
-import           Data.Aeson                   (encode)
-import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import           Data.Aeson (encode)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Mockable                     (MonadMockable)
-import           Pos.Core                     (SoftwareVersion (..))
-import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
-import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
+import           Mockable (MonadMockable)
+import           Pos.Core (SoftwareVersion (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util (maybeThrow)
+import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-import           Pos.Client.KeyStorage        (MonadKeys, deleteSecretKey, getSecretKeys)
-import           Pos.NtpCheck                 (NtpCheckMonad, NtpStatus (..),
-                                               mkNtpStatusVar)
+import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
+import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Aeson.Storage     ()
-import           Pos.Wallet.WalletMode        (MonadBlockchainInfo, MonadUpdates,
-                                               applyLastUpdate, connectedPeers,
-                                               localChainDifficulty,
-                                               networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
-                                               SyncProgress (..), cIdToAddress)
-import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead (..),
-                                               getNextUpdate, getProfile,
-                                               removeNextUpdate, setProfile, testReset,
-                                               unDBWalletStorage)
+import           Pos.Wallet.Aeson.Storage ()
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
+                                        connectedPeers, localChainDifficulty,
+                                        networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                             SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead (..), getNextUpdate,
+                                       getProfile, removeNextUpdate, resetFailedPtxs, setProfile,
+                                       testReset, unDBWalletStorage)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 ----------------------------------------------------------------------------
@@ -86,12 +86,12 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletDB ctx m => m ()
-postponeUpdate = removeNextUpdate
+postponeUpdate :: MonadWalletDB ctx m => m NoContent
+postponeUpdate = removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
-applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
+applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
+applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -123,13 +123,8 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m ()
-testResetAll = deleteAllKeys >> testReset
-  where
-    deleteAllKeys :: MonadKeys m => m ()
-    deleteAllKeys = do
-        keyNum <- length <$> getSecretKeys
-        replicateM_ keyNum $ deleteSecretKey 0
+testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
+testResetAll = deleteAllSecretKeys >> testReset >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Print wallet state
@@ -149,3 +144,10 @@ instance Buildable WalletStateSnapshot where
 
 dumpState :: MonadWalletDBRead m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot . unDBWalletStorage <$> getDBWalletStorage
+
+----------------------------------------------------------------------------
+-- Tx resubmitting
+----------------------------------------------------------------------------
+
+resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m ()
+resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs

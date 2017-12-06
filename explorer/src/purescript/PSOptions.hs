@@ -5,12 +5,14 @@ module PSOptions
        , getPSOptions
        ) where
 
-import           Data.Version               (showVersion)
-import           Options.Applicative.Simple (Parser, help, long, metavar,
-                                             simpleOptions, strOption, value)
-import           Universum                  hiding (show)
+import           Universum
 
-import           Paths_cardano_sl_explorer  (version)
+import           Data.Version (showVersion)
+import           Options.Applicative.Simple (Parser, help, long, metavar, simpleOptions, strOption,
+                                             value)
+
+import           Paths_cardano_sl_explorer (version)
+
 
 newtype Args = Args
     { bridgePath :: FilePath

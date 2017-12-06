@@ -68,8 +68,10 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveFromHistoryCache (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
+       , RemoveOnlyCreatingPtx (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
+       , ResetFailedPtxs (..)
        , GetWalletStorage (..)
        , FlushWalletStorage (..)
        , ApplyModifierToWallet (..)
@@ -80,15 +82,13 @@ module Pos.Wallet.Web.State.Acidic
 
 import           Universum
 
-import           Data.Acid                    (EventResult, EventState, QueryEvent,
-                                               UpdateEvent, makeAcidic)
-import           Data.Default                 (def)
-import           Serokell.AcidState           (ExtendedState, closeExtendedState,
-                                               openLocalExtendedState,
-                                               openMemoryExtendedState, queryExtended,
-                                               tidyExtendedState, updateExtended)
+import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent, makeAcidic)
+import           Data.Default (def)
+import           Serokell.AcidState (ExtendedState, closeExtendedState, openLocalExtendedState,
+                                     openMemoryExtendedState, queryExtended, tidyExtendedState,
+                                     updateExtended)
 
-import           Pos.Core.Configuration       (HasConfiguration)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 
@@ -176,8 +176,10 @@ makeAcidic ''WalletStorage
     , 'WS.removeFromHistoryCache
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
+    , 'WS.removeOnlyCreatingPtx
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
+    , 'WS.resetFailedPtxs
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WS.applyModifierToWallet

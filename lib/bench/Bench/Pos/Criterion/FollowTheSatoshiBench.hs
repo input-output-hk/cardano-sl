@@ -2,18 +2,17 @@ module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
 
-import           Criterion.Main      (Benchmark, bench, defaultConfig, defaultMainWith,
-                                      env, whnf)
-import           Criterion.Types     (Config (..))
-import           Data.Map            (fromList)
-import           Formatting          (int, sformat, (%))
-import           Test.QuickCheck     (Arbitrary (..), Gen, generate, infiniteListOf)
+import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Types (Config (..))
+import           Data.Map (fromList)
+import           Formatting (int, sformat, (%))
+import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
-import           Pos.Core            (HasConfiguration)
-import           Pos.Lrc             (followTheSatoshi)
-import           Pos.Types           (Utxo)
-import           Pos.Util            (arbitraryUnsafe)
+import           Pos.Core (HasConfiguration)
+import           Pos.Lrc (followTheSatoshi)
+import           Pos.Txp (Utxo)
+import           Pos.Util (arbitraryUnsafe)
 
 import           Bench.Configuration (giveCoreConf)
 

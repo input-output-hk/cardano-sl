@@ -1,7 +1,7 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes                 #-}
 
 -- | Network Transport
 module Network.Transport.Abstract
@@ -30,10 +30,10 @@ module Network.Transport.Abstract
   , hoistConnection
   ) where
 
-import Data.Typeable
-import Data.ByteString (ByteString)
-import Data.Binary (Binary(..))
-import GHC.Generics (Generic)
+import           Data.Binary (Binary (..))
+import           Data.ByteString (ByteString)
+import           Data.Typeable
+import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 
 --------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ import qualified Network.Transport as NT
 -- | A network transport over some monad.
 data Transport m = Transport {
     -- | Create a new end point (heavyweight operation)
-    newEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m))
+    newEndPoint    :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (EndPoint m))
     -- | Shutdown the transport completely
   , closeTransport :: m ()
   }
@@ -98,9 +98,9 @@ data Connection m = Connection {
     -- sent using a single call (cf. 'Network.Socket.ByteString.sendMany').
     -- Note that this segment structure is entirely unrelated to the segment
     -- structure /returned/ by a 'Received' event.
-    send :: [ByteString] -> m (Either (NT.TransportError NT.SendErrorCode) ())
+    send   :: [ByteString] -> m (Either (NT.TransportError NT.SendErrorCode) ())
     -- | Close the connection.
-  , close :: m ()
+  , close  :: m ()
   , bundle :: NT.ConnectionBundle
   }
 

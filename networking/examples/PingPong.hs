@@ -13,21 +13,20 @@
 
 module Main where
 
-import           Control.Monad.IO.Class     (liftIO)
-import           Data.Binary                (Binary)
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Char8      as B8
-import           Data.Data                  (Data)
-import           Data.Time.Units            (Microsecond, fromMicroseconds)
-import           GHC.Generics               (Generic)
-import           Mockable.Concurrent        (delay, forConcurrently, fork,
-                                             killThread)
+import           Control.Monad.IO.Class (liftIO)
+import           Data.Binary (Binary)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
+import           Data.Data (Data)
+import           Data.Time.Units (Microsecond, fromMicroseconds)
+import           GHC.Generics (Generic)
+import           Mockable.Concurrent (delay, forConcurrently, fork, killThread)
 import           Mockable.Production
 import           Network.Transport.Abstract (closeTransport)
 import           Network.Transport.Concrete (concrete)
-import qualified Network.Transport.TCP      as TCP
+import qualified Network.Transport.TCP as TCP
 import           Node
-import           Node.Message.Binary        (BinaryP, binaryPacking)
+import           Node.Message.Binary (BinaryP, binaryPacking)
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.

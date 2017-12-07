@@ -57,30 +57,30 @@
 -- >         |           /-
 -- >         |         /-
 -- >         v        <
-module Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (
-    MultiQueue -- opaque
-  , new
-  , size
-  , sizeBy
-  , enqueue
-  , dequeue
-  , remove
-  , removeFront
-  , removeAllIn
+module Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+    ( MultiQueue -- opaque
+    , new
+    , size
+    , sizeBy
+    , enqueue
+    , dequeue
+    , remove
+    , removeFront
+    , removeAllIn
     -- * Tests
-  , snapshot
-  , tests
-  ) where
+    , snapshot
+    , tests
+    ) where
 
-import Control.Concurrent
-import Control.Exception
-import Control.Lens
-import Control.Monad
-import Data.IORef
-import Data.Maybe (fromMaybe, isJust)
-import Data.Map.Strict (Map)
-import GHC.Stack
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Lens
+import           Control.Monad
+import           Data.IORef
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe, isJust)
+import           GHC.Stack
 
 {-------------------------------------------------------------------------------
   Concurrent multi-queue
@@ -192,7 +192,7 @@ import qualified Data.Map.Strict as Map
 -- | Node in the linked list
 data Node k a = Node {
       -- | The value stored in the node
-      _value :: a
+      _value   :: a
 
       -- | Mark whether or not the node has been removed from the linked list
       --
@@ -207,7 +207,7 @@ data Node k a = Node {
       -- * The kind of link must match the 'Ends' recorded for the list
       --   (i.e., if the node is listed as the front of the list, the 'Links'
       --   must be 'Front' or 'Singleton').
-    , _links :: Map k (Links k a)
+    , _links   :: Map k (Links k a)
     }
 
 -- | Links from a node to its (previous and next) neighbours
@@ -361,10 +361,10 @@ next = lens g s
 
     s :: Links k a -> Maybe (PNode k a) -> Links k a
 
-    s (Middle p _n) Nothing = Back p
-    s (Front    _n) Nothing = Singleton
-    s (Back   p   ) Nothing = Back p
-    s Singleton     Nothing = Singleton
+    s (Middle p _n) Nothing   = Back p
+    s (Front    _n) Nothing   = Singleton
+    s (Back   p   ) Nothing   = Back p
+    s Singleton     Nothing   = Singleton
 
     s (Middle p _n) (Just n') = Middle p n'
     s (Front    _n) (Just n') = Front    n'
@@ -386,10 +386,10 @@ prev = lens g s
 
     s :: Links k a -> Maybe (PNode k a) -> Links k a
 
-    s (Middle _p n) Nothing = Front n
-    s (Front     n) Nothing = Front n
-    s (Back   _p  ) Nothing = Singleton
-    s Singleton     Nothing = Singleton
+    s (Middle _p n) Nothing   = Front n
+    s (Front     n) Nothing   = Front n
+    s (Back   _p  ) Nothing   = Singleton
+    s Singleton     Nothing   = Singleton
 
     s (Middle _p n) (Just p') = Middle p' n
     s (Front     n) (Just p') = Middle p' n

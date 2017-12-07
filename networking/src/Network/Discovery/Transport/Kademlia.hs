@@ -9,18 +9,18 @@ module Network.Discovery.Transport.Kademlia
        , kademliaDiscovery
        ) where
 
-import qualified Control.Concurrent.STM      as STM
+import qualified Control.Concurrent.STM as STM
 import qualified Control.Concurrent.STM.TVar as TVar
-import           Control.Monad               (forM)
-import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Data.Binary                 (Binary, decodeOrFail, encode)
-import qualified Data.ByteString.Lazy        as BL
-import qualified Data.Map.Strict             as M
-import qualified Data.Set                    as S
-import           Data.Typeable               (Typeable)
-import           Data.Word                   (Word16)
-import           GHC.Generics                (Generic)
-import qualified Network.Kademlia            as K
+import           Control.Monad (forM)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Binary (Binary, decodeOrFail, encode)
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
+import           Data.Typeable (Typeable)
+import           Data.Word (Word16)
+import           GHC.Generics (Generic)
+import qualified Network.Kademlia as K
 
 import           Network.Discovery.Abstract
 import           Network.Transport

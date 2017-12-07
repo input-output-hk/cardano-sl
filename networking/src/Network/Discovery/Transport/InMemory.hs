@@ -5,17 +5,16 @@ module Network.Discovery.Transport.InMemory
        , inMemoryDiscovery
        ) where
 
-import qualified Control.Concurrent.STM              as STM
-import qualified Control.Concurrent.STM.TVar         as TVar
-import           Control.Monad.IO.Class              (MonadIO, liftIO)
-import qualified Data.Map                            as M
-import           Data.Set                            (Set)
-import qualified Data.Set                            as S
-import           Data.Typeable                       (Typeable)
-import           GHC.Generics                        (Generic)
+import qualified Control.Concurrent.STM as STM
+import qualified Control.Concurrent.STM.TVar as TVar
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import qualified Data.Map as M
+import           Data.Set (Set)
+import qualified Data.Set as S
+import           Data.Typeable (Typeable)
+import           GHC.Generics (Generic)
 import           Network.Transport.InMemory
-import           Network.Transport.InMemory.Internal (TransportState (..),
-                                                      ValidTransportState (..))
+import           Network.Transport.InMemory.Internal (TransportState (..), ValidTransportState (..))
 
 import           Network.Discovery.Abstract
 import           Network.Transport

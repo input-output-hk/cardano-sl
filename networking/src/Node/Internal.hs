@@ -7,12 +7,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Node.Internal (
@@ -44,42 +44,42 @@ module Node.Internal (
     Timeout(..)
   ) where
 
-import           Control.Exception             hiding (bracket, catch, finally, throw)
-import           Control.Monad                 (forM_, forM, when)
-import           Control.Monad.Fix             (MonadFix)
-import           Data.Int                      (Int64)
+import           Control.Exception hiding (bracket, catch, finally, throw)
+import           Control.Monad (forM, forM_, when)
+import           Control.Monad.Fix (MonadFix)
 import           Data.Binary
-import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Builder       as BS
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Builder.Extra as BS
-import qualified Data.ByteString.Lazy          as LBS
-import           Data.Foldable                 (foldlM, foldl')
-import           Data.Hashable                 (Hashable)
-import           Data.Map.Strict               (Map)
-import qualified Data.Map.Strict               as Map
-import           Data.Set                      (Set)
-import qualified Data.Set                      as Set
-import           Data.NonEmptySet              (NonEmptySet)
-import qualified Data.NonEmptySet              as NESet
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Foldable (foldl', foldlM)
+import           Data.Hashable (Hashable)
+import           Data.Int (Int64)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import           Data.Monoid
+import           Data.NonEmptySet (NonEmptySet)
+import qualified Data.NonEmptySet as NESet
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import           Data.Time.Units (Microsecond)
 import           Data.Typeable
-import           Data.Time.Units               (Microsecond)
-import           Formatting                    (sformat, shown, (%))
-import           GHC.Generics                  (Generic)
-import qualified Mockable.Channel              as Channel
+import           Formatting (sformat, shown, (%))
+import           GHC.Generics (Generic)
+import qualified Mockable.Channel as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
+import           Mockable.CurrentTime (CurrentTime, currentTime)
 import           Mockable.Exception
+import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
-import           Mockable.CurrentTime          (CurrentTime, currentTime)
-import qualified Mockable.Metrics              as Metrics
-import qualified Network.Transport             as NT (EventErrorCode (..))
-import qualified Network.Transport.Abstract    as NT
-import           System.Random                 (Random, StdGen, random)
-import           System.Wlog                   (WithLogger, logDebug, logError, logWarning)
-import           Node.Message.Class            (Serializable (..), Packing, unpack, pack)
-import           Node.Message.Decoder          (Decoder (..), DecoderStep (..), continueDecoding)
+import qualified Network.Transport as NT (EventErrorCode (..))
+import qualified Network.Transport.Abstract as NT
+import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
+import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
+import           System.Random (Random, StdGen, random)
+import           System.Wlog (WithLogger, logDebug, logError, logWarning)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -205,7 +205,7 @@ data Node packingType peerData (m :: * -> *) = Node {
        --   to correspond to application level messages or conversations
        --   so this is a way to delay per-high-level message rather than
        --   lower level events.
-     , nodeConnectDelay :: ReceiveDelay m
+     , nodeConnectDelay     :: ReceiveDelay m
      }
 
 nodeId :: Node packingType peerData m -> NodeId
@@ -280,25 +280,25 @@ data Statistics m = Statistics {
       --   bidirectional).
       --   NB a handler may run longer or shorter than the duration of a
       --   connection.
-      stRunningHandlersRemote :: !(Metrics.Gauge m)
+      stRunningHandlersRemote         :: !(Metrics.Gauge m)
       -- | How many handlers are running right now which were initiated
       --   locally, i.e. corresponding to bidirectional connections.
-    , stRunningHandlersLocal :: !(Metrics.Gauge m)
+    , stRunningHandlersLocal          :: !(Metrics.Gauge m)
       -- | Statistics for each peer.
-    , stPeerStatistics :: !(Map NT.EndPointAddress (SharedAtomicT m PeerStatistics))
+    , stPeerStatistics                :: !(Map NT.EndPointAddress (SharedAtomicT m PeerStatistics))
       -- | How many peers are connected.
-    , stPeers :: !(Metrics.Gauge m)
+    , stPeers                         :: !(Metrics.Gauge m)
       -- | Average number of remotely-initiated handlers per peer.
       --   Also track the average of the number of handlers squared, so we
       --   can quickly compute the variance.
-    , stRunningHandlersRemoteAverage :: !(Double, Double)
+    , stRunningHandlersRemoteAverage  :: !(Double, Double)
       -- | Average number of locally-initiated handlers per peer.
       --   Also track the average of the number of handlers squared, so we
       --   can quickly compute the variance.
-    , stRunningHandlersLocalAverage :: !(Double, Double)
+    , stRunningHandlersLocalAverage   :: !(Double, Double)
       -- | Handlers which finished normally. Distribution is on their
       --   running time.
-    , stHandlersFinishedNormally :: !(Metrics.Distribution m)
+    , stHandlersFinishedNormally      :: !(Metrics.Distribution m)
       -- | Handlers which finished exceptionally. Distribution is on their
       --   running time.
     , stHandlersFinishedExceptionally :: !(Metrics.Distribution m)
@@ -330,10 +330,10 @@ data PeerStatistics = PeerStatistics {
       pstRunningHandlersRemote :: !Int
       -- | How many handlers are running right now for locally-iniaiated
       --   bidirectional connections to this peer.
-    , pstRunningHandlersLocal :: !Int
+    , pstRunningHandlersLocal  :: !Int
       -- | How many bytes have been received by running handlers for this
       --   peer.
-    , pstLiveBytes :: !Int
+    , pstLiveBytes             :: !Int
     }
 
 pstNull :: PeerStatistics -> Bool
@@ -446,7 +446,7 @@ instance Show (HandlerProvenance peerData m t) where
 
 handlerProvenancePeer :: HandlerProvenance peerData m t -> NT.EndPointAddress
 handlerProvenancePeer provenance = case provenance of
-    Local peer _ -> peer
+    Local peer _  -> peer
     Remote peer _ -> peer
 
 -- TODO: revise these computations to make them numerically stable (or maybe
@@ -592,7 +592,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
 --   More complicated things are possible, for instance using concrete
 --   transport specific features.
 data NodeEndPoint m = NodeEndPoint {
-      newNodeEndPoint :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (NT.EndPoint m))
+      newNodeEndPoint   :: m (Either (NT.TransportError NT.NewEndPointErrorCode) (NT.EndPoint m))
     , closeNodeEndPoint :: NT.EndPoint m -> m ()
     }
 
@@ -720,10 +720,10 @@ data ConnectionState peerData m =
 
 instance Show (ConnectionState peerData m) where
     show term = case term of
-        WaitingForPeerData -> "WaitingForPeerData"
-        PeerDataParseFailure -> "PeerDataParseFailure"
-        WaitingForHandshake _ _ -> "WaitingForHandshake"
-        HandshakeFailure -> "HandshakeFailure"
+        WaitingForPeerData            -> "WaitingForPeerData"
+        PeerDataParseFailure          -> "PeerDataParseFailure"
+        WaitingForHandshake _ _       -> "WaitingForHandshake"
+        HandshakeFailure              -> "HandshakeFailure"
         FeedingApplicationHandler _ _ -> "FeedingApplicationHandler"
 
 data PeerState peerData m =
@@ -745,7 +745,7 @@ instance Show (PeerState peerData m) where
 
 data DispatcherState peerData m = DispatcherState {
       dsConnections :: Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
-    , dsPeers :: Map NT.EndPointAddress (PeerState peerData m)
+    , dsPeers       :: Map NT.EndPointAddress (PeerState peerData m)
     }
 
 deriving instance Show (DispatcherState peerData m)
@@ -1178,7 +1178,7 @@ nodeDispatcher node handlerInOut =
             -- Removing it from the peers map is more involved.
             let peersUpdater existing = case existing of
                     GotPeerData peerData neset -> case NESet.delete connid neset of
-                        Nothing -> Nothing
+                        Nothing     -> Nothing
                         Just neset' -> Just (GotPeerData peerData neset')
                     ExpectingPeerData neset mleader -> case NESet.delete connid neset of
                         Nothing -> Nothing
@@ -1188,7 +1188,7 @@ nodeDispatcher node handlerInOut =
                                 -- The connection which is giving the peer data
                                 -- has closed! That's ok, just forget about it
                                 -- and the partial decode of that data.
-                                True -> Just (ExpectingPeerData neset' Nothing)
+                                True  -> Just (ExpectingPeerData neset' Nothing)
                                 False -> Just (ExpectingPeerData neset' mleader)
             let state' = state {
                       dsConnections = Map.delete connid (dsConnections state)
@@ -1212,7 +1212,7 @@ nodeDispatcher node handlerInOut =
                 -- event can be posted without ConnectionClosed, as an
                 -- optimization.
                 let connids = case it of
-                        GotPeerData _ neset -> NESet.toList neset
+                        GotPeerData _ neset       -> NESet.toList neset
                         ExpectingPeerData neset _ -> NESet.toList neset
                 -- For every connection to that peer we'll plug the channel with
                 -- Nothing and remove it from the map.
@@ -1405,7 +1405,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
     -- want to accept any more bytes (the handler has finished).
     channelVar <- newSharedAtomic (Just channel)
     let dumpBytes mbs = withSharedAtomic channelVar $ \mchannel -> case mchannel of
-            Nothing -> pure ()
+            Nothing                  -> pure ()
             Just (ChannelIn channel) -> Channel.writeChannel channel mbs
         closeChannel = modifySharedAtomic channelVar $ \_ -> pure (Nothing, ())
     -- The dispatcher will fill in the peer data as soon as it's available.
@@ -1608,7 +1608,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
         -- Somebody else sent it, so we can proceed.
         False -> return ()
         -- We are responsible for sending it.
-        True -> sendPeerData conn
+        True  -> sendPeerData conn
 
     sendPeerData conn = do
         serializedPeerData <- pack nodePacking nodePeerData
@@ -1686,7 +1686,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
         case mconn of
             -- Throwing the error will induce the bracket resource releaser
-            Left err -> throw err
+            Left err   -> throw err
             Right conn -> return conn
 
     -- Update the OutboundConnectionState at this peer to no longer show
@@ -1724,7 +1724,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                                   return $ Just (ComingUp (n - 1) excl')
                           let established' = case merr of
                                   Nothing -> established + 1
-                                  Just _ -> established
+                                  Just _  -> established
                           return . Just $ Stable comingUp' established' goingDown transmission
 
                 _ -> throw (InternalError "finishConnecting : impossible")

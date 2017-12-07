@@ -1,5 +1,5 @@
+{-# LANGUAGE GADTs      #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE GADTs #-}
 
 module Node.Conversation
     ( Converse (..)
@@ -29,7 +29,7 @@ converseWith = runConverse
 hoistConverse
     :: (forall a . m a -> n a)
     -> (forall a . n a -> m a)
-    -> Converse packingType peerData m 
+    -> Converse packingType peerData m
     -> Converse packingType peerData n
 hoistConverse nat rnat (Converse k) = Converse $ \nodeId l ->
     let l' = \peerData -> hoistConversation rnat nat (l peerData)

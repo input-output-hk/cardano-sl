@@ -8,16 +8,16 @@ module NTP.Packet
     ) where
 
 
-import           Control.Lens        (both, (^..))
-import           Control.Monad       (replicateM_)
+import           Control.Lens (both, (^..))
+import           Control.Monad (replicateM_)
 import           Control.Monad.Trans (MonadIO (..))
-import           Data.Binary         (Binary (..))
-import           Data.Binary.Get     (getInt8, getWord32be, getWord8)
-import           Data.Binary.Put     (putWord32be, putWord8)
-import           Data.Time.Units     (Microsecond, fromMicroseconds, toMicroseconds)
-import           Data.Word           (Word32, Word8)
+import           Data.Binary (Binary (..))
+import           Data.Binary.Get (getInt8, getWord32be, getWord8)
+import           Data.Binary.Put (putWord32be, putWord8)
+import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
+import           Data.Word (Word32, Word8)
 
-import           NTP.Util            (getCurrentTime)
+import           NTP.Util (getCurrentTime)
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters

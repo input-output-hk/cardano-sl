@@ -2,35 +2,35 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
-import           Control.Monad                        (forM, forM_, when)
-import           Control.Monad.IO.Class               (liftIO)
+import           Control.Monad (forM, forM_, when)
+import           Control.Monad.IO.Class (liftIO)
 import           Data.Binary
-import qualified Data.ByteString                      as BS
-import qualified Data.ByteString.Char8                as B8
-import qualified Data.Set                             as S
-import           Data.Time.Units                      (Microsecond, fromMicroseconds)
-import           Data.Void                            (Void, absurd)
-import           GHC.Generics                         (Generic)
-import           Mockable.Concurrent                  (ThreadId, delay, fork, killThread)
-import           Mockable.Exception                   (finally)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.Set as S
+import           Data.Time.Units (Microsecond, fromMicroseconds)
+import           Data.Void (Void, absurd)
+import           GHC.Generics (Generic)
+import           Mockable.Concurrent (ThreadId, delay, fork, killThread)
+import           Mockable.Exception (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
-import           Network.Transport.Abstract           (Transport (..))
-import           Network.Transport.Concrete           (concrete)
-import qualified Network.Transport.TCP                as TCP
+import           Network.Transport.Abstract (Transport (..))
+import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport.TCP as TCP
 import           Node
-import           Node.Message.Binary                  (BinaryP, binaryPacking)
-import           System.Environment                   (getArgs)
+import           Node.Message.Binary (BinaryP, binaryPacking)
+import           System.Environment (getArgs)
 import           System.Random
 
 data Pong = Pong BS.ByteString

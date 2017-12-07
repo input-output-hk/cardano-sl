@@ -1,12 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Network.Transport.ConnectionBuffers (
 
@@ -26,22 +26,22 @@ module Network.Transport.ConnectionBuffers (
 
     ) where
 
-import Control.Monad (forM_, unless)
-import Control.Monad.IO.Class
-import Network.Transport.Abstract
+import           Control.Monad (forM_, unless)
+import           Control.Monad.IO.Class
 import qualified Data.Binary.Get as Bin
-import Data.ByteString (ByteString)
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
+import           Network.Transport.Abstract
 -- TODO use NonEmptySet instead.
+import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TBQueue
+import           Control.Exception
 import qualified Data.Set as S
-import Control.Exception
-import Control.Concurrent.STM
-import Control.Concurrent.STM.TBQueue
-import Mockable.Class
-import Mockable.SharedAtomic
-import Data.Typeable
+import           Data.Typeable
+import           Mockable.Class
+import           Mockable.SharedAtomic
 
 -- This connection-buffers QDisc needs an implementation of a bounded fifo
 -- buffer such that the head can be inspected and modified.
@@ -66,8 +66,8 @@ instance
     ) => MFunctor' Buffer m n
     where
     hoist' _ term = case term of
-        NewBuffer i -> NewBuffer i
-        ReadBuffer buffer k -> ReadBuffer buffer k
+        NewBuffer i          -> NewBuffer i
+        ReadBuffer buffer k  -> ReadBuffer buffer k
         WriteBuffer buffer t -> WriteBuffer buffer t
         BoundBuffer buffer b -> BoundBuffer buffer b
 
@@ -95,8 +95,8 @@ decodeFromBuffer
     -> m (Maybe t)
 decodeFromBuffer get buffer = case Bin.runGetIncremental get of
     Bin.Partial continue -> go continue
-    Bin.Done _ _ a -> return (Just a)
-    Bin.Fail _ _ _ -> return Nothing
+    Bin.Done _ _ a       -> return (Just a)
+    Bin.Fail _ _ _       -> return Nothing
     where
 
     -- Repeatedly read from the buffer and continue the parse.
@@ -108,11 +108,11 @@ decodeFromBuffer get buffer = case Bin.runGetIncremental get of
             Data bs -> case continue (Just (BL.toStrict bs)) of
                 Bin.Done trailing _ a -> (leftover trailing, Just (Right a))
                 Bin.Fail trailing _ _ -> (leftover trailing, Nothing)
-                Bin.Partial continue -> (Nothing, Just (Left continue))
+                Bin.Partial continue  -> (Nothing, Just (Left continue))
         case outcome of
-            Nothing -> return Nothing
+            Nothing               -> return Nothing
             Just (Left continue') -> go continue'
-            Just (Right t) -> return (Just t)
+            Just (Right t)        -> return (Just t)
 
     leftover bs = if BS.null bs then Nothing else Just (Data (BL.fromStrict bs))
 
@@ -151,16 +151,16 @@ recvAtMost bytes cbuffer = readBuffer cbuffer $ \event -> case event of
 -- | State that will be held internally by a connection-buffer QDisc and
 --   updated when events are enqueued.
 data ConnectionBuffersState m = ConnectionBuffersState {
-    qdiscBuffers :: !(M.Map ConnectionId (EndPointAddress, ConnectionBuffer m))
+    qdiscBuffers     :: !(M.Map ConnectionId (EndPointAddress, ConnectionBuffer m))
   , qdiscConnections :: !(M.Map EndPointAddress (S.Set ConnectionId))
   }
 
 -- | Parameters for a connection-buffer QDisc.
 data ConnectionBuffersParams m = ConnectionBuffersParams {
-    qdiscEventBufferSize :: Int
+    qdiscEventBufferSize      :: Int
   , qdiscConnectionBufferSize :: Int
-  , qdiscConnectionDataSize :: Int
-  , qdiscInternalError :: forall t . InternalError -> m t
+  , qdiscConnectionDataSize   :: Int
+  , qdiscInternalError        :: forall t . InternalError -> m t
   }
 
 -- | A QDisc with a fixed bound for the size of the event queue and also for
@@ -232,7 +232,7 @@ connectionBufferQDisc qdiscParams = do
         Received connid bytes -> do
           buffer <- withSharedAtomic qdiscState $ \st ->
             case M.lookup connid (qdiscBuffers st) of
-              Nothing -> internalError UnknownConnectionReceived
+              Nothing          -> internalError UnknownConnectionReceived
               Just (_, buffer) -> return buffer
           -- Will block if the buffer is full, ultimately blocking the thread
           -- which is reading from the socket.
@@ -268,7 +268,7 @@ connectionBufferQDisc qdiscParams = do
                         -- updateLookupWithKey returns the deleted value if it
                         -- was deleted.
                         (Just (_, buffer), buffers') -> (buffers', Just buffer : deletedBuffers)
-                        _ -> (buffers, Nothing : deletedBuffers)
+                        _                            -> (buffers, Nothing : deletedBuffers)
                     (buffers, deletedBuffers) = foldr combine (qdiscBuffers st, []) (S.toList connids)
                     st' = st {
                         qdiscBuffers = buffers

@@ -1,30 +1,30 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns              #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
 
 module Main where
 
-import System.Environment (getArgs)
-import Control.Monad
-import Data.Word (Word32)
-import Data.Time.Units
-import Data.Time.Clock.POSIX
-import Data.Vector (Vector, fromList)
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async
+import           Control.Concurrent.MVar
+import           Control.Monad
+import           Data.IORef
+import           Data.Time.Clock.POSIX
+import           Data.Time.Units
+import           Data.Vector (Vector, fromList)
 import qualified Data.Vector as V (length)
-import Data.IORef
-import Control.Concurrent.MVar
-import Control.Concurrent.Async
-import Control.Concurrent (threadDelay)
+import           Data.Word (Word32)
+import           Network.QDisc.Fair
+import           Network.Transport.TCP (QDisc (..), simpleOnePlaceQDisc, simpleUnboundedQDisc)
+import           Statistics.Distribution
+import           Statistics.Distribution.Exponential
+import           Statistics.Distribution.Normal
+import           Statistics.Distribution.Uniform
 import qualified Statistics.Sample as Sample
-import Statistics.Distribution
-import Statistics.Distribution.Uniform
-import Statistics.Distribution.Normal
-import Statistics.Distribution.Exponential
-import System.Random.MWC
-import Network.Transport.TCP (QDisc(..), simpleOnePlaceQDisc, simpleUnboundedQDisc)
-import Network.QDisc.Fair
+import           System.Environment (getArgs)
+import           System.Random.MWC
 
 -- | A writer is determined by some continuous distribution giving the duration
 --   (in microseconds) between successive data being made available.
@@ -36,7 +36,7 @@ data SimulationWriter = forall distr . ContGen distr => SimulationWriter distr
 data SimulationReader = forall distr . ContGen distr => SimulationReader distr
 
 data Scenario = Scenario {
-      sim_reader :: SimulationReader
+      sim_reader  :: SimulationReader
     , sim_writers :: [SimulationWriter]
     }
 
@@ -45,9 +45,9 @@ data SimulationParameters = SimulationParameters {
       -- | How long the simulation should run.
     , sim_duration :: Second
       -- | The QDisc to use.
-    , sim_qdisc :: QDisc ()
+    , sim_qdisc    :: QDisc ()
       -- | A seed for randomness.
-    , sim_seed :: Word32
+    , sim_seed     :: Word32
     }
 
 type Latency = Double
@@ -72,9 +72,9 @@ data QDiscChoice = Fair | OnePlace | Unbounded
 
 makeQDisc :: QDiscChoice -> IO (QDisc t)
 makeQDisc choice = case choice of
-    Fair -> fairQDisc (const (return Nothing))
+    Fair      -> fairQDisc (const (return Nothing))
     Unbounded -> simpleUnboundedQDisc
-    OnePlace -> simpleOnePlaceQDisc
+    OnePlace  -> simpleOnePlaceQDisc
 
 unfairScenario :: Scenario
 unfairScenario = Scenario {
@@ -189,7 +189,7 @@ main = do
     qdiscChoice <- case args of
         "unbounded" : _ -> putStrLn "Using unbounded QDisc" >> return Unbounded
         "one_place" : _ -> putStrLn "Using one-place QDisc" >> return OnePlace
-        _ -> putStrLn "Using fair QDisc" >> return Fair
+        _               -> putStrLn "Using fair QDisc" >> return Fair
     duration :: Int <- case args of
         _ : n : _ -> case reads n of
             [(n', "")] -> return n'

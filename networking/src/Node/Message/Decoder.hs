@@ -12,9 +12,9 @@ module Node.Message.Decoder
     , purePartial
     ) where
 
-import           Data.Int         (Int64)
-import qualified Data.ByteString  as BS
-import qualified Data.Text        as T
+import qualified Data.ByteString as BS
+import           Data.Int (Int64)
+import qualified Data.Text as T
 
 type ByteOffset = Int64
 
@@ -40,9 +40,9 @@ hoistDecoderStep
     -> DecoderStep m t
     -> DecoderStep n t
 hoistDecoderStep nat step = case step of
-    Done trailing offset t -> Done trailing offset t
+    Done trailing offset t   -> Done trailing offset t
     Fail trailing offset err -> Fail trailing offset err
-    Partial k -> Partial $ hoistDecoder nat . k
+    Partial k                -> Partial $ hoistDecoder nat . k
 
 -- | Feed input through a decoder.
 --
@@ -52,9 +52,9 @@ continueDecoding
     -> BS.ByteString
     -> m (DecoderStep m t)
 continueDecoding decoderStep bs = case decoderStep of
-    Done trailing offset t -> pure $ Done (BS.append trailing bs) offset t
+    Done trailing offset t   -> pure $ Done (BS.append trailing bs) offset t
     Fail trailing offset err -> pure $ Fail (BS.append trailing bs) offset err
-    Partial k -> runDecoder (k (Just bs))
+    Partial k                -> runDecoder (k (Just bs))
 
 
 pureDone :: Monad m => BS.ByteString -> ByteOffset -> t -> Decoder m t

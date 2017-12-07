@@ -4,8 +4,8 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Mockable.Exception (
 
@@ -32,7 +32,7 @@ module Mockable.Exception (
     ) where
 
 import           Control.Exception (Exception, SomeException)
-import           Mockable.Class    (MFunctor' (hoist'), Mockable (liftMockable))
+import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
 
 data Bracket (m :: * -> *) (t :: *) where
     Mask_ :: m a -> Bracket m a

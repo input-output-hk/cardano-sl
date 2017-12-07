@@ -24,12 +24,12 @@ module Node.Message.Class
     , MessageCode
     ) where
 
-import qualified Data.ByteString.Lazy          as LBS
-import           Data.Proxy                    (Proxy (..))
-import qualified Data.Text                     as T
-import           Data.Word                     (Word16)
-import qualified Formatting                    as F
-import           Node.Message.Decoder          (Decoder, hoistDecoder)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Proxy (Proxy (..))
+import qualified Data.Text as T
+import           Data.Word (Word16)
+import qualified Formatting as F
+import           Node.Message.Decoder (Decoder, hoistDecoder)
 
 -- * Message name
 
@@ -70,8 +70,8 @@ class ( PackingType packingType ) => Serializable packingType thing where
 -- monad.
 data Packing packingType m = Packing
     { packingType :: Proxy packingType
-    , packM :: forall t . PackM packingType t -> m t
-    , unpackM :: forall t . UnpackM packingType t -> m t
+    , packM       :: forall t . PackM packingType t -> m t
+    , unpackM     :: forall t . UnpackM packingType t -> m t
     }
 
 pack :: ( Serializable packingType t ) => Packing packingType m -> t -> m LBS.ByteString

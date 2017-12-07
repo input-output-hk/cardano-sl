@@ -1,40 +1,37 @@
 {-# LANGUAGE TypeApplications #-}
 
-import           Control.Applicative          (empty, (<|>))
-import           Control.Exception            (Exception)
-import           Control.Lens                 (at, (%=), (^.), _2, _Just)
-import           Control.Monad                (forM_)
-import           Control.Monad.Catch          (handle)
-import           Control.Monad.State          (StateT (..), evalStateT, execStateT, get,
-                                               modify)
-import           Control.Monad.Trans          (lift, liftIO)
+import           Control.Applicative (empty, (<|>))
+import           Control.Exception (Exception)
+import           Control.Lens (at, (%=), (^.), _2, _Just)
+import           Control.Monad (forM_)
+import           Control.Monad.Catch (handle)
+import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)
+import           Control.Monad.Trans (lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.Conduit                 (Source, yield, ($$), (=$=))
-import           Data.Conduit.Binary          (sinkFile, sourceFile)
-import qualified Data.Conduit.Binary          as CB
-import qualified Data.Conduit.List            as CL
-import           Data.Conduit.Text            (decode, encode, utf8)
-import           Data.List                    (intersperse)
-import qualified Data.Map                     as M
-import           Data.Text                    (Text)
-import           Data.Text.Buildable          (Buildable (..))
-import           Data.Typeable                (Typeable)
-import           Formatting                   (bprint, int, right, sformat, (%))
-import qualified Formatting                   as F
-import           System.IO                    (FilePath)
+import           Data.Conduit (Source, yield, ($$), (=$=))
+import           Data.Conduit.Binary (sinkFile, sourceFile)
+import qualified Data.Conduit.Binary as CB
+import qualified Data.Conduit.List as CL
+import           Data.Conduit.Text (decode, encode, utf8)
+import           Data.List (intersperse)
+import qualified Data.Map as M
+import           Data.Text (Text)
+import           Data.Text.Buildable (Buildable (..))
+import           Data.Typeable (Typeable)
+import           Formatting (bprint, int, right, sformat, (%))
+import qualified Formatting as F
+import           System.IO (FilePath)
 
-import           Data.Attoparsec.Text         (parseOnly)
-import           Options.Applicative.Simple   (simpleOptions)
+import           Data.Attoparsec.Text (parseOnly)
+import           Options.Applicative.Simple (simpleOptions)
 
-import           Bench.Network.Commons        (LogMessage (..), MeasureEvent (..),
-                                               MeasureInfo (..), MsgId, Payload (..),
-                                               Timestamp, logMessageParser,
-                                               measureInfoParser)
-import           LogReaderOptions             (Args (..), argsParser)
-import           System.Wlog                  (LoggerNameBox, Severity (Info),
-                                               initTerminalLogging, logError, logWarning,
-                                               usingLoggerName)
-import           System.Wlog.Formatter        (centiUtcTimeF)
+import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId,
+                                        Payload (..), Timestamp, logMessageParser,
+                                        measureInfoParser)
+import           LogReaderOptions (Args (..), argsParser)
+import           System.Wlog (LoggerNameBox, Severity (Info), initTerminalLogging, logError,
+                              logWarning, usingLoggerName)
+import           System.Wlog.Formatter (centiUtcTimeF)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])

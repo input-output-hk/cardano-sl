@@ -1,32 +1,31 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeApplications      #-}
 
 module Main where
 
-import           Control.Applicative        (empty)
-import           Control.Monad              (unless)
+import           Control.Applicative (empty)
+import           Control.Monad (unless)
 
-import           Data.Time.Units            (Second)
-import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
+import           Data.Time.Units (Second)
+import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
-import           Serokell.Util.Concurrent   (threadDelay)
-import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName)
+import           Serokell.Util.Concurrent (threadDelay)
+import           System.Random (mkStdGen)
+import           System.Wlog (usingLoggerName)
 
-import           Mockable                   (Production (runProduction))
+import           Mockable (Production (runProduction))
 
-import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong (..),
-                                             loadLogConfig, logMeasure)
-import qualified Network.Transport.TCP      as TCP
+import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
+                                        logMeasure)
 import           Network.Transport.Concrete (concrete)
-import           Node                       (Listener (..), NodeAction (..), node,
-                                             defaultNodeEnvironment, ConversationActions (..),
-                                             simpleNodeEndPoint, noReceiveDelay)
-import           Node.Message.Binary        (binaryPacking)
-import           ReceiverOptions            (Args (..), argsParser)
+import qualified Network.Transport.TCP as TCP
+import           Node (ConversationActions (..), Listener (..), NodeAction (..),
+                       defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
+import           Node.Message.Binary (binaryPacking)
+import           ReceiverOptions (Args (..), argsParser)
 
 main :: IO ()
 main = do

@@ -12,15 +12,15 @@ module Node.Message.Store
     , storeDecoder
     ) where
 
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as LBS
-import           Data.Functor.Identity      (Identity (..))
-import           Data.Proxy                 (Proxy (..))
-import qualified Data.Store                 as Store
-import           Data.Word                  (Word32)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Functor.Identity (Identity (..))
+import           Data.Proxy (Proxy (..))
+import qualified Data.Store as Store
+import           Data.Word (Word32)
 import qualified Network.Transport.Internal as NT (decodeWord32, encodeWord32)
-import           Node.Message.Class         (Serializable (..), PackingType (..), Packing (..))
-import           Node.Message.Decoder       (Decoder (..), DecoderStep (..))
+import           Node.Message.Class (Packing (..), PackingType (..), Serializable (..))
+import           Node.Message.Decoder (Decoder (..), DecoderStep (..))
 
 data StoreP
 

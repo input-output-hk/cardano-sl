@@ -1,28 +1,29 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE NamedFieldPuns        #-}
 
 -- | Demo for the outbound queue
 module Network.Broadcast.OutboundQueue.Demo where
 
-import Control.Concurrent
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Function
-import Data.Set (Set)
-import Data.Text (Text)
-import Formatting (sformat, (%), shown)
-import System.Wlog
-import qualified Data.Set as Set
 
-import Network.Broadcast.OutboundQueue (OutboundQ)
-import Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
-import qualified Network.Broadcast.OutboundQueue as OutQ
+import           Control.Concurrent
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Data.Function
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import           Data.Text (Text)
+import           Formatting (sformat, shown, (%))
+import           System.Wlog
+
 import qualified Mockable as M
+import           Network.Broadcast.OutboundQueue (OutboundQ)
+import qualified Network.Broadcast.OutboundQueue as OutQ
+import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
 
 {-------------------------------------------------------------------------------
   Demo monads
@@ -201,10 +202,10 @@ nodeForwardListener node = forever $ do
       let sender = msgSender msgData
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
-            MsgRequestBlocks _ -> Nothing
+            MsgRequestBlocks _       -> Nothing
             MsgRequestBlockHeaders _ -> Nothing
-            MsgTransaction _ -> Just (MsgTransaction (OriginForward sender))
-            MsgMPC _ -> Just (MsgMPC (OriginForward sender))
+            MsgTransaction _         -> Just (MsgTransaction (OriginForward sender))
+            MsgMPC _                 -> Just (MsgMPC (OriginForward sender))
       case forwardMsgType of
         Nothing -> return ()
         Just msgType' -> void $

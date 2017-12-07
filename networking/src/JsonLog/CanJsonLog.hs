@@ -1,9 +1,9 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE DefaultSignatures  #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE PolyKinds          #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 {-|
 Module      : JsonLog.CanJsonLog
@@ -22,15 +22,15 @@ module JsonLog.CanJsonLog
     , jsonLogWrappedM
     ) where
 
-import Control.Monad.Reader         (ReaderT)
-import Control.Monad.State          (StateT)
-import Control.Monad.Writer         (WriterT)
-import Control.Monad.Trans.Class    (MonadTrans (..))
-import Control.Monad.Trans.Identity (IdentityT)
-import Control.Monad.Trans.Resource (ResourceT)
-import Data.Aeson.Types             (ToJSON)
-import Serokell.Util.Lens           (WrappedM (..))
-import System.Wlog.LoggerNameBox    (LoggerNameBox)
+import           Control.Monad.Reader (ReaderT)
+import           Control.Monad.State (StateT)
+import           Control.Monad.Trans.Class (MonadTrans (..))
+import           Control.Monad.Trans.Identity (IdentityT)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Control.Monad.Writer (WriterT)
+import           Data.Aeson.Types (ToJSON)
+import           Serokell.Util.Lens (WrappedM (..))
+import           System.Wlog.LoggerNameBox (LoggerNameBox)
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.

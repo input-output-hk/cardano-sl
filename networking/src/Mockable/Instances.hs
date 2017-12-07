@@ -9,17 +9,17 @@ module Mockable.Instances
        ( liftMockableWrappedM
        ) where
 
-import           Control.Lens               (view)
+import           Control.Lens (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))
-import           Serokell.Util.Lens         (WrappedM (..), _UnwrappedM)
-import           System.Wlog                (LoggerName, LoggerNameBox)
+import           Serokell.Util.Lens (WrappedM (..), _UnwrappedM)
+import           System.Wlog (LoggerName, LoggerNameBox)
 
-import           Mockable.Channel           (ChannelT)
-import           Mockable.Class             (MFunctor' (..), Mockable (..))
-import           Mockable.Concurrent        (Promise, ThreadId)
-import           Mockable.SharedAtomic      (SharedAtomicT)
-import           Mockable.SharedExclusive   (SharedExclusiveT)
+import           Mockable.Channel (ChannelT)
+import           Mockable.Class (MFunctor' (..), Mockable (..))
+import           Mockable.Concurrent (Promise, ThreadId)
 import           Mockable.Metrics
+import           Mockable.SharedAtomic (SharedAtomicT)
+import           Mockable.SharedExclusive (SharedExclusiveT)
 
 instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
     liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt

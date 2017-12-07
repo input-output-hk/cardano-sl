@@ -11,6 +11,7 @@ module Test.NodeSpec
        ( spec
        ) where
 
+
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, when)

@@ -1,45 +1,42 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
-import           Control.Applicative            (empty, liftA2)
-import           Control.Lens                   (makeLenses, (+=))
-import           Control.Monad                  (forM, forM_)
-import           Control.Monad.Random           (evalRandT, getRandomR)
-import           Control.Monad.State            (evalStateT, get, put)
-import           Control.Monad.Trans            (MonadIO (liftIO), lift)
+import           Control.Applicative (empty, liftA2)
+import           Control.Lens (makeLenses, (+=))
+import           Control.Monad (forM, forM_)
+import           Control.Monad.Random (evalRandT, getRandomR)
+import           Control.Monad.State (evalStateT, get, put)
+import           Control.Monad.Trans (MonadIO (liftIO), lift)
 
-import           Data.Time.Units                (Microsecond, Second, convertUnit)
-import           GHC.IO.Encoding                (setLocaleEncoding, utf8)
-import qualified Network.Transport.TCP          as TCP
+import           Data.Time.Units (Microsecond, Second, convertUnit)
+import           GHC.IO.Encoding (setLocaleEncoding, utf8)
+import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
-import           Options.Applicative.Simple     (simpleOptions)
-import           Serokell.Util.Concurrent       (threadDelay)
-import           System.Random                  (mkStdGen)
-import           System.Wlog                    (LoggerNameBox, usingLoggerName)
+import           Options.Applicative.Simple (simpleOptions)
+import           Serokell.Util.Concurrent (threadDelay)
+import           System.Random (mkStdGen)
+import           System.Wlog (LoggerNameBox, usingLoggerName)
 
-import           Mockable                       (Production, delay, fork, realTime,
-                                                 runProduction)
-import qualified Network.Transport.Abstract     as NT
-import           Network.Transport.Concrete     (concrete)
-import           Node                           (NodeAction (..), node, Node(Node),
-                                                 Conversation (..), ConversationActions (..),
-                                                 defaultNodeEnvironment, simpleNodeEndPoint,
-                                                 noReceiveDelay, converseWith)
-import           Node.Internal                  (NodeId (..))
-import           Node.Message.Binary            (binaryPacking)
+import           Mockable (Production, delay, fork, realTime, runProduction)
+import qualified Network.Transport.Abstract as NT
+import           Network.Transport.Concrete (concrete)
+import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
+                       converseWith, defaultNodeEnvironment, noReceiveDelay, node,
+                       simpleNodeEndPoint)
+import           Node.Internal (NodeId (..))
+import           Node.Message.Binary (binaryPacking)
 
 
-import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),
-                                                 Ping (..), Pong (..), loadLogConfig,
-                                                 logMeasure)
-import           SenderOptions                  (Args (..), argsParser)
+import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
+                                        loadLogConfig, logMeasure)
+import           SenderOptions (Args (..), argsParser)
 
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond

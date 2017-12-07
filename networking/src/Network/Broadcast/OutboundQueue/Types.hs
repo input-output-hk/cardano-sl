@@ -1,39 +1,39 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
-module Network.Broadcast.OutboundQueue.Types (
-    EnqueueTo (..)
-  , Peers (..)
-  , classifyNode
-  , classifyNodeDefault
-  , Routes (..)
-  , AllOf
-  , Alts
-  , routesOfType
-  , simplePeers
-  , peersFromList
-  , peersRouteSet
-  , peersSet
-  , removePeer
-  , restrictPeers
-  , MsgType(..)
-  , Origin(..)
-  , msgOrigin
-  , msgEnqueueTo
-  , NodeType(..)
-  , FormatMsg(..)
-  ) where
+module Network.Broadcast.OutboundQueue.Types
+    ( EnqueueTo(..)
+    , Peers(..)
+    , classifyNode
+    , classifyNodeDefault
+    , Routes(..)
+    , AllOf
+    , Alts
+    , routesOfType
+    , simplePeers
+    , peersFromList
+    , peersRouteSet
+    , peersSet
+    , removePeer
+    , restrictPeers
+    , MsgType(..)
+    , Origin(..)
+    , msgOrigin
+    , msgEnqueueTo
+    , NodeType(..)
+    , FormatMsg(..)
+    ) where
 
-import Data.Bifunctor (second)
-import Data.Map (Map)
+import           Control.Lens
+import           Data.Bifunctor (second)
+import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
-import Data.Set (Set)
+import           Data.Maybe (mapMaybe)
+import           Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Maybe (mapMaybe)
-import Control.Lens
-import Test.QuickCheck as QC
-import Formatting
+import           Formatting
+import           Test.QuickCheck as QC
 
 -- | Node types
 data NodeType =
@@ -280,16 +280,16 @@ data MsgType nid =
 msgOrigin :: MsgType nid -> Origin nid
 msgOrigin msg = case msg of
   MsgAnnounceBlockHeader origin -> origin
-  MsgRequestBlockHeaders _ -> OriginSender
-  MsgRequestBlocks _ -> OriginSender
-  MsgTransaction origin -> origin
-  MsgMPC origin -> origin
+  MsgRequestBlockHeaders _      -> OriginSender
+  MsgRequestBlocks _            -> OriginSender
+  MsgTransaction origin         -> origin
+  MsgMPC origin                 -> origin
 
 msgEnqueueTo :: MsgType nid -> EnqueueTo nid
 msgEnqueueTo msg = case msg of
   MsgRequestBlockHeaders (Just peers) -> EnqueueToSubset peers
-  MsgRequestBlocks peers -> EnqueueToSubset peers
-  _ -> EnqueueToAll
+  MsgRequestBlocks peers              -> EnqueueToSubset peers
+  _                                   -> EnqueueToAll
 
 class FormatMsg msg where
   formatMsg :: forall r a. Format r (msg a -> r)

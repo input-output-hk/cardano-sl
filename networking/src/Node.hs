@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -13,7 +14,6 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE BangPatterns               #-}
 
 module Node (
 
@@ -56,35 +56,34 @@ module Node (
 
     ) where
 
-import           Control.Exception          (SomeException, Exception(..))
-import           Control.Monad              (unless, when)
-import           Control.Monad.Fix          (MonadFix)
-import qualified Data.ByteString            as BS
-import           Data.Map.Strict            (Map)
-import qualified Data.Map.Strict            as M
-import           Data.Proxy                 (Proxy (..))
-import qualified Data.Text                  as T
-import           Data.Typeable              (Typeable)
-import           Data.Word                  (Word32)
-import           Formatting                 (sformat, shown, (%))
-import qualified Mockable.Channel           as Channel
+import           Control.Exception (Exception (..), SomeException)
+import           Control.Monad (unless, when)
+import           Control.Monad.Fix (MonadFix)
+import qualified Data.ByteString as BS
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import           Data.Proxy (Proxy (..))
+import qualified Data.Text as T
+import           Data.Typeable (Typeable)
+import           Data.Word (Word32)
+import           Formatting (sformat, shown, (%))
+import qualified Mockable.Channel as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.CurrentTime
 import           Mockable.Exception
-import qualified Mockable.Metrics           as Metrics
+import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
 import qualified Network.Transport.Abstract as NT
 import           Node.Conversation
-import           Node.Internal              (ChannelIn, ChannelOut)
-import qualified Node.Internal              as LL
-import           Node.Message.Class         (Serializable (..), MessageCode,
-                                             Message (..), Packing, pack, unpack)
-import           Node.Message.Decoder       (Decoder (..), DecoderStep (..),
-                                             ByteOffset, continueDecoding)
-import           System.Random              (StdGen)
-import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
+import           Node.Internal (ChannelIn, ChannelOut)
+import qualified Node.Internal as LL
+import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
+                                     unpack)
+import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
+import           System.Random (StdGen)
+import           System.Wlog (WithLogger, logDebug, logError, logInfo)
 
 data Node m = Node {
       nodeId         :: LL.NodeId
@@ -367,7 +366,7 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
 --
 --   An empty ByteString will never be passed to a decoder.
 recvNext
-    :: forall packing m thing . 
+    :: forall packing m thing .
        ( Mockable Channel.Channel m
        , Mockable Throw m
        , Serializable packing thing

@@ -14,43 +14,37 @@ module NTP.Client
     , hoistNtpClientSettings
     ) where
 
-import           Control.Concurrent.STM      (atomically, modifyTVar')
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
-                                              writeTVar)
-import           Control.Exception.Lifted    (bracketOnError)
-import           Control.Lens                ((%=), (.=), _Just)
-import           Control.Monad               (forM_, forever, unless, void, when)
-import           Control.Monad.Catch         (Exception, MonadCatch, catchAll, handleAll,
-                                              throwM)
-import           Control.Monad.State         (gets)
-import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Concurrent.STM (atomically, modifyTVar')
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO, writeTVar)
+import           Control.Exception.Lifted (bracketOnError)
+import           Control.Lens ((%=), (.=), _Just)
+import           Control.Monad (forM_, forever, unless, void, when)
+import           Control.Monad.Catch (Exception, MonadCatch, catchAll, handleAll, throwM)
+import           Control.Monad.State (gets)
+import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Binary                 (decodeOrFail, encode)
-import qualified Data.ByteString.Lazy        as LBS
-import           Data.Default                (Default (..))
-import           Data.List                   (sortOn)
-import           Data.Maybe                  (catMaybes, isNothing)
-import           Data.Monoid                 ((<>))
-import           Data.Text                   (Text)
-import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
-import           Data.Typeable               (Typeable)
-import           Formatting                  (sformat, shown, (%))
-import           Network.Socket              (AddrInfo, SockAddr (..), Socket,
-                                              addrAddress, addrFamily, close)
-import           Network.Socket.ByteString   (recvFrom, sendTo)
-import           Prelude                     hiding (log)
-import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
-import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
-                                              logMessage, modifyLoggerName)
-import           Universum                   (whenJust)
+import           Data.Binary (decodeOrFail, encode)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Default (Default (..))
+import           Data.List (sortOn)
+import           Data.Maybe (catMaybes, isNothing)
+import           Data.Monoid ((<>))
+import           Data.Text (Text)
+import           Data.Time.Units (Microsecond, Second, toMicroseconds)
+import           Data.Typeable (Typeable)
+import           Formatting (sformat, shown, (%))
+import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
+import           Network.Socket.ByteString (recvFrom, sendTo)
+import           Prelude hiding (log)
+import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
+import           System.Wlog (LoggerName, Severity (..), WithLogger, logMessage, modifyLoggerName)
+import           Universum (whenJust)
 
-import           Mockable.Class              (Mockable)
-import           Mockable.Concurrent         (Delay, Fork, delay, fork)
-import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
-                                              mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util                    (createAndBindSock, resolveNtpHost,
-                                              selectIPv4, selectIPv6, udpLocalAddresses,
-                                              withSocketsDoLifted)
+import           Mockable.Class (Mockable)
+import           Mockable.Concurrent (Delay, Fork, delay, fork)
+import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
+import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
+                           udpLocalAddresses, withSocketsDoLifted)
 
 data NtpClientSettings m = NtpClientSettings
     { ntpServers         :: [String]

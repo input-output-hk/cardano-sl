@@ -1,9 +1,9 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Mockable.Metrics (
 
@@ -29,8 +29,8 @@ module Mockable.Metrics (
 
     ) where
 
-import Data.Int (Int64)
-import Mockable.Class
+import           Data.Int (Int64)
+import           Mockable.Class
 
 type family Gauge (m :: * -> *) :: *
 type family Counter (m :: * -> *) :: *
@@ -38,12 +38,12 @@ type family Distribution (m :: * -> *) :: *
 
 -- | Various statistics.
 data Stats = Stats {
-      mean :: Double
+      mean     :: Double
     , variance :: Double
-    , count :: Int64
-    , sum :: Double
-    , min :: Double
-    , max :: Double
+    , count    :: Int64
+    , sum      :: Double
+    , min      :: Double
+    , max      :: Double
     }
 
 -- | Counters, gauages, and distributions.
@@ -71,18 +71,18 @@ instance
     where
     hoist' _ term = case term of
 
-        NewGauge -> NewGauge
-        IncGauge gauge -> IncGauge gauge
-        DecGauge gauge -> DecGauge gauge
-        SetGauge gauge n -> SetGauge gauge n
-        ReadGauge gauge -> ReadGauge gauge
+        NewGauge               -> NewGauge
+        IncGauge gauge         -> IncGauge gauge
+        DecGauge gauge         -> DecGauge gauge
+        SetGauge gauge n       -> SetGauge gauge n
+        ReadGauge gauge        -> ReadGauge gauge
 
-        NewCounter -> NewCounter
-        IncCounter counter -> IncCounter counter
-        ReadCounter counter -> ReadCounter counter
+        NewCounter             -> NewCounter
+        IncCounter counter     -> IncCounter counter
+        ReadCounter counter    -> ReadCounter counter
 
-        NewDistribution -> NewDistribution
-        AddSample distr s -> AddSample distr s
+        NewDistribution        -> NewDistribution
+        AddSample distr s      -> AddSample distr s
         ReadDistribution distr -> ReadDistribution distr
 
 {-# INLINE newGauge #-}

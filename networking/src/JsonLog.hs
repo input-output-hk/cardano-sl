@@ -16,6 +16,6 @@ module JsonLog
     , module JsonLog.JsonLogT
     ) where
 
-import JsonLog.CanJsonLog
-import JsonLog.Event
-import JsonLog.JsonLogT
+import           JsonLog.CanJsonLog
+import           JsonLog.Event
+import           JsonLog.JsonLogT

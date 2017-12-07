@@ -9,10 +9,10 @@ module Data.NonEmptySet (
 
     ) where
 
+import           Data.Foldable (foldrM)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Data.List.NonEmpty (NonEmpty((:|)))
-import           Data.Foldable (foldrM)
 
 -- | A set (no duplicates) with at least one element.
 data NonEmptySet t = NonEmptySet !t !(Set t)
@@ -35,8 +35,8 @@ insert t nes@(NonEmptySet t' set) = case t `compare` t' of
 --   set, 'Nothing' is given.
 delete :: Ord t => t -> NonEmptySet t -> Maybe (NonEmptySet t)
 delete t (NonEmptySet t' set) = case (t == t', S.minView set) of
-    (False, _) -> Just $ NonEmptySet t' (S.delete t set)
-    (True, Nothing) -> Nothing
+    (False, _)               -> Just $ NonEmptySet t' (S.delete t set)
+    (True, Nothing)          -> Nothing
     (True, Just (t'', set')) -> Just $ NonEmptySet t'' set'
 
 deleteMany :: Ord t => [t] -> NonEmptySet t -> Maybe (NonEmptySet t)

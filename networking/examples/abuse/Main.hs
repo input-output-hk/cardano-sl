@@ -1,28 +1,28 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE BangPatterns       #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad (unless)
-import           GHC.Generics (Generic)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.String (fromString)
+import           Data.Binary (Binary)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import           Data.Binary (Binary)
+import           Data.String (fromString)
+import           Data.Time.Units
+import           GHC.Generics (Generic)
+import           Mockable.Concurrent (async, cancel, delay, wait)
+import           Mockable.Production
+import           Mockable.SharedAtomic
 import           Network.Transport.Abstract
 import           Network.Transport.Concrete
-import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.Concrete.TCP as TCP
+import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message
 import           Node.Util.Monitor (startMonitor)
 import           System.Environment (getArgs)
 import           System.Random (mkStdGen)
-import           Data.Time.Units
-import           Mockable.Concurrent (delay, async, wait, cancel)
-import           Mockable.SharedAtomic
-import           Mockable.Production
 
 -- |
 -- = Abuse demonstration number 1.
@@ -73,7 +73,7 @@ data QDiscChoice = OnePlace | Unbounded
 
 makeQDisc :: QDiscChoice -> IO (TCP.QDisc t)
 makeQDisc choice = case choice of
-    OnePlace -> TCP.simpleOnePlaceQDisc
+    OnePlace  -> TCP.simpleOnePlaceQDisc
     Unbounded -> TCP.simpleUnboundedQDisc
 
 server :: String -> QDiscChoice -> Production ()
@@ -149,7 +149,7 @@ client serverPort clientPort = do
             wait spammer3
             wait spammer4
             modifySharedAtomic totalBytes $ \total -> return (total, fst total)
-            
+
     closeTransport transport
 
     liftIO . putStrLn $ "Client sent " ++ show totalBytes ++ " bytes"

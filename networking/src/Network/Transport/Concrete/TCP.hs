@@ -7,7 +7,7 @@ module Network.Transport.Concrete.TCP (
 
     ) where
 
-import Network.Transport.Abstract
+import           Network.Transport.Abstract
 import qualified Network.Transport.Concrete as C
 import qualified Network.Transport.TCP as TCP
 

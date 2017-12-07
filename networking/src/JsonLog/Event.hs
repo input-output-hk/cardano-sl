@@ -1,6 +1,6 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GADTs #-}
 
 {-|
 Module      : JsonLog.Event
@@ -14,7 +14,7 @@ This module defines types of JSON log events
 and functions to work with them.
 
 Seeing as method @'JsonLog.CanJsonLog.jsonLog'@ allows to log events of arbitraby types
-which can be serialized to JSON, for the /parsing/ of JSON logs, 
+which can be serialized to JSON, for the /parsing/ of JSON logs,
 three scenarios are supported:
 
   (1) If /all/ events are known to be of the same type @a@,
@@ -39,14 +39,14 @@ module JsonLog.Event
     , handleEvent
     ) where
 
-import Control.Monad.IO.Class (MonadIO)
-import Data.Aeson 
-import Data.Time.Units        (Microsecond)
+import           Control.Monad.IO.Class (MonadIO)
+import           Data.Aeson
+import           Data.Time.Units (Microsecond)
 
-import Mockable.CurrentTime   (realTime)
+import           Mockable.CurrentTime (realTime)
 
 -- | A /typed/ JSON log events.
-data JLTimed a = JLTimed 
+data JLTimed a = JLTimed
     { jltTimestamp :: !Microsecond -- ^ The timestamp.
     , jltContent   :: !a           -- ^ The typed event content.
     }
@@ -63,7 +63,7 @@ instance FromJSON a => FromJSON (JLTimed a) where
         x                            <- parseJSON v'
         return $ JLTimed ts x
 
--- | A wrapper around @'JLTimed' 'Value'@, representing 
+-- | A wrapper around @'JLTimed' 'Value'@, representing
 -- /untyped/ JSON log events.
 newtype JLTimedEvent = JLTimedEvent { runJLTimedEvent :: JLTimed Value }
     deriving Show
@@ -77,7 +77,7 @@ instance ToJSON JLTimedEvent where
 
 instance FromJSON JLTimedEvent where
 
-    parseJSON = withObject "JLTimedEvent" $ \v -> JLTimedEvent <$> 
+    parseJSON = withObject "JLTimedEvent" $ \v -> JLTimedEvent <$>
         (JLTimed
             <$> (f <$> v .: "timestamp")
             <*>        v .: "event")

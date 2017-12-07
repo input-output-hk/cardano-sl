@@ -46,8 +46,8 @@ module Mockable.Concurrent (
 
   ) where
 
-import           Control.Exception  (AsyncException (ThreadKilled), Exception)
-import           Data.Time.Units    (TimeUnit)
+import           Control.Exception (AsyncException (ThreadKilled), Exception)
+import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 import           Mockable.Exception
 

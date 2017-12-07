@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Network.Transport.Concrete
@@ -10,8 +10,8 @@ module Network.Transport.Concrete
        , concreteConnection
        ) where
 
-import           Control.Monad.IO.Class     (MonadIO, liftIO)
-import qualified Network.Transport          as NT
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import qualified Network.Transport as NT
 
 import           Network.Transport.Abstract
 

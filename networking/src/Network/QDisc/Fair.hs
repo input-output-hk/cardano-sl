@@ -1,7 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Network.QDisc.Fair (
 
@@ -9,11 +9,11 @@ module Network.QDisc.Fair (
 
     ) where
 
-import Control.Concurrent.STM
-import Control.Concurrent (threadDelay)
-import Network.Transport (EndPointAddress)
-import Network.Transport.TCP (QDisc(..))
-import Data.Time.Units (Microsecond)
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.STM
+import           Data.Time.Units (Microsecond)
+import           Network.Transport (EndPointAddress)
+import           Network.Transport.TCP (QDisc (..))
 
 -- | Make a fair 'QDisc'. It's called fair, but it can also be unfair if you
 --   want it to be, by having some 'EndPointAddress's delay before writing.

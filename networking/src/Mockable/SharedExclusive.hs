@@ -30,11 +30,11 @@ data SharedExclusive (m :: * -> *) (t :: *) where
     TryPutSharedExclusive :: SharedExclusiveT m t -> t -> SharedExclusive m Bool
 
 instance (SharedExclusiveT n ~ SharedExclusiveT m) => MFunctor' SharedExclusive m n where
-    hoist' _ NewSharedExclusive = NewSharedExclusive
-    hoist' _ (PutSharedExclusive var t) = PutSharedExclusive var t
-    hoist' _ (TakeSharedExclusive var) = TakeSharedExclusive var
+    hoist' _ NewSharedExclusive              = NewSharedExclusive
+    hoist' _ (PutSharedExclusive var t)      = PutSharedExclusive var t
+    hoist' _ (TakeSharedExclusive var)       = TakeSharedExclusive var
     hoist' nat (ModifySharedExclusive var f) = ModifySharedExclusive var (nat . f)
-    hoist' _ (TryPutSharedExclusive var t) = TryPutSharedExclusive var t
+    hoist' _ (TryPutSharedExclusive var t)   = TryPutSharedExclusive var t
 
 {-# INLINE newSharedExclusive #-}
 newSharedExclusive :: ( Mockable SharedExclusive m ) => m (SharedExclusiveT m t)

@@ -1,20 +1,20 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE RankNTypes       #-}
 
 module Node.Util.Monitor (
       registerMetrics
     ) where
 
-import Control.Monad.IO.Class
-import Mockable.Class
+import           Control.Monad.IO.Class
+import           Data.Monoid ((<>))
 import qualified Data.Text as T
-import Data.Monoid ((<>))
+import           Mockable.Class
 import qualified Mockable.Metrics as Metrics
+import           Node
 import qualified System.Metrics as Monitoring
 import qualified System.Metrics.Distribution as Monitoring.Distribution
-import Node
 
 -- | Put time-warp related metrics into an EKG store.
 --   You must indicate how to run the monad into IO, so that EKG can produce

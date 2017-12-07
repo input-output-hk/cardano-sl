@@ -13,23 +13,19 @@ module NTP.Util
     , withSocketsDoLifted
     ) where
 
-import           Control.Monad.Catch         (catchAll)
-import           Control.Monad.Trans         (MonadIO (..))
+import           Control.Monad.Catch (catchAll)
+import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Data.List                   (sortOn)
-import           Data.List                   (find)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
-import           Data.Time.Units             (Microsecond, fromMicroseconds)
-import           Network.Socket              (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG),
-                                              AddrInfoFlag (AI_PASSIVE),
-                                              Family (AF_INET, AF_INET6), PortNumber (..),
-                                              SockAddr (..), Socket,
-                                              SocketOption (ReuseAddr),
-                                              SocketType (Datagram), aNY_PORT,
-                                              addrAddress, addrFamily, addrFlags,
-                                              addrSocketType, bind, defaultHints,
-                                              defaultProtocol, getAddrInfo,
-                                              setSocketOption, socket)
+import           Data.List (sortOn)
+import           Data.List (find)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Microsecond, fromMicroseconds)
+import           Network.Socket (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG), AddrInfoFlag (AI_PASSIVE),
+                                 Family (AF_INET, AF_INET6), PortNumber (..), SockAddr (..), Socket,
+                                 SocketOption (ReuseAddr), SocketType (Datagram), aNY_PORT,
+                                 addrAddress, addrFamily, addrFlags, addrSocketType, bind,
+                                 defaultHints, defaultProtocol, getAddrInfo, setSocketOption,
+                                 socket)
 
 ntpPort :: PortNumber
 ntpPort = 123

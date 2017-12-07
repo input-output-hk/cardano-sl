@@ -21,32 +21,31 @@ module Bench.Network.Commons
        , logMessageParser
        ) where
 
-import           Control.Applicative  ((<|>))
-import           Control.Lens         (zoom, (?=))
-import           Control.Monad        (join)
-import           Control.Monad.Trans  (MonadIO (..))
+import           Control.Applicative ((<|>))
+import           Control.Lens (zoom, (?=))
+import           Control.Monad (join)
+import           Control.Monad.Trans (MonadIO (..))
 
 import           Data.Attoparsec.Text (Parser, char, decimal, string, takeWhile)
-import           Data.Binary          (Binary)
-import           Data.Binary          (Binary (..))
+import           Data.Binary (Binary)
+import           Data.Binary (Binary (..))
 import qualified Data.ByteString.Lazy as BL
-import           Data.Data            (Data)
-import           Data.Functor         (($>))
-import           Data.Int             (Int64)
-import           Data.Monoid          ((<>))
-import           Data.Text.Buildable  (Buildable (build))
-import           Data.Time.Units      (toMicroseconds)
+import           Data.Data (Data)
+import           Data.Functor (($>))
+import           Data.Int (Int64)
+import           Data.Monoid ((<>))
+import           Data.Text.Buildable (Buildable (build))
+import           Data.Time.Units (toMicroseconds)
 
-import qualified Formatting           as F
-import           GHC.Generics         (Generic)
-import           Prelude              hiding (takeWhile)
-import           System.Wlog          (LoggerConfig (..), Severity (..), WithLogger,
-                                       fromScratch, lcTree, logInfo, ltSeverity,
-                                       parseLoggerConfig, productionB, setupLogging,
-                                       zoomLogger)
+import qualified Formatting as F
+import           GHC.Generics (Generic)
+import           Prelude hiding (takeWhile)
+import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, fromScratch, lcTree,
+                              logInfo, ltSeverity, parseLoggerConfig, productionB, setupLogging,
+                              zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
-import           Node                 (Message (..))
+import           Node (Message (..))
 
 -- * Transfered data types
 

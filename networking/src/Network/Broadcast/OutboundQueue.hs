@@ -12,6 +12,7 @@
   * IERs_V2.md
 -------------------------------------------------------------------------------}
 
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE KindSignatures            #-}
@@ -77,37 +78,37 @@ module Network.Broadcast.OutboundQueue (
   , currentlyInFlight
   ) where
 
-import Control.Concurrent
-import Control.Exception
-import Control.Lens
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Either (rights)
-import Data.Foldable (fold)
-import Data.List (sortBy, intercalate)
-import Data.Map.Strict (Map)
-import Data.Maybe (fromMaybe, maybeToList)
-import Data.Monoid ((<>))
-import Data.Ord (comparing)
-import Data.Set (Set)
-import Data.Text (Text)
-import Data.Time
-import Data.Typeable (typeOf)
-import Formatting (Format, sformat, (%), shown, string)
-import System.Metrics.Counter (Counter)
-import System.Wlog.CanLog (WithLogger, logDebug)
-import System.Wlog.Severity (Severity(..))
-import qualified Data.Map.Strict        as Map
-import qualified Data.Set               as Set
-import qualified Data.Text              as T
-import qualified System.Metrics         as Monitoring
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Lens
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Data.Either (rights)
+import           Data.Foldable (fold)
+import           Data.List (intercalate, sortBy)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe, maybeToList)
+import           Data.Monoid ((<>))
+import           Data.Ord (comparing)
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import           Data.Text (Text)
+import qualified Data.Text as T
+import           Data.Time
+import           Data.Typeable (typeOf)
+import           Formatting (Format, sformat, shown, string, (%))
+import qualified System.Metrics as Monitoring
+import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
-import qualified System.Wlog.CanLog     as Log
+import           System.Wlog.CanLog (WithLogger, logDebug)
+import qualified System.Wlog.CanLog as Log
+import           System.Wlog.Severity (Severity (..))
 
-import Network.Broadcast.OutboundQueue.Types
-import Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
-import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
 import qualified Mockable as M
+import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
+import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
+import           Network.Broadcast.OutboundQueue.Types
 
 {-------------------------------------------------------------------------------
   Precedence levels
@@ -190,7 +191,7 @@ type EnqueuePolicy nid =
 
 data Dequeue = Dequeue {
       -- | Delay before sending the next message (to this node)
-      deqRateLimit :: RateLimit
+      deqRateLimit   :: RateLimit
 
       -- | Maximum number of in-flight messages (to this node node)
     , deqMaxInFlight :: MaxInFlight
@@ -230,24 +231,24 @@ newtype ReconsiderAfter = ReconsiderAfter NominalDiffTime
 -- | The values we store in the multiqueue
 data Packet msg nid a = Packet {
     -- | The actual payload of the message
-    packetPayload :: msg a
+    packetPayload  :: msg a
 
     -- | Type of the message
-  , packetMsgType :: MsgType nid
+  , packetMsgType  :: MsgType nid
 
     -- | Type of the node the packet needs to be sent to
   , packetDestType :: NodeType
 
     -- | Node to send it to
-  , packetDestId :: nid
+  , packetDestId   :: nid
 
     -- | Precedence of the message
-  , packetPrec :: Precedence
+  , packetPrec     :: Precedence
 
     -- | MVar filled with the result of the sent action
     --
     -- (empty when enqueued)
-  , packetSent :: MVar (Either SomeException a)
+  , packetSent     :: MVar (Either SomeException a)
   }
 
 -- | Hide the 'a' type parameter
@@ -347,50 +348,50 @@ data OutboundQ msg nid buck = ( FormatMsg msg
                               , Show buck
                               ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
-      qSelf :: String
+      qSelf            :: String
 
       -- | Enqueuing policy
-    , qEnqueuePolicy :: EnqueuePolicy nid
+    , qEnqueuePolicy   :: EnqueuePolicy nid
 
       -- | Dequeueing policy
-    , qDequeuePolicy :: DequeuePolicy
+    , qDequeuePolicy   :: DequeuePolicy
 
       -- | Failure policy
-    , qFailurePolicy :: FailurePolicy nid
+    , qFailurePolicy   :: FailurePolicy nid
 
       -- | Maximum size of the buckets
-    , qMaxBucketSize :: buck -> MaxBucketSize
+    , qMaxBucketSize   :: buck -> MaxBucketSize
 
       -- | Assumed type of unknown nodes
     , qUnknownNodeType :: nid -> NodeType
 
       -- | Messages sent but not yet acknowledged
-    , qInFlight :: MVar (InFlight nid)
+    , qInFlight        :: MVar (InFlight nid)
 
       -- | Nodes that we should not send any messages to right now because
       -- of rate limiting
-    , qRateLimited :: MVar (Set nid)
+    , qRateLimited     :: MVar (Set nid)
 
       -- | Messages scheduled but not yet sent
-    , qScheduled :: MQ msg nid
+    , qScheduled       :: MQ msg nid
 
       -- | Buckets with known peers
       --
       -- NOTE: When taking multiple MVars at the same time, qBuckets must be
       -- taken first (lock ordering).
-    , qBuckets :: MVar (Map buck (Peers nid))
+    , qBuckets         :: MVar (Map buck (Peers nid))
 
       -- | Recent communication failures
-    , qFailures :: MVar (Failures nid)
+    , qFailures        :: MVar (Failures nid)
 
       -- | Used to send control messages to the main thread
-    , qCtrlMsg :: MVar CtrlMsg
+    , qCtrlMsg         :: MVar CtrlMsg
 
       -- | Signal we use to wake up blocked threads
-    , qSignal :: Signal CtrlMsg
+    , qSignal          :: Signal CtrlMsg
 
       -- | Some metrics about the queue's health
-    , qHealth :: QHealth buck
+    , qHealth          :: QHealth buck
     }
 
 -- | Use a formatter to get a dump of the state.
@@ -475,27 +476,27 @@ new qSelf
 -- | Queue health metrics
 data QHealth buck = QHealth {
       -- | Total number of failed "enqueue all" instructions
-      qFailedEnqueueAll :: Counter
+      qFailedEnqueueAll  :: Counter
 
       -- | Total number of failed "enqueue one" instructions
-    , qFailedEnqueueOne :: Counter
+    , qFailedEnqueueOne  :: Counter
 
       -- | Total number of times a message failed to send to _any_ of the
       -- peers it got enqueued to
-    , qFailedAllSends :: Counter
+    , qFailedAllSends    :: Counter
 
       -- | Total number of times cherish looped
     , qFailedCherishLoop :: Counter
 
       -- | Total number we could not choose a node from a list of alternatives
-    , qFailedChooseAlt :: Counter
+    , qFailedChooseAlt   :: Counter
 
       -- | Total number of failed sends
-    , qFailedSend :: Counter
+    , qFailedSend        :: Counter
 
       -- | Total number of times we refused to update a bucket because doing
       -- so would exceed the bucket's maximum size
-    , qFailedBucketFull :: buck -> Counter
+    , qFailedBucketFull  :: buck -> Counter
     }
 
 newQHealth :: forall buck. (Enum buck, Bounded buck, Ord buck)

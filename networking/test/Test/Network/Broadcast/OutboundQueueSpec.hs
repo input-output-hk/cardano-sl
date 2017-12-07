@@ -4,21 +4,18 @@ module Test.Network.Broadcast.OutboundQueueSpec
        ) where
 
 import           Control.Monad
-import           Data.List                             (delete)
-import qualified Data.Map.Strict                       as M
-import qualified Data.Set                              as Set
-import qualified Mockable                              as M
-import qualified Network.Broadcast.OutboundQueue       as OutQ
+import           Data.List (delete)
+import qualified Data.Map.Strict as M
+import qualified Data.Set as Set
+import qualified Mockable as M
+import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
 import           System.Wlog
-import           Test.Hspec                            (Spec, describe, it)
-import           Test.Hspec.QuickCheck                 (modifyMaxSuccess)
-import           Test.QuickCheck                       (Arbitrary (..),
-                                                        Property, choose,
-                                                        forAll, ioProperty,
-                                                        (===),
-                                                        property, (==>))
+import           Test.Hspec (Spec, describe, it)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck (Arbitrary (..), Property, choose, forAll, ioProperty, property,
+                                  (===), (==>))
 
 -- disable logging
 testInFlight :: IO Bool

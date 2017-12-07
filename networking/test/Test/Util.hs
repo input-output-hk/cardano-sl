@@ -3,13 +3,13 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE RankNTypes            #-}
 
 module Test.Util
        ( makeTCPTransport
@@ -38,50 +38,44 @@ module Test.Util
 
        ) where
 
-import           Control.Concurrent.STM      (STM, atomically, check)
+import           Control.Concurrent.STM (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception           (Exception, SomeException (..))
-import           Control.Lens                (makeLenses, (%=))
-import           Control.Monad               (forM_, void)
-import           Control.Monad.IO.Class      (MonadIO (..))
-import           Control.Monad.State.Strict  (StateT)
-import           Data.Binary                 (Binary (..))
-import qualified Data.ByteString             as LBS
-import qualified Data.List                   as L
-import qualified Data.Set                    as S
-import           Data.Time.Units             (Microsecond, Second, TimeUnit)
-import           Data.Word                   (Word32)
-import           GHC.Generics                (Generic)
-import           Mockable.Class              (Mockable)
-import           Mockable.Concurrent         (delay, forConcurrently, fork,
-                                              withAsync, wait, Concurrently,
-                                              Delay, Async)
-import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
-                                              takeSharedExclusive, SharedExclusive,
-                                              readSharedExclusive)
-import           Mockable.Exception          (Catch, Throw, catch, throw, finally)
-import           Mockable.Production         (Production (..))
-import qualified Network.Transport           as NT (Transport)
-import           Network.Transport.Concrete  (concrete)
-import qualified Network.Transport.TCP       as TCP
-import qualified Network.Transport.InMemory  as InMemory
-import           Serokell.Util.Concurrent    (modifyTVarS)
-import           System.Random               (mkStdGen)
-import           Test.QuickCheck             (Property)
-import           Test.QuickCheck.Arbitrary   (Arbitrary (..))
-import           Test.QuickCheck.Gen         (choose)
-import           Test.QuickCheck.Modifiers   (getLarge)
-import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
+import           Control.Exception (Exception, SomeException (..))
+import           Control.Lens (makeLenses, (%=))
+import           Control.Monad (forM_, void)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad.State.Strict (StateT)
+import           Data.Binary (Binary (..))
+import qualified Data.ByteString as LBS
+import qualified Data.List as L
+import qualified Data.Set as S
+import           Data.Time.Units (Microsecond, Second, TimeUnit)
+import           Data.Word (Word32)
+import           GHC.Generics (Generic)
+import           Mockable.Class (Mockable)
+import           Mockable.Concurrent (Async, Concurrently, Delay, delay, forConcurrently, fork,
+                                      wait, withAsync)
+import           Mockable.Exception (Catch, Throw, catch, finally, throw)
+import           Mockable.Production (Production (..))
+import           Mockable.SharedExclusive (SharedExclusive, newSharedExclusive, putSharedExclusive,
+                                           readSharedExclusive, takeSharedExclusive)
+import qualified Network.Transport as NT (Transport)
+import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport.InMemory as InMemory
+import qualified Network.Transport.TCP as TCP
+import           Serokell.Util.Concurrent (modifyTVarS)
+import           System.Random (mkStdGen)
+import           Test.QuickCheck (Property)
+import           Test.QuickCheck.Arbitrary (Arbitrary (..))
+import           Test.QuickCheck.Gen (choose)
+import           Test.QuickCheck.Modifiers (getLarge)
+import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
 
-import           Node                        (ConversationActions (..),
-                                              Listener (..), Message (..),
-                                              NodeAction (..), NodeId, Conversation (..),
-                                              node, nodeId, 
-                                              simpleNodeEndPoint, Conversation (..),
-                                              noReceiveDelay, NodeEnvironment,
-                                              converseWith)
-import           Node.Conversation           (Converse)
-import           Node.Message.Binary         (BinaryP, binaryPacking)
+import           Node (Conversation (..), Conversation (..), ConversationActions (..),
+                       Listener (..), Message (..), NodeAction (..), NodeEnvironment, NodeId,
+                       converseWith, noReceiveDelay, node, nodeId, simpleNodeEndPoint)
+import           Node.Conversation (Converse)
+import           Node.Message.Binary (BinaryP, binaryPacking)
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string
@@ -109,7 +103,7 @@ timeout str us m = do
         withAsync timeoutAction $ \_ -> do
             choice <- readSharedExclusive var
             case choice of
-                Left e -> throw e
+                Left e  -> throw e
                 Right t -> return t
 
 -- * Parcel
@@ -274,7 +268,7 @@ makeTCPTransport bind hostAddr port qdisc mtu = do
             }
     choice <- TCP.createTransport (TCP.Addressable (TCP.TCPAddrInfo bind port ((,) hostAddr))) tcpParams
     case choice of
-        Left err -> error (show err)
+        Left err        -> error (show err)
         Right transport -> return transport
 
 -- * Test template

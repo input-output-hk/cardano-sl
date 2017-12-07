@@ -1,4 +1,3 @@
-
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -441,13 +440,33 @@ application. For example, here's a typical error which might be issued:
 $errorExample
 ```
 
+### Existing wallet errors
+
+$walletErrorTable
+
 |]
+
+type TableHeader = [T.Text]
+type TableRow = [T.Text]
+
+-- | Creates markdown table
+-- TODO: test edge cases:
+--  * TableHeader == []
+--  * no TableRow
+--  * when list of rows contains elements with different length (different number of columns)
+markdownTable :: TableHeader -> [TableRow] -> T.Text
+markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
+  where
+    header = makeRow h                             -- corresponds to "a|b|c"
+    headerSplitter = makeRow $ map (const "---") h -- corresponds to "---|---|---"
+    makeRow = T.intercalate "|"
 
 data DescriptionEnvironment = DescriptionEnvironment {
     errorExample           :: !T.Text
   , defaultPerPage         :: !T.Text
   , accountExample         :: !T.Text
   , accountExtendedExample :: !T.Text
+  , walletErrorTable       :: !T.Text
   }
 
 api :: Swagger
@@ -460,5 +479,9 @@ api = toSwagger walletAPI
     , defaultPerPage = fromString (show defaultPerPageEntries)
     , accountExample = toS $ encodePretty (genExample @[Account])
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
+    , walletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  where
+    makeRow err = [surroundedBy "_" err, "-", "-"]
+    surroundedBy wrap context = wrap <> context <> wrap

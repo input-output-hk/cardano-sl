@@ -64,7 +64,7 @@ class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 
 -- | "Run" the migration.
-migrate :: ( E.MonadThrow m, Migrate from to ) => from -> m to
+migrate :: ( Migrate from to, E.MonadThrow m ) => from -> m to
 migrate from = case eitherMigrate from of
     Left e   -> E.throwM e
     Right to -> pure to
@@ -73,6 +73,8 @@ migrate from = case eitherMigrate from of
 -- Instances
 --
 
+instance Migrate from to => Migrate [from] [to] where
+    eitherMigrate = mapM eitherMigrate
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =

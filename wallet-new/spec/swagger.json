@@ -8,7 +8,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"error\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n\n### Existing wallet errors\n\nError Name|HTTP Error code|Example\n---|---|---\n_NotEnoughMoney_|-|-\n_OutputIsRedeem_|-|-\n_SomeOtherError_|-|-\n_MigrationFailed_|-|-\n_WalletNotFound_|-|-\n"
     },
     "definitions": {
         "CPtxCondition": {
@@ -513,6 +513,19 @@
             "example": "keys/1.key",
             "type": "string",
             "description": "Path to file.\n Note that it is represented as JSON-string, one may need to properly escape content. For instance:\n curl ... -X \"\\\\\"1.key\"\\\\\".\nAlso, when on Windows, don't forget to double-escape  backslashes, e.g.  \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""
+        },
+        "Coin": {
+            "required": [
+                "getCoin"
+            ],
+            "type": "object",
+            "properties": {
+                "getCoin": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
         },
         "CWalletAssurance": {
             "type": "string",
@@ -1309,6 +1322,39 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "NewBatchPayment": {
+            "required": [
+                "npbFrom",
+                "npbTo",
+                "npbInputSelectionPolicy"
+            ],
+            "type": "object",
+            "properties": {
+                "npbTo": {
+                    "minItems": 1,
+                    "items": {
+                        "minItems": 2,
+                        "items": [
+                            {
+                                "$ref": "#/definitions/CId"
+                            },
+                            {
+                                "$ref": "#/definitions/Coin"
+                            }
+                        ],
+                        "maxItems": 2,
+                        "type": "array"
+                    },
+                    "type": "array"
+                },
+                "npbFrom": {
+                    "$ref": "#/definitions/CAccountId"
+                },
+                "npbInputSelectionPolicy": {
+                    "$ref": "#/definitions/InputSelectionPolicy"
                 }
             }
         },
@@ -2591,6 +2637,27 @@
                 ]
             }
         },
+        "/api/txs/resubmission/reset": {
+            "get": {
+                "summary": "Clear the 'do not resubmit' flag from transactions that have it.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "items": [],
+                            "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "description": "For all transactions in CPtxWontApply condition, reset them to CPtxApplying condition so that they will be passed to resubmition",
+                "tags": [
+                    "V0 (Deprecated)"
+                ]
+            }
+        },
         "/api/settings/version": {
             "get": {
                 "summary": "Get current version of the node.",
@@ -3356,6 +3423,46 @@
                 },
                 "produces": [
                     "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0 (Deprecated)"
+                ]
+            }
+        },
+        "/api/txs/payments/batch": {
+            "post": {
+                "summary": "Create a new payment transaction (can send to multiple recipients).",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body` or `passphrase`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/CTx"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "passphrase",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/NewBatchPayment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
                 ],
                 "tags": [
                     "V0 (Deprecated)"

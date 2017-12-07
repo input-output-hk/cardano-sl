@@ -1,6 +1,6 @@
-# sketch-playground
+# cardano-sl-networking
 
-Repository for modeling ideas of distributed systems networking and implementing sketches of these ideas.
+Subproject with abstracted networking logic that is used in Cardano SL.
 
 ## Overview
 

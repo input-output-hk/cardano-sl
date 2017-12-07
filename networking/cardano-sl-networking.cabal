@@ -1,4 +1,4 @@
-name:                node-sketch
+name:                cardano-sl-networking
 version:             0.2.0.1
 license:             MIT
 license-file:        LICENSE
@@ -120,9 +120,9 @@ executable discovery
   build-depends:        base >= 4.8 && < 5
                       , binary
                       , bytestring
+                      , cardano-sl-networking
                       , containers
                       , network-transport-tcp
-                      , node-sketch
                       , random
                       , time-units
 
@@ -140,9 +140,9 @@ executable ping-pong
   build-depends:       base >= 4.8 && < 5
                      , binary
                      , bytestring
+                     , cardano-sl-networking
                      , containers
                      , network-transport-tcp
-                     , node-sketch
                      , random
                      , stm
                      , time-units
@@ -160,12 +160,12 @@ executable bench-sender
   main-is:             Main.hs
   other-modules:       SenderOptions
   build-depends:       base == 4.*
+                     , cardano-sl-networking
                      , lens
                      , log-warper
                      , MonadRandom
                      , mtl
                      , network-transport-tcp
-                     , node-sketch
                      , optparse-simple >= 0.0.3
                      , random
                      , serokell-util
@@ -186,9 +186,9 @@ executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
   build-depends:       base == 4.*
+                     , cardano-sl-networking
                      , log-warper
                      , network-transport-tcp
-                     , node-sketch
                      , optparse-simple
                      , random
                      , serokell-util
@@ -210,6 +210,7 @@ executable bench-log-reader
   other-modules:       LogReaderOptions
   build-depends:       attoparsec
                      , base == 4.*
+                     , cardano-sl-networking
                      , conduit
                      , conduit-extra
                      , containers
@@ -218,7 +219,6 @@ executable bench-log-reader
                      , lens
                      , log-warper
                      , mtl
-                     , node-sketch
                      , optparse-simple
                      , resourcet
                      , text
@@ -235,7 +235,7 @@ executable bench-log-reader
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-test-suite node-sketch-test
+test-suite cardano-sl-networking-test
   main-is:             Test.hs
   other-modules:       Spec
                        Test.NodeSpec
@@ -245,6 +245,7 @@ test-suite node-sketch-test
   build-depends:       base >= 4.8 && < 5
                      , binary
                      , bytestring >= 0.10.8
+                     , cardano-sl-networking
                      , containers >= 0.5.7
                      , formatting
                      , hspec >= 2.1.10
@@ -254,7 +255,6 @@ test-suite node-sketch-test
                      , network-transport
                      , network-transport-tcp
                      , network-transport-inmemory
-                     , node-sketch
                      , QuickCheck
                      , quickcheck-instances
                      , random

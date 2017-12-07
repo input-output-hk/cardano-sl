@@ -45,6 +45,7 @@ library
                      , cardano-sl-delegation
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
@@ -58,7 +59,6 @@ library
                      , lens
                      , log-warper
                      , monad-control
-                     , node-sketch
                      , random
                      , serokell-util
                      , text

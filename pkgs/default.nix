@@ -1541,6 +1541,7 @@ self: {
             monad-control
             mtl
             node-sketch
+            QuickCheck
             serokell-util
             stm
             text-format
@@ -1764,7 +1765,7 @@ self: {
           description = "Cardano SL - delegation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, bytestring, cardano-sl, cardano-sl-binary, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, lens, log-warper, memory, mkDerivation, mtl, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, resourcet, rocksdb-haskell, serokell-util, servant, servant-multipart, servant-server, servant-swagger, socket-io, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, bytestring, cardano-sl, cardano-sl-binary, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, lens, log-warper, memory, mkDerivation, mtl, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, resourcet, rocksdb-haskell, serokell-util, servant, servant-generic, servant-multipart, servant-server, servant-swagger, socket-io, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-explorer";
           version = "1.0.3";
@@ -1809,6 +1810,7 @@ self: {
             rocksdb-haskell
             serokell-util
             servant
+            servant-generic
             servant-server
             socket-io
             stm
@@ -5651,8 +5653,8 @@ self: {
           version = "0.2.0.1";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "0g94b7j0r7lg8ihirq1kdcj33kiwyyhf236ghhi7813l7955napq";
-            rev = "7d97bbfb15f1f57f7d9db2aa09c5afe748b0b10d";
+            sha256 = "0p100l3gxdsclcv7yr91zqph2bzidx9m74wbcignxnhms028fq12";
+            rev = "0f58f145425650f5e68b838668f36c8342e4a0a8";
           };
           isLibrary = true;
           isExecutable = true;
@@ -6491,8 +6493,8 @@ self: {
       serokell-util = callPackage ({ QuickCheck, acid-state, aeson, ansi-terminal, base, base16-bytestring, base64-bytestring, bytestring, clock, containers, deepseq, directory, exceptions, extra, filepath, formatting, hashable, lens, log-warper, mkDerivation, monad-control, mtl, optparse-applicative, parsec, quickcheck-instances, safecopy, scientific, semigroups, stdenv, stm, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "serokell-util";
-          version = "0.5.1";
-          sha256 = "6389cdc042489fd1a535386c802c6bec2afef8a3fe6d4c4419d18bdf2d8428ea";
+          version = "0.5.2";
+          sha256 = "7945a013f5e979608be6eb2af84595e1eef865e6af76d5642b89a7edcb11dd72";
           libraryHaskellDepends = [
             acid-state
             aeson
@@ -6689,6 +6691,25 @@ self: {
           homepage = "http://haskell-servant.readthedocs.org/";
           description = "generate API docs for your servant webservice";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      servant-generic = callPackage ({ base, fetchgit, mkDerivation, servant, servant-server, stdenv }:
+      mkDerivation {
+          pname = "servant-generic";
+          version = "0.1.0.0";
+          src = fetchgit {
+            url = "https://github.com/serokell/servant-generic.git";
+            sha256 = "1agv3h9hxyym59mhzwvldj1i8pm5708cvmg4a1k6nv7m3i8d63s0";
+            rev = "a163e6d98fc5d0cf82846721dbf0203a6a7caa25";
+          };
+          libraryHaskellDepends = [
+            base
+            servant
+            servant-server
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "Specify Servant APIs with records";
+          license = stdenv.lib.licenses.mit;
         }) {};
       servant-multipart = callPackage ({ base, bytestring, directory, http-client, http-media, lens, mkDerivation, network, resourcet, servant, servant-docs, servant-server, stdenv, text, transformers, wai, wai-extra, warp }:
       mkDerivation {

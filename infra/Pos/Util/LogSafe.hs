@@ -28,12 +28,15 @@ module Pos.Util.LogSafe
 
          -- * Secure 'Buildable's
        , SecureLog (..)
+       , LogSecurityLevel
+       , secure
+       , unsecure
 
          -- ** Secure formatters
        , secureF
        , plainOrSecureF
        , secretOnlyF
-       , secretOnlyF2
+       , secureListF
 
        , buildSafe
 
@@ -51,7 +54,7 @@ import           Data.List (isSuffixOf)
 import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (bprint, build, fconst, mapf, (%))
+import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), loggerName)
 import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
@@ -160,6 +163,12 @@ data LogSecurityLevel
     | PublicLogLevel
     deriving (Eq)
 
+secure :: LogSecurityLevel
+secure = PublicLogLevel
+
+unsecure :: LogSecurityLevel
+unsecure = SecretLogLevel
+
 buildUnsecure :: Buildable a => SecureLog a -> Builder
 buildUnsecure (SecureLog a) = bprint build a
 
@@ -180,12 +189,18 @@ buildSafe sl = plainOrSecureF sl build (secureF build)
 
 -- | Negates single-parameter formatter for public logs.
 secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
-secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "")
+secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
 
--- | Negates 2-parameters formatter for public logs.
-secretOnlyF2
-    :: LogSecurityLevel -> Format r (a -> b -> r) -> Format r (a -> b -> r)
-secretOnlyF2 sl fmt = plainOrSecureF sl fmt (fconst ""%fconst "")
+-- | For public logs hides list content, showing only its size.
+secureListF
+    :: NontrivialContainer l
+    => LogSecurityLevel -> Format r (l -> r) -> Format r (l -> r)
+secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
+  where
+    lengthFmt = later $ \l ->
+        if null l
+        then "[]"
+        else bprint ("[... ("%build%" item(s))]") $ length l
 
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go

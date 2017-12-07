@@ -43,7 +43,7 @@ import           Network.Wai (Application)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 
 import qualified Serokell.Util.Base64 as B64
-import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Generic (AsServerT, toServant)
 import           Servant.Server (Server, ServerT, serve)
 import           System.Wlog (logDebug)
 
@@ -75,7 +75,7 @@ import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddr
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
                                             HasGenesisRedeemAddressInfo (..))
-import           Pos.Explorer.Web.Api (ExplorerApi, explorerApi)
+import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
                                                CAddressType (..), CAddressesFilter (..),
                                                CBlockEntry (..), CBlockSummary (..),
@@ -112,36 +112,27 @@ explorerApp serv = serve explorerApi <$> serv
 -- Handlers
 ----------------------------------------------------------------
 
-explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
+explorerHandlers
+    :: forall ctx m. ExplorerMode ctx m
+    => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-      getTotalAda
-    :<|>
-      getBlocksPage
-    :<|>
-      getBlocksPagesTotal
-    :<|>
-      getBlockSummary
-    :<|>
-      getBlockTxs
-    :<|>
-      getLastTxs
-    :<|>
-      getTxSummary
-    :<|>
-      getAddressSummary
-    :<|>
-      getEpochPage
-    :<|>
-      getEpochSlot
-    :<|>
-      getGenesisSummary
-    :<|>
-      getGenesisPagesTotal
-    :<|>
-      getGenesisAddressInfo
-    :<|>
-      getStatsTxs
-
+    toServant (ExplorerApiRecord
+        { _totalAda           = getTotalAda
+        , _blocksPages        = getBlocksPage
+        , _blocksPagesTotal   = getBlocksPagesTotal
+        , _blocksSummary      = getBlockSummary
+        , _blocksTxs          = getBlockTxs
+        , _txsLast            = getLastTxs
+        , _txsSummary         = getTxSummary
+        , _addressSummary     = getAddressSummary
+        , _epochPages         = getEpochPage
+        , _epochSlots         = getEpochSlot
+        , _genesisSummary     = getGenesisSummary
+        , _genesisPagesTotal  = getGenesisPagesTotal
+        , _genesisAddressInfo = getGenesisAddressInfo
+        , _statsTxs           = getStatsTxs
+        }
+        :: ExplorerApiRecord (AsServerT m))
 
 ----------------------------------------------------------------
 -- API Functions

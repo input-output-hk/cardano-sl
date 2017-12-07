@@ -4,6 +4,9 @@ module Cardano.Wallet.API.V1.Handlers.Addresses where
 
 import           Universum
 
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.History as V0
+
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
 

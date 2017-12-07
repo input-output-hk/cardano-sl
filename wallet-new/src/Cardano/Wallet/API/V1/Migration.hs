@@ -20,9 +20,14 @@ module Cardano.Wallet.API.V1.Migration (
 
 import           Universum
 
+import           Data.Map (elems)
+import           Data.List.NonEmpty (fromList)
+import           Data.Time.Clock.POSIX (POSIXTime)
+
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
+import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
@@ -163,3 +168,54 @@ instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =
           either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
               Right $ decodeCTypeOrFail cadId
+
+----------------------------------------------------------------------------
+-- Transactions
+----------------------------------------------------------------------------
+
+instance Migrate (V0.CId V0.Addr) Core.Address where
+    eitherMigrate (V0.CId (V0.CHash h)) =
+        either (const $ Left $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
+            Right $ Core.decodeTextAddress h
+
+instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
+    eitherMigrate (cIdAddr, cCoin) = do
+        pdAddress <- eitherMigrate cIdAddr
+        pdAmount  <- eitherMigrate cCoin
+        pure $ V1.PaymentDistribution {..}
+
+instance Migrate [(V0.CId V0.Addr, V0.CCoin)] (NonEmpty V1.PaymentDistribution) where
+    eitherMigrate addrCoinList = do
+        paymentDistributions <- mapM eitherMigrate addrCoinList
+        pure $ fromList paymentDistributions
+
+instance Migrate V0.CTxId V1.TxId where
+    eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
+
+instance Migrate V0.CTx V1.Transaction where
+    eitherMigrate V0.CTx{..} = do
+        txId      <- eitherMigrate ctId
+        let txConfirmations = ctConfirmations
+        txAmount  <- eitherMigrate ctAmount
+        txInputs  <- eitherMigrate ctInputs
+        txOutputs <- eitherMigrate ctOutputs
+
+        let txType = if ctIsLocal
+            then V1.LocalTransaction
+            else V1.ForeignTransaction
+
+        let txDirection = if ctIsOutgoing
+            then V1.OutgoingTransaction
+            else V1.IncomingTransaction
+
+        pure V1.Transaction{..}
+
+instance Migrate [V0.CTx] [V1.Transaction] where
+    eitherMigrate cTxs = mapM eitherMigrate cTxs
+
+-- | The migration instance for migrating history to a list of transactions
+instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] where
+    eitherMigrate txsMapAndSize = do
+        let txsMapValues = elems . fst $ txsMapAndSize
+        mapM (eitherMigrate . fst) txsMapValues
+

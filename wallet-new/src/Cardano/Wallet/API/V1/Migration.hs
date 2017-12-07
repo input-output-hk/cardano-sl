@@ -170,11 +170,11 @@ instance Migrate V0.CAccountId V1.WalletId where
         (walletId, _) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
         pure walletId
 
-instance Migrate V0.CAddress Core.Address where
-    eitherMigrate V0.CAddress {..} =
-        either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
-            Right $ decodeCTypeOrFail cadId
-
 instance Migrate V1.PassPhrase Crypto.PassPhrase where
     eitherMigrate =
         first Errors.MigrationFailed . V0.decodeCType . V0.CPassPhrase
+
+instance Migrate V0.CAddress Core.Address where
+       eitherMigrate V0.CAddress {..} =
+          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+              Right $ decodeCTypeOrFail cadId

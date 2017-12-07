@@ -50,7 +50,6 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | WalletNotFound
-    | NoPassPhrase
     deriving (Show, Eq)
 
 --
@@ -91,7 +90,6 @@ allErrorsList = gconsNames (Proxy :: Proxy WalletError)
 walletHTTPError :: WalletError -> ServantErr
 walletHTTPError NotEnoughMoney{}  = err403 -- <https://httpstatuses.com/403 403> Forbidden
 walletHTTPError OutputIsRedeem{}  = err403
-walletHTTPError NoPassPhrase      = err403
 walletHTTPError SomeOtherError{}  = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
 walletHTTPError MigrationFailed{} = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
 walletHTTPError WalletNotFound    = err404 -- <https://httpstatuses.com/404 404> NotFound

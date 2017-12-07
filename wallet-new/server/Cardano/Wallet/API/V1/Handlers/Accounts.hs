@@ -7,7 +7,6 @@ import           Universum
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
 
@@ -58,16 +57,13 @@ listAccounts RequestParams {..} = do
     _ -> return $ OneOf $ Left example
 
 newAccount
-    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
-    => WalletId -> Maybe PassPhrase -> AccountUpdate -> m Account
-newAccount wId mPassPhrase accUpdate =
-    case mPassPhrase of
-        Nothing -> throwM $ Errors.toError Errors.NoPassPhrase
-        Just passPhrase -> do
-            newPassPhrase <- migrate passPhrase
-            accInit <- migrate (wId, accUpdate)
-            cAccount <- V0.newAccount V0.RandomSeed newPassPhrase accInit
-            migrate cAccount
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> NewAccount -> m Account
+newAccount wId nAccount@NewAccount{..} = do
+    let spendingPw = fromMaybe mempty naccSpendingPassword
+    accInit <- migrate (wId, nAccount)
+    cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
+    migrate cAccount
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)

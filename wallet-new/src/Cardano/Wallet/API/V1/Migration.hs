@@ -22,7 +22,6 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Pos.Crypto as Crypto
 import qualified Pos.Core.Common as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -107,10 +106,14 @@ instance Migrate V1.AccountUpdate V0.CAccountMeta where
     eitherMigrate V1.AccountUpdate{..} =
         pure $ V0.CAccountMeta uaccName
 
-instance Migrate (V1.WalletId, V1.AccountUpdate) V0.CAccountInit where
-    eitherMigrate (wId, accUpdate) = do
+instance Migrate V1.NewAccount V0.CAccountMeta where
+    eitherMigrate V1.NewAccount{..} =
+        pure $ V0.CAccountMeta naccName
+
+instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
+    eitherMigrate (wId, nAcc) = do
         newWId <- eitherMigrate wId
-        accMeta <- eitherMigrate accUpdate
+        accMeta <- eitherMigrate nAcc
         pure $ V0.CAccountInit accMeta newWId
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
@@ -169,10 +172,6 @@ instance Migrate V0.CAccountId V1.WalletId where
         oldAccountId :: V0.AccountId <- eitherMigrate cAccId
         (walletId, _) :: (V1.WalletId, V1.AccountId) <- eitherMigrate oldAccountId
         pure walletId
-
-instance Migrate V1.PassPhrase Crypto.PassPhrase where
-    eitherMigrate =
-        first Errors.MigrationFailed . V0.decodeCType . V0.CPassPhrase
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =

@@ -3,17 +3,22 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.Logic as V0
-import qualified Pos.Wallet.Web.Methods.Restore as V0
+import qualified Pos.Wallet.Web.Methods as V0
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
+import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Pos.Update.Configuration ()
 
+import qualified Pos.Core as Core
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, resize)
+import           Test.QuickCheck (arbitrary, generate, vectorOf)
+import           Test.QuickCheck.Gen (unGen)
+import           Test.QuickCheck.Random (mkQCGen)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -22,12 +27,12 @@ handlers :: ( HasConfigurations
          => ServerT Wallets.API MonadV1
 handlers =   newWallet
         :<|> listWallets
-        :<|> (\walletId -> do
+        :<|> (\walletId ->
                      updatePassword walletId
                 :<|> deleteWallet walletId
                 :<|> getWallet walletId
                 :<|> updateWallet walletId
-                -- :<|> Accounts.handlers walletId
+                :<|> Accounts.handlers walletId
              )
 
 -- | Creates a new @wallet@ given a 'NewWallet' payload.
@@ -42,28 +47,24 @@ newWallet NewWallet{..} = do
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
   V0.newWallet spendingPassword walletInit >>= migrate
 
-listWallets :: PaginationParams
+-- TODO(adinapoli): Implement this properly with CSL-1891.
+-- Providing here just a stub.
+listWallets :: RequestParams
             -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))
-listWallets PaginationParams {..} = do
-  example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = example
-      , extMeta = Metadata {
-          metaTotalPages = 1
-        , metaPage = 1
-        , metaPerPage = 20
-        , metaTotalEntries = 3
-      }
-      }
-    _ -> return $ OneOf $ Left example
+listWallets params = do
+    -- Use a static seed to simulate the pagination properly.
+    -- Use `pure` to simulate a monadic action.
+    let zipped  = zip [1..] (unGen (vectorOf 100000 arbitrary) (mkQCGen 42) 42)
+    let dataSet = pure $ map (\(idx, w) -> w { walBalance = Core.mkCoin idx}) zipped
+    respondWith params (const dataSet)
 
 updatePassword
-    :: WalletId
-    -> PasswordUpdate
-    -> MonadV1 Wallet
-updatePassword _ _ = liftIO $ generate arbitrary
+    :: (MonadWalletLogic ctx m)
+    => WalletId -> PasswordUpdate -> m Wallet
+updatePassword wid PasswordUpdate{..} = do
+    wid' <- migrate wid
+    _ <- V0.changeWalletPassphrase wid' pwdOld pwdNew
+    V0.getWallet wid' >>= migrate
 
 -- | Deletes an exisiting wallet.
 deleteWallet

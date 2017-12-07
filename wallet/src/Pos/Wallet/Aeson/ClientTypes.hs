@@ -4,8 +4,10 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (String), object, withArray,
+                             withObject, (.!=), (.:), (.:?), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Default (def)
 import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
@@ -19,7 +21,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
                                              CWalletMeta, CWalletRedeem, ClientInfo (..),
-                                             SyncProgress, Wal)
+                                             NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -74,3 +76,30 @@ instance ToJSON ClientInfo where
 
 instance ToJSON NoContent where
     toJSON NoContent = toJSON ()
+
+instance FromJSON NewBatchPayment where
+    parseJSON = withObject "NewBatchPayment" $ \o -> do
+        npbFrom <- o .: "from"
+        npbTo <- (`whenNothing` expectedOneRecipient) . nonEmpty . toList =<< withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
+        npbInputSelectionPolicy <- o .:? "groupingPolicy" .!= def
+        return $ NewBatchPayment {..}
+      where
+        expectedOneRecipient = fail $ "Expected at least one recipient."
+        collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
+            \o -> (,)
+                <$> o .: "address"
+                <*> o .: "amount"
+
+instance ToJSON NewBatchPayment where
+    toJSON NewBatchPayment {..} =
+        object
+            [ "from" .= toJSON npbFrom
+            , "to" .= map toRecipient (toList npbTo)
+            , "groupingPolicy" .= String (show npbInputSelectionPolicy)
+            ]
+      where
+        toRecipient (address, amount) =
+            object
+                [ "address" .= address
+                , "amount" .= amount
+                ]

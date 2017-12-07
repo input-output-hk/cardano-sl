@@ -81,7 +81,7 @@ redeemAdaInternal passphrase cAccId seedBs = do
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
     -- new redemption wallet
-    _ <- fixingCachedAccModifier L.getAccount accId
+    _ <- L.getAccount accId
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId

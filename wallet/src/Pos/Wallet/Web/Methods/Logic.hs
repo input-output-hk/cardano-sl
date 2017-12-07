@@ -36,7 +36,7 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
                                         deleteSecretKeyBy)
-import           Pos.Core (Coin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core (Address, Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
 import           Pos.DB.Class (MonadDBRead)
@@ -54,6 +54,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              CWAddressMeta (..), CWallet (..), CWalletMeta (..),
                                              Wal, addrMetaToAccount, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
 import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
                                        MonadWalletDBRead, addWAddress, createAccount, createWallet,
@@ -62,6 +63,7 @@ import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
                                        isCustomAddress, removeAccount, removeHistoryCache,
                                        removeTxMetas, removeWallet, setAccountMeta, setWalletMeta,
                                        setWalletPassLU, setWalletReady)
+import           Pos.Wallet.Web.State.Storage (WalBalancesAndUtxo)
 import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), CachedCAccModifier,
                                           fixCachedAccModifierFor, fixingCachedAccModifier,
                                           sortedInsertions)
@@ -93,20 +95,32 @@ type MonadWalletLogic ctx m =
 -- Getters
 ----------------------------------------------------------------------------
 
-getWAddressBalance :: MonadWalletLogicRead ctx m => CWAddressMeta -> m Coin
-getWAddressBalance addr =
-    getBalance <=< decodeCTypeOrFail $ cwamId addr
 
 sumCCoin :: MonadThrow m => [CCoin] -> m CCoin
 sumCCoin ccoins = mkCCoin . unsafeIntegerToCoin . sumCoins <$> mapM decodeCTypeOrFail ccoins
 
+getBalanceWithMod :: WalBalancesAndUtxo -> CachedCAccModifier -> Address -> Coin
+getBalanceWithMod balancesAndUtxo accMod addr =
+    fromMaybe (mkCoin 0) .
+    HM.lookup addr $
+    flip applyUtxoModToAddrCoinMap balancesAndUtxo (camUtxo accMod)
+
+getWAddressBalanceWithMod
+    :: MonadWalletWebMode m
+    => WalBalancesAndUtxo
+    -> CachedCAccModifier
+    -> CWAddressMeta
+    -> m Coin
+getWAddressBalanceWithMod balancesAndUtxo accMod addr =
+    getBalanceWithMod balancesAndUtxo accMod <$> decodeCTypeOrFail (cwamId addr)
+
 -- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
-    :: MonadWalletLogicRead ctx m
-    => CachedCAccModifier -> CWAddressMeta -> m CAddress
-getWAddress cachedAccModifier cAddr = do
+    :: MonadWalletWebMode m
+    => WalBalancesAndUtxo -> CachedCAccModifier -> CWAddressMeta -> m CAddress
+getWAddress balancesAndUtxo cachedAccModifier cAddr = do
     let aId = cwamId cAddr
-    balance <- getWAddressBalance cAddr
+    balance <- getWAddressBalanceWithMod balancesAndUtxo cachedAccModifier cAddr
 
     let getFlag customType accessMod = do
             checkDB <- isCustomAddress customType (cwamId cAddr)
@@ -117,12 +131,18 @@ getWAddress cachedAccModifier cAddr = do
     isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (encodeCType balance) isUsed isChange
 
-getAccount :: MonadWalletLogicRead ctx m => CachedCAccModifier -> AccountId -> m CAccount
-getAccount accMod accId = do
+getAccountMod
+    :: MonadWalletWebMode m
+    => WalBalancesAndUtxo
+    -> CachedCAccModifier
+    -> AccountId
+    -> m CAccount
+getAccountMod balAndUtxo accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
-    allAddrs <- mapM (getWAddress accMod) allAddrIds
-    balance <- sumCCoin (map cadAmount allAddrs)
+    allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
+    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+               mapM (decodeCTypeOrFail . cadAmount) allAddrs
     meta <- getAccountMeta accId >>= maybeThrow noAccount
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
@@ -135,6 +155,11 @@ getAccount accMod accId = do
             unknownMemAddrs = filter (`notElem` dbAddrs) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
+getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
+getAccount accId = do
+    balAndUtxo <- WS.getWalletBalancesAndUtxo
+    fixingCachedAccModifier (getAccountMod balAndUtxo) accId
+
 getAccountsIncludeUnready
     :: MonadWalletLogicRead ctx m
     => Bool -> Maybe (CId Wal) -> m [CAccount]
@@ -143,8 +168,10 @@ getAccountsIncludeUnready includeUnready mCAddr = do
     accIds <- maybe getAccountIds getWalletAccountIds mCAddr
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
+    balAndUtxo <- WS.getWalletBalancesAndUtxo
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
-         fixCachedAccModifierFor wid $ forM walAccIds . getAccount
+         fixCachedAccModifierFor wid $ \accMod ->
+             mapM (getAccountMod balAndUtxo accMod) walAccIds
   where
     noWallet cAddr = throwM . RequestError $
         -- TODO No WALLET with id ...
@@ -185,19 +212,21 @@ newAddress
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId =
+newAddress addGenSeed passphrase accId = do
+    balAndUtxo <- WS.getWalletBalancesAndUtxo
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccount accMod accId
+        _ <- getAccountMod balAndUtxo accMod accId
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
-        getWAddress accMod cAccAddr
+        getWAddress balAndUtxo accMod cAccAddr
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} =
+newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
+    balAndUtxo <- WS.getWalletBalancesAndUtxo
     fixCachedAccModifierFor caInitWId $ \accMod -> do
         -- check wallet exists
         _ <- getWalletIncludeUnready includeUnready caInitWId
@@ -205,7 +234,7 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
         cAddr <- genUniqueAccountId addGenSeed caInitWId
         createAccount cAddr caInitMeta
         () <$ newAddress addGenSeed passphrase cAddr
-        getAccount accMod cAddr
+        getAccountMod balAndUtxo accMod cAddr
 
 newAccount
     :: MonadWalletLogic ctx m
@@ -266,7 +295,7 @@ updateWallet wId wMeta = do
 updateAccount :: MonadWalletLogic ctx m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do
     setAccountMeta accId wMeta
-    fixingCachedAccModifier getAccount accId
+    getAccount accId
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m

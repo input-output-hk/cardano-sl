@@ -1,4 +1,3 @@
-
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -12,6 +11,8 @@ module Cardano.Wallet.API.V1.Swagger where
 import           Universum
 
 import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
@@ -19,9 +20,8 @@ import           Cardano.Wallet.API.V1.Types
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), Value (Number, Object, String))
+import           Data.Aeson (ToJSON (..), Value (Number, Object))
 import           Data.Aeson.Encode.Pretty
-import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
 import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
@@ -34,7 +34,6 @@ import           Data.Swagger hiding (Header)
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
-import           Formatting (build, sformat)
 import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
@@ -169,8 +168,6 @@ requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  , ("response_format", responseFormatDescription)
-  , ("Daedalus-Response-Format", responseFormatDescription)
   ]
 
 pageDescription :: T.Text
@@ -186,15 +183,6 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-responseFormatDescription :: T.Text
-responseFormatDescription = [text|
-Determines the response format. If set to `extended`, then fetched
-data will be wrapped in an `ExtendedResponse` (see the Models section).
-Otherwise, it defaults to "plain", which can as well be passed to switch to a
-simpler response format, which includes only the requested payload.
-An `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.
-|]
-
 instance ToParamSchema PerPage where
   toParamSchema _ = mempty
     & type_ .~ SwaggerInteger
@@ -208,19 +196,10 @@ instance ToParamSchema Page where
     & default_ ?~ (Number 1) -- Always show the first page by default.
     & minimum_ ?~ 1
 
-instance ToParamSchema ResponseFormat where
-    toParamSchema _ = mempty
-        & type_ .~ SwaggerString
-        & default_ ?~ (String $ rtToText def)
-        & enum_ ?~ map (String . rtToText) [minBound..maxBound]
-      where
-        rtToText :: ResponseFormat -> Text
-        rtToText = sformat build
-
 instance ToParamSchema WalletId
 
 instance ToDocs Metadata where
-  descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
+  descriptionFor _ = "Metadata returned as part of an <b>WalletResponse</b>."
 
 instance ToDocs Account where
   readOnlyFields   = readOnlyFieldsFromJSON
@@ -336,38 +315,16 @@ instance ToSchema NodeSettings where
 instance ToSchema NodeInfo where
   declareNamedSchema = annotate fromArbitraryJSON
 
-instance ToDocs a => ToDocs (ExtendedResponse a) where
+instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)
 
-instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (ExtendedResponse a) where
+instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (WalletResponse a) where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ "A list of " <> renderType p <> ".")
-
-instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ desc)
-    where
-      typeOfA, typeOfB :: T.Text
-      typeOfA = renderType (Proxy @b)
-      typeOfB = renderType (Proxy @a)
-
-      desc :: T.Text
-      desc = "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning " <>
-             "different types depending on the parameter of the request. While this has been fixed " <>
-             "in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either " <>
-             typeOfA <> " or " <> typeOfB <>
-             " depending on whether or not the extended response format has been requested. While using the " <>
-             " API this type is erased away in the HTTP response, so that, in case the user requested the 'normal' " <>
-             (withExample (Proxy @ a) " response format, an <b>a</b> will be returned.") <>
-             (withExample (Proxy @ b) " In case the user selected the extended format, a full 'ExtendedResponse' will be yielded.")
-
-instance (ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 --
 -- The API
@@ -407,24 +364,15 @@ which returns a _collection_ (i.e. typically a JSON array of resources) lists ex
 used to modify the shape of the response. In particular, those are:
 
 * `page`: (Default value: **1**).
-* `per_page`: (Default value: **$defaultPerPage**)
-* `extended`: (Default value: `false`)
-* `Daedalus-Response-Format`: (Default value: `null`)
+* `per_page`: (Default value: **$deDefaultPerPage**)
 
 For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
-the first two control how many results and which results to access in a paginated request. The other two
-(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting
-both, the "naked" collection will be returned. For example, requesting for a list of _Accounts_ might issue,
-in this case:
+the first two control how many results and which results to access in a paginated request.
+
+This is an example of a typical (successful) response from the API:
 
 ``` json
-$accountExample
-```
-
-In the second case, instead:
-
-``` json
-$accountExtendedExample
+$deWalletResponseExample
 ```
 
 ### Dealing with errors (V1 onwards)
@@ -435,16 +383,35 @@ with a numeric error code which can be used by API consumers to implement proper
 application. For example, here's a typical error which might be issued:
 
 ``` json
-$errorExample
+$deErrorExample
 ```
+
+### Existing wallet errors
+
+$deWalletErrorTable
 
 |]
 
+type TableHeader = [T.Text]
+type TableRow = [T.Text]
+
+-- | Creates markdown table
+-- TODO: test edge cases:
+--  * TableHeader == []
+--  * no TableRow
+--  * when list of rows contains elements with different length (different number of columns)
+markdownTable :: TableHeader -> [TableRow] -> T.Text
+markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
+  where
+    header = makeRow h                             -- corresponds to "a|b|c"
+    headerSplitter = makeRow $ map (const "---") h -- corresponds to "---|---|---"
+    makeRow = T.intercalate "|"
+
 data DescriptionEnvironment = DescriptionEnvironment {
-    errorExample           :: !T.Text
-  , defaultPerPage         :: !T.Text
-  , accountExample         :: !T.Text
-  , accountExtendedExample :: !T.Text
+    deErrorExample          :: !T.Text
+  , deDefaultPerPage        :: !T.Text
+  , deWalletResponseExample :: !T.Text
+  , deWalletErrorTable      :: !T.Text
   }
 
 api :: Swagger
@@ -453,9 +420,12 @@ api = toSwagger walletAPI
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty Errors.WalletNotFound
-    , defaultPerPage = fromString (show defaultPerPageEntries)
-    , accountExample = toS $ encodePretty (genExample @[Account])
-    , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
+      deErrorExample = toS $ encodePretty Errors.WalletNotFound
+    , deDefaultPerPage = fromString (show defaultPerPageEntries)
+    , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
+    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  where
+    makeRow err = [surroundedBy "_" err, "-", "-"]
+    surroundedBy wrap context = wrap <> context <> wrap

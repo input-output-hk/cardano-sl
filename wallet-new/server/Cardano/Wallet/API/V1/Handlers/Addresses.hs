@@ -4,9 +4,8 @@ module Cardano.Wallet.API.V1.Handlers.Addresses where
 
 import           Universum
 
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.History as V0
-
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
 
@@ -17,22 +16,20 @@ handlers :: Server Addresses.API
 handlers =  listAddresses
        :<|> newAddress
 
-listAddresses :: PaginationParams
-              -> Handler (OneOf [Address] (ExtendedResponse [Address]))
-listAddresses PaginationParams {..} = do
+listAddresses :: RequestParams
+              -> Handler (WalletResponse [Address])
+listAddresses RequestParams {..} = do
     addresses <- liftIO $ generate (vectorOf 2 arbitrary)
-    case ppResponseFormat of
-        Extended -> return $ OneOf $ Right $
-            ExtendedResponse {
-                extData = addresses
-              , extMeta = Metadata {
-                      metaTotalPages = 1
-                    , metaPage = 1
-                    , metaPerPage = 20
-                    , metaTotalEntries = 2
-                    }
-              }
-        _ -> return $ OneOf $ Left addresses
+    return WalletResponse {
+              wrData = addresses
+            , wrStatus = SuccessStatus
+            , wrMeta = Metadata $ PaginationMetadata {
+                        metaTotalPages = 1
+                      , metaPage = 1
+                      , metaPerPage = 20
+                      , metaTotalEntries = 2
+                      }
+            }
 
-newAddress :: Address -> Handler Address
-newAddress a = return a
+newAddress :: Address -> Handler (WalletResponse Address)
+newAddress a = return $ single a

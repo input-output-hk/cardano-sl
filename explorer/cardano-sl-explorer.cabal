@@ -152,7 +152,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       NodeOptions
+  other-modules:       ExplorerNodeOptions
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core

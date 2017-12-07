@@ -2,6 +2,7 @@ module Cardano.Wallet.API.V1.Handlers.Updates where
 
 import           Universum
 
+import           Cardano.Wallet.API.Response (WalletResponse, single)
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.API.V1.Updates as Updates
 
@@ -12,8 +13,8 @@ handlers :: Server Updates.API
 handlers =   nextUpdate
         :<|> applyUpdate
 
-nextUpdate :: Handler WalletUpdate
-nextUpdate = liftIO $ generate arbitrary
+nextUpdate :: Handler (WalletResponse WalletUpdate)
+nextUpdate = single <$> (liftIO $ generate arbitrary)
 
-applyUpdate :: Handler WalletUpdate
-applyUpdate = liftIO $ generate arbitrary
+applyUpdate :: Handler (WalletResponse WalletUpdate)
+applyUpdate = single <$> (liftIO $ generate arbitrary)

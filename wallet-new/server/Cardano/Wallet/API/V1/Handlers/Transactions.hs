@@ -4,10 +4,11 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import           Cardano.Wallet.API.V1.Migration (MonadV1, HasConfigurations, HasCompileInfo, migrate)
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 
@@ -23,29 +24,25 @@ handlers = newTransaction
         :<|> allTransactions
         :<|> estimateFees
 
-newTransaction :: Payment -> MonadV1 Transaction
-newTransaction _ = liftIO $ generate arbitrary
+newTransaction :: Payment -> MonadV1 (WalletResponse Transaction)
+newTransaction _ = single <$> (liftIO $ generate arbitrary)
 
 -- | The conclusion is that we want just the walletId for now, the details
--- in CSL-1917. We are ignoring @PaginationParams@ for now.
+-- in CSL-1917.
 allTransactions
-    :: (V0.MonadWalletHistory ctx m)
+    :: forall ctx m. (V0.MonadWalletHistory ctx m)
     => WalletId
-    -> m (ExtendedResponse [Transaction])
-allTransactions walletId = do
+    -> RequestParams
+    -> m (WalletResponse [Transaction])
+allTransactions walletId requestParams = do
     cIdWallet    <- migrate walletId
-    transactions <- V0.getHistory cIdWallet [] Nothing >>= migrate
 
-    pure ExtendedResponse
-        { extData = transactions
-        , extMeta = Metadata
-            { metaTotalPages = 1
-            , metaPage = 1
-            , metaPerPage = 20
-            , metaTotalEntries = 3
-            }
-        }
+    -- TODO(ks): We need the type signature, fix this?
+    let transactions :: m [Transaction]
+        transactions = V0.getHistory cIdWallet [] Nothing >>= migrate
 
-estimateFees :: Payment -> MonadV1 EstimatedFees
-estimateFees _ = liftIO $ generate arbitrary
+    respondWith requestParams (const transactions)
+
+estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
+estimateFees _ = single <$> (liftIO $ generate arbitrary)
 

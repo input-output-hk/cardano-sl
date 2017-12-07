@@ -2,9 +2,11 @@
 module Cardano.Wallet.API.Response (
     Metadata (..)
   , ResponseStatus(..)
-  , OneOf(..)
-  , ExtendedResponse(..)
+  , WalletResponse(..)
+  -- * Generating responses for collections
   , respondWith
+  -- * Generating responses for single resources
+  , single
   ) where
 
 import           Prelude
@@ -17,7 +19,7 @@ import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
-import           Cardano.Wallet.API.Request (RequestParams (..), ResponseFormat (..))
+import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
 
@@ -43,36 +45,22 @@ deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse 
 instance Arbitrary ResponseStatus where
     arbitrary = elements [minBound .. maxBound]
 
--- | An `ExtendedResponse` allows the consumer of the API to ask for
--- more than simply the result of the RESTful endpoint, but also for
--- extra informations like pagination parameters etc.
-data ExtendedResponse a = ExtendedResponse
-  { extData   :: a
+-- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
+-- produced by the wallet backend.
+-- Includes extra informations like pagination parameters etc.
+data WalletResponse a = WalletResponse
+  { wrData   :: a
   -- ^ The wrapped domain object.
-  , extStatus :: ResponseStatus
+  , wrStatus :: ResponseStatus
   -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
-  , extMeta   :: Metadata
+  , wrMeta   :: Metadata
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''ExtendedResponse
+deriveJSON Serokell.defaultOptions ''WalletResponse
 
-instance Arbitrary a => Arbitrary (ExtendedResponse a) where
-  arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary <*> arbitrary
-
--- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
--- depending from some query or header parameters. In this context, this represents an HTTP Response which can
--- return the wrapped object OR the ExtendedResponse.
-newtype OneOf a b = OneOf { oneOf :: Either a b } deriving (Show, Eq, Generic)
-
-instance (ToJSON a, ToJSON b) => ToJSON (OneOf a b) where
-  toJSON (OneOf (Left x))  = toJSON x -- Simply "unwrap" the type.
-  toJSON (OneOf (Right x)) = toJSON x -- Simply "unwrap" the type.
-
-instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
-  arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
-                              , fmap Right (arbitrary :: Gen b)]
-
+instance Arbitrary a => Arbitrary (WalletResponse a) where
+  arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
 
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
@@ -81,7 +69,7 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
 -- 2. Pagination
 -- 3. Sorting operations
 --
--- See only <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document> which
+-- See also <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document>, which
 -- states:
 -- "Paginating responses should be done after applying the filters in a query, because it’s possible for there
 -- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
@@ -91,16 +79,16 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
 respondWith :: (Foldable f, Monad m)
             => RequestParams
             -> (RequestParams -> m (f a))
-            -> m (OneOf [a] (ExtendedResponse [a]))
+            -- ^ A callback-style function which, given the full set of `RequestParams`
+            -- produces some form of results in some 'Monad' @m@.
+            -> m (WalletResponse [a])
 respondWith params@RequestParams{..} generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
-    case rpResponseFormat of
-        Extended -> return $ OneOf $ Right $ ExtendedResponse {
-              extData = theData
-            , extStatus = SuccessStatus
-            , extMeta = Metadata paginationMetadata
-            }
-        _ -> return $ OneOf $ Left theData
+    return $ WalletResponse {
+             wrData = theData
+           , wrStatus = SuccessStatus
+           , wrMeta = Metadata paginationMetadata
+           }
 
 
 paginate :: Foldable f => PaginationParams -> f a -> ([a], PaginationMetadata)
@@ -117,3 +105,12 @@ paginate PaginationParams{..} rawResultSet =
                                }
         slice                  = take pp . drop ((cp - 1) * pp) . toList
     in (slice rawResultSet, metadata)
+
+
+-- | Creates a 'WalletResponse' with just a single record into it.
+single :: a -> WalletResponse a
+single theData = WalletResponse {
+      wrData   = theData
+    , wrStatus = SuccessStatus
+    , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
+    }

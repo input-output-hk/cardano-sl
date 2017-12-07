@@ -34,42 +34,39 @@ deleteAccount wId accId =
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountId -> m Account
+    => WalletId -> AccountId -> m (WalletResponse Account)
 getAccount wId accId =
-    migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate
+    single <$> (migrate (wId, accId) >>= V0.fixingCachedAccModifier V0.getAccount >>= migrate)
 
 listAccounts :: RequestParams
-             -> MonadV1 (OneOf [Account] (ExtendedResponse [Account]))
+             -> MonadV1 (WalletResponse [Account])
 listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case rpResponseFormat of
-    Extended -> return $ OneOf $ Right $
-      ExtendedResponse {
-        extData = example
-      , extStatus = SuccessStatus
-      , extMeta = Metadata $ PaginationMetadata {
+  return WalletResponse {
+        wrData = example
+      , wrStatus = SuccessStatus
+      , wrMeta = Metadata $ PaginationMetadata {
           metaTotalPages = 1
         , metaPage = 1
         , metaPerPage = 20
         , metaTotalEntries = 3
+        }
       }
-      }
-    _ -> return $ OneOf $ Left example
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> NewAccount -> m Account
+    => WalletId -> NewAccount -> m (WalletResponse Account)
 newAccount wId nAccount@NewAccount{..} = do
     let spendingPw = fromMaybe mempty naccSpendingPassword
     accInit <- migrate (wId, nAccount)
     cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
-    migrate cAccount
+    single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> AccountUpdate -> m Account
+    => WalletId -> AccountId -> AccountUpdate -> m (WalletResponse Account)
 updateAccount wId accId accUpdate = do
     newAccId <- migrate (wId, accId)
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
-    migrate cAccount
+    single <$> (migrate cAccount)

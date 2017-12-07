@@ -23,6 +23,7 @@ spec :: Spec
 spec = describe "Marshalling & Unmarshalling" $ do
     describe "Roundtrips" $ do
         aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy

@@ -8,7 +8,6 @@ module Pos.Wallet.Web.Methods.History
        , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty
-       , updateTransaction
        ) where
 
 import           Universum
@@ -35,7 +34,7 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending (PendingTx (..), isPtxActive, ptxPoolInfo)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, MonadWalletDBRead,
                                        addOnlyNewTxMetas, getHistoryCache, getPendingTx, getTxMeta,
-                                       getWalletPendingTxs, setWalletTxMeta)
+                                       getWalletPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrs, getWalletAddrsSet)
 import           Servant.API.ContentTypes (NoContent (..))
@@ -188,11 +187,6 @@ constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
 
 getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
-
-updateTransaction :: MonadWalletDB ctx m => AccountId -> CTxId -> CTxMeta -> m NoContent
-updateTransaction accId txId txMeta = do
-    setWalletTxMeta (aiWId accId) txId txMeta
-    return NoContent
 
 addPtxHistory
     :: (WithLogger m, MonadWalletDBRead ctx m)

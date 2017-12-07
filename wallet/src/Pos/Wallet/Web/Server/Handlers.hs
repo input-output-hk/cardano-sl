@@ -79,8 +79,6 @@ servantHandlers =
     :<|>
      M.resetAllFailedPtxs
     :<|>
-     M.updateTransaction
-    :<|>
      M.getHistoryLimited
     :<|>
 

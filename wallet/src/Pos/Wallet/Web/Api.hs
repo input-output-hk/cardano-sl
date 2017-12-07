@@ -44,7 +44,6 @@ module Pos.Wallet.Web.Api
        , NewPaymentBatch
        , TxFee
        , ResetFailedPtxs
-       , UpdateTx
        , GetHistory
 
        , NextUpdate
@@ -321,15 +320,6 @@ type ResetFailedPtxs =
         \be passed to resubmition"
     :> WRes Get ()
 
-type UpdateTx =
-       "txs"
-    :> "payments"
-    :> Summary "Update payment transaction."
-    :> CCapture "address" CAccountId
-    :> Capture "transaction" CTxId
-    :> ReqBody '[JSON] CTxMeta
-    :> WRes Post NoContent
-
 type GetHistory =
        "txs"
     :> "histories"
@@ -528,8 +518,6 @@ type WalletApiNoPrefix = (
      TxFee
     :<|>
      ResetFailedPtxs
-    :<|>
-     UpdateTx
     :<|>
      GetHistory
     :<|>

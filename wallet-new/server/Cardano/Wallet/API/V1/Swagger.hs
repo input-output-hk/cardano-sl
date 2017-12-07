@@ -364,7 +364,7 @@ which returns a _collection_ (i.e. typically a JSON array of resources) lists ex
 used to modify the shape of the response. In particular, those are:
 
 * `page`: (Default value: **1**).
-* `per_page`: (Default value: **$defaultPerPage**)
+* `per_page`: (Default value: **$deDefaultPerPage**)
 
 For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
 the first two control how many results and which results to access in a paginated request.
@@ -372,7 +372,7 @@ the first two control how many results and which results to access in a paginate
 This is an example of a typical (successful) response from the API:
 
 ``` json
-$walletResponseExample
+$deWalletResponseExample
 ```
 
 ### Dealing with errors (V1 onwards)
@@ -383,12 +383,12 @@ with a numeric error code which can be used by API consumers to implement proper
 application. For example, here's a typical error which might be issued:
 
 ``` json
-$errorExample
+$deErrorExample
 ```
 
 ### Existing wallet errors
 
-$walletErrorTable
+$deWalletErrorTable
 
 |]
 
@@ -408,10 +408,10 @@ markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
     makeRow = T.intercalate "|"
 
 data DescriptionEnvironment = DescriptionEnvironment {
-    errorExample          :: !T.Text
-  , defaultPerPage        :: !T.Text
-  , walletResponseExample :: !T.Text
-  , walletErrorTable      :: !T.Text
+    deErrorExample          :: !T.Text
+  , deDefaultPerPage        :: !T.Text
+  , deWalletResponseExample :: !T.Text
+  , deWalletErrorTable      :: !T.Text
   }
 
 api :: Swagger
@@ -420,10 +420,10 @@ api = toSwagger walletAPI
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty Errors.WalletNotFound
-    , defaultPerPage = fromString (show defaultPerPageEntries)
-    , walletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
-    , walletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
+      deErrorExample = toS $ encodePretty Errors.WalletNotFound
+    , deDefaultPerPage = fromString (show defaultPerPageEntries)
+    , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
+    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
   where

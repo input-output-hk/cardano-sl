@@ -43,9 +43,9 @@ listAccounts :: RequestParams
 listAccounts RequestParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
   return WalletResponse {
-        resData = example
-      , resStatus = SuccessStatus
-      , resMeta = Metadata $ PaginationMetadata {
+        wrData = example
+      , wrStatus = SuccessStatus
+      , wrMeta = Metadata $ PaginationMetadata {
           metaTotalPages = 1
         , metaPage = 1
         , metaPerPage = 20

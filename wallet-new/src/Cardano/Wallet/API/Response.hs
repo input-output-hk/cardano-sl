@@ -49,11 +49,11 @@ instance Arbitrary ResponseStatus where
 -- produced by the wallet backend.
 -- Includes extra informations like pagination parameters etc.
 data WalletResponse a = WalletResponse
-  { resData   :: a
+  { wrData   :: a
   -- ^ The wrapped domain object.
-  , resStatus :: ResponseStatus
+  , wrStatus :: ResponseStatus
   -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
-  , resMeta   :: Metadata
+  , wrMeta   :: Metadata
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic)
 
@@ -85,9 +85,9 @@ respondWith :: (Foldable f, Monad m)
 respondWith params@RequestParams{..} generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
     return $ WalletResponse {
-             resData = theData
-           , resStatus = SuccessStatus
-           , resMeta = Metadata paginationMetadata
+             wrData = theData
+           , wrStatus = SuccessStatus
+           , wrMeta = Metadata paginationMetadata
            }
 
 
@@ -110,7 +110,7 @@ paginate PaginationParams{..} rawResultSet =
 -- | Creates a 'WalletResponse' with just a single record into it.
 single :: a -> WalletResponse a
 single theData = WalletResponse {
-      resData = theData
-    , resStatus = SuccessStatus
-    , resMeta = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
+      wrData   = theData
+    , wrStatus = SuccessStatus
+    , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
     }

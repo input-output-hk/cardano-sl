@@ -21,9 +21,9 @@ listAddresses :: RequestParams
 listAddresses RequestParams {..} = do
     addresses <- liftIO $ generate (vectorOf 2 arbitrary)
     return WalletResponse {
-              resData = addresses
-            , resStatus = SuccessStatus
-            , resMeta = Metadata $ PaginationMetadata {
+              wrData = addresses
+            , wrStatus = SuccessStatus
+            , wrMeta = Metadata $ PaginationMetadata {
                         metaTotalPages = 1
                       , metaPage = 1
                       , metaPerPage = 20

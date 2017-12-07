@@ -12,11 +12,10 @@ import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
 import qualified Pos.Util.Servant as V0
+import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import qualified Control.Monad.Catch as Catch
-
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
@@ -39,6 +38,8 @@ instance Migrate V0.CWallet V1.Wallet where
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
 
+-- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
+
 --
 instance Migrate V0.CWalletAssurance V1.AssuranceLevel where
     eitherMigrate V0.CWAStrict = pure V1.StrictAssurance
@@ -53,6 +54,9 @@ instance Migrate V0.CCoin Core.Coin where
     eitherMigrate =
         first (const $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") .
         V0.decodeCType
+
+instance Migrate Core.Coin V0.CCoin where
+    eitherMigrate = pure . V0.encodeCType
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
@@ -71,20 +75,21 @@ instance Migrate V0.SyncProgress V1.SyncProgress where
                 Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
         in pure $ V1.mkSyncProgress (fromIntegral percentage)
 
+-- NOTE: Migrate V1.SyncProgress V0.SyncProgress unable to do - not idempotent
 
 --
 instance Migrate V0.CAccount V1.Account where
     eitherMigrate V0.CAccount{..} =
         V1.Account <$> eitherMigrate caId
-                  -- ^ accId
-                  <*> mapM eitherMigrate caAddresses
-                  -- ^ accAddresses
-                  <*> eitherMigrate caAmount
-                  -- ^ accAmount
-                  <*> pure (V0.caName caMeta)
-                  -- ^ accName
-                  <*> eitherMigrate caId
-                  -- ^ accWalletId
+                   -- ^ accId
+                   <*> mapM eitherMigrate caAddresses
+                   -- ^ accAddresses
+                   <*> eitherMigrate caAmount
+                   -- ^ accAmount
+                   <*> pure (V0.caName caMeta)
+                   -- ^ accName
+                   <*> eitherMigrate caId
+                   -- ^ accWalletId
 
 --
 -- Following instances are friendly borrowed from @martoon's PR https://github.com/input-output-hk/cardano-sl/pull/2008
@@ -120,5 +125,5 @@ instance Migrate V0.CAccountId V1.WalletId where
 
 instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =
-          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
-              Right $ decodeCTypeOrFail cadId
+          first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+              $ V0.decodeCType cadId

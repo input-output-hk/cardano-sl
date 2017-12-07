@@ -44,6 +44,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @NodeSettings Proxy
 
         -- Migrate roundrips
+        migrateRoundtripProp @Core.Coin @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy
         migrateRoundtripProp @(WalletId, AccountId) @V0.AccountId Proxy Proxy
@@ -59,17 +60,17 @@ spec = describe "Marshalling & Unmarshalling" $ do
                 -- currently passphrase should be either empty or of length 32
                 decodingFails @PassPhrase "aabbcc" Proxy
 
-migrateRoundtrip :: (Arbitrary a, Migrate a b, Migrate b a, Eq a, Show a) => proxy a -> proxy b -> Property
-migrateRoundtrip (_ :: proxy a) (_ :: proxy b) = forAll arbitrary $ \(s :: a) -> do
-    (eitherMigrate =<< migrateToB s) === Right s
+migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from) => proxy from -> proxy to -> Property
+migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do
+    (eitherMigrate =<< migrateTo arbitraryFrom) === Right arbitraryFrom
   where
-    migrateToB x = eitherMigrate x :: Either WalletError b
+    migrateTo x = eitherMigrate x :: Either WalletError to
 
 migrateRoundtripProp
-    :: (Arbitrary a, Migrate a b, Migrate b a, Eq a, Show a, Typeable a, Typeable b)
-    => proxy a -> proxy b -> Spec
-migrateRoundtripProp proxyA proxyB =
-    prop ("Migrate " <> show (typeRep proxyA) <> " <-> " <> show (typeRep proxyB) <> " roundtrips") (migrateRoundtrip proxyA proxyB)
+    :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from, Typeable from, Typeable to)
+    => proxy from -> proxy to -> Spec
+migrateRoundtripProp proxyFrom proxyTo =
+    prop ("Migrate " <> show (typeRep proxyFrom) <> " <-> " <> show (typeRep proxyTo) <> " roundtrips") (migrateRoundtrip proxyFrom proxyTo)
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do

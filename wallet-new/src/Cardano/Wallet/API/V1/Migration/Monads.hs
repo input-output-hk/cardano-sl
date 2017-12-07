@@ -1,7 +1,7 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
 {-# LANGUAGE RankNTypes #-}
-module Cardano.Wallet.API.V1.Migration.Helpers (
+module Cardano.Wallet.API.V1.Migration.Monads (
       MonadV1
     , V1Context
     , v1MonadNat

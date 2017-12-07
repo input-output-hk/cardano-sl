@@ -1,0 +1,42 @@
+resolver: lts-9.1
+
+flags:
+  ether:
+    disable-tup-instances: true
+
+packages:
+  - '.'
+  - location:
+      git: https://github.com/serokell/kademlia.git
+      commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
+    extra-dep: true
+  - location:
+      git: https://github.com/serokell/network-transport
+      commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
+    extra-dep: true
+  - location:
+      git: https://github.com/serokell/network-transport-tcp
+      commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
+    extra-dep: true
+  - location:
+      git: https://github.com/avieth/network-transport-inmemory
+      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+    extra-dep: true
+
+nix:
+  packages: [git, gmp, zlib]
+
+extra-deps:
+  - ether-0.5.1.0
+  - log-warper-1.3.0
+  - serokell-util-0.5.0
+  - fmt-0.5.0.0
+  - time-units-1.0.0
+  - transformers-lift-0.2.0.1
+  - universum-0.6.1
+  - writer-cps-mtl-0.1.1.4
+  - writer-cps-transformers-0.1.1.3
+  - acid-state-0.14.3
+
+flags: {}
+extra-package-dbs: []

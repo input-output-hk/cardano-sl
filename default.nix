@@ -58,7 +58,7 @@ let
         doCheck = ! pkgs.stdenv.isDarwin;
       })));
 
-      cardano-sl-static = justStaticExecutables self.cardano-sl;
+      cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 

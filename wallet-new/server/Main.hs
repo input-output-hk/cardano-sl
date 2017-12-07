@@ -27,7 +27,7 @@ import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
                                  runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (flushWalletStorage)
-import           System.Wlog (logInfo)
+import           System.Wlog (LoggerName, logInfo)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (WalletBackendParams (..), WalletDBOptions (..),
@@ -35,6 +35,9 @@ import           Cardano.Wallet.Server.CLI (WalletBackendParams (..), WalletDBOp
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import qualified Pos.Client.CLI as CLI
 
+
+loggerName :: LoggerName
+loggerName = "node"
 
 {-
    Most of the code below has been copied & adapted from wallet/node/Main.hs as a path
@@ -92,7 +95,7 @@ startEdgeNode WalletStartupOptions{..} = do
 
       whenJust (CLI.cnaDumpGenesisDataPath wsoNodeArgs) $ CLI.dumpGenesisData True
       t <- currentTime
-      currentParams <- CLI.getNodeParams wsoNodeArgs nodeArgs
+      currentParams <- CLI.getNodeParams loggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
@@ -126,7 +129,7 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   cfg <- getWalletNodeOptions
   putText "Wallet is starting..."
   generateSwaggerDocumentation
-  let loggingParams = CLI.loggingParams "node" (wsoNodeArgs cfg)
+  let loggingParams = CLI.loggingParams loggerName (wsoNodeArgs cfg)
   loggerBracket loggingParams . runProduction $ do
     CLI.printFlags
     logInfo "[Attention] Software is built with the wallet backend"

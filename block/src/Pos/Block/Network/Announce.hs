@@ -43,7 +43,8 @@ announceBlock
     :: BlockWorkMode ctx m
     => EnqueueMsg m -> MainBlockHeader -> m (Map NodeId (m ()))
 announceBlock enqueue header = do
-    logDebug $ sformat ("Announcing header to others:\n"%build) header
+    logDebug $ sformat ("Announcing header to others: "%shortHashF)
+               (headerHash header)
     enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo

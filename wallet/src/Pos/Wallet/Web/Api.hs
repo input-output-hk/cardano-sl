@@ -347,7 +347,7 @@ data WTxsApiRecord route = WTxsApiRecord
         "For all transactions in CPtxWontApply condition, \
         \reset them to CPtxApplying condition so that they will \
         \be passed to resubmition"
-    :> WRes Get ()
+    :> WRes Get NoContent
 
   , _updateTx :: route
     :- "payments"

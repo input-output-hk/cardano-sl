@@ -1,5 +1,5 @@
 name:                cardano-sl-networking
-version:             0.2.0.1
+version:             1.0.3
 license:             MIT
 license-file:        LICENSE
 category:            Network

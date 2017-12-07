@@ -2055,7 +2055,7 @@ self: {
       cardano-sl-networking = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, ekg-core, exceptions, formatting, hashable, hspec, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, network, network-transport, network-transport-inmemory, network-transport-tcp, optparse-simple, random, resourcet, serokell-util, statistics, stdenv, stm, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum }:
       mkDerivation {
           pname = "cardano-sl-networking";
-          version = "0.2.0.1";
+          version = "1.0.3";
           src = ./../networking;
           isLibrary = true;
           isExecutable = true;

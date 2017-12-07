@@ -2,52 +2,42 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE RankNTypes          #-}
 
 module Test.NodeSpec
        ( spec
        ) where
 
-import           Control.Monad               (forM_, when)
-import           Control.Monad.IO.Class      (liftIO)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Lens                (sans, (%=), (&~), (.=))
-import           Control.Exception           (AsyncException(..))
-import           Data.Foldable               (for_)
-import qualified Data.Set                    as S
-import           Data.Time.Units             (Microsecond)
-import           Test.Hspec                  (Spec, describe, runIO, afterAll_)
-import           Test.Hspec.QuickCheck       (prop, modifyMaxSuccess)
-import           Test.QuickCheck             (Property, ioProperty)
-import           Test.QuickCheck.Modifiers   (NonEmptyList(..), getNonEmpty)
-import           Test.Util                   (HeavyParcel (..), Parcel (..),
-                                              TestState, deliveryTest,
-                                              expected, mkTestState, modifyTestState,
-                                              newWork, receiveAll, sendAll,
-                                              makeTCPTransport, makeInMemoryTransport,
-                                              Payload(..), timeout)
-import           System.Random               (newStdGen)
-import qualified Network.Transport           as NT (Transport)
-import qualified Network.Transport.Abstract  as NT
-                                             (closeTransport, newEndPoint,
-                                              closeEndPoint, address, receive)
-import           Network.Transport.TCP       (simpleOnePlaceQDisc, simpleUnboundedQDisc)
-import           Network.QDisc.Fair          (fairQDisc)
-import           Network.Transport.Concrete  (concrete)
-import           Mockable.Class              (Mockable)
-import           Mockable.SharedExclusive    (newSharedExclusive, readSharedExclusive,
-                                              putSharedExclusive, takeSharedExclusive,
-                                              tryPutSharedExclusive, SharedExclusive)
-import           Mockable.Concurrent         (withAsync, wait, Async, Delay, delay)
-import           Mockable.Exception          (catch, throw)
-import           Mockable.Production         (Production, runProduction)
-import           Node.Message.Binary         (BinaryP, binaryPacking)
+import           Control.Lens (sans, (%=), (&~), (.=))
+import           Control.Monad (forM_, when)
+import           Control.Monad.IO.Class (liftIO)
+import qualified Data.Set as S
+import           Network.QDisc.Fair (fairQDisc)
+import qualified Network.Transport as NT (Transport)
+import qualified Network.Transport.Abstract as NT (address, closeEndPoint, closeTransport,
+                                                   newEndPoint, receive)
+import           Network.Transport.Concrete (concrete)
+import           Network.Transport.TCP (simpleOnePlaceQDisc, simpleUnboundedQDisc)
+import           System.Random (newStdGen)
+import           Test.Hspec (Spec, afterAll_, describe, runIO)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Property, ioProperty)
+import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
+
+import           Mockable.Concurrent (wait, withAsync)
+import           Mockable.Exception (catch)
+import           Mockable.Production (Production, runProduction)
+import           Mockable.SharedExclusive (newSharedExclusive, putSharedExclusive,
+                                           readSharedExclusive, takeSharedExclusive)
 import           Node
-import           Node.Conversation
+import           Node.Message.Binary (binaryPacking)
+import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..), TestState, deliveryTest,
+                            expected, makeInMemoryTransport, makeTCPTransport, mkTestState,
+                            modifyTestState, newWork, receiveAll, sendAll, timeout)
 
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
@@ -93,7 +83,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 return ()
 
                 let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
-                        NodeAction (const [listener]) $ \converse -> do
+                        NodeAction (const [listener]) $ \_converse -> do
                             putSharedExclusive serverAddressVar (nodeId _node)
                             takeSharedExclusive clientFinished
                             putSharedExclusive serverFinished ()
@@ -162,7 +152,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 let peerAddr = NodeId (NT.address ep)
                 -- Must clear the endpoint's receive queue so that it's
                 -- never blocked on enqueue.
-                withAsync (let loop = NT.receive ep >> loop in loop) $ \clearQueue -> do
+                withAsync (let loop = NT.receive ep >> loop in loop) $ \_clearQueue -> do
                     -- We want withConnectionTo to get a Timeout exception, as
                     -- delivered by withConnectionTo in case of an ACK timeout.
                     -- A ThreadKilled would come from the outer 'timeout', the
@@ -174,7 +164,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                     node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
                         NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \peerData -> Conversation $ \cactions -> do
+                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions maxBound
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()

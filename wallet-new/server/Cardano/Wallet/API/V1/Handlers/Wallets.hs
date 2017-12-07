@@ -13,12 +13,9 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Pos.Update.Configuration ()
 
-import qualified Pos.Core as Core
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, vectorOf)
-import           Test.QuickCheck.Gen (unGen)
-import           Test.QuickCheck.Random (mkQCGen)
+import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -47,16 +44,13 @@ newWallet NewWallet{..} = do
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
   single <$> (V0.newWallet spendingPassword walletInit >>= migrate)
 
--- TODO(adinapoli): Implement this properly with CSL-1891.
--- Providing here just a stub.
-listWallets :: RequestParams
-            -> MonadV1 (WalletResponse [Wallet])
+-- | Returns the full (paginated) list of wallets.
+listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
+            => RequestParams
+            -> m (WalletResponse [Wallet])
 listWallets params = do
-    -- Use a static seed to simulate the pagination properly.
-    -- Use `pure` to simulate a monadic action.
-    let zipped  = zip [1..] (unGen (vectorOf 100000 arbitrary) (mkQCGen 42) 42)
-    let dataSet = pure $ map (\(idx, w) -> w { walBalance = Core.mkCoin idx}) zipped
-    respondWith params (const dataSet)
+    let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
+    respondWith params (const getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

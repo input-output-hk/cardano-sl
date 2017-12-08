@@ -2380,7 +2380,7 @@ self: {
           description = "Cardano SL - general utilities";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, node-sketch, optparse-applicative, purescript-bridge, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-generic, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
+      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, node-sketch, optparse-applicative, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-generic, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
       mkDerivation {
           pname = "cardano-sl-wallet";
           version = "1.0.3";
@@ -6430,8 +6430,8 @@ self: {
           pname = "semigroupoids";
           version = "5.2.1";
           sha256 = "79e41eb7cbcb4f152343b91243feac0a120375284c1207edaa73b23d8df6d200";
-          revision = "2";
-          editedCabalFile = "049j2jl6f5mxqnavi1aadx37j4bk5xksvkxsl43hp4rg7n53p11z";
+          revision = "3";
+          editedCabalFile = "0wzcnpz8pyjk823vqnq5s8krsb8i6cw573hcschpd9x5ynq4li70";
           setupHaskellDepends = [
             base
             Cabal
@@ -6691,11 +6691,15 @@ self: {
           description = "generate API docs for your servant webservice";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-generic = callPackage ({ base, mkDerivation, servant, servant-server, stdenv }:
+      servant-generic = callPackage ({ base, fetchgit, mkDerivation, servant, servant-server, stdenv }:
       mkDerivation {
           pname = "servant-generic";
-          version = "0.1.0.1";
-          sha256 = "2ef213c2f72eb5d1c3da06f5b8e7537128ea96fe54bb086d5ade91ce872cfcfd";
+          version = "0.1.0.0";
+          src = fetchgit {
+            url = "https://github.com/serokell/servant-generic.git";
+            sha256 = "1agv3h9hxyym59mhzwvldj1i8pm5708cvmg4a1k6nv7m3i8d63s0";
+            rev = "a163e6d98fc5d0cf82846721dbf0203a6a7caa25";
+          };
           libraryHaskellDepends = [
             base
             servant

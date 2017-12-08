@@ -6691,15 +6691,11 @@ self: {
           description = "generate API docs for your servant webservice";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-generic = callPackage ({ base, fetchgit, mkDerivation, servant, servant-server, stdenv }:
+      servant-generic = callPackage ({ base, mkDerivation, servant, servant-server, stdenv }:
       mkDerivation {
           pname = "servant-generic";
-          version = "0.1.0.0";
-          src = fetchgit {
-            url = "https://github.com/serokell/servant-generic.git";
-            sha256 = "1agv3h9hxyym59mhzwvldj1i8pm5708cvmg4a1k6nv7m3i8d63s0";
-            rev = "a163e6d98fc5d0cf82846721dbf0203a6a7caa25";
-          };
+          version = "0.1.0.1";
+          sha256 = "2ef213c2f72eb5d1c3da06f5b8e7537128ea96fe54bb086d5ade91ce872cfcfd";
           libraryHaskellDepends = [
             base
             servant

@@ -13,7 +13,7 @@ import           Universum
 import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
-import           System.Wlog (logInfo)
+import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
@@ -28,6 +28,8 @@ import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, 
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
+loggerName :: LoggerName
+loggerName = "node"
 
 actionWithoutWallet
     :: ( HasConfigurations
@@ -53,7 +55,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- CLI.getNodeParams cArgs nArgs
+    currentParams <- CLI.getNodeParams loggerName cArgs nArgs
     logInfo "Wallet is disabled, because software is built w/o it"
     logInfo $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
 
@@ -65,7 +67,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
-    let loggingParams = CLI.loggingParams "node" commonNodeArgs
+    let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     loggerBracket loggingParams . runProduction $ do
         CLI.printFlags

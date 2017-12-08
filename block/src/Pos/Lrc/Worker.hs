@@ -22,14 +22,14 @@ import qualified Data.HashSet as HS
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
-import           Serokell.Util.Exceptions ()
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, SlotLeaders,
+                           StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
+                           getEpochOrSlot, slotLeadersF)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
@@ -206,12 +206,23 @@ issuersComputationDo epochId = do
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
 
-leadersComputationDo :: LrcMode ctx m => EpochIndex -> SharedSeed -> m ()
+leadersComputationDo ::
+       forall ctx m. LrcMode ctx m
+    => EpochIndex
+    -> SharedSeed
+    -> m ()
 leadersComputationDo epochId seed =
     unlessM (LrcDB.hasLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
-        leaders <- runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
+        leaders <-
+            runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders
+        logLeaders leaders
+  where
+    logLeaders :: SlotLeaders -> m ()
+    logLeaders leaders = logInfo $
+        sformat ("Slot leaders for "%build%" are: "%slotLeadersF)
+        epochId (toList leaders)
 
 richmenComputationDo
     :: forall ctx m.

@@ -104,7 +104,7 @@ deriveJSON Serokell.defaultOptions ''WalletId
 instance Arbitrary WalletId where
   arbitrary =
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-          in WalletId . fromString <$> elements [wid]
+          in WalletId <$> elements [wid]
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
@@ -173,15 +173,7 @@ deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
   arbitrary = Account <$> arbitrary
-                      <*> listOf1 arbitrary
-                      -- ^ FIXME(adinapoli): It's crucial we revert this
-                      -- instance to be simply 'arbitrary' as an 'Account'
-                      -- can easily have 0 or more addresses. However, we
-                      -- need to implement CSL-2034 first, otherwise the
-                      -- generated Swagger specs won't be valid, because they
-                      -- will contain a duplicate entry in the 'items' directive
-                      -- for a 'WalletResponse [Account]', which I'm not sure if
-                      -- it's a bug in @servant-swagger@ or in our code.
+                      <*> arbitrary
                       <*> arbitrary
                       <*> pure "My account"
                       <*> arbitrary
@@ -193,7 +185,7 @@ data AccountUpdate = AccountUpdate {
 deriveJSON Serokell.defaultOptions ''AccountUpdate
 
 instance Arbitrary AccountUpdate where
-  arbitrary = AccountUpdate . fromString <$> pure "myAccount"
+  arbitrary = AccountUpdate <$> pure "myAccount"
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -327,7 +319,7 @@ data Transaction = Transaction
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
-  arbitrary = Transaction <$> fmap fromString arbitrary
+  arbitrary = Transaction <$> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
@@ -346,8 +338,8 @@ data WalletSoftwareUpdate = WalletSoftwareUpdate
 deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
 
 instance Arbitrary WalletSoftwareUpdate where
-  arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
-                                   <*> fmap fromString arbitrary
+  arbitrary = WalletSoftwareUpdate <$> arbitrary
+                                   <*> arbitrary
                                    <*> fmap getPositive arbitrary
 
 -- | How many milliseconds a slot lasts for.

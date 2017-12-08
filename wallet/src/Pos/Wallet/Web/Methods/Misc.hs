@@ -149,5 +149,5 @@ dumpState = WalletStateSnapshot <$> getWalletStorage
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m ()
-resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs
+resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m NoContent
+resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs >> return NoContent

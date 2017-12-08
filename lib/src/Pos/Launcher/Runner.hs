@@ -186,7 +186,7 @@ runRealModeDo NodeResources {..} outSpecs action =
             nrTxpState
             nrDlgState
             jlConf
-            lpRunnerTag
+            lpDefaultName
             nrContext
             oq
 

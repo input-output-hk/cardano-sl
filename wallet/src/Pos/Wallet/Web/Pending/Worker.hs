@@ -31,7 +31,7 @@ import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
 import           Pos.Txp (topsortTxs)
-import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Util.LogSafe (logDebugS, logInfoS)
 import           Pos.Wallet.Web.Networking (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
@@ -115,9 +115,11 @@ processPtxsToResubmit _curSlot ptxs = do
                                              -- shouldn't be needed
             filter (has _PtxApplying . _ptxCond) $
             ptxs
-    unless (null toResubmit) $
+    unless (null toResubmit) $ do
         logInfo $ "We are going to resubmit some transactions"
-    logInfoS $ sformat fmt (map _ptxTxId toResubmit)
+        logInfoS $ sformat fmt (map _ptxTxId toResubmit)
+    when (null toResubmit) $
+        logDebugS "There are no transactions to resubmit"
     resubmitPtxsDuringSlot toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson

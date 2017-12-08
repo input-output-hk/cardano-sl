@@ -1,4 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Server which handles update system.
 
 module Pos.Update.Network.Listeners
@@ -9,7 +11,7 @@ import           Universum
 
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logDebug, logWarning)
+import           System.Wlog (WithLogger, logNotice, logWarning)
 
 import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
 import           Pos.Communication.Types.Protocol (MsgType (..))
@@ -29,7 +31,7 @@ usRelays = [proposalRelay, voteRelay]
 ----------------------------------------------------------------------------
 
 proposalRelay
-    :: UpdateMode ctx m
+    :: forall ctx m. UpdateMode ctx m
     => Relay m
 proposalRelay =
     InvReqData
@@ -47,25 +49,31 @@ proposalRelay =
            }
   where
     tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
-    processVoteLog = processVote >=> logVote
-    logVote e@(Left cause) =
-        e <$ logWarning (sformat ("Proposal accepted but vote "%build%" rejected") cause)
-    logVote e@(Right _) =
-        e <$ logDebug "Processing of proposal's vote is successfull"
+
+    processVoteLog :: UpdateVote -> m ()
+    processVoteLog vote = processVote vote >>= logVote vote
+    logVote vote (Left cause) =
+        logWarning $ sformat ("Proposal is accepted but vote "%build%
+                              " is rejected, the reason is: "%build)
+                     vote cause
+    logVote vote (Right _) = logVoteAccepted vote
 
     logProp prop (Left cause) =
-        logDebug $ sformat ("Processing of proposal "%build%" with id "%build%" failed: "%build)
-              prop (hash prop) cause
+        logWarning $ sformat ("Processing of proposal "%build%
+                              " failed, the reason is: "%build)
+              prop cause
+    -- Update proposals are accepted rarely (at least before Shelley),
+    -- so it deserves 'Notice' severity.
     logProp prop (Right _) =
-        logDebug $ sformat ("Processing of proposal "%build%" with id "%build%" is successful")
-              prop (hash prop)
+        logNotice $ sformat ("Processing of proposal "%build%" is successful")
+              prop
 
 ----------------------------------------------------------------------------
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
 
-voteRelay
-    :: UpdateMode ctx m
+voteRelay ::
+       forall ctx m. UpdateMode ctx m
     => Relay m
 voteRelay =
     InvReqData
@@ -78,11 +86,23 @@ voteRelay =
            , handleReq = \_ (Tagged (id, pk, dec)) -> getLocalVote id pk dec
            , handleData = \_ uv -> do
                  res <- processVote uv
-                 logProcess res
+                 logProcess uv res
                  pure $ isRight res
            }
   where
     tag = tagWith (Proxy :: Proxy UpdateVote)
-    logProcess (Left cause) =
-      logDebug $ sformat ("Processing of vote failed: "%build) cause
-    logProcess (Right _) = logDebug $ "Processing of vote is successfull"
+    logProcess vote (Left cause) =
+        logWarning $ sformat ("Processing of vote "%build%
+                              "failed, the reason is: "%build)
+                     vote cause
+    logProcess vote (Right _) = logVoteAccepted vote
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+-- Update votes are accepted rarely (at least before Shelely), so
+-- it deserves 'Notice' severity.
+logVoteAccepted :: WithLogger m => UpdateVote -> m ()
+logVoteAccepted =
+    logNotice . sformat ("Processing of vote "%build%"is successfull")

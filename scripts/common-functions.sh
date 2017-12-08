@@ -92,8 +92,8 @@ function gen_kademlia_topology {
   fi
 
   echo "Cleaning up topology/kademlia files"
-  rm -v $out_dir/topology*.yaml
-  rm -v $out_dir/kademlia*.yaml
+  rm -fv $out_dir/topology*.yaml
+  rm -fv $out_dir/kademlia*.yaml
 
   echo "Generating new topology/kademlia files"
   for i in $(seq 0 $total_nodes); do

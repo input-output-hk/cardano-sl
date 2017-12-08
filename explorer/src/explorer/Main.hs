@@ -14,7 +14,7 @@ import           Universum
 import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
-import           System.Wlog (logInfo)
+import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                                       getExplorerNodeOptions)
@@ -37,6 +37,9 @@ import           Pos.Util (mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 
+loggerName :: LoggerName
+loggerName = "node"
+
 ----------------------------------------------------------------------------
 -- Main action
 ----------------------------------------------------------------------------
@@ -44,7 +47,7 @@ import           Pos.Util.UserSecret (usVss)
 main :: IO ()
 main = do
     args <- getExplorerNodeOptions
-    let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
+    let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
     loggerBracket loggingParams . runProduction $ do
         CLI.printFlags
         logInfo $ "[Attention] Software is built with explorer part"
@@ -58,7 +61,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs nodeArgs
+        currentParams <- getNodeParams loggerName cArgs nodeArgs
         logInfo $ "Explorer is enabled!"
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 

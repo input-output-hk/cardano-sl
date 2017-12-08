@@ -7,7 +7,7 @@ if [[ ("$TRAVIS_OS_NAME" == "linux") && ("$TRAVIS_BRANCH" == "master") ]];
   else with_haddock=false
 fi
 
-targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-node"
+targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-node cardano-sl-wallet-new"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
@@ -43,8 +43,8 @@ done
 #fi
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-  ./validate-wallet-swagger.sh
-  ./check-relevancy-wallet-swagger.sh
+  ./scripts/ci/validate-wallet-swagger.sh
+  ./scripts/ci/check-relevancy-wallet-swagger.sh
 fi
 
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing

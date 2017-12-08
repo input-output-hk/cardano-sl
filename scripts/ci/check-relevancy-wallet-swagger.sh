@@ -5,7 +5,7 @@ set -o pipefail
 SWAGGER_SPEC_PATH="wallet-new/spec/swagger.json"
 
 stored_spec_hash=($(md5sum $SWAGGER_SPEC_PATH))
-actual_spec_hash=($(./cardano-sl-wallet-new.root/bin/wallet-new-swagger -- --dump | md5sum))
+actual_spec_hash=($(./cardano-sl-wallet-new.root/bin/wallet-new-swagger --dump | md5sum))
 
 if [[ $stored_spec_hash == $actual_spec_hash ]]; then
     echo "Swagger doc is up-to-date"

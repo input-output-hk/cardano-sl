@@ -344,11 +344,11 @@ notifyEpochsLastPageSubscribers
     => EpochIndex -> ExplorerSockets m ()
 notifyEpochsLastPageSubscribers currentEpoch = do
     recipients <- view $ csEpochsLastPageSubscribers
-    -- ^ subscriber
+    --  ubscriber
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
-    -- ^ last epoch page
+    -- last epoch page
     epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
-    -- ^ epochs of last page
+    -- epochs of last page
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
@@ -369,7 +369,7 @@ addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx
       -- and transactions from InTx
       inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-      -- ^ inTxs :: NonEmpty [TxOut]
+          -- inTxs :: NonEmpty [TxOut]
           -- TODO [CSM-153]: lookup mempool as well
           Nothing       -> return mempty
           Just txOutAux -> return . one $ toaOut txOutAux

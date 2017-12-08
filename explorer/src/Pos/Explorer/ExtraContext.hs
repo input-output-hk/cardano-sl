@@ -10,12 +10,12 @@ module Pos.Explorer.ExtraContext
 
     , HasGenesisRedeemAddressInfo (..)
     , GenesisRedeemAddressInfo
-    -- ^ Genesis address info
+    -- Genesis address info
 
     , HasExplorerCSLInterface (..)
     , ExplorerMockableMode (..)
     , makeMockExtraCtx
-    -- ^ Explorer mock interface
+    -- Explorer mock interface
 
     ) where
 

@@ -115,7 +115,7 @@ localTimeDifference =
     diff :: NtpStatus -> Word
     diff = \case
         NtpSyncOk -> 0
-        -- ^ `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
+        -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
         NtpDesync diff' -> fromIntegral diff'
 

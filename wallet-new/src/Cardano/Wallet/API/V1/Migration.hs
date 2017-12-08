@@ -68,6 +68,14 @@ lowerV1Monad ctx handler =
 class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 
+-- | Migration for lists, as suggested by @akegalj.
+instance Migrate a b => Migrate [a] [b] where
+  eitherMigrate = mapM eitherMigrate
+
+-- | Migration from list to NonEmpty, as suggested by @akegalj.
+instance Migrate a b => Migrate [a] (NonEmpty b) where
+  eitherMigrate a = fromList <$> mapM eitherMigrate a
+
 -- | "Run" the migration.
 migrate :: ( Catch.MonadThrow m, Migrate from to ) => from -> m to
 migrate from = case eitherMigrate from of
@@ -165,9 +173,9 @@ instance Migrate V0.CAccountId V1.WalletId where
         pure walletId
 
 instance Migrate V0.CAddress Core.Address where
-       eitherMigrate V0.CAddress {..} =
-          either (\_ -> Left $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
-              Right $ decodeCTypeOrFail cadId
+    eitherMigrate V0.CAddress {..} =
+        first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
+            . decodeCTypeOrFail $ cadId
 
 instance Migrate V1.AccountUpdate V0.CAccountMeta where
     eitherMigrate V1.AccountUpdate{..} =
@@ -179,19 +187,14 @@ instance Migrate V1.AccountUpdate V0.CAccountMeta where
 
 instance Migrate (V0.CId V0.Addr) Core.Address where
     eitherMigrate (V0.CId (V0.CHash h)) =
-        either (const $ Left $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
-            Right $ Core.decodeTextAddress h
+        first (const $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
+            . Core.decodeTextAddress $ h
 
 instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, cCoin) = do
         pdAddress <- eitherMigrate cIdAddr
         pdAmount  <- eitherMigrate cCoin
         pure $ V1.PaymentDistribution {..}
-
-instance Migrate [(V0.CId V0.Addr, V0.CCoin)] (NonEmpty V1.PaymentDistribution) where
-    eitherMigrate addrCoinList = do
-        paymentDistributions <- mapM eitherMigrate addrCoinList
-        pure $ fromList paymentDistributions
 
 instance Migrate V0.CTxId V1.TxId where
     eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
@@ -213,9 +216,6 @@ instance Migrate V0.CTx V1.Transaction where
             else V1.IncomingTransaction
 
         pure V1.Transaction{..}
-
-instance Migrate [V0.CTx] [V1.Transaction] where
-    eitherMigrate cTxs = mapM eitherMigrate cTxs
 
 -- | The migration instance for migrating history to a list of transactions
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] where

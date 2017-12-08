@@ -39,7 +39,7 @@ allTransactions walletId requestParams = do
 
     -- TODO(ks): We need the type signature, fix this?
     let transactions :: m [Transaction]
-        transactions = V0.getHistory cIdWallet [] Nothing >>= migrate
+        transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
 
     respondWith requestParams (const transactions)
 

@@ -71,9 +71,7 @@ deleteWallet
     :: (MonadWalletLogic ctx m)
     => WalletId
     -> m NoContent
-deleteWallet walletId = do
-    walletId' <- migrate walletId
-    V0.deleteWallet walletId'
+deleteWallet = V0.deleteWallet <=< migrate
 
 getWallet
     :: WalletId

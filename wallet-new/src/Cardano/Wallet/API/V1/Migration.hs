@@ -70,7 +70,7 @@ class Migrate from to where
 
 -- | Migration from list to NonEmpty, as suggested by @akegalj.
 instance Migrate from to => Migrate [from] (NonEmpty to) where
-  eitherMigrate a = mapM (fromList . eitherMigrate) a
+  eitherMigrate a = fromList <$> mapM eitherMigrate a
 
 -- | "Run" the migration.
 migrate :: (Migrate from to, Catch.MonadThrow m) => from -> m to

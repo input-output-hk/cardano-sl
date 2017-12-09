@@ -68,13 +68,9 @@ lowerV1Monad ctx handler =
 class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 
--- | Migration for lists, as suggested by @akegalj.
-instance Migrate a b => Migrate [a] [b] where
-  eitherMigrate = mapM eitherMigrate
-
 -- | Migration from list to NonEmpty, as suggested by @akegalj.
-instance Migrate a b => Migrate [a] (NonEmpty b) where
-  eitherMigrate a = fromList <$> mapM eitherMigrate a
+instance Migrate from to => Migrate [from] (NonEmpty to) where
+  eitherMigrate a = mapM (fromList . eitherMigrate) a
 
 -- | "Run" the migration.
 migrate :: (Migrate from to, Catch.MonadThrow m) => from -> m to

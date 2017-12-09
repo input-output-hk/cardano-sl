@@ -1,0 +1,78 @@
+# Path to the node executable
+nodePath: .stack-work/install/x86_64-linux/lts-9.1/8.0.2/bin/cardano-node
+
+# Arguments to be passed to the node
+nodeArgs:
+  - "--tlscert"
+  - "./scripts/tls-files/server.crt"
+  - "--tlskey"
+  - "./scripts/tls-files/server.key"
+  - "--tlsca"
+  - "./scripts/tls-files/ca.crt"
+  - "--web"
+  - "--no-ntp"
+  - "--topology"
+  - "/tmp/topology.yaml"
+  - "--logs-prefix"
+  - "logs/test"
+  - "--db-path"
+  - "db-mainnet-staging"
+  - "--wallet-db-path"
+  - "wdb-mainnet-staging"
+  - "--keyfile"
+  - "secret-mainnet-staging.key"
+  - "--configuration-file"
+  - "lib/configuration.yaml"
+  - "--configuration-key"
+  - "mainnet_dryrun_full"
+
+# Path to directory with all DBs used by the node
+nodeDbPath: db-mainnet-staging
+
+# Path to log config that will be used by the node
+nodeLogConfig: scripts/log-templates/log-config-qa.yaml
+
+# File where node stdout/err will be redirected (def: temp file)
+# nodeLogPath: node.log
+
+# Path to the wallet frontend executable (e. g. Daedalus)
+# walletPath: binaries/daedalus
+
+# Arguments to be passed to the wallet frontend executable.
+# walletArgs: []
+
+# Bool that determines if wallet should log to stdout
+# walletLogging: true
+
+# File where wallet stdout/err will be redirected
+# walletLogPath: /tmp/wallet-log
+
+# Path to the updater executable.
+updaterPath: binaries/cardano-updater
+
+# Arguments to be passed to the updater.
+updaterArgs:
+  - "dir"
+  - "binaries"
+
+# Path to the update archive, it will be passed to the updater.
+updateArchive: updateDownloaded.tar
+
+# Path to write the Windows batch file executing updater.
+# updateWindowsRunner:
+
+# How much to wait for the node to exit before killing it
+nodeTimeoutSec: 5
+
+# Where to send logs in case of failure.
+# reportServer: localhost:8080
+
+# Where to put launcher logs (def: console only).
+# launcherLogsPrefix:
+
+configuration:
+  filePath: lib/configuration.yaml
+  key: default
+  systemStart: 1512847931
+  # Leaving a field empty is equivalent to not specifying it at all.
+  seed:

@@ -1,4 +1,5 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE Rank2Types    #-}
 
 -- | Configuration for a node: values which are constant for the lifetime of
 -- the running program, not for the lifetime of the executable binary itself.
@@ -71,7 +72,10 @@ data ConfigurationOptions = ConfigurationOptions
       -- | Seed for secrets generation can be provided via CLI, in
       -- this case it overrides one from configuration file.
     , cfoSeed        :: !(Maybe Integer)
-    } deriving (Show)
+    } deriving (Show, Generic)
+
+instance FromJSON ConfigurationOptions where
+    parseJSON = genericParseJSON defaultOptions
 
 defaultConfigurationOptions :: ConfigurationOptions
 defaultConfigurationOptions = ConfigurationOptions

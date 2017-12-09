@@ -12,6 +12,7 @@ type API
                         :> ReqBody '[JSON] Payment
                         :> Post '[JSON] (WalletResponse Transaction)
     :<|> "transactions" :> Summary "Returns the transaction history, i.e the list of all the past transactions."
+                        :> Capture "walletId" WalletId
                         :> WalletRequestParams
                         :> Get '[JSON] (WalletResponse [Transaction])
     :<|> "transactions" :> "fees"

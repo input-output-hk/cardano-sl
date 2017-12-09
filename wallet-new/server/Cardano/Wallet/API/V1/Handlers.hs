@@ -18,6 +18,7 @@ import qualified Cardano.Wallet.API.V1.Handlers.Updates as Updates
 import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
 import qualified Cardano.Wallet.API.V1.Info as Info
 import qualified Cardano.Wallet.API.V1.Settings as Settings
+import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.API.V1.Migration
@@ -33,7 +34,7 @@ handlers :: ( HasConfigurations
             -> Server V1.API
 handlers naturalTransformation = Addresses.handlers
                             :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
-                            :<|> Transactions.handlers
+                            :<|> hoistServer (Proxy @Transactions.API) naturalTransformation Transactions.handlers
                             :<|> Updates.handlers
                             :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
                             :<|> hoistServer (Proxy @Info.API) naturalTransformation Info.handlers

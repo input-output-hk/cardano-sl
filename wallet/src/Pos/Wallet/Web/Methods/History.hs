@@ -5,6 +5,7 @@
 module Pos.Wallet.Web.Methods.History
        ( MonadWalletHistory
        , getHistoryLimited
+       , getHistory
        , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty

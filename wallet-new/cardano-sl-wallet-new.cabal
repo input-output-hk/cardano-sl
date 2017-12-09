@@ -63,7 +63,9 @@ library
                      , servant
                      , servant-client
                      , servant-server
+                     , servant-quickcheck
                      , template-haskell
+                     , time
                      , text
                      , text-format
                      , transformers

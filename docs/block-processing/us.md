@@ -38,14 +38,22 @@
 Update system gives ability to developers to propose updates of software applications and
 ability to users to vote for updates to decide which one will be accepted.
 
-This document describes a global part of update system consensus rules.
+This document describes update system model and consensus rules including update payload verification, 
+which is part of block payload verification. It's described formally [here](overall.md#task-definition).
+
+Note, this document describes only global part of update system.
 Global consensus rules is a part of block processing, 
 which checks validity of update payload of block, verify main block header and 
-update corresponding state when blocks are applied/rolled back. 
+update corresponding state when blocks are applied/rolled back.
+
+Local processing part of update system is to be described in separate document (TODO replace with link to that document as soon it's ready).
 
 ## Update system model
 
 ### Update payload
+
+Update payload is part of block body, containing some data related to update system.
+For more information on block's internals, please visit [page on Cardano Docs](https://cardanodocs.com/technical/blocks/#main-block).
 
 Update payload consists of at most one `UpdatePayload` and list of votes, it's reflected by the datatype:
 ```
@@ -54,9 +62,6 @@ data UpdatePayload = UpdatePayload
     , upVotes    :: ![UpdateVote]
     }
 ```
-
-This document describes update system model and consensus rules including update payload verification, 
-which is part of block payload verification. It's described formally [here](overall.md#task-definition).
 
 ### Poll and decision agreement rules
 
@@ -72,38 +77,45 @@ and it has more stakes "for" than "against", then the proposal becomes approved 
 
 ### Update proposal states
 
-Update proposal may be in five states:
+There are five possible states for Update proposal:
+
 * **Active**  
 When an update proposal gets into the blockchain within some block, it becomes _active_.
-This state means that the proposal is known in the blockchain but 
-it wasn't still decided by stakeholders whether to approve or to reject this proposal.
+
+Though the proposal is committed to the blockchain, 
+stakeholders are still to be decide whether to approve or to reject this proposal.
 So, a poll is active and stakeholders' votes which get into the blockchain affect the decision.
 
 * **Approved**  
-If a decision about proposal has been made positively following one of two rules mentioned above,
-then proposal becomes **approved**.
+If a decision about proposal has been made positively following one of two rules [mentioned above](#poll-and-decision-agreement-rules),
+the proposal becomes **approved**.
+
 _Approved_ proposal may become _active_ or even _rejected_ if rollback occurs.
 
 * **Rejected**  
-If a decision about proposal has been made negatively, then proposal become **rejected**.
-_Rejected_ proposal may become _active_ or even _approved_ if rollback occurs.
+If a decision about proposal has been made negatively, the proposal becomes **rejected**.
+
+_Rejected_ proposal may become _active_ or even _approved_ if block rollback occurs
+(and poll ended with positive decision on alternative branch).
 
 * **Confirmed**  
-If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, then
+If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **confirmed**.
+
 _Confirmed_ state reflects the fact that _approved_ state cannot be changed anymore 
 because we have guarantee that at most `k` blocks may be rolled back.
 
 * **Discarded**  
-If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, then
+If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **discarded**.
-_Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.  
-If a proposal is discarded then it doesn't affect consensus rules anymore and we throw away it from the consideration.
 
-### Software and block versions
+_Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.
+If a proposal is discarded then it doesn't affect consensus rules anymore and it's safe to evict it out of consideration/storages.
 
-When a developer wants to fix some bug or add some features to application,
-which don't affect protocol rules, he should propose an update with new `SoftwareVersion`.
+### Software version
+
+Each software update contains `SoftwareVersion` field.
+
 ```
 data SoftwareVersion = SoftwareVersion
     { svAppName :: !ApplicationName
@@ -113,8 +125,12 @@ data SoftwareVersion = SoftwareVersion
 
 `SoftwareVersion` contains application name and numeric representation of application version.
 
-If a developer wants to change some protocol rules, for example, `Address` format, 
-he must propose update with new `BlockVersion`
+Software versions from different proposals with same `svAppName` should be in increasing order (see [verification section](#general-checks)).
+
+### Block version
+
+If developer's intention is to change some protocol rules, for example, `Address` format, 
+he must propose update with new `BlockVersion`:
 
 ```
 data BlockVersion = BlockVersion
@@ -152,23 +168,27 @@ So if a value is going to be updated then a field is `Just` and `Nothing` otherw
 
 ### Adoption of block version
 
-Informally, `BlockVersion` is **adopted** if sum of block issuers' stakes, 
-which issued blocks of this `BlockVersion` at least once, takes a significant part of the stake.
+Informally, `BlockVersion = (Maj, Min, Alt)` is **adopted** iff:
+ * sum of block issuers' stakes, which issued a block with this `BlockVersion`, takes a significant part of the stake
+ * there was no other block version with same `(Maj, Min)` **adopted**
 
-Formally, let's say a proposal became _confirmed_ in `s` epoch and current epoch is `t`:  
-if portion of block issuers' stakes, which issued blocks of this `BlockVersion` at least once, is greater than
-`max spMinThd (spInitThd - (t - s) * spThdDecrement)`, then proposal's `BlockVersion` becomes **adopted**.
+Formally, a proposal becomes **adopted** iff:
+* the proposal became _confirmed_ in epoch `s`
+* current epoch is `t`
+* portion of block issuers' stakes, which issued blocks with this `BlockVersion` at least once, is greater than:
+  `max spMinThd (spInitThd - (t - s) * spThdDecrement)`
+* there was no other block version `(Maj, Min, Alt')` with `Alt ≠ Alt'` **adopted**
 
 Intuitively, the threshold which needed to adopt `BlockVersion` is decreasing in each epoch but cannot become
 less than some reasonable minimal value (`spMinThd`).
 
-So we check this rule at the beginning of each epoch for each _confirmed_ proposal 
-and adopt one of block version from _confirmed_ proposals if this version satisfies the rule.
-
+We check this rule at the beginning of each epoch for each _confirmed_ proposal with block version that might become **adopted**.
 
 #### Competing block version
+
 Block version is called **competing** if it may become adopted and 
 there is a confirmed proposal with this block version.
+
 There are rules defining whether block version may become adopted after current last adopted version.  
 The following rules regarding major and minor versions take place:
   * The proposed major version must be equal to or greater by `1` last adopted one.

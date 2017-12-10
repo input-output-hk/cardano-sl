@@ -432,6 +432,7 @@ executable cardano-blockchain-analyser
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-util
@@ -442,7 +443,6 @@ executable cardano-blockchain-analyser
                      , lens
                      , mtl
                      , neat-interpolation
-                     , node-sketch
                      , optparse-applicative
                      , serokell-util
                      , tabl

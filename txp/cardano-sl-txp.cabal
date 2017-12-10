@@ -77,6 +77,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , containers
@@ -94,7 +95,6 @@ library
                      , mmorph
                      , mtl
                      , neat-interpolation
-                     , node-sketch
                      , plutus-prototype
                      , resourcet
                      , rocksdb-haskell >= 1.0.0

@@ -56,7 +56,6 @@ library
                      , memory
                      , mtl
                      , network-uri
-                     , node-sketch
                      , servant
                      , servant-client
                      , servant-server
@@ -73,6 +72,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-util
                      , cardano-sl-wallet
+                     , cardano-sl-networking
                      -- Avoidable deps(?)
                      , cardano-sl
                      , cardano-sl-infra
@@ -127,6 +127,7 @@ executable wallet-new-server
                      , cardano-sl-util
                      , cardano-sl-update
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-wallet
@@ -143,14 +144,12 @@ executable wallet-new-server
                      , log-warper
                      , mtl
                      , neat-interpolation
-                     , node-sketch
                      , optparse-applicative
                      , servant
                      , servant-server
                      , servant-swagger
                      , serokell-util
                      , memory
-                     , node-sketch
                      , stm
                      , string-conv
                      , swagger2
@@ -235,6 +234,7 @@ test-suite wallet-new-specs
                       , cardano-sl-util
                       , cardano-sl-update
                       , cardano-sl-infra
+                      , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-wallet
@@ -251,7 +251,6 @@ test-suite wallet-new-specs
                       , neat-interpolation
                       , quickcheck-instances
                       , memory
-                      , node-sketch
                       , serokell-util
                       , servant
                       , servant-quickcheck

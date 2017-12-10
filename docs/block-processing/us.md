@@ -229,7 +229,7 @@ Once an update proposal which introduces a protocol update becomes _confirmed_, 
   * Block version which is candidate to be *adopted*
 * Adopted
   * Current version of protocol
-* Discarded
+* Never to become Adopted
   * Block version which is not to become *adopted*
 
 At any point in time, only one version is considered *adopted* by blockchain. This version is used to validate all blocks coming to blockchain. List of block versions which were at some point considered *adopted* form a linear order on `(Maj, Min)` pairs.
@@ -239,7 +239,7 @@ At any point in time, only one version is considered *adopted* by blockchain. Th
 Block version is called **competing** if it may become adopted and 
 there is a confirmed proposal with this block version.
 
-When some block version becomes *adopted*, all other *competing* block versions become *discarded*.
+When some block version becomes *adopted*, all other *competing* block versions are never to become *adopted*.
 
 Note, that at any point in time all *competing* block versions have same major and minor versions (i.e. differ only in alt version).
 

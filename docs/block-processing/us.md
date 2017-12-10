@@ -106,6 +106,8 @@ and it has more stakes "for" than "against", then the proposal becomes approved 
 
 ### Update proposal states
 
+TODO: add diagram as in [section](#block-version-life-cycle)
+
 There are five possible states for Update proposal:
 
 * **Active**  
@@ -230,7 +232,6 @@ Once an update proposal which introduces a protocol update becomes _confirmed_, 
 * Adopted
   * Current version of protocol
 * Never to become Adopted
-  * Block version which is not to become *adopted*
 
 At any point in time, only one version is considered *adopted* by blockchain. This version is used to validate all blocks coming to blockchain. List of block versions which were at some point considered *adopted* form a linear order on `(Maj, Min)` pairs.
 

@@ -221,7 +221,7 @@ If constant value is going to be updated to `newValue` then a field is `Just new
 
 ### Block version life cycle
 
-![us-bv-states.png](Block version states)
+![Block version states](us-bv-states.png)
 
 Once an update proposal which introduces a protocol update becomes _confirmed_, corresponding block version may have one of following states:
 

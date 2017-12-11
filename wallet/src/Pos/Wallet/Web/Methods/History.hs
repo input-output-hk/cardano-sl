@@ -5,6 +5,7 @@
 module Pos.Wallet.Web.Methods.History
        ( MonadWalletHistory
        , getHistoryLimited
+       , getHistory
        , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty
@@ -70,7 +71,7 @@ getFullWalletHistory cWalId = do
     fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrs    <- getWalletAddrsSet Ever cWalId
     diff        <- getCurChainDifficulty
-    cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
+    cHistory    <- forM fullHistory (constructCTx cWalId walAddrs diff)
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory

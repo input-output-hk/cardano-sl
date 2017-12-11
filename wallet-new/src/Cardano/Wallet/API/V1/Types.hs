@@ -23,6 +23,7 @@ module Cardano.Wallet.API.V1.Types (
   , Account (..)
   , AccountId
   -- * Payments
+  , TxId (..)
   , Payment (..)
   , PaymentDistribution (..)
   , Transaction (..)
@@ -272,7 +273,32 @@ instance Arbitrary Payment where
                       <*> arbitrary
                       <*> arbitrary
 
-type TxId = Text
+----------------------------------------------------------------------------
+-- TxId
+----------------------------------------------------------------------------
+
+-- | TxId
+newtype TxId = TxId Text
+    deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''TxId
+
+instance Arbitrary TxId where
+  arbitrary = TxId . fromString <$> elements
+      [ "1f434ae9e903ea86f420cd18160d2a6c4d5efa29a1004dfb0466f7a2ec643a6d"
+      , "b53fadd178f752271cfd079aeaf2b791870ede4ed1456d889e43273a8cef87fb"
+      , "a792424d01bbba9fcdf129f40cdde3808baa7c9c38f898e40e7545358a093ca6"
+      ]
+
+instance FromHttpApiData TxId where
+    parseQueryParam = Right . TxId
+
+instance ToHttpApiData TxId where
+    toQueryParam (TxId txId) = txId
+
+----------------------------------------------------------------------------
+  -- Transaction types
+----------------------------------------------------------------------------
 
 -- | The 'Transaction' type.
 data TransactionType =
@@ -327,7 +353,7 @@ data Transaction = Transaction
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
-  arbitrary = Transaction <$> fmap fromString arbitrary
+  arbitrary = Transaction <$> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

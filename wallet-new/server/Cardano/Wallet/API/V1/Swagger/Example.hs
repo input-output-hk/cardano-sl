@@ -4,6 +4,9 @@ import           Universum
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
+import qualified Pos.Core.Common as Core
+import qualified Pos.Crypto.Signing as Core
+import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
@@ -11,7 +14,31 @@ class Arbitrary a => Example a where
     example :: Gen a
     example = arbitrary
 
-instance {-# OVERLAPPABLE #-} Arbitrary a => Example a
+instance Example Core.PassPhrase
+instance Example Core.Coin
+
+instance Example a => Example (NonEmpty a)
+
+instance Example Address
+instance Example Metadata
+instance Example AccountId
+instance Example WalletId
+instance Example BackupPhrase
+instance Example AssuranceLevel
+instance Example SyncProgress
+instance Example BlockchainHeight
+instance Example LocalTimeDifference
+instance Example PaymentDistribution
+instance Example TransactionGroupingPolicy
+instance Example AccountUpdate
+instance Example Wallet
+instance Example WalletUpdate
+instance Example PasswordUpdate
+instance Example EstimatedFees
+instance Example Transaction
+instance Example WalletSoftwareUpdate
+instance Example NodeSettings
+instance Example SlotDuration
 
 -- NOTE: we don't want to see empty list examples in our swagger doc :)
 instance Example a => Example [a] where

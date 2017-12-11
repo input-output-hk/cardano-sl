@@ -4,10 +4,13 @@ sudo: true
 matrix:
   include:
     - env: MODE=hlint
+    - env: MODE=swagger-check
     - env: MODE=normal
     - env: MODE=stack2nix
     - os: osx
       osx_image: xcode8.3
+  allow_failures:
+    - env: MODE=swagger-check
 
 before_install:
 - mkdir -p s3
@@ -27,6 +30,8 @@ script:
 - travis_wait 30 sleep 1800 &
 - if [[ "$MODE" == "hlint" ]]; then
     nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh | ts";
+  elif [[ "$MODE" == "swagger-check" ]]; then
+    ./scripts/ci/validate-wallet-swagger.sh;
   elif [[ "$MODE" == "stack2nix" ]]; then
     nix-shell -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run "unbuffer scripts/check-stack2nix.sh | ts";
   else

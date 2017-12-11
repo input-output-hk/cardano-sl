@@ -43,7 +43,6 @@ done
 #fi
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-  ./scripts/ci/validate-wallet-swagger.sh
   ./scripts/ci/check-relevancy-wallet-swagger.sh
 fi
 

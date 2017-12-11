@@ -8,10 +8,10 @@ if [[ $TRAVIS_COMMIT == "" ]]; then
 fi
 
 spec_path="https://raw.githubusercontent.com/input-output-hk/cardano-sl/$TRAVIS_COMMIT/wallet-new/spec/swagger.json"
-validate="curl http://online.swagger.io/validator/debug?url=$spec_path"
+validate="curl --fail http://online.swagger.io/validator/debug?url=$spec_path"
 
 echo "Checking swagger spec at $spec_path"
-errors=$(curl $validate 2> /dev/null)
+errors=$($validate)
 
 if [[ $errors == '{}' ]]; then
     echo "Swagger spec is valid"

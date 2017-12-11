@@ -27,9 +27,9 @@ import           Pos.Core.Txp (TxId)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), ScrollLimit,
-                                             ScrollOffset, Wal, mkCTx)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
+                                             CWAddressMeta (..), ScrollLimit, ScrollOffset, Wal,
+                                             mkCTx)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending (PendingTx (..), isPtxActive, ptxPoolInfo)

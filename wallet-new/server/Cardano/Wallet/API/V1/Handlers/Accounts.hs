@@ -10,10 +10,10 @@ import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
 
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Account as V0
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, resize)
 
 handlers
     :: (HasCompileInfo, HasConfigurations)
@@ -21,7 +21,7 @@ handlers
 handlers walletId =
           deleteAccount walletId
     :<|>  getAccount walletId
-    :<|>  listAccounts
+    :<|>  listAccounts walletId
     :<|>  newAccount walletId
     :<|>  updateAccount walletId
 
@@ -37,20 +37,12 @@ getAccount
 getAccount wId accId =
     single <$> (migrate (wId, accId) >>= V0.getAccount >>= migrate)
 
-listAccounts :: RequestParams
-             -> MonadV1 (WalletResponse [Account])
-listAccounts RequestParams {..} = do
-  example <- liftIO $ generate (resize 3 arbitrary)
-  return WalletResponse {
-        wrData = example
-      , wrStatus = SuccessStatus
-      , wrMeta = Metadata $ PaginationMetadata {
-          metaTotalPages = 1
-        , metaPage = 1
-        , metaPerPage = 20
-        , metaTotalEntries = 3
-        }
-      }
+listAccounts
+    :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
+    => WalletId -> RequestParams -> m (WalletResponse [Account])
+listAccounts wId params =
+    let accounts = migrate wId >>= V0.getAccounts . Just >>= migrate @[V0.CAccount] @[Account]
+    in respondWith params (const accounts)
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)

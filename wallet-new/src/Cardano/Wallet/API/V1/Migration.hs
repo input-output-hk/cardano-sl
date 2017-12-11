@@ -113,6 +113,20 @@ instance Migrate (V0.CId V0.Wal) V1.WalletId where
 instance Migrate V1.WalletId (V0.CId V0.Wal) where
     eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))
 
+instance Migrate V1.AccountUpdate V0.CAccountMeta where
+    eitherMigrate V1.AccountUpdate{..} =
+        pure $ V0.CAccountMeta uaccName
+
+instance Migrate V1.NewAccount V0.CAccountMeta where
+    eitherMigrate V1.NewAccount{..} =
+        pure $ V0.CAccountMeta naccName
+
+instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
+    eitherMigrate (wId, nAcc) = do
+        newWId <- eitherMigrate wId
+        accMeta <- eitherMigrate nAcc
+        pure $ V0.CAccountInit accMeta newWId
+
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
 instance Migrate V0.SyncProgress V1.SyncProgress where
@@ -175,10 +189,6 @@ instance Migrate V0.CAddress Core.Address where
         first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
             . decodeCTypeOrFail $ cadId
 
-instance Migrate V1.AccountUpdate V0.CAccountMeta where
-    eitherMigrate V1.AccountUpdate{..} =
-        pure $ V0.CAccountMeta uaccName
-
 ----------------------------------------------------------------------------
 -- Transactions
 ----------------------------------------------------------------------------
@@ -220,5 +230,3 @@ instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] wher
     eitherMigrate txsMapAndSize = do
         let txsMapValues = elems . fst $ txsMapAndSize
         mapM (eitherMigrate . fst) txsMapValues
-
-

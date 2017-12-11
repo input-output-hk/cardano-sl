@@ -42,31 +42,9 @@ done
   #./update-haddock.sh
 #fi
 
-./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
-
-# Generate daedalus-bridge
-pushd daedalus
-  nix-shell --run "npm install && npm run build:prod"
-  echo $TRAVIS_BUILD_NUMBER > build-id
-  echo $TRAVIS_COMMIT > commit-id
-  echo https://travis-ci.org/${TRAVIS_REPO_SLUG}/jobs/$TRAVIS_JOB_ID > ci-url
-  cp ../log-config-prod.yaml .
-  cp ../lib/configuration.yaml .
-  cp ../lib/*genesis*.json .
-  cp ../cardano-sl-tools.root/bin/cardano-launcher .
-  cp ../cardano-sl-wallet.root/bin/cardano-node .
-  # check that binaries exit with 0
-  ./cardano-node --help > /dev/null
-  ./cardano-launcher --help > /dev/null
-popd
-
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
 export XZ_OPT=-1
-
-echo "Packing up daedalus-bridge ..."
-tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
-echo "Done"
 
 # For now we dont have macOS developers on explorer
 if [[ ("$TRAVIS_OS_NAME" == "linux") ]]; then

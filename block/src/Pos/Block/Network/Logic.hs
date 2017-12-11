@@ -184,9 +184,8 @@ handleUnsolicitedHeader
     -> m ()
 handleUnsolicitedHeader header nodeId = do
     logDebug $ sformat
-        ("handleUnsolicitedHeader: single header "%shortHashF%
-         " was propagated, processing")
-        hHash
+        ("handleUnsolicitedHeader: single header was propagated, processing:\n"
+         %build) header
     classificationRes <- classifyNewHeader header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
@@ -399,7 +398,8 @@ addHeaderToBlockRequestQueue
     -> Bool -- ^ Was classified as chain continuation
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
-    logDebug $ sformat ("addToBlockRequestQueue, : "%build) header
+    let hHash = headerHash header
+    logDebug $ sformat ("addToBlockRequestQueue, : "%shortHashF) hHash
     queue <- view (lensOf @BlockRetrievalQueueTag)
     lastKnownH <- view (lensOf @LastKnownHeaderTag)
     added <- atomically $ do
@@ -409,7 +409,7 @@ addHeaderToBlockRequestQueue nodeId header continues = do
     if added
     then logDebug $ sformat ("Added headers to block request queue: nodeId="%build%
                              ", header="%build)
-                            nodeId (headerHash header)
+                            nodeId hHash
     else logWarning $ sformat ("Failed to add headers from "%build%
                                " to block retrieval queue: queue is full")
                               nodeId
@@ -581,7 +581,8 @@ relayBlock enqueue (Right mainBlk) = do
     recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
-            logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
+            logDebug $ sformat ("Calling announceBlock for "%shortHashF%".")
+                       (mainBlk ^. gbHeader . headerHashG)
             void $ announceBlock enqueue $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------

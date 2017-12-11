@@ -10,7 +10,6 @@ if [ "${DECISION}" == "yes" ]; then
     echo "Cleaning Cardano SL stack-work..."
     rm -rf .stack-work
     ./scripts/clean/db.sh
-    ./scripts/clean/daedalus-bridge.sh
     ./scripts/clean/explorer-bridge.sh
     exit 0
 else

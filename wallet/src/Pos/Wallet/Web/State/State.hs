@@ -78,6 +78,7 @@ module Pos.Wallet.Web.State.State
        , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , resetFailedPtxs
        , getWalletStorage
        , flushWalletStorage
        ) where
@@ -88,7 +89,7 @@ import           Ether.Internal (lensOf)
 import           Universum
 
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (HeaderHash)
+import           Pos.Core (HeaderHash, SlotId)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxId)
 import           Pos.Txp (Utxo, UtxoModifier)
@@ -335,6 +336,9 @@ ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: MonadWalletDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+
+resetFailedPtxs :: MonadWalletDB ctx m => SlotId -> m ()
+resetFailedPtxs = updateDisk ... A.ResetFailedPtxs
 
 flushWalletStorage :: MonadWalletDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage

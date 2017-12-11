@@ -38,7 +38,7 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import qualified Data.Map.Strict              as M (fromList, insert, lookup)
+import qualified Data.Map.Strict              as M (lookup, insert, fromList)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
@@ -48,13 +48,14 @@ import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
+import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (genesisBlock0)
 import           Pos.Core                     (Address, ChainDifficulty, HasConfiguration,
                                                HeaderHash, Timestamp (..), difficultyL,
                                                headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
-import           Pos.DB.Block                 (MonadBlockDB, blkGetBlock)
+import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.GState                   as GS
 import           Pos.Reporting                (MonadReporting)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
@@ -256,11 +257,14 @@ getBlockHistoryDefault addrs = do
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
-    let getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
+    let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
+        fromBlund = pure . fst
+
+        getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
         getBlockTimestamp blk = getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (Map TxId TxHistoryEntry)
-        blockFetcher start = GS.foldlUpWhileM (lift . blkGetBlock) start (const $ const True)
+        blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
     runGenesisToil . evalToilTEmpty $ blockFetcher bot

@@ -11,7 +11,7 @@ import           System.Wlog                     (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication        ()
-import           Pos.Block.Logic                 (getHeadersRange)
+import           Pos.Block.Logic                 (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce      (handleHeadersCommunication)
 import           Pos.Block.Network.Logic         (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types         (MsgBlock (..), MsgGetBlocks (..),
@@ -21,7 +21,6 @@ import           Pos.Communication.Listener      (listenerConv)
 import           Pos.Communication.Protocol      (ConversationActions (..),
                                                   ListenerSpec (..), MkListeners,
                                                   OutSpecs, constantListeners)
-import           Pos.Configuration               (recoveryHeadersMessage)
 import qualified Pos.DB.Block                    as DB
 import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.Network.Types               (Bucket, NodeId)
@@ -65,10 +64,9 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        -- We fail if we're requested to give more than
-        -- recoveryHeadersMessage headers at once.
-        getHeadersRange @ssc (Just $ recoveryHeadersMessage) mgbFrom mgbTo >>= \case
-            Right hashes -> do
+        mHashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
+        case mHashes of
+            Just hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
@@ -81,14 +79,11 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                             failMalformed
                         Just b -> send conv (MsgBlock b)
                 logDebug "handleGetBlocks: blocks sending done"
-            Left e -> do
-                let e' = "handleGetBlocks: got Left: " <> e
-                logWarning e'
-                send conv (MsgNoBlock e')
+            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
   where
     failMalformed =
         throwM $ DBMalformed $
-        "handleGetBlocks: getHeadersRange returned header that doesn't " <>
+        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------

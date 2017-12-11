@@ -9,15 +9,15 @@ module Pos.Block.Logic.Header
        , classifyHeaders
        , getHeadersFromManyTo
        , getHeadersOlderExp
-       , getHeadersRange
+       , getHeadersFromToIncl
        ) where
 
 import           Universum
-import           Unsafe                    (unsafeLast)
 
-import           Control.Lens              (to, _Wrapped)
+import           Control.Lens              (_Wrapped)
 import           Control.Monad.Except      (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Data.List.NonEmpty        ((<|))
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 import           Serokell.Util.Text        (listJson)
@@ -31,10 +31,11 @@ import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeade
 import           Pos.Configuration         (HasNodeConfiguration, recoveryHeadersMessage)
 import           Pos.Core                  (BlockCount, EpochOrSlot (..),
                                             HasConfiguration, HeaderHash, SlotId (..),
-                                            blkSecurityParam, difficultyL, epochIndexL,
-                                            epochOrSlotG, getChainDifficulty,
-                                            getEpochOrSlot, headerHash, headerHashG,
-                                            headerSlotL, prevBlockL)
+                                            blkSecurityParam, difficultyL, epochOrSlotG,
+                                            getChainDifficulty, getEpochOrSlot,
+                                            headerHash, headerHashG, headerSlotL,
+                                            prevBlockL)
+import           Pos.Core.Configuration    (genesisHash)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
@@ -327,89 +328,35 @@ getHeadersOlderExp upto = do
                 | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
--- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
--- is older (not strict) than @to@, and valid chain in between can be
--- found, headers in range @[from..to]@ will be found. If the number
--- of headers in the chain (which should be returned) is more than
--- @depthLimit@, error will be thrown.
-getHeadersRange ::
-       forall ssc m. (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
-    => Maybe Word
-    -> HeaderHash
-    -> HeaderHash
-    -> m (Either Text (OldestFirst NE HeaderHash))
-getHeadersRange _ older newer | older == newer = runExceptT $ do
-    unlessM (isJust <$> (DB.blkGetHeader @ssc newer)) $
-        throwError "getHeadersRange: can't find newer-older header"
-    pure $ OldestFirst $ one newer
-getHeadersRange depthLimitM older newer = runExceptT $ do
+-- CSL-396 don't load all the blocks into memory at once
+-- | Given @from@ and @to@ headers where @from@ is older (not strict)
+-- than @to@, and valid chain in between can be found, headers in
+-- range @[from..to]@ will be found.
+getHeadersFromToIncl
+    :: forall ssc m .
+       (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
+    => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
+getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
-    newerHd <- fromMaybeM "can't retrieve newer header" $ DB.blkGetHeader @ssc newer
-    olderHd <- fromMaybeM "can't retrieve older header" $ DB.blkGetHeader @ssc older
-    let olderD = olderHd ^. difficultyL
-    let newerD = newerHd ^. difficultyL
-
-    -- Proving newerD >= olderD
-    let newerOlderF = "newer: "%build%", older: "%build
-    when (newerD == olderD) $
-        throwError $
-        sformat ("getHeadersRange: newer and older headers have "%
-                 "the same difficulty, but are not equal. "%newerOlderF)
-                newerHd olderHd
-    when (newerD < olderD) $
-        throwError $
-        sformat ("getHeadersRange: newer header is less dificult than older one. "%
-                 newerOlderF)
-                newerHd olderHd
-
-    -- How many epochs does this range cross.
-    let genDiff :: Int
-        genDiff = fromIntegral $ newerHd ^. epochIndexL - olderHd ^. epochIndexL
-    -- Number of blocks is difficulty difference + number of genesis blocks.
-    -- depthDiff + 1 is length of a list we'll return.
-    let depthDiff :: Word
-        depthDiff = fromIntegral $ genDiff + fromIntegral (newerD - olderD)
-
-    whenJust depthLimitM $ \depthLimit ->
-        when (depthDiff + 1 > depthLimit) $
-        throwError $
-        sformat ("getHeadersRange: requested "%int%" headers, but depthLimit is "%
-                 int%". Headers: "%newerOlderF)
-                depthDiff
-                depthLimit
-                newerHd olderHd
-
-    -- We load these depthDiff blocks.
-    let cond curHash _depth = curHash /= newer
-
-    -- This is [oldest..newest) headers, oldest first
-    allExceptNewest <- GS.loadHashesUpWhile older cond
-
-    -- Sometimes we will get an empty list, if we've just switched the
-    -- branch (after first checks are performed here) and olderHd is
-    -- no longer in the main chain.
-    -- CSL-1950 We should use snapshots here.
-    when (null $ allExceptNewest ^. _Wrapped) $ throwError $
-        "getHeadersRange: loaded 0 headers though checks passed. " <>
-        "May be (very rare) concurrency problem, just retry"
-
-    -- It's safe to use 'unsafeLast' here after the last check.
-    let lastElem = allExceptNewest ^. _Wrapped . to unsafeLast
-    when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
-        throwError $
-        sformat ("getHeadersRange: newest block parent is not "%
-                 "equal to the newest one iterated. It may indicate recent fork or "%
-                 "inconsistent request. Newest: "%build%
-                 ", last list hash: "%build%", already retrieved (w/o last): "%listJson)
-                newerHd
-                lastElem
-                allExceptNewest
-
-    -- We append last element and convert to nonempty.
-    let conv =
-           fromMaybe (error "getHeadersRange: can't happen") .
-           nonEmpty .
-           (++ [newer])
-    pure $ allExceptNewest & _Wrapped %~ conv
+    start <- MaybeT $ DB.blkGetHeader @ssc newer
+    end   <- MaybeT $ DB.blkGetHeader @ssc older
+    guard $ getEpochOrSlot start >= getEpochOrSlot end
+    let lowerBound = getEpochOrSlot end
+    if newer == older
+    then pure $ one newer
+    else loadHeadersDo lowerBound (one newer) $ start ^. prevBlockL
   where
-    fromMaybeM r m = ExceptT $ maybeToRight ("getHeadersRange: " <> r) <$> m
+    loadHeadersDo
+        :: EpochOrSlot
+        -> NonEmpty HeaderHash
+        -> HeaderHash
+        -> MaybeT m (NonEmpty HeaderHash)
+    loadHeadersDo lowerBound hashes nextHash
+        | nextHash == genesisHash = mzero
+        | nextHash == older = pure $ nextHash <| hashes
+        | otherwise = do
+            nextHeader <- MaybeT $ (DB.blkGetHeader @ssc) nextHash
+            guard $ getEpochOrSlot nextHeader > lowerBound
+            -- hashes are being prepended so the oldest hash will be the last
+            -- one to be prepended and thus the order is OldestFirst
+            loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)

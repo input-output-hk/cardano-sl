@@ -32,7 +32,6 @@ module Pos.Explorer.Socket.Methods
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
-import qualified Data.List.NonEmpty             as NE
 import qualified Data.Set                       as S
 import           Formatting                     (sformat, shown, stext, (%))
 import           Network.EngineIO               (SocketId)
@@ -69,7 +68,6 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (.
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Explorer.Web.Server        (ExplorerMode, getBlocksLastPage,
                                                  topsortTxsOrFail)
-
 
 -- * Event names
 
@@ -299,11 +297,10 @@ notifyTxsSubscribers cTxEntries =
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
     => HeaderHash -> HeaderHash -> m (Maybe [Blund SscGodTossing])
-getBlundsFromTo recentBlock oldBlock =
-    DB.getHeadersRange @SscGodTossing Nothing oldBlock recentBlock >>= \case
-        Left _ -> pure Nothing
-        Right (getOldestFirst -> headers) ->
-            Just . catMaybes <$> forM (NE.tail headers) (DB.blkGetBlund @SscGodTossing)
+getBlundsFromTo recentBlock oldBlock = do
+    mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
+    forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
+        fmap catMaybes $ forM headers (DB.blkGetBlund @SscGodTossing)
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)

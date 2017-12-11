@@ -145,7 +145,6 @@ translation =
         , fooCardanoFoundationYoutube: "Cardano Foundation YouTube"
         , fooCardanoFoundationTwitter: "Cardano Foundation Twitter"
         , fooCardanoHub: "Cardano Hub"
-        , fooCardanoLaunch: "Cardano Launch"
         , fooCardanoSlack: "Cardano Slack"
         , fooCardanoReddit: "Cardano Reddit"
         , fooCardanoCommunity: "Cardano Community"

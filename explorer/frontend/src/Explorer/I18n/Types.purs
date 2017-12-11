@@ -178,7 +178,6 @@ type Footer =
     , fooWhyCardano :: String
     , fooCardanoRoadmap :: String
     , fooCardanoSource :: String
-    , fooCardanoLaunch :: String
     , fooCardanoDocumentation :: String
     , fooCardanoFoundation :: String
     , fooCardanoFoundationYoutube :: String

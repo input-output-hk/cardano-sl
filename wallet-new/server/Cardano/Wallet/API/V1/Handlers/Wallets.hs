@@ -67,8 +67,8 @@ deleteWallet
     -> m NoContent
 deleteWallet = V0.deleteWallet <=< migrate
 
-getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m Wallet
-getWallet = migrate <=< V0.getWallet <=< migrate
+getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m (WalletResponse Wallet)
+getWallet = fmap single . migrate <=< V0.getWallet <=< migrate
 
 updateWallet
     :: WalletId

@@ -18,6 +18,8 @@ module Pos.Wallet.Web.Methods.Misc
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
+
+       , resetAllFailedPtxs
        ) where
 
 import           Universum
@@ -33,6 +35,7 @@ import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), Octe
 
 import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
@@ -42,7 +45,8 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateIn
                                              SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
-                                       getWalletStorage, removeNextUpdate, setProfile, testReset)
+                                       getWalletStorage, removeNextUpdate, resetFailedPtxs,
+                                       setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 ----------------------------------------------------------------------------
@@ -140,3 +144,12 @@ instance Buildable WalletStateSnapshot where
 
 dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
+
+----------------------------------------------------------------------------
+-- Tx resubmitting
+----------------------------------------------------------------------------
+
+resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m NoContent
+resetAllFailedPtxs = do
+    getCurrentSlotBlocking >>= resetFailedPtxs
+    return NoContent

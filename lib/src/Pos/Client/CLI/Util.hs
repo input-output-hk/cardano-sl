@@ -12,11 +12,10 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Lens (zoom, (?=))
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (LoggerConfig (..), Severity (Info, Warning), WithLogger, fromScratch,
-                              lcTree, logInfo, ltSeverity, parseLoggerConfig, zoomLogger)
+import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
+                              productionB)
 import           Text.Parsec (try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
@@ -51,19 +50,11 @@ attackTargetParser =
     (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is
--- not passed. Corresponds to next logger config:
---
--- > node:
--- >   severity: Info
--- >   comm:
--- >     severity: Warning
---
+-- not passed.
 defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
-    ltSeverity ?= Info
-    zoomLogger "comm" $ ltSeverity ?= Warning
+defaultLoggerConfig = productionB
 
--- | Reads logger config from given path. By default return
+-- | Reads logger config from given path. By default returns
 -- 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig

@@ -29,17 +29,17 @@ import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
-loggingParams tag CommonNodeArgs{..} =
+loggingParams defaultName CommonNodeArgs{..} =
     LoggingParams
     { lpHandlerPrefix = logPrefix commonArgs
     , lpConfigPath    = logConfig commonArgs
-    , lpRunnerTag     = tag
+    , lpDefaultName   = defaultName
     , lpConsoleLog    = Nothing -- no override by default
     }
 
 getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
-getBaseParams loggingTag args@CommonNodeArgs {..} =
-    BaseParams { bpLoggingParams = loggingParams loggingTag args }
+getBaseParams defaultLoggerName args@CommonNodeArgs {..} =
+    BaseParams { bpLoggingParams = loggingParams defaultLoggerName args }
 
 gtSscParams :: CommonNodeArgs -> VssKeyPair -> BehaviorConfig -> SscParams
 gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
@@ -65,10 +65,11 @@ getNodeParams ::
        , HasConfiguration
        , HasSscConfiguration
        )
-    => CommonNodeArgs
+    => LoggerName
+    -> CommonNodeArgs
     -> NodeArgs
     -> m NodeParams
-getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
+getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
@@ -80,7 +81,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npBaseParams = getBaseParams "node" cArgs
+        , npBaseParams = getBaseParams defaultLoggerName cArgs
         , npJLFile = jlPath
         , npReportServers = reportServers commonArgs
         , npUpdateParams = UpdateParams

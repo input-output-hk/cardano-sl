@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Time.Units (Second)
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Mockable (mapConcurrently, race)
-import           Serokell.Util.Text (listJson)
+import           Serokell.Util (listJson)
 import           System.Exit (ExitCode (..))
 import           System.Wlog (WithLogger, getLoggerName, logDebug, logInfo, logWarning)
 
@@ -30,7 +30,6 @@ import           Pos.DHT.Real (KademliaDHTInstance (..), kademliaJoinNetworkNoTh
                                kademliaJoinNetworkRetry)
 import qualified Pos.GState as GS
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.DB as LrcDB
 import           Pos.Network.Types (NetworkConfig (..), topologyRunKademlia)
 import           Pos.NtpCheck (NtpStatus (..), ntpSettings, withNtpCheck)
 import           Pos.Reporting (reportError)
@@ -98,13 +97,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         firstGenesisHash
         (gdFtsSeed genesisData)
 
-    lastKnownEpoch <- LrcDB.getEpoch
-    let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
-    let onLeaders leaders =
-            logInfo $
-            sformat ("Last known leaders for epoch "%build%" are: "%listJson)
-                    lastKnownEpoch leaders
-    LrcDB.getLeadersForEpoch lastKnownEpoch >>= maybe onNoLeaders onLeaders
     tipHeader <- DB.getTipHeader
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 

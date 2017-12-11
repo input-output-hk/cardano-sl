@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay, fork)
-import           Serokell.Util (listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Wlog (logDebug, logInfo, logWarning)
 
@@ -71,18 +71,20 @@ blkWorkers
     => Timer -> ([WorkerSpec m], OutSpecs)
 blkWorkers keepAliveTimer =
     merge $ [ blkCreatorWorker
-            , blkMetricCheckerWorker
+            , informerWorker
             , retrievalWorker keepAliveTimer
             , recoveryTriggerWorker
             ]
   where
     merge = mconcatPair . map (first pure)
 
-blkMetricCheckerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
-blkMetricCheckerWorker =
+informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+informerWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId _ ->
-        recoveryCommGuard "onNewSlot worker, blkMetricCheckerWorker" $
-             metricWorker slotId
+        recoveryCommGuard "onNewSlot worker, informerWorker" $ do
+            tipHeader <- DB.getTipHeader
+            logDebug $ sformat ("Our tip header: "%build) tipHeader
+            metricWorker slotId
 
 ----------------------------------------------------------------------------
 -- Block creation worker
@@ -139,11 +141,9 @@ blockCreator (slotId@SlotId {..}) sendActions = do
             -- of them.
             dropAround :: Int -> Int -> [a] -> [a]
             dropAround p s = take (2*s + 1) . drop (max 0 (p - s))
-            strLeaders = map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
-        if siSlot == minBound
-            then logInfo $ sformat ("Full slot leaders: "%listJson) strLeaders
-            else logDebug $ sformat ("Trimmed leaders: "%listJson) $
-                            dropAround (fromIntegral $ fromEnum $ siSlot) 10 strLeaders
+            strLeaders = map (bprint pairF) (enumerate @Int (toList leaders))
+        logDebug $ sformat ("Trimmed leaders: "%listJson)
+                 $ dropAround (fromEnum siSlot) 10 strLeaders
 
         ourHeavyPsk <- getPskByIssuer (Left ourPk)
         let heavyWeAreIssuer = isJust ourHeavyPsk

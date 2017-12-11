@@ -14,7 +14,7 @@ import           Universum
 import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
-import           System.Wlog (logInfo, modifyLoggerName)
+import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
@@ -40,6 +40,8 @@ import           Pos.WorkMode (WorkMode)
 
 import           NodeOptions (WalletArgs (..), WalletNodeArgs (..), getWalletNodeOptions)
 
+loggerName :: LoggerName
+loggerName = "node"
 
 ----------------------------------------------------------------------------
 -- Main action
@@ -120,7 +122,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs nodeArgs
+        currentParams <- getNodeParams loggerName cArgs nodeArgs
         logInfo $ "Wallet is enabled!"
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
@@ -139,7 +141,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
-    let loggingParams = CLI.loggingParams "node" (wnaCommonNodeArgs args)
+    let loggingParams = CLI.loggingParams loggerName (wnaCommonNodeArgs args)
     loggerBracket loggingParams . runProduction $ do
         CLI.printFlags
         logInfo "[Attention] Software is built with wallet part"

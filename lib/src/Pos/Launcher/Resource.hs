@@ -16,7 +16,6 @@ module Pos.Launcher.Resource
 
          -- * Smaller resources
        , loggerBracket
-       , bracketKademlia
        , bracketTransport
        ) where
 
@@ -207,7 +206,7 @@ bracketNodeResources :: forall ext m a.
     -> Production a
 bracketNodeResources np sp txp initDB action =
     bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
-        bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
+        bracketKademlia (npNetworkConfig np) $ \networkConfig ->
             bracket (allocateNodeResources transport networkConfig np sp txp initDB)
                     releaseNodeResources $ \nodeRes ->do
                 -- Notify systemd we are fully operative
@@ -314,12 +313,11 @@ mkSlottingVar = newTVarIO =<< GState.getSlottingData
 
 createKademliaInstance ::
        (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
-    => BaseParams
-    -> KademliaParams
+    => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
-createKademliaInstance BaseParams {..} kp defaultPort =
-    usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig defaultBindAddress)
+createKademliaInstance kp defaultPort =
+    usingLoggerName "kademlia" (startDHTInstance instConfig defaultBindAddress)
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ defaultPeers}
     defaultBindAddress = ("0.0.0.0", defaultPort)
@@ -327,35 +325,33 @@ createKademliaInstance BaseParams {..} kp defaultPort =
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
     :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
-    => BaseParams
-    -> KademliaParams
+    => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
     -> m a
-bracketKademliaInstance bp kp defaultPort action =
-    bracket (createKademliaInstance bp kp defaultPort) stopDHTInstance action
+bracketKademliaInstance kp defaultPort action =
+    bracket (createKademliaInstance kp defaultPort) stopDHTInstance action
 
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
 bracketKademlia
     :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
-    => BaseParams
-    -> NetworkConfig KademliaParams
+    => NetworkConfig KademliaParams
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
-bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
+bracketKademlia nc@NetworkConfig {..} action = case ncTopology of
     -- cases that need Kademlia
     TopologyP2P{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
+      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
         k $ TopologyP2P{topologyKademlia = kinst, ..}
     TopologyTraditional{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
+      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
         k $ TopologyTraditional{topologyKademlia = kinst, ..}
     TopologyRelay{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
+      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
         k $ TopologyRelay{topologyOptKademlia = Just kinst, ..}
     TopologyCore{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance bp kp ncDefaultPort $ \kinst ->
+      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
         k $ TopologyCore{topologyOptKademlia = Just kinst, ..}
 
     -- cases that don't

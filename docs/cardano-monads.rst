@@ -920,3 +920,183 @@ Let us have a point-by-point rundown of the approach properties:
 
 As you can see, the hybrid approach is a compromise. There are still issues,
 but there are no fatal flaws (we don't score LOW for any of the criteria).
+
+Late-bound Capabilities
+~~~~~~~~~~~~~~~~~~~~~~~
+
+There's an issue with manual dictionary passing besides reduced convenience:
+they grant enough control to change dictionaries locally, but without updating
+them in closure of other capabilities.
+
+Consider the following example::
+
+  f :: Logging m -> Networking m -> A -> m ()
+  g :: Logging m -> Networking m -> m ()
+
+  g logging networking = do
+    f logging networking A1
+    f logging networking A2
+    f noLogging networking A3 -- oops
+
+In an attempt to call ``f`` with disabled logging, we pass a different
+``Logging`` dictionary to it. However, the ``Networking`` dictionary has
+``Logging`` in its closure, and it will not be updated.
+
+Here is the property we want to guarantee:
+
+* Dictionary coherency: for each term, there is at most one implementation for a
+  capability (such as logging, networking, database access, etc) used at the
+  same time by default. An explicit local override must be transitive (i.e.
+  apply to all capabilities that depend on the overriden capability).
+
+We can guarantee this in several ways:
+
+* Use type classes for method dispatch, without monad transformers. The base
+  monad determines the methods used, so we get coherency of capabilities from
+  coherency of type class instances. One disadvantage of this approach is that
+  we do not get capability overrides, but perhaps we do not need them in the
+  long run (today we do, but @avieth insists that we will not if we rewrite more
+  code to be pure). The primary, more concerning disadvantage, is that it pushes
+  the choice of an implementation to the type level, while it can be determined
+  at runtime only (from CLI options).
+
+* Use reflection to pass method dictionaries. The common convention is that we
+  ``give`` just once, at top level, and then GHC passes the dictionaries for us,
+  giving us coherency. There's the same disadvantage of lack of overrides, but
+  another is that using ``Given`` is tricky: if we call ``give`` twice at the
+  same type, the selected dictionary is implementation-dependent, and it would
+  be a shame to base our system on such a shaky ground.
+
+* Pass ``Logging m`` and ``Logging m -> Networking m`` rather than ``Logging m``
+  and ``Networking m``. This is unsatisfactory for several reasons:
+
+  1. Constructing the ``Networking m`` has to be done all the time. It gets
+     tiring, so passing it directly becomes attractive. If we pass it directly
+     (rather than as a function), we have the same issue with invalid
+     (non-transitive) overrides. This requires developers to think thoroughly
+     about avoiding this situation, whereas we would like it to be taken care of
+     by a static check and/or easy-to-follow code style.
+
+  2. Now having ``Logging`` as input is a part of the ``Networking`` interface,
+     not of a concrete ``Networking`` implementation. It is conceivable to have
+     ``Networking`` without logging. In general, it means that if we always
+     represent a capability ``X`` as a function from capability ``Y``, we may
+     not run code that requires only ``Y`` without providing ``X`` as well.
+
+* Finally, we might use a fixed point of ``ReaderT`` of capabilities
+  (dictionaries), where each dictionary has access to each other dictionary. In
+  this framework, dictionary lookup happens right before its use. This way, if
+  we change one capability, all other are affected transitively, providing the
+  desired coherence property.
+
+The last option appears to be the most expressive (allows capability overrides),
+convenient (allows runtime dispatch), and safe (no incoherence).
+
+There was a basic description of how this approach could work, provided by @avieth.
+Based on his idea and a few improvements to allow extensibility, @int-index
+implemented a framework:
+
+* Documentation: https://caps-0-dxkllnpysx.now.sh/Monad-Capabilities.html
+* Source code: https://github.com/int-index/caps
+
+Here is the general idea. We have capabilities defined like so::
+
+  data Logging m =
+    Logging
+      { _logError :: String -> m (),
+        _logDebug :: String -> m ()
+      }
+
+  data Networking m =
+    Networking
+      { _sendRequest :: ByteString -> m ByteString }
+
+  data FileStorage m =
+    FileStorage
+      { _readFile :: FilePath -> m ByteString,
+        _writeFile :: FilePath -> ByteString -> m ()
+      }
+
+We put them in a map (basically, ``Data.Map.Lazy``), using their types
+as keys::
+
+     key          value
+  --------    -------------
+  Logging      loggingImpl
+  Networking      netwImpl
+  FileStorage    filesImpl
+
+where ``Impl``-s are values of these record types. The type of this map is
+``Capabilities '[Logging, Networking, FileStorage] m``, where ``m`` is the base
+monad like ``IO``.
+
+However, we take a fixed point of ``ReaderT`` and these capabilities are defined
+in ``ReaderT (Capabilities '[Logging, Networking, FileStorage] IO) IO`` rather
+than simply ``IO``, meaning that they have full access to all other
+capabilities.
+
+We also define a few helper methods of the following form::
+
+  logError :: HasCap Logging caps => String -> ReaderT (Capabilities caps m) m ()
+  logError message = withCap $ \cap -> _logError cap message
+
+  logDebug :: HasCap Logging caps => String -> ReaderT (Capabilities caps m) m ()
+  logDebug message = withCap $ \cap -> _logDebug cap message
+
+The boilerplate is linear in the amount of methods (linear is OK), but can be
+easily automated with TH.
+
+The entire Cardano application can be defined in ``ReaderT`` over this
+``Capabilities`` map.
+
+More details available at the Haddock document linked above.
+
+Point-by-point rundown:
+
+* Flexibility: SUPERB. We can add capabilities, override capabilities, and
+  overrides are propagated transitively, to guarantee coherence. The order of
+  effects does not matter, they are guaranteed to be commutative. Multiple
+  implementations of the same effect are possible, and their dependencies do not
+  show up in the interface of the capability definition itself. Capability
+  implementations can depend on each other in a mutually recursive manner.
+  Methods with the monad in negative position are allowed.
+
+* Extensibility: SUPERB. Defining a new capability is as simple as defining a
+  new record type. There is very little boilerplate (one top-level definition
+  per method, same as with ``Mockable``), but we will provide a TH helper to
+  automate it. There is no code required to make capabilities work with each
+  other, they are compatible by default (contrast this to ``MonadFoo`` or
+  ``HasFoo`` classes that require many instances, or to effect context sums that
+  require a closed data type enumerating implementations).
+
+* Ease of use: SUPERB. Write the required capabilities in the type using
+  ``HasCap`` constraint. The code can be in a concrete monad (``ReaderT`` of
+  ``Capabilities`` over ``IO``). No lifting, just call the methods. There's
+  very little potential to misuse the framework. The type errors are clear
+  and specific (we use the custom type errors feature of GHC).
+
+* Compile-time performance: GOOD. We use a bit of type families to guarantee
+  type safety (i.e. presence of the required capabilities), but they may only
+  reduce in the top-level module (and do it once). The check is quadratic in the
+  amount of capabilities, but the constant factors are very low (it's just list
+  lookups).
+
+* Run-time performance: LOW/MODERATE. We require a lookup (perhaps several
+  lookups) before each method call, these lookups are done in ``Data.Map.Lazy``
+  right now. The good news is that we can optimizie this significantly by using
+  an unboxed ``Vector`` (there's a concrete plan on implementation), which will
+  provide fairly good run-time performance (but still not the same as
+  inlined/specialized class instances). Note that we're still talking about a
+  few ``Map`` lookups anyway, this will be overshadowed by any network/db
+  request.
+
+* Run-time configurability: SUPERB. The framework allows to put arbitrary code
+  to capability implementations and manipulate them at runtime.
+
+* Predictability: MODERATE. On one hand, we have arbitrary code passed around,
+  which (as with method dictionaries) complicates reasoning. On the other hand,
+  we have a guarantee of coherence, so reasoning about what implementation is
+  chosen is tractable.
+
+The only downside of this appears to be runtime performance, but there is a
+concrete plan to fix this. Overall, this approach satisfies all our criteria.

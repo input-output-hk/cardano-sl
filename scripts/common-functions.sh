@@ -271,7 +271,7 @@ function bench_cmd {
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
   echo -n " $(logs node_auxx.log)"
   echo -n " --system-start $system_start"
-  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""
+  echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode ./tps-sent.csv\""
   echo -n " --configuration-key bench "
   echo -n " --rebuild-db "
 

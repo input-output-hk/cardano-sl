@@ -8,9 +8,14 @@ module Cardano.Wallet.API.V1.Migration.Types (
 
 import           Universum
 
+import           Data.List.NonEmpty (fromList)
+import           Data.Map (elems)
+import           Data.Time.Clock.POSIX (POSIXTime)
+
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
+import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -31,6 +36,12 @@ migrate from = case eitherMigrate from of
 -- Instances
 --
 
+instance Migrate from to => Migrate [from] [to] where
+    eitherMigrate = mapM eitherMigrate
+
+-- | Migration from list to NonEmpty, as suggested by @akegalj.
+instance Migrate from to => Migrate [from] (NonEmpty to) where
+  eitherMigrate a = fromList <$> mapM eitherMigrate a
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =
@@ -64,6 +75,20 @@ instance Migrate (V0.CId V0.Wal) V1.WalletId where
 
 instance Migrate V1.WalletId (V0.CId V0.Wal) where
     eitherMigrate (V1.WalletId h) = pure (V0.CId (V0.CHash h))
+
+instance Migrate V1.AccountUpdate V0.CAccountMeta where
+    eitherMigrate V1.AccountUpdate{..} =
+        pure $ V0.CAccountMeta uaccName
+
+instance Migrate V1.NewAccount V0.CAccountMeta where
+    eitherMigrate V1.NewAccount{..} =
+        pure $ V0.CAccountMeta naccName
+
+instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
+    eitherMigrate (wId, nAcc) = do
+        newWId <- eitherMigrate wId
+        accMeta <- eitherMigrate nAcc
+        pure $ V0.CAccountInit accMeta newWId
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
@@ -127,3 +152,45 @@ instance Migrate V0.CAddress Core.Address where
        eitherMigrate V0.CAddress {..} =
           first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
               $ V0.decodeCType cadId
+
+----------------------------------------------------------------------------
+-- Transactions
+----------------------------------------------------------------------------
+
+instance Migrate (V0.CId V0.Addr) Core.Address where
+    eitherMigrate (V0.CId (V0.CHash h)) =
+        first (const $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
+            . Core.decodeTextAddress $ h
+
+instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
+    eitherMigrate (cIdAddr, cCoin) = do
+        pdAddress <- eitherMigrate cIdAddr
+        pdAmount  <- eitherMigrate cCoin
+        pure $ V1.PaymentDistribution {..}
+
+instance Migrate V0.CTxId V1.TxId where
+    eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
+
+instance Migrate V0.CTx V1.Transaction where
+    eitherMigrate V0.CTx{..} = do
+        txId      <- eitherMigrate ctId
+        let txConfirmations = ctConfirmations
+        txAmount  <- eitherMigrate ctAmount
+        txInputs  <- eitherMigrate ctInputs
+        txOutputs <- eitherMigrate ctOutputs
+
+        let txType = if ctIsLocal
+            then V1.LocalTransaction
+            else V1.ForeignTransaction
+
+        let txDirection = if ctIsOutgoing
+            then V1.OutgoingTransaction
+            else V1.IncomingTransaction
+
+        pure V1.Transaction{..}
+
+-- | The migration instance for migrating history to a list of transactions
+instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] where
+    eitherMigrate txsMapAndSize = do
+        let txsMapValues = elems . fst $ txsMapAndSize
+        mapM (eitherMigrate . fst) txsMapValues

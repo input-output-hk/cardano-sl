@@ -10,7 +10,8 @@ import           Control.Lens (mapped, (?~))
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
-                               genericDeclareNamedSchema, name, properties, required, type_)
+                               genericDeclareNamedSchema, minItems, name, properties, required,
+                               type_)
 import           Data.Swagger.Internal.Schema (named)
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
@@ -66,6 +67,7 @@ instance ToSchema      CT.CCoin
 instance ToSchema      CT.CInitialized
 instance ToSchema      CT.CElectronCrashReport
 instance ToSchema      CT.CUpdateInfo
+instance ToSchema      CT.NewBatchPayment
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
 instance ToSchema      CT.SyncProgress
@@ -124,3 +126,9 @@ instance {-# OVERLAPPING #-}
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
+
+instance ToSchema a => ToSchema (NonEmpty a) where
+    declareNamedSchema _ = do
+        schema <- declareSchema (Proxy :: Proxy [a])
+        pure $ NamedSchema Nothing $ schema
+            & minItems ?~ 1

@@ -67,7 +67,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 7d97bbfb15f1f57f7d9db2aa09c5afe748b0b10d # master v0.2.0.1
+    commit: 0f58f145425650f5e68b838668f36c8342e4a0a8 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -118,7 +118,7 @@ extra-deps:
 - ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
 - transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
 - universum-0.7.0
-- serokell-util-0.5.1
+- serokell-util-0.5.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
 - log-warper-1.3.4
@@ -152,6 +152,7 @@ extra-deps:
 - loc-0.1.3.1
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
+- servant-generic-0.1.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

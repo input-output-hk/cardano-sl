@@ -8,7 +8,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import           Data.Aeson
 import           Data.Typeable (typeRep)
-import           Pos.Crypto (PassPhrase, emptyPassphrase)
+import qualified Pos.Crypto as Crypto
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
@@ -25,17 +25,20 @@ spec = describe "Marshalling & Unmarshalling" $ do
     describe "Roundtrips" $ do
         -- Aeson roundrips
         aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
         aesonRoundtripProp @Core.Coin Proxy
-        aesonRoundtripProp @PassPhrase Proxy
+        aesonRoundtripProp @Crypto.PassPhrase Proxy
         aesonRoundtripProp @TransactionGroupingPolicy Proxy
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
         aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @WalletError Proxy
+        aesonRoundtripProp @WalletId Proxy
+        aesonRoundtripProp @Wallet Proxy
         aesonRoundtripProp @SlotDuration Proxy
         aesonRoundtripProp @LocalTimeDifference Proxy
         aesonRoundtripProp @BlockchainHeight Proxy
@@ -52,13 +55,13 @@ spec = describe "Marshalling & Unmarshalling" $ do
     describe "Invariants" $ do
         describe "password" $ do
             it "empty string decodes to empty password" $
-                jsonString "" `decodesTo` (== emptyPassphrase)
+                jsonString "" `decodesTo` (== Crypto.emptyPassphrase)
             it "base-16 string of length 32 decodes to nonempty password" $
                 jsonString (fromString $ replicate 64 'a')
-                    `decodesTo` (/= emptyPassphrase)
+                    `decodesTo` (/= Crypto.emptyPassphrase)
             it "invalid length password decoding fails" $
                 -- currently passphrase should be either empty or of length 32
-                decodingFails @PassPhrase "aabbcc" Proxy
+                decodingFails @Crypto.PassPhrase "aabbcc" Proxy
 
 migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from) => proxy from -> proxy to -> Property
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do

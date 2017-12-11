@@ -50,9 +50,13 @@ config_dir=$2
 
 if [[ $config_dir == "" ]]; then
   config_dir="./run"
+  if [[ ! -d $config_dir ]]; then
+    mkdir $config_dir
+  fi
   echo $(pwd)
   gen_kademlia_topology $n
 fi
+
 
 # Stats are not mandatory either
 stats=$4

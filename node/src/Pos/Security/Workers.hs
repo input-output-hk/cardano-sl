@@ -16,13 +16,11 @@ import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              worker)
-import           Pos.Configuration          (HasNodeConfiguration,
-                                             mdNoBlocksSlotThreshold)
+import           Pos.Configuration          (HasNodeConfiguration, mdNoBlocksSlotThreshold)
 import           Pos.Context                (getOurPublicKey, getUptime,
-                                             recoveryCommGuard, recoveryInProgress)
-import           Pos.Core                   (SlotId (..), flattenEpochOrSlot,
-                                             flattenSlotId, headerHash, headerLeaderKeyL,
-                                             prevBlockL)
+                                             recoveryCommGuard)
+import           Pos.Core                   (SlotId (..), flattenEpochOrSlot, flattenSlotId,
+                                             headerHash, headerLeaderKeyL, prevBlockL)
 import           Pos.Core.Configuration     (HasConfiguration, genesisHash)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
@@ -87,16 +85,8 @@ checkForReceivedBlocksWorkerImpl
        (WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) $ do
-        -- TODO we should be in fact checking this predicate more often.
-        -- I suggest checking it, eg, every second. But if we succeeded
-        -- and triggered recovery, we make a longer delay, say slot duration/2,
-        -- so that we don't overload the retrieval worker.
-        need <- needRecovery @ctx @ssc
-        recoveryHappening <- recoveryInProgress
-        when (need && not recoveryHappening) $ triggerRecovery enqueueMsg
-    -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
-    -- NO IT WON'T, see CSL-1470
+    repeatOnInterval (const (sec' 4)) . recoveryCommGuard $
+        whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do

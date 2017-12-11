@@ -4,26 +4,40 @@ module Pos.Binary.Ssc.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
-import           Pos.Core.Common (StakeholderId)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi,
+                                   deriveSimpleBiCxt, encodeListLen, enforceSize)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (EpochIndex, EpochOrSlot)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
-                               VssCertificate, VssCertificatesMap)
+                               VssCertificatesMap (..), validateVssCertificatesMap)
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
+import           Pos.Util (eitherToFail)
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''VssCertData [
-    Cons 'VssCertData [
-        Field [| lastKnownEoS :: EpochOrSlot                       |],
-        Field [| certs        :: VssCertificatesMap                |],
-        Field [| whenInsMap   :: HashMap StakeholderId EpochOrSlot |],
-        Field [| whenInsSet   :: Set (EpochOrSlot, StakeholderId)  |],
-        Field [| whenExpire   :: Set (EpochOrSlot, StakeholderId)  |],
-        Field [| expiredCerts :: Set (EpochOrSlot, (StakeholderId,
-                                                      EpochOrSlot,
-                                                      VssCertificate)) |]
-    ]]
+instance HasConfiguration => Bi VssCertData where
+    encode VssCertData {..} = mconcat
+        [ encodeListLen 6
+        , encode lastKnownEoS
+        -- It may look weird to encode 'VssCertificatesMap' as a
+        -- map, but it's done this way for historical reasons.
+        , encode (getVssCertificatesMap certs)
+        , encode whenInsMap
+        , encode whenInsSet
+        , encode whenExpire
+        , encode expiredCerts
+        ]
+    decode = do
+        enforceSize "VssCertData" 6
+        lastKnownEoS <- decode
+        certs <-
+            eitherToFail .
+            validateVssCertificatesMap .
+            UnsafeVssCertificatesMap =<< decode
+        whenInsMap <- decode
+        whenInsSet <- decode
+        whenExpire <- decode
+        expiredCerts <- decode
+        return VssCertData {..}
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''SscGlobalState [
     Cons 'SscGlobalState [

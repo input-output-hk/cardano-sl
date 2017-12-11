@@ -18,7 +18,7 @@ type API
                     :> Summary "Retrieves the full list of Accounts."
                     :> Get '[JSON] (WalletResponse [Account])
     :<|> "accounts" :> Summary "Creates a new Account for the given Wallet."
-                    :> ReqBody '[JSON] NewAccount
+                    :> ReqBody '[JSON] (New Account)
                     :> Post '[JSON] (WalletResponse Account)
     :<|> "accounts" :> Capture "accountId" AccountId
                     :> Summary "Update an Account for the given Wallet."

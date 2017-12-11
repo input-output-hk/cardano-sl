@@ -4,7 +4,6 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE StandaloneDeriving         #-}
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types

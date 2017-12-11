@@ -9,6 +9,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
     PasswordUpdate (..)
   , AccountUpdate (..)
+  , NewAccount (..)
   , Update
   , New
   -- * Domain-specific types
@@ -195,6 +196,17 @@ deriveJSON Serokell.defaultOptions ''AccountUpdate
 
 instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate . fromString <$> pure "myAccount"
+
+data NewAccount = NewAccount
+  { naccSpendingPassword :: !(Maybe SpendingPassword)
+  , naccName             :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAccount
+
+instance Arbitrary NewAccount where
+  arbitrary = NewAccount <$> arbitrary
+                         <*> arbitrary
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -524,4 +536,4 @@ type family Update (original :: *) :: * where
 
 type family New (original :: *) :: * where
   New Wallet  = NewWallet
-  New Account = AccountUpdate -- POST == PUT
+  New Account = NewAccount

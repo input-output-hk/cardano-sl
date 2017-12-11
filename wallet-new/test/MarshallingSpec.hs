@@ -7,7 +7,8 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import           Data.Aeson
 import           Data.Typeable (typeRep)
-import           Pos.Crypto (PassPhrase, emptyPassphrase)
+import           Pos.Crypto (emptyPassphrase)
+import qualified Pos.Crypto as Crypto
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
@@ -28,7 +29,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
         aesonRoundtripProp @Core.Coin Proxy
-        aesonRoundtripProp @PassPhrase Proxy
+        aesonRoundtripProp @Crypto.PassPhrase Proxy
         aesonRoundtripProp @TransactionGroupingPolicy Proxy
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
@@ -52,7 +53,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
                     `decodesTo` (/= emptyPassphrase)
             it "invalid length password decoding fails" $
                 -- currently passphrase should be either empty or of length 32
-                decodingFails @PassPhrase "aabbcc" Proxy
+                decodingFails @Crypto.PassPhrase "aabbcc" Proxy
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do

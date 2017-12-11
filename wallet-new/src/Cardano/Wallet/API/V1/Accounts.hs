@@ -1,7 +1,5 @@
 module Cardano.Wallet.API.V1.Accounts where
 
-import           Universum
-
 import           Servant
 
 import           Cardano.Wallet.API.Response
@@ -19,8 +17,7 @@ type API
     :<|> "accounts" :> WalletRequestParams
                     :> Summary "Retrieves the full list of Accounts."
                     :> Get '[JSON] (WalletResponse [Account])
-    :<|> "accounts" :> Header  "Daedalus-Passphrase" Text
-                    :> Summary "Creates a new Account for the given Wallet."
+    :<|> "accounts" :> Summary "Creates a new Account for the given Wallet."
                     :> ReqBody '[JSON] (New Account)
                     :> Post '[JSON] (WalletResponse Account)
     :<|> "accounts" :> Capture "accountId" AccountId

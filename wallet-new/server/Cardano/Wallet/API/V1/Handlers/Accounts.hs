@@ -7,12 +7,11 @@ import           Universum
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.API.V1.Migration
 
-
-import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.Methods.Logic as V0
+import qualified Pos.Wallet.Web.Account as V0
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -53,23 +52,14 @@ listAccounts RequestParams {..} = do
         }
       }
 
--- | This is an example of how POST requests might look like.
--- It also shows an example of how an error might look like.
--- NOTE: This will probably change drastically as soon as we start using our
--- custom monad as a base of the Handler stack, so the example here is just to
--- give the idea of how it will look like on Swagger.
-newAccount :: WalletId -> Maybe Text -> AccountUpdate -> MonadV1 (WalletResponse Account)
-newAccount wId _ AccountUpdate{..} = do
-    -- In real code we would generate things like addresses (if needed) or
-    -- any other form of Id/data.
-    newId <- liftIO $ generate arbitrary
-    return $ single Account
-        { accId = newId
-        , accAmount = Core.mkCoin 0
-        , accAddresses = mempty
-        , accName = uaccName
-        , accWalletId = wId
-        }
+newAccount
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId -> NewAccount -> m (WalletResponse Account)
+newAccount wId nAccount@NewAccount{..} = do
+    let spendingPw = fromMaybe mempty naccSpendingPassword
+    accInit <- migrate (wId, nAccount)
+    cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
+    single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)

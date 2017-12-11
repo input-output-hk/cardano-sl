@@ -51,7 +51,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   ${executables.${executable}}                                     \
     ${ ifWallet "--web"}                                           \
     --no-ntp                                                       \
-    --configuration-file ${src}/node/configuration.yaml            \
+    --configuration-file ${src}/lib/configuration.yaml             \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${src}/scripts/tls-files/server.crt"}   \
     ${ ifWallet "--tlskey ${src}/scripts/tls-files/server.key"}    \

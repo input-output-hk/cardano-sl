@@ -37,6 +37,16 @@ let
       valency: 1
       fallbacks: 7
   '';
+
+  nodeConfiguration = pkgs.runCommand "${executable}-${environment}-configuration" {} ''
+    mkdir -p $out
+
+    cp ${src + "/lib/configuration.yaml"} $out/configuration.yaml
+    cp ${src + "/lib/mainnet-genesis.json"} $out/mainnet-genesis.json
+
+    substituteInPlace $out/configuration.yaml --replace "file: mainnet-genesis.json" "file: $out/mainnet-genesis.json"
+  '';
+
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
@@ -51,12 +61,12 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   ${executables.${executable}}                                     \
     ${ ifWallet "--web"}                                           \
     --no-ntp                                                       \
-    --configuration-file ${src}/lib/configuration.yaml             \
+    --configuration-file ${nodeConfiguration}/configuration.yaml   \
     --configuration-key ${environments.${environment}.confKey}     \
-    ${ ifWallet "--tlscert ${src}/scripts/tls-files/server.crt"}   \
-    ${ ifWallet "--tlskey ${src}/scripts/tls-files/server.key"}    \
-    ${ ifWallet "--tlsca ${src}/scripts/tls-files/ca.crt"}         \
-    --log-config ${src}/scripts/log-templates/log-config-qa.yaml   \
+    ${ ifWallet "--tlscert ${src + "/scripts/tls-files/server.crt"}"} \
+    ${ ifWallet "--tlskey ${src + "/scripts/tls-files/server.key"}"}  \
+    ${ ifWallet "--tlsca ${src + "/scripts/tls-files/ca.crt"}"}       \
+    --log-config ${src + "/scripts/log-templates/log-config-qa.yaml"} \
     --topology "${topologyFile}"                                   \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"                                     \

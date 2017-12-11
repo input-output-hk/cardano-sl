@@ -232,7 +232,8 @@ instance Buildable (SecureLog CWalletMeta) where
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
--- Includes data which are not provided by Cardano
+-- | Metadata for an account.
+-- Includes data which is not provided by Cardano
 data CAccountMeta = CAccountMeta
     { caName      :: !Text
     } deriving (Eq, Show, Generic)

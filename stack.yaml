@@ -35,13 +35,6 @@ packages:
 - wallet-new # The new (unreleased) version of the wallet
 
 - location:
-    git: https://github.com/well-typed/cborg
-    # Has support for canonical cbor
-    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
-  subdirs:
-  - cborg
-  extra-dep: true
-- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -159,6 +152,7 @@ extra-deps:
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
 - servant-generic-0.1.0.1
+- cborg-0.2.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

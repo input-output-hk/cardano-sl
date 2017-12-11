@@ -34,6 +34,8 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @TransactionDirection Proxy
         aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @WalletError Proxy
+        aesonRoundtripProp @WalletId Proxy
+        aesonRoundtripProp @Wallet Proxy
         aesonRoundtripProp @SlotDuration Proxy
         aesonRoundtripProp @LocalTimeDifference Proxy
         aesonRoundtripProp @BlockchainHeight Proxy
@@ -51,7 +53,6 @@ spec = describe "Marshalling & Unmarshalling" $ do
             it "invalid length password decoding fails" $
                 -- currently passphrase should be either empty or of length 32
                 decodingFails @PassPhrase "aabbcc" Proxy
-
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do

@@ -13,7 +13,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Pos.Update.Configuration ()
 
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
 
@@ -67,10 +67,8 @@ deleteWallet
     -> m NoContent
 deleteWallet = V0.deleteWallet <=< migrate
 
-getWallet
-    :: WalletId
-    -> MonadV1 (WalletResponse Wallet)
-getWallet _ = single <$> (liftIO $ generate arbitrary)
+getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m (WalletResponse Wallet)
+getWallet = fmap single . migrate <=< V0.getWallet <=< migrate
 
 updateWallet
     :: WalletId

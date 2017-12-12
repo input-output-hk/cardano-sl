@@ -101,20 +101,6 @@ need to agree on is Q2: U1 is irrelevant, U4 is solved by
 deserializing to unsafe `T` or `T0` (and maybe skipping D2 D3 as
 suggested by Q1).
 
-<!--
-If we aim to do U2.1, i think we can implement it using
-newtypes. E.g. if we have `S` as subfield of `T` and we only want to
-deserialize `S`, we can create `newtype SAsT = SAsT S` which will be
-encoded as `S`, but decoded as `T`, though avoiding other `T`'s
-fields.
-
-Another suggestion is to use `data SAsT = ...` effectively duplicating
-T, but containing only one related subfield `S`.
-
-And yes, maybe default haskell laziness can help us here too (though
-I'm not sure). What if `S` subfield of `T` is not strict?
--->
-
 ### Solution 1: Approach with "RawX and X".
 
 Described in https://github.com/input-output-hk/cardano-sl/pull/1823#issuecomment-342475355
@@ -206,3 +192,11 @@ lenses applicable to `T`). To construct `Verified Fully T` you'll need
 to do full verification and/or serialization with all checks. It is
 much more verbose than using phantom types, though it is not obvious
 whether using this approach will produce bigger diff.
+
+## Decision
+
+Decision was made in the following PR:
+https://github.com/input-output-hk/cardano-sl/pull/1903
+
+We will adopt solution 3 (phantom types) and extend it with type families (as 
+suggested in the PR) if needed.

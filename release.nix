@@ -34,5 +34,7 @@ let
     stagingWallet = connect { inherit (cardano) rev; environment = "mainnet-staging"; };
     stagingExplorer = connect { inherit (cardano) rev; executable = "explorer"; environment = "mainnet-staging"; };
   };
-in { connect = connectScripts; }
-   // mapTestOn platforms
+in {
+  connect = connectScripts;
+  swagger-check = (import ./. {}).swagger-check;
+} // mapTestOn platforms

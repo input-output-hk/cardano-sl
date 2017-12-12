@@ -20,6 +20,8 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , SpendingPassword
+  -- * Addresses
+  , AddressValidity (..)
   -- * Accounts
   , Account (..)
   , AccountId
@@ -158,9 +160,26 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
+--------------------------------------------------------------------------------
+-- Addresses
+--------------------------------------------------------------------------------
+
+-- | Whether an address is valid or not.
+newtype AddressValidity = AddressValidity { isValid :: Bool }
+  deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressValidity
+
+instance Arbitrary AddressValidity where
+  arbitrary = AddressValidity <$> arbitrary
+
+--------------------------------------------------------------------------------
+-- Accounts
+--------------------------------------------------------------------------------
+
 type AccountId = Word32
 
--- | A wallet's 'Account'.
+-- | A wallet 'Account'.
 data Account = Account
   { accId        :: !AccountId
   , accAddresses :: [Core.Address]

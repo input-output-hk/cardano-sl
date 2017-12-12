@@ -1,22 +1,22 @@
 steps:
-  # - label: 'hlint'
-  #   command: 'scripts/ci/nix-shell.sh -p hlint moreutils --run scripts/haskell/lint.sh'
-  #   agents:
-  #     system: x86_64-linux
+  - label: 'hlint'
+    command: 'scripts/ci/nix-shell.sh -p hlint moreutils --run scripts/haskell/lint.sh'
+    agents:
+      system: x86_64-linux
 
-  # - wait
+  - wait
 
-  # - label: 'stack2nix'
-  #   command: 'scripts/ci/nix-shell.sh -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run scripts/check-stack2nix.sh'
-  #   agents:
-  #     system: x86_64-linux
+  - label: 'stack2nix'
+    command: 'scripts/ci/nix-shell.sh -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run scripts/check-stack2nix.sh'
+    agents:
+      system: x86_64-linux
 
   - label: 'cardano-x86_64-linux'
     command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
     agents:
       system: x86_64-linux
 
-  # - label: 'cardano-x86_64-darwin'
-  #   command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
-  #   agents:
-  #     system: x86_64-darwin
+  - label: 'cardano-x86_64-darwin'
+    command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
+    agents:
+      system: x86_64-darwin

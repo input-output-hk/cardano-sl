@@ -63,7 +63,11 @@ fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash
 
 fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxBriefs
-fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
+fetchBlockTxs (CHash hash) =
+    get $ "blocks/txs/"
+              <> hash
+              <> "?limit=5000"
+              -- ^ hardcoded limit as discussed in `CSL-2047`
 
 -- txs
 fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries

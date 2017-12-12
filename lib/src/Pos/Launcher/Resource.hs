@@ -19,6 +19,7 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
+import           Nub (ordNub)
 import           Universum hiding (bracket)
 
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)

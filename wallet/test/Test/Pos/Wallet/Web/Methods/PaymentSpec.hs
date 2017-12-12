@@ -2,6 +2,7 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
 
+import           Nub (ordNub)
 import           Universum
 
 import           Data.Default (def)

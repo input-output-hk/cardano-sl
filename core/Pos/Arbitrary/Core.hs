@@ -18,7 +18,6 @@ module Pos.Arbitrary.Core
        , UnreasonableEoS (..)
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Data.ByteString as BS (pack)

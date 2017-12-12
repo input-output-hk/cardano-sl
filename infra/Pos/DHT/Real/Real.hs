@@ -17,7 +17,6 @@ module Pos.DHT.Real.Real
        ) where
 
 
-import           Nub (ordNub)
 import           Universum hiding (catch)
 
 import qualified Data.ByteString.Char8 as B8 (unpack)

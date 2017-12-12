@@ -73,7 +73,7 @@ spec = describe "Address" $ do
 pkAndHdwAreShownDifferently :: Bool -> PublicKey -> Bool
 pkAndHdwAreShownDifferently isBootstrap pk =
     show (makePubKeyAddress (IsBootstrapEraAddr isBootstrap) pk) /=
-    (show @Text @_ (makePubKeyHdwAddress (IsBootstrapEraAddr isBootstrap)
+    (show @_ @Text (makePubKeyHdwAddress (IsBootstrapEraAddr isBootstrap)
                     (HDAddressPayload "pataq") pk))
 
 largestAddressProp :: Text -> (SecretKey -> Gen Address) -> Address -> Byte -> Spec

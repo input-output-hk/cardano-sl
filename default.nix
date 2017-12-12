@@ -158,6 +158,30 @@ let
     file dockerimage ${rawDockerImage}
     EOF
   '';
+  runHaskell = name: deps: code: pkgs.runCommand name { buildInputs = [ (pkgs.haskellPackages.ghcWithPackages deps) ]; } ''
+    runhaskell ${pkgs.writeText "${name}.hs" code}
+  '';
+  swagger-check = runHaskell "swagger-check" (ps: with ps; [ aeson swagger2 ]) ''
+    {-# LANGUAGE OverloadedStrings #-}
+    module Main (main) where
+
+    import Data.Aeson
+    import Data.Swagger
+    import qualified Data.ByteString.Lazy as LBS
+    import System.Environment
+
+    main :: IO ()
+    main = do
+      rawSpec <- LBS.readFile "${./wallet-new/spec/swagger.json}"
+      output <- getEnv "out"
+      let
+        maybeSpec = decode rawSpec :: Maybe Swagger
+      case maybeSpec of
+        Just _ -> do
+          LBS.writeFile output "success"
+        Nothing -> do
+          putStrLn "parser error"
+  '';
   upstream = {
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
@@ -166,6 +190,6 @@ let
       sha256 = "1ippcbki5hgsanh2xi6wzgwbpqcl6iq81wqvfz91j0rldyh7kbl8";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
-    inherit rawDockerImage dockerImage;
+    inherit rawDockerImage dockerImage swagger-check;
   };
 in cardanoPkgs // upstream

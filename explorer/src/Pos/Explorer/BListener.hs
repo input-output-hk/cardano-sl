@@ -17,6 +17,7 @@ module Pos.Explorer.BListener
        , createPagedHeaderHashesPair
        ) where
 
+import           Nub (ordNub)
 import           Universum
 
 import           Control.Lens (at, non)

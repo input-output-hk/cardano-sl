@@ -1,20 +1,21 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Diffusion.Full
     ( diffusionLayerFull
     ) where
 
+import           Nub (ordNub)
 import           Universum hiding (bracket)
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
-import           Data.Reflection (Given, given, give)
+import           Data.Reflection (Given, give, given)
 import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Mockable, Bracket, bracket, Catch, Throw, throw, withAsync)
+import           Mockable (Bracket, Catch, Mockable, Throw, bracket, throw, withAsync)
 import           Mockable.Production (Production)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
@@ -23,41 +24,48 @@ import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
-import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
-import           Node.Conversation (Converse, converseWith, Conversation)
+import           Node (Node, NodeAction (..), NodeEnvironment (..), defaultNodeEnvironment, node,
+                       simpleNodeEndPoint)
+import           Node.Conversation (Conversation, Converse, converseWith)
 import qualified System.Metrics as Monitoring
 import           System.Random (newStdGen)
-import           System.Wlog (WithLogger, CanLog, logError, getLoggerName, usingLoggerName)
+import           System.Wlog (CanLog, WithLogger, getLoggerName, logError, usingLoggerName)
 
-import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
-import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
+import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..), InvOrDataTK, Listener,
+                                    MkListeners (..), Msg, MsgSubscribe, NodeId, OutSpecs (..),
+                                    PackingType, PeerData, SendActions, VerInfo (..), bipPacking,
+                                    convH, createOutSpecs, makeEnqueueMsg, makeSendActions,
+                                    toOutSpecs)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
-import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
-import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
+import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout,
+                                    networkConnectionTimeout)
+import           Pos.Core (BlockVersionData (..), HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Configuration (protocolMagic)
-import           Pos.Core (HeaderHash, BlockVersionData (..), StakeholderId, ProxySKHeavy)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
+import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
-import qualified Pos.Diffusion.Full.Block      as Diffusion.Block
+import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance,
+                               stopDHTInstance)
+import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
-import qualified Pos.Diffusion.Full.Ssc        as Diffusion.Ssc
-import qualified Pos.Diffusion.Full.Txp        as Diffusion.Txp
-import qualified Pos.Diffusion.Full.Update     as Diffusion.Update
-import           Pos.Diffusion.Full.Types  (DiffusionWorkMode)
+import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
+import qualified Pos.Diffusion.Full.Txp as Diffusion.Txp
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
+import qualified Pos.Diffusion.Full.Update as Diffusion.Update
+import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
+import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
+import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBlocksError (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue,
-                                    topologySubscribers, SubscriptionWorker (..),
+import           Pos.Network.Types (Bucket, NetworkConfig (..), SubscriptionWorker (..),
+                                    Topology (..), initQueue, topologySubscribers,
                                     topologySubscriptionWorker)
-import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
-import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
-import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
-import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
@@ -91,7 +99,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 
         -- Make the outbound queue using network policies.
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
-            initQueue networkConfig mEkgStore 
+            initQueue networkConfig mEkgStore
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
@@ -177,9 +185,9 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             -- is merged. That shall be the first test of this inspec/outspec
             -- system I suppose.
             subscriptionWorkerOutSpecs = case topologySubscriptionWorker (ncTopology networkConfig) of
-                Just (SubscriptionWorkerBehindNAT _) -> specs
+                Just (SubscriptionWorkerBehindNAT _)       -> specs
                 Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
-                _ -> mempty
+                _                                          -> mempty
               where
                 specs = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
 

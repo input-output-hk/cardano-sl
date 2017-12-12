@@ -47,10 +47,11 @@ newWallet NewWallet{..} = do
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             => RequestParams
+            -> FilterOperation Wallet
             -> m (WalletResponse [Wallet])
-listWallets params = do
+listWallets params fops = do
     let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
-    respondWith params (const getWallets)
+    respondWith params [fops] mempty (const getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

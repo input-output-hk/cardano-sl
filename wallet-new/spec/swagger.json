@@ -498,6 +498,75 @@
                 }
             }
         },
+        "WalletResponse AddressValidity": {
+            "example": {
+                "status": "error",
+                "data": {
+                    "valid": false
+                },
+                "meta": {
+                    "pagination": {
+                        "page": 1,
+                        "perPage": 46,
+                        "totalPages": 1,
+                        "totalEntries": 2
+                    }
+                }
+            },
+            "required": [
+                "status",
+                "data",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "data": {
+                    "required": [
+                        "valid"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "valid": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "meta": {
+                    "required": [
+                        "pagination"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "pagination": {
+                            "required": [
+                                "page",
+                                "perPage",
+                                "totalPages",
+                                "totalEntries"
+                            ],
+                            "type": "object",
+                            "properties": {
+                                "page": {
+                                    "type": "number"
+                                },
+                                "perPage": {
+                                    "type": "number"
+                                },
+                                "totalPages": {
+                                    "type": "number"
+                                },
+                                "totalEntries": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "CProfile": {
             "required": [
                 "cpLocale"
@@ -689,7 +758,7 @@
                             }
                         ],
                         "confirmations": 0,
-                        "id": "¹",
+                        "id": "b53fadd178f752271cfd079aeaf2b791870ede4ed1456d889e43273a8cef87fb",
                         "type": "foreign"
                     },
                     {
@@ -724,7 +793,7 @@
                             }
                         ],
                         "confirmations": 1,
-                        "id": "~",
+                        "id": "1f434ae9e903ea86f420cd18160d2a6c4d5efa29a1004dfb0466f7a2ec643a6d",
                         "type": "local"
                     }
                 ],
@@ -1560,6 +1629,26 @@
                 }
             }
         },
+        "NewAccount": {
+            "example": {
+                "name": "¯",
+                "spendingPassword": null
+            },
+            "required": [
+                "name",
+                "spendingPassword"
+            ],
+            "type": "object",
+            "description": "A type represending an request for creating a(n) Account.",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "spendingPassword": {
+                    "type": "null"
+                }
+            }
+        },
         "AccountUpdate": {
             "example": {
                 "name": "myAccount"
@@ -1602,7 +1691,7 @@
                         }
                     ],
                     "confirmations": 4,
-                    "id": "C/",
+                    "id": "b53fadd178f752271cfd079aeaf2b791870ede4ed1456d889e43273a8cef87fb",
                     "type": "foreign"
                 },
                 "meta": {
@@ -2527,7 +2616,7 @@
                         "description": "`walletId` not found"
                     },
                     "400": {
-                        "description": "Invalid `body` or `Daedalus-Passphrase`"
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -2547,14 +2636,9 @@
                         "type": "string"
                     },
                     {
-                        "in": "header",
-                        "name": "Daedalus-Passphrase",
-                        "type": "string"
-                    },
-                    {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/AccountUpdate"
+                            "$ref": "#/definitions/NewAccount"
                         },
                         "in": "body",
                         "name": "body"
@@ -2642,17 +2726,12 @@
                 "summary": "Clear the 'do not resubmit' flag from transactions that have it.",
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
                 "produces": [
                     "application/json;charset=utf-8"
                 ],
-                "description": "For all transactions in CPtxWontApply condition, reset them to CPtxApplying condition so that they will be passed to resubmition",
                 "tags": [
                     "V0 (Deprecated)"
                 ]
@@ -3042,6 +3121,57 @@
                 ]
             }
         },
+        "/api/v1/transactions/{walletId}": {
+            "get": {
+                "summary": "Returns the transaction history, i.e the list of all the past transactions.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletResponse [Transaction]"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 50,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
+                    }
+                ],
+                "tags": [
+                    "Transactions",
+                    "V1"
+                ]
+            }
+        },
         "/api/wallets": {
             "get": {
                 "summary": "Get information about all available wallets.",
@@ -3331,46 +3461,6 @@
                     "Transactions",
                     "V1"
                 ]
-            },
-            "get": {
-                "summary": "Returns the transaction history, i.e the list of all the past transactions.",
-                "responses": {
-                    "400": {
-                        "description": "Invalid `per_page` or `page`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/WalletResponse [Transaction]"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "default": 1,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "page",
-                        "type": "integer",
-                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
-                    },
-                    {
-                        "maximum": 50,
-                        "default": 10,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "per_page",
-                        "type": "integer",
-                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **50**. If nothing is specified, **this value defaults to 10**.\n"
-                    }
-                ],
-                "tags": [
-                    "Transactions",
-                    "V1"
-                ]
             }
         },
         "/api/papervend/redemptions/ada": {
@@ -3426,6 +3516,37 @@
                 ],
                 "tags": [
                     "V0 (Deprecated)"
+                ]
+            }
+        },
+        "/api/v1/addresses/{address}/validity": {
+            "get": {
+                "summary": "Checks the validity of an address.",
+                "responses": {
+                    "404": {
+                        "description": "`address` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletResponse AddressValidity"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "address",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Addresses",
+                    "V1"
                 ]
             }
         },

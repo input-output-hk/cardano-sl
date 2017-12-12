@@ -21,7 +21,10 @@ library
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
+                       Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Response
+                       Cardano.Wallet.API.Response.Filter.IxSet
+                       Cardano.Wallet.API.Response.Filter.Legacy
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1
@@ -47,6 +50,7 @@ library
                      , aeson
                      , bytestring
                      , containers
+                     , constraints
                      , data-default
                      , exceptions
                      , formatting
@@ -55,6 +59,7 @@ library
                      , http-client
                      , http-types
                      , json-sop
+                     , ixset-typed
                      , lens
                      , memory
                      , mtl
@@ -64,6 +69,7 @@ library
                      , servant-client
                      , servant-server
                      , servant-quickcheck
+                     , string-conv
                      , template-haskell
                      , time
                      , text
@@ -73,6 +79,7 @@ library
                      , unordered-containers
                      , vector
                      , serokell-util
+                     , wai
                      , warp
                      , cardano-sl-core
                      , cardano-sl-crypto

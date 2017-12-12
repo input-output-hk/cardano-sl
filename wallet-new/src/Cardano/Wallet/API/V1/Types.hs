@@ -101,7 +101,7 @@ deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower
                                    } ''AssuranceLevel
 
 -- | A Wallet ID.
-newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
+newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletId
 
@@ -151,7 +151,7 @@ data Wallet = Wallet {
       walId      :: !WalletId
     , walName    :: !WalletName
     , walBalance :: !Core.Coin
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
 

@@ -4,8 +4,9 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
+                                                  migrate)
 import qualified Pos.Wallet.Web.Methods.History as V0
-import           Cardano.Wallet.API.V1.Migration (MonadV1, HasConfigurations, HasCompileInfo, migrate)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -41,7 +42,7 @@ allTransactions walletId requestParams = do
     let transactions :: m [Transaction]
         transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
 
-    respondWith requestParams (const transactions)
+    respondWith requestParams mempty mempty (const transactions)
 
 estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
 estimateFees _ = single <$> (liftIO $ generate arbitrary)

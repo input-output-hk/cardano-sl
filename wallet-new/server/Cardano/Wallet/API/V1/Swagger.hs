@@ -11,6 +11,7 @@ module Cardano.Wallet.API.V1.Swagger where
 import           Universum
 
 import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
@@ -153,6 +154,11 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
         let newTags    = map toS (symbolVals (Proxy @tags))
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
+
+instance (HasSwagger subApi) => HasSwagger (FilterBy sym res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+        in swgr
 
 instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
     toSwagger _ =

@@ -20,6 +20,7 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperation (..), SortOperation (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
 
@@ -78,11 +79,13 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
 respondWith :: (Foldable f, Monad m)
             => RequestParams
+            -> [FilterOperation a]
+            -> [SortOperation a]
             -> (RequestParams -> m (f a))
             -- ^ A callback-style function which, given the full set of `RequestParams`
             -- produces some form of results in some 'Monad' @m@.
             -> m (WalletResponse [a])
-respondWith params@RequestParams{..} generator = do
+respondWith params@RequestParams{..} _ _ generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
     return $ WalletResponse {
              wrData = theData

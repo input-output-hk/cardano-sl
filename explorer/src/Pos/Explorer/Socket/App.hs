@@ -33,7 +33,7 @@ import           Network.Wai.Middleware.Cors (CorsResourcePolicy, cors, corsOrig
                                               simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
-                              getLoggerName, logDebug, logInfo, logWarning, modifyLoggerName,
+                              askLoggerName, logDebug, logInfo, logWarning, modifyLoggerName,
                               usingLoggerName)
 
 import           Pos.Block.Types (Blund)
@@ -117,7 +117,7 @@ notifierServer
     -> m ()
 notifierServer notifierSettings connVar = do
 
-    loggerName <- getLoggerName
+    loggerName <- askLoggerName
 
     let settings :: Settings
         settings = toConfig notifierSettings loggerName

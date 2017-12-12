@@ -29,7 +29,7 @@ import           Node (Node, NodeAction (..), NodeEnvironment (..), defaultNodeE
 import           Node.Conversation (Conversation, Converse, converseWith)
 import qualified System.Metrics as Monitoring
 import           System.Random (newStdGen)
-import           System.Wlog (CanLog, WithLogger, getLoggerName, logError, usingLoggerName)
+import           System.Wlog (CanLog, WithLogger, askLoggerName, logError, usingLoggerName)
 
 import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..), InvOrDataTK, Listener,
@@ -425,7 +425,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport n, m ())
 createTransportTCP addrInfo = do
-    loggerName <- getLoggerName
+    loggerName <- askLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =

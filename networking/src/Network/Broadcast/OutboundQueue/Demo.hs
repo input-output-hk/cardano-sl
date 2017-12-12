@@ -47,9 +47,9 @@ type instance M.ThreadId Dequeue = M.ThreadId M.Production
 type instance M.Promise  Dequeue = M.Promise  M.Production
 
 instance M.Mockable M.Async Dequeue where
-  liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
+    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 instance M.Mockable M.Fork  Dequeue where
-  liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
+    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 
 newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
   deriving ( Functor
@@ -72,7 +72,7 @@ runEnqueue = M.runProduction . unEnqueue
 
 relayDemo :: IO ()
 relayDemo = do
-    updateGlobalLogger "*production*" (setLevel Notice)
+    updateGlobalLogger "*production*" (setLevel noticePlus)
 
     let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
         block label nodes act = do

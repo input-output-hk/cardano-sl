@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -25,12 +26,10 @@ module Network.Broadcast.OutboundQueue.Types
     , FormatMsg(..)
     ) where
 
-import           Control.Lens
-import           Data.Bifunctor (second)
-import           Data.Map (Map)
+import           Universum
+
+import           Control.Lens (makeLenses)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (mapMaybe)
-import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Formatting
 import           Test.QuickCheck as QC
@@ -84,11 +83,10 @@ data EnqueueTo nid =
 -- | Classification of a set of 'nid's¸ along with routes on a subset of that
 --   classification: every 'nid' in the 'Routes nid' is a key in the
 --   'Map nid NodeType'.
-data Peers nid = Peers {
-      peersRoutes         :: Routes nid
+data Peers nid = Peers
+    { peersRoutes         :: Routes nid
     , peersClassification :: Map nid NodeType
-    }
-    deriving (Show, Eq)
+    } deriving (Show, Eq)
 
 instance (Ord nid, Arbitrary nid) => Arbitrary (Peers nid) where
     arbitrary = Peers <$> arbitrary <*> arbitrary
@@ -97,7 +95,7 @@ classifyNode :: Ord nid => Peers nid -> nid -> Maybe NodeType
 classifyNode Peers {..} nid = Map.lookup nid peersClassification
 
 classifyNodeDefault :: Ord nid => Peers nid -> NodeType -> nid -> NodeType
-classifyNodeDefault peers deflt = maybe deflt id . classifyNode peers
+classifyNodeDefault peers deflt = maybe deflt identity . classifyNode peers
 
 -- | All known peers, split per node type, in order of preference
 data Routes nid = Routes {
@@ -199,23 +197,29 @@ peersRouteSet Peers{..} = Set.unions . concat $ [
 peersSet :: Peers nid -> Set nid
 peersSet Peers{..} = Map.keysSet peersClassification
 
-instance Monoid (Routes nid) where
-  mempty      = Routes [] [] []
-  mappend a b = Routes {
-                    _routesCore  = comb _routesCore
-                  , _routesRelay = comb _routesRelay
-                  , _routesEdge  = comb _routesEdge
-                  }
-    where
-      comb :: Monoid a => (Routes nid -> a) -> a
-      comb f = f a `mappend` f b
+instance Semigroup (Routes nid) where
+    a <> b = Routes {
+                      _routesCore  = comb _routesCore
+                    , _routesRelay = comb _routesRelay
+                    , _routesEdge  = comb _routesEdge
+                    }
+      where
+        comb :: Semigroup a => (Routes nid -> a) -> a
+        comb f = f a <> f b
 
--- This instance is somewhat irresponsible: if both sides contain the same
--- 'nid' but have a different classification for it, the one on the left
--- will be taken.
+instance Monoid (Routes nid) where
+    mempty  = Routes [] [] []
+    mappend = (<>)
+
+-- These instances are somewhat irresponsible: if both sides contain
+-- the same 'nid' but have a different classification for it, the one
+-- on the left will be taken.
+instance Ord nid => Semigroup (Peers nid) where
+    (Peers a b) <> (Peers c d) = Peers (a <> c) (b <>d)
+
 instance Ord nid => Monoid (Peers nid) where
-  mempty = Peers mempty mempty
-  mappend (Peers a b) (Peers c d) = Peers (mappend a c) (mappend b d)
+    mempty = Peers mempty mempty
+    mappend = (<>)
 
 removePeer :: forall nid. Ord nid => nid -> Peers nid -> Peers nid
 removePeer toRemove peers =

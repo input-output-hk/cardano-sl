@@ -171,7 +171,7 @@ instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx AuxxMode)
     currentTimeSlotting = realModeToAuxx currentTimeSlotting
 
 instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
-    getLoggerName = realModeToAuxx getLoggerName
+    askLoggerName = realModeToAuxx askLoggerName
     modifyLoggerName f action = do
         auxxCtx <- ask
         let auxxToRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a

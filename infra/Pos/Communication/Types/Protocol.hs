@@ -250,9 +250,8 @@ newtype InSpecs = InSpecs HandlerSpecs
 newtype OutSpecs = OutSpecs HandlerSpecs
   deriving (Eq, Show, Generic)
 
-instance Monoid InSpecs where
-    mempty = InSpecs mempty
-    (InSpecs a) `mappend` (InSpecs b) =
+instance Semigroup InSpecs where
+    (InSpecs a) <> (InSpecs b) =
           InSpecs $ HM.unionWithKey merger a b
       where
         merger name h1 h2 =
@@ -260,9 +259,12 @@ instance Monoid InSpecs where
               ("Conflicting key in input spec: "%build%" "%build)
               (name, h1) (name, h2)
 
-instance Monoid OutSpecs where
-    mempty = OutSpecs mempty
-    (OutSpecs a) `mappend` (OutSpecs b) =
+instance Monoid InSpecs where
+    mempty = InSpecs mempty
+    mappend = (<>)
+
+instance Semigroup OutSpecs where
+    (OutSpecs a) <> (OutSpecs b) =
           OutSpecs $ HM.unionWithKey merger a b
       where
         merger name h1 h2 =
@@ -271,6 +273,10 @@ instance Monoid OutSpecs where
              else error $ sformat
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
+
+instance Monoid OutSpecs where
+    mempty = OutSpecs mempty
+    mappend = (<>)
 
 toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
@@ -291,11 +297,14 @@ data MkListeners m = MkListeners
         -- ^ Aggregated specs for which outgoing connections we might initiate
         }
 
-instance Monad m => Monoid (MkListeners m) where
-    mempty = MkListeners (\_ _ -> []) mempty mempty
-    a `mappend` b = MkListeners act (inSpecs a `mappend` inSpecs b) (outSpecs a `mappend` outSpecs b)
+instance Monad m => Semigroup (MkListeners m) where
+    a <> b = MkListeners act (inSpecs a <> inSpecs b) (outSpecs a <> outSpecs b)
       where
         act vI pD = (++) (mkListeners a vI pD) (mkListeners b vI pD)
+
+instance Monad m => Monoid (MkListeners m) where
+    mempty = MkListeners (\_ _ -> []) mempty mempty
+    mappend = (<>)
 
 -- | 'Subscribe' message
 --

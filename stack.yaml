@@ -118,11 +118,11 @@ nix:
 extra-deps:
 - ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
 - transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.8.0
+- universum-0.9.0
 - serokell-util-0.5.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.3.4
+- log-warper-1.8.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

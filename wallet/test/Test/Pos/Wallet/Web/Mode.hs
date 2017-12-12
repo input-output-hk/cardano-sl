@@ -75,7 +75,7 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
@@ -297,7 +297,7 @@ instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempo
     lensOf = wtcBlockTestContext_L . btcTxpMemL
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
-    getLoggerName = getLoggerNameDefault
+    askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
 instance HasConfiguration => MonadDBRead WalletTestMode where

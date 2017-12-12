@@ -38,9 +38,12 @@ data SomeBatchOp =
     forall a. RocksBatchOp a =>
               SomeBatchOp a
 
+instance Semigroup SomeBatchOp where
+    a <> b = SomeBatchOp [a, b]
+
 instance Monoid SomeBatchOp where
     mempty = SomeBatchOp ([]::[EmptyBatchOp])
-    mappend a b = SomeBatchOp [a, b]
+    mappend = (<>)
 
 instance RocksBatchOp SomeBatchOp where
     toBatchOp (SomeBatchOp a) = toBatchOp a
@@ -49,9 +52,12 @@ data SomePrettyBatchOp =
     forall a. (RocksBatchOp a, Buildable a) =>
               SomePrettyBatchOp a
 
+instance Semigroup SomePrettyBatchOp where
+    a <> b = SomePrettyBatchOp [a, b]
+
 instance Monoid SomePrettyBatchOp where
     mempty = SomePrettyBatchOp ([]::[SomePrettyBatchOp])
-    mappend a b = SomePrettyBatchOp [a, b]
+    mappend = (<>)
 
 instance RocksBatchOp SomePrettyBatchOp where
     toBatchOp (SomePrettyBatchOp a) = toBatchOp a

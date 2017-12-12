@@ -20,7 +20,7 @@ import           Data.Text.Buildable (build)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Text.Earley (Report (..))
 import           Text.PrettyPrint.ANSI.Leijen (Doc, bold, char, comma, empty, hcat, indent,
-                                               punctuate, squotes, vcat, yellow, red, (<$>), (<+>))
+                                               punctuate, red, squotes, vcat, yellow, (<$>), (<+>))
 
 import           Lang.Argument (ArgumentError (..), ProcError (..), TypeError (..), TypeName (..),
                                 isEmptyArgumentError)
@@ -48,7 +48,7 @@ ppTypeError :: TypeError -> Doc
 ppTypeError TypeError{..} =
         "Couldn't match expected type" <+> (highlight $ ppTypeName teExpectedType)
     <+> "with actual value"            <+> (highlight $ show teActualValue) -- TODO: CSL-1814
-    <>  "!"
+    `mappend`  "!"
 
 ppArgumentError :: ArgumentError -> Doc
 ppArgumentError ae@ArgumentError{..} =
@@ -84,7 +84,7 @@ ppEvalError (CommandNotSupported name) =
         "Command" <+> (squotes . highlight . nameToDoc) name
     <+> "is unavailable. Try" <+> (squotes . highlight) "help"
 ppEvalError (InvalidArguments name procError) =
-        "Invalid arguments for" <+> (squotes . highlight . nameToDoc) name <> ":"
+        "Invalid arguments for" <+> (squotes . highlight . nameToDoc) name `mappend` ":"
     <$> indent 2 (ppProcError procError)
 
 
@@ -98,7 +98,7 @@ renderFullLine str = renderLine 0 (length str) str
 ppParseError :: ParseError -> Doc
 ppParseError (ParseError str (Report {..})) =
       "Parse error at" <+> text (show span)
-  <$> "Unexpected" <+> text unconsumedDesc <> ", expected"
+  <$> "Unexpected" <+> text unconsumedDesc `mappend` ", expected"
   <+> hcat (punctuate (text ", or ") $ map text expected)
   <$> renderLines
   where

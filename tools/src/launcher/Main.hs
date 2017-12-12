@@ -264,14 +264,14 @@ main =
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     Log.setupLogging Nothing $
         Log.productionB
-            & Log.lcTermSeverity .~ Just Log.Debug
-            & Log.lcFilePrefix .~ loLauncherLogsPrefix
+            & Log.lcTermSeverityOut .~ Just Log.debugPlus
+            & Log.lcLogsDirectory .~ loLauncherLogsPrefix
             & Log.lcTree %~ case loLauncherLogsPrefix of
                   Nothing ->
                       identity
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
-                      set Log.ltSeverity (Just Log.Debug)
+                      set Log.ltSeverity (Just Log.debugPlus)
     Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
         case loWalletPath of
@@ -585,7 +585,7 @@ reportNodeCrash
 reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
-            map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
+            map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $
             retrieveLogFiles logConfig
     let logFiles = filter (".pub" `isSuffixOf`) logFileNames
     let ec = case exitCode of

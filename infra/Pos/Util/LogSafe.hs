@@ -56,9 +56,8 @@ import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
-import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), loggerName)
-import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
-import           System.Wlog.Logger (logMCond)
+import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
+import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Core.Common (Coin)
 import           Pos.Crypto (PassPhrase)
@@ -89,11 +88,11 @@ selectSecretLogs = not . selectPublicLogs
 
 instance (MonadIO m, Reifies s SelectionMode) =>
          CanLog (SelectiveLogWrapped s m) where
-    dispatchMessage (loggerName -> name) severity msg =
+    dispatchMessage name severity msg =
         liftIO $ logMCond name severity msg (reflect (Proxy @s))
 
 instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
-    getLoggerName = SelectiveLogWrapped getLoggerName
+    askLoggerName = SelectiveLogWrapped askLoggerName
     modifyLoggerName foo (SelectiveLogWrapped m) =
         SelectiveLogWrapped (modifyLoggerName foo m)
 
@@ -120,7 +119,7 @@ logMessageS
 logMessageS severity t =
     reify selectSecretLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- getLoggerName
+        name <- askLoggerName
         dispatchMessage name severity t
 
 ----------------------------------------------------------------------------
@@ -214,7 +213,7 @@ logMessageUnsafeP
 logMessageUnsafeP severity t =
     reify selectPublicLogs $ \s ->
     execSecureLogWrapped s $ do
-        name <- getLoggerName
+        name <- askLoggerName
         dispatchMessage name severity t
 
 -- | Shortcut for 'logMessageUnsafeP' to use according severity.

@@ -90,7 +90,7 @@ instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
-    getLoggerName = pure "MonadPseudoRandom"
+    askLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
 
 instance {-# OVERLAPPABLE #-}
@@ -170,7 +170,7 @@ instance {-# OVERLAPPABLE #-}
 
 instance CanLog m => CanLog (ResourceT m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
-    getLoggerName = lift getLoggerName
+    askLoggerName = lift askLoggerName
     modifyLoggerName = transResourceT . modifyLoggerName
 
 ----------------------------------------------------------------------------
@@ -187,14 +187,14 @@ instance
     (LiftLocal t, Monad m, HasLoggerName m) =>
         HasLoggerName (Ether.TaggedTrans tag t m)
   where
-    getLoggerName = lift getLoggerName
-    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+    askLoggerName = lift askLoggerName
+    modifyLoggerName = liftLocal askLoggerName modifyLoggerName
 
 instance
     (Monad m, HasLoggerName m) => HasLoggerName (IdentityT m)
   where
-    getLoggerName = lift getLoggerName
-    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+    askLoggerName = lift askLoggerName
+    modifyLoggerName = liftLocal askLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
 

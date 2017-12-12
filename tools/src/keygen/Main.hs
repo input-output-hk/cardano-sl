@@ -4,7 +4,6 @@ module Main
 
 import           Universum
 
-import           Control.Lens ((?~))
 import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import qualified Data.List as L
@@ -13,8 +12,8 @@ import           Formatting (build, sformat, stext, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 import           System.FilePath.Glob (glob)
-import           System.Wlog (Severity (Debug), WithLogger, consoleOutB, lcTermSeverity, logInfo,
-                              setupLogging, usingLoggerName)
+import           System.Wlog (WithLogger, debugPlus, logInfo, productionB, setupLogging,
+                              termSeveritiesOutB, usingLoggerName)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
@@ -151,7 +150,7 @@ genVssCert path = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging Nothing $ consoleOutB & lcTermSeverity ?~ Debug
+    setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
     usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of

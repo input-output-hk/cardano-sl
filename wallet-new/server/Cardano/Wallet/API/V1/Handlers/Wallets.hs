@@ -49,8 +49,8 @@ listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             => RequestParams
             -> m (WalletResponse [Wallet])
 listWallets params = do
-    let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
-    respondWith params (const getWallets)
+    getWallets :: [Wallet] <- V0.getWallets >>= migrate
+    respondWith params (const $ pure getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

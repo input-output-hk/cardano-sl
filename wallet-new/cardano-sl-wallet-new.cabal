@@ -37,6 +37,8 @@ library
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Updates
                        Cardano.Wallet.API.V1.Migration
+                       Cardano.Wallet.API.V1.Migration.Monads
+                       Cardano.Wallet.API.V1.Migration.Types
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
                        Cardano.Wallet.Util

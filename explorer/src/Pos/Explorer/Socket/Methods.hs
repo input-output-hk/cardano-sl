@@ -344,7 +344,7 @@ notifyEpochsLastPageSubscribers
     => EpochIndex -> ExplorerSockets m ()
 notifyEpochsLastPageSubscribers currentEpoch = do
     recipients <- view $ csEpochsLastPageSubscribers
-    --  ubscriber
+    --  subscriber
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- last epoch page
     epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage

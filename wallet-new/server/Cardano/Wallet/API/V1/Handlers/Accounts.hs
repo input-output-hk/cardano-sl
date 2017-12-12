@@ -10,7 +10,6 @@ import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
 
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Tracking as V0
 import qualified Pos.Wallet.Web.Account as V0
@@ -41,9 +40,9 @@ getAccount wId accId =
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
     => WalletId -> RequestParams -> m (WalletResponse [Account])
-listAccounts wId params =
-    let accounts = migrate wId >>= V0.getAccounts . Just >>= migrate @[V0.CAccount] @[Account]
-    in respondWith params (const accounts)
+listAccounts wId params = do
+    accounts :: [Account] <- migrate wId >>= V0.getAccounts . Just >>= migrate
+    respondWith params (const $ pure accounts)
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -52,7 +51,7 @@ newAccount wId nAccount@NewAccount{..} = do
     let spendingPw = fromMaybe mempty naccSpendingPassword
     accInit <- migrate (wId, nAccount)
     cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
-    single <$> (migrate cAccount)
+    single <$> migrate cAccount
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -61,4 +60,4 @@ updateAccount wId accId accUpdate = do
     newAccId <- migrate (wId, accId)
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
-    single <$> (migrate cAccount)
+    single <$> migrate cAccount

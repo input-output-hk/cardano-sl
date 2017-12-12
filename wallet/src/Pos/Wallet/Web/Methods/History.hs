@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Methods.History
        , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty
-       , updateTransaction
        ) where
 
 import           Universum
@@ -28,17 +27,16 @@ import           Pos.Core.Txp (TxId)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), ScrollLimit,
-                                             ScrollOffset, Wal, mkCTx)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
+                                             CWAddressMeta (..), ScrollLimit, ScrollOffset, Wal,
+                                             mkCTx)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever), MonadWalletDB,
                                        MonadWalletDBRead, addOnlyNewTxMetas, getHistoryCache,
-                                       getPendingTx, getTxMeta, getWalletPendingTxs,
-                                       setWalletTxMeta)
+                                       getPendingTx, getTxMeta, getWalletPendingTxs)
 import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
                                       getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))
@@ -204,11 +202,6 @@ constructCTx cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
 
 getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
-
-updateTransaction :: MonadWalletDB ctx m => AccountId -> CTxId -> CTxMeta -> m NoContent
-updateTransaction accId txId txMeta = do
-    setWalletTxMeta (aiWId accId) txId txMeta
-    return NoContent
 
 addPtxHistory
     :: (WithLogger m, MonadWalletDBRead ctx m)

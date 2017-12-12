@@ -56,7 +56,6 @@ module Pos.Wallet.Web.State.Storage
        , updateWalletBalancesAndUtxo
        , setWalletUtxo
        , addOnlyNewTxMeta
-       , setWalletTxMeta
        , addOnlyNewTxMetas
        , removeWallet
        , removeWalletTxMetas

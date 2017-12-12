@@ -59,7 +59,6 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
-       , setWalletTxMeta
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -258,9 +257,6 @@ setProfile = updateDisk . A.SetProfile
 
 doesAccountExist :: MonadWalletDBRead ctx m => AccountId -> m Bool
 doesAccountExist = queryDisk . A.DoesAccountExist
-
-setWalletTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
 addOnlyNewTxMetas :: MonadWalletDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
 addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)

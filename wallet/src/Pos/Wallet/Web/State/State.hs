@@ -56,7 +56,6 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
-       , setWalletTxMeta
        , addOnlyNewTxMetas
        , setWalletTxHistory
        , addOnlyNewTxMeta
@@ -239,9 +238,6 @@ setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
 
 setProfile :: MonadWalletDB ctx m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile
-
-setWalletTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
 addOnlyNewTxMetas :: MonadWalletDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
 addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
@@ -15,6 +16,7 @@ import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
 import qualified Pos.Core as Core
 
+import           Data.IxSet.Typed (Indexable (..), IsIndexOf)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
@@ -23,42 +25,48 @@ import           Servant.Server.Internal
 -- DB STUFF
 
 type WalletIxs = '[WalletId, Core.Coin]
+type TransactionIxs = '[TxId]
 
-class IsIndexOf a idx where
-    toIndex :: Proxy a -> Text -> Maybe idx
+class ToIndex a ix where
+    -- | How to build this index from the input 'Text'.
+    toIndex :: Proxy a -> Text -> Maybe ix
 
-instance IsIndexOf Wallet WalletId where
+type family IndicesOf a :: [*] where
+    IndicesOf Wallet      = WalletIxs
+    IndicesOf Transaction = TransactionIxs
+
+type Indexable' a    = Indexable (IndicesOf a) a
+type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
+
+instance ToIndex Wallet WalletId where
     toIndex _ x = Just (WalletId x)
 
-instance IsIndexOf Wallet Core.Coin where
+instance ToIndex Wallet Core.Coin where
     -- TODO: Temporary.
     toIndex _ x = Core.mkCoin <$> readMaybe (toS x)
 
 -- WEB STUFF
 
-data Index a where
-    Index :: IsIndexOf a ix => ix -> Index a
+-- | Represents a sort operation on the data model.
+-- Examples:
+--   *    `sort_by=balance`.
+data SortBy  (sym :: Symbol) deriving Typeable
 
-data FilterOperations (a :: *) where
+data SortOperation a =
+    SortBy Text
+
+data FilterOperations a where
     NoFilters  :: FilterOperations a
-    (:::) :: IsIndexOf a ix => FilterOperation ix a -> FilterOperations a -> FilterOperations a
-
-infixr 5 :::
-
-noFilters :: FilterOperations a
-noFilters = NoFilters
+    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix)
+               => FilterOperation ix a
+               -> FilterOperations a
+               -> FilterOperations a
 
 -- A filter operation on the data model
 data FilterOperation ix a =
       FilterByIndex ix
     | FilterByPredicate Ordering ix
-    | FilterNoOp
-
-class FilterBackend f a where
-    filterData :: FilterOperations a -> f a -> f a
-
-data SortOperation a =
-    SortBy Text
+    | FilterIdentity
 
 -- | Represents a filter operation on the data model.
 -- Examples:
@@ -66,48 +74,53 @@ data SortOperation a =
 --   *    `balance=GT[10]`
 data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
 
--- | Represents a sort operation on the data model.
--- Examples:
---   *    `sort_by=balance`.
-data SortBy  (sym :: Symbol) deriving Typeable
-
-type family NonEmptyTF (xs :: [*]) :: Bool where
-    NonEmptyTF '[] = 'False
-    NonEmptyTF (x ': xs) = 'True
-
 type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
-    FilterParams '["wallet_id", "balance"] Wallet = WalletIxs
+    FilterParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
 
-parseFilterOperation :: forall a ix. (IsIndexOf a ix)
+parseFilterOperation :: forall a ix. (ToIndex a ix)
                      => Proxy a
                      -> Proxy ix
                      -> Text
                      -> Either Text (FilterOperation ix a)
 parseFilterOperation p Proxy txt = case toIndex p txt of
-    Nothing  -> Right $ FilterNoOp
+    Nothing  -> Left "This is not a filter."
     Just idx -> Right $ FilterByIndex idx
 
-class ToFilterOperations (xs :: [*]) res where
-  toFilterOperations :: Request -> [Text] -> proxy xs -> FilterOperations res
+class ToFilterOperations (ixs :: [*]) a where
+  toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a
 
-instance ToFilterOperations ('[]) res where
+instance Indexable' a => ToFilterOperations ('[]) a where
   toFilterOperations _ _ _ = NoFilters
 
-instance (IsIndexOf res ix, ToFilterOperations ixs res) => ToFilterOperations (ix ': ixs) res where
-  toFilterOperations req [] _     = toFilterOperations req [] (Proxy :: Proxy ixs)
+instance ( Indexable' a
+         , IsIndexOf' a ix
+         , ToIndex a ix
+         , ToFilterOperations ixs a
+         )
+         => ToFilterOperations (ix ': ixs) a where
+  toFilterOperations req [] _     =
+      let newOp = FilterIdentity
+      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req [] (Proxy :: Proxy ixs))
   toFilterOperations req (x:xs) _ =
       case List.lookup x (parseQueryText $ rawQueryString req) of
-          Nothing       ->  toFilterOperations req xs (Proxy @ ixs)
-          Just Nothing  ->  toFilterOperations req xs (Proxy @ ixs)
-          Just (Just v) ->  case parseFilterOperation (Proxy @res) (Proxy @ix) v of
-                                Left _      -> toFilterOperations req xs (Proxy @ ixs)
-                                Right newOp -> newOp ::: toFilterOperations req xs (Proxy @ ixs)
+          Nothing       ->
+              let newOp = FilterIdentity
+              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
+          Just Nothing  ->
+              let newOp = FilterIdentity
+              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
+          Just (Just v) ->
+              case parseFilterOperation (Proxy @a) (Proxy @ix) v of
+                  Left _      ->
+                      let newOp = FilterIdentity
+                      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
+                  Right newOp -> newOp `FilterOp` toFilterOperations req xs (Proxy @ ixs)
 
 instance ( HasServer subApi ctx
          , FilterParams syms res ~ ixs
          , KnownSymbols syms
          , ToFilterOperations ixs res
-         , SOP.All (IsIndexOf res) ixs
+         , SOP.All (ToIndex res) ixs
          ) => HasServer (FilterBy syms res :> subApi) ctx where
 
     type ServerT (FilterBy syms res :> subApi) m = FilterOperations res -> ServerT subApi m
@@ -121,14 +134,14 @@ instance ( HasServer subApi ctx
         in route (Proxy :: Proxy subApi) context delayed
 
 
-parseFilterParams :: forall res ixs. (
-                     SOP.All (IsIndexOf res) ixs
-                  ,  ToFilterOperations ixs res
+parseFilterParams :: forall a ixs. (
+                     SOP.All (ToIndex a) ixs
+                  ,  ToFilterOperations ixs a
                   )
                   => Request
                   -> [Text]
                   -> Proxy ixs
-                  -> DelayedIO (FilterOperations res)
+                  -> DelayedIO (FilterOperations a)
 parseFilterParams req params p = return $ toFilterOperations req params p
 {-
   where

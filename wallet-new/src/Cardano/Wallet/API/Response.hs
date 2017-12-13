@@ -21,10 +21,11 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
-import           Cardano.Wallet.API.Request.Filter (FilterOperations (..), SortOperation (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..), Indexable',
+                                                    SortOperation (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
-import           Cardano.Wallet.API.Response.Filter.Legacy as FilterBackend
+import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -79,7 +80,7 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- requested a number of results."
 --
 -- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
-respondWith :: (Foldable f, Monad m)
+respondWith :: (Foldable f, Monad m, Indexable' a)
             => RequestParams
             -> FilterOperations a
             -> [SortOperation a]

@@ -258,7 +258,7 @@ instance Arbitrary EstimatedFees where
 data PaymentDistribution = PaymentDistribution {
       pdAddress :: Core.Address
     , pdAmount  :: Core.Coin
-    } deriving (Show, Eq)
+    } deriving (Show, Ord, Eq)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
 
@@ -294,7 +294,7 @@ data Payment = Payment
     -- ^ The destinations for this payment.
   , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
 
@@ -310,7 +310,7 @@ instance Arbitrary Payment where
 
 -- | TxId
 newtype TxId = TxId Text
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''TxId
 
@@ -339,7 +339,7 @@ data TransactionType =
   -- transaction was originated.
   | ForeignTransaction
   -- ^ This transaction is not local to this wallet.
-  deriving (Show, Eq, Enum, Bounded)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
@@ -354,7 +354,7 @@ data TransactionDirection =
   -- ^ This represents an incoming transactions.
   | OutgoingTransaction
   -- ^ This qualifies external transactions.
-  deriving (Show, Eq, Enum, Bounded)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionDirection where
   arbitrary = elements [minBound .. maxBound]
@@ -379,7 +379,7 @@ data Transaction = Transaction
     -- ^ The type for this transaction (e.g local, foreign, etc).
   , txDirection     :: TransactionDirection
     -- ^ The direction for this transaction (e.g incoming, outgoing).
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 

@@ -17,8 +17,6 @@ class Arbitrary a => Example a where
 instance Example Core.PassPhrase
 instance Example Core.Coin
 
-instance Example a => Example (NonEmpty a)
-
 instance Example Address
 instance Example Metadata
 instance Example AccountId
@@ -39,6 +37,14 @@ instance Example Transaction
 instance Example WalletSoftwareUpdate
 instance Example NodeSettings
 instance Example SlotDuration
+instance Example WalletAddress
+instance Example NewAccount
+instance Example AddressValidity
+instance Example NewAddress
+
+
+instance Example ()
+instance Example a => Example (NonEmpty a)
 
 -- NOTE: we don't want to see empty list examples in our swagger doc :)
 instance Example a => Example [a] where

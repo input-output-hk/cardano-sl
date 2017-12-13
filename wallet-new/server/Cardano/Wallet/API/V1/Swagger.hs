@@ -290,16 +290,16 @@ instance ToSchema Account where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletAddress where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema AccountUpdate where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewAccount where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema AddressValidity where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Address where
   declareNamedSchema = annotate fromExampleJSON
@@ -317,7 +317,7 @@ instance ToSchema NewWallet where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewAddress where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromExampleJSON

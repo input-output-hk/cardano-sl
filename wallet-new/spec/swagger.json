@@ -281,7 +281,7 @@
         "Payment": {
             "example": {
                 "sourceAccount": 1,
-                "groupingPolicy": "OptimiseForSecurity",
+                "groupingPolicy": "OptimiseForSize",
                 "destinations": [
                     {
                         "amount": 32634946131515590,
@@ -1072,6 +1072,9 @@
             }
         },
         "InputSelectionPolicy": {
+            "example": {
+                "groupingPolicy": "OptimizeForSize"
+            },
             "type": "string",
             "enum": [
                 "OptimizeForSecurity",

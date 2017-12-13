@@ -150,6 +150,4 @@ dumpState = WalletStateSnapshot <$> getWalletStorage
 ----------------------------------------------------------------------------
 
 resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m NoContent
-resetAllFailedPtxs = do
-    getCurrentSlotBlocking >>= resetFailedPtxs
-    return NoContent
+resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs >> return NoContent

@@ -5,38 +5,32 @@
 {-# LANGUAGE RankNTypes                #-}
 module Cardano.Wallet.API.Request.Filter where
 
+import qualified Prelude
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import           Data.String.Conv (toS)
+import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
 import qualified Pos.Core as Core
 
-import           Data.IxSet.Typed (Indexable (..), IsIndexOf)
+import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
 import           Servant.Server.Internal
 
--- DB STUFF
-
+-- | The indices for each major resource.
 type WalletIxs = '[WalletId, Core.Coin]
 type TransactionIxs = '[TxId]
 
 class ToIndex a ix where
     -- | How to build this index from the input 'Text'.
     toIndex :: Proxy a -> Text -> Maybe ix
-
-type family IndicesOf a :: [*] where
-    IndicesOf Wallet      = WalletIxs
-    IndicesOf Transaction = TransactionIxs
-
-type Indexable' a    = Indexable (IndicesOf a) a
-type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 
 instance ToIndex Wallet WalletId where
     toIndex _ x = Just (WalletId x)
@@ -45,7 +39,19 @@ instance ToIndex Wallet Core.Coin where
     -- TODO: Temporary.
     toIndex _ x = Core.mkCoin <$> readMaybe (toS x)
 
--- WEB STUFF
+-- | A type family mapping a resource 'a' to all its indices.
+type family IndicesOf a :: [*] where
+    IndicesOf Wallet      = WalletIxs
+    IndicesOf Transaction = TransactionIxs
+
+-- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
+type IxSet' a        = IxSet (IndicesOf a) a
+
+-- | A variant of the 'Indexable' constraint where the indexes are determined statically by the resource type.
+type Indexable' a    = Indexable (IndicesOf a) a
+
+-- | A variant of the 'IsIndexOf' constraint where the indexes are determined statically by the resource type.
+type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 
 -- | Represents a sort operation on the data model.
 -- Examples:
@@ -55,6 +61,8 @@ data SortBy  (sym :: Symbol) deriving Typeable
 data SortOperation a =
     SortBy Text
 
+-- | A "bag" of filter operations, where the index constraint are captured in
+-- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
     FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix)
@@ -62,11 +70,26 @@ data FilterOperations a where
                -> FilterOperations a
                -> FilterOperations a
 
+instance Show (FilterOperations a) where
+    show = show . flattenOperations
+
+flattenOperations :: FilterOperations a -> [String]
+flattenOperations NoFilters       = mempty
+flattenOperations (FilterOp f fs) = show f : flattenOperations fs
+
 -- A filter operation on the data model
 data FilterOperation ix a =
       FilterByIndex ix
+    -- ^ Filter by index (e.g. equal to)
     | FilterByPredicate Ordering ix
+    -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterIdentity
+    -- ^ Do not alter the resource.
+
+instance Show (FilterOperation ix a) where
+    show (FilterByIndex _)            = "FilterByIndex"
+    show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
+    show FilterIdentity               = "FilterIdentity"
 
 -- | Represents a filter operation on the data model.
 -- Examples:
@@ -82,9 +105,22 @@ parseFilterOperation :: forall a ix. (ToIndex a ix)
                      -> Proxy ix
                      -> Text
                      -> Either Text (FilterOperation ix a)
-parseFilterOperation p Proxy txt = case toIndex p txt of
-    Nothing  -> Left "This is not a filter."
-    Just idx -> Right $ FilterByIndex idx
+parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery of
+    Nothing -> Left "Not a valid filter."
+    Just f  -> Right f
+  where
+    parsePredicateQuery :: Maybe (FilterOperation ix a)
+    parsePredicateQuery =
+        let (predicate, rest1) = (T.take 3 txt, T.drop 3 txt)
+            (ixTxt, closing)   = T.breakOn "]" rest1
+            in case (predicate, closing) of
+               ("EQ[", "]") -> FilterByPredicate EQ <$> toIndex p ixTxt
+               ("LT[", "]") -> FilterByPredicate LT <$> toIndex p ixTxt
+               ("GT[", "]") -> FilterByPredicate GT <$> toIndex p ixTxt
+               _            -> Nothing
+
+    parseIndexQuery :: Maybe (FilterOperation ix a)
+    parseIndexQuery = FilterByIndex <$> toIndex p txt
 
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a

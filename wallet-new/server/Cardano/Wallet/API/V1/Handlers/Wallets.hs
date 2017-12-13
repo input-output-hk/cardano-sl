@@ -11,11 +11,13 @@ import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
+import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
+import           Pos.Core as Core
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck (arbitrary, generate, vectorOf)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -50,8 +52,11 @@ listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             -> FilterOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets params fops = do
-    let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
-    respondWith params fops mempty (\_ _ -> getWallets)
+    -- let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
+    getWallets0 <- liftIO $ generate (vectorOf 1000 arbitrary)
+    let getWallets = pure $ map (\(w, i :: Word64) -> w { walBalance = Core.mkCoin i }) (zip getWallets0 [1..])
+    liftIO $ putText (show fops)
+    respondWith params fops mempty (\_ ops -> applyFilters ops . IxSet.fromList <$> getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

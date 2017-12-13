@@ -51,7 +51,6 @@ library
                      , aeson
                      , bytestring
                      , containers
-                     , constraints
                      , data-default
                      , exceptions
                      , formatting
@@ -152,6 +151,7 @@ executable wallet-new-server
                      , http-api-data
                      , http-types
                      , insert-ordered-containers
+                     , ixset-typed
                      , lens
                      , log-warper
                      , mtl

@@ -4,8 +4,7 @@ import           Universum
 
 import qualified Cardano.Wallet.API.Request.Filter as F
 import           Cardano.Wallet.API.V1.Types
-import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList, (@<), (@=),
-                                   (@>))
+import           Data.IxSet.Typed (Indexable (..), ixFun, ixList, (@<), (@=), (@>))
 
 instance Indexable F.WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
@@ -14,38 +13,21 @@ instance Indexable F.WalletIxs Wallet where
 instance Indexable F.TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> [txId]))
 
-{-
-applyFilters :: (Indexable ixs a)
-             => Proxy ixs
-             -> F.FilterOperations ixs a
-             -> IxSet ixs a
-             -> IxSet ixs a
-applyFilters Proxy F.NoFilters iset     = iset
-applyFilters p@Proxy (f F.::: fop) iset =
-    case applyFilter p f iset of
-        (x :: IxSet ixs a) -> applyFilters p fop x
--}
+applyFilters :: F.Indexable' a
+             => F.FilterOperations a
+             -> F.IxSet' a
+             -> F.IxSet' a
+applyFilters F.NoFilters iset        = iset
+applyFilters (F.FilterOp f fop) iset = applyFilters fop (applyFilter f iset)
 
-{-
-class FilterApplication (ixs :: [*]) a where
-    applyFilters :: Proxy ixs -> F.FilterOperations ixs a -> IxSet ixs a -> IxSet ixs a
-
-instance FilterApplication '[] a where
-    applyFilters _ _ x = x
-
-instance (IsIndexOf ix ixs, Indexable ixs a, FilterApplication ixs a) => FilterApplication (ix ': ixs) a where
-    applyFilters (f F.::: fop) x = applyFilters fop (applyFilter f x)
--}
-
-applyFilter :: forall ix ixs a.
-               ( Indexable ixs a
-               , IsIndexOf ix ixs
+applyFilter :: forall ix a.
+               ( F.Indexable' a
+               , F.IsIndexOf' a ix
                )
-            => Proxy ixs
-            -> F.FilterOperation ix a
-            -> IxSet ixs a
-            -> IxSet ixs a
-applyFilter Proxy fltr inputData =
+            => F.FilterOperation ix a
+            -> F.IxSet' a
+            -> F.IxSet' a
+applyFilter fltr inputData =
     let byPredicate o i = case o of
             EQ -> inputData @= (i :: ix)
             LT -> inputData @< (i :: ix)

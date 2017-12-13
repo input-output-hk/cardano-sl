@@ -71,8 +71,10 @@ coinDistrToOutputs distr = do
 -- by the time of resubmission.
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
-    => PendingTx -> m ()
-submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
+    => (TxAux -> m Bool)
+    -> PendingTx
+    -> m ()
+submitAndSaveNewPtx submit = submitAndSavePtx submit ptxFirstSubmissionHandler
 
 gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
 gatherPendingTxsSummary =

@@ -16,11 +16,11 @@ import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAt
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
-import           Pos.Communication.Protocol (Worker)
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
-import           Pos.Diffusion.Subscription.Common
 
 dnsSubscriptionWorker
     :: forall pack kademlia m.
@@ -33,7 +33,8 @@ dnsSubscriptionWorker
     -> NetworkConfig kademlia
     -> DnsDomains DNS.Domain
     -> m Millisecond
-    -> Worker m
+    -> SendActions m
+    -> m ()
 dnsSubscriptionWorker oq networkCfg DnsDomains{..} retryInterval sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current

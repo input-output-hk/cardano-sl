@@ -33,8 +33,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
     Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions

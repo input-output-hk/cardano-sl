@@ -34,7 +34,6 @@ library
                        Pos.Update.Download
                        Pos.Update.Lrc
                        Pos.Update.Mode
-                       Pos.Update.Worker
 
                        -- Logic
                        Pos.Update.Logic
@@ -65,10 +64,6 @@ library
                        Pos.Update.MemState
                        Pos.Update.MemState.Functions
                        Pos.Update.MemState.Types
-
-                       -- Network
-                       Pos.Update.Network
-                       Pos.Update.Network.Listeners
 
                        -- Context-like things
                        Pos.Update.Context

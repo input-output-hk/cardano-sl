@@ -3,7 +3,7 @@
 -- | All SSC listeners.
 
 module Pos.Ssc.Listeners
-       ( sscRelays
+       ( -- sscRelays
        ) where
 
 import           Universum

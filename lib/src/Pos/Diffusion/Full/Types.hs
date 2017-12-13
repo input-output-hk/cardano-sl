@@ -13,10 +13,15 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
+import           Mockable (Mockable, MonadMockable)
+import qualified Mockable.Metrics as Mockable
 import           System.Wlog (WithLogger)
+import qualified System.Metrics.Counter as Metrics
+import qualified System.Metrics.Distribution as Metrics
+import qualified System.Metrics.Gauge as Metrics
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
@@ -31,6 +36,7 @@ type DiffusionWorkMode m
       , MonadIO m
       , HasConfiguration
       , HasBlockConfiguration
+      -- Needed for message size limits, but shouldn't be [CSL-2242].
       , HasInfraConfiguration
       , HasUpdateConfiguration
       , HasSscConfiguration
@@ -38,4 +44,9 @@ type DiffusionWorkMode m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
+      , HasAdoptedBlockVersionData m
+      , Mockable Mockable.Metrics m
+      , Mockable.Distribution m ~ Metrics.Distribution
+      , Mockable.Gauge m ~ Metrics.Gauge
+      , Mockable.Counter m ~ Metrics.Counter
       )

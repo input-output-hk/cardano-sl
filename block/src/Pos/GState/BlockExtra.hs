@@ -32,7 +32,6 @@ import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
                          dbSerializeValue)
-import           Pos.DB.BlockIndex (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono (OldestFirst (..))
@@ -163,10 +162,12 @@ loadHashesUpWhile = loadUpWhile (pure . Just)
 -- | Returns headers loaded up.
 loadHeadersUpWhile
     :: (MonadBlockDBRead m, HasHeaderHash a)
-    => a
+    => (HeaderHash -> m (Maybe BlockHeader))
+    -> a
     -> (BlockHeader -> Int -> Bool)
     -> m (OldestFirst [] BlockHeader)
-loadHeadersUpWhile = loadUpWhile getHeader
+loadHeadersUpWhile getHeaderImpl start condition =
+    loadUpWhile getHeaderImpl start condition
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile

@@ -19,10 +19,12 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
+import           Pos.Communication (OutSpecs)
+import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
@@ -32,11 +34,13 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 notifierPlugin, runWRealMode, startPendingTxsResubmitter,
-                                 syncWalletsWithGState, walletServeWebFull, walletServerOuts)
+                                 notifierPlugin, runWRealMode, syncWalletsWithGState,
+                                 walletServeWebFull, walletServerOuts, AddrCIdHashes (..),
+                                 startPendingTxsResubmitter)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
 import           Pos.Web (serveWeb)
+import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
 
 import           NodeOptions (WalletArgs (..), WalletNodeArgs (..), getWalletNodeOptions)
@@ -77,14 +81,14 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
             syncWallets
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr allPlugins
-         in (ActionSpec $ \v s -> init >> f v s, outs)
-    convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
+         in (ActionSpec $ \s -> init >> f s, outs)
+    convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
         syncWalletsWithGState sks
-    resubmitterPlugins = ([ActionSpec $ \_ _ -> startPendingTxsResubmitter], mempty)
-    notifierPlugins = ([ActionSpec $ \_ _ -> notifierPlugin], mempty)
+    resubmitterPlugins = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
+    notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     allPlugins = mconcat [ convPlugins (plugins wArgs)
                          , walletProd wArgs
@@ -105,14 +109,13 @@ walletProd ::
        )
     => WalletArgs
     -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions -> do
+walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \diffusion -> do
     logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
     logInfo $ sformat ("Transaction submission disabled: "%build)
         walletTxCreationDisabled
-
     walletServeWebFull
-        sendActions
+        diffusion
         walletDebug
         walletAddress
         (Just walletTLSParams)

@@ -256,11 +256,12 @@ getHeadersFromManyTo ::
        , HasConfiguration
        , HasBlockConfiguration
        )
-    => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
+    => (HeaderHash -> m (Maybe BlockHeader))
+    -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
     -> m (NewestFirst NE BlockHeader)
-getHeadersFromManyTo checkpoints startM = do
+getHeadersFromManyTo getHeader checkpoints startM = do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
@@ -286,10 +287,10 @@ getHeadersFromManyTo checkpoints startM = do
         else do
             newestCheckpoint <-
                 maximumBy (comparing getEpochOrSlot) . catMaybes <$>
-                mapM DB.getHeader (toList inMainCheckpoints)
+                mapM getHeader (toList inMainCheckpoints)
             let loadUpCond (headerHash -> curH) h =
                     curH /= startHash && h < recoveryHeadersMessage
-            up <- GS.loadHeadersUpWhile newestCheckpoint loadUpCond
+            up <- GS.loadHeadersUpWhile getHeader newestCheckpoint loadUpCond
             res <-
                 note "loadHeadersUpWhile returned empty list" $
                 _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
@@ -359,12 +360,13 @@ getHeadersOlderExp upto = do
 -- @depthLimit@, error will be thrown.
 getHeadersRange ::
        forall m. (HasConfiguration, MonadDBRead m)
-    => Maybe Word
+    => (HeaderHash -> m (Maybe BlockHeader))
+    -> Maybe Word
     -> HeaderHash
     -> HeaderHash
     -> m (Either Text (OldestFirst NE HeaderHash))
-getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
-    unlessM (isJust <$> DB.getHeader newer) $
+getHeadersRange getHeader depthLimitM older newer | older == newer = runExceptT $ do
+    unlessM (isJust <$> (lift (getHeader newer))) $
         throwError "getHeadersRange: can't find newer-older header"
     whenJust depthLimitM $ \depthLimit ->
         when (depthLimit < 1) $
@@ -374,10 +376,10 @@ getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
                 depthLimit
                 newer
     pure $ OldestFirst $ one newer
-getHeadersRange depthLimitM older newer = runExceptT $ do
+getHeadersRange getHeader depthLimitM older newer = runExceptT $ do
     -- oldest and newest blocks do exist
-    newerHd <- fromMaybeM "can't retrieve newer header" $ DB.getHeader newer
-    olderHd <- fromMaybeM "can't retrieve older header" $ DB.getHeader older
+    newerHd <- fromMaybeM "can't retrieve newer header" $ getHeader newer
+    olderHd <- fromMaybeM "can't retrieve older header" $ getHeader older
     let olderD = olderHd ^. difficultyL
     let newerD = newerHd ^. difficultyL
 

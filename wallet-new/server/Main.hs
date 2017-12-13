@@ -68,7 +68,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
 
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr plugins
-         in (ActionSpec $ \v s -> init >> f v s, outs)
+         in (ActionSpec $ \s -> init >> f s, outs)
 
     syncWallets :: WalletWebMode ()
     syncWallets = do

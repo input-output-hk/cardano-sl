@@ -11,7 +11,7 @@ import           Universum
 import           Data.Reflection (give)
 import           Mockable (Production)
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Core (HasConfiguration, BlockVersionData (..))
@@ -24,6 +24,7 @@ import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Worker.Types (WorkerSpec)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 -----------------------------------------------------------------------------

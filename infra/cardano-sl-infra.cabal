@@ -122,6 +122,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
+                      , cardano-sl-networking
                       , cardano-sl-util
                       , cardano-report-server >= 0.3.0
                       , conduit
@@ -147,7 +148,6 @@ library
                       , network-info
                       , network-transport
                       , network-transport-tcp
-                      , node-sketch
                       , optparse-applicative
                       , QuickCheck
                       , reflection

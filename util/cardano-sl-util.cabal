@@ -46,6 +46,7 @@ library
                      , autoexporter
                      , base
                      , bytestring
+                     , cardano-sl-networking
                      , containers
                      , concurrent-extra
                      , cryptonite
@@ -62,7 +63,6 @@ library
                      , lrucache
                      , mmorph
                      , mtl
-                     , node-sketch
                      , parsec
                      , process
                      , quickcheck-instances

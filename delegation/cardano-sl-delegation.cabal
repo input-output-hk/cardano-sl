@@ -50,6 +50,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , ether
@@ -60,7 +61,6 @@ library
                      , lrucache
                      , mmorph
                      , mtl
-                     , node-sketch
                      , reflection
                      , resourcet
                      , rocksdb-haskell

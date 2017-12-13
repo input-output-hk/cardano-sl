@@ -138,6 +138,7 @@ library
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-crypto
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
                      , containers
@@ -159,7 +160,6 @@ library
                      , log-warper >= 1.0.3
                      , memory
                      , mtl
-                     , node-sketch
                      , parsec
                      , plutus-prototype
                      , quickcheck-instances

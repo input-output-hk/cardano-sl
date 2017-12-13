@@ -7,6 +7,7 @@ module Cardano.Wallet.API.Response (
   , respondWith
   -- * Generating responses for single resources
   , single
+  , module FilterBackend
   ) where
 
 import           Prelude
@@ -20,9 +21,10 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
-import           Cardano.Wallet.API.Request.Filter (FilterOperation (..), SortOperation (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..), SortOperation (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Response.Filter.Legacy as FilterBackend
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -79,14 +81,14 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
 respondWith :: (Foldable f, Monad m)
             => RequestParams
-            -> [FilterOperation a]
+            -> FilterOperations a
             -> [SortOperation a]
-            -> (RequestParams -> m (f a))
+            -> (RequestParams -> FilterOperations a -> m (f a))
             -- ^ A callback-style function which, given the full set of `RequestParams`
             -- produces some form of results in some 'Monad' @m@.
             -> m (WalletResponse [a])
-respondWith params@RequestParams{..} _ _ generator = do
-    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
+respondWith params@RequestParams{..} fops _ generator = do
+    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params fops
     return $ WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus

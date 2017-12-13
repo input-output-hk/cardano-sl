@@ -18,6 +18,7 @@ import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -35,7 +36,6 @@ import           Data.Swagger hiding (Header)
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
-import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
 import           Servant.Swagger
@@ -123,23 +123,9 @@ class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
   readOnlyFields :: proxy a -> Set T.Text
   readOnlyFields _ = mempty
 
--- | Shamelessly copied from:
--- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>
--- The idea is to extend `KnownSymbol` to a type-level list, so that it's possibly to reify at the value-level
--- a `'[Symbol]` into a `[String]`.
-class KnownSymbols (xs :: [Symbol]) where
-  symbolVals :: proxy xs -> [String]
-
 --
 -- Instances
 --
-
-instance KnownSymbols ('[]) where
-  symbolVals _ = []
-
-instance (KnownSymbol a, KnownSymbols as) => KnownSymbols (a ': as) where
-  symbolVals _ =
-    symbolVal (Proxy :: Proxy a) : symbolVals (Proxy :: Proxy as)
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where

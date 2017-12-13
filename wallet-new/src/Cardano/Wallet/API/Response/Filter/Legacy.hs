@@ -4,28 +4,38 @@ import           Universum
 
 import qualified Cardano.Wallet.API.Request.Filter as F
 import           Cardano.Wallet.API.V1.Types
-import           Data.Constraint
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList, (@<), (@=),
                                    (@>))
+import qualified Pos.Core as Core
 
-type WalletIxs = '[WalletId]
+type WalletIxs = '[WalletId, Core.Coin]
 type Wallets = IxSet WalletIxs Wallet
 
 instance Indexable WalletIxs Wallet where
-  indices = ixList (ixFun getWalletIndices)
+  indices = ixList (ixFun (\Wallet{..} -> [walId]))
+                   (ixFun (\Wallet{..} -> [walBalance]))
 
-getWalletIndices :: Wallet -> [WalletId]
-getWalletIndices Wallet{..} = [walId]
+instance F.FilterBackend [] a where
+    filterData _ d = d
 
+{-
+applyFilters :: (Indexable ixs a)
+             => F.FilterOperations ixs a
+             -> IxSet ixs a
+             -> IxSet ixs a
+applyFilters F.FNil iset        = iset
+applyFilters (f F.::: fop) iset = applyFilters fop (applyFilter f iset)
+-}
 
-applyFilter :: forall a ix ixs. ( F.IsIndexOf a ix
+applyFilter :: forall ix ixs a.
+               ( F.IsIndexOf a ix
                , Indexable ixs a
                , IsIndexOf ix ixs
                )
-            => IxSet ixs a
-            -> F.FilterOperation ix a
+            => F.FilterOperation ix a
             -> IxSet ixs a
-applyFilter inputData fltr =
+            -> IxSet ixs a
+applyFilter fltr inputData =
     let byPredicate o i = case o of
             EQ -> inputData @= (i :: ix)
             LT -> inputData @< (i :: ix)

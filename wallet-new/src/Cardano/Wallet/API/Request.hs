@@ -7,7 +7,7 @@ module Cardano.Wallet.API.Request (
   , module Cardano.Wallet.API.Request.Filter
   ) where
 
-import           Cardano.Wallet.API.Request.Filter (FilterBy, FilterOperation)
+import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata (..), PaginationParams)
 
 data RequestParams = RequestParams

@@ -95,6 +95,7 @@ library
                      , cardano-sl-networking
                      -- Avoidable deps(?)
                      , cardano-sl
+                     , cardano-sl-client
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-update
@@ -144,6 +145,7 @@ executable wallet-new-server
                      , aeson-pretty
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
@@ -254,6 +256,7 @@ test-suite wallet-new-specs
                       , aeson-pretty
                       , bytestring
                       , cardano-sl
+                      , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-util

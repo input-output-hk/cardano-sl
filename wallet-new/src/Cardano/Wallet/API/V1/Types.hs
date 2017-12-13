@@ -31,6 +31,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Payments
   , TxId (..)
   , Payment (..)
+  , NewPayment
   , PaymentDistribution (..)
   , Transaction (..)
   , TransactionType (..)
@@ -318,6 +319,8 @@ data Payment = Payment
     -- ^ The destinations for this payment.
   , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
+  , pmtSpendingPassword :: !(Maybe SpendingPassword)
+    -- ^ spending password to encrypt private keys
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
@@ -327,6 +330,9 @@ instance Arbitrary Payment where
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
+                      <*> arbitrary
+
+type NewPayment = Payment
 
 ----------------------------------------------------------------------------
 -- TxId

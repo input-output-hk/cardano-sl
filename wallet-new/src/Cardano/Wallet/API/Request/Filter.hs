@@ -11,55 +11,20 @@ import           Universum
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
-import           Data.String.Conv (toS)
 import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
-import qualified Pos.Core as Core
 
-import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet)
+import           Cardano.Wallet.API.Indices
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
 import           Servant.Server.Internal
 
--- | The indices for each major resource.
-type WalletIxs = '[WalletId, Core.Coin]
-type TransactionIxs = '[TxId]
-
-class ToIndex a ix where
-    -- | How to build this index from the input 'Text'.
-    toIndex :: Proxy a -> Text -> Maybe ix
-
-instance ToIndex Wallet WalletId where
-    toIndex _ x = Just (WalletId x)
-
-instance ToIndex Wallet Core.Coin where
-    -- TODO: Temporary.
-    toIndex _ x = Core.mkCoin <$> readMaybe (toS x)
-
--- | A type family mapping a resource 'a' to all its indices.
-type family IndicesOf a :: [*] where
-    IndicesOf Wallet      = WalletIxs
-    IndicesOf Transaction = TransactionIxs
-
--- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
-type IxSet' a        = IxSet (IndicesOf a) a
-
--- | A variant of the 'Indexable' constraint where the indexes are determined statically by the resource type.
-type Indexable' a    = Indexable (IndicesOf a) a
-
--- | A variant of the 'IsIndexOf' constraint where the indexes are determined statically by the resource type.
-type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
-
--- | Represents a sort operation on the data model.
--- Examples:
---   *    `sort_by=balance`.
-data SortBy  (sym :: Symbol) deriving Typeable
-
-data SortOperation a =
-    SortBy Text
+--
+-- Filtering data
+--
 
 -- | A "bag" of filter operations, where the index constraint are captured in
 -- the inner closure of 'FilterOp'.

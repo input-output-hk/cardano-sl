@@ -13,6 +13,7 @@ import           Universum
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
@@ -141,7 +142,14 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
+-- TODO(adinapoli): placeholder.
 instance (HasSwagger subApi) => HasSwagger (FilterBy sym res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+        in swgr
+
+-- TODO(adinapoli): placeholder.
+instance (HasSwagger subApi) => HasSwagger (SortBy sym res :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @subApi)
         in swgr

@@ -16,6 +16,7 @@ type API =
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
                    :> FilterBy '["wallet_id", "balance"] Wallet
+                   :> SortBy   '["wallet_id", "balance"] Wallet
                    :> Get '[JSON] (WalletResponse [Wallet])
     :<|> "wallets" :> Capture "walletId" WalletId
                    :> ( "password" :> Summary "Updates the password for the given Wallet."

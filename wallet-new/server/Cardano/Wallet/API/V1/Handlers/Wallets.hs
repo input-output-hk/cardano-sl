@@ -50,13 +50,14 @@ newWallet NewWallet{..} = do
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             => RequestParams
             -> FilterOperations Wallet
+            -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
-listWallets params fops = do
+listWallets params fops sops = do
     -- let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
     getWallets0 <- liftIO $ generate (vectorOf 1000 arbitrary)
     let getWallets = pure $ map (\(w, i :: Word64) -> w { walBalance = Core.mkCoin i }) (zip getWallets0 [1..])
     liftIO $ putText (show fops)
-    respondWith params fops mempty (\_ ops -> applyFilters ops . IxSet.fromList <$> getWallets)
+    respondWith params fops sops (\_ ops _ -> applyFilters ops . IxSet.fromList <$> getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

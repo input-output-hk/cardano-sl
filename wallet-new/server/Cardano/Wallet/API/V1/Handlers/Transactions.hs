@@ -42,7 +42,9 @@ allTransactions walletId requestParams = do
     let transactions :: m [Transaction]
         transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
 
-    respondWith requestParams (NoFilters :: FilterOperations Transaction) mempty (\_ _ -> transactions)
+    respondWith requestParams (NoFilters :: FilterOperations Transaction)
+                              (NoSorts :: SortOperations Transaction)
+                              (\_ _ _ -> transactions)
 
 estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
 estimateFees _ = single <$> (liftIO $ generate arbitrary)

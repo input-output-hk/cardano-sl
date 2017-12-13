@@ -8,6 +8,7 @@ module Cardano.Wallet.API.Response (
   -- * Generating responses for single resources
   , single
   , module FilterBackend
+  , module SortBackend
   ) where
 
 import           Prelude
@@ -20,12 +21,14 @@ import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
+import           Cardano.Wallet.API.Indices (Indexable')
 import           Cardano.Wallet.API.Request (RequestParams (..))
-import           Cardano.Wallet.API.Request.Filter (FilterOperations (..), Indexable',
-                                                    SortOperation (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -79,17 +82,16 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
 -- requested a number of results."
 --
--- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
 respondWith :: (Foldable f, Monad m, Indexable' a)
             => RequestParams
             -> FilterOperations a
-            -> [SortOperation a]
-            -> (RequestParams -> FilterOperations a -> m (f a))
+            -> SortOperations a
+            -> (RequestParams -> FilterOperations a -> SortOperations a -> m (f a))
             -- ^ A callback-style function which, given the full set of `RequestParams`
             -- produces some form of results in some 'Monad' @m@.
             -> m (WalletResponse [a])
-respondWith params@RequestParams{..} fops _ generator = do
-    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params fops
+respondWith params@RequestParams{..} fops sops generator = do
+    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params fops sops
     return $ WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus

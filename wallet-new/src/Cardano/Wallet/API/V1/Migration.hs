@@ -189,6 +189,14 @@ instance Migrate V0.CAddress Core.Address where
         first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
             . decodeCTypeOrFail $ cadId
 
+instance Migrate V0.CAddress V1.WalletAddress where
+    eitherMigrate V0.CAddress{..} = do
+        addrId <- eitherMigrate cadId
+        addrBalance <- eitherMigrate cadAmount
+        let addrUsed = cadIsUsed
+        let addrChangeAddress = cadIsChange
+        return V1.WalletAddress{..}
+
 ----------------------------------------------------------------------------
 -- Transactions
 ----------------------------------------------------------------------------

@@ -57,7 +57,6 @@ module Pos.Wallet.Web.State.Storage
        , updateWalletBalancesAndUtxo
        , setWalletUtxo
        , addOnlyNewTxMeta
-       , setWalletTxMeta
        , addOnlyNewTxMetas
        , removeWallet
        , removeWalletTxMetas
@@ -387,11 +386,6 @@ addOnlyNewTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addOnlyNewTxMeta cWalId cTxId cTxMeta =
     -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
     wsTxHistory . at cWalId . non' _Empty . at cTxId %= Just . fromMaybe cTxMeta
-
--- NOTE: sets transaction meta only for transactions ids that are already seen
-setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
-setWalletTxMeta cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId %= ($> cTxMeta)
 
 removeTxMetas :: CId Wal -> Update ()
 removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing

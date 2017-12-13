@@ -9,6 +9,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
     PasswordUpdate (..)
   , AccountUpdate (..)
+  , NewAccount (..)
   , Update
   , New
   -- * Domain-specific types
@@ -19,9 +20,14 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , SpendingPassword
+  -- * Addresses
+  , AddressValidity (..)
   -- * Accounts
   , Account (..)
   , AccountId
+  -- * Addresses
+  , WalletAddress (..)
+  , NewAddress (..)
   -- * Payments
   , TxId (..)
   , Payment (..)
@@ -157,12 +163,29 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
+--------------------------------------------------------------------------------
+-- Addresses
+--------------------------------------------------------------------------------
+
+-- | Whether an address is valid or not.
+newtype AddressValidity = AddressValidity { isValid :: Bool }
+  deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressValidity
+
+instance Arbitrary AddressValidity where
+  arbitrary = AddressValidity <$> arbitrary
+
+--------------------------------------------------------------------------------
+-- Accounts
+--------------------------------------------------------------------------------
+
 type AccountId = Word32
 
--- | A wallet's 'Account'.
+-- | A wallet 'Account'.
 data Account = Account
   { accId        :: !AccountId
-  , accAddresses :: [Core.Address]
+  , accAddresses :: [Core.Address]  -- should be WalletAddress
   , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
@@ -187,6 +210,46 @@ deriveJSON Serokell.defaultOptions ''AccountUpdate
 
 instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate <$> pure "myAccount"
+
+data NewAccount = NewAccount
+  { naccSpendingPassword :: !(Maybe SpendingPassword)
+  , naccName             :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAccount
+
+instance Arbitrary NewAccount where
+  arbitrary = NewAccount <$> arbitrary
+                         <*> arbitrary
+
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+  { addrId            :: !Core.Address
+  , addrBalance       :: !Core.Coin
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance Arbitrary WalletAddress where
+  arbitrary = WalletAddress <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
+data NewAddress = NewAddress
+  { newaddrSpendingPassword :: !(Maybe SpendingPassword)
+  , newaddrAccountId        :: !AccountId
+  , newaddrWalletId         :: !WalletId
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAddress
+
+instance Arbitrary NewAddress where
+  arbitrary = NewAddress <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -511,9 +574,11 @@ instance Arbitrary NodeInfo where
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet  = WalletUpdate
-  Update Account = AccountUpdate
+  Update Wallet        = WalletUpdate
+  Update Account       = AccountUpdate
+  Update WalletAddress = () -- read-only
 
 type family New (original :: *) :: * where
   New Wallet  = NewWallet
-  New Account = AccountUpdate -- POST == PUT
+  New Account = NewAccount
+  New WalletAddress = NewAddress

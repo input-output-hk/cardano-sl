@@ -32,9 +32,8 @@ import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
-import           Pos.DHT.Real.Types (KademliaDHTInstance)
+import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Network.Types (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
@@ -73,8 +72,6 @@ type WorkMode ctx m
       , MonadBListener m
       , MonadReporting ctx m
       , MonadReader ctx m
-      , MonadKnownPeers m
-      , MonadFormatPeers m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics
@@ -82,7 +79,7 @@ type WorkMode ctx m
       , HasLens' ctx UpdateParams
       , HasLens' ctx SecurityParams
       , HasLens' ctx TxpGlobalSettings
-      , HasLens' ctx (NetworkConfig KademliaDHTInstance)
+      , HasLens' ctx (NetworkConfig KademliaParams)
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
       , HasSscContext ctx

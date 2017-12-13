@@ -1,7 +1,9 @@
 {-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.API.V0.Handlers where
 
+import           Universum
 import qualified Cardano.Wallet.API.V0          as V0
+import           Pos.Core.Txp                   (TxAux)
 import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode)
 import qualified Pos.Wallet.Web.Server.Handlers as V0
 import           Servant
@@ -14,5 +16,7 @@ import           Servant
 -- a Servant's @Handler@, I can give you back a "plain old" Server.
 handlers :: MonadFullWalletWebMode ctx m
          => (forall a. m a -> Handler a)
+         -> (TxAux -> m Bool)
          -> Server V0.API
-handlers naturalTransformation = hoistServer (Proxy @V0.API) naturalTransformation V0.servantHandlers
+handlers naturalTransformation sendTx =
+    hoistServer (Proxy @V0.API) naturalTransformation (V0.servantHandlers sendTx)

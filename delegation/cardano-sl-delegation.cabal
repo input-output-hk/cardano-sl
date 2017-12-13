@@ -19,12 +19,10 @@ library
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
                        Pos.Delegation.Helpers
-                       Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc
                        Pos.Delegation.RichmenComponent
                        Pos.Delegation.Types
-                       Pos.Delegation.Worker
 
                        -- Arbitrary instances
                        Pos.Arbitrary.Delegation

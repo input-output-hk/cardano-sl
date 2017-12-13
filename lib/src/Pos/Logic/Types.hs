@@ -21,7 +21,8 @@ import           Pos.Core.Block            (Block, BlockHeader)
 import           Pos.Core                  (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
 import           Pos.Core.Txp              (TxId)
-import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData)
+import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData,
+                                            VoteId)
 import           Pos.Security.Params       (SecurityParams (..))
 import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
@@ -53,6 +54,9 @@ data Logic m = Logic
       -- be a tip, whereas trying to get a block that isn't in the database is
       -- normal.
     , getTip             :: m (Either GetTipError Block)
+      -- TBD useful to have this and getTip? There are existing different
+      -- implementations so presumably yes?
+    , getTipHeader       :: m (Either GetTipError BlockHeader)
 
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
@@ -75,7 +79,7 @@ data Logic m = Logic
       -- See comment on the 'KeyVal' type.
     , postTx            :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
     , postUpdate        :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
-    , postVote          :: KeyVal (Tagged UpdateVote UpId) UpdateVote m
+    , postVote          :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
     , postSscCommitment :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
     , postSscOpening    :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
     , postSscShares     :: KeyVal (Tagged MCShares StakeholderId) MCShares m
@@ -92,6 +96,12 @@ data Logic m = Logic
     , recoveryInProgress :: m Bool
 
     , securityParams     :: SecurityParams
+
+      -- Characterize bogus block headers.
+    , checkBlockHeader :: BlockHeader -> m Bool
+
+      -- Characterize bogus blocks.
+    , checkBlock       :: Block -> m Bool
     }
 
 -- | First iteration solution to the inv/req/data/mempool system.
@@ -157,7 +167,38 @@ instance Exception GetTipError
 
 -- | A diffusion layer: its interface, and a way to run it.
 data LogicLayer m = LogicLayer
-    { runLogicLayer :: forall x . m x -> m x
+    { -- Morally, this should be  forall x . m x -> m x
+      --
+      -- But for a first iteration, the caller is given an  m ()  which
+      -- returns/throws when the logic layer returns/throws.
+      --
+      -- This allows us to temporarily maintain the worker model such that
+      -- the workers determine control: the program stops when any of
+      --   1. all workers finish
+      --   2. one worker crashes
+      --   3. some special shutdown  TVar  is written with  True
+      -- as it is and has always been.
+      --
+      -- The logic layer returning shouldn't make sense (but it may crash), as
+      -- it should be a completely passive thing, churning indefinitely like
+      -- the diffusion layer in response to events.
+      --
+      -- forall x . m x -> m x  supports the passive approach: the  m x  will
+      -- run, but if the logic layer crashes, it can throw an asynchronous
+      -- exception to that action (if the particular logic layer is an IO
+      -- implementation).
+      --
+      -- Ultimately we may want to go for a design in which the logic layer
+      -- (along with the diffusion layer) passively supports an application
+      -- control layer.
+      --
+      --   type Application m t = Logic m -> Diffusion m -> m t
+      --
+      -- With this design a "full" logic layer becomes far more portable: it
+      -- doesn't run all of the workers, it just provisions everything that an
+      -- application would need in order to run them. 
+      -- runLogicLayer :: forall x . (m () -> m x) -> m x
+      runLogicLayer :: forall x . m x -> m x
     , logic         :: Logic m
     }
 
@@ -166,7 +207,7 @@ dummyLogicLayer
     :: ( Applicative m )
     => LogicLayer m
 dummyLogicLayer = LogicLayer
-    { runLogicLayer = identity
+    { runLogicLayer = identity -- \k -> k (pure ())
     , logic         = dummyLogic
     }
 
@@ -180,6 +221,7 @@ dummyLogicLayer = LogicLayer
         , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
         , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
         , getTip             = pure (error "dummy: can't get tip")
+        , getTipHeader       = pure (error "dummy: can't get tip header")
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")
         , postBlockHeader    = \_ _ -> pure ()
         , postPskHeavy       = \_ -> pure False
@@ -192,6 +234,8 @@ dummyLogicLayer = LogicLayer
         , postSscVssCert     = dummyKeyVal
         , recoveryInProgress = pure False
         , securityParams     = def
+        , checkBlockHeader   = \_ -> pure True
+        , checkBlock         = \_ -> pure True
         }
 
     dummyKeyVal :: Applicative m => KeyVal key val m

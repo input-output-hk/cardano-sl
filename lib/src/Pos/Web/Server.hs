@@ -6,19 +6,21 @@
 
 module Pos.Web.Server
        ( serveImpl
+       , withRoute53HealthCheckApplication
        , route53HealthCheckApplication
        , serveWeb
        , application
        ) where
 
-import           Universum
+import           Universum hiding (bracket)
 
 import qualified Control.Monad.Catch as Catch
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
-import           Mockable (Production (runProduction))
+import           Mockable (Production (runProduction), Mockable, Async, async, cancel,
+                           Bracket, bracket)
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
@@ -26,7 +28,6 @@ import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
 
-import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Aeson.Txp ()
 import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -35,14 +36,12 @@ import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.GState as GS
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Network.Types (Bucket (BucketSubscriptionListener), Topology,
-                                    topologyMaxBucketSize)
+import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
 import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, askTxpMem, getLocalTxs)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
-import           Pos.WorkMode (OQ)
 import           Pos.WorkMode.Class (WorkMode)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
@@ -58,10 +57,26 @@ type MyWorkMode ctx m =
     , Default (MempoolExt m)
     )
 
-route53HealthCheckApplication :: MyWorkMode ctx m => Topology t -> OQ m -> m Application
-route53HealthCheckApplication topology oq = do
-    server <- servantServerHealthCheck topology oq
-    return $ serve healthCheckApi server
+withRoute53HealthCheckApplication
+    :: ( Mockable Async m
+       , Mockable Bracket m
+       , MonadIO m
+       , HasConfiguration
+       )
+    => IO HealthStatus
+    -> String
+    -> Word16
+    -> m x
+    -> m x
+withRoute53HealthCheckApplication mStatus host port act = bracket acquire release (const act)
+  where
+    acquire = async (serveImpl (pure app) host port Nothing)
+    release = cancel
+    app = route53HealthCheckApplication mStatus
+
+route53HealthCheckApplication :: IO HealthStatus -> Application
+route53HealthCheckApplication mStatus =
+    serve healthCheckApi (servantServerHealthCheck mStatus)
 
 serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWeb = serveImpl application "127.0.0.1"
@@ -115,13 +130,6 @@ withNat apiP handlers = do
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
-
-servantServerHealthCheck
-    :: forall ctx t m.
-       MyWorkMode ctx m
-    => Topology t -> OQ m -> m (Server HealthCheckApi)
-servantServerHealthCheck topology oq =
-    withNat (Proxy @HealthCheckApi) $ healthCheckServantHandlers topology oq
 
 servantServer
     :: forall ctx m.
@@ -207,23 +215,12 @@ toggleSscParticipation enable =
 -- HealthCheck handlers
 ----------------------------------------------------------------------------
 
-healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
-healthCheckServantHandlers topology oq =
-    getRoute53HealthCheck topology oq
-
-getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
-getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
-    let maxCapacityTxt = case getSize BucketSubscriptionListener of
-                             OQ.BucketSizeUnlimited -> "unlimited"
-                             (OQ.BucketSizeMax x)   -> fromString (show x)
-    -- If the node doesn't have any more subscription slots available,
-    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
-    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
-    case spareCapacity of
-        OQ.UnlimitedCapacity          ->
-            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
-        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
-        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
+servantServerHealthCheck :: IO HealthStatus -> Server HealthCheckApi
+servantServerHealthCheck mStatus = do
+    status <- liftIO mStatus
+    case status of
+      HSUnhealthy msg -> throwM $ err503 { errBody = encodeUtf8 msg }
+      HSHealthy msg   -> return (show msg)
 
 ----------------------------------------------------------------------------
 -- Orphan instances

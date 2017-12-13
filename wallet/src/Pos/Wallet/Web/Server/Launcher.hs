@@ -24,6 +24,7 @@ import           Servant.Server (Handler, Server, serve)
 import qualified Data.ByteString.Char8 as BS8
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
@@ -61,13 +62,17 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => (forall x. m x -> Handler x)
+    => Diffusion m
+    -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer nat = do
+walletServer diffusion nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    startPendingTxsResubmitter
+    startPendingTxsResubmitter submitTx
     launchNotifier nat
-    return $ servantHandlersWithSwagger nat
+    return $ servantHandlersWithSwagger submitTx nat
+  where
+    -- Diffusion layer takes care of submitting transactions.
+    submitTx = sendTx diffusion
 
 bracketWalletWebDB
     :: ( MonadIO m

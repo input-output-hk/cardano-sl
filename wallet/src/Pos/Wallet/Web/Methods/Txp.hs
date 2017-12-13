@@ -20,7 +20,7 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (isCheckedTxError)
 import           Pos.Core.Common (Coin)
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
+import           Pos.Core.Txp (TxOut (..), TxOutAux (..), TxAux)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
@@ -61,5 +61,7 @@ coinDistrToOutputs distr = do
 -- by the time of resubmission.
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
-    => PendingTx -> m ()
-submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
+    => (TxAux -> m Bool)
+    -> PendingTx
+    -> m ()
+submitAndSaveNewPtx submit = submitAndSavePtx submit ptxFirstSubmissionHandler

@@ -11,11 +11,9 @@ module Pos.Update
        , module Pos.Update.Lrc
        , module Pos.Update.MemState
        , module Pos.Update.Mode
-       , module Pos.Update.Network
        , module Pos.Update.Params
        , module Pos.Update.Poll
        , module Pos.Update.RichmenComponent
-       , module Pos.Update.Worker
        ) where
 
 import           Pos.Arbitrary.Update ()
@@ -29,8 +27,6 @@ import           Pos.Update.Logic
 import           Pos.Update.Lrc
 import           Pos.Update.MemState
 import           Pos.Update.Mode
-import           Pos.Update.Network
 import           Pos.Update.Params
 import           Pos.Update.Poll
 import           Pos.Update.RichmenComponent
-import           Pos.Update.Worker

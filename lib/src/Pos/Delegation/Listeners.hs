@@ -4,7 +4,8 @@
 -- | Server listeners for delegation logic
 
 module Pos.Delegation.Listeners
-       ( delegationRelays
+       ( handlePsk
+       , DlgListenerConstraint
        ) where
 
 import           Universum
@@ -15,8 +16,8 @@ import           System.Wlog (WithLogger, logDebug, logWarning)
 
 import           Pos.Binary.Delegation ()
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Protocol (Message, MsgType (..))
-import           Pos.Communication.Relay (DataMsg, DataParams (..), Relay (..))
+import           Pos.Communication.Protocol (Message)
+import           Pos.Communication.Relay (DataMsg)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -47,29 +48,18 @@ type DlgListenerConstraint ctx m
        , DlgMessageConstraint m
        , HasDlgConfiguration)
 
--- | Listeners for requests related to delegation processing.
-delegationRelays
-    :: forall ctx m. DlgListenerConstraint ctx m
-    => [Relay m]
-delegationRelays = [ pskHeavyRelay ]
-
-pskHeavyRelay
-    :: forall ctx m . DlgListenerConstraint ctx m
-    => Relay m
-pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
-  where
-    handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
-    handlePsk pSk = do
-        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKHeavy pSk
-        logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-        case verdict of
-            PHTipMismatch -> do
-                -- We're probably updating state over epoch, so
-                -- leaders can be calculated incorrectly. This is
-                -- really weird and must not happen. We'll just retry.
-                logWarning "Tip mismatch happened in delegation db!"
-                handlePsk pSk
-            PHAdded -> pure True
-            PHRemoved -> pure True
-            _ -> pure False
+handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
+handlePsk pSk = do
+    logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
+    verdict <- processProxySKHeavy pSk
+    logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
+    case verdict of
+        PHTipMismatch -> do
+            -- We're probably updating state over epoch, so
+            -- leaders can be calculated incorrectly. This is
+            -- really weird and must not happen. We'll just retry.
+            logWarning "Tip mismatch happened in delegation db!"
+            handlePsk pSk
+        PHAdded -> pure True
+        PHRemoved -> pure True
+        _ -> pure False

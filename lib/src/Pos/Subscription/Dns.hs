@@ -15,7 +15,6 @@ import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAt
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
-import           Pos.Communication.Protocol (Worker)
 import           Pos.KnownPeers (MonadKnownPeers (..))
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
@@ -23,6 +22,7 @@ import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig 
 import           Pos.Slotting (MonadSlotsData, getNextEpochSlotDuration)
 import           Pos.Subscription.Common
 import           Pos.Util.Timer (Timer)
+import           Pos.Worker.Types (Worker)
 
 dnsSubscriptionWorker
     :: forall kademlia ctx m.

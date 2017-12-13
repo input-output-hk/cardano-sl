@@ -22,7 +22,7 @@ import           Pos.Core (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
-import           Pos.Update (updateTriggerWorker)
+import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)

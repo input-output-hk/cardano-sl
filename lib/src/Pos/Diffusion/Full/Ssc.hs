@@ -16,6 +16,9 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
+-- Message instances for various types.
+-- TODO should move these into the Diffusion module subtree.
+import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),

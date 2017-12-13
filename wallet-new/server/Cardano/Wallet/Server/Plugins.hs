@@ -17,13 +17,12 @@ import           Cardano.Wallet.Server as API
 import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 
-import qualified Control.Concurrent.STM as STM
 import           Network.Wai (Application, Middleware)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Pos.Wallet.Web (cleanupAcidStatePeriodically, syncWalletsWithGState,
-                                 wwmcSendActions)
+import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Wallet.Web (cleanupAcidStatePeriodically, syncWalletsWithGState)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Methods.Restore (addInitialRichAccount)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -32,7 +31,8 @@ import           Pos.Wallet.Web.Sockets (getWalletWebSockets, launchNotifier, up
 import           Servant (serve)
 import           System.Wlog (logInfo, modifyLoggerName)
 
-import           Pos.Communication (ActionSpec (..), OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Communication (OutSpecs)
+import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Context (HasNodeContext)
 
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -41,6 +41,7 @@ import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
 import           Pos.Web (serveWeb)
 import           Pos.WorkMode (WorkMode)
+import           Pos.Worker.Types (worker, WorkerSpec)
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = ([WorkerSpec m], OutSpecs)
@@ -56,7 +57,7 @@ acidCleanupWorker WalletBackendParams{..} =
 
 -- | The @Plugin@ which defines part of the conversation protocol for this node.
 conversation :: (HasConfigurations, HasCompileInfo) => WalletBackendParams -> Plugin WalletWebMode
-conversation wArgs = (, mempty) $ map (\act -> ActionSpec $ \__vI __sA -> act) (pluginsMonitoringApi wArgs)
+conversation wArgs = (, mempty) $ map (\act -> ActionSpec $ \__diffusion -> act) (pluginsMonitoringApi wArgs)
   where
     pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx , HasConfigurations, HasCompileInfo)
                          => WalletBackendParams
@@ -70,26 +71,24 @@ walletBackend :: (HasConfigurations, HasCompileInfo)
               => WalletBackendParams
               -> Plugin WalletWebMode
 walletBackend WalletBackendParams {..} =
-    first one $ worker walletServerOuts $ \sendActions -> do
+    first one $ worker walletServerOuts $ \diffusion -> do
       walletServeImpl
-        (getApplication sendActions)
+        (getApplication diffusion)
         walletAddress
         -- Disable TLS if in debug mode.
         (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
   where
     -- Gets the Wai `Application` to run.
-    getApplication :: SendActions WalletWebMode -> WalletWebMode Application
-    getApplication sendActions = do
+    getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
+    getApplication diffusion = do
       logInfo "DAEDALUS has STARTED!"
-      saVar <- asks wwmcSendActions
-      atomically $ STM.putTMVar saVar sendActions
       when (isDebugMode walletRunMode) $ addInitialRichAccount 0
       wsConn <- getWalletWebSockets
       ctx <- V0.walletWebModeContext
       syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-      startPendingTxsResubmitter
+      startPendingTxsResubmitter (sendTx diffusion)
       launchNotifier (V0.convertHandler ctx)
-      let app = upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx))
+      let app = upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx) diffusion)
       return $ withMiddleware walletRunMode app
 
 -- | "Attaches" the middleware to this 'Application', if any.

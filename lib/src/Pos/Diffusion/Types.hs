@@ -9,11 +9,13 @@ module Pos.Diffusion.Types
     ) where
 
 import           Universum
+import           Formatting                       (Format)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core                         (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Txp                     (TxAux)
 import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
+import           Pos.Reporting.Health.Types       (HealthStatus (..))
 import           Pos.Ssc.Message                  (MCOpening, MCShares, MCCommitment,
                                                    MCVssCertificate)
 
@@ -55,6 +57,17 @@ data Diffusion m = Diffusion
     , sendSscCommitment  :: MCCommitment -> m ()
       -- Delegation: send a heavy certificate.
     , sendPskHeavy       :: ProxySKHeavy -> m ()
+
+      -- FIXME stopgap measure: there's an amazon route53 health check server
+      -- that we have to support. Also a reporting mechanism that still
+      -- demands to know the current set of peers we may be talking to.
+      -- In the future we should roll this in with a more general status/debug
+      -- system: to be used by the reporting mechanism (supply info about
+      -- network topology) and also by the user interface (how's our connection
+      -- quality?).
+      -- [CS-235]
+    , healthStatus       :: m HealthStatus
+    , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
     }
 
 -- | Failure description for getting blocks from the diffusion layer.
@@ -88,4 +101,6 @@ dummyDiffusionLayer = DiffusionLayer
         , sendSscShares      = \_ -> pure ()
         , sendSscCommitment  = \_ -> pure ()
         , sendPskHeavy       = \_ -> pure ()
+        , healthStatus       = pure (HSUnhealthy "I'm a dummy")
+        , formatPeers        = \_ -> pure Nothing
         }

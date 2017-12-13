@@ -10,14 +10,14 @@ import           Formatting (sformat, shown, (%))
 import           Network.Broadcast.OutboundQueue.Types (Peers)
 import           System.Wlog (logNotice)
 
-import           Pos.Communication.Protocol (NodeId, Worker)
+import           Pos.Communication.Protocol (NodeId)
 import           Pos.DHT.Real.Real (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
 import           Pos.DHT.Workers (DhtWorkMode)
 import           Pos.KnownPeers (MonadKnownPeers (..))
 import           Pos.Network.Types (Bucket (..), NodeType, choosePeers)
 import           Pos.Util.TimeWarp (addressToNodeId)
-
+import           Pos.Worker.Types (Worker)
 
 -- | This worker will update the known peers (via MonadKnownPeers) every time
 -- the Kademlia peers change.

@@ -8,18 +8,24 @@ import           Unsafe (unsafeFromJust)
 import           Control.Exception.Safe (handle)
 import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
+import           JsonLog (jsonLog)
 import           Mockable (Production, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs, WorkerSpec)
+import           Pos.Communication (OutSpecs)
+import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (ConfigurationError, Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Types (DiffusionLayer (..))
+import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Logic.Full (logicLayerFull)
+import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               runRealBasedMode, withConfigurations)
+                               elimRealMode, withConfigurations, hoistNodeResources)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
@@ -28,9 +34,10 @@ import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, 
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.Worker.Types (WorkerSpec)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
+import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..))
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (WithCommandAction (..), withAuxxRepl)
 
@@ -117,9 +124,13 @@ action opts@AuxxOptions {..} command = do
           let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
           let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-              runRealBasedMode toRealMode realModeToAuxx nr $
-                  (if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity)
-                  (auxxPlugin opts command)
+              elimRealMode (hoistNodeResources toRealMode nr) $ toRealMode $
+                  logicLayerFull jsonLog $ \logicLayer -> do
+                      diffusionLayerFull (npNetworkConfig nodeParams) Nothing $ \withLogic -> do
+                          diffusionLayer <- withLogic (logic logicLayer)
+                          let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                              (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                          runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

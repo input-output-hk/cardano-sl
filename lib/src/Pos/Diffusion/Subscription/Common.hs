@@ -25,10 +25,10 @@ import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              ListenerSpec, MkListeners, MsgSubscribe (..), NodeId,
-                                             OutSpecs, SendActions, Worker, WorkerSpec,
-                                             constantListeners, convH, toOutSpecs, withConnectionTo,
-                                             worker)
+                                             OutSpecs, SendActions, constantListeners,
+                                             convH, toOutSpecs, withConnectionTo)
 import           Pos.Network.Types (Bucket (..), NodeType)
+import           Pos.Worker.Types (Worker, WorkerSpec, worker)
 
 type SubscriptionMode m =
     ( MonadIO m

@@ -21,12 +21,10 @@ library
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Logic
-                        Pos.Block.Network
                         Pos.Block.Pure
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-                        Pos.Block.Worker
 
                         Pos.DB.Block
                         Pos.DB.Block.Load
@@ -50,16 +48,10 @@ library
                         Pos.Block.Logic.VAR
 
   other-modules:
-                        Pos.Block.BlockWorkMode
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Network.Announce
-                        Pos.Block.Network.Listeners
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types

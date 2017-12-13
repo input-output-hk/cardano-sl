@@ -20,7 +20,9 @@ import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
 import qualified Pos.Block.Base as T
+{-
 import           Pos.Block.Network as T
+-}
 import qualified Pos.Block.Pure as T
 import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
@@ -192,6 +194,7 @@ instance ( Arbitrary SscPayload
 -- Block network types
 ------------------------------------------------------------------------------------------
 
+{-
 instance Arbitrary T.MsgGetHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -217,6 +220,7 @@ instance ( Arbitrary SscPayload
          Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink
+-}
 
 instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where
     build (block, key) =

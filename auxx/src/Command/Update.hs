@@ -20,10 +20,10 @@ import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
-import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Crypto (Hash, SignTag (SignUSVote), emptyPassphrase, encToPublic, hash,
                              hashHexF, safeSign, unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), installerHash,
                              mkUpdateProposalWSign)
 
@@ -37,12 +37,12 @@ import           Repl (PrintAction)
 
 vote
     :: MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> Int
     -> Bool
     -> UpId
     -> m ()
-vote sendActions idx decision upid = do
+vote diffusion idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
@@ -60,7 +60,8 @@ vote sendActions idx decision upid = do
             if null ccPeers
                 then logError "Error: no addresses specified"
                 else do
-                    submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
+                    --submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
+                    submitVote diffusion voteUpd
                     logInfo "Submitted vote"
 
 ----------------------------------------------------------------------------
@@ -69,10 +70,10 @@ vote sendActions idx decision upid = do
 
 propose
     :: MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> ProposeUpdateParams
     -> m UpId
-propose sendActions ProposeUpdateParams{..} = do
+propose diffusion ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
@@ -97,8 +98,9 @@ propose sendActions ProposeUpdateParams{..} = do
             then reportFatalError "Error: no addresses specified"
             else do
                 let upid = hash updateProposal
-                let enqueue = immediateConcurrentConversations sendActions ccPeers
-                submitUpdateProposal enqueue ss updateProposal
+                --let enqueue = immediateConcurrentConversations sendActions ccPeers
+                --submitUpdateProposal enqueue ss updateProposal
+                submitUpdateProposal diffusion ss updateProposal
                 if not puVoteAll then
                     putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
                 else

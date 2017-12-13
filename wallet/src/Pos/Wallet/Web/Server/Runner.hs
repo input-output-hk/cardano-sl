@@ -15,7 +15,6 @@ module Pos.Wallet.Web.Server.Runner
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import qualified Control.Monad.Catch as Catch
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
@@ -26,24 +25,28 @@ import           Servant.Server (Handler)
 import           System.Wlog (logInfo)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Context (NodeContext (..))
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Resource (NodeResources)
-import           Pos.Launcher.Runner (runRealBasedMode)
+import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Launcher.Runner (elimRealMode, runServer)
+import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
-                                      WalletWebModeContextTag)
+                                      WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletState)
 import           Pos.Web (TlsParams)
+import           Pos.WorkMode (RealMode)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: ( HasConfigurations
+    :: forall a .
+       ( HasConfigurations
        , HasCompileInfo
        )
     => WalletState
@@ -51,35 +54,40 @@ runWRealMode
     -> NodeResources WalletMempoolExt WalletWebMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn res spec = do
-    saVar <- atomically STM.newEmptyTMVar
-    runRealBasedMode
-        (Mtl.withReaderT (WalletWebModeContext db conn saVar))
-        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ rmc) -> rmc))
-        res
-        spec
+runWRealMode db conn res (action, outSpecs) =
+    elimRealMode hoistedNr serverRealMode
+  where
+    NodeContext {..} = nrContext res
+    ekgNodeMetrics = EkgNodeMetrics
+        (nrEkgStore res)
+        (runProduction . elimRealMode hoistedNr . walletWebModeToRealMode db conn)
+    hoistedNr = hoistNodeResources nat res
+    serverWalletWebMode :: WalletWebMode a
+    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
+    serverRealMode :: RealMode WalletMempoolExt a
+    serverRealMode = walletWebModeToRealMode db conn serverWalletWebMode
+    nat :: forall t . WalletWebMode t -> RealMode WalletMempoolExt t
+    nat = Mtl.withReaderT (\rmc -> (WalletWebModeContext db conn rmc))
 
 walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => SendActions WalletWebMode
-    -> Bool              -- whether to include genesis keys
-    -> NetworkAddress    -- ^ IP and Port to listen
+    => Diffusion WalletWebMode
+    -> Bool                    -- whether to include genesis keys
+    -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull sendActions debug = walletServeImpl action
+walletServeWebFull diffusion debug = walletServeImpl action
   where
     action :: WalletWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
-        saVar <- asks wwmcSendActions
-        atomically $ STM.putTMVar saVar sendActions
         when debug $ addInitialRichAccount 0
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode diffusion (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)

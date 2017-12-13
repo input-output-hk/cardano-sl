@@ -23,10 +23,8 @@ import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinaryM)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
-import           Pos.Communication.Protocol (EnqueueMsg, Message, MsgType (..), Origin (..),
-                                             OutSpecs, SendActions (..), Worker, WorkerSpec,
-                                             localWorker, onNewSlotWorker)
-import           Pos.Communication.Relay (DataMsg, ReqOrRes, invReqDataFlowTK)
+import           Pos.Communication.Protocol (Message, OutSpecs)
+import           Pos.Communication.Relay (DataMsg, ReqOrRes)
 import           Pos.Communication.Specs (createOutSpecs)
 import           Pos.Communication.Types.Relay (InvOrData, InvOrDataTK)
 import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), StakeholderId, Timestamp (..),
@@ -38,6 +36,7 @@ import           Pos.Core.Ssc (Commitment (..), SignedCommitment, getCommitments
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Types (RichmenStakes)
@@ -65,6 +64,7 @@ import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
+import           Pos.Worker.Types (WorkerSpec, localWorker, onNewSlotWorker)
 
 sscWorkers
   :: (SscMessageConstraints m, SscMode ctx m)
@@ -91,16 +91,16 @@ shouldParticipate epoch = do
 onNewSlotSsc
     :: (SscMessageConstraints m, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
+onNewSlotSsc = onNewSlotWorker True outs $ \slotId diffusion ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 atomically . readTVar . scBehavior
-            checkNSendOurCert sendActions
-            onNewSlotCommitment slotId sendActions
-            onNewSlotOpening (sbSendOpening behavior) slotId sendActions
-            onNewSlotShares (sbSendShares behavior) slotId sendActions
+            checkNSendOurCert (sendSscCert diffusion)
+            onNewSlotCommitment slotId (sendSscCommitment diffusion)
+            onNewSlotOpening (sbSendOpening behavior) slotId (sendSscOpening diffusion)
+            onNewSlotShares (sbSendShares behavior) slotId (sendSscShares diffusion)
   where
     outs = mconcat
         [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
@@ -114,10 +114,11 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
 checkNSendOurCert
     :: forall ctx m.
        (SscMessageConstraints m, SscMode ctx m)
-    => Worker m
-checkNSendOurCert sendActions = do
+    => (MCVssCertificate -> m ())
+    -> m ()
+checkNSendOurCert sendCert = do
     ourId <- getOurStakeholderId
-    let sendCert resend slot = do
+    let sendCertDo resend slot = do
             if resend then
                 logErrorS "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
@@ -127,7 +128,7 @@ checkNSendOurCert sendActions = do
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
-            _ <- invReqDataFlowTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
+            _ <- sendCert contents
             logDebugS "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
@@ -141,8 +142,8 @@ checkNSendOurCert sendActions = do
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
                         logDebugS
                             "Our VssCertificate has been already announced."
-                    | otherwise -> sendCert True sl
-                Nothing -> sendCert False sl
+                    | otherwise -> sendCertDo True sl
+                Nothing -> sendCertDo False sl
   where
     getOurVssCertificate :: SlotId -> m VssCertificate
     getOurVssCertificate slot =
@@ -169,8 +170,10 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
     :: (SscMessageConstraints m, SscMode ctx m)
-    => SlotId -> Worker m
-onNewSlotCommitment slotId@SlotId {..} sendActions
+    => SlotId
+    -> (MCCommitment -> m ())
+    -> m ()
+onNewSlotCommitment slotId@SlotId {..} sendCommitment
     | not (isCommitmentIdx siSlot) = pass
     | otherwise = do
         ourId <- getOurStakeholderId
@@ -185,10 +188,10 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
             ourCommitment <- SS.getOurCommitment siEpoch
             let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
             case ourCommitment of
-                Just comm -> logDebugS stillValidMsg >> sendOurCommitment comm ourId
-                Nothing   -> onNewSlotCommDo ourId
+                Just comm -> logDebugS stillValidMsg >> sendOurCommitment comm
+                Nothing   -> onNewSlotCommDo
   where
-    onNewSlotCommDo ourId = do
+    onNewSlotCommDo = do
         ourSk <- getOurSecretKey
         logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk slotId
@@ -196,18 +199,21 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
             Nothing -> logWarningS "I failed to generate secret for SSC"
             Just comm -> do
               logInfoS (sformat ("Generated secret for "%ords%" epoch") siEpoch)
-              sendOurCommitment comm ourId
+              sendOurCommitment comm
 
-    sendOurCommitment comm ourId = do
+    sendOurCommitment comm = do
         let msg = MCCommitment comm
         sscProcessOurMessage (sscProcessCommitment comm)
-        sendOurData (enqueueMsg sendActions) CommitmentMsg ourId msg siEpoch 0
+        sendOurData sendCommitment CommitmentMsg msg siEpoch 0
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: (SscMessageConstraints m, SscMode ctx m)
-    => SscOpeningParams -> SlotId -> Worker m
-onNewSlotOpening params SlotId {..} sendActions
+    => SscOpeningParams
+    -> SlotId
+    -> (MCOpening -> m ())
+    -> m ()
+onNewSlotOpening params SlotId {..} sendOpening
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
         ourId <- getOurStakeholderId
@@ -217,14 +223,14 @@ onNewSlotOpening params SlotId {..} sendActions
                 Nothing -> logDebugS noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
                     Nothing   -> logWarningS noOpenMsg
-                    Just open -> sendOpening ourId open
+                    Just open -> sendOpeningDo ourId open
   where
     noCommMsg =
         "We're not sending opening, because there is no commitment \
         \from us in global state"
     noOpenMsg =
         "We don't know our opening, maybe we started recently"
-    sendOpening ourId open = do
+    sendOpeningDo ourId open = do
         mbOpen' <- case params of
             SscOpeningNone   -> pure Nothing
             SscOpeningNormal -> pure (Just open)
@@ -232,13 +238,16 @@ onNewSlotOpening params SlotId {..} sendActions
         whenJust mbOpen' $ \open' -> do
             let msg = MCOpening ourId open'
             sscProcessOurMessage (sscProcessOpening ourId open')
-            sendOurData (enqueueMsg sendActions) OpeningMsg ourId msg siEpoch 2
+            sendOurData sendOpening OpeningMsg msg siEpoch 2
 
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (SscMessageConstraints m, SscMode ctx m)
-    => SscSharesParams -> SlotId -> Worker m
-onNewSlotShares params SlotId {..} sendActions = do
+    => SscSharesParams
+    -> SlotId
+    -> (MCShares -> m ())
+    -> m ()
+onNewSlotShares params SlotId {..} sendShares = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
@@ -246,9 +255,9 @@ onNewSlotShares params SlotId {..} sendActions = do
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext scVssKeyPair
-        sendShares ourId =<< getOurShares ourVss
+        sendSharesDo ourId =<< getOurShares ourVss
   where
-    sendShares ourId shares = do
+    sendSharesDo ourId shares = do
         let shares' = case params of
                 SscSharesNone   -> mempty
                 SscSharesNormal -> shares
@@ -262,7 +271,7 @@ onNewSlotShares params SlotId {..} sendActions = do
             let lShares = fmap (map asBinary) shares'
             let msg = MCShares ourId lShares
             sscProcessOurMessage (sscProcessShares ourId lShares)
-            sendOurData (enqueueMsg sendActions) SharesMsg ourId msg siEpoch 4
+            sendOurData sendShares SharesMsg msg siEpoch 4
 
 sscProcessOurMessage
     :: (Buildable err, SscMode ctx m)
@@ -284,20 +293,19 @@ sendOurData ::
     , HasInfraConfiguration
     , HasSscConfiguration
     )
-    => EnqueueMsg m
+    => (contents -> m ())
     -> SscTag
-    -> StakeholderId
     -> contents
     -> EpochIndex
     -> Word16
     -> m ()
-sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
+sendOurData sendIt msgTag dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
     logInfoS $ sformat ("Announcing our "%build) msgTag
-    _ <- invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
+    _ <- sendIt dt
     logDebugS $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current

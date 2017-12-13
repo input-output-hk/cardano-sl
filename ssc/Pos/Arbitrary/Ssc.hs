@@ -17,7 +17,9 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Binary.Ssc ()
+{-
 import           Pos.Communication.Types.Relay (DataMsg (..))
+-}
 import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), VssCertificate (..),
                            VssCertificatesMap, mkVssCertificate, mkVssCertificatesMapLossy,
                            vssMaxTTL, vssMinTTL)
@@ -216,6 +218,7 @@ instance HasConfiguration => Arbitrary MCVssCertificate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+{-
 instance HasConfiguration => Arbitrary (DataMsg MCCommitment) where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -231,3 +234,4 @@ instance Arbitrary (DataMsg MCShares) where
 instance HasConfiguration => Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink
+    -}

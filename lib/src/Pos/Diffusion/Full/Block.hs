@@ -31,6 +31,8 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Binary.Class (biSize)
+-- MsgGetHeaders Bi instance etc.
+import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
 import           Pos.Communication.Listener (listenerConv)

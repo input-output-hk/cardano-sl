@@ -20,10 +20,11 @@ import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Recovery ()
 import           Pos.Ssc.Configuration (HasSscConfiguration)
@@ -31,6 +32,7 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
+import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
@@ -95,12 +97,12 @@ explorerPlugin port =
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => SendActions ExplorerProd
+    => Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal sendActions port = do
+explorerServeWebReal diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers sendActions
+    let handlers = explorerHandlers diffusion
         server = hoistServer explorerApi (convertHandler rctx) handlers
         app = explorerApp (pure server)
     explorerServeImpl app port

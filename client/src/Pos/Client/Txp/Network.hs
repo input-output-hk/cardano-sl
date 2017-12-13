@@ -24,14 +24,14 @@ import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy, TxCreateMode, TxError (..), createMTx,
                                       createRedemptionTx, createTx)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), OutSpecs)
-import           Pos.Communication.Relay (invReqDataFlowTK, resOk)
+import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Communication.Specs (createOutSpecs)
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic, safeToPublic)
 import           Pos.DB.Class (MonadGState)
+import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode.Class (MinWorkMode)
@@ -48,10 +48,10 @@ type TxMode m
 
 submitAndSave
     :: TxMode m
-    => EnqueueMsg m -> TxAux -> m Bool
-submitAndSave enqueue txAux@TxAux {..} = do
+    => Diffusion m -> TxAux -> m Bool
+submitAndSave diffusion txAux@TxAux {..} = do
     let txId = hash taTx
-    accepted <- submitTxRaw enqueue txAux
+    accepted <- sendTx diffusion txAux
     saveTx (txId, txAux)
     pure accepted
 
@@ -88,33 +88,12 @@ prepareRedemptionTx rsk output = do
 -- | Send the ready-to-use transaction
 submitTxRaw
     :: (MinWorkMode m, MonadGState m)
-    => EnqueueMsg m -> TxAux -> m Bool
-submitTxRaw enqueue txAux@TxAux {..} = do
+    => Diffusion m -> TxAux -> m Bool
+submitTxRaw diffusion txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
-    sendTx enqueue txAux
-
--- | Send Tx to given addresses.
--- Returns 'True' if any peer accepted and applied this transaction.
-sendTx
-    :: (MinWorkMode m, MonadGState m)
-    => EnqueueMsg m -> TxAux -> m Bool
-sendTx enqueue txAux = do
-    anySucceeded <$> invReqDataFlowTK
-        "tx"
-        enqueue
-        (MsgTransaction OriginSender)
-        (hash $ taTx txAux)
-        (TxMsgContents txAux)
-  where
-    anySucceeded outcome =
-        not $ null
-        [ ()
-        | Right (Just peerResponse) <- toList outcome
-        , resOk peerResponse
-        ]
-
+    sendTx diffusion txAux
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
@@ -123,13 +102,13 @@ sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
 -- BE CAREFUL! Doesn't consider HD wallet addresses
 submitTx
     :: TxMode m
-    => EnqueueMsg m
+    => Diffusion m
     -> SafeSigner
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-submitTx enqueue ss outputs addrData = do
+submitTx diffusion ss outputs addrData = do
     let ourPk = safeToPublic ss
     utxo <- getOwnUtxoForPk ourPk
     txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
-    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
+    txWSpendings <$ submitAndSave diffusion (fst txWSpendings)

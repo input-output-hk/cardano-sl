@@ -13,12 +13,10 @@ import           Formatting (sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           System.Wlog (logInfo)
 
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
-import           Pos.Binary.Txp ()
 import           Pos.Core.Configuration (HasCoreConfiguration, HasGenesisBlockVersionData,
                                          HasGenesisData, HasGenesisHash,
                                          HasGeneratedSecrets, HasProtocolConstants)
+import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
@@ -32,7 +30,7 @@ import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Network.Types (Bucket)
-import           Pos.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
+import           Pos.Update ()
 
 -- Send UpdateVote to given addresses.
 sendVote

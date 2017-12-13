@@ -46,14 +46,16 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 
 newPayment
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> AccountId
     -> CId Addr
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment passphrase srcAccount dstAddress coin policy =
+newPayment submitTx passphrase srcAccount dstAddress coin policy =
     sendMoney
+        submitTx
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAddress, coin))
@@ -61,12 +63,14 @@ newPayment passphrase srcAccount dstAddress coin policy =
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch passphrase NewBatchPayment {..} = do
+newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     sendMoney
+        submitTx
         passphrase
         (AccountMoneySource src)
         npbTo
@@ -137,12 +141,13 @@ getMoneySourceUtxo =
 
 sendMoney
     :: (MonadWalletTxFull ctx m)
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney passphrase moneySource dstDistr policy = do
+sendMoney submitTx passphrase moneySource dstDistr policy = do
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`
@@ -178,7 +183,7 @@ sendMoney passphrase moneySource dstDistr policy = do
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx srcWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx ptx
+        th <$ submitAndSaveNewPtx submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

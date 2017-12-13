@@ -137,11 +137,12 @@ loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
     :: LoadHeadersMode m
-    => (BlockHeader -> Bool)
+    => (HeaderHash -> m BlockHeader)
+    -> (BlockHeader -> Bool)
     -> BlockCount
     -> HeaderHash
     -> m (NewestFirst [] BlockHeader)
-loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
+loadHeadersByDepthWhile = loadDataByDepth
 
 ----------------------------------------------------------------------------
 -- Load from tip

@@ -34,7 +34,7 @@ import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressH
                                   ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
-import           Pos.DHT.Real.Types (KademliaDHTInstance)
+import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Network.Types (NetworkConfig (..))
@@ -111,7 +111,7 @@ data NodeContext = NodeContext
     -- ^ Settings for global Txp.
     , ncConnectedPeers             :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
-    , ncNetworkConfig              :: !(NetworkConfig KademliaDHTInstance)
+    , ncNetworkConfig              :: !(NetworkConfig KademliaParams)
     -- ^ Timer for delaying sending keep-alive like packets to relay nodes until
     -- a specific duration after the last time a block was received has passed.
     , ncSubscriptionKeepAliveTimer :: !Timer
@@ -206,5 +206,5 @@ instance HasReportingContext NodeContext where
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
 
-instance HasLens (NetworkConfig KademliaDHTInstance) NodeContext (NetworkConfig KademliaDHTInstance) where
+instance HasLens (NetworkConfig KademliaParams) NodeContext (NetworkConfig KademliaParams) where
     lensOf = ncNetworkConfig_L

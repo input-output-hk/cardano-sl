@@ -51,7 +51,6 @@ library
                         Pos.DHT.Real.Types
                         Pos.DHT.Real.Param
                         Pos.DHT.Real.CLI
-                        Pos.DHT.Workers
 
                         -- Pos.Communication
                         Pos.Communication.Configuration
@@ -68,7 +67,6 @@ library
                         Pos.Communication.Relay.Logic
                         Pos.Communication.Relay.Types
                         Pos.Communication.Relay.Util
-                        Pos.Communication.Util
 
                         -- Configuration
                         Pos.Infra.Configuration
@@ -91,11 +89,6 @@ library
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
                         Pos.Shutdown.Types
-
-                        -- Subscription
-                        Pos.Subscription.Common
-                        Pos.Subscription.Dns
-                        Pos.Subscription.Dht
 
                         -- NTP
                         Pos.NtpCheck

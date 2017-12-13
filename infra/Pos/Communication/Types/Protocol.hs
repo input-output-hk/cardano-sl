@@ -5,9 +5,7 @@
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
-       ( Action
-       , ActionSpec (..)
-       , checkInSpecs
+       ( checkInSpecs
        , Conversation (..)
        , convH
        , HandlerSpec (..)
@@ -32,8 +30,6 @@ module Pos.Communication.Types.Protocol
        , waitForConversations
        , toOutSpecs
        , VerInfo (..)
-       , Worker
-       , WorkerSpec
        , NodeType (..)
        , MsgType (..)
        , Origin (..)
@@ -71,10 +67,6 @@ type PackingType = BiP
 type PeerData = VerInfo
 
 type Listener = N.Listener PackingType PeerData
-type Worker m = Action m ()
-type Action m a = SendActions m -> m a
-newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
-type WorkerSpec m = ActionSpec m ()
 
 type Msg = MsgType NodeId
 

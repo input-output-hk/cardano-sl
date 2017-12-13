@@ -32,6 +32,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
@@ -43,7 +44,6 @@ library
                      , log-warper
                      , monad-control
                      , mtl
-                     , node-sketch
                      , serokell-util
                      , stm
                      , text-format

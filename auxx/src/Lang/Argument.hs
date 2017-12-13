@@ -224,7 +224,8 @@ consumeArguments ::
     -> Either ProcError a
 consumeArguments ac args =
     let
-        acs = ACS { acsRemaining = args, acsError = mempty }
+        sortedArgs = sortOn isArgPos args -- stable sort, kw arguments first
+        acs = ACS { acsRemaining = sortedArgs, acsError = mempty }
         (mResult, acs') = runArgumentConsumer ac acs
         procError = acsError acs' `mappend` irrelevanceError
         irrelevanceError = mempty { peArgumentError = toIrrelevanceError (acsRemaining acs') }
@@ -233,6 +234,11 @@ consumeArguments ac args =
         case mResult' of
             Nothing -> Left procError
             Just a  -> Right a
+
+isArgPos :: Arg a -> Bool
+isArgPos = \case
+    ArgPos _ -> True
+    _ -> False
 
 toIrrelevanceError :: [Arg Value] -> ArgumentError
 toIrrelevanceError = foldMap $ \case

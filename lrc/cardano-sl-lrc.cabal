@@ -35,6 +35,7 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , ether
@@ -42,7 +43,6 @@ library
                      , generic-arbitrary
                      , lens
                      , log-warper
-                     , node-sketch
                      , reflection
                      , rocksdb-haskell
                      , text-format

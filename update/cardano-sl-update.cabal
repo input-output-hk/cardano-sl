@@ -91,6 +91,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , containers
@@ -108,7 +109,6 @@ library
                      , log-warper
                      , memory
                      , mtl
-                     , node-sketch
                      , reflection
                      , resourcet
                      , rocksdb-haskell >= 1.0.0

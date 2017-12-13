@@ -70,7 +70,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
    - `cardano-auxx`
 -  `cardano-sl-explorer-static`:
    - `cardano-explorer`, `cardano-explorer-hs2purs`, `cardano-explorer-swagger`, `cardano-explorer-mock`
--  `cardano-sl-tools-static`:
+-  `cardano-sl-tools`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
 -  `cardano-sl-wallet`:
    - `cardano-node`, `cardano-swagger`

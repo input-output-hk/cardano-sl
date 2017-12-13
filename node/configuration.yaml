@@ -14869,6 +14869,8 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
 ##                                                                          ##
 ##############################################################################
 
+# This configuration should be modified before using it.
+# For more information see `docs/configuration.md` in master branch.
 mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
   <<: *mainnet_base
   core:
@@ -14876,7 +14878,7 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
     genesis:
       src:
         file: mainnet-staging-short-epoch-genesis.json
-        hash: e7a53de0c136f1da2a8591cac6150ea790dbe428b5f7aa840d2ea210cbb00673
+        hash: 82f274fb611a7637c8162ebd2a5b2b2852fa82e5230e206e87d4eac97aa96016
   update:
     <<:
     applicationName: cardano-sl

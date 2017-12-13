@@ -42,12 +42,9 @@ instance ToJSON CFilePath where
   toJSON (CFilePath c) = toJSON c
 
 instance ToJSON Core.PassPhrase where
-    toJSON passphrase
-        | passphrase == Core.emptyPassphrase = Null
-        | otherwise = String $ Base16.encode (ByteArray.convert passphrase)
+    toJSON = String . Base16.encode . ByteArray.convert
 
 instance FromJSON Core.PassPhrase where
-    parseJSON Null        = pure Core.emptyPassphrase
     parseJSON (String pp) = case mkPassPhrase pp of
         Left e    -> fail e
         Right pp' -> pure pp'

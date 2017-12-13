@@ -25,6 +25,9 @@ module Cardano.Wallet.API.V1.Types (
   -- * Accounts
   , Account (..)
   , AccountId
+  -- * Addresses
+  , WalletAddress (..)
+  , NewAddress (..)
   -- * Payments
   , TxId (..)
   , Payment (..)
@@ -182,7 +185,7 @@ type AccountId = Word32
 -- | A wallet 'Account'.
 data Account = Account
   { accId        :: !AccountId
-  , accAddresses :: [Core.Address]
+  , accAddresses :: [Core.Address]  -- should be WalletAddress
   , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
@@ -225,6 +228,35 @@ deriveJSON Serokell.defaultOptions ''NewAccount
 
 instance Arbitrary NewAccount where
   arbitrary = NewAccount <$> arbitrary
+                         <*> arbitrary
+
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+  { addrId            :: !Core.Address
+  , addrBalance       :: !Core.Coin
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance Arbitrary WalletAddress where
+  arbitrary = WalletAddress <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
+data NewAddress = NewAddress
+  { newaddrSpendingPassword :: !(Maybe SpendingPassword)
+  , newaddrAccountId        :: !AccountId
+  , newaddrWalletId         :: !WalletId
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAddress
+
+instance Arbitrary NewAddress where
+  arbitrary = NewAddress <$> arbitrary
+                         <*> arbitrary
                          <*> arbitrary
 
 -- | A type incapsulating a password update request.
@@ -550,9 +582,11 @@ instance Arbitrary NodeInfo where
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet  = WalletUpdate
-  Update Account = AccountUpdate
+  Update Wallet        = WalletUpdate
+  Update Account       = AccountUpdate
+  Update WalletAddress = () -- read-only
 
 type family New (original :: *) :: * where
   New Wallet  = NewWallet
   New Account = NewAccount
+  New WalletAddress = NewAddress

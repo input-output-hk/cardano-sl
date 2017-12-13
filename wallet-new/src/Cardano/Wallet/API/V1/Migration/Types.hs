@@ -90,6 +90,14 @@ instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
         accMeta <- eitherMigrate nAcc
         pure $ V0.CAccountInit accMeta newWId
 
+instance Migrate V0.CAddress V1.WalletAddress where
+    eitherMigrate V0.CAddress{..} = do
+        addrId <- eitherMigrate cadId
+        addrBalance <- eitherMigrate cadAmount
+        let addrUsed = cadIsUsed
+        let addrChangeAddress = cadIsChange
+        return V1.WalletAddress{..}
+
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
 instance Migrate V0.SyncProgress V1.SyncProgress where
@@ -116,10 +124,6 @@ instance Migrate V0.CAccount V1.Account where
                    <*> eitherMigrate caId
                    -- ^ accWalletId
 
---
--- Following instances are friendly borrowed from @martoon's PR https://github.com/input-output-hk/cardano-sl/pull/2008
--- TODO (jk): Use instances of his PR when it has been merged
-
 -- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
 instance Migrate (V1.WalletId, V1.AccountId) V0.AccountId where
     eitherMigrate (walId, accId) =
@@ -131,10 +135,6 @@ instance Migrate V0.AccountId (V1.WalletId, V1.AccountId) where
 
 instance Migrate V0.CAccountId V0.AccountId where
     eitherMigrate = first Errors.MigrationFailed . V0.decodeCType
-
---
--- #end of TODO (jk) ^
---
 
 instance Migrate V0.CAccountId V1.AccountId where
     eitherMigrate cAccId = do

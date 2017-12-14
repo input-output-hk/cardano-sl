@@ -20,6 +20,8 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
+import           Data.Default
+import qualified Data.List.NonEmpty as NE
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -32,13 +34,12 @@ handlers = newTransaction
 
 newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
-    => NewPayment -> m (WalletResponse Transaction)
+    => Payment -> m (WalletResponse Transaction)
 newTransaction Payment {..} = do
     let spendingPw = fromMaybe mempty pmtSpendingPassword
     cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
     addrCoinList <- migrate $ NE.toList pmtDestinations
-  -- Set `OptimiseForSecurityPolicy` as default policy
-    policy <- migrate $ fromMaybe OptimiseForSecurityPolicy pmtGroupingPolicy
+    policy <- migrate $ fromMaybe def pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
     cTx <- V0.newPaymentBatch spendingPw batchPayment
     single <$> migrate cTx

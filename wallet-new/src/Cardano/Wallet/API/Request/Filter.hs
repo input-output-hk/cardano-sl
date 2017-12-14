@@ -44,11 +44,21 @@ flattenOperations :: FilterOperations a -> [String]
 flattenOperations NoFilters       = mempty
 flattenOperations (FilterOp f fs) = show f : flattenOperations fs
 
+-- A custom ordering for a 'FilterOperation'. Conceptually theh same as 'Ordering' but with the ">=" and "<="
+-- variants.
+data FilterOrdering =
+      Equal
+    | GreaterThan
+    | GreaterThanEqual
+    | LesserThan
+    | LesserThanEqual
+    deriving (Show, Eq)
+
 -- A filter operation on the data model
 data FilterOperation ix a =
       FilterByIndex ix
     -- ^ Filter by index (e.g. equal to)
-    | FilterByPredicate Ordering ix
+    | FilterByPredicate FilterOrdering ix
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
@@ -116,7 +126,7 @@ instance ( HasServer subApi ctx
     route Proxy context subserver =
         let allParams = map toText $ symbolVals (Proxy @syms)
             delayed = addParameterCheck subserver . withRequest $ \req ->
-                        parseFilterParams req allParams (Proxy @ixs)
+                          return $ toFilterOperations req allParams (Proxy @ixs)
 
         in route (Proxy :: Proxy subApi) context delayed
 
@@ -144,25 +154,24 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
   where
     parsePredicateQuery :: Maybe (FilterOperation ix a)
     parsePredicateQuery =
-        let (predicate, rest1) = (T.take 3 txt, T.drop 3 txt)
-            (ixTxt, closing)   = T.breakOn "]" rest1
+        let (predicate, rest1) = T.breakOn "[" txt
+            (ixTxt, closing)   = T.breakOn "]" (T.drop 1 rest1)
             in case (predicate, closing) of
-               ("EQ[", "]") -> FilterByPredicate EQ <$> toIndex p ixTxt
-               ("LT[", "]") -> FilterByPredicate LT <$> toIndex p ixTxt
-               ("GT[", "]") -> FilterByPredicate GT <$> toIndex p ixTxt
-               _            -> parseRangeQuery
+               ("EQ", "]")    -> FilterByPredicate Equal <$> toIndex p ixTxt
+               ("LT", "]")    -> FilterByPredicate LesserThan <$> toIndex p ixTxt
+               ("LTE", "]")   -> FilterByPredicate LesserThanEqual <$> toIndex p ixTxt
+               ("GT", "]")    -> FilterByPredicate GreaterThan <$> toIndex p ixTxt
+               ("GTE", "]")   -> FilterByPredicate GreaterThanEqual <$> toIndex p ixTxt
+               ("RANGE", "]") -> parseRangeQuery ixTxt
+               _              -> Nothing
 
     -- Tries to parse a query by index.
     parseIndexQuery :: Maybe (FilterOperation ix a)
     parseIndexQuery = FilterByIndex <$> toIndex p txt
 
     -- Tries to parse a range query of the form RANGE[from,to].
-    parseRangeQuery :: Maybe (FilterOperation ix a)
-    parseRangeQuery =
-        let (predicate, rest1) = (T.take 6 txt, T.drop 6 txt)
-            (fromTo, closing)   = T.breakOn "]" rest1
-            in case (predicate, closing) of
-               ("RANGE[", "]") -> case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
-                                       (_, "")    -> Nothing
-                                       (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
-               _               -> Nothing
+    parseRangeQuery :: Text -> Maybe (FilterOperation ix a)
+    parseRangeQuery fromTo =
+        case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
+            (_, "")    -> Nothing
+            (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to

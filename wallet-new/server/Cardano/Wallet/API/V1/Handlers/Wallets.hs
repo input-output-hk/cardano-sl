@@ -11,7 +11,9 @@ import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
+import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Core as Core
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
@@ -45,6 +47,13 @@ newWallet NewWallet{..} = do
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
   single <$> (V0.newWallet spendingPassword walletInit >>= migrate)
 
+
+preallocatedWallets :: [Wallet]
+preallocatedWallets = unsafePerformIO $ do
+    getWallets0 <- liftIO $ generate (vectorOf 100000 arbitrary)
+    return $ map (\(w, i :: Word64) -> w { walBalance = Core.mkCoin i }) (zip getWallets0 [1..])
+{-# NOINLINE preallocatedWallets #-}
+
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             => RequestParams
@@ -53,10 +62,7 @@ listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             -> m (WalletResponse [Wallet])
 listWallets params fops sops = do
     -- let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
-    getWallets0 <- liftIO $ generate (vectorOf 1000 arbitrary)
-    let getWallets = pure $ map (\(w, i :: Word64) -> w { walBalance = Core.mkCoin i }) (zip getWallets0 [1..])
-    liftIO $ putText (show fops)
-    respondWith params fops sops (\_ ops _ -> applyFilters ops <$> getWallets)
+    respondWith params fops sops (IxSet.fromList <$> pure preallocatedWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

@@ -12,6 +12,7 @@ import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+import qualified Data.IxSet.Typed as IxSet
 
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
@@ -44,7 +45,7 @@ allTransactions walletId requestParams = do
 
     respondWith requestParams (NoFilters :: FilterOperations Transaction)
                               (NoSorts :: SortOperations Transaction)
-                              (\_ _ _ -> transactions)
+                              (IxSet.fromList <$> transactions)
 
 estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
 estimateFees _ = single <$> (liftIO $ generate arbitrary)

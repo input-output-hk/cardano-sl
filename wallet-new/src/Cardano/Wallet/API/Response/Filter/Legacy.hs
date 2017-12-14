@@ -20,12 +20,14 @@ applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, Indexable' a , ToIn
             -> m a
 applyFilter fltr inputData =
     let byPredicate o i = case o of
-            EQ -> filterData (\d -> accessIx d == i) inputData
-            LT -> filterData (\d -> accessIx d <  i) inputData
-            GT -> filterData (\d -> accessIx d >  i) inputData
+            F.Equal            -> filterData (\d -> accessIx d == i) inputData
+            F.LesserThan       -> filterData (\d -> accessIx d <  i) inputData
+            F.GreaterThan      -> filterData (\d -> accessIx d >  i) inputData
+            F.LesserThanEqual  -> filterData (\d -> accessIx d <=  i) inputData
+            F.GreaterThanEqual -> filterData (\d -> accessIx d >=  i) inputData
     in case fltr of
            F.FilterIdentity             -> inputData
-           F.FilterByIndex idx          -> byPredicate EQ idx
+           F.FilterByIndex idx          -> byPredicate F.Equal idx
            F.FilterByPredicate ordr idx -> byPredicate ordr idx
            F.FilterByRange from to      -> filterData (\d -> accessIx d >= from && accessIx d <= to) inputData
 

@@ -1,17 +1,18 @@
 -- | Modular wrapper around Posix signal handlers
 --
 -- This module is only included in the .cabal file when we are not on Windows.
-module Pos.Util.SigHandler (
-    Signal(..)
-  , installHandler
-  , uninstallAllHandlers
-  ) where
+module Pos.Util.SigHandler
+       ( Signal(..)
+       , installHandler
+       , uninstallAllHandlers
+       ) where
+
+import           Universum
 
 import           Control.Concurrent (modifyMVar_, withMVar)
 import qualified Data.Map.Strict as Map
 import           System.IO.Unsafe (unsafePerformIO)
 import qualified System.Posix.Signals as Posix
-import           Universum
 
 {-------------------------------------------------------------------------------
   Enumeratate signals
@@ -22,8 +23,7 @@ import           Universum
 -------------------------------------------------------------------------------}
 
 -- | POSIX signal
-data Signal = SigHUP
-  deriving (Show, Eq, Ord)
+data Signal = SigHUP deriving (Show, Eq, Ord)
 
 toPosixSignal :: Signal -> Posix.Signal
 toPosixSignal SigHUP = Posix.sigHUP
@@ -82,8 +82,6 @@ installHandler signal handler = do
 uninstallAllHandlers :: IO ()
 uninstallAllHandlers =
     withMVar regOldHandlers $ \oldHandlers ->
-      forM_ (Map.toList oldHandlers) $ \(signal, oldHandler) ->
-        void $ Posix.installHandler
-          (toPosixSignal signal)
-          oldHandler
-          Nothing
+        forM_ (Map.toList oldHandlers) $ \(signal, oldHandler) ->
+            void $
+            Posix.installHandler (toPosixSignal signal) oldHandler Nothing

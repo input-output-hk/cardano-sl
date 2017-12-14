@@ -6,11 +6,12 @@ flags:
 
 extra-package-dbs: []
 
-# [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
+# networking → [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
 # Then we have two branches:
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
 packages:
+- networking
 - binary
 - util
 - crypto
@@ -65,11 +66,7 @@ packages:
     git: https://github.com/input-output-hk/cardano-report-server.git
     commit: 7b28613c9c3535193991712ff5a4a36a9f165570 # master v0.4.0
   extra-dep: true
-- location:
-    git: https://github.com/serokell/time-warp-nt.git
-    commit: 0f58f145425650f5e68b838668f36c8342e4a0a8 # master
-  extra-dep: true
-# These two are needed for time-warp-nt
+# These three are needed for cardano-sl-networking
 - location:
     git: https://github.com/serokell/network-transport-tcp
     commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
@@ -77,6 +74,10 @@ packages:
 - location:
     git: https://github.com/serokell/network-transport
     commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+  extra-dep: true
+- location:
+      git: https://github.com/avieth/network-transport-inmemory
+      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto

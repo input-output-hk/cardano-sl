@@ -53,6 +53,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
@@ -71,7 +72,6 @@ library
                      , mmorph
                      , mtl
                      , neat-interpolation
-                     , node-sketch
                      , optparse-applicative
                      , parser-combinators
                      , quickcheck-instances
@@ -126,12 +126,12 @@ executable cardano-auxx
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
                      , constraints
                      , log-warper
                      , temporary
-                     , node-sketch
                      , network-transport-tcp
                      , safe-exceptions
                      , universum

@@ -18,6 +18,7 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
+import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
@@ -33,7 +34,8 @@ import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.String.Conv
-import           Data.Swagger hiding (Header)
+import           Data.Swagger hiding (Example, Header, example)
+import qualified Data.Swagger as S
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
@@ -49,15 +51,15 @@ import           Test.QuickCheck.Random
 --
 
 -- | Generates an example for type `a` with a static seed.
-genExample :: (ToJSON a, Arbitrary a) => a
-genExample = (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+genExample :: (ToJSON a, Example a) => a
+genExample = (unGen (resize 3 example)) (mkQCGen 42) 42
 
 -- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
 -- by calling `sketchSchema` under the hood.
-fromArbitraryJSON :: (ToJSON a, Typeable a, Arbitrary a)
+fromExampleJSON :: (ToJSON a, Typeable a, Example a)
                   => proxy a
                   -> Declare (Definitions Schema) NamedSchema
-fromArbitraryJSON (_ :: proxy a) = do
+fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
@@ -66,7 +68,7 @@ renderType :: Typeable a => proxy a -> T.Text
 renderType = fromString . show . typeRep
 
 -- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
-withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
+withExample :: (ToJSON a, Example a) => proxy a -> T.Text -> T.Text
 withExample (_ :: proxy a) desc =
   desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
@@ -82,7 +84,7 @@ newDescr (p :: proxy a) =
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
-readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
+readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Example a, ToJSON a, Example b, ToJSON b)
                        => proxy a -> Set T.Text
 readOnlyFieldsFromJSON _ =
     case (toJSON (genExample @a), toJSON (genExample @b)) of
@@ -107,15 +109,16 @@ setReadOnlyFields p hm =
 -- Extra Typeclasses
 --
 
+
 -- TODO: Writing instances this way is a bit verbose. Is there a better way?
-class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
+class (ToJSON a, Typeable a, Example a) => ToDocs a where
   annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
            -> proxy a
            -> Declare (Definitions Schema) NamedSchema
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ descriptionFor p)
-               . (schema . example ?~ toJSON @a genExample)
+               . (schema . S.example ?~ toJSON @a genExample)
                . (over (schema . properties) (setReadOnlyFields p))
 
   descriptionFor :: proxy a -> T.Text
@@ -246,6 +249,10 @@ instance ToDocs Account where
   readOnlyFields   = readOnlyFieldsFromJSON
   descriptionFor _ = "An Account."
 
+instance ToDocs WalletAddress where
+  readOnlyFields   = readOnlyFieldsFromJSON
+  descriptionFor _ = "An Address with meta information related to it."
+
 instance ToDocs AccountUpdate where
   descriptionFor _ = updateDescr (Proxy @Account)
 
@@ -256,7 +263,7 @@ instance ToDocs AddressValidity where
   descriptionFor _ = "Verifies that an address is base58 decodable."
 
 instance ToDocs Address where
-  descriptionFor _ = "An Address."
+  descriptionFor _ = "A base58-encoded Address."
 
 instance ToDocs WalletId where
   descriptionFor _ = "A Wallet ID."
@@ -266,6 +273,9 @@ instance ToDocs Wallet where
 
 instance ToDocs NewWallet where
   descriptionFor _ = newDescr (Proxy @Wallet)
+
+instance ToDocs NewAddress where
+  descriptionFor _ = newDescr (Proxy @WalletAddress)
 
 instance ToDocs WalletUpdate where
   descriptionFor _ = updateDescr (Proxy @Wallet)
@@ -318,61 +328,67 @@ possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound.
 -- ToSchema instances
 
 instance ToSchema Account where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema WalletAddress where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema AccountUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewAccount where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema AddressValidity where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Address where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletId where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Metadata where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Wallet where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewWallet where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema NewAddress where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema PasswordUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema EstimatedFees where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Transaction where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Payment where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletSoftwareUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NodeSettings where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NodeInfo where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)
 
-instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (WalletResponse a) where
-  declareNamedSchema = annotate fromArbitraryJSON
+instance (ToJSON a, ToDocs a, Typeable a, Example a) => ToSchema (WalletResponse a) where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do

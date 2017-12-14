@@ -9,7 +9,7 @@ import           Servant
 
 type API
     =    "transactions" :> Summary "Generates a new transaction from the source to one or multiple target addresses."
-                        :> ReqBody '[ValidJSON] (New Payment)
+                        :> ReqBody '[ValidJSON] Payment
                         :> Post '[ValidJSON] (WalletResponse Transaction)
     :<|> "transactions" :> Summary "Returns the transaction history, i.e the list of all the past transactions."
                         :> Capture "walletId" WalletId

@@ -2661,9 +2661,9 @@ self: {
             base
             bytestring
             cardano-sl
+            cardano-sl-client
             cardano-sl-core
             cardano-sl-crypto
-            cardano-sl-client
             cardano-sl-infra
             cardano-sl-networking
             cardano-sl-ssc

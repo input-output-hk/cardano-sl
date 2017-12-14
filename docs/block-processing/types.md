@@ -335,46 +335,57 @@ data TxOut = TxOut
 
 #### Address
 
-*keywords: `Address`, `AddrSpendingData`, `AddrType`*
+*keywords: `Address`, `AddrType`, `AddrSpendingData`*
 
 An address (`Address`) is something that can be an output of a transaction
-(i.e. something we can send coins to). There are three kinds of addresses:
+(i.e. something we can send coins to). The structure of an `Address` is
+complicated due to several constraints placed on its design. This section
+starts with discussing several smaller types, and then looks at `Address'`
+and finally `Address`.
+
+First of all, there are three kinds of addresses:
 
 ```haskell
 data AddrType
     = ATPubKey              -- pay to public key
     | ATScript              -- pay to script
     | ATRedeem              -- pay to redeem public key
-    | ATUnknown !Word8
+    | ATUnknown Word8
 ```
 
 The `ATUnknown` constructor is for backwards compatibility. TODO: link
 wherever
 
-For each of those kinds, there is a corresponding constructor of `AddrSpendingData` – a type TODO
+For each of those kinds, there is a corresponding constructor of
+`AddrSpendingData` – a type that specifies the condition which somebody has
+to satisfy in order to spend the funds:
 
 ```haskell
 data AddrSpendingData
-    = PubKeyASD !PublicKey
-    -- ^ Funds can be spent by revealing a 'PublicKey' and providing a
-    -- valid signature.
-    | ScriptASD !Script
-    -- ^ Funds can be spent by revealing a 'Script' and providing a
-    -- redeemer 'Script'.
-    | RedeemASD !RedeemPublicKey
-    -- ^ Funds can be spent by revealing a 'RedeemScript' and providing a
-    -- valid signature.
-    | UnknownASD !Word8 !ByteString
-    -- ^ Unknown type of spending data. It consists of a tag and
-    -- arbitrary 'ByteString'. It allows us to introduce a new type of
-    -- spending data via softfork.
+    = PubKeyASD PublicKey
+    | ScriptASD Script
+    | RedeemASD RedeemPublicKey
+    | UnknownASD Word8 ByteString    -- for backwards compatibility, too
+```
 
+  * `PubKeyASD pubkey` – you have to provide a signature by given key
 
-type AddressHash = AbstractHash Blake2b_224
+  * `ScriptASD validator` – you have to provide a redeemer script that will
+    match the validating script (see [Witness](#witness) for more details
+    about what it means)
 
-newtype Address' = Address'
-    { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
+  * `RedeemASD pubkey` – you have to provide a signature by given redeem key
 
+These two types are stored in an `Address'`:
+
+```haskell
+newtype Address' =
+    Address' (AddrType, AddrSpendingData, Attributes AddrAttributes)
+```
+
+TODO: describe `AddrAttributes`:
+
+```
 data AddrAttributes = AddrAttributes
     { aaPkDerivationPath  :: !(Maybe HDAddressPayload)
     , aaStakeDistribution :: !AddrStakeDistribution
@@ -383,19 +394,18 @@ data AddrAttributes = AddrAttributes
 data AddrStakeDistribution
     = BootstrapEraDistr
     -- ^ Stake distribution for bootstrap era.
-    | SingleKeyDistr !StakeholderId
-    -- ^ Stake distribution stating that all stake should go to the given stakeholder.
-    | UnsafeMultiKeyDistr !(Map StakeholderId CoinPortion)
+    | SingleKeyDistr StakeholderId
+    -- ^ Stake distribution stating that all stake should go
+    -- to the given stakeholder.
+    | UnsafeMultiKeyDistr Map StakeholderId CoinPortion
     -- ^ Stake distribution which gives stake to multiple
     -- stakeholders. 'CoinPortion' is a portion of an output (output
     -- has a value, portion of this value is stake). The constructor
     -- is unsafe because there are some predicates which must hold:
-    --
-    -- • the sum of portions must be @maxBound@ (basically 1);
-    -- • all portions must be positive;
-    -- • there must be at least 2 items, because if there is only one item,
-    -- 'SingleKeyDistr' can be used instead (which is smaller).
-    deriving (Eq, Ord, Show, Generic, Typeable)
+    --   • the sum of portions must be @maxBound@ (basically 1);
+    --   • all portions must be positive;
+    --   • there must be at least 2 items, because if there is only one item,
+    --     'SingleKeyDistr' can be used instead (which is smaller).
 
 -- | HDAddressPayload consists of
 --
@@ -405,24 +415,27 @@ data AddrStakeDistribution
 -- * cryptographic tag
 --
 -- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
-data HDAddressPayload
-    = HDAddressPayload
-    { getHDAddressPayload :: !ByteString
-    } deriving (Eq, Ord, Show, Generic)
-
-
+data HDAddressPayload = HDAddressPayload ByteString
 ```
+
+An `Address'` provides enough information to receive funds. However, a
+problem with `Address'` is that it reveals public keys, which is something
+we don't want to do (to stay safe if public key cryptography gets broken in
+the future). Therefore we wrap `Address'` into a structure that stores
+`Address'`'s hash and all data from `Address'` except for
+`AddrSpendingData`:
+
+```haskell
+type AddressHash = AbstractHash Blake2b_224
+
 data Address = Address
     { addrRoot       :: AddressHash Address'
-    -- ^ Root of imaginary pseudo Merkle tree stored in this address.
     , addrAttributes :: Attributes AddrAttributes
-    -- ^ Attributes associated with this address.
     , addrType       :: AddrType
-    -- ^ The type of this address. Should correspond to
-    -- 'AddrSpendingData', but it can't be checked statically, because
-    -- spending data is hashed.
     }
 ```
+
+TODO: why not just hash `AddrSpendingData`?
 
 #### Witness
 
@@ -675,6 +688,8 @@ commitments' `PublicKey`s.
 newtype CommitmentsMap = 
     CommitmentsMap (HashMap StakeholderId SignedCommitment)
 ```
+
+TODO: `CommitmentsMap` should have `Unsafe` in it
 
 ----------------------------------------
 

@@ -7,20 +7,25 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 import           Universum
 
 import           Control.Lens (mapped, (?~))
+import           Data.Aeson (ToJSON, toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
                                genericDeclareNamedSchema, minItems, name, properties, required,
                                type_)
 import           Data.Swagger.Internal.Schema (named)
+import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
+import           Test.QuickCheck
+import           Test.QuickCheck.Gen
+import           Test.QuickCheck.Random
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
                            SlotCount (..), SoftwareVersion)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhraseNormal, BackupPhrasePaperVend)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
@@ -76,13 +81,29 @@ instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      InputSelectionPolicy
 instance ToSchema      BlockVersion
-instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.ApiVersion
 instance ToSchema      Version
 instance ToSchema      CT.ClientInfo
+
+-- | Generates an example for type `a` with a static seed.
+genExample :: (ToJSON a, Arbitrary a) => a
+genExample = (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+
+-- FIXME: hm, I would like to create `ToSchema (BackupPhrase a)`
+-- how to deal with it?
+-- Question: http://lpaste.net/360780
+instance ToSchema BackupPhraseNormal where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped.Swagger.schema.example ?~ toJSON @BackupPhraseNormal genExample
+
+instance ToSchema BackupPhrasePaperVend where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped.Swagger.schema.example ?~ toJSON @BackupPhrasePaperVend genExample
 
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty

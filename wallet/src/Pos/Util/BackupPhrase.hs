@@ -1,7 +1,12 @@
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
 -- | Module providing restoring from backup phrase functionality
 
 module Pos.Util.BackupPhrase
        ( BackupPhrase(..)
+       , MnemonicType(..)
+       , BackupPhrasePaperVend
+       , BackupPhraseNormal
        , backupPhraseWordsNum
        , toSeed
        , keysFromPhrase
@@ -13,7 +18,7 @@ import           Universum
 
 import           Crypto.Hash (Blake2b_256)
 import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), elements, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary (Bi (..), serialize')
@@ -22,18 +27,30 @@ import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, Secre
                              unsafeAbstractHash)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 
+data MnemonicType
+    = PaperVendMnemonic -- 9 word mnemonic used for paper vend redemption
+    | BackupMnemonic    -- 12 word mnemonic used as a wallet backup
+
 -- | Datatype to contain a valid backup phrase
-newtype BackupPhrase = BackupPhrase
+newtype BackupPhrase (a :: MnemonicType) = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
-instance Bi BackupPhrase where
+type BackupPhrasePaperVend = BackupPhrase 'PaperVendMnemonic
+type BackupPhraseNormal = BackupPhrase 'BackupMnemonic
+
+instance Typeable a => Bi (BackupPhrase a) where
     encode = encode . bpToList
     decode = BackupPhrase <$> decode
 
-instance Arbitrary BackupPhrase where
+-- FIXME(akegalj): Fix mnemonic generation to be bip39 compatible
+instance Arbitrary BackupPhrasePaperVend where
+    arbitrary = BackupPhrase <$> vectorOf 9 (elements englishWords)
+
+-- FIXME(akegalj): Fix mnemonic generation to be bip39 compatible
+instance Arbitrary BackupPhrasePaperVend where
+instance Arbitrary BackupPhraseNormal where
     arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
-    shrink    = genericShrink
 
 -- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
 englishWords :: [Text]
@@ -51,24 +68,24 @@ englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist
 backupPhraseWordsNum :: Int
 backupPhraseWordsNum = 12
 
-instance Show BackupPhrase where
+instance Show (BackupPhrase a) where
     show _ = "<backup phrase>"
 
-instance Buildable BackupPhrase where
+instance Buildable (BackupPhrase a) where
     build _ = "<backup phrase>"
 
-instance Read BackupPhrase where
+instance Read (BackupPhrase a) where
     readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
 
-toSeed :: BackupPhrase -> Either Text ByteString
+toSeed :: BackupPhrase a -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList
 
-toHashSeed :: BackupPhrase -> Either Text ByteString
+toHashSeed :: BackupPhraseNormal -> Either Text ByteString
 toHashSeed bp = serialize' . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 ()
         blake2b = unsafeAbstractHash
 
-keysFromPhrase :: BackupPhrase -> Either Text (SecretKey, VssKeyPair)
+keysFromPhrase :: BackupPhraseNormal -> Either Text (SecretKey, VssKeyPair)
 keysFromPhrase ph = (,) <$> sk <*> vss
   where hashSeed = toHashSeed ph
         sk = snd . deterministicKeyGen <$> hashSeed
@@ -76,7 +93,7 @@ keysFromPhrase ph = (,) <$> sk <*> vss
 
 safeKeysFromPhrase
     :: PassPhrase
-    -> BackupPhrase
+    -> BackupPhraseNormal
     -> Either Text (EncryptedSecretKey, VssKeyPair)
 safeKeysFromPhrase pp ph = (,) <$> esk <*> vss
   where hashSeed = toHashSeed ph

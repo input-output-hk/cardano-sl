@@ -70,7 +70,7 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOf
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhraseNormal)
 
 
 import           Pos.Aeson.Core ()
@@ -121,7 +121,7 @@ instance ToHttpApiData WalletId where
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !BackupPhrase
+      newwalBackupPhrase     :: !BackupPhraseNormal
     -- ^ The backup phrase to restore the wallet.
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ The spending password to encrypt the private keys.

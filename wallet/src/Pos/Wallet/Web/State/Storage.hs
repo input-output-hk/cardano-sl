@@ -93,7 +93,6 @@ import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
                           utxoToAddressCoinMap)
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash, CId,
                                              CProfile, CTxId, CTxMeta, CUpdateInfo,
@@ -624,7 +623,6 @@ deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CId
 deriveSafeCopySimple 0 'base ''Wal
 deriveSafeCopySimple 0 'base ''Addr
-deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''AccountId
 deriveSafeCopySimple 0 'base ''CWAddressMeta
 deriveSafeCopySimple 0 'base ''CWalletAssurance
@@ -646,6 +644,7 @@ deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
+
 
 -- Legacy versions, for migrations
 

@@ -31,10 +31,10 @@ mkPassPhrase text =
                      ("Expected spending password to be of either length 0 or "%int%", not "%int)
                      Core.passphraseLength bl
 
-instance ToJSON BackupPhrase where
+instance ToJSON (BackupPhrase a) where
     toJSON (BackupPhrase words) = toJSON words
 
-instance FromJSON BackupPhrase where
+instance FromJSON (BackupPhrase a) where
     parseJSON (Array words) = BackupPhrase . toList <$> traverse parseJSON words
     parseJSON x             = typeMismatch "parseJSON failed for BackupPhrase" x
 

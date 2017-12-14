@@ -6,13 +6,16 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhraseNormal, BackupPhrasePaperVend)
 
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+
 
 class Arbitrary a => Example a where
     example :: Gen a
     example = arbitrary
+
+instance Example Text
 
 instance Example Core.PassPhrase
 instance Example Core.Coin
@@ -21,7 +24,12 @@ instance Example Address
 instance Example Metadata
 instance Example AccountId
 instance Example WalletId
-instance Example BackupPhrase
+
+-- FIXME: I would like to create `Example (BackupPhrase a)`
+-- how to deal with it?
+-- Question: http://lpaste.net/360780
+instance Example BackupPhraseNormal
+instance Example BackupPhrasePaperVend
 instance Example AssuranceLevel
 instance Example SyncProgress
 instance Example BlockchainHeight

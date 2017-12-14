@@ -807,6 +807,19 @@
             }
         },
         "BackupPhrase": {
+            "example": {
+                "bpToList": [
+                    "entry",
+                    "rare",
+                    "idle",
+                    "merit",
+                    "name",
+                    "night",
+                    "transfer",
+                    "screen",
+                    "kitten"
+                ]
+            },
             "required": [
                 "bpToList"
             ],

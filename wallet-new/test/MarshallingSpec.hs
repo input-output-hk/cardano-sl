@@ -15,7 +15,7 @@ import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhraseNormal, BackupPhrasePaperVend)
 
 import qualified Pos.Core as Core
 
@@ -24,7 +24,8 @@ spec :: Spec
 spec = describe "Marshalling & Unmarshalling" $ do
     describe "Roundtrips" $ do
         -- Aeson roundrips
-        aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @BackupPhraseNormal Proxy
+        aesonRoundtripProp @BackupPhrasePaperVend Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @Payment Proxy

@@ -1,6 +1,6 @@
 module Cardano.Wallet.API.V1.Updates where
 
-import           Cardano.Wallet.API.Response (WalletResponse)
+import           Cardano.Wallet.API.Response (ValidJSON, WalletResponse)
 import           Cardano.Wallet.API.V1.Types
 
 import           Servant
@@ -10,6 +10,6 @@ import           Servant
 type API =
          "updates" :> "next"
                    :> Summary "Requests information about the next scheduled update."
-                   :> Get '[JSON] (WalletResponse WalletUpdate)
+                   :> Get '[ValidJSON] (WalletResponse WalletUpdate)
     :<|> "updates" :> Summary "Applies the update. Returns info about the update being applied."
-                   :> Post '[JSON] (WalletResponse WalletUpdate)
+                   :> Post '[ValidJSON] (WalletResponse WalletUpdate)

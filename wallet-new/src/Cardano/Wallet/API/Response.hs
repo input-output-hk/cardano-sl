@@ -7,15 +7,21 @@ module Cardano.Wallet.API.Response (
   , respondWith
   -- * Generating responses for single resources
   , single
+  , ValidJSON
   ) where
 
 import           Prelude
+import           Universum (decodeUtf8, toText)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Data.Aeson
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
-import qualified Data.Char as Char
+import           Data.Foldable
+import           Data.Typeable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..))
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
@@ -26,6 +32,7 @@ import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMet
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
+import           Cardano.Wallet.API.V1.Errors (WalletError (JSONValidationFailed))
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -37,17 +44,6 @@ deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> arbitrary
-
-data ResponseStatus =
-      SuccessStatus
-    | FailStatus
-    | ErrorStatus
-    deriving (Show, Eq, Ord, Enum, Bounded)
-
-deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
-
-instance Arbitrary ResponseStatus where
-    arbitrary = elements [minBound .. maxBound]
 
 -- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
@@ -123,3 +119,20 @@ single theData = WalletResponse {
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
     }
+
+--
+-- Creating a better user experience when it comes to errors.
+--
+
+data ValidJSON deriving Typeable
+
+instance FromJSON a => MimeUnrender ValidJSON a where
+    mimeUnrender _ bs = case eitherDecode bs of
+        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
+        Right v  -> return v
+
+instance Accept ValidJSON where
+    contentType _ = contentType (Proxy @ JSON)
+
+instance ToJSON a => MimeRender ValidJSON a where
+    mimeRender _ = mimeRender (Proxy @ JSON)

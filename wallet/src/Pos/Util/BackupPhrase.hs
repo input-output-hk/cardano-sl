@@ -7,7 +7,6 @@ module Pos.Util.BackupPhrase
        , MnemonicType(..)
        , BackupPhrasePaperVend
        , BackupPhraseNormal
-       , backupPhraseWordsNum
        , toSeed
        , keysFromPhrase
        , safeKeysFromPhrase
@@ -47,8 +46,6 @@ instance Typeable a => Bi (BackupPhrase a) where
 instance Arbitrary BackupPhrasePaperVend where
     arbitrary = BackupPhrase <$> vectorOf 9 (elements englishWords)
 
--- FIXME(akegalj): Fix mnemonic generation to be bip39 compatible
-instance Arbitrary BackupPhrasePaperVend where
 instance Arbitrary BackupPhraseNormal where
     arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
 
@@ -63,10 +60,6 @@ englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist
                , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
                , "success" , "worry" , "rural" , "silver" , "invest" , "mean "
                ]
-
--- | Number of words in backup phrase
-backupPhraseWordsNum :: Int
-backupPhraseWordsNum = 12
 
 instance Show (BackupPhrase a) where
     show _ = "<backup phrase>"

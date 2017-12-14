@@ -191,7 +191,7 @@ data Account = Account
   -- ^ The Account name.
   , accWalletId  :: WalletId
   -- ^ The 'WalletId' this 'Account' belongs to.
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
 

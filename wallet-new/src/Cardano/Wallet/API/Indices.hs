@@ -37,6 +37,7 @@ instance ToIndex Wallet Core.Coin where
 type family IndicesOf a :: [*] where
     IndicesOf Wallet      = WalletIxs
     IndicesOf Transaction = TransactionIxs
+    IndicesOf Account     = AccountIxs
 
 -- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
 type IxSet' a        = IxSet (IndicesOf a) a
@@ -52,8 +53,9 @@ type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 --
 
 -- | The indices for each major resource.
-type WalletIxs = '[WalletId, Core.Coin]
+type WalletIxs      = '[WalletId, Core.Coin]
 type TransactionIxs = '[TxId]
+type AccountIxs     = '[AccountId]
 
 instance Indexable WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
@@ -61,3 +63,6 @@ instance Indexable WalletIxs Wallet where
 
 instance Indexable TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> [txId]))
+
+instance Indexable AccountIxs Account where
+  indices = ixList (ixFun (\Account{..} -> [accId]))

@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
--- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
+-- | A module which derives acidic events from actions defined
+-- in "Pos.Wallet.Web.State.Storage".
 module Pos.Wallet.Web.State.Acidic
        (
          WalletState
@@ -13,9 +14,7 @@ module Pos.Wallet.Web.State.Acidic
 
        , GetProfile (..)
        , GetAccountIds (..)
-       , GetAccountMetas (..)
        , GetAccountMeta (..)
-       , GetWalletMetas (..)
        , GetWalletMeta (..)
        , GetWalletMetaIncludeUnready (..)
        , GetWalletPassLU (..)
@@ -28,7 +27,6 @@ module Pos.Wallet.Web.State.Acidic
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
        , GetTxMeta (..)
-       , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
@@ -40,7 +38,6 @@ module Pos.Wallet.Web.State.Acidic
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
-       , AddRemovedAccount (..)
        , CreateWallet (..)
        , SetProfile (..)
        , SetAccountMeta (..)
@@ -48,9 +45,7 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletReady (..)
        , SetWalletPassLU (..)
        , SetWalletSyncTip (..)
-       , SetWalletTxMeta (..)
        , AddOnlyNewTxMetas (..)
-       , SetWalletTxHistory (..)
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
@@ -60,7 +55,6 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveAccount (..)
        , RemoveWAddress (..)
        , RemoveCustomAddress (..)
-       , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , InsertIntoHistoryCache (..)
@@ -89,6 +83,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 
+-- | Type alias for acidic state which contains 'WalletStorage'.
 type WalletState = ExtendedState WalletStorage
 
 query
@@ -101,26 +96,31 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
+-- | Initialize wallet DB in disk mode. Used in production.
 openState :: (MonadIO m, HasConfiguration) => Bool -> FilePath -> m WalletState
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
+-- | Initialize empty wallet DB in pure (in-memory) mode.
+-- Used primarily for testing.
 openMemState :: (MonadIO m, HasConfiguration) => m WalletState
 openMemState = openMemoryExtendedState def
 
+-- | Close wallet DB resource.
 closeState :: MonadIO m => WalletState -> m ()
 closeState = closeExtendedState
 
+-- | Compress current event log, create a new checkpoint and delete old checkpoints.
 tidyState :: MonadIO m => WalletState -> m ()
 tidyState = tidyExtendedState
+
+-- TH derivations of acidic events
 
 makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
     , 'WS.getAccountIds
-    , 'WS.getAccountMetas
     , 'WS.getAccountMeta
-    , 'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.getWalletMetaIncludeUnready
     , 'WS.getWalletPassLU
@@ -133,7 +133,6 @@ makeAcidic ''WalletStorage
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
     , 'WS.getTxMeta
-    , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
     , 'WS.getCustomAddresses
@@ -146,16 +145,13 @@ makeAcidic ''WalletStorage
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress
-    , 'WS.addRemovedAccount
     , 'WS.setProfile
     , 'WS.setAccountMeta
     , 'WS.setWalletMeta
     , 'WS.setWalletReady
     , 'WS.setWalletPassLU
     , 'WS.setWalletSyncTip
-    , 'WS.setWalletTxMeta
     , 'WS.addOnlyNewTxMetas
-    , 'WS.setWalletTxHistory
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
@@ -164,7 +160,6 @@ makeAcidic ''WalletStorage
     , 'WS.removeHistoryCache
     , 'WS.removeAccount
     , 'WS.removeWAddress
-    , 'WS.totallyRemoveWAddress
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache

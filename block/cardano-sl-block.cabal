@@ -83,6 +83,7 @@ library
                       , cardano-sl-delegation
                       , cardano-sl-infra
                       , cardano-sl-lrc
+                      , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
@@ -101,7 +102,6 @@ library
                       , lens
                       , log-warper
                       , mtl
-                      , node-sketch
                       , random
                       , reflection
                       , rocksdb-haskell

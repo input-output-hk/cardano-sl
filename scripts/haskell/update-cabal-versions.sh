@@ -25,6 +25,7 @@ updateVersion infra/cardano-sl-infra.cabal
 updateVersion lib/cardano-sl.cabal
 updateVersion lrc/cardano-sl-lrc.cabal
 updateVersion node/cardano-sl-node.cabal
+updateVersion networking/cardano-sl-networking.cabal
 updateVersion ssc/cardano-sl-ssc.cabal
 updateVersion tools/cardano-sl-tools.cabal
 updateVersion txp/cardano-sl-txp.cabal

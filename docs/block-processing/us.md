@@ -70,10 +70,7 @@ data UpdatePayload = UpdatePayload
     }
 ```
 
-#### TODO: Update proposal
 TODO: add details on UpdateProposal.
-
-#### TODO: Update vote
 TODO: add details on UpdateVote.
 
 #### Software version

@@ -3,6 +3,8 @@ import './index.css';
 // app
 import Main from './Main.purs';
 import {initialState} from './Explorer/State.purs';
+// tracking
+import tracking from './tracking.js';
 
 // HMR
 if(module.hot) {
@@ -14,3 +16,6 @@ if(module.hot) {
 } else {
   Main.main(initialState)();
 }
+
+// call tracking at last
+tracking();

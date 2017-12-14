@@ -14,6 +14,8 @@ import qualified Pos.Core as Core
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
+-- | 'ToIndex' represents the witness that we can build an index 'ix' for a resource 'a'
+-- from an input 'Text'.
 class ToIndex a ix where
     -- | How to build this index from the input 'Text'.
     toIndex  :: Proxy a -> Text -> Maybe ix
@@ -25,8 +27,10 @@ instance ToIndex Wallet WalletId where
     accessIx Wallet{..} = walId
 
 instance ToIndex Wallet Core.Coin where
-    -- TODO: Temporary.
-    toIndex _ x = Core.mkCoin <$> readMaybe (toS x)
+    toIndex _ x = case readMaybe (toS x) of
+        Nothing -> Nothing
+        Just c  | c > Core.maxCoinVal -> Nothing
+        Just c  -> Just (Core.mkCoin c)
     accessIx Wallet{..} = walBalance
 
 -- | A type family mapping a resource 'a' to all its indices.

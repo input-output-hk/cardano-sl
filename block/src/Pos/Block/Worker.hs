@@ -214,14 +214,31 @@ recoveryTriggerWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
     => SendActions m -> m ()
-recoveryTriggerWorkerImpl SendActions{..} =
-    repeatOnInterval $ recoveryCommGuard "security worker" $
-        whenM (needRecovery @ctx) $ triggerRecovery enqueueMsg
+recoveryTriggerWorkerImpl SendActions{..} = do
+    -- Initial heuristic delay is needed (the system takes some time
+    -- to initialize).
+    delay $ sec 3
+
+    repeatOnInterval $
+        -- This is different from recoveryGuard, because latter
+        -- also doesn't run computation if we don't know current slot.
+        -- The following needRecovery function only checks if we
+        -- have recovery variable in place now and tries to fill it
+        -- (by requesting tips) if it's empty.
+        whenM (needRecovery @ctx) $ do
+            triggerRecovery enqueueMsg
+            -- We don't want to ask for tips too frequently.
+            -- E.g. there may be a tip processing mistake so that we
+            -- never go into recovery even though we recieve
+            -- headers. Or it may happen that we will receive only
+            -- useless broken tips for some reason (attack?). This
+            -- will minimize risks and network load.
+            delay $ sec 20
   where
     repeatOnInterval action = void $ do
-        delay $ sec 4
+        delay $ sec 1
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
-        void $ action `catchAny` \e -> reportOrLogE "Security worker" e
+        void $ action `catchAny` \e -> reportOrLogE "recoveryTriggerWorker" e
         repeatOnInterval action
 
 ----------------------------------------------------------------------------

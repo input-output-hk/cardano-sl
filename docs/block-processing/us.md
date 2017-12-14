@@ -106,7 +106,7 @@ and it has more stakes "for" than "against", then the proposal becomes approved 
 
 ### Update proposal states
 
-TODO: add diagram as in [section](#block-version-life-cycle)
+![Update proposal state](us-proposal-states.png)
 
 There are five possible states for Update proposal:
 
@@ -175,7 +175,7 @@ data BlockVersion = BlockVersion
     }
 ```
 
-As you see, block version essentially is a tuple `(Maj, Min, Alt)`. It has followig sematics:
+As you see, block version essentially is a tuple `(Maj, Min, Alt)`. It has following sematics:
 
 * Major version (2 bytes): change of the `Maj` version identifies a protocol is being updated via hardfork
 * Minor version (2 bytes): change of the `Min` version identifies a protocol is being updated via softfork

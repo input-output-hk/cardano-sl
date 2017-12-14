@@ -1,28 +1,32 @@
 # Update system consensus rules
 ## Table of contents
 
+- [Update system consensus rules](#update-system-consensus-rules)
   * [Prerequisites](#prerequisites)
   * [Overview](#overview)
-  * [Problem definition](#problem-definition)
-  * [Update system model](#update-system-model)
+  * [Software update](#software-update)
     + [Update payload](#update-payload)
+      - [Software version](#software-version)
     + [Poll and decision agreement rules](#poll-and-decision-agreement-rules)
     + [Update proposal states](#update-proposal-states)
-    + [Software and block versions](#software-and-block-versions)
-    + [Adoption of block version](#adoption-of-block-version)
+  * [Protocol update](#protocol-update)
+    + [Softfork and hardfork](#softfork-and-hardfork)
+    + [Block version](#block-version)
+    + [Protocol constants](#protocol-constants)
+    + [Block version life cycle](#block-version-life-cycle)
       - [Competing block version](#competing-block-version)
-      - [Block validation according to adopted version](#block-validation-according-to-adopted-version)
-      - [Example](#example)
- * [Verification](#verification)
+      - [Adoption of block version](#adoption-of-block-version)
+    + [Example](#example)
+  * [Verification](#verification)
     + [Block header verification](#block-header-verification)
     + [Update proposal verification](#update-proposal-verification)
       - [General checks](#general-checks)
       - [Protocol version checks](#protocol-version-checks)
     + [Votes verification](#votes-verification)
- * [Confirmation and adoption algorithms](#confirmation-and-adoption-algorithms)
+  * [Confirmation and adoption algorithms](#confirmation-and-adoption-algorithms)
     + [Update proposal confirmation algorithm](#update-proposal-confirmation-algorithm)
-    + [Block version adoption algorithm](#block-version-adoption-adoption-algorithm)
- 
+    + [Block version adoption algorithm](#block-version-adoption-algorithm)
+
 ## Prerequisites
 
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).

@@ -2471,7 +2471,7 @@ self: {
           description = "Cardano SL - general utilities";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, optparse-applicative, purescript-bridge, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-generic, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
+      cardano-sl-wallet = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, base, base58-bytestring, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers, cpphs, cryptonite, data-default, directory, dlist, ether, exceptions, filepath, formatting, hashable, hspec, lens, log-warper, memory, mkDerivation, monad-control, mtl, optparse-applicative, quickcheck-instances, random, reflection, safecopy, semver, serokell-util, servant, servant-generic, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, wai, wai-websockets, websockets }:
       mkDerivation {
           pname = "cardano-sl-wallet";
           version = "1.0.3";
@@ -2606,7 +2606,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, generics-sop, hspec, http-api-data, http-client, http-types, insert-ordered-containers, json-sop, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, generics-sop, hspec, http-api-data, http-client, http-types, insert-ordered-containers, ixset-typed, json-sop, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, template-haskell, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2634,6 +2634,7 @@ self: {
             http-api-data
             http-client
             http-types
+            ixset-typed
             json-sop
             lens
             memory
@@ -2645,6 +2646,7 @@ self: {
             servant-client
             servant-quickcheck
             servant-server
+            string-conv
             template-haskell
             text
             text-format
@@ -2653,6 +2655,7 @@ self: {
             universum
             unordered-containers
             vector
+            wai
             warp
           ];
           executableHaskellDepends = [
@@ -2677,6 +2680,7 @@ self: {
             http-api-data
             http-types
             insert-ordered-containers
+            ixset-typed
             lens
             log-warper
             memory
@@ -4954,6 +4958,24 @@ self: {
           doCheck = false;
           homepage = "http://www.mew.org/~kazu/proj/iproute/";
           description = "IP Routing Table";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      ixset-typed = callPackage ({ base, containers, deepseq, mkDerivation, safecopy, stdenv, syb, template-haskell }:
+      mkDerivation {
+          pname = "ixset-typed";
+          version = "0.3.1.1";
+          sha256 = "d06b466c2cc56df15035d0b79f3a3eb6e7d39d878ae27dea3a7fbb9c78addc12";
+          libraryHaskellDepends = [
+            base
+            containers
+            deepseq
+            safecopy
+            syb
+            template-haskell
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "Efficient relational queries on Haskell sets";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       jailbreak-cabal = callPackage ({ Cabal, base, mkDerivation, stdenv }:

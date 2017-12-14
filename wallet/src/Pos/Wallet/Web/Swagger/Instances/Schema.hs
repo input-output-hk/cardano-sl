@@ -92,9 +92,6 @@ instance ToSchema      CT.ClientInfo
 genExample :: (ToJSON a, Arbitrary a) => a
 genExample = (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
 
--- FIXME: hm, I would like to create `ToSchema (BackupPhrase a)`
--- how to deal with it?
--- Question: http://lpaste.net/360780
 instance ToSchema BackupPhraseNormal where
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy

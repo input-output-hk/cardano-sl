@@ -16,8 +16,9 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash (Blake2b_256)
+import qualified Data.ByteString as BS
 import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), elements, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary (Bi (..), serialize')
@@ -29,6 +30,7 @@ import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 data MnemonicType
     = PaperVendMnemonic -- 9 word mnemonic used for paper vend redemption
     | BackupMnemonic    -- 12 word mnemonic used as a wallet backup
+    deriving (Bounded, Enum)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase (a :: MnemonicType) = BackupPhrase
@@ -42,24 +44,18 @@ instance Typeable a => Bi (BackupPhrase a) where
     encode = encode . bpToList
     decode = BackupPhrase <$> decode
 
--- FIXME(akegalj): Fix mnemonic generation to be bip39 compatible
+arbitraryMnemonic :: Int -> Gen (Either Text (BackupPhrase a))
+arbitraryMnemonic len = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf len arbitrary
+    pure . first toText $ BackupPhrase . words <$> eitherMnemonic
+
+-- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhrasePaperVend where
-    arbitrary = BackupPhrase <$> vectorOf 9 (elements englishWords)
+    arbitrary = either error identity <$> arbitraryMnemonic 96
 
+-- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhraseNormal where
-    arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
-
--- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
-englishWords :: [Text]
-englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist"
-               , "swamp" , "rare" , "enhance" , "rabbit" , "blast" , "plastic" , "attitude"
-               , "name" , "skull" , "merit" , "night" , "idle" , "bone" , "exact"
-               , "inflict" , "legal" , "predict" , "certain" , "napkin" , "blood"
-               , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
-               , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
-               , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean "
-               ]
+    arbitrary = either error identity <$> arbitraryMnemonic 128
 
 instance Show (BackupPhrase a) where
     show _ = "<backup phrase>"

@@ -25,9 +25,6 @@ instance Example Metadata
 instance Example AccountId
 instance Example WalletId
 
--- FIXME: I would like to create `Example (BackupPhrase a)`
--- how to deal with it?
--- Question: http://lpaste.net/360780
 instance Example BackupPhraseNormal
 instance Example BackupPhrasePaperVend
 instance Example AssuranceLevel

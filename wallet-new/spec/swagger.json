@@ -280,29 +280,27 @@
         },
         "Payment": {
             "example": {
-                "sourceAccount": 1,
-                "groupingPolicy": "OptimiseForSecurity",
+                "sourceAccount": 2,
+                "groupingPolicy": "OptimiseForSize",
                 "destinations": [
                     {
-                        "amount": 32634946131515590,
-                        "address": "5oP9ib6ym3XdFXvmLXfUVZWw537vicy11ppa5bo8Ku9weByZAUaXWknjiA4dzK84Si"
+                        "amount": 27889372662178400,
+                        "address": "7J1MaQmKydNdKZ8ASMptqTpSiq6k8QwjD5w8hsnMF6iGQSFLZNbjgVjDhKtAa2vWYNCXvRixXTeuxKAfSHUBcjoieTUHcDaFPMgUtnhVnwk2rbz"
                     },
                     {
-                        "amount": 23455541578120684,
-                        "address": "KjgoiXJS2cosYURpKV6iD3h74KkYZnShaoKftk6FmpQzkPzUUQVyPr3FPqK2Z7MPM1s3jhrCGhubFVsWCsgXCbvYp6UncLrcUd5B2Z2j9q82"
-                    },
-                    {
-                        "amount": 18389682634121662,
-                        "address": "5FCjkr138i9vJ5GwWGUm11T1Zn4X1BNWoRcHAioCVMUq4ZXLJU5BfTrYCPYAX8iZ4TkPnAehU7rwTKdfnBgRDQpq3LGWwCYcHz3HCdPJw5c"
+                        "amount": 33829516096667581,
+                        "address": "2cWKMJemoBamMBMBYJWe5aQR3xitBLbjVbt4yxQUWUWC8KGGHvYF8BfUQwmAs5je5fSii"
                     }
                 ],
-                "sourceWallet": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+                "sourceWallet": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
+                "spendingPassword": "0000010001010101000001000202010200010202000102000000000100000100"
             },
             "required": [
                 "sourceAccount",
                 "groupingPolicy",
                 "destinations",
-                "sourceWallet"
+                "sourceWallet",
+                "spendingPassword"
             ],
             "type": "object",
             "description": "A transfer of `Coin`(s) from one source to one or more destinations.",
@@ -332,6 +330,9 @@
                     "type": "array"
                 },
                 "sourceWallet": {
+                    "type": "string"
+                },
+                "spendingPassword": {
                     "type": "string"
                 }
             }

@@ -83,6 +83,7 @@ instance Example Payment where
                       <*> example
                       <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
+                      <*> example
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.
 --

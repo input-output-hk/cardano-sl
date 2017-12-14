@@ -17,7 +17,6 @@ import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
-import           Data.Foldable
 import           Data.Typeable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell

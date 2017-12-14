@@ -14,8 +14,6 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
-import qualified Pos.Wallet.Web.Account as V0
-import qualified Pos.Wallet.Web.Tracking as V0
 import           Servant
 
 handlers

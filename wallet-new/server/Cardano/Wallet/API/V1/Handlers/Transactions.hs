@@ -4,10 +4,7 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
-                                                  migrate)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0

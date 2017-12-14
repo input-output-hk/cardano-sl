@@ -203,5 +203,5 @@ instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] wher
 instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
     eitherMigrate policy =
         pure $ case policy of
-                  V1.OptimiseForSizePolicy -> V0.OptimizeForSize
+                  V1.OptimiseForSizePolicy -> V0.OptimizeForHighThroughput
                   V1.OptimiseForSecurityPolicy -> V0.OptimizeForSecurity

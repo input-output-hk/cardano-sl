@@ -44293,6 +44293,7 @@ inherit (pkgs) which;};
             base
             bytestring
             cardano-sl
+            cardano-sl-client
             cardano-sl-core
             cardano-sl-crypto
             cardano-sl-infra
@@ -44339,6 +44340,7 @@ inherit (pkgs) which;};
             base
             bytestring
             cardano-sl
+            cardano-sl-client
             cardano-sl-core
             cardano-sl-crypto
             cardano-sl-infra
@@ -44386,6 +44388,7 @@ inherit (pkgs) which;};
             base
             bytestring
             cardano-sl
+            cardano-sl-client
             cardano-sl-core
             cardano-sl-crypto
             cardano-sl-infra

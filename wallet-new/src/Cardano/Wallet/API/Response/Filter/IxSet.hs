@@ -4,7 +4,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf', IxSet')
 import qualified Cardano.Wallet.API.Request.Filter as F
-import           Data.IxSet.Typed ((@<), (@=), (@>))
+import           Data.IxSet.Typed ((@<), (@=), (@>), (@>=<=))
 
 applyFilters :: Indexable' a
              => F.FilterOperations a
@@ -29,3 +29,4 @@ applyFilter fltr inputData =
            F.FilterIdentity             -> inputData
            F.FilterByIndex idx          -> byPredicate EQ idx
            F.FilterByPredicate ordr idx -> byPredicate ordr idx
+           F.FilterByRange from to      -> inputData @>=<= (from, to)

@@ -38,6 +38,8 @@ data FilterOperations a where
 instance Show (FilterOperations a) where
     show = show . flattenOperations
 
+-- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
+-- debug purposes.
 flattenOperations :: FilterOperations a -> [String]
 flattenOperations NoFilters       = mempty
 flattenOperations (FilterOp f fs) = show f : flattenOperations fs
@@ -48,24 +50,33 @@ data FilterOperation ix a =
     -- ^ Filter by index (e.g. equal to)
     | FilterByPredicate Ordering ix
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
+    | FilterByRange ix ix
+    -- ^ Filter by range, in the form [from,to]
     | FilterIdentity
     -- ^ Do not alter the resource.
 
 instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
     show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
+    show (FilterByRange _ _)          = "FilterByRange"
     show FilterIdentity               = "FilterIdentity"
 
 -- | Represents a filter operation on the data model.
 -- Examples:
 --   *    `wallet_id=DEADBEEF`.
 --   *    `balance=GT[10]`
+--   *    `balance=RANGE[0,10]`
 data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
 
+-- | This is a slighly boilerplat-y type family which maps symbols to
+-- indices, so that we can later on reify them into a list of valid indices.
 type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
 
-parseFilterOperation :: forall a ix. (ToIndex a ix)
+-- | Parse the filter operations, failing silently if the query is malformed.
+-- TODO(adinapoli): we need to improve error handling (and the parsers, for
+-- what is worth).
+parseFilterOperation :: forall a ix. ToIndex a ix
                      => Proxy a
                      -> Proxy ix
                      -> Text
@@ -82,10 +93,22 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
                ("EQ[", "]") -> FilterByPredicate EQ <$> toIndex p ixTxt
                ("LT[", "]") -> FilterByPredicate LT <$> toIndex p ixTxt
                ("GT[", "]") -> FilterByPredicate GT <$> toIndex p ixTxt
-               _            -> Nothing
+               _            -> parseRangeQuery
 
+    -- Tries to parse a query by index.
     parseIndexQuery :: Maybe (FilterOperation ix a)
     parseIndexQuery = FilterByIndex <$> toIndex p txt
+
+    -- Tries to parse a range query of the form RANGE[from,to].
+    parseRangeQuery :: Maybe (FilterOperation ix a)
+    parseRangeQuery =
+        let (predicate, rest1) = (T.take 6 txt, T.drop 6 txt)
+            (fromTo, closing)   = T.breakOn "]" rest1
+            in case (predicate, closing) of
+               ("RANGE[", "]") -> case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
+                                       (_, "")    -> Nothing
+                                       (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+               _               -> Nothing
 
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a
@@ -144,21 +167,3 @@ parseFilterParams :: forall a ixs. (
                   -> Proxy ixs
                   -> DelayedIO (FilterOperations a)
 parseFilterParams req params p = return $ toFilterOperations req params p
-{-
-  where
-      -- go :: [Text] -> Proxy ixs -> FilterOperations ixs res -> DelayedIO (FilterOperations ixs res)
-      go params (p :: Proxy '[]) ops = return ops
-      go params (p :: Proxy (ix ': is)) ops =
-          case params of
-              [] -> return ops
-              (p:ps) -> case List.lookup p (querytext req) of
-                  Nothing       ->  go ps (Proxy @ is) (FilterNoOp ::: ops)
-                  Just Nothing  ->  go ps (Proxy @ is) (FilterNoOp ::: ops)
-                  Just (Just v) ->
-                    case parseFilterOperation (Proxy @res) (Proxy @ix) v of
-                        Left e -> delayedFailFatal err400
-                            { errBody = toS $ "Error parsing filter query " <> paramName <> " failed: " <> e
-                            }
-
-                        Right filterOp -> go ps (Proxy @is) (filterOp ::: ops)
--}

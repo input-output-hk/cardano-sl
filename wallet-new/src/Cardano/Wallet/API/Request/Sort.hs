@@ -43,6 +43,8 @@ data SortOperations a where
              -> SortOperations a
              -> SortOperations a
 
+-- | This is a slighly boilerplat-y type family which maps symbols to
+-- indices, so that we can later on reify them into a list of valid indices.
 type family SortParams (syms :: [Symbol]) (r :: *) :: [*] where
     SortParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
 

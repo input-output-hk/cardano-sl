@@ -73,43 +73,6 @@ data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
 type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
 
--- | Parse the filter operations, failing silently if the query is malformed.
--- TODO(adinapoli): we need to improve error handling (and the parsers, for
--- what is worth).
-parseFilterOperation :: forall a ix. ToIndex a ix
-                     => Proxy a
-                     -> Proxy ix
-                     -> Text
-                     -> Either Text (FilterOperation ix a)
-parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery of
-    Nothing -> Left "Not a valid filter."
-    Just f  -> Right f
-  where
-    parsePredicateQuery :: Maybe (FilterOperation ix a)
-    parsePredicateQuery =
-        let (predicate, rest1) = (T.take 3 txt, T.drop 3 txt)
-            (ixTxt, closing)   = T.breakOn "]" rest1
-            in case (predicate, closing) of
-               ("EQ[", "]") -> FilterByPredicate EQ <$> toIndex p ixTxt
-               ("LT[", "]") -> FilterByPredicate LT <$> toIndex p ixTxt
-               ("GT[", "]") -> FilterByPredicate GT <$> toIndex p ixTxt
-               _            -> parseRangeQuery
-
-    -- Tries to parse a query by index.
-    parseIndexQuery :: Maybe (FilterOperation ix a)
-    parseIndexQuery = FilterByIndex <$> toIndex p txt
-
-    -- Tries to parse a range query of the form RANGE[from,to].
-    parseRangeQuery :: Maybe (FilterOperation ix a)
-    parseRangeQuery =
-        let (predicate, rest1) = (T.take 6 txt, T.drop 6 txt)
-            (fromTo, closing)   = T.breakOn "]" rest1
-            in case (predicate, closing) of
-               ("RANGE[", "]") -> case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
-                                       (_, "")    -> Nothing
-                                       (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
-               _               -> Nothing
-
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a
 
@@ -157,7 +120,6 @@ instance ( HasServer subApi ctx
 
         in route (Proxy :: Proxy subApi) context delayed
 
-
 parseFilterParams :: forall a ixs. (
                      SOP.All (ToIndex a) ixs
                   ,  ToFilterOperations ixs a
@@ -167,3 +129,40 @@ parseFilterParams :: forall a ixs. (
                   -> Proxy ixs
                   -> DelayedIO (FilterOperations a)
 parseFilterParams req params p = return $ toFilterOperations req params p
+
+-- | Parse the filter operations, failing silently if the query is malformed.
+-- TODO(adinapoli): we need to improve error handling (and the parsers, for
+-- what is worth).
+parseFilterOperation :: forall a ix. ToIndex a ix
+                     => Proxy a
+                     -> Proxy ix
+                     -> Text
+                     -> Either Text (FilterOperation ix a)
+parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery of
+    Nothing -> Left "Not a valid filter."
+    Just f  -> Right f
+  where
+    parsePredicateQuery :: Maybe (FilterOperation ix a)
+    parsePredicateQuery =
+        let (predicate, rest1) = (T.take 3 txt, T.drop 3 txt)
+            (ixTxt, closing)   = T.breakOn "]" rest1
+            in case (predicate, closing) of
+               ("EQ[", "]") -> FilterByPredicate EQ <$> toIndex p ixTxt
+               ("LT[", "]") -> FilterByPredicate LT <$> toIndex p ixTxt
+               ("GT[", "]") -> FilterByPredicate GT <$> toIndex p ixTxt
+               _            -> parseRangeQuery
+
+    -- Tries to parse a query by index.
+    parseIndexQuery :: Maybe (FilterOperation ix a)
+    parseIndexQuery = FilterByIndex <$> toIndex p txt
+
+    -- Tries to parse a range query of the form RANGE[from,to].
+    parseRangeQuery :: Maybe (FilterOperation ix a)
+    parseRangeQuery =
+        let (predicate, rest1) = (T.take 6 txt, T.drop 6 txt)
+            (fromTo, closing)   = T.breakOn "]" rest1
+            in case (predicate, closing) of
+               ("RANGE[", "]") -> case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
+                                       (_, "")    -> Nothing
+                                       (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+               _               -> Nothing

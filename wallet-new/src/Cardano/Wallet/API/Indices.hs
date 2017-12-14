@@ -3,6 +3,7 @@
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# OPTIONS_GHC -fno-warn-orphans      #-}
 module Cardano.Wallet.API.Indices where
 
 import           Universum
@@ -15,14 +16,18 @@ import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixLi
 
 class ToIndex a ix where
     -- | How to build this index from the input 'Text'.
-    toIndex :: Proxy a -> Text -> Maybe ix
+    toIndex  :: Proxy a -> Text -> Maybe ix
+    -- | How to access this index from the input data.
+    accessIx :: (a -> ix)
 
 instance ToIndex Wallet WalletId where
     toIndex _ x = Just (WalletId x)
+    accessIx Wallet{..} = walId
 
 instance ToIndex Wallet Core.Coin where
     -- TODO: Temporary.
     toIndex _ x = Core.mkCoin <$> readMaybe (toS x)
+    accessIx Wallet{..} = walBalance
 
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where

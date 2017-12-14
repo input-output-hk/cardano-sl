@@ -11,7 +11,6 @@ import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
-import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
 import           Pos.Core as Core
@@ -57,7 +56,7 @@ listWallets params fops sops = do
     getWallets0 <- liftIO $ generate (vectorOf 1000 arbitrary)
     let getWallets = pure $ map (\(w, i :: Word64) -> w { walBalance = Core.mkCoin i }) (zip getWallets0 [1..])
     liftIO $ putText (show fops)
-    respondWith params fops sops (\_ ops _ -> applyFilters ops . IxSet.fromList <$> getWallets)
+    respondWith params fops sops (\_ ops _ -> applyFilters ops <$> getWallets)
 
 updatePassword
     :: (MonadWalletLogic ctx m)

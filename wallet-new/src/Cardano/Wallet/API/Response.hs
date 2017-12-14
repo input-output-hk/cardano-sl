@@ -27,7 +27,7 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
-import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.Filter.Legacy as FilterBackend
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 
 -- | Extra information associated with an HTTP response.

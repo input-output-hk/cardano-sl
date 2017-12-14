@@ -241,12 +241,9 @@ At any point in time, only one version is considered *adopted* by blockchain. Th
 Block version is called **competing** if it may become adopted and 
 there is a confirmed proposal with this block version.
 
-When some block version becomes *adopted*, all other *competing* block versions with same `(Maj, Min)` are never to become *adopted*.
-
-Being more precise, if version `(Maj, Min, Alt)` is adopted:
-* TODO <finish sentence> 
-
-Note, that at any point in time all *competing* block versions have same major and minor versions (i.e. differ only in alt version).
+NB: when some block version `(Maj, Min, Alt)` is adopted, only following versions may be competing:
+* `(Maj, Min+1, Alt')`
+* `(Maj+1, 0, Alt')`
 
 #### Adoption of block version
 

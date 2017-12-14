@@ -29,6 +29,7 @@ library
                        Cardano.Wallet.API.Response.Filter.IxSet
                        Cardano.Wallet.API.Response.Filter.Legacy
                        Cardano.Wallet.API.Response.Sort.IxSet
+                       Cardano.Wallet.API.Response.JSend
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1
@@ -54,6 +55,7 @@ library
   build-depends:       base
                      , QuickCheck
                      , aeson
+                     , aeson-pretty
                      , bytestring
                      , containers
                      , data-default

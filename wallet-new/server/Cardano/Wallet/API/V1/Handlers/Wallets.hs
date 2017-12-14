@@ -11,6 +11,7 @@ import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
+import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
@@ -47,10 +48,11 @@ newWallet NewWallet{..} = do
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             => RequestParams
+            -> FilterOperations Wallet
+            -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
-listWallets params = do
-    let getWallets = (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet])
-    respondWith params (const getWallets)
+listWallets params fops sops = do
+    respondWith params fops sops (IxSet.fromList <$> (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet]))
 
 updatePassword
     :: (MonadWalletLogic ctx m)

@@ -14,14 +14,21 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Cardano.Wallet.Orphans
+  exposed-modules:     Cardano.Wallet.TypeLits
+                       Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
+                       Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
+                       Cardano.Wallet.API.Request.Filter
+                       Cardano.Wallet.API.Request.Sort
                        Cardano.Wallet.API.Response
+                       Cardano.Wallet.API.Response.Filter.IxSet
+                       Cardano.Wallet.API.Response.Filter.Legacy
+                       Cardano.Wallet.API.Response.Sort.IxSet
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.Types.UnitOfMeasure
                        Cardano.Wallet.API.V1
@@ -57,6 +64,7 @@ library
                      , http-client
                      , http-types
                      , json-sop
+                     , ixset-typed
                      , lens
                      , memory
                      , mtl
@@ -66,6 +74,7 @@ library
                      , servant-client
                      , servant-server
                      , servant-quickcheck
+                     , string-conv
                      , template-haskell
                      , time
                      , text
@@ -75,6 +84,7 @@ library
                      , unordered-containers
                      , vector
                      , serokell-util
+                     , wai
                      , warp
                      , cardano-sl-core
                      , cardano-sl-crypto
@@ -150,6 +160,7 @@ executable wallet-new-server
                      , http-api-data
                      , http-types
                      , insert-ordered-containers
+                     , ixset-typed
                      , lens
                      , log-warper
                      , mtl

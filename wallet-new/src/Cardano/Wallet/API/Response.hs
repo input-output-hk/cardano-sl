@@ -14,14 +14,18 @@ import           Prelude
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
-import           Data.Foldable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 
+import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
+import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -66,8 +70,8 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
 --
 -- 1. Query/Filtering operations (affects the number of total entries for pagination);
--- 2. Pagination
--- 3. Sorting operations
+-- 2. Sorting operations
+-- 3. Pagination
 --
 -- See also <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document>, which
 -- states:
@@ -75,23 +79,28 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
 -- requested a number of results."
 --
--- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
-respondWith :: (Foldable f, Monad m)
+-- NOTE: We have chosen have an approach such that we are sorting the whole dataset after filtering and using
+-- lazyness to avoid work. This might not be optimal in terms of performances and we might need to swap sorting
+-- and pagination.
+--
+respondWith :: (Monad m, Indexable' a)
             => RequestParams
-            -> (RequestParams -> m (f a))
-            -- ^ A callback-style function which, given the full set of `RequestParams`
-            -- produces some form of results in some 'Monad' @m@.
+            -> FilterOperations a
+            -- ^ Filtering operations to perform on the data.
+            -> SortOperations a
+            -- ^ Sorting operations to perform on the data.
+            -> m (IxSet' a)
+            -- ^ The monadic action which produces the results.
             -> m (WalletResponse [a])
-respondWith params@RequestParams{..} generator = do
-    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
+respondWith RequestParams{..} fops sorts generator = do
+    (theData, paginationMetadata) <- paginate rpPaginationParams . sortData sorts . applyFilters fops <$> generator
     return $ WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus
            , wrMeta = Metadata paginationMetadata
            }
 
-
-paginate :: Foldable f => PaginationParams -> f a -> ([a], PaginationMetadata)
+paginate :: PaginationParams -> [a] -> ([a], PaginationMetadata)
 paginate PaginationParams{..} rawResultSet =
     let totalEntries = length rawResultSet
         perPage@(PerPage pp)   = ppPerPage
@@ -103,7 +112,7 @@ paginate PaginationParams{..} rawResultSet =
                                , metaPerPage = perPage
                                , metaTotalEntries = totalEntries
                                }
-        slice                  = take pp . drop ((cp - 1) * pp) . toList
+        slice                  = take pp . drop ((cp - 1) * pp)
     in (slice rawResultSet, metadata)
 
 

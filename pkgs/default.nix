@@ -44281,11 +44281,7 @@ inherit (pkgs) which;};
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-<<<<<<< 3de079f82d34aeb8ec58692c829ab807ada9e19d
       cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, generics-sop, hspec, http-api-data, http-client, http-types, insert-ordered-containers, json-sop, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, template-haskell, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
-=======
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-crypto, cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, generics-sop, hspec, http-api-data, http-client, http-types, insert-ordered-containers, json-sop, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, template-haskell, text, text-format, time, time-units, transformers, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
->>>>>>> [CSL-1949] Fix `HasServer` instance (#2103)
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -44312,6 +44308,7 @@ inherit (pkgs) which;};
             http-api-data
             http-client
             http-types
+            ixset-typed
             json-sop
             lens
             memory
@@ -44324,6 +44321,7 @@ inherit (pkgs) which;};
             servant-client
             servant-quickcheck
             servant-server
+            string-conv
             template-haskell
             text
             text-format
@@ -44332,6 +44330,7 @@ inherit (pkgs) which;};
             universum
             unordered-containers
             vector
+            wai
             warp
           ];
           executableHaskellDepends = [
@@ -44355,6 +44354,7 @@ inherit (pkgs) which;};
             http-api-data
             http-types
             insert-ordered-containers
+            ixset-typed
             lens
             log-warper
             memory
@@ -46633,6 +46633,24 @@ inherit (pkgs) which;};
           doCheck = false;
           homepage = "http://www.mew.org/~kazu/proj/iproute/";
           description = "IP Routing Table";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      ixset-typed = callPackage ({ base, containers, deepseq, mkDerivation, safecopy, stdenv, syb, template-haskell }:
+      mkDerivation {
+          pname = "ixset-typed";
+          version = "0.3.1.1";
+          sha256 = "d06b466c2cc56df15035d0b79f3a3eb6e7d39d878ae27dea3a7fbb9c78addc12";
+          libraryHaskellDepends = [
+            base
+            containers
+            deepseq
+            safecopy
+            syb
+            template-haskell
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "Efficient relational queries on Haskell sets";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       jailbreak-cabal = callPackage ({ Cabal, base, mkDerivation, stdenv }:

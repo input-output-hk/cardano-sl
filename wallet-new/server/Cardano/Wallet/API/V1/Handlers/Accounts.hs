@@ -7,12 +7,15 @@ import           Universum
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.API.V1.Migration
+import           Cardano.Wallet.API.V1.Types
+import qualified Data.IxSet.Typed as IxSet
 
+import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Account as V0
+import qualified Pos.Wallet.Web.Tracking as V0
 import           Servant
 
 handlers
@@ -42,7 +45,9 @@ listAccounts
     => WalletId -> RequestParams -> m (WalletResponse [Account])
 listAccounts wId params =
     let accounts = migrate wId >>= V0.getAccounts . Just >>= migrate @[V0.CAccount] @[Account]
-    in respondWith params (const accounts)
+    in respondWith params (NoFilters :: FilterOperations Account)
+                          (NoSorts :: SortOperations Account)
+                          (IxSet.fromList <$> accounts)
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)

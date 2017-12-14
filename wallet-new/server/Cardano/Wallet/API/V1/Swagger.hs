@@ -11,13 +11,16 @@ module Cardano.Wallet.API.V1.Swagger where
 import           Universum
 
 import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -36,7 +39,6 @@ import qualified Data.Swagger as S
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
-import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
 import           Servant.Swagger
@@ -125,23 +127,9 @@ class (ToJSON a, Typeable a, Example a) => ToDocs a where
   readOnlyFields :: proxy a -> Set T.Text
   readOnlyFields _ = mempty
 
--- | Shamelessly copied from:
--- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>
--- The idea is to extend `KnownSymbol` to a type-level list, so that it's possibly to reify at the value-level
--- a `'[Symbol]` into a `[String]`.
-class KnownSymbols (xs :: [Symbol]) where
-  symbolVals :: proxy xs -> [String]
-
 --
 -- Instances
 --
-
-instance KnownSymbols ('[]) where
-  symbolVals _ = []
-
-instance (KnownSymbol a, KnownSymbols as) => KnownSymbols (a ': as) where
-  symbolVals _ =
-    symbolVal (Proxy :: Proxy a) : symbolVals (Proxy :: Proxy as)
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where
@@ -157,6 +145,57 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
+instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (FilterBy syms res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+            allOps     = map toText $ symbolVals (Proxy @syms)
+        in swgr & over (operationsOf swgr . parameters) (addFilterOperations allOps)
+          where
+            addFilterOperations :: [Text] -> [Referenced Param] -> [Referenced Param]
+            addFilterOperations ops xs = map (Inline . newParam) ops <> xs
+
+            newParam :: Text -> Param
+            newParam opName =
+                let typeOfRes = fromString $ show $ typeRep (Proxy @ res)
+                in Param {
+                  _paramName = opName
+                , _paramRequired = Nothing
+                , _paramDescription = Just $ "A **FILTER** operation on a " <> typeOfRes <> "."
+                , _paramSchema = ParamOther ParamOtherSchema {
+                         _paramOtherSchemaIn = ParamQuery
+                       , _paramOtherSchemaAllowEmptyValue = Nothing
+                       , _paramOtherSchemaParamSchema = mempty
+                       }
+                }
+
+instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (SortBy syms res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+        in swgr & over (operationsOf swgr . parameters) addSortOperation
+          where
+            addSortOperation :: [Referenced Param] -> [Referenced Param]
+            addSortOperation xs = (Inline newParam) : xs
+
+            newParam :: Param
+            newParam =
+                let typeOfRes = fromString $ show $ typeRep (Proxy @ res)
+                    allowedKeys = T.intercalate "," (map toText $ symbolVals (Proxy @syms))
+                in Param {
+                  _paramName = "sort_by"
+                , _paramRequired = Just False
+                , _paramDescription = Just (sortDescription typeOfRes allowedKeys)
+                , _paramSchema = ParamOther ParamOtherSchema {
+                         _paramOtherSchemaIn = ParamQuery
+                       , _paramOtherSchemaAllowEmptyValue = Just True
+                       , _paramOtherSchemaParamSchema = mempty
+                       }
+                }
+
+sortDescription :: Text -> Text -> Text
+sortDescription resource allowedKeys = [text|
+A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
+|]
+
 instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @(WithWalletRequestParams subApi))
@@ -164,7 +203,9 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
           where
             toDescription :: Referenced Param -> Referenced Param
             toDescription (Inline p@(_paramName -> pName)) =
-              Inline (p & description .~ M.lookup pName requestParameterToDescription)
+                case M.lookup pName requestParameterToDescription of
+                    Nothing -> Inline p
+                    Just d  -> Inline (p & description .~ Just d)
             toDescription x = x
 
 requestParameterToDescription :: Map T.Text T.Text
@@ -365,7 +406,7 @@ This is the specification for the Cardano Wallet API, automatically generated
 as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
 of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-### Request format (all versions)
+## Request format (all versions)
 
 Issuing requests against this API is conceptually not very different from any other web service out there. The API
 is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_
@@ -382,7 +423,7 @@ This means that _omitting_ the version number would call the old version of the 
 
 Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
 
-### Response format (V1 onwards)
+## Response format (V1 onwards)
 
 **All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is
 the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
@@ -403,7 +444,32 @@ This is an example of a typical (successful) response from the API:
 $deWalletResponseExample
 ```
 
-### Dealing with errors (V1 onwards)
+## Filtering and sorting
+
+`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked
+in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
+
+### Filter operators
+
+| Operator | Description                                                               | Example                |
+|----------|---------------------------------------------------------------------------|------------------------|
+| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |
+| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |
+| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |
+| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |
+| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |
+| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |
+| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
+
+### Sort operators
+
+| Operator | Description                                                               | Example                |
+|----------|---------------------------------------------------------------------------|------------------------|
+| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |
+| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |
+| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |
+
+## Dealing with errors (V1 onwards)
 
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
 [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
@@ -455,5 +521,5 @@ api = toSwagger walletAPI
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
   where
-    makeRow err = [surroundedBy "_" err, "-", "-"]
+    makeRow err = [surroundedBy "`" err, "-", "-"]
     surroundedBy wrap context = wrap <> context <> wrap

@@ -112,7 +112,6 @@ There are five possible states for Update proposal:
 
 * **Active**  
 When an update proposal gets into the blockchain within some block, it becomes _active_.
-
 Though the proposal is committed to the blockchain, 
 stakeholders are still to be decide whether to approve or to reject this proposal.
 So, a poll is active and stakeholders' votes which get into the blockchain affect the decision.
@@ -120,26 +119,22 @@ So, a poll is active and stakeholders' votes which get into the blockchain affec
 * **Approved**  
 If a decision about proposal has been made positively following one of two rules [mentioned above](#poll-and-decision-agreement-rules),
 the proposal becomes **approved**.
-
 _Approved_ proposal may become _active_ or even _rejected_ if rollback occurs.
 
 * **Rejected**  
 If a decision about proposal has been made negatively, the proposal becomes **rejected**.
-
 _Rejected_ proposal may become _active_ or even _approved_ if block rollback occurs
-(and poll ended with positive decision on alternative branch).
+and poll ended with positive decision on alternative branch.
 
 * **Confirmed**  
 If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **confirmed**.
-
 _Confirmed_ state reflects the fact that _approved_ state cannot be changed anymore 
 because we have guarantee that at most `k` blocks may be rolled back.
 
 * **Discarded**  
 If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **discarded**.
-
 _Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.
 If a proposal is discarded then it doesn't affect consensus rules anymore and it's safe to evict it out of consideration/storages.
 
@@ -161,7 +156,12 @@ A soft fork proposes modifying blockchain consensus rules so that the new versio
 * A **hard fork** is a fork that makes previously invalid blocks valid.
 Soft forks have some deployment advantages like backward compatibility, and they don’t require everyone’s consensus, as the stake majority of users can impose the new rules. By contrast, hard forks require all users to upgrade.
 
-In theory, a hard fork may lead to a situation when a network splits into two parts, each maintaining a separate chain: one from the nodes that adopted the latest system update, and another from the nodes that rejected to do that. This means some blocks from the first part are considered invalid by the other part, and vice versa.
+In theory, a hard fork may lead to a situation when a network splits into two parts, each maintaining a separate chain: 
+
+ * one from the nodes that adopted the latest system update
+ * another from the nodes that rejected to adopt the latest system update
+
+This means some blocks from the first part are considered invalid by the other part, and vice versa.
 
 ### Block version
 
@@ -189,16 +189,17 @@ Block version is also often referred to as **protocol version**.
 
 Cardano SL supports number of constants associated with block version.
 
-Protocol constants provide us with more freedom to express protocol updates via softforks (i.e. without need for hardforks).
-Clients which run old version of protocol will be able to follow and validate blockchain without being update if for instance:
+Protocol constants provide us more freedom to express protocol updates via softforks (i.e. without need for hardforks).
+
+Clients which run old version of protocol will be able to follow the blockchain (i.e. validate new blocks) without being updated even if protocol changed in following ways:
  
- * We change block size limit
- * We change slot duration
- * We change fee policy
+ * Block size limit changed
+ * Slot duration changed
+ * Transaction fee policy changed
 
-(Without protocol constants mechanism all these changes would definetely introduce a hard fork).
+Without protocol constants mechanism all these changes would definetely require a hard fork.
 
-If update proposal introduces a protocol update, it may also change some of protocol constant, providing new values via `BlockVersionModifier` field of the update proposal:
+If some update proposal introduces a protocol update, it may also change some of protocol constants, providing new values via `BlockVersionModifier` field of the update proposal:
 
 ```
 data BlockVersionModifier = BlockVersionModifier
@@ -240,7 +241,10 @@ At any point in time, only one version is considered *adopted* by blockchain. Th
 Block version is called **competing** if it may become adopted and 
 there is a confirmed proposal with this block version.
 
-When some block version becomes *adopted*, all other *competing* block versions are never to become *adopted*.
+When some block version becomes *adopted*, all other *competing* block versions with same `(Maj, Min)` are never to become *adopted*.
+
+Being more precise, if version `(Maj, Min, Alt)` is adopted:
+* TODO <finish sentence> 
 
 Note, that at any point in time all *competing* block versions have same major and minor versions (i.e. differ only in alt version).
 

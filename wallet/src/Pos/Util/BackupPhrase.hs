@@ -51,11 +51,11 @@ arbitraryMnemonic len = do
 
 -- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhrasePaperVend where
-    arbitrary = either error identity <$> arbitraryMnemonic 96
+    arbitrary = either error identity <$> arbitraryMnemonic 12
 
 -- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhraseNormal where
-    arbitrary = either error identity <$> arbitraryMnemonic 128
+    arbitrary = either error identity <$> arbitraryMnemonic 16
 
 instance Show (BackupPhrase a) where
     show _ = "<backup phrase>"

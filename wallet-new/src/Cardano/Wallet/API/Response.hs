@@ -7,21 +7,31 @@ module Cardano.Wallet.API.Response (
   , respondWith
   -- * Generating responses for single resources
   , single
+  , ValidJSON
   ) where
 
 import           Prelude
+import           Universum (decodeUtf8, toText)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Data.Aeson
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
-import qualified Data.Char as Char
-import           Data.Foldable
+import           Data.Typeable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..))
 import           Test.QuickCheck
 
+import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
                                                         PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
+import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
+import           Cardano.Wallet.API.V1.Errors (WalletError (JSONValidationFailed))
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -33,17 +43,6 @@ deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> arbitrary
-
-data ResponseStatus =
-      SuccessStatus
-    | FailStatus
-    | ErrorStatus
-    deriving (Show, Eq, Ord, Enum, Bounded)
-
-deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
-
-instance Arbitrary ResponseStatus where
-    arbitrary = elements [minBound .. maxBound]
 
 -- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
@@ -66,8 +65,8 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
 --
 -- 1. Query/Filtering operations (affects the number of total entries for pagination);
--- 2. Pagination
--- 3. Sorting operations
+-- 2. Sorting operations
+-- 3. Pagination
 --
 -- See also <https://specs.openstack.org/openstack/api-wg/guidelines/pagination_filter_sort.html this document>, which
 -- states:
@@ -75,23 +74,28 @@ instance Arbitrary a => Arbitrary (WalletResponse a) where
 -- to be no matches in the first page of results, and returning an empty page is a poor API when the user explicitly
 -- requested a number of results."
 --
--- TODO(adinapoli): Sorting & filtering to be provided by CSL-2016.
-respondWith :: (Foldable f, Monad m)
+-- NOTE: We have chosen have an approach such that we are sorting the whole dataset after filtering and using
+-- lazyness to avoid work. This might not be optimal in terms of performances and we might need to swap sorting
+-- and pagination.
+--
+respondWith :: (Monad m, Indexable' a)
             => RequestParams
-            -> (RequestParams -> m (f a))
-            -- ^ A callback-style function which, given the full set of `RequestParams`
-            -- produces some form of results in some 'Monad' @m@.
+            -> FilterOperations a
+            -- ^ Filtering operations to perform on the data.
+            -> SortOperations a
+            -- ^ Sorting operations to perform on the data.
+            -> m (IxSet' a)
+            -- ^ The monadic action which produces the results.
             -> m (WalletResponse [a])
-respondWith params@RequestParams{..} generator = do
-    (theData, paginationMetadata) <- paginate rpPaginationParams <$> generator params
+respondWith RequestParams{..} fops sorts generator = do
+    (theData, paginationMetadata) <- paginate rpPaginationParams . sortData sorts . applyFilters fops <$> generator
     return $ WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus
            , wrMeta = Metadata paginationMetadata
            }
 
-
-paginate :: Foldable f => PaginationParams -> f a -> ([a], PaginationMetadata)
+paginate :: PaginationParams -> [a] -> ([a], PaginationMetadata)
 paginate PaginationParams{..} rawResultSet =
     let totalEntries = length rawResultSet
         perPage@(PerPage pp)   = ppPerPage
@@ -103,7 +107,7 @@ paginate PaginationParams{..} rawResultSet =
                                , metaPerPage = perPage
                                , metaTotalEntries = totalEntries
                                }
-        slice                  = take pp . drop ((cp - 1) * pp) . toList
+        slice                  = take pp . drop ((cp - 1) * pp)
     in (slice rawResultSet, metadata)
 
 
@@ -114,3 +118,20 @@ single theData = WalletResponse {
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
     }
+
+--
+-- Creating a better user experience when it comes to errors.
+--
+
+data ValidJSON deriving Typeable
+
+instance FromJSON a => MimeUnrender ValidJSON a where
+    mimeUnrender _ bs = case eitherDecode bs of
+        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
+        Right v  -> return v
+
+instance Accept ValidJSON where
+    contentType _ = contentType (Proxy @ JSON)
+
+instance ToJSON a => MimeRender ValidJSON a where
+    mimeRender _ = mimeRender (Proxy @ JSON)

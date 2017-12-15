@@ -4,14 +4,21 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
+                                                  migrate)
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
-import           Cardano.Wallet.API.V1.Migration (MonadV1, HasConfigurations, HasCompileInfo, migrate)
+import qualified Pos.Wallet.Web.Methods.Payment as V0
+import qualified Pos.Wallet.Web.Methods.Txp as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+import qualified Data.IxSet.Typed as IxSet
 
+import           Data.Default
+import qualified Data.List.NonEmpty as NE
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
 
@@ -24,8 +31,17 @@ handlers = newTransaction
         :<|> allTransactions
         :<|> estimateFees
 
-newTransaction :: Payment -> MonadV1 (WalletResponse Transaction)
-newTransaction _ = single <$> (liftIO $ generate arbitrary)
+newTransaction
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Payment -> m (WalletResponse Transaction)
+newTransaction Payment {..} = do
+    let spendingPw = fromMaybe mempty pmtSpendingPassword
+    cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
+    addrCoinList <- migrate $ NE.toList pmtDestinations
+    policy <- migrate $ fromMaybe def pmtGroupingPolicy
+    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    cTx <- V0.newPaymentBatch spendingPw batchPayment
+    single <$> migrate cTx
 
 -- | The conclusion is that we want just the walletId for now, the details
 -- in CSL-1917.
@@ -41,8 +57,9 @@ allTransactions walletId requestParams = do
     let transactions :: m [Transaction]
         transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
 
-    respondWith requestParams (const transactions)
+    respondWith requestParams (NoFilters :: FilterOperations Transaction)
+                              (NoSorts :: SortOperations Transaction)
+                              (IxSet.fromList <$> transactions)
 
 estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
-estimateFees _ = single <$> (liftIO $ generate arbitrary)
-
+estimateFees _ = single <$> liftIO (generate arbitrary)

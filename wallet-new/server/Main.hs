@@ -32,7 +32,8 @@ import           System.Wlog (LoggerName, logInfo)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (WalletBackendParams (..), WalletDBOptions (..),
-                                            WalletStartupOptions (..), getWalletNodeOptions)
+                                            WalletStartupOptions (..), getWalletNodeOptions,
+                                            isDebugMode)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import qualified Pos.Client.CLI as CLI
 
@@ -130,9 +131,11 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams loggerName wsoNodeArgs
         conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
+    when (isDebugMode $ walletRunMode wsoWalletBackendParams) .
+        loggerBracket loggingParams . withConfigurations conf $
+            generateSwaggerDocumentation
     loggerBracket loggingParams . runProduction $ do
         withConfigurations conf $ do
-            liftIO generateSwaggerDocumentation
             CLI.printFlags
             logInfo "[Attention] Software is built with the wallet backend"
             startEdgeNode cfg

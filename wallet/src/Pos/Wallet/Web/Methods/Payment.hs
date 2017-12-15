@@ -12,9 +12,11 @@ import           Universum
 
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
+import           Data.Time.Units                  (Second)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
-import           System.Wlog                      (logInfo)
+import           Mockable                         (concurrently, delay)
+import           System.Wlog                      (logDebug, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -48,13 +50,13 @@ import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
+                                                   convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds,
-                                                   getWalletAddrsSet)
+                                                   getWalletAccountIds, getWalletAddrsSet)
 
 newPayment
     :: MonadWalletWebMode m
@@ -65,11 +67,14 @@ newPayment
     -> Coin
     -> m CTx
 newPayment sa passphrase srcAccount dstAccount coin =
+    notFasterThan (1 :: Second) $  -- in order not to overflow relay
     sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
+  where
+    notFasterThan time action = fst <$> concurrently action (delay time)
 
 getTxFee
      :: MonadWalletWebMode m
@@ -149,11 +154,17 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 
+    logDebug "sendMoney: start retrieving addrs"
+
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
+    logDebug "sendMoney: retrieved addrs"
 
-    srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
+    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+
+    logDebug "sendMoney: processed addrs"
+
     let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
     allSecrets <- getSecretKeys
 
@@ -169,8 +180,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     outputs <- coinDistrToOutputs dstDistr
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
+            logDebug "sendMoney: we're to prepareMTx"
             (txAux, inpTxOuts') <-
                 prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
+            logDebug "sendMoney: performed prepareMTx"
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux
@@ -181,6 +194,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
                 th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
             ptx <- mkPendingTx srcWallet txHash txAux th
 
+            logDebug "sendMoney: performed mkPendingTx"
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
     logInfo $

@@ -2839,8 +2839,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "0y566r97sfyvhsmd4yxiz4ns2mqgwf5bdbp56wgxl6wlkidq0wwi";
-          revision = "1";
-          editedCabalFile = "0hsq03i0qa0jvw7kaaqic40zvfkzhkd25dgvbdg6hjzylf1k1gax";
+          revision = "2";
+          editedCabalFile = "02j27xvlj0jw3b2jpfg6wbysj0blllin792wj6qnrgnrvd4haj7v";
           setupHaskellDepends = [
             base
             Cabal
@@ -5691,8 +5691,8 @@ self: {
           pname = "semigroupoids";
           version = "5.2.1";
           sha256 = "006jys6kvckkmbnhf4jc51sh64hamkz464mr8ciiakybrfvixr3r";
-          revision = "2";
-          editedCabalFile = "049j2jl6f5mxqnavi1aadx37j4bk5xksvkxsl43hp4rg7n53p11z";
+          revision = "3";
+          editedCabalFile = "0wzcnpz8pyjk823vqnq5s8krsb8i6cw573hcschpd9x5ynq4li70";
           setupHaskellDepends = [
             base
             Cabal

@@ -16,6 +16,7 @@ import           Universum
 
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
+import qualified Data.Foldable                    as Foldable
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
@@ -106,27 +107,34 @@ makeLensesWith postfixLFields ''WalletWebModeContext
 instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
     lensOf = wwmcHashes_L
 
-cIdToAddress' :: (MonadWalletWebMode m) => CId w -> m Address
-cIdToAddress' = either (throwM . DecodeError) pure . cIdToAddress
-
 convertCIdTOAddr :: (MonadWalletWebMode m) => CId Addr -> m Address
 convertCIdTOAddr i@(CId id) = do
     hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    hm <- liftIO $ readIORef hmRef
-    case id `M.lookup` hm of
-       Just addr -> return addr
-       _ -> cIdToAddress' i >>= \addr ->
-            liftIO (modifyIORef' hmRef (M.insert id addr)) $> addr
+    maddr <- atomicModifyIORef' hmRef $ \hm ->
+      case id `M.lookup` hm of
+       Just addr -> (hm, Right addr)
+       _         -> case cIdToAddress i of
+                    -- decoding can fail, but we don't cache failures
+                      Right addr -> (M.insert id addr hm, Right addr)
+                      Left  err  -> (hm,                  Left err)
+    either (throwM . DecodeError) pure maddr
 
 convertCIdTOAddrs :: (MonadWalletWebMode m, Traversable t) => t (CId Addr) -> m (t Address)
 convertCIdTOAddrs cids = do
     hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    hm <- liftIO $ readIORef hmRef
-    forM cids $ \i@(CId id) -> do
-        case id `M.lookup` hm of
-           Just addr -> return addr
-           _ -> cIdToAddress' i >>= \addr ->
-                    liftIO (modifyIORef' hmRef (M.insert id addr)) $> addr
+    maddrs <- atomicModifyIORef' hmRef $ \hm ->
+      let lookups = map (\cid@(CId h) -> (h, M.lookup h hm, cIdToAddress cid)) cids
+          hm'     = Foldable.foldl' accum hm lookups
+
+          accum m (cid, Nothing, Right addr) = M.insert cid addr m
+          accum m _                          = m
+
+          result (_, Just addr, _)   = Right addr
+          result (_, Nothing, maddr) = maddr
+
+       in (hm', map result lookups)
+
+    mapM (either (throwM . DecodeError) pure) maddrs
 
 instance HasSscContext WalletSscType WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext

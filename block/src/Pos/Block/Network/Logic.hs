@@ -115,8 +115,8 @@ triggerRecovery enqueue = unlessM recoveryInProgress $ do
            throwM e
     logDebug "Finished requesting tips for recovery"
 
-requestTipOuts :: BlockInstancesConstraint => OutSpecs
-requestTipOuts =
+requestTipOuts :: BlockInstancesConstraint m => Proxy m -> OutSpecs
+requestTipOuts _ =
     toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
                        (Proxy :: Proxy MsgHeaders) ]
 

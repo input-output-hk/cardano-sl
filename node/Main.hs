@@ -18,7 +18,6 @@ import           System.Wlog (LoggerName, logInfo)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs, WorkerSpec)
 import           Pos.Core (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
@@ -26,7 +25,6 @@ import           Pos.Ssc.Types (SscParams)
 import           Pos.Update (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 loggerName :: LoggerName
 loggerName = "node"
@@ -39,10 +37,7 @@ actionWithoutWallet
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal nodeParams sscParams plugins
-  where
-    plugins :: ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs)
-    plugins = updateTriggerWorker
+    runNodeReal nodeParams sscParams updateTriggerWorker
 
 action
     :: ( HasConfigurations

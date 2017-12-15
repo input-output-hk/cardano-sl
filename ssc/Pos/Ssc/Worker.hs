@@ -67,7 +67,7 @@ import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers
-  :: (SscMessageConstraints, SscMode ctx m)
+  :: (SscMessageConstraints m, SscMode ctx m)
   => ([WorkerSpec m], OutSpecs)
 sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
   where
@@ -89,7 +89,7 @@ shouldParticipate epoch = do
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
@@ -113,7 +113,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
     :: forall ctx m.
-       (SscMessageConstraints, SscMode ctx m)
+       (SscMessageConstraints m, SscMode ctx m)
     => Worker m
 checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
@@ -168,7 +168,7 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => SlotId -> Worker m
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
@@ -205,7 +205,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => SscOpeningParams -> SlotId -> Worker m
 onNewSlotOpening params SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
@@ -236,7 +236,7 @@ onNewSlotOpening params SlotId {..} sendActions
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => SscSharesParams -> SlotId -> Worker m
 onNewSlotShares params SlotId {..} sendActions = do
     ourId <- getOurStakeholderId

@@ -1,7 +1,7 @@
 -- | Common definitions for peer discovery and subscription workers.
 
 
-module Pos.Subscription.Common
+module Pos.Diffusion.Subscription.Common
     ( SubscriptionMode
     , SubscriptionTerminationReason (..)
     , subscribeTo
@@ -14,8 +14,9 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum hiding (bracket)
 
+import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Bracket, Catch, Mockable, Throw, bracket, try)
+import           Mockable (Bracket, Catch, Mockable, Throw, Delay, delay, bracket, try)
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
@@ -27,9 +28,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              OutSpecs, SendActions, Worker, WorkerSpec,
                                              constantListeners, convH, toOutSpecs, withConnectionTo,
                                              worker)
-import           Pos.KnownPeers (MonadKnownPeers (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
-import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -37,7 +36,7 @@ type SubscriptionMode m =
     , Mockable Throw m
     , Mockable Catch m
     , Mockable Bracket m
-    , MonadKnownPeers m
+    , Mockable Delay m
     , Message MsgSubscribe
     , MessageLimited MsgSubscribe m
     , Bi MsgSubscribe
@@ -55,15 +54,14 @@ data SubscriptionTerminationReason =
 -- giving the reason. Notices will be logged before and after the subscription.
 subscribeTo
     :: forall m. (SubscriptionMode m)
-    => Timer -> SendActions m -> NodeId -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer sendActions peer = do
+    => m Millisecond -> SendActions m -> NodeId -> m SubscriptionTerminationReason
+subscribeTo keepAliveDelay sendActions peer = do
     logNotice $ msgSubscribingTo peer
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> do
         pure $ Conversation $ \(conv :: ConversationActions MsgSubscribe Void m) -> do
             send conv MsgSubscribe
             forever $ do
-                startTimer keepAliveTimer
-                atomically $ waitTimer keepAliveTimer
+                keepAliveDelay >>= delay
                 logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
                                     peer
                 send conv MsgSubscribeKeepAlive
@@ -91,9 +89,9 @@ subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId 
         Just MsgSubscribe -> do
             let peers = simplePeers [(nodeType, nodeId)]
             bracket
-              (updatePeersBucket BucketSubscriptionListener (<> peers))
+              (OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
               (\added -> when added $
-                void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+                void $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId))
               (\added -> when added . fix $ \loop -> recvLimited conv >>= \case
                   Just MsgSubscribeKeepAlive -> do
                       logDebug $ sformat

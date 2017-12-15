@@ -35,14 +35,14 @@ data Relay m where
       , Message (ReqMsg key)
       , Message (ReqOrRes key)
       , Message (InvOrData key contents)
-      , MessageLimited (DataMsg contents)
+      , MessageLimited (DataMsg contents) m
       ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m
   Data ::
       ( Buildable contents
       , Typeable contents
       , Bi (DataMsg contents)
       , Message (DataMsg contents)
-      , MessageLimited (DataMsg contents)
+      , MessageLimited (DataMsg contents) m
       ) => DataParams contents m -> Relay m
 
 data MempoolParams m where

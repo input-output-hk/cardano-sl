@@ -6,6 +6,7 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
@@ -23,6 +24,7 @@ import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsen
 -- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
 -- ```
 -- {
+--     "status": "error"
 --     "message" : <constr_name>,
 --     "diagnostic" : <data>
 -- }
@@ -49,6 +51,7 @@ data WalletError =
     | OutputIsRedeem { weAddress :: !Text }
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
+    | JSONValidationFailed { weValidationError :: !Text }
     | WalletNotFound
     deriving (Show, Eq)
 
@@ -59,7 +62,7 @@ data WalletError =
 deriveGeneric ''WalletError
 
 instance ToJSON WalletError where
-    toJSON = gtoJsend
+    toJSON = gtoJsend ErrorStatus
 
 instance FromJSON WalletError where
     parseJSON = gparseJsend
@@ -73,6 +76,7 @@ instance Arbitrary WalletError where
         , OutputIsRedeem <$> pure "address"
         , SomeOtherError <$> pure "blah" <*> arbitrary
         , MigrationFailed <$> pure "migration"
+        , JSONValidationFailed <$> pure "Expected String, found Null."
         , pure WalletNotFound
         ]
 
@@ -88,11 +92,12 @@ allErrorsList = gconsNames (Proxy :: Proxy WalletError)
 -- `WalletError`.
 -- Note: current choices of particular errors are debatable
 walletHTTPError :: WalletError -> ServantErr
-walletHTTPError NotEnoughMoney{}  = err403 -- <https://httpstatuses.com/403 403> Forbidden
-walletHTTPError OutputIsRedeem{}  = err403
-walletHTTPError SomeOtherError{}  = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
-walletHTTPError MigrationFailed{} = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
-walletHTTPError WalletNotFound    = err404 -- <https://httpstatuses.com/404 404> NotFound
+walletHTTPError NotEnoughMoney{}       = err403 -- <https://httpstatuses.com/403 403> Forbidden
+walletHTTPError OutputIsRedeem{}       = err403
+walletHTTPError SomeOtherError{}       = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
+walletHTTPError MigrationFailed{}      = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
+walletHTTPError JSONValidationFailed{} = err400 -- <https://httpstatuses.com/400 400> Bad Request
+walletHTTPError WalletNotFound         = err404 -- <https://httpstatuses.com/404 404> NotFound
 
 -- | "Hoist" the given 'Wallet' error into a 'ServantError',
 -- returning as the response body the encoded JSON representation

@@ -59,6 +59,7 @@ import           Universum
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as C
+import           Data.Default
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           GHC.Generics (Generic)
@@ -308,6 +309,9 @@ instance Arbitrary TransactionGroupingPolicy where
 -- Drops the @Policy@ suffix.
 deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
 
+instance Default TransactionGroupingPolicy where
+    def = OptimiseForSecurityPolicy
+
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
   { pmtSourceWallet   :: !WalletId
@@ -318,12 +322,15 @@ data Payment = Payment
     -- ^ The destinations for this payment.
   , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
+  , pmtSpendingPassword :: !(Maybe SpendingPassword)
+    -- ^ spending password to encrypt private keys
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
 
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
+                      <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary

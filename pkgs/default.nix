@@ -2615,9 +2615,11 @@ self: {
           isExecutable = true;
           libraryHaskellDepends = [
             aeson
+            aeson-pretty
             base
             bytestring
             cardano-sl
+            cardano-sl-client
             cardano-sl-core
             cardano-sl-crypto
             cardano-sl-infra
@@ -2730,6 +2732,7 @@ self: {
             http-client
             http-types
             insert-ordered-containers
+            ixset-typed
             lens
             memory
             neat-interpolation

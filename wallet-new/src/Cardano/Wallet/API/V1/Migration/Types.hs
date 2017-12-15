@@ -8,12 +8,13 @@ module Cardano.Wallet.API.V1.Migration.Types (
 
 import           Universum
 
-import           Data.List.NonEmpty (fromList)
+import qualified Data.List.NonEmpty as NE
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
@@ -41,7 +42,7 @@ instance Migrate from to => Migrate [from] [to] where
 
 -- | Migration from list to NonEmpty, as suggested by @akegalj.
 instance Migrate from to => Migrate [from] (NonEmpty to) where
-  eitherMigrate a = fromList <$> mapM eitherMigrate a
+  eitherMigrate a = NE.fromList <$> mapM eitherMigrate a
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =
@@ -129,6 +130,10 @@ instance Migrate (V1.WalletId, V1.AccountId) V0.AccountId where
     eitherMigrate (walId, accId) =
         V0.AccountId <$> eitherMigrate walId <*> pure accId
 
+instance Migrate (V1.WalletId, V1.AccountId) V0.CAccountId where
+    eitherMigrate (walId, accId) =
+        V0.encodeCType <$> eitherMigrate (walId, accId)
+
 instance Migrate V0.AccountId (V1.WalletId, V1.AccountId) where
     eitherMigrate accId =
         (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
@@ -153,10 +158,6 @@ instance Migrate V0.CAddress Core.Address where
           first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
               $ V0.decodeCType cadId
 
-----------------------------------------------------------------------------
--- Transactions
-----------------------------------------------------------------------------
-
 instance Migrate (V0.CId V0.Addr) Core.Address where
     eitherMigrate (V0.CId (V0.CHash h)) =
         first (const $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
@@ -167,6 +168,10 @@ instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
         pdAddress <- eitherMigrate cIdAddr
         pdAmount  <- eitherMigrate cCoin
         pure $ V1.PaymentDistribution {..}
+
+instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, Core.Coin) where
+    eitherMigrate V1.PaymentDistribution {..} =
+        pure (V0.encodeCType pdAddress, pdAmount)
 
 instance Migrate V0.CTxId V1.TxId where
     eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
@@ -194,3 +199,9 @@ instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] wher
     eitherMigrate txsMapAndSize = do
         let txsMapValues = elems . fst $ txsMapAndSize
         mapM (eitherMigrate . fst) txsMapValues
+
+instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
+    eitherMigrate policy =
+        pure $ case policy of
+                  V1.OptimiseForSizePolicy -> V0.OptimizeForSize
+                  V1.OptimiseForSecurityPolicy -> V0.OptimizeForSecurity

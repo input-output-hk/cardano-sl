@@ -13,7 +13,7 @@ import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema
                                defaultSchemaOptions, description, example, format,
                                genericDeclareNamedSchema, minItems, name, properties, required,
                                type_)
-import           Data.Swagger.Internal.Schema (named, paramSchemaToSchema, plain)
+import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)

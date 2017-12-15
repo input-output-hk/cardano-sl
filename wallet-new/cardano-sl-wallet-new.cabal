@@ -148,6 +148,7 @@ executable wallet-new-server
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-client
                      , cardano-sl-util
                      , cardano-sl-update
                      , cardano-sl-infra
@@ -259,6 +260,7 @@ test-suite wallet-new-specs
                       , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
+                      , cardano-sl-client
                       , cardano-sl-util
                       , cardano-sl-update
                       , cardano-sl-infra

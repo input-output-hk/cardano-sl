@@ -4,6 +4,8 @@ import           Universum
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
+
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase)
@@ -14,8 +16,24 @@ class Arbitrary a => Example a where
     example :: Gen a
     example = arbitrary
 
+instance Example ()
+instance Example a => Example (NonEmpty a)
+
+-- NOTE: we don't want to see empty list examples in our swagger doc :)
+instance Example a => Example [a] where
+    example = listOf1 example
+
+-- NOTE: we don't want to see "null" examples in our swagger doc :)
+instance Example a => Example (Maybe a) where
+    example = Just <$> example
+
 instance Example Core.PassPhrase
 instance Example Core.Coin
+
+instance Example a => Example (WalletResponse a) where
+    example = WalletResponse <$> example
+                             <*> pure SuccessStatus
+                             <*> example
 
 instance Example Address
 instance Example Metadata
@@ -27,7 +45,6 @@ instance Example SyncProgress
 instance Example BlockchainHeight
 instance Example LocalTimeDifference
 instance Example PaymentDistribution
-instance Example TransactionGroupingPolicy
 instance Example AccountUpdate
 instance Example Wallet
 instance Example WalletUpdate
@@ -42,22 +59,11 @@ instance Example NewAccount
 instance Example AddressValidity
 instance Example NewAddress
 
+instance Example InputSelectionPolicy where
+    example = pure OptimizeForHighThroughput
 
-instance Example ()
-instance Example a => Example (NonEmpty a)
-
--- NOTE: we don't want to see empty list examples in our swagger doc :)
-instance Example a => Example [a] where
-    example = listOf1 example
-
--- NOTE: we don't want to see "null" examples in our swagger doc :)
-instance Example a => Example (Maybe a) where
-    example = Just <$> arbitrary
-
-instance Example a => Example (WalletResponse a) where
-    example = WalletResponse <$> example
-                             <*> pure SuccessStatus
-                             <*> example
+instance Example TransactionGroupingPolicy where
+    example = pure OptimiseForSizePolicy
 
 instance Example Account where
     example = Account <$> example

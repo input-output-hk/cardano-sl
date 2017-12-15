@@ -192,11 +192,15 @@ newAddress addGenSeed passphrase accId = do
     balAndUtxo <- WS.getWalletBalancesAndUtxo
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccountMod balAndUtxo accMod accId
+        parentExists <- WS.doesAccountExist accId
+        unless parentExists $ throwM noAccount
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress balAndUtxo accMod cAccAddr
+  where
+    noAccount =
+        RequestError $ sformat ("No account with id "%build%" found") accId
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m

@@ -20,6 +20,7 @@ module Pos.Wallet.Web.State.Storage
        , flushWalletStorage
        , getProfile
        , setProfile
+       , doesAccountExist
        , getAccountIds
        , getAccountMetas
        , getAccountMeta
@@ -214,6 +215,9 @@ getProfile = view wsProfile
 
 setProfile :: CProfile -> Update ()
 setProfile cProfile = wsProfile .= cProfile
+
+doesAccountExist :: AccountId -> Query Bool
+doesAccountExist accId = view $ wsAccountInfos . at accId . to isJust
 
 getAccountIds :: Query [AccountId]
 getAccountIds = HM.keys <$> view wsAccountInfos

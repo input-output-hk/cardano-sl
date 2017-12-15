@@ -22,7 +22,7 @@ import           System.Wlog                (WithLogger, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
-import           Pos.Client.Txp.History     (txHistoryListToMap, TxHistoryEntry (..))
+import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
 import           Pos.Util.Servant           (encodeCType)
@@ -31,19 +31,17 @@ import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficul
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
                                              CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMetas,
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrsSet,
-                                             getWalletAddrs)
-
+import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
+                                             getWalletAddrs, getWalletAddrsSet)
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
+    addrs <- getWalletAddrs Ever cWalId >>= convertCIdTOAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs
 

@@ -48,7 +48,8 @@ import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
+                                                   convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
@@ -155,7 +156,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         throwM (RequestError "Given money source has no addresses!")
     logDebug "sendMoney: retrieved addrs"
 
-    srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
+    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+
     logDebug "sendMoney: processed addrs"
 
     let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)

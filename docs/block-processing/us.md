@@ -66,7 +66,7 @@ Some software updates may also bring changes to protocol, see more information i
 Update payload is part of block body, containing some data related to update system.
 For more information on block's internals, please visit [page on Cardano Docs](https://cardanodocs.com/technical/blocks/#main-block).
 
-Update payload consists of at most one `UpdateProposal` and list of votes, it's reflected by the datatype:
+Update payload consists of at most one update proposal and list of votes, it's reflected by the datatype:
 ```
 data UpdatePayload = UpdatePayload
     { upProposal :: !(Maybe UpdateProposal)

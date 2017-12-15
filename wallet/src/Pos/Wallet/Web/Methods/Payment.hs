@@ -12,8 +12,10 @@ import           Universum
 
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
+import           Data.Time.Units                  (Second)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
+import           Mockable                         (concurrently, delay)
 import           System.Wlog                      (logDebug, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
@@ -65,11 +67,14 @@ newPayment
     -> Coin
     -> m CTx
 newPayment sa passphrase srcAccount dstAccount coin =
+    notFasterThan (1 :: Second) $  -- in order not to overflow relay
     sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
+  where
+    notFasterThan time action = fst <$> concurrently action (delay time)
 
 getTxFee
      :: MonadWalletWebMode m

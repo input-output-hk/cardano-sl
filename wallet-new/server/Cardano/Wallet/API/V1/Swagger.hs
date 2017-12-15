@@ -21,6 +21,8 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -406,6 +408,10 @@ This is the specification for the Cardano Wallet API, automatically generated
 as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
 of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
+Git revision: **$deGitRevision**
+Software version: **$deSoftwareVersion**
+
+
 ## Request format (all versions)
 
 Issuing requests against this API is conceptually not very different from any other web service out there. The API
@@ -506,9 +512,11 @@ data DescriptionEnvironment = DescriptionEnvironment {
   , deDefaultPerPage        :: !T.Text
   , deWalletResponseExample :: !T.Text
   , deWalletErrorTable      :: !T.Text
+  , deGitRevision           :: !T.Text
+  , deSoftwareVersion       :: !T.Text
   }
 
-api :: Swagger
+api :: (HasCompileInfo, HasUpdateConfiguration) => Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
@@ -518,6 +526,8 @@ api = toSwagger walletAPI
     , deDefaultPerPage = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
     , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
+    , deGitRevision = ctiGitRevision compileInfo
+    , deSoftwareVersion = fromString $ show curSoftwareVersion
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
   where

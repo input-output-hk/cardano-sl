@@ -113,13 +113,15 @@ Now run the following script:
 
 After that `daedalus-client-api` will be registered in the local NPM package repository. This way, at any time, `daedalus-client-api` dependency can be satisfied in any project that depends on it by manually running following command:
 
-    [nix-shell:~/cardano-sl]$ npm link daedalus-client-api
+    [nix-shell:~/cardano-sl]$ cd ./daedalus/
+    [nix-shell:~/cardano-sl/daedalus]$ npm link
+    [nix-shell:~/cardano-sl/daedalus]$ npm link daedalus-client-api
 
 ### Building Daedalus
 
 Clone Daedalus repository and go to the root directory:
 
-    [nix-shell:~/cardano-sl]$ cd
+    [nix-shell:~/cardano-sl/daedalus]$ cd
     [nix-shell:~]$ git clone https://github.com/input-output-hk/daedalus.git
     [nix-shell:~]$ cd daedalus
 

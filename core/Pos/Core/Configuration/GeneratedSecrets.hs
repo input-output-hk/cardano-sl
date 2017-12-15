@@ -15,8 +15,9 @@ import           Universum
 
 import           Data.Reflection (Given (..), give)
 
-import           Pos.Core.Genesis.Generate (GeneratedSecrets (..), RichSecrets (..))
-import           Pos.Crypto.Signing (EncryptedSecretKey, SecretKey, encToSecret)
+import           Pos.Core.Genesis.Generate (GeneratedSecrets (..), PoorSecret (..),
+                                            RichSecrets (..), poorSecretToKey)
+import           Pos.Crypto.Signing (SecretKey)
 
 -- | 'GeneratedSecrets' are known only when 'GenesisSpec' with
 -- 'TestnetInitializer' is used to specify genesis. That's why we have
@@ -32,7 +33,7 @@ generatedSecrets = given
 genesisSecretsRich :: HasGeneratedSecrets => Maybe [RichSecrets]
 genesisSecretsRich = gsRichSecrets <$> generatedSecrets
 
-genesisSecretsPoor :: HasGeneratedSecrets => Maybe [EncryptedSecretKey]
+genesisSecretsPoor :: HasGeneratedSecrets => Maybe [PoorSecret]
 genesisSecretsPoor = gsPoorSecrets <$> generatedSecrets
 
 genesisSecretKeys :: HasGeneratedSecrets => Maybe [SecretKey]
@@ -42,4 +43,4 @@ genesisSecretKeysRich :: HasGeneratedSecrets => Maybe [SecretKey]
 genesisSecretKeysRich = map rsPrimaryKey <$> genesisSecretsRich
 
 genesisSecretKeysPoor :: HasGeneratedSecrets => Maybe [SecretKey]
-genesisSecretKeysPoor = map encToSecret <$> genesisSecretsPoor
+genesisSecretKeysPoor = map poorSecretToKey <$> genesisSecretsPoor

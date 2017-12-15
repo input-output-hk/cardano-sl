@@ -23,6 +23,7 @@ import           System.Wlog (logDebug)
 
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
+import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (maybeThrow)
@@ -144,7 +145,7 @@ addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAll wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
-        key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
+        key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"

@@ -36,6 +36,7 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
 import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
@@ -102,6 +103,7 @@ importWallets
     => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
     let secrets =
+            map poorSecretToEncKey $
             fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)

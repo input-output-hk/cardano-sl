@@ -280,7 +280,11 @@
         },
         "Payment": {
             "example": {
+<<<<<<< HEAD
+                "sourceAccount": 1,
+=======
                 "sourceAccount": 2,
+>>>>>>> origin/feature/new-wallet
                 "groupingPolicy": "OptimiseForSize",
                 "destinations": [
                     {
@@ -1073,6 +1077,9 @@
             }
         },
         "InputSelectionPolicy": {
+            "example": {
+                "groupingPolicy": "OptimizeForSize"
+            },
             "type": "string",
             "enum": [
                 "OptimizeForSecurity",

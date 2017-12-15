@@ -109,4 +109,5 @@ needTriggerRecovery :: (MonadRecoveryInfo m, HasConfiguration) => m Bool
 needTriggerRecovery = getSyncStatusK <&> \case
     SSKindaSynced   -> False
     SSDoingRecovery -> False
+    SSInFuture{}    -> False
     _               -> True

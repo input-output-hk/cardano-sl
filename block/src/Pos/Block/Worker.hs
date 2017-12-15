@@ -16,7 +16,8 @@ import           Formatting (Format, bprint, build, fixed, int, now, sformat, sh
 import           Mockable (delay, fork)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
-import           System.Wlog (logDebug, logInfo, logNotice, logWarning)
+import           System.Random (randomRIO)
+import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
@@ -47,7 +48,8 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Recovery.Info (needTriggerRecovery, recoveryCommGuard)
+import           Pos.Recovery.Info (SyncStatus (..), getSyncStatus, needTriggerRecovery,
+                                    recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
@@ -219,9 +221,26 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     -- to initialize).
     delay $ sec 3
 
-    repeatOnInterval $ whenM needTriggerRecovery $ do
-        logNotice "Triggering recovery"
-        triggerRecovery enqueueMsg
+    repeatOnInterval $ do
+        doTrigger <- needTriggerRecovery
+        when doTrigger $ do
+            logInfo "Triggering recovery because we need it"
+            triggerRecovery enqueueMsg
+
+        -- Sometimes we want to trigger recovery just in case. Maybe
+        -- we're just 5 slots late, but nobody wants to send us
+        -- blocks. It may happen sometimes, because nobody actually
+        -- guarantees that node will get updates on time. So we
+        -- sometimes ask for tips even if we're in relatively safe
+        -- situation.
+        (d :: Double) <- liftIO $ randomRIO (0,1)
+        when (not doTrigger && d < 0.005) $ getSyncStatus 5 >>= \case
+            SSKindaSynced -> pass
+            SSDoingRecovery -> pass
+            _ -> do
+                logInfo "Triggering recovery as a safety measure"
+                triggerRecovery enqueueMsg
+
         -- We don't want to ask for tips too frequently.
         -- E.g. there may be a tip processing mistake so that we
         -- never go into recovery even though we recieve

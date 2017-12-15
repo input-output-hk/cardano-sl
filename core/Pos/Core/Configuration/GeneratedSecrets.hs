@@ -4,23 +4,23 @@ module Pos.Core.Configuration.GeneratedSecrets
        ( HasGeneratedSecrets
        , withGeneratedSecrets
        , generatedSecrets
+       , genesisSecretsRich
+       , genesisSecretsPoor
        , genesisSecretKeys
-       , genesisHdwSecretKeys
-       , genesisVssSecretKeys
+       , genesisSecretKeysRich
+       , genesisSecretKeysPoor
        ) where
 
 import           Universum
 
-import           Data.Reflection           (Given (..), give)
+import           Data.Reflection (Given (..), give)
 
-import           Pos.Core.Genesis.Generate (GeneratedSecrets (..))
-import           Pos.Crypto.SecretSharing  (VssKeyPair)
-import           Pos.Crypto.Signing.Types  (EncryptedSecretKey, SecretKey)
+import           Pos.Core.Genesis.Generate (GeneratedSecrets (..), RichSecrets (..))
+import           Pos.Crypto.Signing (EncryptedSecretKey, SecretKey, encToSecret)
 
--- | Generated genesis data is always present.
--- This may be confusing: even in mainnet when we read the data from canonical
--- JSON, there's still 'GeneratedGenesisData'. It's "generated" from that
--- complete 'GenesisData'.
+-- | 'GeneratedSecrets' are known only when 'GenesisSpec' with
+-- 'TestnetInitializer' is used to specify genesis. That's why we have
+-- `Maybe` here.
 type HasGeneratedSecrets = Given (Maybe GeneratedSecrets)
 
 withGeneratedSecrets :: Maybe GeneratedSecrets -> (HasGeneratedSecrets => r) -> r
@@ -29,11 +29,17 @@ withGeneratedSecrets = give
 generatedSecrets :: HasGeneratedSecrets => Maybe GeneratedSecrets
 generatedSecrets = given
 
+genesisSecretsRich :: HasGeneratedSecrets => Maybe [RichSecrets]
+genesisSecretsRich = gsRichSecrets <$> generatedSecrets
+
+genesisSecretsPoor :: HasGeneratedSecrets => Maybe [EncryptedSecretKey]
+genesisSecretsPoor = gsPoorSecrets <$> generatedSecrets
+
 genesisSecretKeys :: HasGeneratedSecrets => Maybe [SecretKey]
-genesisSecretKeys = map (view _1) . gsSecretKeys <$> generatedSecrets
+genesisSecretKeys = mappend <$> genesisSecretKeysRich <*> genesisSecretKeysPoor
 
-genesisHdwSecretKeys :: HasGeneratedSecrets => Maybe [EncryptedSecretKey]
-genesisHdwSecretKeys = map (view _2) . gsSecretKeys <$> generatedSecrets
+genesisSecretKeysRich :: HasGeneratedSecrets => Maybe [SecretKey]
+genesisSecretKeysRich = map rsPrimaryKey <$> genesisSecretsRich
 
-genesisVssSecretKeys :: HasGeneratedSecrets => Maybe [VssKeyPair]
-genesisVssSecretKeys = map (view _3) . gsSecretKeys <$> generatedSecrets
+genesisSecretKeysPoor :: HasGeneratedSecrets => Maybe [SecretKey]
+genesisSecretKeysPoor = map encToSecret <$> genesisSecretsPoor

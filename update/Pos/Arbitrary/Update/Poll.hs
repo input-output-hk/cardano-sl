@@ -6,24 +6,22 @@ module Pos.Arbitrary.Update.Poll () where
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
-import           Test.QuickCheck                   (Arbitrary (..))
+import qualified Data.HashMap.Strict as HM
+import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Arbitrary.Slotting            ()
-import           Pos.Arbitrary.Update.Core         ()
-import           Pos.Binary.Core                   ()
-import           Pos.Binary.Update                 ()
-import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Update.Poll.PollState         (PollState (..), psActivePropsIdx)
-import           Pos.Update.Poll.Types             (BlockVersionState (..),
-                                                    ConfirmedProposalState (..),
-                                                    DecidedProposalState (..),
-                                                    DpsExtra (..), PollModifier (..),
-                                                    PrevValue, ProposalState (..), USUndo,
-                                                    UndecidedProposalState (..),
-                                                    UpsExtra (..))
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Slotting ()
+import           Pos.Arbitrary.Update.Core ()
+import           Pos.Binary.Core ()
+import           Pos.Binary.Update ()
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Update.Poll.Modifier (PollModifier (..))
+import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
+import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
+                                        DecidedProposalState (..), DpsExtra (..), PrevValue,
+                                        ProposalState (..), USUndo, UndecidedProposalState (..),
+                                        UpsExtra (..))
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary

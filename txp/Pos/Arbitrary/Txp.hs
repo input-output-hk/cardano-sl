@@ -11,32 +11,25 @@ module Pos.Arbitrary.Txp
 
 import           Universum
 
-import           Data.Default                      (Default (def))
-import           Data.List.NonEmpty                ((<|))
-import qualified Data.List.NonEmpty                as NE
-import qualified Data.Vector                       as V
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
-                                                    oneof, scale)
+import           Data.Default (Default (def))
+import           Data.List.NonEmpty ((<|))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Vector as V
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof, scale)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Binary.Class                  (Raw)
-import           Pos.Binary.Txp.Core               ()
-import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Core.Address                  (IsBootstrapEraAddr (..),
-                                                    makePubKeyAddress)
-import           Pos.Core.Types                    (Coin)
-import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTx),
-                                                    hash, sign, toPublic)
-import           Pos.Data.Attributes               (mkAttributes)
-import           Pos.Merkle                        (MerkleNode (..), MerkleRoot (..),
-                                                    MerkleTree, mkMerkleTree)
-import           Pos.Txp.Core.Types                (Tx (..), TxAux (..), TxIn (..),
-                                                    TxInWitness (..), TxOut (..),
-                                                    TxOutAux (..), TxPayload (..),
-                                                    TxProof (..), TxSigData (..), mkTx,
-                                                    mkTxPayload)
-import           Pos.Util.Arbitrary                (makeSmall)
+import           Pos.Arbitrary.Core ()
+import           Pos.Binary.Class (Raw)
+import           Pos.Binary.Core ()
+import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
+                               TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..), mkTx,
+                               mkTxPayload)
+import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Util.Arbitrary (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types

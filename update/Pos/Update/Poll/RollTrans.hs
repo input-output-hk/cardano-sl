@@ -8,24 +8,23 @@ module Pos.Update.Poll.RollTrans
        , execRollT
        ) where
 
-import           Control.Lens          ((%=), (.=))
-import           Data.Default          (def)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.List             as List (find)
+import           Control.Lens ((%=), (.=))
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List as List (find)
 import qualified Ether
 import           Universum
 
-import           Pos.Binary.Update     ()
+import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types        (SoftwareVersion (..))
-import           Pos.Crypto            (hash)
+import           Pos.Core.Update (SoftwareVersion (..))
+import           Pos.Crypto (hash)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion,
-                                        maybeToPrev, psProposal, unChangedBVL,
-                                        unChangedConfPropsL, unChangedPropsL,
-                                        unChangedSVL, unLastAdoptedBVL, unPrevProposersL,
-                                        unSlottingDataL)
-import           Pos.Util.Util         (ether)
+import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion, maybeToPrev,
+                                        psProposal, unChangedBVL, unChangedConfPropsL,
+                                        unChangedPropsL, unChangedSVL, unLastAdoptedBVL,
+                                        unPrevProposersL, unSlottingDataL)
+import           Pos.Util.Util (ether)
 
 type RollT m = Ether.LazyStateT' USUndo m
 

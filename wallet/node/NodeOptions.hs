@@ -10,21 +10,26 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
-import           Data.Time.Units     (Minute)
-import           Data.Version        (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc,
-                                      header, help, helper, info, infoOption, long,
-                                      metavar, option, progDesc, strOption, switch, value)
+import           Universum
+
+import           Data.Time.Units (Minute)
+import           Data.Version (showVersion)
+import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
+                                      helper, info, infoOption, long, metavar, option, progDesc,
+                                      strOption, switch, value)
 import qualified Options.Applicative as Opt
-import           Universum           hiding (show)
 
-import           Paths_cardano_sl    (version)
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Util.TimeWarp   (NetworkAddress, localhost)
-import           Pos.Web.Types       (TlsParams (..))
+import           Paths_cardano_sl (version)
+import           Pos.Client.CLI (CommonNodeArgs (..))
+import qualified Pos.Client.CLI as CLI
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Util.TimeWarp (NetworkAddress, localhost)
+import           Pos.Web.Types (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs
+    { wnaCommonNodeArgs :: !CommonNodeArgs
+    , wnaWalletArgs     :: !WalletArgs
+    } deriving Show
 
 data WalletArgs = WalletArgs
     { enableWeb          :: !Bool
@@ -73,7 +78,7 @@ walletArgsParser = do
 
     pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 
-getWalletNodeOptions :: IO WalletNodeArgs
+getWalletNodeOptions :: HasCompileInfo => IO WalletNodeArgs
 getWalletNodeOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> walletArgsParser) $
@@ -82,7 +87,8 @@ getWalletNodeOptions = execParser programInfo
                  <> footerDoc CLI.usageExample
 
     versionOption = infoOption
-        ("cardano-node-" <> showVersion version)
+        ("cardano-node-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 tlsParamsOption :: Opt.Parser TlsParams
@@ -93,19 +99,19 @@ tlsParamsOption = do
                 "tlscert"
                 "FILEPATH"
                 "Path to file with TLS certificate"
-                <> Opt.value "server.crt"
+                <> Opt.value "./scripts/tls-files/server.crt"
     tpKeyPath <-
         Opt.strOption $
             CLI.templateParser
                 "tlskey"
                 "FILEPATH"
                 "Path to file with TLS key"
-                <> Opt.value "server.key"
+                <> Opt.value "./scripts/tls-files/server.key"
     tpCaPath <-
         Opt.strOption $
             CLI.templateParser
                 "tlsca"
                 "FILEPATH"
                 "Path to file with TLS certificate authority"
-                <> Opt.value "ca.crt"
+                <> Opt.value "./scripts/tls-files/ca.crt"
     return TlsParams{..}

@@ -1,5 +1,6 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Transaction submission logic
 
@@ -8,31 +9,34 @@ module Pos.Wallet.Web.Pending.Submission
     , ptxFirstSubmissionHandler
     , ptxResubmissionHandler
 
+    , TxSubmissionMode
     , submitAndSavePtx
     ) where
 
 import           Universum
 
-import           Control.Monad.Catch          (Handler (..), catches)
-import           Formatting                   (build, sformat, shown, stext, (%))
-import           System.Wlog                  (WithLogger, logInfo)
+import           Control.Monad.Catch (Handler (..), catches, onException)
+import           Formatting (build, sformat, shown, stext, (%))
+import           System.Wlog (WithLogger, logInfo)
 
-import           Pos.Client.Txp.History       (saveTx)
-import           Pos.Communication            (EnqueueMsg, submitTxRaw)
-import           Pos.Util.LogSafe             (logInfoS, logWarningS)
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxPoolInfo)
-import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
-import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
-                                               addOnlyNewPendingTx, casPtxCondition,
-                                               ptxUpdateMeta)
+import           Pos.Client.Txp.History (saveTx)
+import           Pos.Client.Txp.Network (TxMode)
+import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.Util (maybeThrow)
+import           Pos.Wallet.Web.Error (WalletError (InternalError))
+import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
+import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
+                                                   usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
+import           Pos.Wallet.Web.State (MonadWalletDB, PtxMetaUpdate (PtxMarkAcknowledged),
+                                       addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
+                                       removeOnlyCreatingPtx)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.
--- If error is fatal for transaction, handler is supposed to throw exception.
+-- If error is fatal for transaction, handler is supposed to rethrow exception.
 data PtxSubmissionHandlers m = PtxSubmissionHandlers
-    { -- | When fatal 'ToilVerFailure' occurs.
+    { -- | When fatal case of 'ToilVerFailure' occurs.
       -- Exception is not specified explicitely to prevent a wish
       -- to disassemble the cases - it's already done.
       pshOnNonReclaimable  :: forall e. (Exception e, Buildable e)
@@ -59,7 +63,7 @@ ptxFirstSubmissionHandler =
                 \transaction made"
 
 ptxResubmissionHandler
-    :: MonadWalletWebMode m
+    :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletDB ctx m)
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
@@ -77,7 +81,7 @@ ptxResubmissionHandler PendingTx{..} =
     }
   where
     cancelPtx
-        :: (MonadWalletWebMode m, Exception e, Buildable e)
+        :: (Exception e, Buildable e)
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
         let newCond = PtxWontApply (sformat build e) poolInfo
@@ -104,15 +108,26 @@ ptxResubmissionHandler PendingTx{..} =
             \this transaction has unexpected condition "%build)
             _ptxTxId _ptxCond
 
+type TxSubmissionMode ctx m =
+    ( TxMode m
+    , MonadWalletSendActions m
+    , MonadWalletDB ctx m
+    )
+
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: MonadWalletWebMode m
-    => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
-    ack <- submitTxRaw enqueue _ptxTxAux
-    saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
+    :: TxSubmissionMode ctx m
+    => PtxSubmissionHandlers m -> PendingTx -> m ()
+submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     addOnlyNewPendingTx ptx
+    ack <- sendTxToNetwork _ptxTxAux
+    (saveTx (_ptxTxId, _ptxTxAux)
+        `catches` handlers ack)
+        `onException` creationFailedHandler
+
+    poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
+    _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
     when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers accepted =
@@ -126,15 +141,21 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
             -- but it's better to try with tx again than to regret, right?
             minorError "unknown error" e
         ]
-
     minorError desc e = do
         reportError desc e ", but was given another chance"
         pshOnMinor e
     nonReclaimableError accepted e = do
         reportError "fatal" e ""
         pshOnNonReclaimable accepted e
-
     reportError desc e outcome =
         logInfoS $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
+
+    creationFailedHandler =
+        -- tx creation shouldn't fail if any of peers accepted our tx, but still,
+        -- if transaction was detected in blocks and its state got updated by tracker
+        -- while transaction creation failed, due to protocol error or bug,
+        -- then we better not remove this pending transaction
+        void $ usingPtxCoords removeOnlyCreatingPtx ptx
+    badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"

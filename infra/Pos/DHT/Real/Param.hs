@@ -1,4 +1,3 @@
-
 module Pos.DHT.Real.Param
        ( KademliaParams (..)
        , fromYamlConfig
@@ -6,10 +5,10 @@ module Pos.DHT.Real.Param
        ) where
 
 import qualified Data.ByteString.Base64.URL as B64 (decode)
-import qualified Data.ByteString.Char8      as B8
-import           Pos.DHT.Model.Types        (DHTKey, bytesToDHTKey)
-import qualified Pos.Network.Yaml           as Y
-import           Pos.Util.TimeWarp          (NetworkAddress)
+import qualified Data.ByteString.Char8 as B8
+import           Pos.DHT.Model.Types (DHTKey, bytesToDHTKey)
+import qualified Pos.Network.Yaml as Y
+import           Pos.Util.TimeWarp (NetworkAddress)
 import           Universum
 
 -- | Parameters for the Kademlia DHT subsystem.
@@ -42,7 +41,8 @@ fromYamlConfig yamlParams = do
         }
 
 kademliaAddressToNetworkAddress :: Y.KademliaAddress -> NetworkAddress
-kademliaAddressToNetworkAddress yamlAddr = (B8.pack $ Y.kaHost yamlAddr, Y.kaPort yamlAddr)
+kademliaAddressToNetworkAddress yamlAddr =
+    (B8.pack $ Y.kaHost yamlAddr, Y.kaPort yamlAddr)
 
 kademliaIdToDHTKey :: Y.KademliaId -> Either String DHTKey
 kademliaIdToDHTKey (Y.KademliaId txt) = do

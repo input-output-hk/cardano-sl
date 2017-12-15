@@ -9,7 +9,7 @@ module Explorer.View.Blocks
 
 import Prelude
 
-import Data.Array (length, null, slice)
+import Data.Array (null)
 import Data.DateTime (diff)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
@@ -19,7 +19,7 @@ import Data.Time.Duration (Milliseconds)
 
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
-import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewMaxPagination, blsViewLoadingPagination, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
+import Explorer.Lenses.State (blocksViewState, blsViewMaxPagination, blsViewLoadingPagination, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -68,7 +68,7 @@ epochBlocksView state =
                                               then blocksView state
                                               else emptyBlocksView $
                                                   translate (I18nL.common <<< I18nL.cLoading) lang'
-                            Failure _ -> failureView lang'
+                            Failure _ -> messageBackView lang' $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang'
                             Success blocks -> blocksView state
 
 blocksView :: State -> P.HTML Action
@@ -104,11 +104,11 @@ emptyBlocksView message =
     S.div ! S.className "blocks-message"
           $ S.text message
 
-failureView :: Language -> P.HTML Action
-failureView lang =
+messageBackView :: Language -> String -> P.HTML Action
+messageBackView lang message =
     S.div do
-        S.p ! S.className CSS.blocksFailed
-            $ S.text (translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang)
+        S.p ! S.className CSS.blocksMessageBack
+            $ S.text message
         S.a ! S.href (toUrl Dashboard)
             #! P.onClick (Navigate $ toUrl Dashboard)
             ! S.className "btn-back"

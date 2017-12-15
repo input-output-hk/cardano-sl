@@ -1,17 +1,9 @@
 rotation:
     logLimit: 5242880 # 5MB
     keepFiles: 20
-severity: Info
-node:
-    severity: Debug
-    handlers:
-      - file: pub/node.pub    # NB. the / will work on Windows too
-        round: 5              # because we do filepath normalization
-      - file: node
-    comm:
-        severity: Info
-    dht:
-        severity: Info
-    worker:
-      us:
-        severity: Debug
+severity: Debug
+termSeverity: Debug
+handlers:
+  - file: pub/node.pub    # NB. the / will work on Windows too
+    round: 5              # because we do filepath normalization
+  - file: node

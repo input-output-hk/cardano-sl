@@ -18,35 +18,37 @@ module Pos.Communication.Protocol
        , toAction
        , unpackLSpecs
        , hoistMkListeners
-       , onNewSlotWorker
-       , localOnNewSlotWorker
-       , onNewSlotWithLoggingWorker
        , makeSendActions
        , makeEnqueueMsg
+       , checkProtocolMagic
        , checkingInSpecs
        , constantListeners
+
+       -- * OnNewSlot workers
+       , onNewSlotWorker
+       , localOnNewSlotWorker
        ) where
 
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Text.Buildable              as B
-import           Formatting                       (bprint, build, sformat, (%))
-import           Mockable                         (Delay, Fork, Mockable, Mockables,
-                                                   SharedAtomic, Throw, throw)
-import qualified Node                             as N
-import           Node.Message.Class               (Message (..), MessageCode, messageCode)
-import           Serokell.Util.Text               (listJson)
-import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text.Buildable as B
+import           Formatting (bprint, build, sformat, (%))
+import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic, Throw, throw)
+import qualified Node as N
+import           Node.Message.Class (Message (..), MessageCode, messageCode)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (WithLogger, logWarning)
+
 import           Pos.Communication.Types.Protocol
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Core.Types                   (SlotId)
-import           Pos.Recovery.Info                (MonadRecoveryInfo)
-import           Pos.Reporting                    (MonadReporting)
-import           Pos.Shutdown                     (HasShutdownContext)
-import           Pos.Slotting                     (MonadSlots)
-import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (SlotId)
+import           Pos.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Reporting (MonadReporting)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting (MonadSlots)
+import           Pos.Slotting.Util (onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -125,13 +127,16 @@ alternativeConversations
     -> VerInfo -- ^ Theirs
     -> NonEmpty (Conversation m t)
     -> N.Conversation PackingType m t
-alternativeConversations nid ourVerInfo theirVerInfo convs =
-    let alts = map (checkingOutSpecs' nid (vIInHandlers theirVerInfo)) convs
-    in  case sequence alts of
-            Left (Conversation l) -> N.Conversation $ \conv -> do
-                mapM_ logOSNR alts
-                l conv
-            Right errs -> throwErrs errs (NE.head convs)
+alternativeConversations nid ourVerInfo theirVerInfo convs
+    | vIMagic ourVerInfo /= vIMagic theirVerInfo =
+        throwErrs (one $ MismatchedProtocolMagic (vIMagic ourVerInfo) (vIMagic theirVerInfo)) (NE.head convs)
+    | otherwise =
+        let alts = map (checkingOutSpecs' nid (vIInHandlers theirVerInfo)) convs
+        in  case sequence alts of
+                Left (Conversation l) -> N.Conversation $ \conv -> do
+                    mapM_ logOSNR alts
+                    l conv
+                Right errs -> throwErrs errs (NE.head convs)
   where
 
     ourOutSpecs = vIOutHandlers ourVerInfo
@@ -202,6 +207,17 @@ instance Buildable SpecError where
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
           spec nodeId inSpecs
 
+data MismatchedProtocolMagic
+    = MismatchedProtocolMagic Int32 Int32
+    deriving (Generic, Show)
+
+instance Exception MismatchedProtocolMagic
+
+instance Buildable MismatchedProtocolMagic where
+    build (MismatchedProtocolMagic ourMagic theirMagic) =
+        bprint
+          ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
+
 toAction
     :: (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ const h
@@ -239,21 +255,16 @@ type OnNewSlotComm ctx m =
 
 onNewSlot'
     :: OnNewSlotComm ctx m
-    => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' withLog startImmediately (h, outs) =
+    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
-        onNewSlotImpl withLog startImmediately $
+        onNewSlot startImmediately $
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
     :: OnNewSlotComm ctx m
     => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
-
-onNewSlotWithLoggingWorker
-    :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
+onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
 
 localOnNewSlotWorker
     :: LocalOnNewSlotComm ctx m
@@ -265,6 +276,18 @@ localWorker = localSpecs
 
 localSpecs :: m a -> (ActionSpec m a, OutSpecs)
 localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
+
+checkProtocolMagic
+    :: WithLogger m
+    => VerInfo
+    -> VerInfo
+    -> m ()
+    -> m ()
+checkProtocolMagic (vIMagic -> ourMagic) (vIMagic -> theirMagic) action
+    -- Check that protocolMagic is the same
+    | ourMagic == theirMagic = action
+    | otherwise =
+        logWarning $ sformat ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
 
 checkingInSpecs
     :: WithLogger m

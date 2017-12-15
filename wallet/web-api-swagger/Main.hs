@@ -5,17 +5,17 @@ module Main
     ( main
     ) where
 
-import           Control.Lens               ((?~))
-import           Data.Aeson                 (encode)
+import           Control.Lens ((?~))
+import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (host)
-import           Data.Version               (showVersion)
-import           Options.Applicative        (execParser, footer, fullDesc, header, help,
-                                             helper, infoOption, long, progDesc)
-import qualified Options.Applicative        as Opt
+import           Data.Swagger (host)
+import           Data.Version (showVersion)
+import           Options.Applicative (execParser, footer, fullDesc, header, help, helper,
+                                      infoOption, long, progDesc)
+import qualified Options.Applicative as Opt
 import           Universum
 
-import qualified Paths_cardano_sl           as CSL
+import qualified Paths_cardano_sl as CSL
 
 import           Pos.Wallet.Web.Swagger
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()

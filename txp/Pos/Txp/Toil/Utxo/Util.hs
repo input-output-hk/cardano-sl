@@ -9,17 +9,18 @@ module Pos.Txp.Toil.Utxo.Util
        , utxoToAddressCoinMap
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import qualified Data.Map.Strict     as M
 import           Universum
 
-import           Pos.Binary.Core     ()
-import           Pos.Core            (Address, Coin, sumCoins, unsafeAddCoin,
-                                      unsafeIntegerToCoin)
-import           Pos.Txp.Core        (TxOut (txOutValue), TxOutAux (toaOut),
-                                      addrBelongsTo, addrBelongsToSet, _TxOut)
-import           Pos.Txp.Toil.Types  (Utxo, utxoToStakes)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import qualified Data.Map.Strict as M
+
+import           Pos.Binary.Core ()
+import           Pos.Core (Address, Coin, HasGenesisData, StakesMap, sumCoins, unsafeAddCoin,
+                           unsafeIntegerToCoin)
+import           Pos.Core.Txp (TxOut (txOutValue), TxOutAux (..), _TxOut)
+import           Pos.Txp.Base (addrBelongsTo, addrBelongsToSet, txOutStake)
+import           Pos.Txp.Toil.Types (Utxo)
 
 -- | Select only TxOuts for given address
 filterUtxoByAddr :: Address -> Utxo -> Utxo
@@ -36,6 +37,13 @@ getTotalCoinsInUtxo :: Utxo -> Coin
 getTotalCoinsInUtxo =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList
+
+-- | Convert 'Utxo' to 'StakesMap'.
+utxoToStakes :: HasGenesisData => Utxo -> StakesMap
+utxoToStakes = foldl' putDistr mempty . M.toList
+  where
+    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
+    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake txOut)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

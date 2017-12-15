@@ -14,47 +14,52 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
+  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
+  addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
+    testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+    preCheck = ''
+      mkdir -p dist/test
+      touch dist/test/test.log
+      tail -F dist/test/test.log &
+      export TAILPID=$!
+    '';
+    postCheck = ''
+      sleep 10
+      kill $TAILPID
+    '';
+  });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
+      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+        configureFlags = (drv.configureFlags or []) ++ [
+          "-f-asserts"
+        ];
+      });
+
       cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
-          "-f-dev-mode"
         ];
-        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
-        preCheck = ''
-          mkdir -p dist/test
-          touch dist/test/test.log
-          tail -F dist/test/test.log &
-          export TAILPID=$!
-        '';
-        postCheck = ''
-          sleep 10
-          kill $TAILPID
-        '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
         passthru = {
           inherit enableProfiling;
         };
       });
-      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = (drv.configureFlags or []) ++ [
-          "-f-asserts"
-          "-f-dev-mode"
-          "--ghc-options=-DGITREV=${gitrev}"
-        ];
-      });
 
-      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
-      cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+      cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
+      cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
+      cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
+      cardano-sl-node = addGitRev super.cardano-sl-node;
+      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
+      cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-      }));
+      })));
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
-      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin

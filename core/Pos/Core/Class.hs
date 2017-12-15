@@ -22,12 +22,13 @@ module Pos.Core.Class
 
 import           Universum
 
-import           Control.Lens   (Getter, choosing, to)
+import           Control.Lens (Getter, choosing, to)
 
-import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex,
-                                 EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion)
-import           Pos.Crypto.Signing.Types (PublicKey)
-import           Pos.Util.Util  (Some, applySome, liftLensSome)
+import           Pos.Core.Common (ChainDifficulty, HeaderHash)
+import           Pos.Core.Slotting.Types (EpochIndex, EpochOrSlot (..), SlotId)
+import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
+import           Pos.Crypto.Signing (PublicKey)
+import           Pos.Util.Some (Some, applySome, liftLensSome)
 
 #define SOME_LENS_CLASS(HAS, LENS, CL)                       \
     instance HAS (Some CL) where LENS = liftLensSome LENS

@@ -9,66 +9,60 @@
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
        , notifierApp
+       , toConfig
        ) where
 
-import           Universum                      hiding (on)
+import           Universum hiding (on)
 
-import qualified Control.Concurrent.STM         as STM
-import           Control.Lens                   ((<<.=))
-import           Control.Monad.State.Class      (MonadState (..))
-import qualified Data.Set                       as S
-import           Data.Time.Units                (Millisecond)
-import           Ether.TaggedTrans              ()
-import           Formatting                     (int, sformat, (%))
-import qualified GHC.Exts                       as Exts
-import           Network.EngineIO               (SocketId)
-import           Network.EngineIO.Wai           (WaiMonad, toWaiApplication, waiAPI)
-import           Network.HTTP.Types.Status      (status404)
-import           Network.SocketIO               (RoutingTable, Socket,
-                                                 appendDisconnectHandler, initialize,
-                                                 socketId)
-import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo, responseLBS)
-import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
-                                                 setPort)
-import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
-                                                 simpleCorsResourcePolicy)
-import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (CanLog, HasLoggerName, LoggerName,
-                                                 NamedPureLogger, WithLogger,
-                                                 getLoggerName, logDebug, logInfo,
-                                                 logWarning, modifyLoggerName,
-                                                 usingLoggerName)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens ((<<.=))
+import           Control.Monad.State.Class (MonadState (..))
+import qualified Data.Set as S
+import           Data.Time.Units (Millisecond)
+import           Ether.TaggedTrans ()
+import           Formatting (int, sformat, (%))
+import qualified GHC.Exts as Exts
+import           Network.EngineIO (SocketId)
+import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
+import           Network.HTTP.Types.Status (status404)
+import           Network.SocketIO (RoutingTable, Socket, appendDisconnectHandler, initialize,
+                                   socketId)
+import           Network.Wai (Application, Middleware, Request, Response, pathInfo, responseLBS)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setPort)
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy, cors, corsOrigins,
+                                              simpleCorsResourcePolicy)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
+                              getLoggerName, logDebug, logInfo, logWarning, modifyLoggerName,
+                              usingLoggerName)
 
-import           Pos.Block.Types                (Blund)
-import           Pos.Core                       (addressF)
-import qualified Pos.GState                     as DB
-import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Block.Types (Blund)
+import           Pos.Core (addressF, siEpoch)
+import qualified Pos.GState as DB
+import           Pos.Slotting (MonadSlots (getCurrentSlot))
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ConnectionsState, ConnectionsVar,
-                                                 askingConnState, mkConnectionsState,
-                                                 withConnState)
-import           Pos.Explorer.Socket.Methods    (ClientEvent (..), ServerEvent (..),
-                                                 Subscription (..), finishSession,
-                                                 getBlockTxs, getBlundsFromTo, getTxInfo,
-                                                 notifyAddrSubscribers,
-                                                 notifyBlocksLastPageSubscribers,
-                                                 notifyTxsSubscribers, startSession,
-                                                 subscribeAddr, subscribeBlocksLastPage,
-                                                 subscribeTxs, unsubscribeAddr,
-                                                 unsubscribeBlocksLastPage,
-                                                 unsubscribeTxs)
-import           Pos.Explorer.Socket.Util       (emitJSON, forkAccompanion, on, on_,
-                                                 regroupBySnd, runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes   (cteId, tiToTxEntry)
-import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ConnectionsVar, askingConnState,
+                                             mkConnectionsState, withConnState)
+import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..), Subscription (..),
+                                              finishSession, getBlockTxs, getBlundsFromTo,
+                                              getTxInfo, notifyAddrSubscribers,
+                                              notifyBlocksLastPageSubscribers, notifyEpochsLastPageSubscribers,
+                                              notifyTxsSubscribers, startSession,
+                                              subscribeAddr, subscribeBlocksLastPage,
+                                              subscribeEpochsLastPage, subscribeTxs,
+                                              unsubscribeAddr, unsubscribeBlocksLastPage,
+                                              unsubscribeEpochsLastPage, unsubscribeTxs)
+import           Pos.Explorer.Socket.Util (emitJSON, forkAccompanion, on, on_, regroupBySnd,
+                                           runPeriodicallyUnless)
+import           Pos.Explorer.Web.ClientTypes (cteId, tiToTxEntry)
+import           Pos.Explorer.Web.Server (getMempoolTxs)
 
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
-    }
+    } deriving (Show)
 
 -- TODO(ks): Add logging, currently it's missing.
 toConfig :: NotifierSettings -> LoggerName -> Settings
@@ -87,12 +81,14 @@ notifierHandler
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
-    on  (Subscribe SubAddr)            $ asHandler  subscribeAddr
-    on_ (Subscribe SubBlockLastPage)   $ asHandler_ subscribeBlocksLastPage
-    on_ (Subscribe SubTx)              $ asHandler_ subscribeTxs
-    on_ (Unsubscribe SubAddr)          $ asHandler_ unsubscribeAddr
-    on_ (Unsubscribe SubBlockLastPage) $ asHandler_ unsubscribeBlocksLastPage
-    on_ (Unsubscribe SubTx)            $ asHandler_ unsubscribeTxs
+    on  (Subscribe SubAddr)             $ asHandler  subscribeAddr
+    on_ (Subscribe SubBlockLastPage)    $ asHandler_ subscribeBlocksLastPage
+    on_ (Subscribe SubTx)               $ asHandler_ subscribeTxs
+    on_ (Subscribe SubEpochsLastPage)   $ asHandler_ subscribeEpochsLastPage
+    on_ (Unsubscribe SubAddr)           $ asHandler_ unsubscribeAddr
+    on_ (Unsubscribe SubBlockLastPage)  $ asHandler_ unsubscribeBlocksLastPage
+    on_ (Unsubscribe SubTx)             $ asHandler_ unsubscribeTxs
+    on_ (Unsubscribe SubEpochsLastPage) $ asHandler_ unsubscribeEpochsLastPage
 
     on_ CallMe                         $ emitJSON CallYou empty
     appendDisconnectHandler . void     $ asHandler_ finishSession
@@ -159,8 +155,8 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     -- Runs every 5 seconds.
@@ -172,7 +168,7 @@ periodicPollChanges connVar closed =
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
         lift . askingConnState connVar $ do
-            mNewBlunds :: Maybe [Blund SscGodTossing] <-
+            mNewBlunds :: Maybe [Blund] <-
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
@@ -184,20 +180,24 @@ periodicPollChanges connVar closed =
                             Just blocks -> return blocks
             let newBlunds = fromMaybe [] mNewBlunds
 
-            -- notify about blocks and blocks with offset
+            -- notify changes depending on new blocks
             unless (null newBlunds) $ do
+                -- 1. last page of blocks
                 notifyBlocksLastPageSubscribers
+                -- 2. last page of epochs
+                mSlotId <- lift $ getCurrentSlot @ctx
+                whenJust mSlotId $ notifyEpochsLastPageSubscribers . siEpoch
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
-            newBlockchainTxs <- lift $ concat <$> forM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
+            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs
             let cTxEntries = map tiToTxEntry allTxs
             txInfos <- Exts.toList . regroupBySnd <$> lift (mapM (getTxInfo @ctx) allTxs)
 
-            -- notify abuot transactions
+            -- notify about transactions
             forM_ txInfos $ \(addr, cTxBriefs) -> do
                 notifyAddrSubscribers @ctx addr cTxBriefs
                 logDebug $ sformat ("Notified address "%addressF%" about "
@@ -211,11 +211,11 @@ periodicPollChanges connVar closed =
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    forkAccompanion (periodicPollChanges @ssc connVar)
+    forkAccompanion (periodicPollChanges connVar)
                     (notifierServer settings connVar)

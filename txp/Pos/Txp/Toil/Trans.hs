@@ -9,20 +9,20 @@ module Pos.Txp.Toil.Trans
        , evalToilTEmpty
        ) where
 
-import           Control.Lens        (at, to, (%=), (+=), (.=))
-import           Data.Default        (Default (def))
-import qualified Data.HashMap.Strict as HM
-import qualified Ether
 import           Universum
 
-import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
-                                      MonadTxPool (..), MonadUtxo (..),
-                                      MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilModifier,
-                                      UndoMap, UtxoModifier, mpLocalTxs, mpSize, svStakes,
-                                      svTotal, tmMemPool, tmStakes, tmUndos, tmUtxo)
-import qualified Pos.Util.Modifier   as MM
-import           Pos.Util.Util       (ether)
+import           Control.Lens (at, to, (%=), (+=), (.=))
+import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HM
+import qualified Ether
+
+import           Pos.Txp.Toil.Class (MonadStakes (..), MonadStakesRead (..), MonadTxPool (..),
+                                     MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Types (GenericToilModifier (..), MemPool, ToilModifier, UndoMap,
+                                     UtxoModifier, mpLocalTxs, mpSize, svStakes, svTotal, tmMemPool,
+                                     tmStakes, tmUndos, tmUtxo)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -40,8 +40,8 @@ instance MonadUtxoRead m => MonadUtxoRead (ToilT __ m) where
     utxoGet id = ether $ MM.lookupM utxoGet id =<< use tmUtxo
 
 instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
-    utxoPut id aux = ether $ tmUtxo %= MM.insert id aux
-    utxoDel id = ether $ tmUtxo %= MM.delete id
+    utxoPutUnchecked id aux = ether $ tmUtxo %= MM.insert id aux
+    utxoDelUnchecked id     = ether $ tmUtxo %= MM.delete id
 
 instance MonadStakesRead m => MonadStakesRead (ToilT __ m) where
     getStake id =

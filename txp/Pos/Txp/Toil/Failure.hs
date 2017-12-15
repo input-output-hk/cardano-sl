@@ -10,16 +10,15 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, shown, stext, (%))
+import           Formatting (bprint, build, int, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util              (listJson)
+import           Serokell.Util (listJson)
 
-import           Pos.Core                   (Address, HeaderHash, ScriptVersion,
-                                             TxFeePolicy, addressDetailedF)
-import           Pos.Data.Attributes        (UnparsedFields)
-import           Pos.Script                 (PlutusError)
-import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
-import           Pos.Txp.Toil.Types         (TxFee)
+import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressDetailedF)
+import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
+import           Pos.Data.Attributes (UnparsedFields)
+import           Pos.Script (PlutusError)
+import           Pos.Txp.Toil.Types (TxFee)
 
 ----------------------------------------------------------------------------
 -- ToilVerFailure
@@ -34,10 +33,10 @@ data ToilVerFailure
     | ToilOverwhelmed !Int -- ^ Local transaction storage is full --
                             -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
-    | ToilOutGTIn { tInputSum  :: !Integer
-                  , tOutputSum :: !Integer}
+    | ToilOutGreaterThanIn { tInputSum  :: !Integer
+                           , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
+    | ToilInvalidOutputs !Text  -- [CSL-1628] TODO: make it more informative
     | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either
@@ -85,7 +84,7 @@ instance Buildable ToilVerFailure where
         bprint ("max size of the mem pool is reached which is "%shown) limit
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
-    build (ToilOutGTIn {..}) =
+    build (ToilOutGreaterThanIn {..}) =
         bprint ("sum of outputs is greater than sum of inputs ("%int%" < "%int%")")
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =

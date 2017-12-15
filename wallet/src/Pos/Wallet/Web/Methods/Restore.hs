@@ -7,43 +7,36 @@ module Pos.Wallet.Web.Methods.Restore
        , importWallet
        , restoreWallet
        , addInitialRichAccount
+
+       -- For testing
+       , importWalletDo
        ) where
 
 import           Universum
 
-import           Control.Lens                 (ix, traversed)
-import qualified Control.Monad.Catch          as E
-import           Data.Default                 (Default (def))
-import           Formatting                   (build, sformat, (%))
-import           System.IO.Error              (isDoesNotExistError)
-import           System.Wlog                  (logDebug)
+import           Control.Lens (ix, traversed)
+import qualified Control.Monad.Catch as E
+import           Data.Default (Default (def))
+import           Formatting (build, sformat, (%))
+import           System.IO.Error (isDoesNotExistError)
+import           System.Wlog (logDebug)
 
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Aeson.WalletBackup       ()
-import           Pos.Constants                (isDevelopment)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
-import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
-                                               emptyPassphrase, firstHardened)
-import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
-import           Pos.Util                     (maybeThrow)
-import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage        (addSecretKey)
-import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
-                                               genUniqueAccountId)
-import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
-                                               CAccountMeta (..), CFilePath (..), CId,
-                                               CWallet (..), CWalletInit (..),
-                                               CWalletMeta (..), Wal, encToCId)
-import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
+import           Pos.Client.KeyStorage (addSecretKey)
+import           Pos.Core.Configuration (genesisSecretsPoor)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
+import           Pos.Util (maybeThrow)
+import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
+                                      mkGenesisWalletUserSecret, readUserSecret, usWallet,
+                                      wusAccounts, wusWalletName)
+import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
+                                             CFilePath (..), CId, CWallet (..), CWalletInit (..),
+                                             CWalletMeta (..), Wal, encToCId)
+import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
-                                               mkGenesisWalletUserSecret, wusAccounts,
-                                               wusWalletName)
-import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
-                                               setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
+import           Pos.Wallet.Web.State (createAccount, removeHistoryCache, setWalletSyncTip)
+import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 
 
 -- | Which index to use to create initial account and address on new wallet
@@ -52,7 +45,7 @@ initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
-    :: MonadWalletWebMode m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
 newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
@@ -69,7 +62,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     return (skey, cAddr)
 
-newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
@@ -79,7 +72,7 @@ newWallet passphrase cwInit = do
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
-restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+restoreWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     -- Restoring a wallet may take a long time.
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -89,7 +82,7 @@ restoreWallet passphrase cwInit = do
     L.getWallet wId
 
 importWallet
-    :: MonadWalletWebMode m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase
     -> CFilePath
     -> m CWallet
@@ -98,17 +91,26 @@ importWallet passphrase (CFilePath (toString -> fp)) = do
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
-    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
-    wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
-    L.changeWalletPassphrase wId emptyPassphrase passphrase
-    L.getWallet wId
+    wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
+    importWalletDo passphrase wSecret
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
     noFile _ = RequestError "File doesn't exist"
     decodeFailed = RequestError . sformat ("Invalid secret file ("%build%")")
 
+-- Do the all concrete logic of importing here.
+importWalletDo
+    :: L.MonadWalletLogic ctx m
+    => PassPhrase
+    -> WalletUserSecret
+    -> m CWallet
+importWalletDo passphrase wSecret = do
+    wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
+    _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
+    L.getWallet wId
+
 importWalletSecret
-    :: MonadWalletWebMode m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -138,10 +140,10 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
+addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
-    when isDevelopment . E.handleAll wSetExistsHandler $ do
-        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
+    E.handleAll wSetExistsHandler $ do
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key

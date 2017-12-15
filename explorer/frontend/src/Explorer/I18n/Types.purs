@@ -147,6 +147,7 @@ type Block =
     , blRoot :: String
     , blEpochSlotNotFound :: String
     , blSlotNotFound :: String
+    , blSlotEmpty :: String
     }
 
 -- translations of block detail page

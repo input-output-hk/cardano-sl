@@ -1,110 +1,100 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- API server logic
 
 module Pos.Explorer.Web.Server
-       ( ExplorerMode
-       , explorerServeImpl
+       ( explorerServeImpl
        , explorerApp
        , explorerHandlers
+
+       -- pure functions
+       , getBlockDifficulty
+       , roundToBlockPage
+
+       -- api functions
+       , getBlocksTotal
+       , getBlocksPagesTotal
+       , getBlocksPage
+       , getEpochSlot
+       , getEpochPage
 
        -- function useful for socket-io server
        , topsortTxsOrFail
        , getMempoolTxs
        , getBlocksLastPage
+       , getEpochPagesOrThrow
        , cAddrToAddr
        ) where
 
 import           Universum
 
-import           Control.Lens                     (at)
-import           Control.Monad.Catch              (try)
-import qualified Data.ByteString                  as BS
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
-import           Data.Maybe                       (fromMaybe)
-import           Formatting                       (build, int, sformat, (%))
-import           Network.Wai                      (Application)
+import           Control.Lens (at)
+import qualified Data.ByteString as BS
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import           Data.Maybe (fromMaybe)
+import qualified Data.Vector as V
+import           Formatting (build, int, sformat, (%))
+import           Network.Wai (Application)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import qualified Serokell.Util.Base64             as B64
-import           Servant.API                      ((:<|>) ((:<|>)))
-import           Servant.Server                   (Server, ServerT, serve)
-import           System.Wlog                      (logDebug)
 
-import           Pos.Communication                (SendActions)
-import           Pos.Crypto                       (WithHash (..), hash, redeemPkBuild,
-                                                   withHash)
+import qualified Serokell.Util.Base64 as B64
+import           Servant.Generic (AsServerT, toServant)
+import           Servant.Server (Server, ServerT, serve)
+import           System.Wlog (logDebug)
 
-import qualified Pos.DB.Block                     as DB
-import qualified Pos.DB.DB                        as DB
+import           Pos.Communication (SendActions)
+import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
-import           Pos.Binary.Class                 (biSize)
-import           Pos.Block.Core                   (Block, MainBlock, mainBlockSlot,
-                                                   mainBlockTxPayload, mcdSlot)
-import           Pos.Block.Types                  (Blund, Undo)
-import           Pos.Core                         (AddrType (..), Address (..), Coin,
-                                                   EpochIndex, HeaderHash, Timestamp,
-                                                   coinToInteger, difficultyL, gbHeader,
-                                                   gbhConsensus, getChainDifficulty,
-                                                   isRedeemAddress, isUnknownAddressType,
-                                                   makeRedeemAddress, mkCoin, siEpoch,
-                                                   siSlot, sumCoins, timestampToPosix,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
-import           Pos.DB.Class                     (MonadDBRead)
-import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (MonadTxpMem, Tx (..), TxAux, TxId,
-                                                   TxMap, TxOutAux (..), genesisUtxo,
-                                                   getLocalTxs, getMemPool, mpLocalTxs,
-                                                   taTx, topsortTxs, txOutValue, txpTxs,
-                                                   unGenesisUtxo, utxoToAddressCoinPairs,
-                                                   _txOutputs)
-import           Pos.Util                         (maybeThrow)
-import           Pos.Util.Chrono                  (NewestFirst (..))
-import           Pos.Web                          (serveImpl)
-import           Pos.WorkMode                     (WorkMode)
+import           Pos.DB.Block (getBlund)
+import           Pos.DB.Class (MonadDBRead)
 
-import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
-                                                   getLastTransactions, getPageBlocks,
-                                                   getTxExtra, getEpochPages)
-import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
-                                                         getTxExtra, getUtxoSum)
-import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..),
-                                                   CAddressSummary (..),
-                                                   CAddressType (..),
-                                                   CAddressesFilter (..),
-                                                   CBlockEntry (..), CBlockSummary (..),
-                                                   CGenesisAddressInfo (..),
-                                                   CGenesisSummary (..), CHash,
-                                                   CTxBrief (..), CTxEntry (..),
-                                                   CTxId (..), CTxSummary (..),
-                                                   TxInternal (..), convertTxOutputs,
-                                                   convertTxOutputsMB, fromCAddress,
-                                                   fromCHash, fromCTxId, getEpochIndex,
-                                                   getSlotIndex, mkCCoin, mkCCoinMB,
-                                                   tiToTxEntry, toBlockEntry,
-                                                   toBlockSummary, toCAddress, toCHash,
-                                                   toCTxId, toTxBrief)
-import           Pos.Explorer.Web.Error           (ExplorerError (..))
+import           Pos.Binary.Class (biSize)
+import           Pos.Block.Types (Blund, Undo)
+import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex, HeaderHash, Timestamp,
+                           coinToInteger, difficultyL, gbHeader, gbhConsensus, getChainDifficulty,
+                           isUnknownAddressType, makeRedeemAddress, siEpoch, siSlot, sumCoins,
+                           timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
+import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
+                               _txOutputs)
+import           Pos.Slotting (MonadSlots (..), getSlotStart)
+import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs)
+import           Pos.Util (divRoundUp, maybeThrow)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Web (serveImpl)
+
+import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.Core (TxExtra (..))
+import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
+                                  getLastTransactions, getTxExtra, getUtxoSum)
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
+import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
+                                            HasGenesisRedeemAddressInfo (..))
+import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
+                                               CAddressType (..), CAddressesFilter (..),
+                                               CBlockEntry (..), CBlockSummary (..),
+                                               CGenesisAddressInfo (..), CGenesisSummary (..),
+                                               CHash, CTxBrief (..), CTxEntry (..), CTxId (..),
+                                               CTxSummary (..), TxInternal (..), convertTxOutputs,
+                                               convertTxOutputsMB, fromCAddress, fromCHash,
+                                               fromCTxId, getEpochIndex, getSlotIndex, mkCCoin,
+                                               mkCCoinMB, tiToTxEntry, toBlockEntry, toBlockSummary,
+                                               toCAddress, toCHash, toCTxId, toTxBrief)
+import           Pos.Explorer.Web.Error (ExplorerError (..))
+
 
 
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
-type MainBlund ssc = (MainBlock ssc, Undo)
 
-type ExplorerMode ctx m =
-    ( WorkMode SscGodTossing ctx m
-    , HasGtConfiguration
-    )
+type MainBlund = (MainBlock, Undo)
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -122,87 +112,27 @@ explorerApp serv = serve explorerApi <$> serv
 -- Handlers
 ----------------------------------------------------------------
 
-explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
+explorerHandlers
+    :: forall ctx m. ExplorerMode ctx m
+    => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-      apiTotalAda
-    :<|>
-      apiBlocksPages
-    :<|>
-      apiBlocksPagesTotal
-    :<|>
-      apiBlocksSummary
-    :<|>
-      apiBlocksTxs
-    :<|>
-      apiTxsLast
-    :<|>
-      apiTxsSummary
-    :<|>
-      apiAddressSummary
-    :<|>
-      apiEpochPageSearch
-    :<|>
-      apiEpochSlotSearch
-    :<|>
-      apiGenesisSummary
-    :<|>
-      apiGenesisPagesTotal
-    :<|>
-      apiGenesisAddressInfo
-    :<|>
-      apiStatsTxs
-  where
-    apiTotalAda           = tryGetTotalAda
-    apiBlocksPages        = getBlocksPagesDefault
-    apiBlocksPagesTotal   = getBlocksPagesTotalDefault
-    apiBlocksSummary      = catchExplorerError . getBlockSummary
-    apiBlocksTxs          = getBlockTxsDefault
-    apiTxsLast            = catchExplorerError getLastTxs
-    apiTxsSummary         = catchExplorerError . getTxSummary
-    apiAddressSummary     = catchExplorerError . getAddressSummary
-    apiEpochPageSearch    = tryEpochPageSearch
-    apiEpochSlotSearch    = tryEpochSlotSearch
-    apiGenesisSummary     = catchExplorerError getGenesisSummary
-    apiGenesisPagesTotal  = getGenesisPagesTotalDefault
-    apiGenesisAddressInfo = getGenesisAddressInfoDefault
-    apiStatsTxs           = getStatsTxsDefault
-
-    catchExplorerError    = try
-
-    tryGetTotalAda =
-        catchExplorerError getTotalAda
-
-    getBlocksPagesDefault page size  =
-        catchExplorerError $ getBlocksPage page (defaultPageSize size)
-
-    getBlocksPagesTotalDefault size  =
-        catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
-
-    getBlockTxsDefault hash' limit skip =
-        catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
-
-    tryEpochPageSearch epoch maybePage =
-        catchExplorerError $ epochPageSearch epoch (defaultPage maybePage)
-
-    tryEpochSlotSearch epoch slot =
-        catchExplorerError $ epochSlotSearch epoch slot
-
-    getGenesisPagesTotalDefault size addrFilt =
-        catchExplorerError $
-            getGenesisPagesTotal (defaultPageSize size) (defaultAddressesFilter addrFilt)
-
-    getGenesisAddressInfoDefault page size addrFilt =
-        catchExplorerError $
-            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrFilt)
-
-    getStatsTxsDefault page =
-        catchExplorerError $ getStatsTxs page
-
-    defaultPageSize size  = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit    = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip skip      = (fromIntegral $ fromMaybe 0  skip)
-    defaultPage page      = (fromIntegral $ fromMaybe 1  page)
-    defaultAddressesFilter = fromMaybe AllAddresses
+    toServant (ExplorerApiRecord
+        { _totalAda           = getTotalAda
+        , _blocksPages        = getBlocksPage
+        , _blocksPagesTotal   = getBlocksPagesTotal
+        , _blocksSummary      = getBlockSummary
+        , _blocksTxs          = getBlockTxs
+        , _txsLast            = getLastTxs
+        , _txsSummary         = getTxSummary
+        , _addressSummary     = getAddressSummary
+        , _epochPages         = getEpochPage
+        , _epochSlots         = getEpochSlot
+        , _genesisSummary     = getGenesisSummary
+        , _genesisPagesTotal  = getGenesisPagesTotal
+        , _genesisAddressInfo = getGenesisAddressInfo
+        , _statsTxs           = getStatsTxs
+        }
+        :: ExplorerApiRecord (AsServerT m))
 
 ----------------------------------------------------------------
 -- API Functions
@@ -210,7 +140,7 @@ explorerHandlers _sendActions =
 
 getTotalAda :: ExplorerMode ctx m => m CAda
 getTotalAda = do
-    utxoSum <- EX.getUtxoSum
+    utxoSum <- getUtxoSum
     validateUtxoSum utxoSum
     pure $ CAda $ fromInteger utxoSum / 1e6
   where
@@ -230,11 +160,8 @@ getBlocksTotal
     => m Integer
 getBlocksTotal = do
     -- Get the tip block.
-    tipBlock <- DB.getTipBlock @SscGodTossing
-
-    pure $ maxBlocks tipBlock
-  where
-    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+    tipBlock <- getTipBlockCSLI
+    pure $ getBlockDifficulty tipBlock
 
 
 -- | Get last blocks with a page parameter. This enables easier paging on the
@@ -242,13 +169,15 @@ getBlocksTotal = do
 -- Currently the pages are in chronological order.
 getBlocksPage
     :: ExplorerMode ctx m
-    => Maybe Word
-    -> Word
+    => Maybe Word -- ^ Page number
+    -> Maybe Word -- ^ Page size
     -> m (Integer, [CBlockEntry])
-getBlocksPage mPageNumber pageSize = do
+getBlocksPage mPageNumber mPageSize = do
+
+    let pageSize = toPageSize mPageSize
 
     -- Get total pages from the blocks.
-    totalPages <- getBlocksPagesTotal pageSize
+    totalPages <- getBlocksPagesTotal mPageSize
 
     -- Initially set on the last page number if page number not defined.
     let pageNumber = fromMaybe totalPages $ toInteger <$> mPageNumber
@@ -261,7 +190,7 @@ getBlocksPage mPageNumber pageSize = do
         throwM $ Internal "Number of pages exceeds total pages number."
 
     -- TODO: Fix in the future.
-    when (pageSize /= 10) $
+    when (pageSize /= fromIntegral defaultPageSize) $
         throwM $ Internal "We currently support only page size of 10."
 
     when (pageSize > 1000) $
@@ -276,48 +205,46 @@ getBlocksPage mPageNumber pageSize = do
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
   where
-    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: ExplorerMode ctx m
         => Int
         -> m [HeaderHash]
-    getPageHHsOrThrow pageNumber = getPageBlocks pageNumber >>=
-        maybeThrow (Internal errMsg)
+    getPageHHsOrThrow pageNumber =
+        -- Then let's fetch blocks for a specific page from it and raise exception if not
+        -- found.
+        getPageBlocksCSLI pageNumber >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on page "%build%" found!") pageNumber
-
--- Either get the block from the @HeaderHash@ or throw an exception.
-getBlundOrThrow
-    :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
-    => HeaderHash
-    -> m (Blund SscGodTossing)
-getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
-    maybeThrow (Internal "Blund with hash cannot be found!")
 
 -- | Get total pages from blocks. Calculated from
 -- pageSize we pass to it.
 getBlocksPagesTotal
     :: ExplorerMode ctx m
-    => Word
+    => Maybe Word
     -> m Integer
-getBlocksPagesTotal pageSize = do
-    -- Get total blocks in the blockchain.
+getBlocksPagesTotal mPageSize = do
+
+    let pageSize = toPageSize mPageSize
+
+    -- Get total blocks in the blockchain. Get the blocks total using this mode.
     blocksTotal <- toInteger <$> getBlocksTotal
 
-    -- Get total pages from the blocks. And we want the page
-    -- with the example, the page size 10,
-    -- to start with 10 + 1 == 11, not with 10 since with
-    -- 10 we'll have an empty page.
-    let totalPages = (blocksTotal - 1) `div` pageSizeInt
+    -- Make sure the parameters are valid.
+    when (blocksTotal < 1) $
+        throwM $ Internal "There are currently no block to display."
+
+    when (pageSize < 1) $
+        throwM $ Internal "Page size must be greater than 1 if you want to display blocks."
 
     -- We start from page 1.
-    pure (totalPages + 1)
-  where
-    pageSizeInt     = toInteger pageSize
+    let pagesTotal = roundToBlockPage blocksTotal
+
+    pure pagesTotal
 
 
 -- | Get the last page from the blockchain. We use the default 10
@@ -325,10 +252,7 @@ getBlocksPagesTotal pageSize = do
 getBlocksLastPage
     :: ExplorerMode ctx m
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing pageSize
-  where
-    pageSize :: Word
-    pageSize = 10
+getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSizeWord)
 
 
 -- | Get last transactions from the blockchain.
@@ -361,7 +285,7 @@ getLastTxs = do
             => WithHash Tx
             -> m TxInternal
         toTxInternal (WithHash tx txId) = do
-            extra <- EX.getTxExtra txId >>=
+            extra <- getTxExtra txId >>=
                 maybeThrow (Internal "No extra info for tx in DB!")
             pure $ TxInternal extra tx
 
@@ -372,8 +296,8 @@ getBlockSummary
     => CHash
     -> m CBlockSummary
 getBlockSummary cHash = do
-    h <- unwrapOrThrow $ fromCHash cHash
-    mainBlund <- getMainBlund h
+    headerHash <- unwrapOrThrow $ fromCHash cHash
+    mainBlund  <- getMainBlund headerHash
     toBlockSummary mainBlund
 
 
@@ -381,16 +305,16 @@ getBlockSummary cHash = do
 getBlockTxs
     :: ExplorerMode ctx m
     => CHash
-    -> Word
-    -> Word
+    -> Maybe Word
+    -> Maybe Word
     -> m [CTxBrief]
-getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
-    h   <- unwrapOrThrow $ fromCHash cHash
-    blk <- getMainBlock h
-    txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+getBlockTxs cHash mLimit mSkip = do
+    let limit = fromIntegral $ fromMaybe defaultPageSizeWord mLimit
+    let skip = fromIntegral $ fromMaybe 0 mSkip
+    txs <- getMainBlockTxs cHash
 
-    forM (take lim . drop off $ txs) $ \tx -> do
-        extra <- EX.getTxExtra (hash tx) >>=
+    forM (take limit . drop skip $ txs) $ \tx -> do
+        extra <- getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
                                       \have extra info in DB")
         pure $ makeTxBrief tx extra
@@ -409,12 +333,13 @@ getAddressSummary cAddr = do
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
-    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
-    txIds <- getNewestFirst <$> EX.getAddrHistory addr
+    balance <- mkCCoin . fromMaybe minBound <$> getAddrBalance addr
+    txIds <- getNewestFirst <$> getAddrHistory addr
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
         tx <- getTxMain id extra
         pure $ makeTxBrief tx extra
+
     pure CAddressSummary {
         caAddress = cAddr,
         caType = getAddressType addr,
@@ -548,74 +473,75 @@ getTxSummary cTxId = do
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
-getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
-getRedeemAddressCoinPairs = do
-
-    let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs (unGenesisUtxo genesisUtxo)
-
-        redeemOnly :: [(Address, Coin)]
-        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
-
-    pure redeemOnly
+data GenesisSummaryInternal = GenesisSummaryInternal
+    { gsiNumRedeemed            :: !Int
+    , gsiRedeemedAmountTotal    :: !Coin
+    , gsiNonRedeemedAmountTotal :: !Coin
+    }
 
 getGenesisSummary
     :: ExplorerMode ctx m
     => m CGenesisSummary
 getGenesisSummary = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    redeemAddressInfo <- mapM (uncurry getRedeemAddressInfo) redeemAddressCoinPairs
-    let (cgsNumRedeemed, redeemedAmountTotal, nonRedeemedAmountTotal) =
-            foldr folder (0, mkCoin 0, mkCoin 0) redeemAddressInfo
-    let cgsNumTotal = length redeemAddressCoinPairs
+    grai <- getGenesisRedeemAddressInfo
+    redeemAddressInfo <- V.mapM (uncurry getRedeemAddressInfo) grai
+    let GenesisSummaryInternal {..} =
+            V.foldr folder (GenesisSummaryInternal 0 minBound minBound)
+            redeemAddressInfo
+    let numTotal = length grai
     pure CGenesisSummary
-        { cgsNumNotRedeemed = cgsNumTotal - cgsNumRedeemed
-        , cgsRedeemedAmountTotal = mkCCoin redeemedAmountTotal
-        , cgsNonRedeemedAmountTotal = mkCCoin nonRedeemedAmountTotal
-        , ..
+        { cgsNumTotal = numTotal
+        , cgsNumRedeemed = gsiNumRedeemed
+        , cgsNumNotRedeemed = numTotal - gsiNumRedeemed
+        , cgsRedeemedAmountTotal = mkCCoin gsiRedeemedAmountTotal
+        , cgsNonRedeemedAmountTotal = mkCCoin gsiNonRedeemedAmountTotal
         }
   where
     getRedeemAddressInfo
         :: (MonadDBRead m, MonadThrow m)
-        => Address -> Coin -> m (Bool, Coin, Coin)
+        => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
-        currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+        currentBalance <- fromMaybe minBound <$> getAddrBalance address
         if currentBalance > initialBalance then
             throwM $ Internal $ sformat
                 ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
                 address initialBalance currentBalance
         else
-            let isRedeemed = currentBalance == mkCoin 0
+            -- Abusing gsiNumRedeemed here. We'd like to keep
+            -- only one wrapper datatype, so we're storing an Int
+            -- with a 0/1 value in a field that we call isRedeemed.
+            let isRedeemed = if currentBalance == minBound then 1 else 0
                 redeemedAmount = initialBalance `unsafeSubCoin` currentBalance
                 amountLeft = currentBalance
-            in pure $ (isRedeemed, redeemedAmount, amountLeft)
+            in pure $ GenesisSummaryInternal isRedeemed redeemedAmount amountLeft
     folder
-        :: (Bool, Coin, Coin)
-        -> (Int, Coin, Coin)
-        -> (Int, Coin, Coin)
+        :: GenesisSummaryInternal
+        -> GenesisSummaryInternal
+        -> GenesisSummaryInternal
     folder
-        (isRedeemed, redeemedAmount, amountLeft)
-        (numRedeemed, redeemedAmountTotal, nonRedeemedAmountTotal) = (
-              numRedeemed + (if isRedeemed then 1 else 0)
-            , redeemedAmountTotal `unsafeAddCoin` redeemedAmount
-            , nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
-            )
+        (GenesisSummaryInternal isRedeemed redeemedAmount amountLeft)
+        (GenesisSummaryInternal numRedeemed redeemedAmountTotal nonRedeemedAmountTotal) =
+        GenesisSummaryInternal
+            { gsiNumRedeemed = numRedeemed + isRedeemed
+            , gsiRedeemedAmountTotal = redeemedAmountTotal `unsafeAddCoin` redeemedAmount
+            , gsiNonRedeemedAmountTotal = nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
+            }
 
 isAddressRedeemed :: MonadDBRead m => Address -> m Bool
 isAddressRedeemed address = do
-    currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
-    pure $ currentBalance == mkCoin 0
+    currentBalance <- fromMaybe minBound <$> getAddrBalance address
+    pure $ currentBalance == minBound
 
-getFilteredPairs :: ExplorerMode ctx m => CAddressesFilter -> m [(Address, Coin)]
-getFilteredPairs addrFilt = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+getFilteredGrai :: ExplorerMode ctx m => CAddressesFilter -> m (V.Vector (Address, Coin))
+getFilteredGrai addrFilt = do
+    grai <- getGenesisRedeemAddressInfo
     case addrFilt of
             AllAddresses         ->
-                pure redeemAddressCoinPairs
+                pure grai
             RedeemedAddresses    ->
-                filterM (isAddressRedeemed . fst) redeemAddressCoinPairs
+                V.filterM (isAddressRedeemed . fst) grai
             NonRedeemedAddresses ->
-                filterM (isAddressNotRedeemed . fst) redeemAddressCoinPairs
+                V.filterM (isAddressNotRedeemed . fst) grai
   where
     isAddressNotRedeemed :: MonadDBRead m => Address -> m Bool
     isAddressNotRedeemed = fmap not . isAddressRedeemed
@@ -623,15 +549,16 @@ getFilteredPairs addrFilt = do
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
     => Maybe Word  -- ^ pageNumber
-    -> Word        -- ^ pageSize
+    -> Maybe Word  -- ^ pageSize
     -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrFilt = do
-    filteredPairs <- getFilteredPairs addrFilt
+getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize addrFilt = do
+    filteredGrai <- getFilteredGrai addrFilt
     let pageNumber    = fromMaybe 1 mPage
+        pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
-        requestedPage = take pageSize $ drop skipItems filteredPairs
-    mapM toGenesisAddressInfo requestedPage
+        requestedPage = V.slice skipItems pageSize filteredGrai
+    V.toList <$> V.mapM toGenesisAddressInfo requestedPage
   where
     toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
@@ -647,23 +574,26 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) ad
 
 getGenesisPagesTotal
     :: ExplorerMode ctx m
-    => Word
+    => Maybe Word
     -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal (fromIntegral -> pageSize) addrFilt = do
-    filteredPairs <- getFilteredPairs addrFilt
-    pure $ fromIntegral $ (length filteredPairs + pageSize - 1) `div` pageSize
+getGenesisPagesTotal mPageSize addrFilt = do
+    filteredGrai <- getFilteredGrai addrFilt
+    pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
+  where
+    pageSize = fromIntegral $ toPageSize mPageSize
 
 -- | Search the blocks by epoch and slot.
-epochSlotSearch
+getEpochSlot
     :: ExplorerMode ctx m
     => EpochIndex
     -> Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = do
+getEpochSlot epochIndex slotIndex = do
 
     -- The slots start from 0 so we need to modify the calculation of the index.
     let page = fromIntegral $ (slotIndex `div` 10) + 1
+
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page
@@ -672,48 +602,51 @@ epochSlotSearch epochIndex slotIndex = do
 
     pure cBlocksEntry
   where
-    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
     getEpochSlots
         :: Word16
-        -> [MainBlund SscGodTossing]
-        -> [MainBlund SscGodTossing]
+        -> [MainBlund]
+        -> [MainBlund]
     getEpochSlots slotIndex' blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Word16
         getBlundSlotIndex blund = getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot
 
         filterBlundsBySlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Bool
         filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex'
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (HasExplorerCSLInterface m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
     getPageHHsOrThrow epoch page =
-        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
+        getEpochBlocksCSLI epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
 -- | Search the blocks by epoch and epoch page number.
-epochPageSearch
+getEpochPage
     :: ExplorerMode ctx m
     => EpochIndex
-    -> Int
+    -> Maybe Int
     -> m (Int, [CBlockEntry])
-epochPageSearch epochIndex page = do
+getEpochPage epochIndex mPage = do
+
+    -- Get the page if it exists, return first page otherwise.
+    let page = fromMaybe 1 mPage
 
     -- We want to fetch as many pages as we have in this @Epoch@.
-    epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+    epochPagesNumber <- getEpochPagesOrThrow epochIndex
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
@@ -727,31 +660,31 @@ epochPageSearch epochIndex page = do
 
     pure (epochPagesNumber, cBlocksEntry)
   where
-    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (HasExplorerCSLInterface m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
     getPageHHsOrThrow epoch page' =
-        getEpochBlocks epoch page' >>= maybeThrow (Internal errMsg)
+        getEpochBlocksCSLI epoch page' >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page'
 
     -- | Sorting.
     sortBlocksByEpochSlots
-        :: [(Block SscGodTossing, Undo)]
-        -> [(Block SscGodTossing, Undo)]
-    sortBlocksByEpochSlots blocks = sortBy (comparing $ Down . getBlockIndex . fst) blocks
+        :: [(Block, Undo)]
+        -> [(Block, Undo)]
+    sortBlocksByEpochSlots blocks = sortOn (Down . getBlockIndex . fst) blocks
       where
         -- | Get the block index number. We start with the the index 1 for the
         -- genesis block and add 1 for the main blocks since they start with 1
         -- as well.
-        getBlockIndex :: (Block ssc) -> Int
+        getBlockIndex :: Block -> Int
         getBlockIndex (Left _)      = 1
         getBlockIndex (Right block) =
             fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
@@ -762,7 +695,7 @@ getStatsTxs
     -> m (Integer, [(CTxId, Byte)])
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage mPageNumber 10
+    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSizeWord)
 
     blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
     pure blockPageTxsInfo
@@ -778,18 +711,13 @@ getStatsTxs mPageNumber = do
         cHashes = cbeBlkHash <$> cBlockEntries
 
         blockPageTxsInfo :: m [(CTxId, Byte)]
-        blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
+        blockPageTxsInfo = concatForM cHashes getBlockTxsInfo
 
         getBlockTxsInfo
             :: CHash
             -> m [(CTxId, Byte)]
         getBlockTxsInfo cHash = do
-            h   <- unwrapOrThrow $ fromCHash cHash
-            blk <- getMainBlock h
-            txs <- topsortTxsOrFail withHash
-                $ toList
-                $ blk ^. mainBlockTxPayload . txpTxs
-
+            txs <- getMainBlockTxs cHash
             pure $ txToTxIdSize <$> txs
           where
             txToTxIdSize :: Tx -> (CTxId, Byte)
@@ -800,6 +728,32 @@ getStatsTxs mPageNumber = do
 -- Helpers
 --------------------------------------------------------------------------------
 
+-- | A pure calculation of the page number.
+-- Get total pages from the blocks. And we want the page
+-- with the example, the page size 10,
+-- to start with 10 + 1 == 11, not with 10 since with
+-- 10 we'll have an empty page.
+-- Could also be `((blocksTotal - 1) `div` pageSizeInt) + 1`.
+roundToBlockPage :: Integer -> Integer
+roundToBlockPage blocksTotal = divRoundUp blocksTotal $ fromIntegral defaultPageSize
+
+-- | A pure function that return the number of blocks.
+getBlockDifficulty :: Block -> Integer
+getBlockDifficulty tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+
+defaultPageSizeWord :: Word
+defaultPageSizeWord = fromIntegral defaultPageSize
+
+toPageSize :: Maybe Word -> Integer
+toPageSize = fromIntegral . fromMaybe defaultPageSizeWord
+
+getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
+getMainBlockTxs cHash = do
+    hash' <- unwrapOrThrow $ fromCHash cHash
+    blk   <- getMainBlock hash'
+    txs   <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
+    pure txs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)
@@ -842,13 +796,23 @@ getMempoolTxs = do
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
 
-getBlkSlotStart :: MonadSlots ctx m => MainBlock ssc -> m (Maybe Timestamp)
+getBlkSlotStart :: MonadSlots ctx m => MainBlock -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
 topsortTxsOrFail :: (MonadThrow m, Eq a) => (a -> WithHash Tx) -> [a] -> m [a]
 topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
+
+-- Either get the block from the @HeaderHash@ or throw an exception.
+getBlundOrThrow
+    :: ExplorerMode ctx m
+    => HeaderHash
+    -> m Blund
+getBlundOrThrow headerHash =
+    getBlundFromHHCSLI headerHash >>=
+        maybeThrow (Internal "Blund with hash cannot be found!")
+
 
 -- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
 -- Throw exception on failure.
@@ -882,12 +846,12 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where
     exception = const $ throwM $ Internal "Invalid transaction id!"
 
-getMainBlund :: ExplorerMode ctx m => HeaderHash -> m (MainBlund SscGodTossing)
+getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
 getMainBlund h = do
-    (blk, undo) <- DB.blkGetBlund h >>= maybeThrow (Internal "No block found")
+    (blk, undo) <- getBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
-getMainBlock :: ExplorerMode ctx m => HeaderHash -> m (MainBlock SscGodTossing)
+getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
 getMainBlock = fmap fst . getMainBlund
 
 -- | Get transaction extra from the database, and if you don't find it
@@ -904,3 +868,11 @@ getTxMain id TxExtra {..} = case teBlockchainPlace of
         mb <- getMainBlock hh
         maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
             atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) $ fromIntegral idx
+
+-- | Get @Page@ numbers from an @Epoch@ or throw an exception.
+getEpochPagesOrThrow
+    :: (HasExplorerCSLInterface m, MonadThrow m)
+    => EpochIndex
+    -> m Page
+getEpochPagesOrThrow epochIndex =
+    getEpochPagesCSLI epochIndex >>= maybeThrow (Internal "No epoch pages.")

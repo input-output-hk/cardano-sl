@@ -4,14 +4,14 @@ module Pos.Slotting.Error
        ( SlottingError (..)
        ) where
 
-import           Control.Exception   (Exception (..))
-import qualified Data.Text.Buildable
-import           Formatting          (bprint, (%))
 import           Universum
 
-import           Pos.Core.Types      (SlotId, slotIdF)
-import           Pos.Exception       (cardanoExceptionFromException,
-                                      cardanoExceptionToException)
+import           Control.Exception (Exception (..))
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%))
+
+import           Pos.Core.Slotting (SlotId, slotIdF)
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 
 -- | Type aggregating run-time errors related to Slotting.
 data SlottingError = SEUnknownSlotStart !SlotId

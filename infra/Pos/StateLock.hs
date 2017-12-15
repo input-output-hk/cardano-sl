@@ -12,6 +12,7 @@ how long the action takes.
 module Pos.StateLock
        ( Priority (..)
        , StateLock (..)
+       , newEmptyStateLock
        , newStateLock
 
        , StateLockMetrics (..)
@@ -24,17 +25,16 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Monad.Catch              (MonadMask)
-import           Data.Time.Units                  (Microsecond)
-import           Mockable                         (CurrentTime, Mockable, currentTime)
-import           System.Wlog                      (LoggerNameBox, WithLogger,
-                                                   getLoggerName, usingLoggerName)
+import           Control.Monad.Catch (MonadMask)
+import           Data.Time.Units (Microsecond)
+import           Mockable (CurrentTime, Mockable, currentTime)
+import           System.Wlog (LoggerNameBox, WithLogger, getLoggerName, usingLoggerName)
 
-import           Pos.Core                         (HeaderHash)
-import           Pos.Util.Concurrent              (modifyMVar, withMVar)
-import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
-                                                   newPriorityLock, withPriorityLock)
-import           Pos.Util.Util                    (HasLens', lensOf)
+import           Pos.Core (HeaderHash)
+import           Pos.Util.Concurrent (modifyMVar, withMVar)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock, newPriorityLock,
+                                                   withPriorityLock)
+import           Pos.Util.Util (HasLens', lensOf)
 
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our
@@ -45,8 +45,13 @@ data StateLock = StateLock
     , slLock :: !PriorityLock
     }
 
-newStateLock :: MonadIO m => m StateLock
-newStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
+-- | Create empty (i. e. locked) 'StateLock'.
+newEmptyStateLock :: MonadIO m => m StateLock
+newEmptyStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
+
+-- | Create a 'StateLock' with given tip.
+newStateLock :: MonadIO m => HeaderHash -> m StateLock
+newStateLock tip = StateLock <$> newMVar tip <*> newPriorityLock
 
 -- | Effectful getters and setters for metrics related to the actions
 -- which use 'StateLock'.

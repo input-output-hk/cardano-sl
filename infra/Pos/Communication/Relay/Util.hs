@@ -5,7 +5,7 @@ module Pos.Communication.Relay.Util
 
 import           Universum
 
-import           Mockable                      (Mockable, Throw, throw)
+import           Mockable (Mockable, Throw, throw)
 
 import           Pos.Communication.Relay.Types (RelayError (UnexpectedData, UnexpectedInv))
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData)

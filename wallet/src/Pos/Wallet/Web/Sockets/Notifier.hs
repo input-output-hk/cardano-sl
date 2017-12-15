@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE GADTs         #-}
+{-# LANGUAGE Rank2Types    #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Notifier logic
@@ -9,29 +11,36 @@ module Pos.Wallet.Web.Sockets.Notifier
 
 import           Universum
 
-import           Control.Concurrent                (forkFinally)
-import           Control.Lens                      ((.=))
-import           Data.Default                      (Default (def))
-import           Data.Time.Units                   (Microsecond, Second)
-import           Serokell.Util                     (threadDelay)
-import           Servant.Server                    (Handler, runHandler)
-import           Servant.Utils.Enter               ((:~>) (..))
-import           System.Wlog                       (logDebug)
+import           Control.Concurrent (forkFinally)
+import           Control.Lens ((.=))
+import           Data.Default (Default (def))
+import           Data.Time.Units (Microsecond, Second)
+import           Serokell.Util (threadDelay)
+import           Servant.Server (Handler, runHandler)
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Aeson.ClientTypes             ()
-import           Pos.Aeson.WalletBackup            ()
-import           Pos.DB                            (MonadGState (..))
-import           Pos.Wallet.WalletMode             (connectedPeers, localChainDifficulty,
-                                                    networkChainDifficulty, waitForUpdate)
-import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPeers,
-                                                    toCUpdateInfo)
-import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
+import           Pos.DB (MonadGState (..))
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
+import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers, toCUpdateInfo)
+import           Pos.Wallet.Web.Mode (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
-import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
-import           Pos.Wallet.Web.State              (addUpdate)
+import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, addUpdate)
+
+type MonadNotifier ctx m =
+    ( WithLogger m
+    , MonadWalletDB ctx m
+    , MonadWalletWebSockets ctx m
+    , MonadBlockchainInfo m
+    , MonadUpdates m
+    , MonadGState m
+    )
 
 -- FIXME: this is really inefficient. Temporary solution
-launchNotifier :: MonadWalletWebMode m => (m :~> Handler) -> m ()
+launchNotifier
+    :: MonadNotifier ctx m
+    => (forall x. m x -> Handler x)
+    -> m ()
 launchNotifier nat =
     void . liftIO $ mapM startForking
         [ dificultyNotifier
@@ -52,7 +61,7 @@ launchNotifier nat =
         void $ forkForever action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    startForking = forkForever . void . runHandler . ($$) nat
+    startForking = forkForever . void . runHandler . nat
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action

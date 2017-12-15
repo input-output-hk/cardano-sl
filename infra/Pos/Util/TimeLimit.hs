@@ -18,15 +18,15 @@ module Pos.Util.TimeLimit
        , waitRandomInterval
        ) where
 
-import           Universum         hiding (bracket, finally)
+import           Universum
 
-import           Data.Time.Units   (Microsecond, Second, convertUnit)
-import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Delay, Mockable, delay, race, withAsync)
-import           System.Wlog       (WithLogger, logWarning)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
+import           Formatting (sformat, shown, stext, (%))
+import           Mockable (Async, Bracket, Delay, Mockable, delay, race, withAsyncWithUnmask)
+import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
-import           Pos.Util.LogSafe  (logWarningS)
+import           Pos.Util.LogSafe (logWarningS)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
@@ -40,7 +40,7 @@ data WaitingDelta
 
 -- | Constraint for something that can be logged in parallel with other action.
 type CanLogInParallel m =
-    (Mockable Delay m, Mockable Async m, WithLogger m, MonadIO m)
+    (Mockable Delay m, Mockable Async m, Mockable Bracket m, WithLogger m, MonadIO m)
 
 
 -- | Run action and print warning if it takes more time than expected.
@@ -60,7 +60,10 @@ logWarningLongAction secure delta actionTag action =
     -- 'withAsync' is assumed to take care of this, and indeed it does for
     -- 'Production's implementation, which uses the definition from the async
     -- package: 'uninterruptibleCancel' is used to kill the thread.
-    withAsync (waitAndWarn delta) (const action)
+    --
+    -- thinking even more about it, unmasking auxilary thread is crucial if
+    -- this function is going to be called under 'mask'.
+    withAsyncWithUnmask (\unmask -> unmask $ waitAndWarn delta) (const action)
   where
     logFunc :: Text -> m ()
     logFunc = bool logWarning logWarningS secure

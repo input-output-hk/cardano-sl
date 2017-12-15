@@ -4,28 +4,28 @@ module Statistics.Graph
     , writeGraph
     ) where
 
-import           Control.Foldl                     (Fold (..))
-import           Data.Graph.Inductive.Graph        (Graph (mkGraph))
-import           Data.Graph.Inductive.PatriciaTree (Gr)
-import           Data.GraphViz                     (DotGraph)
-import qualified Data.GraphViz                     as G
-import qualified Data.GraphViz.Attributes.Complete as A
-import           Data.GraphViz.Commands.IO         (hPutDot)
-import           Data.Map.Strict                   (Map)
-import qualified Data.Map.Strict                   as M
-import           Data.Set                          (Set)
-import qualified Data.Set                          as S
-import           Pos.Util.Util                     (withTempFile)
-import           System.Exit                       (ExitCode (ExitSuccess))
-import           System.IO                         (hGetContents, hPutStrLn)
-import           System.Process                    (readProcessWithExitCode)
+import           Universum hiding (unlines)
 
-import           JSONLog                           (IndexedJLTimedEvent)
-import           Prelude                           (unlines)
-import           Statistics.Block                  (BlockHeader (..), blockChain,
-                                                    blockHeadersF)
+import           Control.Foldl (Fold (..))
+import           Data.Graph.Inductive.Graph (Graph (mkGraph))
+import           Data.Graph.Inductive.PatriciaTree (Gr)
+import           Data.GraphViz (DotGraph)
+import qualified Data.GraphViz as G
+import qualified Data.GraphViz.Attributes.Complete as A
+import           Data.GraphViz.Commands.IO (hPutDot)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import           Data.Set (Set)
+import qualified Data.Set as S
+import           Pos.Util (withTempFile)
+import           Prelude (unlines)
+import           System.Exit (ExitCode (ExitSuccess))
+import           System.IO (hGetContents, hPutStrLn)
+import           System.Process (readProcessWithExitCode)
+
+import           JSONLog (IndexedJLTimedEvent)
+import           Statistics.Block (BlockHeader (..), blockChain, blockHeadersF)
 import           Types
-import           Universum                         hiding (unlines)
 
 graphF :: Fold IndexedJLTimedEvent (DotGraph Int)
 graphF = f <$> blockHeadersF

@@ -13,8 +13,8 @@ module Explorer.View.CSS
   , blocksColumnLead
   , blocksColumnSize
   , blocksFooter
-  , blocksWaiting
-  , blocksFailed
+  , blocksMessage
+  , blocksMessageBack
   , dashboardWrapper
   , dashboardContainer
   , dashBoardBlocksViewId
@@ -131,11 +131,11 @@ blocksFooter = "blocks-footer"
 
 -- | blocks misc.
 
-blocksWaiting :: String
-blocksWaiting = "blocks-waiting"
+blocksMessage :: String
+blocksMessage = "blocks-message"
 
-blocksFailed :: String
-blocksFailed = "blocks-failed"
+blocksMessageBack :: String
+blocksMessageBack = "blocks-message-back"
 
 
 -----------------------------------------------------------

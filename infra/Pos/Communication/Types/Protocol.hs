@@ -41,31 +41,31 @@ module Pos.Communication.Types.Protocol
        , MsgSubscribe (..)
        ) where
 
-import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value)
-import           Data.Aeson.Types           (Parser)
-import qualified Data.ByteString.Base64     as B64 (decode, encode)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Map                   as M
-import qualified Data.Text.Buildable        as B
-import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
-import qualified Data.Text.Internal.Builder as B
-import           Formatting                 (bprint, build, hex, shown, sformat, (%))
--- TODO should not have to import outboundqueue stuff here. MsgType and
--- NodeType should be a cardano-sl notion.
-import           Mockable.Class             (Mockable)
-import           Mockable.Concurrent        (Async, async, wait)
-import           Network.Transport          (EndPointAddress (..))
-import qualified Node                       as N
-import           Node.Message.Class         (Message (..), MessageCode)
-import           Pos.Network.Types          (MsgType (..), NodeId (..), NodeType (..),
-                                             Origin (..))
-import           Serokell.Util.Base16       (base16F)
-import           Serokell.Util.Text         (listJson, mapJson)
 import           Universum
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.BiP      (BiP)
-import           Pos.Core.Types             (BlockVersion)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
+import           Data.Aeson.Types (Parser)
+import qualified Data.ByteString.Base64 as B64 (decode, encode)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M
+import qualified Data.Text.Buildable as B
+import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Internal.Builder as B
+import           Formatting (bprint, build, hex, sformat, shown, (%))
+-- TODO should not have to import outboundqueue stuff here. MsgType and
+-- NodeType should be a cardano-sl notion.
+import           Mockable.Class (Mockable)
+import           Mockable.Concurrent (Async, async, wait)
+import           Network.Transport (EndPointAddress (..))
+import qualified Node as N
+import           Node.Message.Class (Message (..), MessageCode)
+import           Serokell.Util.Base16 (base16F)
+import           Serokell.Util.Text (listJson, mapJson)
+
+import           Pos.Binary.Class (Bi)
+import           Pos.Communication.BiP (BiP)
+import           Pos.Core.Update (BlockVersion)
+import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 
 type PackingType = BiP
 type PeerData = VerInfo
@@ -306,8 +306,18 @@ instance Monad m => Monoid (MkListeners m) where
 -- This is used by behind-NAT nodes, who join the network by sending a
 -- MsgSubscribe to a relay nodes.
 --
+-- Note that after node A subscribes, it doesn't send anything to node B
+-- anymore. Therefore it might happen that due to problems within the network
+-- (e.g. router failures, see
+-- https://blog.stephencleary.com/2009/05/detection-of-half-open-dropped.html
+-- for more detailed information) node B closes the subscription channel after
+-- it tries to send data to node A and fails, whereas node A will be oblivious
+-- to that event and won't try to reestablish the channel. To remedy that node A
+-- needs to periodically send keep-alive like data to node B in order to ensure
+-- that the connection is valid.
+--
 -- Kademia nodes might also use this if they want a guarantee that they receive
 -- messages from their peers (without subscription we rely on luck for some
 -- nodes to decide to add us to their list of known peers).
-data MsgSubscribe = MsgSubscribe
+data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
     deriving (Generic, Show, Eq)

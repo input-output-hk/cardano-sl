@@ -7,15 +7,15 @@ module Pos.Security.Params
 
 import           Universum
 
-import qualified Data.Aeson             as A
-import qualified Data.Aeson.Types       as A
-import           Data.Default           (Default (..))
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Types as A
+import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
-import qualified Text.Parsec            as Parsec
+import qualified Text.Parsec as Parsec
 
-import           Pos.Aeson.Crypto       ()
-import           Pos.Core.Types         (StakeholderId)
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import           Pos.Aeson.Crypto ()
+import           Pos.Core.Common (StakeholderId)
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 -- | Network attack settings (a part of the behavior config).
 --

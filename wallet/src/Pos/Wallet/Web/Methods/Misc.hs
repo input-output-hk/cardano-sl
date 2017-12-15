@@ -13,6 +13,7 @@ module Pos.Wallet.Web.Methods.Misc
        , applyUpdate
 
        , syncProgress
+       , localTimeDifference
 
        , testResetAll
        , dumpState
@@ -23,47 +24,46 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
-import           Data.Aeson                   (encode)
-import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import           Data.Aeson (encode)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
+import           Mockable (MonadMockable)
+import           Pos.Core (SoftwareVersion (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util (maybeThrow)
+import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Aeson.Storage            ()
-import           Pos.Core                     (SoftwareVersion (..))
-import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Update.Configuration     (curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
-import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
-import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
-                                               localChainDifficulty,
-                                               networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
-                                               SyncProgress (..), cIdToAddress)
-import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (getNextUpdate, getProfile,
-                                               getWalletStorage, removeNextUpdate,
-                                               resetFailedPtxs, setProfile, testReset)
+import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
+import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Wallet.Aeson.ClientTypes ()
+import           Pos.Wallet.Aeson.Storage ()
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
+                                        connectedPeers, localChainDifficulty,
+                                        networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                             SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
+                                       getWalletStorage, removeNextUpdate, resetFailedPtxs,
+                                       setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-
 
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletWebMode m => m CProfile
+getUserProfile :: MonadWalletDBRead ctx m => m CProfile
 getUserProfile = getProfile
 
-updateUserProfile :: MonadWalletWebMode m => CProfile -> m CProfile
+updateUserProfile :: MonadWalletDB ctx m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
 ----------------------------------------------------------------------------
 -- Address
 ----------------------------------------------------------------------------
 
-isValidAddress :: MonadWalletWebMode m => CId Addr -> m Bool
+isValidAddress :: Monad m => CId Addr -> m Bool
 isValidAddress = pure . isRight . cIdToAddress
 
 ----------------------------------------------------------------------------
@@ -71,7 +71,9 @@ isValidAddress = pure . isRight . cIdToAddress
 ----------------------------------------------------------------------------
 
 -- | Get last update info
-nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
+nextUpdate
+    :: (MonadThrow m, MonadWalletDB ctx m, HasUpdateConfiguration)
+    => m CUpdateInfo
 nextUpdate = do
     updateInfo <- getNextUpdate >>= maybeThrow noUpdates
     if isUpdateActual (cuiSoftwareVersion updateInfo)
@@ -83,20 +85,19 @@ nextUpdate = do
         && svNumber ver > svNumber curSoftwareVersion
     noUpdates = RequestError "No updates available"
 
-
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletWebMode m => m ()
-postponeUpdate = removeNextUpdate
+postponeUpdate :: MonadWalletDB ctx m => m NoContent
+postponeUpdate = removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
-applyUpdate :: MonadWalletWebMode m => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
+applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
+applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Sync progress
 ----------------------------------------------------------------------------
 
-syncProgress :: MonadWalletWebMode m => m SyncProgress
+syncProgress :: MonadBlockchainInfo m => m SyncProgress
 syncProgress =
     SyncProgress
     <$> localChainDifficulty
@@ -104,15 +105,26 @@ syncProgress =
     <*> connectedPeers
 
 ----------------------------------------------------------------------------
+-- NTP (Network Time Protocol) based time difference
+----------------------------------------------------------------------------
+
+localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
+localTimeDifference =
+    diff <$> (mkNtpStatusVar >>= readMVar)
+  where
+    diff :: NtpStatus -> Word
+    diff = \case
+        NtpSyncOk -> 0
+        -- ^ `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
+        -- so that we can return 0 here to show there is no difference in time
+        NtpDesync diff' -> fromIntegral diff'
+
+----------------------------------------------------------------------------
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: MonadWalletWebMode m => m ()
-testResetAll = deleteAllKeys >> testReset
-  where
-    deleteAllKeys = do
-        keyNum <- length <$> getSecretKeys
-        replicateM_ keyNum $ deleteSecretKey 0
+testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
+testResetAll = deleteAllSecretKeys >> testReset >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Print wallet state
@@ -130,12 +142,14 @@ instance MimeRender OctetStream WalletStateSnapshot where
 instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
 
-dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
+dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
 
 ----------------------------------------------------------------------------
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: MonadWalletWebMode m => m ()
-resetAllFailedPtxs = getCurrentSlotBlocking >>= resetFailedPtxs
+resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m NoContent
+resetAllFailedPtxs = do
+    getCurrentSlotBlocking >>= resetFailedPtxs
+    return NoContent

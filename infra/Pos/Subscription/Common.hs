@@ -10,30 +10,26 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
-import qualified Network.Broadcast.OutboundQueue       as OQ
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum                             hiding (bracket)
+import           Universum hiding (bracket)
 
-import           Formatting                            (sformat, shown, (%))
-import           Mockable                              (Bracket, Catch, Mockable, Throw,
-                                                        bracket, try)
-import           Node.Message.Class                    (Message)
-import           System.Wlog                           (WithLogger, logNotice)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Bracket, Catch, Mockable, Throw, bracket, try)
+import           Node.Message.Class (Message)
+import           System.Wlog (WithLogger, logDebug, logNotice)
 
-import           Pos.Binary.Class                      (Bi)
-import           Pos.Communication.Limits.Types        (MessageLimited, recvLimited)
-import           Pos.Communication.Listener            (listenerConv)
-import           Pos.Communication.Protocol            (Conversation (..),
-                                                        ConversationActions (..),
-                                                        ListenerSpec, MkListeners,
-                                                        MsgSubscribe (..), NodeId,
-                                                        OutSpecs, SendActions, Worker,
-                                                        WorkerSpec, constantListeners,
-                                                        convH, toOutSpecs,
-                                                        withConnectionTo, worker)
-import           Pos.DB.Class                          (MonadGState)
-import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (Bucket (..), NodeType)
+import           Pos.Binary.Class (Bi)
+import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
+import           Pos.Communication.Listener (listenerConv)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             ListenerSpec, MkListeners, MsgSubscribe (..), NodeId,
+                                             OutSpecs, SendActions, Worker, WorkerSpec,
+                                             constantListeners, convH, toOutSpecs, withConnectionTo,
+                                             worker)
+import           Pos.KnownPeers (MonadKnownPeers (..))
+import           Pos.Network.Types (Bucket (..), NodeType)
+import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -42,9 +38,8 @@ type SubscriptionMode m =
     , Mockable Catch m
     , Mockable Bracket m
     , MonadKnownPeers m
-    , MonadGState m
     , Message MsgSubscribe
-    , MessageLimited MsgSubscribe
+    , MessageLimited MsgSubscribe m
     , Bi MsgSubscribe
     , Message Void
     )
@@ -60,13 +55,18 @@ data SubscriptionTerminationReason =
 -- giving the reason. Notices will be logged before and after the subscription.
 subscribeTo
     :: forall m. (SubscriptionMode m)
-    => SendActions m -> NodeId -> m SubscriptionTerminationReason
-subscribeTo sendActions peer = do
+    => Timer -> SendActions m -> NodeId -> m SubscriptionTerminationReason
+subscribeTo keepAliveTimer sendActions peer = do
     logNotice $ msgSubscribingTo peer
-    outcome <- try $ withConnectionTo sendActions peer $ \_peerData ->
-           pure $ Conversation $ \conv -> do
-               send conv MsgSubscribe
-               recv conv 0 :: m (Maybe Void) -- Other side will never send
+    outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> do
+        pure $ Conversation $ \(conv :: ConversationActions MsgSubscribe Void m) -> do
+            send conv MsgSubscribe
+            forever $ do
+                startTimer keepAliveTimer
+                atomically $ waitTimer keepAliveTimer
+                logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
+                                    peer
+                send conv MsgSubscribeKeepAlive
     let reason = either Exceptional (maybe Normal absurd) outcome
     logNotice $ msgSubscriptionTerminated peer reason
     return reason
@@ -87,15 +87,27 @@ subscriptionListener
     -> NodeType
     -> (ListenerSpec m, OutSpecs)
 subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
-    mbMsg <- recvLimited conv
-    whenJust mbMsg $ \MsgSubscribe -> do
-      let peers = simplePeers [(nodeType, nodeId)]
-      bracket
-        (updatePeersBucket BucketSubscriptionListener (<> peers))
-        (\added -> when added $
-          void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
-        (\added -> when added $
-          void $ recvLimited conv) -- if not added, close the conversation
+    recvLimited conv >>= \case
+        Just MsgSubscribe -> do
+            let peers = simplePeers [(nodeType, nodeId)]
+            bracket
+              (updatePeersBucket BucketSubscriptionListener (<> peers))
+              (\added -> when added $
+                void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+              (\added -> when added . fix $ \loop -> recvLimited conv >>= \case
+                  Just MsgSubscribeKeepAlive -> do
+                      logDebug $ sformat
+                          ("subscriptionListener: received keep-alive from "%shown)
+                          nodeId
+                      loop
+                  msg -> logNotice $ expectedMsgFromGot MsgSubscribeKeepAlive
+                                                        nodeId msg
+              ) -- if not added, close the conversation
+        msg -> logNotice $ expectedMsgFromGot MsgSubscribe nodeId msg
+  where
+    expectedMsgFromGot = sformat
+            ("subscriptionListener: expected "%shown%" from "%shown%
+             ", got "%shown%", closing the connection")
 
 subscriptionListeners
     :: forall pack m.

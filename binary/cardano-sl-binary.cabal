@@ -1,0 +1,87 @@
+name:                cardano-sl-binary
+version:             1.0.3
+synopsis:            Cardano SL - binary serialization
+description:         This package defines a type class for binary serialization,
+                     helpers and instances.
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Pos.Binary.Class
+
+  other-modules:
+                       Pos.Binary.Class.Core
+                       Pos.Binary.Class.Numbers
+                       Pos.Binary.Class.Primitive
+                       Pos.Binary.Class.TH
+
+  build-depends:       QuickCheck
+                     , autoexporter
+                     , base
+                     , binary
+                     , bytestring
+                     , cborg
+                     , containers
+                     , digest
+                     , formatting
+                     , hashable
+                     , lens
+                     , mtl
+                     , parsec
+                     , process
+                     , quickcheck-instances
+                     , semigroups
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , template-haskell
+                     , text
+                     , th-lift-instances
+                     , th-utilities
+                     , time
+                     , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
+                     , universum
+                     , unordered-containers
+                     , vector
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

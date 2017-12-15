@@ -22,81 +22,19 @@ Flag for-installer
   description: Build a reduced set of components (only what is needed for the
                installer)
 
-executable cardano-analyzer
-  hs-source-dirs:      src/analyzer
-  main-is:             Main.hs
-  other-modules:       AnalyzerOptions
-  if !flag(for-installer)
-   build-depends:      base
-                     , aeson
-                     , ansi-wl-pprint
-                     , attoparsec
-                     , bytestring
-                     , cardano-sl-core
-                     , cardano-sl-infra
-                     , cardano-sl
-                     , data-default
-                     , formatting
-                     , log-warper
-                     , neat-interpolation
-                     , optparse-applicative
-                     , serokell-util >= 0.1.3.4
-                     , text
-                     , time
-                     , time-units
-                     , universum >= 0.1.11
-                     , unordered-containers
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-                        ScopedTypeVariables
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
 executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
   main-is:             Main.hs
   if !flag(for-installer)
    build-depends:      QuickCheck
-                     , base
                      , aeson
                      , array
+                     , base
                      , bytestring
-                     , data-default
-                     , cardano-sl-core
                      , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , data-default
                      , filepath
                      , formatting
                      , kademlia
@@ -160,12 +98,12 @@ executable cardano-genupdate
                      , ansi-wl-pprint
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-util
                      , cryptonite
                      , neat-interpolation
                      , optparse-applicative
                      , filepath
                      , formatting
-                     , system-filepath
                      , process
                      , tar
                      , text
@@ -204,6 +142,7 @@ executable cardano-keygen
                      , canonical-json
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-txp
                      , containers
                      , cryptonite
@@ -265,16 +204,19 @@ executable cardano-keygen
 executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
+
   build-depends:       ansi-wl-pprint
                      , async
                      , base
                      , bytestring
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , data-default
+                     , cardano-sl-update
+                     , cardano-sl-util
                      , directory
                      , filepath
                      , formatting
@@ -286,7 +228,6 @@ executable cardano-launcher
                      , process
                      , safe-exceptions
                      , silently
-                     , system-filepath
                      , text
                      , time-units
                      , universum
@@ -317,20 +258,12 @@ executable cardano-addr-convert
   main-is:             Main.hs
   build-depends:       base
                      , ansi-wl-pprint
-                     , bytestring
                      , cardano-sl
                      , cardano-sl-core
-                     , data-default
-                     , directory
-                     , filepath
                      , neat-interpolation
                      , optparse-applicative
-                     , process
-                     , serokell-util
-                     , system-filepath
                      , text
                      , universum
-                     , lens
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall
@@ -401,66 +334,6 @@ executable cardano-cli-docs
   if flag(for-installer)
     buildable: False
 
-executable cardano-block-gen
-  hs-source-dirs:      src/block-gen
-  main-is:             Main.hs
-  other-modules:       Options
-                       Context
-                       Error
-  if !flag(for-installer)
-   build-depends:      QuickCheck
-                     , base
-                     , ansi-wl-pprint
-                     , containers
-                     , cardano-sl-core
-                     , cardano-sl-db
-                     , cardano-sl-lrc
-                     , cardano-sl-infra
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl
-                     , data-default
-                     , directory
-                     , ether
-                     , formatting
-                     , lens
-                     , log-warper
-                     , MonadRandom
-                     , mtl
-                     , neat-interpolation
-                     , node-sketch
-                     , optparse-applicative
-                     , random
-                     , text-format
-                     , universum >= 0.1.11
-                     , unordered-containers
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   RecordWildCards
-                        NoImplicitPrelude
-                        MultiParamTypeClasses
-                        FlexibleInstances
-                        LambdaCase
-                        OverloadedStrings
-                        FlexibleContexts
-                        TypeApplications
-                        ScopedTypeVariables
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
 executable cardano-post-mortem
   hs-source-dirs:      src/post-mortem
   main-is:             Main.hs
@@ -472,7 +345,6 @@ executable cardano-post-mortem
                      , Statistics.CSV
                      , Statistics.Focus
                      , Statistics.Graph
-                     , Statistics.Histogram
                      , Statistics.MemPool
                      , Statistics.Report
                      , Statistics.Throughput
@@ -483,21 +355,23 @@ executable cardano-post-mortem
                      , Util.Safe
   if !flag(for-installer)
     buildable: True
-    build-depends:       base
+    build-depends:       Chart
+                       , Chart-diagrams
+                       , MonadRandom
                        , aeson
                        , attoparsec
+                       , base
                        , cardano-sl
+                       , cardano-sl-block
                        , cardano-sl-core
                        , cardano-sl-txp
-                       , Chart
-                       , Chart-diagrams
+                       , cardano-sl-util
                        , containers
                        , directory
-                       , filepath
                        , fgl
-                       , graphviz
+                       , filepath
                        , foldl
-                       , MonadRandom
+                       , graphviz
                        , optparse-applicative
                        , pipes
                        , pipes-bytestring
@@ -541,3 +415,59 @@ executable cardano-post-mortem
                         ScopedTypeVariables
                         ScopedTypeVariables
                         BangPatterns
+
+executable cardano-blockchain-analyser
+  hs-source-dirs:      src/blockchain-analyser
+  main-is:             Main.hs
+  other-modules:       Options
+                       Types
+                       Rendering
+  if !flag(for-installer)
+   build-depends:      ansi-wl-pprint
+                     , base
+                     , cardano-sl
+                     , cardano-sl-binary
+                     , cardano-sl-block
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-networking
+                     , cardano-sl-lrc
+                     , cardano-sl-txp
+                     , cardano-sl-util
+                     , data-default
+                     , directory
+                     , ether
+                     , formatting
+                     , lens
+                     , mtl
+                     , neat-interpolation
+                     , optparse-applicative
+                     , serokell-util
+                     , tabl
+                     , text
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   RecordWildCards
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        TypeApplications
+                        ScopedTypeVariables
+                        FlexibleContexts
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(for-installer)
+    buildable: False

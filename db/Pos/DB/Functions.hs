@@ -20,15 +20,15 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString    as BS (drop, isPrefixOf)
-import           Formatting         (bprint, builder, sformat, shown, stext, string, (%))
+import qualified Data.ByteString as BS (drop, isPrefixOf)
+import           Formatting (bprint, builder, sformat, shown, stext, string, (%))
 
-import           Pos.Binary.Class   (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull, serialize')
 import           Pos.Core.Configuration (HasConfiguration, dbSerializeVersion)
-import           Pos.DB.Class       (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
-                                     MonadDBRead (..))
-import           Pos.DB.Error       (DBError (..))
-import           Pos.Util.Util      (maybeThrow)
+import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
+                               MonadDBRead (..))
+import           Pos.DB.Error (DBError (..))
+import           Pos.Util.Util (maybeThrow)
 
 -- | Read serialized value associated with given key from pure DB.
 dbGetBiNoVersion

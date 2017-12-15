@@ -7,12 +7,11 @@ import Control.Monad.Eff.Exception (error, Error, EXCEPTION)
 import Control.Monad.Eff.Ref.Unsafe (unsafeRunRef)
 import Control.Monad.Eff.Ref (modifyRef, newRef, readRef)
 import Control.Monad.Error.Class (throwError)
-import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta, CFilePath (..), ScrollOffset (..), ScrollLimit (..), InputSelectionPolicy)
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta, CFilePath (..), InputSelectionPolicy)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (lmap)
 import Data.Either (either, Either(Left))
-import Data.Functor (void)
 import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
@@ -259,6 +258,13 @@ systemVersion tls = getR tls $ noQueryParam ["settings", "version"]
 
 syncProgress :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) SyncProgress
 syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
+
+-- Endpoint to check local time differences
+-- The time unit of the return value is Microsecond (see https://en.wikipedia.org/wiki/Microsecond)
+-- * `0` == no difference
+-- * All of `> 0` == difference in Microsecond
+localTimeDifference :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Int
+localTimeDifference tls = getR tls $ noQueryParam ["settings", "time", "difference"]
 
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------

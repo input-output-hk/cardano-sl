@@ -24,18 +24,17 @@ module Pos.Lrc.DB.Common
 
 import           Universum
 
-import qualified Database.RocksDB       as Rocks
+import qualified Database.RocksDB as Rocks
 
-import           Pos.Binary.Class       (Bi)
-import           Pos.Binary.Core        ()
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types         (EpochIndex)
-import           Pos.DB                 (dbSerializeValue)
-import           Pos.DB.Class           (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch),
-                                         MonadDBRead (dbGet))
-import           Pos.DB.Error           (DBError (DBMalformed))
-import           Pos.DB.Functions       (dbGetBi, dbPutBi)
-import           Pos.Util.Util          (maybeThrow)
+import           Pos.Core.Slotting (EpochIndex)
+import           Pos.DB (dbSerializeValue)
+import           Pos.DB.Class (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch), MonadDBRead (dbGet))
+import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.DB.Functions (dbGetBi, dbPutBi)
+import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers

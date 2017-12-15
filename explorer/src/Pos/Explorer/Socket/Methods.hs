@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -10,70 +11,94 @@ module Pos.Explorer.Socket.Methods
        ( Subscription (..)
        , ClientEvent (..)
        , ServerEvent (..)
+       , SubscriptionParam (..)
 
+       -- * Creating `SubscriptionParam`s
+       , addrSubParam
+       , blockPageSubParam
+       , txsSubParam
+
+       -- Sessions
        , startSession
        , finishSession
+
+       -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
+       , subscribeEpochsLastPage
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocksLastPage
+       , unsubscribeEpochsLastPage
+       , unsubscribeFully
        , unsubscribeTxs
 
+       -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+       , notifyEpochsLastPageSubscribers
+
+      -- * DB data
        , getBlundsFromTo
-       , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
+
+       -- * Helper
+       , addressSetByTxs
+       , addrsTouchedByTx
+       , fromCAddressOrThrow
+
+       -- needed by tests
+       , SubscriptionMode
        ) where
 
-import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
-import           Control.Monad.State            (MonadState)
-import           Data.Aeson                     (ToJSON)
-import qualified Data.Set                       as S
-import           Formatting                     (sformat, shown, stext, (%))
-import           Network.EngineIO               (SocketId)
-import           Network.SocketIO               (Socket, socketId)
-import           Pos.Block.Core                 (Block, mainBlockTxPayload)
-import qualified Pos.Block.Logic                as DB
-import           Pos.Block.Types                (Blund)
-import           Pos.Crypto                     (withHash)
-import           Pos.Crypto                     (hash)
-import qualified Pos.DB.Block                   as DB
-import           Pos.DB.Class                   (MonadDBRead)
-import           Pos.Explorer                   (TxExtra (..))
-import qualified Pos.Explorer                   as DB
-import qualified Pos.GState                     as DB
-import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
-                                                 txOutAddress, txpTxs)
-import           Pos.Types                      (Address, HeaderHash)
-import           Pos.Util                       (maybeThrow)
-import           Pos.Util.Chrono                (getOldestFirst)
-import           System.Wlog                    (WithLogger, logDebug, logWarning,
-                                                 modifyLoggerName)
 import           Universum
 
+import           Control.Lens (at, ix, lens, non, (.=), _Just)
+import           Control.Monad.State (MonadState)
+import           Data.Aeson (ToJSON)
+import qualified Data.Set as S
+import           Formatting (sformat, shown, stext, (%))
+import           Network.EngineIO (SocketId)
+import           Network.SocketIO (Socket, socketId)
+import qualified Pos.Block.Logic as DB
+import           Pos.Block.Types (Blund)
+import           Pos.Core (Address, HeaderHash)
+import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress, txpTxs)
+import           Pos.Crypto (hash, withHash)
+import           Pos.DB.Block (getBlund)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Explorer.Core (TxExtra (..))
+import qualified Pos.Explorer.DB as DB
+import qualified Pos.GState as DB
+import           Pos.Util (maybeThrow)
+import           Pos.Util.Chrono (getOldestFirst)
+import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
+
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
-                                                 ExplorerSockets, ccAddress, ccConnection,
-                                                 csAddressSubscribers,
-                                                 csBlocksPageSubscribers, csClients,
-                                                 csTxsSubscribers, mkClientContext)
-import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (..),
-                                                 TxInternal (..), fromCAddress, toTxBrief)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (ExplorerMode, getBlocksLastPage,
-                                                 topsortTxsOrFail)
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
+import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState,
+                                             ExplorerSocket(..), ExplorerSockets,
+                                             _ProdSocket, ccAddress, ccConnection,
+                                             csAddressSubscribers, csBlocksPageSubscribers,
+                                             csClients, csEpochsLastPageSubscribers,
+                                             csTxsSubscribers, mkClientContext)
+import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..),
+                                               EpochIndex (..), TxInternal (..),
+                                               fromCAddress, toTxBrief)
+import           Pos.Explorer.Web.Error (ExplorerError (..))
+import           Pos.Explorer.Web.Server (getEpochPage, getBlocksLastPage,
+                                          getEpochPagesOrThrow, topsortTxsOrFail)
 
 -- * Event names
 
 data Subscription
     = SubAddr
-    | SubBlockLastPage  -- ^ subscribe on blocks last page (newest blocks)
+    | SubBlockLastPage  -- ^ subscribe on blocks last page (latest blocks)
+    | SubEpochsLastPage -- ^ subscribe on epochs last page (latest epoch)
     | SubTx
     deriving (Show, Generic)
 
@@ -89,6 +114,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksLastPageUpdated
+    | EpochsLastPageUpdated
     | TxsUpdated
     | CallYou
     deriving (Show, Generic)
@@ -128,9 +154,9 @@ data SubscriptionParam cli = SubscriptionParam
 startSession
     :: SubscriptionMode m
     => Socket -> m ()
-startSession conn = do
-    let cc = mkClientContext conn
-        id = socketId conn
+startSession socket = do
+    let cc = mkClientContext $ ProdSocket socket
+        id = socketId socket
     csClients . at id .= Just cc
     logDebug $ sformat ("New session has started (#"%shown%")") id
 
@@ -209,6 +235,16 @@ txsSubParam sessId =
         , spCliData      = noCliDataKept
         }
 
+
+epochsLastPageSubParam :: SocketId -> SubscriptionParam ()
+epochsLastPageSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "epochs last page"
+        , spSubscription = \_ -> csEpochsLastPageSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
+
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
     :: SubscriptionMode m
@@ -242,6 +278,17 @@ unsubscribeTxs
     => SocketId -> m ()
 unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
+subscribeEpochsLastPage
+    :: SubscriptionMode m
+    => SocketId -> m ()
+subscribeEpochsLastPage sessId =
+    subscribe () (epochsLastPageSubParam sessId)
+
+unsubscribeEpochsLastPage
+    :: SubscriptionMode m
+    => SocketId -> m ()
+unsubscribeEpochsLastPage sessId = unsubscribe (epochsLastPageSubParam sessId)
+
 unsubscribeFully
     :: SubscriptionMode m
     => SocketId -> m ()
@@ -252,6 +299,7 @@ unsubscribeFully sessId = do
         unsubscribeAddr sessId
         unsubscribeBlocksLastPage sessId
         unsubscribeTxs sessId
+        unsubscribeEpochsLastPage sessId
 
 -- * Notifications
 
@@ -260,10 +308,10 @@ broadcast
     => event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . ix sockid . ccConnection
+        mSock <- preview $ csClients . ix sockid . ccConnection . _ProdSocket
         case mSock of
             Nothing   -> logWarning $
-                sformat ("No socket with SocketId="%shown%" registered") sockid
+                sformat ("No socket with SocketId="%shown%" registered for using in production") sockid
             Just sock -> emitTo sock event args
                 `catchAny` handler sockid
   where
@@ -291,34 +339,52 @@ notifyTxsSubscribers
 notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
 
+notifyEpochsLastPageSubscribers
+    :: forall ctx m . ExplorerMode ctx m
+    => EpochIndex -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers currentEpoch = do
+    recipients <- view $ csEpochsLastPageSubscribers
+    -- ^ subscriber
+    lastPage <- lift $ getEpochPagesOrThrow currentEpoch
+    -- ^ last epoch page
+    epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
+    -- ^ epochs of last page
+    broadcast @ctx EpochsLastPageUpdated epochs recipients
+
 -- * Helpers
 
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
-    => HeaderHash -> HeaderHash -> m (Maybe [Blund SscGodTossing])
+    => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock = do
-    mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
+    mheaders <- DB.getHeadersFromToIncl oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        fmap catMaybes $ forM headers (DB.blkGetBlund @SscGodTossing)
+        catMaybes <$> forM headers getBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
-    -- for each transaction, get its OutTx
-    -- and transactions from InTx
-    inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-        -- TODO [CSM-153]: lookup mempool as well
-        Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
-        Just txOut -> return . one $ toaOut txOut
+      -- for each transaction, get its OutTx
+      -- and transactions from InTx
+      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      -- ^ inTxs :: NonEmpty [TxOut]
+          -- TODO [CSM-153]: lookup mempool as well
+          Nothing       -> return mempty
+          Just txOutAux -> return . one $ toaOut txOutAux
 
-    let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
-    return . S.fromList $ txOutAddress <$> relatedTxs
+      pure $ addressSetByTxs (_txOutputs tx) inTxs
+
+-- | Helper to filter addresses by a given tx from a list of txs
+addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
+addressSetByTxs tx txs =
+    let txs' = (toList tx) <> (concat txs) in
+    S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
-    :: forall ssc ctx m . ExplorerMode ctx m
-    => Block ssc -> m [TxInternal]
+    :: forall ctx m . (ExplorerMode ctx m)
+    => Block -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs

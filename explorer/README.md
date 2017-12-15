@@ -38,14 +38,12 @@ Run it from project root.
 - run `./explorer/frontend/scripts/build.sh`
 - run `./scripts/launch/explorer-with-nodes.sh`
 
-### Prod version (connects explorer to testnet staging cluster)
+### Prod version (connects Explorer to `staging` or `mainnet`)
 
-- run `./scripts/build/cardano-sl.sh --tns`
-- run `./scripts/launch/staging.sh`
-- run `./frontend/scripts/build-frontend-simple.sh`
-- open http://localhost:3100/
-
-NOTE: before running explorer if you want clean sync (explorer will have to sync and download blockchain from start) - remove db with `rm -rf db-testnet`
+- Run `/scripts/clean/db.sh` to do a clean synchronization, so that Explorer will sync and download blockchain from start.
+- Connect to cluster as described in  `docs/how-to/connect-to-cluster.md`
+- Build Explorer's UI in `prod` mode as described in `explorer/frontend/README.md`
+- Open http://localhost:3100/ in your browser. (Note: It takes some time to sync all data from cluster. That's why Explorer's UI might not display latest data from start.)
 
 
 ## Sockets

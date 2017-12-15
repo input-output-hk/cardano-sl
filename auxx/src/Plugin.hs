@@ -5,114 +5,175 @@
 
 module Plugin
        ( auxxPlugin
+       , rawExec
        ) where
 
 import           Universum
 
-import qualified Data.Text                  as T
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit                (ExitCode (ExitSuccess))
-import           System.Posix.Process       (exitImmediately)
+import           System.Exit (ExitCode (ExitSuccess))
+import           System.Posix.Process (exitImmediately)
 #endif
-import           Formatting                 (int, sformat, stext, (%))
-import           Mockable                   (delay)
-import           Node.Conversation          (ConversationActions (..))
-import           Node.Message.Class         (Message (..))
-import           Serokell.Util              (sec)
-import           System.IO                  (hFlush, stdout)
-import           System.Wlog                (WithLogger, logDebug, logInfo)
+import           Data.Constraint (Dict(..))
+import           Formatting (float, int, sformat, stext, (%))
+import           Mockable (Catch, Delay, Mockable, delay)
+import           Node.Conversation (ConversationActions (..))
+import           Node.Message.Class (Message (..))
+import           Serokell.Util (sec)
+import           System.IO (hFlush, stdout)
+import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logInfo)
 
-import           Pos.Communication          (Conversation (..), OutSpecs (..),
-                                             SendActions (..), Worker, WorkerSpec,
-                                             delegationRelays, relayPropagateOut,
-                                             txRelays, usRelays, worker)
+import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..),
+                                    WorkerSpec, delegationRelays, relayPropagateOut, txRelays,
+                                    usRelays, worker)
+import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
-import           Pos.WorkMode               (RealMode, RealModeContext)
+import           Pos.Txp (genesisUtxo, unGenesisUtxo)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp (jsonLog)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 
-import           AuxxOptions                (AuxxAction (..), AuxxOptions (..))
-import           Command                    (Command (..), parseCommand, runCmd)
-import           Mode                       (AuxxMode)
+import           AuxxOptions (AuxxOptions (..))
+import           Command (createCommandProcs)
+import qualified Lang
+import           Mode (MonadAuxxMode)
+import           Repl (WithCommandAction (..), PrintAction)
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
 ----------------------------------------------------------------------------
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 auxxPlugin ::
-       HasConfigurations
+       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
     => AuxxOptions
-    -> (WorkerSpec AuxxMode, OutSpecs)
-auxxPlugin AuxxOptions {..} =
-    case aoAction of
-        Repl    -> worker' runCmdOuts $ runWalletRepl
-        Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmd
+    -> Either WithCommandAction Text
+    -> (WorkerSpec m, OutSpecs)
+auxxPlugin auxxOptions repl = worker' runCmdOuts $ \sendActions ->
+    rawExec (Just Dict) auxxOptions (Just sendActions) repl
   where
-    worker' specs w =
-        worker specs $ \sa -> do
-            logInfo $ sformat ("Length of genesis utxo: " %int)
-                              (length $ unGenesisUtxo genesisUtxo)
-            w (addLogging sa)
+    worker' specs w = worker specs $ \sa -> do
+        logInfo $ sformat ("Length of genesis utxo: " %int)
+                          (length $ unGenesisUtxo genesisUtxo)
+        w (addLogging sa)
 
-evalCmd ::
-       HasConfigurations
-    => SendActions AuxxMode
-    -> Command
-    -> AuxxMode ()
-evalCmd _ Quit = pure ()
-evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
+rawExec ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> AuxxOptions
+    -> Maybe (SendActions m)
+    -> Either WithCommandAction Text
+    -> m ()
+rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
+    Left WithCommandAction{..} -> do
+        printAction <- getPrintAction
+        printAction "... the auxx plugin is ready"
+        forever $ withCommand $ runCmd mHasAuxxMode mSendActions printAction
+    Right cmd -> runWalletCmd mHasAuxxMode mSendActions cmd
 
-evalCommands ::
-       HasConfigurations => SendActions AuxxMode -> AuxxMode ()
-evalCommands sa = do
-    putStr @Text "> "
-    liftIO $ hFlush stdout
-    line <- getLine
-    let cmd = parseCommand line
-    case cmd of
-        Left err   -> putStrLn err >> evalCommands sa
-        Right cmd_ -> evalCmd sa cmd_
-
-runWalletRepl :: HasConfigurations => Worker AuxxMode
-runWalletRepl sa = do
-    putText "Welcome to Wallet CLI Node"
-    evalCmd sa Help
-
-runWalletCmd :: HasConfigurations => Text -> Worker AuxxMode
-runWalletCmd str sa = do
-    let strs = T.splitOn "," str
-    for_ strs $ \scmd -> do
-        let mcmd = parseCommand scmd
-        case mcmd of
-            Left err   -> putStrLn err
-            Right cmd' -> runCmd sa cmd'
-    putText "Command execution finished"
-    putText " " -- for exit by SIGPIPE
+runWalletCmd ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> Maybe (SendActions m)
+    -> Text
+    -> m ()
+runWalletCmd mHasAuxxMode mSendActions line = do
+    runCmd mHasAuxxMode mSendActions printAction line
+    printAction "Command execution finished"
+    printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
 #if !(defined(mingw32_HOST_OS))
     delay $ sec 3
     liftIO $ exitImmediately ExitSuccess
 #endif
+  where
+    printAction = putText
+
+runCmd ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> Maybe (SendActions m)
+    -> PrintAction m
+    -> Text
+    -> m ()
+runCmd mHasAuxxMode mSendActions printAction line = do
+    let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
+    case Lang.parse line of
+        Left parseError -> printAction (Lang.renderAuxxDoc . Lang.ppParseError $ parseError)
+        Right expr -> Lang.evaluate commandProcs expr >>= \case
+            Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
+            Right value -> withValueText printAction value
+
+withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
+withValueText cont = \case
+    Lang.ValueUnit -> return ()
+    Lang.ValueNumber n -> cont (sformat float n)
+    Lang.ValueString s -> cont (toText s)
+    Lang.ValueBool b -> cont (pretty b)
+    Lang.ValueAddress a -> cont (pretty a)
+    Lang.ValuePublicKey pk -> cont (sformat fullPublicKeyF pk)
+    Lang.ValueTxOut txOut -> cont (pretty txOut)
+    Lang.ValueStakeholderId sId -> cont (sformat hashHexF sId)
+    Lang.ValueHash h -> cont (sformat hashHexF (getAHash h))
+    Lang.ValueBlockVersion v -> cont (pretty v)
+    Lang.ValueSoftwareVersion v -> cont (pretty v)
+    Lang.ValueBlockVersionModifier bvm -> cont (pretty bvm)
+    Lang.ValueBlockVersionData bvd -> cont (pretty bvd)
+    Lang.ValueProposeUpdateSystem pus -> cont (show pus)
+    Lang.ValueAddrDistrPart adp -> cont (show adp)
+    Lang.ValueAddrStakeDistribution asd -> cont (pretty asd)
+    Lang.ValueFilePath s -> cont (toText s)
+    Lang.ValueSendMode sm -> cont (show sm)
+    Lang.ValueList vs -> for_ vs $
+        withValueText (cont . mappend "  ")
+
+
 
 ----------------------------------------------------------------------------
 -- Something hacky
 ----------------------------------------------------------------------------
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: HasConfigurations => OutSpecs
+runCmdOuts :: (HasConfigurations,HasCompileInfo) => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat
-        [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
+        [ usRelays
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
         , delegationRelays
-              @SscGodTossing
-              @(RealModeContext SscGodTossing)
-              @(RealMode SscGodTossing)
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
         , txRelays
-              @SscGodTossing
-              @(RealModeContext SscGodTossing)
-              @(RealMode SscGodTossing)
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
+              logTx
         ]
+  where
+    logTx = jsonLog . JLTxReceived
 
 ----------------------------------------------------------------------------
 -- Extra logging

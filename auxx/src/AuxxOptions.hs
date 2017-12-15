@@ -6,23 +6,24 @@
 module AuxxOptions
        ( AuxxOptions (..)
        , AuxxAction (..)
+       , AuxxStartMode (..)
        , getAuxxOptions
        ) where
 
 import           Universum
 
-import           Data.Version                 (showVersion)
-import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, command,
-                                               execParser, footerDoc, fullDesc, header,
-                                               help, helper, info, infoOption, long,
-                                               metavar, progDesc, subparser)
-import           Pos.Communication            (NodeId)
-import           Serokell.Util.OptParse       (strOption)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Data.Version (showVersion)
+import qualified NeatInterpolation as N
+import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
+                                      fullDesc, header, help, helpDoc, helper, info, infoOption, long,
+                                      maybeReader, metavar, option, progDesc, subparser, value)
+import           Pos.Communication (NodeId)
+import           Serokell.Util.OptParse (strOption)
+import           Text.PrettyPrint.ANSI.Leijen (Doc, text, line)
 
-import           Paths_cardano_sl             (version)
-import qualified Pos.Client.CLI               as CLI
+import           Paths_cardano_sl (version)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -34,7 +35,15 @@ data AuxxOptions = AuxxOptions
     , aoPeers          :: ![NodeId]
     -- ^ Peers with which we want to communicate
     --   TODO: we also have topology, so it can be redundant.
+    , aoStartMode           :: !AuxxStartMode
     }
+
+data AuxxStartMode
+    = Automatic
+    | Light
+    | WithConfiguration
+    | WithNode
+    deriving Eq
 
 data AuxxAction
     = Repl
@@ -62,14 +71,35 @@ cmdParser = command "cmd" $ info opts desc
 -- Parse everything
 ----------------------------------------------------------------------------
 
+startModeParser :: Parser AuxxStartMode
+startModeParser = option startModeReader $
+    long "mode" <>
+    value Automatic <>
+    helpDoc (Just $
+           text "Auxx start mode. Can be 'light', 'with-config', 'with-node', 'auto'." <> line
+        <> text "* 'light' mode requires no configuration to start, but the available."
+        <> text " command set is limited." <> line
+        <> text "* 'with-node' mode will start auxx as a node plugin." <> line
+        <> text "* 'with-config' mode will start auxx as a standalone application." <> line
+        <> text "* 'auto' will try to load the configuration and start in 'with-config' mode,"
+        <> text " if fails to do so will start in 'light' mode. (default: auto)")
+  where
+    startModeReader = maybeReader (\case
+        "auto" -> Just Automatic
+        "light" -> Just $ Light
+        "with-config" -> Just $ WithConfiguration
+        "with-node" -> Just $ WithNode
+        _ -> Nothing)
+
 auxxOptionsParser :: Parser AuxxOptions
 auxxOptionsParser = do
     aoAction <- actionParser
     aoCommonNodeArgs <- CLI.commonNodeArgsParser
     aoPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
+    aoStartMode <- startModeParser
     pure AuxxOptions {..}
 
-getAuxxOptions :: IO AuxxOptions
+getAuxxOptions :: HasCompileInfo => IO AuxxOptions
 getAuxxOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> auxxOptionsParser) $
@@ -78,15 +108,16 @@ getAuxxOptions = execParser programInfo
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-auxx-" <> showVersion version)
+        ("cardano-auxx-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
-usageExample = (Just . fromString @Doc . toString @Text) [text|
+usageExample = (Just . fromString @Doc . toString @Text) [N.text|
 Command example:
 
   stack exec -- cardano-auxx                                     \
-    --db-path node-db0                                           \
+    --db-path run/auxx-db                                        \
     --rebuild-db                                                 \
     --json-log=/tmp/logs/2017-05-22_181224/node0.json            \
     --logs-prefix /tmp/logs/2017-05-22_181224                    \

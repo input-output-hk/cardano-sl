@@ -65,9 +65,14 @@ before_test:
 - ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
 - 7z x rocksdb.zip
 
-# CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('node/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
+# CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('lib/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
-- copy rocksdb.dll node
+- copy rocksdb.dll lib
+- copy rocksdb.dll wallet
+
+# Install liblzma/xz
+- ps: Start-FileDownload https://tukaani.org/xz/xz-5.2.3-windows.zip -Filename xz-5.2.3-windows.zip
+- 7z -oC:\xz_extracted x xz-5.2.3-windows.zip
 
 test_script:
   - cd "%WORK_DIR%"
@@ -80,40 +85,43 @@ test_script:
       --work-dir %STACK_WORK%
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="C:\xz_extracted\include"
+      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
 #   TODO: CSL-1133. To be reenabled.
 #   - stack test --coverage
-#   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
+#   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
+  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
       -j 2
       --no-terminal
       --local-bin-path %WORK_DIR%
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
-      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
-      --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
       --flag cardano-sl-tools:for-installer
       --flag cardano-sl-wallet:for-installer
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
+      --extra-include-dirs="C:\xz_extracted\include"
+      --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
   # Prepare files for frontend build
   - copy log-config-prod.yaml daedalus\
-  - copy node\configuration.yaml daedalus\
-  - copy node\*genesis*.json daedalus\
+  - copy lib\configuration.yaml daedalus\
+  - copy lib\*genesis*.json daedalus\
   - copy cardano-launcher.exe daedalus\
   - copy cardano-node.exe daedalus\
   # Build the bridge
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
+  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
@@ -129,9 +137,9 @@ after_test:
  # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:
  # > STACK_WORK, as well as CACHED_STACK_WORK are relative directories, since stack doesn't support absolute ones.
  # - cd "%WORK_DIR%"
- # - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
- # - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
- # - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
+ # - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
+ # - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /h /y %STACK_WORK% %CACHED_STACK_WORK%
+ - xcopy /q /s /e /r /k /i /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
 
 artifacts:
   - path: daedalus/

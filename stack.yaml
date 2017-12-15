@@ -6,21 +6,41 @@ flags:
 
 extra-package-dbs: []
 
+# networking → [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
+# Then we have two branches:
+# ... → client → generator → [auxx, explorer, wallet] → wallet-new
+# ... → [node, tools]
 packages:
-- auxx
-- node
+- networking
+- binary
+- util
+- crypto
 - core
-- update
-- infra
 - db
 - lrc
+- infra
 - ssc
-- godtossing
-- tools
 - txp
-- wallet
+- update
+- delegation
+- block
+- lib
+- generator
+- client
+- auxx
 - explorer
+- node
+- tools
+- wallet
+- wallet-new # The new (unreleased) version of the wallet
 
+- location:
+    git: https://github.com/well-typed/cborg
+    # Has support for canonical cbor
+    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+  subdirs:
+  - cborg
+  extra-dep: true
 - location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
@@ -44,13 +64,9 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 69583b607dd841b0de1ef660388172a94c660c84 # master
+    commit: 7b28613c9c3535193991712ff5a4a36a9f165570 # master v0.4.0
   extra-dep: true
-- location:
-    git: https://github.com/serokell/time-warp-nt.git
-    commit: 77a5db07bac949cf4ff1797eec44a036513be719
-  extra-dep: true
-# These two are needed for time-warp-nt
+# These three are needed for cardano-sl-networking
 - location:
     git: https://github.com/serokell/network-transport-tcp
     commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
@@ -58,6 +74,10 @@ packages:
 - location:
     git: https://github.com/serokell/network-transport
     commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+  extra-dep: true
+- location:
+      git: https://github.com/avieth/network-transport-inmemory
+      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
@@ -81,10 +101,10 @@ packages:
     - engine-io
     - engine-io-wai
 
-# Forked version of "dns" with proper Windows & Unix multiple-nameservers support
+# Version of "dns" with proper Windows & Unix multiple-nameservers support
 - location:
     git: https://github.com/kazu-yamamoto/dns.git
-    commit: 08df7fe6a9242f7d76aa5040221702e26ab610f6
+    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
   extra-dep: true
 
 - location:
@@ -98,45 +118,63 @@ nix:
 extra-deps:
 - ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
 - transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.6.1
-- serokell-util-0.5.0
+- universum-0.7.0
+- serokell-util-0.5.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.2.3.1
+- log-warper-1.3.4
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
-- servant-0.10                    # servant-multipart supports version servant-10 only
-- servant-server-0.10             # so it triggers another dependencies to be v10
-- servant-multipart-0.10
+- servant-0.12
+- servant-server-0.12
+- servant-client-0.12
+- servant-client-core-0.12
+- servant-multipart-0.11
+- servant-docs-0.11.1             # needed for servant-0.12
+- servant-swagger-1.1.4           # needed for servant-0.12
+- servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
+- servant-quickcheck-0.0.4
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
 - rocksdb-haskell-1.0.0
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
-- cborg-0.1.1.0
+- fmt-0.5.0.0
 - systemd-1.1.2
+- tabl-1.0.3
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
 # https://github.com/fpco/lts-haskell/issues/70
 - fgl-5.5.3.1
+- megaparsec-6.2.0
+- parser-combinators-0.2.0
+- loc-0.1.3.1
+- lens-sop-0.2.0.2
+- json-sop-0.2.0.3
+- servant-generic-0.1.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-auxx:    -Werror
+  cardano-sl-util:       -Werror
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
   cardano-sl-ssc:        -Werror
   cardano-sl-infra:      -Werror
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
-  cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
+  cardano-sl-delegation: -Werror
+  cardano-sl-block:      -Werror
   cardano-sl:            -Werror
+  cardano-sl-client:     -Werror
+  cardano-sl-generator:  -Werror
   cardano-sl-tools:      -Werror
+  cardano-sl-auxx:       -Werror
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
+  cardano-sl-node:       -Werror

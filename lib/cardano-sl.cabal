@@ -1,0 +1,468 @@
+name:                cardano-sl
+version:             1.0.3
+synopsis:            Cardano SL main implementation
+description:         Please see README.md
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          Serokell <hi@serokell.io>
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:      Paths_cardano_sl
+
+                        Pos.AllSecrets
+
+                        -- Arbitrary instances
+                        Pos.Aeson
+                        Pos.Binary
+                        Pos.Context
+                        Pos.Communication
+                        Pos.Configuration
+                        Pos.Constants
+
+                        Pos.DB.DB
+
+                        -- Diffusion layer
+                        Pos.Diffusion.Types
+                        Pos.Diffusion.Full
+                        Pos.Diffusion.Full.Block
+                        Pos.Diffusion.Full.Delegation
+                        Pos.Diffusion.Full.Ssc
+                        Pos.Diffusion.Full.Types
+                        Pos.Diffusion.Full.Txp
+                        Pos.Diffusion.Full.Update
+                        Pos.Diffusion.Subscription.Common
+                        Pos.Diffusion.Subscription.Dns
+                        Pos.Diffusion.Subscription.Dht
+
+                        -- GState
+                        Pos.GState
+
+                        -- Logic layer
+                        Pos.Logic.Types
+
+                        -- Behavior
+                        Pos.Behavior
+
+                        -- Launcher
+                        Pos.Launcher
+                        Pos.Launcher.Configuration
+                        Pos.Launcher.Resource
+                        Pos.Launcher.Runner
+
+                        -- SafeCopy serialization (required in wallet)
+                        Pos.SafeCopy
+
+                        -- cardano-sl-client & cardano-sl-generator
+                        Pos.Communication.Limits
+                        Pos.Communication.Message
+                        Pos.Communication.Types
+
+                        -- Statistics
+                        Pos.Statistics
+
+                        -- Recovery
+                        Pos.Recovery
+
+                        -- Client CLI
+                        Pos.Client.CLI
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Options
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
+
+                        -- Utilities/helpers
+                        Pos.Util.Config
+                        Pos.Util.Monitor
+                        Pos.Util.OutboundQueue
+                        Pos.Util.UserSecret
+
+                        Pos.Web
+                        Pos.Web.Api
+                        Pos.Web.Mode
+                        Pos.Web.Server
+                        Pos.Web.Types
+
+                        -- Worker, work mode
+                        Pos.Worker
+                        Pos.WorkMode
+                        Pos.WorkMode.Class
+
+                        -- Binary serialization
+                        Pos.Binary.Communication
+
+                        -- Exposed for tests
+                        Test.Pos.Helpers
+                        Test.Pos.Cbor.Canonicity
+                        Test.Pos.Cbor.RefImpl
+
+                        -- Util code for tests
+                        Test.Pos.Util
+                        Test.Pos.Configuration
+
+                        Pos.Util.Servant
+
+  other-modules:        Pos.Aeson.Types
+
+                        -- NodeContext
+                        Pos.Context.Context
+                        Pos.Context.Functions
+
+                        -- Crypto
+                        Pos.Crypto.HDDiscovery
+
+                        -- GState
+                        Pos.GState.Context
+                        Pos.GState.GState
+
+                        -- Launcher
+                        Pos.Launcher.Launcher
+                        Pos.Launcher.Mode
+                        Pos.Launcher.Param
+                        Pos.Launcher.Scenario
+
+                        -- Network
+                        Pos.Communication.Server
+
+                        Pos.Recovery.Instance
+
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
+
+                        -- Statistics
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
+
+  build-depends:        MonadRandom
+                      , QuickCheck
+                      , aeson >= 0.11.2.1
+                      , ansi-terminal
+                      , ansi-wl-pprint
+                      , base
+                      , binary
+                      , bytestring
+                      , cborg
+                      , canonical-json
+                      , cardano-crypto
+                      , cardano-sl-binary
+                      , cardano-sl-block
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-db
+                      , cardano-sl-delegation
+                      , cardano-sl-infra
+                      , cardano-sl-lrc     
+                      , cardano-sl-networking
+                      , cardano-sl-ssc
+                      , cardano-sl-txp
+                      , cardano-sl-update
+                      , cardano-sl-util
+                      , cereal
+                      , conduit >= 1.2.8
+                      , constraints
+                      , containers
+                      , cryptonite >= 0.23 && <= 0.23
+                      , data-default
+                      , deepseq
+                      , directory
+                      , dns >= 3.0.0
+                      , ed25519
+                      , ekg-core
+                      , ekg-statsd
+                      , ekg-wai
+                      , ether >= 0.5
+                      , exceptions
+                      , filelock >= 0.1.0.1
+                      , filepath
+                      , formatting
+                      , generic-arbitrary
+                      , half
+                      , hashable
+                      , hspec
+                      , lens
+                      , log-warper >= 1.1.1
+                      , lrucache
+                      , memory
+                      , mmorph
+                      , monad-control
+                      , mtl
+                      , neat-interpolation
+                      , network-transport
+                      , network-transport-tcp
+                      , optparse-applicative
+                      , parsec
+                      , plutus-prototype
+                      , pvss
+                      , random
+                      , reflection
+                      , resourcet
+                      , rocksdb-haskell >= 1.0.0
+                      , safe-exceptions
+                      , safecopy
+                      , serokell-util >= 0.1.3.4
+                      , servant >= 0.8.1
+                      , servant-server >= 0.8.1
+                      , servant-swagger
+                      , stm
+                      , tagged
+                      , template-haskell
+                      , text
+                      , text-format
+                      , time
+                      , time-units
+                      , transformers
+                      , transformers-base
+                      , universum >= 0.1.11
+                      , unordered-containers
+                      , vector
+                      , wai
+                      , warp
+                      , warp-tls
+                      , yaml
+                      -- https://issues.serokell.io/issue/DEVOPS-230
+                      , cpphs
+                      -- Required for common test modules
+                      , cborg
+
+  if !os(windows)
+    build-depends:      unix
+                     -- See: https://github.com/input-output-hk/stack2nix/issues/56
+                     ,  systemd
+
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite cardano-test
+  main-is:             Test.hs
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Something
+                       Test.Pos.BinarySpec
+
+                       -- Pos.Block testing
+                       Test.Pos.Block.Identity.BinarySpec
+                       Test.Pos.Block.Identity.SafeCopySpec
+
+                       -- Core
+                       Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
+
+                       -- LRC
+                       Test.Pos.Lrc.FollowTheSatoshiSpec
+
+                       -- Ssc
+                       Test.Pos.Ssc.ComputeSharesSpec
+                       Test.Pos.Ssc.Identity.BinarySpec
+                       Test.Pos.Ssc.Identity.SafeCopySpec
+                       Test.Pos.Ssc.SeedSpec
+                       Test.Pos.Ssc.Toss.BaseSpec
+                       Test.Pos.Ssc.VssCertDataSpec
+                       Test.Pos.Ssc.Toss.PureSpec
+
+                       -- Everything else
+                       Test.Pos.Cbor.CborSpec
+                       Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.ConstantsSpec
+                       Test.Pos.CryptoSpec
+                       Test.Pos.Delegation.Identity.BinarySpec
+                       Test.Pos.DHT.Identity.BinarySpec
+                       Test.Pos.Genesis.CanonicalSpec
+                       Test.Pos.MerkleSpec
+                       Test.Pos.Slotting.TypesSpec
+                       Test.Pos.Slotting.BinarySpec
+                       Test.Pos.Txp.CoreSpec
+                       Test.Pos.Txp.Identity.BinarySpec
+                       Test.Pos.Txp.Toil.UtxoSpec
+                       Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.Identity.BinarySpec
+                       Test.Pos.Types.Identity.SafeCopySpec
+                       Test.Pos.Types.Identity.ShowReadSpec
+                       Test.Pos.Update.Identity.BinarySpec
+                       Test.Pos.Update.Identity.SafeCopySpec
+                       Test.Pos.Update.MemStateSpec
+                       Test.Pos.Update.PollSpec
+                       Test.Pos.Util.LimitsSpec
+                       Test.Pos.Util.ModifierSpec
+                       Test.Pos.UtilSpec
+
+  type:                exitcode-stdio-1.0
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , bytestring
+                     , canonical-json
+                     , cardano-sl
+                     , cardano-sl-binary
+                     , cardano-sl-block
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-networking
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , cborg
+                     , cereal
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , extra
+                     , fmt
+                     , formatting
+                     , generic-arbitrary
+                     , half
+                     , hspec
+                     , lens
+                     , mtl
+                     , pvss
+                     , random
+                     , reflection
+                     , safecopy
+                     , serokell-util >= 0.1.3.4
+                     , tagged
+                     , text
+                     , text-format
+                     , time-units
+                     , universum >= 0.1.11
+                     , unordered-containers
+                     , vector
+
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark cardano-bench-criterion
+  hs-source-dirs:      bench
+  main-is:             Local/Criterion.hs
+  other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
+                       Bench.Pos.Criterion.TxSigningBench
+                       Bench.Configuration
+  type:                exitcode-stdio-1.0
+  build-depends:       QuickCheck
+                     , aeson
+                     , base
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-txp
+                     , cardano-sl-ssc
+                     , cardano-sl-util
+                     , criterion
+                     , universum >= 0.1.11
+                     , vector
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

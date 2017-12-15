@@ -6,50 +6,47 @@ module Command.Rollback
 
 import           Universum
 
-import           Control.Lens                     (_Wrapped)
-import qualified Data.ByteString.Lazy             as BSL
-import           Data.List                        (genericTake)
-import           Formatting                       (build, int, sformat, string, (%))
-import           System.Wlog                      (logInfo)
+import           Control.Lens (_Wrapped)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.List (genericTake)
+import           Formatting (build, int, sformat, string, (%))
+import           System.Wlog (logInfo)
 
-import           Pos.Binary                       (serialize)
-import           Pos.Block.Core                   (mainBlockTxPayload)
-import           Pos.Block.Logic                  (BypassSecurityCheck (..),
-                                                   rollbackBlocksUnsafe)
-import           Pos.Block.Slog                   (ShouldCallBListener (..))
-import           Pos.Block.Types                  (Blund)
-import           Pos.Core                         (HasConfiguration, difficultyL,
-                                                   epochIndexL)
-import           Pos.DB.DB                        (getTipHeader, loadBlundsFromTipByDepth)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxAux, flattenTxPayload)
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.Chrono                  (NewestFirst, _NewestFirst)
+import           Pos.Binary (serialize)
+import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
+import           Pos.Block.Slog (ShouldCallBListener (..))
+import           Pos.Block.Types (Blund)
+import           Pos.Core (difficultyL, epochIndexL)
+import           Pos.Core.Block (mainBlockTxPayload)
+import           Pos.Core.Txp (TxAux)
+import qualified Pos.DB.Block.Load as DB
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.StateLock (Priority (..), withStateLock)
+import           Pos.Txp (flattenTxPayload)
+import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 
-import           Mode                             (AuxxMode, AuxxSscType)
+import           Mode (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
 rollbackAndDump
-    :: ( HasConfiguration
-       , HasGtConfiguration
-       , HasUpdateConfiguration
-       , HasInfraConfiguration
+    :: ( MonadAuxxMode m
+       , HasCompileInfo
        )
     => Word
     -> FilePath
-    -> AuxxMode ()
-rollbackAndDump numToRollback outFile = do
+    -> m ()
+rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
-        loadBlundsFromTipByDepth @SscGodTossing (fromIntegral numToRollback)
+        DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
         Just blunds -> do
-            let extractTxs :: Blund SscGodTossing -> [TxAux]
+            let extractTxs :: Blund -> [TxAux]
                 extractTxs (Left _, _) = []
                 extractTxs (Right mainBlock, _) =
                     flattenTxPayload $ mainBlock ^. mainBlockTxPayload
@@ -65,14 +62,14 @@ rollbackAndDump numToRollback outFile = do
     -- It's illegal to rollback 0-th genesis block.  We also may load
     -- more blunds than necessary, because genesis blocks don't
     -- contribute to depth counter.
-    modifyBlunds :: HasGtConfiguration => NewestFirst [] (Blund ssc) -> NewestFirst [] (Blund ssc)
+    modifyBlunds :: HasSscConfiguration => NewestFirst [] Blund -> NewestFirst [] Blund
     modifyBlunds =
         over _NewestFirst (genericTake numToRollback . skip0thGenesis)
     skip0thGenesis = filter (not . is0thGenesis)
-    is0thGenesis :: Blund ssc -> Bool
+    is0thGenesis :: Blund -> Bool
     is0thGenesis (Left genBlock, _)
         | genBlock ^. epochIndexL == 0 = True
     is0thGenesis _ = False
     printTipDifficulty = do
-        tipDifficulty <- view difficultyL <$> getTipHeader @AuxxSscType
+        tipDifficulty <- view difficultyL <$> DB.getTipHeader
         logInfo $ sformat ("Our tip's difficulty is "%build) tipDifficulty

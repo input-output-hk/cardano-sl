@@ -7,9 +7,12 @@
 
 module Pos.Explorer.Socket.Holder
        ( ExplorerSockets
+       , ExplorerSocket(..)
+       , _ProdSocket
+       , _TestSocket
 
        , ClientContext
-       , ConnectionsState
+       , ConnectionsState (..)
        , ConnectionsVar
        , mkClientContext
        , mkConnectionsState
@@ -19,50 +22,55 @@ module Pos.Explorer.Socket.Holder
        , csAddressSubscribers
        , csBlocksSubscribers
        , csBlocksPageSubscribers
-       , csBlocksOffSubscribers
+       , csEpochsLastPageSubscribers
        , csTxsSubscribers
        , csClients
        , ccAddress
-       , ccBlockOff
        , ccConnection
        ) where
 
-import           Control.Lens             (makeClassy)
-import qualified Data.Map.Strict          as M
-import qualified Data.Set                 as S
-import           Network.EngineIO         (SocketId)
-import           Network.SocketIO         (Socket)
-import           Serokell.Util.Concurrent (modifyTVarS)
-import           System.Wlog              (NamedPureLogger, WithLogger,
-                                           launchNamedPureLog)
-
-import           Pos.Types                (Address)
 import           Universum
+
+import           Control.Lens (makeClassy, makePrisms)
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
+import           Network.EngineIO (SocketId)
+import           Network.SocketIO (Socket)
+
+import           Serokell.Util.Concurrent (modifyTVarS)
+import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
+
+import           Pos.Core (Address)
+
+data ExplorerSocket
+    = ProdSocket Socket
+    | TestSocket String
+
+makePrisms ''ExplorerSocket
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccBlockOff   :: !(Maybe Word)
-    , _ccConnection :: !Socket
+    , _ccConnection :: !ExplorerSocket
     }
-
-mkClientContext :: Socket -> ClientContext
-mkClientContext = ClientContext Nothing Nothing
 
 makeClassy ''ClientContext
 
+mkClientContext :: ExplorerSocket -> ClientContext
+mkClientContext = ClientContext Nothing
+
 data ConnectionsState = ConnectionsState
     { -- | Active sessions
-      _csClients               :: !(M.Map SocketId ClientContext)
+      _csClients                   :: !(M.Map SocketId ClientContext)
       -- | Sessions subscribed to given address.
-    , _csAddressSubscribers    :: !(M.Map Address (S.Set SocketId))
+    , _csAddressSubscribers        :: !(M.Map Address (S.Set SocketId))
       -- | Sessions subscribed to notifications about new blocks.
-    , _csBlocksSubscribers     :: !(S.Set SocketId)
-      -- | Sessions subscribed to notifications about new blocks with offset.
-    , _csBlocksPageSubscribers :: !(S.Set SocketId)
-      -- | Sessions subscribed to notifications about last page.
-    , _csBlocksOffSubscribers  :: !(M.Map Word (S.Set SocketId))
+    , _csBlocksSubscribers         :: !(S.Set SocketId)
+      -- | Sessions subscribed to notifications about last page of blocks.
+    , _csBlocksPageSubscribers     :: !(S.Set SocketId)
       -- | Sessions subscribed to notifications about new transactions.
-    , _csTxsSubscribers        :: !(S.Set SocketId)
+    , _csTxsSubscribers            :: !(S.Set SocketId)
+    -- | Sessions subscribed to notifications about last page of epochs.
+    , _csEpochsLastPageSubscribers :: !(S.Set SocketId)
     }
 
 makeClassy ''ConnectionsState
@@ -76,8 +84,8 @@ mkConnectionsState =
     , _csAddressSubscribers = mempty
     , _csBlocksSubscribers = mempty
     , _csBlocksPageSubscribers = mempty
-    , _csBlocksOffSubscribers = mempty
     , _csTxsSubscribers = mempty
+    , _csEpochsLastPageSubscribers = mempty
     }
 
 withConnState
@@ -85,7 +93,7 @@ withConnState
     => ConnectionsVar
     -> NamedPureLogger (StateT ConnectionsState STM) a
     -> m a
-withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
+withConnState var = launchNamedPureLog $ atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m
@@ -93,7 +101,7 @@ askingConnState
     -> ExplorerSockets m a
     -> m a
 askingConnState var action = do
-    v <- liftIO $ readTVarIO var
+    v <- readTVarIO var
     runReaderT action v
 
 type ExplorerSockets = ReaderT ConnectionsState

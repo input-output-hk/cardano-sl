@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | Flobal constants, configurable via Data.Reflection.
+-- | Global constants, configurable via Data.Reflection.
 
 module Pos.Core.Configuration.Core
        (
@@ -13,7 +13,7 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-       , memPoolLimit
+       , memPoolLimitTx
        , nonCriticalCQBootstrap
        , criticalCQBootstrap
        , nonCriticalCQ
@@ -27,12 +27,12 @@ module Pos.Core.Configuration.Core
 
 import           Universum
 
-import           Data.Reflection        (Given (..), give)
-import           Data.Time.Units        (Microsecond, Second, convertUnit)
+import           Data.Reflection (Given (..), give)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
 
-import           Pos.Binary.Class       (Raw)
+import           Pos.Binary.Class (Raw)
 import           Pos.Core.Genesis.Types (GenesisSpec (..))
-import           Pos.Crypto.Hashing     (Hash)
+import           Pos.Crypto.Hashing (Hash)
 
 data GenesisConfiguration
       -- | Genesis from a 'GenesisSpec'.
@@ -53,8 +53,9 @@ data CoreConfiguration = CoreConfiguration
 
     , -- | Versioning for values in node's DB
       ccDbSerializeVersion     :: !Word8
-      -- | Limit on the number of transactions that can be stored in the mempool.
-    , ccMemPoolLimit           :: !Int
+      -- | Limint on the number of transactions that can be stored in
+      -- the mem pool.
+    , ccMemPoolLimitTx         :: !Int
 
       -- Chain quality thresholds and other constants to detect
       -- suspicious things.
@@ -98,10 +99,10 @@ coreConfiguration = given
 dbSerializeVersion :: HasCoreConfiguration => Word8
 dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration
 
--- | Size of mem pool will be limited by this value muliplied by block
--- size limit.
-memPoolLimit :: HasCoreConfiguration => Int
-memPoolLimit = ccMemPoolLimit coreConfiguration
+-- | Limint on the number of transactions that can be stored in
+-- the mem pool.
+memPoolLimitTx :: (HasCoreConfiguration, Integral i) => i
+memPoolLimitTx = fromIntegral . ccMemPoolLimitTx $ coreConfiguration
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.

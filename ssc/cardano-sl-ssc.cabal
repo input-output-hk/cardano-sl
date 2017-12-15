@@ -1,7 +1,7 @@
 name:                cardano-sl-ssc
 version:             1.0.3
-synopsis:            Cardano SL - the SSC class
-description:         Cardano SL - the SSC class
+synopsis:            Cardano SL - shared seed computation
+description:         Cardano SL - shared seed computation
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -13,53 +13,97 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc
+
+    Pos.Ssc.Base
+
+    Pos.Ssc.Error
+    Pos.Ssc.Error.Seed
+    Pos.Ssc.Error.Verify
+
+    Pos.Ssc.Types
+
+    Pos.Ssc.Logic
+    Pos.Ssc.Logic.Local
+    Pos.Ssc.Logic.Global
+    Pos.Ssc.Logic.VAR
+
+    Pos.Ssc.State
+    Pos.Ssc.State.Local
+    Pos.Ssc.State.Global
+
+    Pos.Ssc.Message
+    Pos.Ssc.Listeners
+    Pos.Ssc.Worker
+    Pos.Ssc.Lrc
+    Pos.Ssc.Mem
+    Pos.Ssc.Functions
+    Pos.Ssc.SecretStorage
+    Pos.Ssc.VssCertData
+    Pos.Ssc.Seed
+    Pos.Ssc.Configuration
+    Pos.Ssc.Behavior
+    Pos.Ssc.Shares
+    Pos.Ssc.DB
+    Pos.Ssc.Mode
+    Pos.Ssc.RichmenComponent
+
+    Pos.Ssc.Toss
+    Pos.Ssc.Toss.Logic
+    Pos.Ssc.Toss.Pure
+    Pos.Ssc.Toss.Base
+    Pos.Ssc.Toss.Class
+    Pos.Ssc.Toss.Trans
+    Pos.Ssc.Toss.Types
+
     Pos.Arbitrary.Ssc
 
-    Pos.Ssc.Class
-    Pos.Ssc.Class.Types
-    Pos.Ssc.Class.LocalData
-    Pos.Ssc.Class.Helpers
-    Pos.Ssc.Class.Storage
-    Pos.Ssc.Class.Listeners
-    Pos.Ssc.Class.Workers
-
-    Pos.Ssc.Extra
-    Pos.Ssc.Extra.Types
-    Pos.Ssc.Extra.Holder
-    Pos.Ssc.Extra.Class
-    Pos.Ssc.Extra.Logic
-
-    Pos.Ssc.Mode
-    Pos.Ssc.NistBeacon
-    Pos.Ssc.RichmenComponent
+    Pos.Binary.Ssc
+    Pos.Binary.Ssc.Types
+    Pos.Binary.Ssc.Toss
+    Pos.Binary.Ssc.Relay
 
     Pos.Security.Params
     Pos.Security.Util
 
   build-depends:       QuickCheck
                      , aeson
+                     , array
                      , base
+                     , bytestring
+                     , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , containers
                      , cryptonite
                      , data-default
                      , ether
                      , exceptions
                      , formatting
+                     , generic-arbitrary
                      , lens
                      , log-warper
                      , memory
                      , mmorph
+                     , mono-traversable
                      , mtl
-                     , node-sketch
                      , parsec
+                     , reflection
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged
+                     , text
                      , text-format
+                     , time-units
+                     , transformers
                      , universum
+                     , unordered-containers
 
   default-language:    Haskell2010
 

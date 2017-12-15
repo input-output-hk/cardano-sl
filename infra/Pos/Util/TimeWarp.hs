@@ -1,6 +1,5 @@
 
--- | Common things used in `Pos.Crypto.Arbitrary`, `Pos.Util.Arbitrary` and
--- elsewhere.
+-- | Utility functions related to time-warp project.
 
 module Pos.Util.TimeWarp
        ( NetworkAddress
@@ -9,21 +8,19 @@ module Pos.Util.TimeWarp
        , addressToNodeId'
        , nodeIdToAddress
        , addrParser
-       , readAddrFile
        , addrParserNoWildcard
        , module JsonLog
        ) where
 
 import           Universum
 
-import qualified Data.ByteString.Char8          as BS8
-import           Formatting                     (build, formatToString, shown, (%))
+import qualified Data.ByteString.Char8 as BS8
 import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP
-import           Node                           (NodeId (..))
-import qualified Serokell.Util.Parse            as P
-import qualified Text.Parsec                    as P
-import qualified Text.Parsec.Text               as P
+import           Node (NodeId (..))
+import qualified Serokell.Util.Parse as P
+import qualified Text.Parsec as P
+import qualified Text.Parsec.Text as P
 
 -- | @"127.0.0.1"@.
 localhost :: ByteString
@@ -49,16 +46,6 @@ nodeIdToAddress (NodeId ep) = do
 -- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress
 addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port) <* P.eof
-
-readAddrFile :: FilePath -> IO [NetworkAddress]
-readAddrFile path = do
-    xs <- lines <$> readFile path
-    let parseLine x = case P.parse (addrParser <* P.eof) "" x of
-            Left err -> fail $ formatToString
-                ("error when parsing network address "%shown%
-                 " from file "%build%": "%shown) x path err
-            Right a -> pure a
-    mapM parseLine xs
 
 -- | Parses an IPv4 NetworkAddress where the host is not 0.0.0.0.
 addrParserNoWildcard :: P.Parser NetworkAddress

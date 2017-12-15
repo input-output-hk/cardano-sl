@@ -8,27 +8,24 @@ module Pos.Explorer.Web.TestServer
 
 import           Universum
 
-import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
-import           Network.Wai                    (Application)
-import           Network.Wai.Handler.Warp       (run)
-import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Handler, Server, serve)
+import           Data.Time (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
+import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (run)
+import           Servant.Generic (AsServerT, toServant)
+import           Servant.Server (Handler, Server, serve)
 
+import           Pos.Core (EpochIndex (..), mkCoin)
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
-                                                 CAddressSummary (..), CAddressType (..),
-                                                 CAddressesFilter (..), CBlockEntry (..),
-                                                 CBlockSummary (..),
-                                                 CGenesisAddressInfo (..),
-                                                 CGenesisSummary (..), CHash (..),
-                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), mkCCoin)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (EpochIndex (..), mkCoin)
-import           Pos.Web                        ()
-
+import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
+                                               CAddressType (..), CAddressesFilter (..),
+                                               CBlockEntry (..), CBlockSummary (..),
+                                               CGenesisAddressInfo (..), CGenesisSummary (..),
+                                               CHash (..), CTxBrief (..), CTxEntry (..), CTxId (..),
+                                               CTxSummary (..), mkCCoin)
+import           Pos.Explorer.Web.Error (ExplorerError (..))
+import           Pos.Web ()
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -47,48 +44,23 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
-      apiTotalAda
-    :<|>
-      apiBlocksPages
-    :<|>
-      apiBlocksPagesTotal
-    :<|>
-      apiBlocksSummary
-    :<|>
-      apiBlocksTxs
-    :<|>
-      apiTxsLast
-    :<|>
-      apiTxsSummary
-    :<|>
-      apiAddressSummary
-    :<|>
-      apiEpochPageSearch
-    :<|>
-      apiEpochSlotSearch
-    :<|>
-      apiGenesisSummary
-    :<|>
-      apiGenesisPagesTotal
-    :<|>
-      apiGenesisAddressInfo
-    :<|>
-      apiStatsTxs
-  where
-    apiTotalAda           = testTotalAda
-    apiBlocksPages        = testBlocksPages
-    apiBlocksPagesTotal   = testBlocksPagesTotal
-    apiBlocksSummary      = testBlocksSummary
-    apiBlocksTxs          = testBlocksTxs
-    apiTxsLast            = testTxsLast
-    apiTxsSummary         = testTxsSummary
-    apiAddressSummary     = testAddressSummary
-    apiEpochPageSearch    = testEpochPageSearch
-    apiEpochSlotSearch    = testEpochSlotSearch
-    apiGenesisSummary     = testGenesisSummary
-    apiGenesisPagesTotal  = testGenesisPagesTotal
-    apiGenesisAddressInfo = testGenesisAddressInfo
-    apiStatsTxs           = testStatsTxs
+    toServant (ExplorerApiRecord
+        { _totalAda           = testTotalAda
+        , _blocksPages        = testBlocksPages
+        , _blocksPagesTotal   = testBlocksPagesTotal
+        , _blocksSummary      = testBlocksSummary
+        , _blocksTxs          = testBlocksTxs
+        , _txsLast            = testTxsLast
+        , _txsSummary         = testTxsSummary
+        , _addressSummary     = testAddressSummary
+        , _epochPages         = testEpochPageSearch
+        , _epochSlots         = testEpochSlotSearch
+        , _genesisSummary     = testGenesisSummary
+        , _genesisPagesTotal  = testGenesisPagesTotal
+        , _genesisAddressInfo = testGenesisAddressInfo
+        , _statsTxs           = testStatsTxs
+        }
+        :: ExplorerApiRecord (AsServerT Handler))
 
 --------------------------------------------------------------------------------
 -- sample data --
@@ -129,19 +101,19 @@ cTxBrief = CTxBrief
 -- Test handlers
 ----------------------------------------------------------------
 
-testTotalAda :: Handler (Either ExplorerError CAda)
-testTotalAda = pure $ pure $ CAda 123.456789
+testTotalAda :: Handler CAda
+testTotalAda = pure $ CAda 123.456789
 
 testBlocksPagesTotal
     :: Maybe Word
-    -> Handler (Either ExplorerError Integer)
-testBlocksPagesTotal _ = pure $ pure 10
+    -> Handler Integer
+testBlocksPagesTotal _ = pure 10
 
 testBlocksPages
     :: Maybe Word
     -> Maybe Word
-    -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
-testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
+    -> Handler (Integer, [CBlockEntry])
+testBlocksPages _ _  = pure (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -155,8 +127,8 @@ testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
 
 testBlocksSummary
     :: CHash
-    -> Handler (Either ExplorerError CBlockSummary)
-testBlocksSummary _ = pure . pure $ CBlockSummary
+    -> Handler CBlockSummary
+testBlocksSummary _ = pure CBlockSummary
     { cbsEntry      = CBlockEntry
                         { cbeEpoch      = 37294
                         , cbeSlot       = 10
@@ -177,16 +149,16 @@ testBlocksTxs
     :: CHash
     -> Maybe Word
     -> Maybe Word
-    -> Handler (Either ExplorerError [CTxBrief])
-testBlocksTxs _ _ _ = pure . pure $ [cTxBrief]
+    -> Handler [CTxBrief]
+testBlocksTxs _ _ _ = pure [cTxBrief]
 
-testTxsLast :: Handler (Either ExplorerError [CTxEntry])
-testTxsLast         = pure . pure $ [cTxEntry]
+testTxsLast :: Handler [CTxEntry]
+testTxsLast = pure [cTxEntry]
 
 testTxsSummary
     :: CTxId
-    -> Handler (Either ExplorerError CTxSummary)
-testTxsSummary _       = pure . pure $ CTxSummary
+    -> Handler CTxSummary
+testTxsSummary _       = pure CTxSummary
     { ctsId              = CTxId $ CHash "8aac4a6b18fafa2783071c66519332157ce96c67e88fc0cc3cb04ba0342d12a1"
     , ctsTxTimeIssued    = Just posixTime
     , ctsBlockTimeIssued = Nothing
@@ -209,21 +181,21 @@ testTxsSummary _       = pure . pure $ CTxSummary
 
 testAddressSummary
     :: CAddress
-    -> Handler (Either ExplorerError CAddressSummary)
-testAddressSummary _  = pure . pure $ sampleAddressSummary
+    -> Handler CAddressSummary
+testAddressSummary _  = pure sampleAddressSummary
 
 testEpochSlotSearch
     :: EpochIndex
     -> Word16
-    -> Handler (Either ExplorerError [CBlockEntry])
+    -> Handler [CBlockEntry]
 -- `?epoch=1&slot=1` returns an empty list
 testEpochSlotSearch (EpochIndex 1) 1 =
-    pure . pure $ []
+    pure []
 -- `?epoch=1&slot=2` returns an error
 testEpochSlotSearch (EpochIndex 1) 2 =
     throwM $ Internal "Error while searching epoch/slot"
 -- all others returns a simple result
-testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
+testEpochSlotSearch _ _ = pure [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -238,8 +210,8 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
 testEpochPageSearch
     :: EpochIndex
     -> Maybe Int
-    -> Handler (Either ExplorerError (Int, [CBlockEntry]))
-testEpochPageSearch _ _ = pure . pure $ (1, [CBlockEntry
+    -> Handler (Int, [CBlockEntry])
+testEpochPageSearch _ _ = pure (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -252,8 +224,8 @@ testEpochPageSearch _ _ = pure . pure $ (1, [CBlockEntry
     }])
 
 testGenesisSummary
-    :: Handler (Either ExplorerError CGenesisSummary)
-testGenesisSummary = pure . pure $ CGenesisSummary
+    :: Handler CGenesisSummary
+testGenesisSummary = pure CGenesisSummary
     { cgsNumTotal       = 4
     , cgsNumRedeemed    = 3
     , cgsNumNotRedeemed = 1
@@ -296,37 +268,37 @@ gAddressInfoC = CGenesisAddressInfo
 
 testGenesisPagesTotal
     :: Maybe Word
-    -> Maybe CAddressesFilter
-    -> Handler (Either ExplorerError Integer)
+    -> CAddressesFilter
+    -> Handler Integer
 -- number of redeemed addresses pages
-testGenesisPagesTotal _ (Just RedeemedAddresses) = pure $ pure 1
+testGenesisPagesTotal _ RedeemedAddresses    = pure 1
 -- number of non redeemed addresses pages
-testGenesisPagesTotal _ (Just NonRedeemedAddresses) = pure $ pure 1
+testGenesisPagesTotal _ NonRedeemedAddresses = pure 1
 -- number of all redeem addresses pages
-testGenesisPagesTotal _ _ = pure $ pure 2
+testGenesisPagesTotal _ _                    = pure 2
 
 testGenesisAddressInfo
     :: Maybe Word
     -> Maybe Word
-    -> Maybe CAddressesFilter
-    -> Handler (Either ExplorerError [CGenesisAddressInfo])
+    -> CAddressesFilter
+    -> Handler [CGenesisAddressInfo]
 -- filter redeemed addresses
-testGenesisAddressInfo _ _ (Just RedeemedAddresses) =
-    pure $ pure [ gAddressInfoA ]
+testGenesisAddressInfo _ _ RedeemedAddresses =
+    pure [ gAddressInfoA ]
 -- filter non-redeemed addresses
-testGenesisAddressInfo _ _ (Just NonRedeemedAddresses) =
-    pure $ pure [ gAddressInfoB, gAddressInfoC ]
+testGenesisAddressInfo _ _ NonRedeemedAddresses =
+    pure [ gAddressInfoB, gAddressInfoC ]
 -- all addresses (w/o filtering) - page 1
-testGenesisAddressInfo (Just 1) _ (Just AllAddresses) =
-    pure $ pure [ gAddressInfoA, gAddressInfoB ]
+testGenesisAddressInfo (Just 1) _ AllAddresses =
+    pure [ gAddressInfoA, gAddressInfoB ]
 -- all addresses (w/o filtering) - page 2
-testGenesisAddressInfo (Just 2) _ (Just AllAddresses) =
-    pure $ pure [ gAddressInfoC ]
+testGenesisAddressInfo (Just 2) _ AllAddresses =
+    pure [ gAddressInfoC ]
 -- all others requests will ended up with an error
 testGenesisAddressInfo _ _ _ =
     throwM $ Internal "Error while pagening genesis addresses"
 
 testStatsTxs
     :: Maybe Word
-    -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
-testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
+    -> Handler (Integer, [(CTxId, Byte)])
+testStatsTxs _ = pure (1, [(cTxId, 200)])

@@ -3,131 +3,214 @@
 module Pos.Core.Genesis.Generate
        ( GeneratedGenesisData (..)
        , GeneratedSecrets (..)
-       , generateSecrets
-       , generateFakeAvvm
+       , RichSecrets (..)
+
        , generateGenesisData
+
+       -- * Helpers which are also used by keygen.
+       , generateRichSecrets
+       , generateFakeAvvm
        ) where
 
 import           Universum
 
-import           Crypto.Random                           (MonadRandom, getRandomBytes)
-import qualified Data.HashMap.Strict                     as HM
-import qualified Data.Map.Strict                         as Map
-import           Serokell.Util.Verify                    (VerificationRes (..),
-                                                          formatAllErrors, verifyGeneric)
+import           Control.Lens (coerced)
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict as Map
+import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, verifyGeneric)
 
-import           Pos.Binary.Class                        (asBinary, serialize')
-import           Pos.Binary.Core.Address                 ()
-import           Pos.Core.Address                        (Address,
-                                                          IsBootstrapEraAddr (..),
-                                                          addressHash, deriveLvl2KeyPair,
-                                                          makePubKeyAddressBoot)
-import           Pos.Core.Coin                           (coinPortionToDouble, mkCoin,
-                                                          unsafeIntegerToCoin)
-import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData,
-                                                          genesisBlockVersionData)
-import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
-                                                          vssMinTTL)
-import qualified Pos.Core.Genesis.Constants              as Const
-import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
-                                                          GenesisAvvmBalances (..),
-                                                          GenesisInitializer (..),
-                                                          GenesisNonAvvmBalances (..),
-                                                          GenesisVssCertificatesMap (..),
-                                                          GenesisWStakeholders (..),
-                                                          TestnetBalanceOptions (..),
-                                                          TestnetDistribution (..))
-import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd),
-                                                          Coin)
-import           Pos.Core.Vss                            (VssCertificate,
-                                                          mkVssCertificate)
-import           Pos.Crypto                              (EncryptedSecretKey,
-                                                          RedeemPublicKey, SecretKey,
-                                                          ShouldCheckPassphrase (..),
-                                                          VssKeyPair, deterministic,
-                                                          emptyPassphrase, keyGen,
-                                                          randomNumberInRange,
-                                                          redeemDeterministicKeyGen,
-                                                          safeKeyGen, toPublic,
-                                                          toVssPublicKey, vssKeyGen)
+import           Pos.Binary.Class (asBinary, serialize')
+import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Core.Slotting ()
+import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), StakeholderId,
+                                  addressHash, applyCoinPortionDown, coinToInteger,
+                                  deriveFirstHDAddress, makePubKeyAddressBoot, mkCoin, sumCoins,
+                                  unsafeIntegerToCoin)
+import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
+import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
+                                         GenesisDelegation, GenesisInitializer (..),
+                                         GenesisNonAvvmBalances (..),
+                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                                         TestnetBalanceOptions (..))
+import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
+import           Pos.Crypto (EncryptedSecretKey, HasCryptoConfiguration, RedeemPublicKey, SecretKey,
+                             VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
+                             keyGen, randomNumberInRange, redeemDeterministicKeyGen, safeKeyGen,
+                             toPublic, toVssPublicKey, vssKeyGen)
+import           Pos.Util.Util (leftToPanic)
 
--- | Data generated by @genTestnetOrMainnetData@ using genesis-spec.
+-- | Data generated by @generateGenesisData@ using genesis-spec.
 data GeneratedGenesisData = GeneratedGenesisData
     { ggdNonAvvm          :: !GenesisNonAvvmBalances
     -- ^ Non-avvm balances
     , ggdAvvm             :: !GenesisAvvmBalances
-    -- ^ Avvm balances
+    -- ^ Avvm balances (fake and real).
     , ggdBootStakeholders :: !GenesisWStakeholders
     -- ^ Set of boot stakeholders (richmen addresses or custom addresses)
     , ggdVssCerts         :: !GenesisVssCertificatesMap
     -- ^ Genesis vss data (vss certs of richmen)
-    , ggdSecrets          :: !(Maybe GeneratedSecrets)
+    , ggdDelegation       :: !GenesisDelegation
+    -- ^ Genesis heavyweight delegation certificates (empty if
+    -- 'tiUseHeavyDlg' is 'False').
+    , ggdSecrets          :: !GeneratedSecrets
+    -- ^ Secrets which can unlock genesis data (if known).
     }
 
+-- | All valuable secrets of rich node.
+data RichSecrets = RichSecrets
+    { rsPrimaryKey :: !SecretKey
+    -- ^ Primary secret key. 'StakeholderId' associated with it
+    -- generally contains huge stake. Also associated PubKey address
+    -- with bootstrap era contains huge balance.
+    , rsVssKeyPair :: !VssKeyPair
+    -- ^ VSS key pair used for SSC.
+    }
+
+-- | Valuable secrets which can unlock genesis data.
 data GeneratedSecrets = GeneratedSecrets
-    { gsSecretKeys    :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
-    -- ^ Secret keys for non avvm addresses
-    , gsFakeAvvmSeeds :: ![ByteString]
-    -- ^ Fake avvm seeds (needed only for testnet)
+    { gsDlgIssuersSecrets :: ![SecretKey]
+    -- ^ Secret keys which issued heavyweight delegation certificates
+    -- in genesis data. If genesis heavyweight delegation isn't used,
+    -- this list is empty.
+    , gsRichSecrets       :: ![RichSecrets]
+    -- ^ All secrets of rich nodes.
+    , gsPoorSecrets       :: ![EncryptedSecretKey]
+    -- ^ Keys for HD addresses of poor nodes.
+    , gsFakeAvvmSeeds     :: ![ByteString]
+    -- ^ Fake avvm seeds.
     }
 
 generateGenesisData
-    :: (HasProtocolConstants, HasGenesisBlockVersionData)
+    :: (HasCryptoConfiguration, HasGenesisBlockVersionData, HasProtocolConstants)
     => GenesisInitializer
-    -> Word64
+    -> GenesisAvvmBalances
     -> GeneratedGenesisData
-generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (serialize' tiSeed) $ do
-    let TestnetBalanceOptions{..} = tiTestBalance
-    (fakeAvvmDistr, seeds, fakeAvvmBalance) <- generateFakeAvvmGenesis tiFakeAvvmBalance
-    (richmenList, poorsList) <-
-        (,) <$> replicateM (fromIntegral tboRichmen)
-                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
-            <*> replicateM (fromIntegral tboPoors)
-                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
+generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (serialize' giSeed) $ do
+    let TestnetBalanceOptions{..} = giTestBalance
 
-    let richSkVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList
-        secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk))
-                         (richmenList ++ poorsList)
+    -- apply ggdAvvmBalanceFactor
+    let applyAvvmBalanceFactor :: HashMap k Coin -> HashMap k Coin
+        applyAvvmBalanceFactor = map (applyCoinPortionDown giAvvmBalanceFactor)
+        realAvvmMultiplied :: GenesisAvvmBalances
+        realAvvmMultiplied = realAvvmBalances & coerced %~ applyAvvmBalanceFactor
 
-        safeZip s a b =
+    -- Compute total balance to generate
+    let
+        avvmSum = sumCoins realAvvmMultiplied
+        maxTnBalance =
+            case coinToInteger (maxBound @Coin) - avvmSum of
+                v | v < 0 -> error "avvmSum exceeds maximal value"
+                  | otherwise -> fromIntegral $! v
+        tnBalance = min maxTnBalance tboTotalBalance
+
+    -- Generate AVVM stuff
+    (fakeAvvmDistr, fakeAvvmSeeds, fakeAvvmBalance) <- generateFakeAvvmGenesis giFakeAvvmBalance
+
+    -- Generate all secrets
+    let replicateRich = replicateM (fromIntegral tboRichmen)
+        replicatePoor = replicateM (fromIntegral tboPoors)
+    dlgIssuersSecrets <-
+        case giUseHeavyDlg of
+            False -> pure []
+            True  -> replicateRich (snd <$> keyGen)
+    richmenSecrets <- replicateRich generateRichSecrets
+    poorsSecrets <- replicatePoor (snd <$> safeKeyGen emptyPassphrase)
+
+    -- Heavyweight delegation.
+    -- genesisDlgList is empty if giUseHeavyDlg = False
+    let genesisDlgList :: [ProxySKHeavy]
+        genesisDlgList =
+            (\(issuerSk, RichSecrets {..}) ->
+                 createPsk issuerSk (toPublic rsPrimaryKey) 0) <$>
+            zip dlgIssuersSecrets richmenSecrets
+        genesisDlg =
+            leftToPanic "generateGenesisData: genesisDlg" $
+            mkGenesisDelegation genesisDlgList
+
+    -- Bootstrap stakeholders
+    let bootSecrets
+            | giUseHeavyDlg = dlgIssuersSecrets
+            | otherwise = map rsPrimaryKey richmenSecrets
+        bootStakeholders :: Map StakeholderId Word16
+        bootStakeholders =
+            Map.fromList $
+            map ((,1) . addressHash . toPublic) bootSecrets
+
+    -- VSS certificates
+    vssCertsList <- mapM generateVssCert richmenSecrets
+    let toVss = either error identity . mkVssCertificatesMap
+        vssCerts = GenesisVssCertificatesMap $ toVss vssCertsList
+
+    -- Non AVVM balances
+    ---- Addresses
+    let createAddressRich :: SecretKey -> Address
+        createAddressRich (toPublic -> pk) = makePubKeyAddressBoot pk
+    let createAddressPoor :: EncryptedSecretKey -> Address
+        createAddressPoor hdwSk
+            | tboUseHDAddresses =
+                fst $
+                fromMaybe (error "generateGenesisData: pass mismatch") $
+                deriveFirstHDAddress
+                    (IsBootstrapEraAddr True)
+                    emptyPassphrase
+                    hdwSk
+            | otherwise = makePubKeyAddressBoot (toPublic $ encToSecret hdwSk)
+    let richAddresses = map (createAddressRich . rsPrimaryKey) richmenSecrets
+        poorAddresses = map createAddressPoor poorsSecrets
+
+    ---- Balances
+    let safeZip s a b =
             if length a /= length b
             then error $ s <> " :lists differ in size, " <> show (length a) <>
                          " and " <> show (length b)
             else zip a b
 
-        tnBalance = min maxTnBalance tboTotalBalance
-
-        (richBs, poorBs) =
-            genTestnetDistribution tiTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
+        (richBals, poorBals) =
+            genTestnetDistribution giTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
         -- ^ Rich and poor balances
-        richAs = map (makePubKeyAddressBoot . toPublic . fst) richSkVssCerts
-        -- ^ Rich addresses
-        poorAs = map (view _5) poorsList
-        -- ^ Poor addresses
-        nonAvvmDistr = HM.fromList $ safeZip "rich" richAs richBs ++ safeZip "poor" poorAs poorBs
+        nonAvvmDistr = HM.fromList $
+            safeZip "rich" richAddresses richBals ++
+            safeZip "poor" poorAddresses poorBals
 
-    let toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic . fst)
-    let toVss = HM.fromList . map (_1 %~ addressHash . toPublic)
-
-    let (bootStakeholders, vssCerts) =
-            case tiDistribution of
-                TestnetRichmenStakeDistr    ->
-                    (toStakeholders richSkVssCerts, GenesisVssCertificatesMap $ toVss richSkVssCerts)
-                TestnetCustomStakeDistr{..} ->
-                    (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
-
-    pure $ GeneratedGenesisData
+    pure GeneratedGenesisData
         { ggdNonAvvm = GenesisNonAvvmBalances nonAvvmDistr
-        , ggdAvvm = fakeAvvmDistr
+        , ggdAvvm = fakeAvvmDistr <> realAvvmMultiplied
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
         , ggdVssCerts = vssCerts
-        , ggdSecrets = Just $ GeneratedSecrets
-              { gsSecretKeys = secretKeys
-              , gsFakeAvvmSeeds = seeds
+        , ggdDelegation = genesisDlg
+        , ggdSecrets = GeneratedSecrets
+              { gsDlgIssuersSecrets = dlgIssuersSecrets
+              , gsRichSecrets = richmenSecrets
+              , gsPoorSecrets = poorsSecrets
+              , gsFakeAvvmSeeds = fakeAvvmSeeds
               }
         }
-generateGenesisData MainnetInitializer{..} _ =
-    GeneratedGenesisData miNonAvvmBalances mempty miBootStakeholders miVssCerts Nothing
+
+----------------------------------------------------------------------------
+-- Exported helpers
+----------------------------------------------------------------------------
+
+generateFakeAvvm :: MonadRandom m => m (RedeemPublicKey, ByteString)
+generateFakeAvvm = do
+    seed <- getRandomBytes 32
+    let (pk, _) = fromMaybe
+            (error "Impossible - seed is not 32 bytes long") $
+            redeemDeterministicKeyGen seed
+    pure (pk, seed)
+
+generateRichSecrets :: (MonadRandom m) => m RichSecrets
+generateRichSecrets = do
+    rsPrimaryKey <- snd <$> keyGen
+    rsVssKeyPair <- vssKeyGen
+    return RichSecrets {..}
+
+----------------------------------------------------------------------------
+-- Internal helpers
+----------------------------------------------------------------------------
 
 generateFakeAvvmGenesis
     :: (MonadRandom m)
@@ -140,101 +223,59 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
          , map snd fakeAvvmPubkeysAndSeeds
          , faoOneBalance * fromIntegral faoCount)
 
-----------------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------------
-
-generateSecretsAndAddress
-    :: (HasProtocolConstants, MonadRandom m)
-    => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
-    -> Bool                                   -- ^ whether address contains hd payload
-    -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
-    -- ^ secret key, vss key pair, vss certificate,
-    -- hd wallet account address with bootstrap era distribution
-generateSecretsAndAddress mbSk hasHDPayload= do
-    (sk, hdwSk, vss) <- generateSecrets mbSk
-
+generateVssCert ::
+       (HasCryptoConfiguration, HasProtocolConstants, MonadRandom m)
+    => RichSecrets
+    -> m VssCertificate
+generateVssCert RichSecrets {..} = do
     expiry <- fromInteger <$>
         randomNumberInRange (vssMinTTL - 1) (vssMaxTTL - 1)
-    let vssPk = asBinary $ toVssPublicKey vss
-        vssCert = mkVssCertificate sk vssPk expiry
-        -- This address is used only to create genesis data. We don't
-        -- put it into a keyfile.
-        hdwAccountPk =
-            if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
-            else
-                fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-                deriveLvl2KeyPair (IsBootstrapEraAddr True) (ShouldCheckPassphrase False) emptyPassphrase hdwSk
-                    Const.accountGenesisIndex Const.wAddressGenesisIndex
-    pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
+    let vssPk = asBinary $ toVssPublicKey rsVssKeyPair
+        vssCert = mkVssCertificate rsPrimaryKey vssPk expiry
+    return vssCert
 
-generateFakeAvvm :: MonadRandom m => m (RedeemPublicKey, ByteString)
-generateFakeAvvm = do
-    seed <- getRandomBytes 32
-    let (pk, _) = fromMaybe
-            (error "Impossible - seed is not 32 bytes long") $
-            redeemDeterministicKeyGen seed
-    pure (pk, seed)
-
-generateSecrets
-    :: (MonadRandom m)
-    => Maybe (SecretKey, EncryptedSecretKey)
-    -> m (SecretKey, EncryptedSecretKey, VssKeyPair)
-generateSecrets mbSk = do
-    -- plain key & hd wallet root key
-    (sk, hdwSk) <-
-        case mbSk of
-            Just x -> return x
-            Nothing ->
-                (,) <$> (snd <$> keyGen) <*>
-                (snd <$> safeKeyGen emptyPassphrase)
-    vss <- vssKeyGen
-    pure (sk, hdwSk, vss)
-
--- | Generates balance distribution for testnet.
+-- Generates balance distribution for testnet.
 genTestnetDistribution ::
        HasGenesisBlockVersionData
     => TestnetBalanceOptions
     -> Integer
     -> ([Coin], [Coin])
-genTestnetDistribution TestnetBalanceOptions{..} testBalance =
+genTestnetDistribution TestnetBalanceOptions {..} testBalance =
     checkConsistency (richBalances, poorBalances)
   where
     richs = fromIntegral tboRichmen
     poors = fromIntegral tboPoors
-
     -- Calculate actual balances
     desiredRichBalance = getShare tboRichmenShare testBalance
-    oneRichmanBalance = desiredRichBalance `div` richs +
-        if desiredRichBalance `mod` richs > 0 then 1 else 0
+    oneRichmanBalance
+        | richs == 0 = 0
+        | otherwise =
+            desiredRichBalance `div` richs +
+            if desiredRichBalance `mod` richs > 0
+                then 1
+                else 0
     realRichBalance = oneRichmanBalance * richs
     poorsBalance = testBalance - realRichBalance
-    onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
+    onePoorBalance | poors == 0 = 0
+                   | otherwise = poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
-
-    mpcBalance = getShare (coinPortionToDouble $ bvdMpcThd genesisBlockVersionData) testBalance
-
-    richBalances = replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
-    poorBalances = replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
+    richBalances =
+        replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
+    poorBalances =
+        replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
 
     -- Consistency checks
     everythingIsConsistent :: [(Bool, Text)]
     everythingIsConsistent =
         [ ( realRichBalance + realPoorBalance <= testBalance
-          , "Real rich + poor balance is more than desired."
-          )
-        , ( oneRichmanBalance >= mpcBalance
-          , "Richman's balance is less than MPC threshold"
-          )
-        , ( onePoorBalance < mpcBalance
-          , "Poor's balance is more than MPC threshold"
-          )
+          , "Real rich + poor balance is more than desired.")
         ]
 
     checkConsistency :: a -> a
-    checkConsistency = case verifyGeneric everythingIsConsistent of
-        VerSuccess        -> identity
-        VerFailure errors -> error $ formatAllErrors errors
+    checkConsistency =
+        case verifyGeneric everythingIsConsistent of
+            VerSuccess        -> identity
+            VerFailure errors -> error $ formatAllErrors errors
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n

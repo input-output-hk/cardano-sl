@@ -8,23 +8,23 @@ module Pos.Lrc.Mode
 
 import           Universum
 
-import           Ether.Internal  (HasLens (..))
-import           Mockable        (Async, Concurrently, Delay, Mockables)
-import           System.Wlog     (WithLogger)
+import           Mockable (Async, Bracket, Concurrently, Delay, Mockables)
+import           System.Wlog (WithLogger)
 
-import           Pos.Core        (HasConfiguration)
-import           Pos.DB.Class    (MonadDB, MonadGState)
-import           Pos.Lrc.Context (LrcContext)
+import           Pos.Core (HasConfiguration)
+import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.Lrc.Context (HasLrcContext)
 
 -- | Set of constraints used by LRC.
-type LrcMode ssc ctx m
+type LrcMode ctx m
      = ( WithLogger m
        , MonadMask m
        , MonadGState m
        , MonadDB m
        , MonadIO m
-       , Mockables m [Async, Concurrently, Delay]
+       , Mockables m [Async, Bracket, Concurrently, Delay]
+                     -- ^ alphabet for the youngest haskellers
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLrcContext ctx
        , HasConfiguration
        )

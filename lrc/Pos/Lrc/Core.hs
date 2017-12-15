@@ -6,16 +6,16 @@ module Pos.Lrc.Core
        , findRichmenStakes
        ) where
 
-import           Data.Conduit        (Sink, await)
-import qualified Data.Conduit.List   as CL
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.Core.Coin       (mkCoin, unsafeAddCoin)
-import           Pos.Core.Types      (Coin, StakeholderId)
-import           Pos.Lrc.Types       (RichmenSet, RichmenStakes)
-import           Pos.Util.Util       (getKeys)
+import           Data.Conduit (Sink, await)
+import qualified Data.Conduit.List as CL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+
+import           Pos.Core.Common (Coin, StakeholderId, mkCoin, unsafeAddCoin)
+import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
+import           Pos.Util.Util (getKeys)
 
 
 -- | Function helper for delegated richmen. Iterates @Delegate ->
@@ -32,7 +32,7 @@ findDelegationStakes
     -> Coin                                        -- ^ Coin threshold
     -> Sink (StakeholderId, HashSet StakeholderId)
             m
-            (RichmenSet, RichmenStakes)             -- ^ Old richmen, new richmen
+            (RichmenSet, RichmenStakes)            -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)

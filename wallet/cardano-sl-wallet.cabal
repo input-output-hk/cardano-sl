@@ -20,18 +20,33 @@ Flag for-installer
 
 library
   hs-source-dirs:     src
-  exposed-modules:    Pos.Aeson.ClientTypes
-                      Pos.Aeson.Options
-                      Pos.Aeson.Storage
-                      Pos.Aeson.WalletBackup
-
+  exposed-modules:    Pos.Arbitrary.Wallet.Web.ClientTypes
                       Pos.Wallet
                       Pos.Wallet.Redirect
+                      Pos.Wallet.WalletMode
+
+                      Pos.Wallet.Aeson
+                      Pos.Wallet.Aeson.ClientTypes
+                      Pos.Wallet.Aeson.Options
+                      Pos.Wallet.Aeson.Storage
+                      Pos.Wallet.Aeson.WalletBackup
+
                       Pos.Wallet.Web
                       Pos.Wallet.Web.Account
+                      Pos.Wallet.Web.Assurance
                       Pos.Wallet.Web.Api
                       Pos.Wallet.Web.Backup
+
+                      Pos.Wallet.Web.ClientTypes
+                      Pos.Wallet.Web.ClientTypes.Functions
+                      Pos.Wallet.Web.ClientTypes.Instances
+                      Pos.Wallet.Web.ClientTypes.Types
+                      Pos.Wallet.Web.Error
+                      Pos.Wallet.Web.Error.Types
+                      Pos.Wallet.Web.Error.Util
+
                       Pos.Wallet.Web.Mode
+
                       Pos.Wallet.Web.Methods
                       Pos.Wallet.Web.Methods.Backup
                       Pos.Wallet.Web.Methods.History
@@ -43,48 +58,69 @@ library
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Methods.Txp
+                      Pos.Wallet.Web.Networking
                       Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Types
                       Pos.Wallet.Web.Pending.Submission
+                      Pos.Wallet.Web.Pending.Functions
                       Pos.Wallet.Web.Pending.Util
                       Pos.Wallet.Web.Pending.Worker
+
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Handlers
                       Pos.Wallet.Web.Server.Launcher
                       Pos.Wallet.Web.Server.Runner
+
                       Pos.Wallet.Web.Sockets
                       Pos.Wallet.Web.Sockets.ConnSet
                       Pos.Wallet.Web.Sockets.Connection
                       Pos.Wallet.Web.Sockets.Notifier
                       Pos.Wallet.Web.Sockets.Types
+
+                      Pos.Wallet.Web.State
+                      Pos.Wallet.Web.State.Acidic
+                      Pos.Wallet.Web.State.State
+                      Pos.Wallet.Web.State.Storage
+                      Pos.Wallet.Web.State.Util
+
                       Pos.Wallet.Web.Swagger
-                      Pos.Wallet.Web.Swagger.CustomSwagger
-                      Pos.Wallet.Web.Swagger.Description
                       Pos.Wallet.Web.Swagger.Instances.Schema
                       Pos.Wallet.Web.Swagger.Instances.Swagger
                       Pos.Wallet.Web.Swagger.Spec
+
                       Pos.Wallet.Web.Tracking
                       Pos.Wallet.Web.Tracking.BListener
+                      Pos.Wallet.Web.Tracking.Decrypt
                       Pos.Wallet.Web.Tracking.Sync
                       Pos.Wallet.Web.Tracking.Modifier
 
+                      Pos.Wallet.Web.Util
+
+                      Pos.Util.BackupPhrase
+                      Pos.Util.Mnemonics
+
   other-modules:        Paths_cardano_sl_wallet
 
-  build-depends:        aeson >= 0.11.2.1
-                      , ansi-wl-pprint
+  build-depends:        QuickCheck
+                      , acid-state
+                      , aeson >= 0.11.2.1
                       , base
                       , base58-bytestring
-                      , binary
                       , bytestring
-                      , cardano-report-server >= 0.2.1
+                      , cardano-sl
+                      , cardano-sl-block
+                      , cardano-sl-client
                       , cardano-sl-core
+                      , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-infra
-                      , cardano-sl-godtossing
                       , cardano-sl-ssc
                       , cardano-sl-txp
+                      , cardano-sl-networking
                       , cardano-sl-update
-                      , cardano-sl
+                      , cardano-sl-util
                       , containers
+                      , cryptonite
                       , data-default
                       , directory
                       , dlist
@@ -92,29 +128,29 @@ library
                       , exceptions
                       , filepath
                       , formatting
+                      , hashable
                       , lens
                       , log-warper
+                      , memory
+                      , monad-control
                       , mtl
-                      , network-transport
-                      , node-sketch
-                      , network-transport-tcp
-                      , optparse-applicative
-                      , parsec
+                      , quickcheck-instances
                       , random
                       , reflection
+                      , safecopy
                       , semver
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
+                      , servant-generic
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
                       , servant-swagger
                       , servant-swagger-ui
-                      , string-qq
                       , stm
-                      , stm-containers
                       , swagger2
-                      , text-format
                       , text
+                      , text
+                      , text-format
                       , time
                       , time-units
                       , transformers
@@ -131,11 +167,6 @@ library
                        -fno-warn-orphans
                        -O2
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -150,14 +181,17 @@ library
                         RecordWildCards
                         TypeApplications
                         TupleSections
-                        ViewPatterns
                         LambdaCase
+                        ViewPatterns
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
                         TemplateHaskell
                         TypeOperators
+                        GADTs
+
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -166,70 +200,27 @@ executable cardano-node
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions
-                      Params
-
-  build-depends:        aeson >= 0.11.2.1
-                      , acid-state
-                      , ansi-wl-pprint
-                      , base
-                      , base58-bytestring
-                      , binary
-                      , bytestring
+  build-depends:
+                        base
+                      , cardano-sl
                       , cardano-sl-core
-                      , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-ssc
-                      , cardano-sl-godtossing
                       , cardano-sl-txp
-                      , cardano-sl-update
-                      , cardano-sl
+                      , cardano-sl-networking
+                      , cardano-sl-util
                       , cardano-sl-wallet
-                      , containers
-                      , data-default
-                      , directory
-                      , dlist
-                      , ether
-                      , exceptions
-                      , filepath
                       , formatting
-                      , lens
                       , log-warper
-                      , mtl
-                      , network-transport
-                      , node-sketch
-                      , network-transport-tcp
                       , optparse-applicative
-                      , parsec
-                      , random
-                      , safe-exceptions
-                      , serokell-util >= 0.1.3.4
-                      , servant >= 0.8.1
-                      , servant-multipart >= 0.10
-                      , servant-server >= 0.8.1
-                      , servant-swagger
-                      , string-qq
-                      , stm
-                      , stm-containers
-                      , text-format
-                      , time
                       , time-units
-                      , transformers
                       , universum >= 0.1.11
-                      , unordered-containers
-                      , wai
-                      , wai-websockets
-                      , websockets
 
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -252,6 +243,7 @@ executable cardano-node
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -265,6 +257,7 @@ executable cardano-wallet-hs2purs
                      , cardano-sl-core
                      , cardano-sl
                      , cardano-sl-wallet
+                     , cardano-sl-client
                      , optparse-applicative
                      , purescript-bridge
                      , universum >= 0.1.11
@@ -349,3 +342,98 @@ executable cardano-swagger
     buildable: False
   else
     buildable: True
+
+test-suite cardano-wallet-test
+  main-is:             Test.hs
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Basic mocks and instances
+                       Test.Pos.Wallet.Web.Mode
+                       Test.Pos.Wallet.Web.Util
+
+                       -- Test scenarios
+                       Test.Pos.Wallet.Web.AddressSpec
+
+                       Test.Pos.Wallet.Web.Methods.LogicSpec
+                       Test.Pos.Wallet.Web.Methods.PaymentSpec
+                       Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
+
+                       Test.Pos.Wallet.Web.Tracking.SyncSpec
+
+                       -- Something else
+                       Test.Pos.Types.Identity.BinarySpec
+
+  type:                exitcode-stdio-1.0
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , cardano-sl
+                     , cardano-sl-block
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-generator
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-networking
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , cardano-sl-wallet
+                     , containers
+                     , data-default
+                     , ether
+                     , formatting
+                     , hspec
+                     , lens
+                     , log-warper
+                     , MonadRandom
+                     , mtl
+                     , serokell-util >= 0.1.3.4
+                     , stm
+                     , unordered-containers
+                     , text-format
+                     , universum >= 0.1.11
+
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

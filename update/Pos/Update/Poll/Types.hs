@@ -23,16 +23,6 @@ module Pos.Update.Poll.Types
        , bvsSlotDuration
        , bvsMaxBlockSize
 
-         -- * Poll modifier
-       , PollModifier (..)
-       , pmBVsL
-       , pmAdoptedBVFullL
-       , pmConfirmedL
-       , pmConfirmedPropsL
-       , pmActivePropsL
-       , pmSlottingDataL
-       , pmEpochProposersL
-
          -- * Rollback
        , PrevValue (..)
        , maybeToPrev
@@ -44,27 +34,87 @@ module Pos.Update.Poll.Types
        , unChangedConfPropsL
        , unPrevProposersL
        , unSlottingDataL
+
+       -- * VoteState
+       , StakeholderVotes
+       , LocalVotes
+       , VoteState (..)
+       , canCombineVotes
+       , combineVotes
+       , isPositiveVote
+       , newVoteState
        ) where
 
 import           Universum
 
-import           Control.Lens               (makeLensesFor)
-import           Data.Default               (Default (def))
+import           Control.Lens (makeLensesFor)
+import           Data.Default (Default (def))
 import qualified Data.Text.Buildable
-import           Data.Time.Units            (Millisecond)
+import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, EpochIndex,
-                                             HeaderHash, NumSoftwareVersion,
-                                             ScriptVersion, SlotId, SoftwareVersion,
-                                             StakeholderId, mkCoin)
-import           Pos.Slotting.Types         (SlottingData)
-import           Pos.Update.Core            (BlockVersionData (..),
-                                             BlockVersionModifier (..), StakeholderVotes,
-                                             UpId, UpdateProposal (..))
-import           Pos.Util.Modifier          (MapModifier)
+import           Pos.Core.Common (ChainDifficulty, Coin, HeaderHash, ScriptVersion, StakeholderId,
+                                  mkCoin)
+import           Pos.Core.Slotting (EpochIndex, SlotId)
+import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionModifier (..),
+                                  NumSoftwareVersion, SoftwareVersion, UpId, UpdateProposal (..),
+                                  UpdateVote)
+import           Pos.Crypto (PublicKey)
+import           Pos.Slotting.Types (SlottingData)
 
+----------------------------------------------------------------------------
+-- VoteState
+----------------------------------------------------------------------------
+
+-- | This type represents summary of votes issued by stakeholder.
+data VoteState
+    = PositiveVote    -- ^ Stakeholder voted once positively.
+    | NegativeVote    -- ^ Stakeholder voted once positively.
+    | PositiveRevote  -- ^ Stakeholder voted negatively, then positively.
+    | NegativeRevote  -- ^ Stakeholder voted positively, then negatively.
+    deriving (Show, Generic, Eq)
+
+instance NFData VoteState
+
+instance Buildable VoteState where
+    build PositiveVote   = "PositiveVote"
+    build NegativeVote   = "NegativeVote"
+    build PositiveRevote = "PositiveRevote"
+    build NegativeRevote = "NegativeRevote"
+
+-- | Create new VoteState from bool, which is simple vote, not revote.
+newVoteState :: Bool -> VoteState
+newVoteState True  = PositiveVote
+newVoteState False = NegativeVote
+
+isPositiveVote :: VoteState -> Bool
+isPositiveVote PositiveVote   = True
+isPositiveVote PositiveRevote = True
+isPositiveVote _              = False
+
+-- | Check whether given decision is a valid vote if applied to
+-- existing vote (which may not exist).
+canCombineVotes :: Bool -> Maybe VoteState -> Bool
+canCombineVotes _ Nothing                 = True
+canCombineVotes True (Just NegativeVote)  = True
+canCombineVotes False (Just PositiveVote) = True
+canCombineVotes _ _                       = False
+
+-- | Apply decision to given vote (or Nothing). This function returns
+-- 'Nothing' if decision can't be applied. 'canCombineVotes' can be
+-- used to check whether it will be successful.
+combineVotes :: Bool -> Maybe VoteState -> Maybe VoteState
+combineVotes decision oldVote =
+    case (decision, oldVote) of
+        (True, Nothing)            -> Just PositiveVote
+        (False, Nothing)           -> Just NegativeVote
+        (True, Just NegativeVote)  -> Just PositiveRevote
+        (False, Just PositiveVote) -> Just NegativeRevote
+        (_, Just _)                -> Nothing
+
+-- | Type alias for set of votes from stakeholders
+type StakeholderVotes = HashMap PublicKey VoteState
+type LocalVotes = HashMap UpId (HashMap PublicKey UpdateVote)
 ----------------------------------------------------------------------------
 -- Proposal State
 ----------------------------------------------------------------------------
@@ -180,7 +230,7 @@ data BlockVersionState = BlockVersionState
     { bvsModifier          :: !BlockVersionModifier
     -- ^ 'BlockVersionModifier' associated with this block version.
     , bvsConfirmedEpoch    :: !(Maybe EpochIndex)
-    -- ^ Epoch when proposal which generated this block block version
+    -- ^ Epoch when proposal which generated this block version
     -- was confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this
@@ -210,33 +260,6 @@ bvsSlotDuration = bvmSlotDuration . bvsModifier
 
 bvsMaxBlockSize :: BlockVersionState -> Maybe Byte
 bvsMaxBlockSize = bvmMaxBlockSize . bvsModifier
-
-----------------------------------------------------------------------------
--- Modifier
-----------------------------------------------------------------------------
-
--- | PollModifier is used in verification. It represents operation which
--- one should apply to global state to obtain result of application of
--- MemPool or blocks which are verified.
-data PollModifier = PollModifier
-    { pmBVs            :: !(MapModifier BlockVersion BlockVersionState)
-    , pmAdoptedBVFull  :: !(Maybe (BlockVersion, BlockVersionData))
-    , pmConfirmed      :: !(MapModifier ApplicationName NumSoftwareVersion)
-    , pmConfirmedProps :: !(MapModifier SoftwareVersion ConfirmedProposalState)
-    , pmActiveProps    :: !(MapModifier UpId ProposalState)
-    , pmSlottingData   :: !(Maybe SlottingData)
-    , pmEpochProposers :: !(Maybe (HashSet StakeholderId))
-    } deriving (Eq, Show, Generic)
-
-flip makeLensesFor ''PollModifier
-    [ ("pmBVs", "pmBVsL")
-    , ("pmAdoptedBVFull", "pmAdoptedBVFullL")
-    , ("pmConfirmed", "pmConfirmedL")
-    , ("pmConfirmedProps", "pmConfirmedPropsL")
-    , ("pmActiveProps", "pmActivePropsL")
-    , ("pmSlottingData", "pmSlottingDataL")
-    , ("pmEpochProposers", "pmEpochProposersL")
-    ]
 
 ----------------------------------------------------------------------------
 -- Undo

@@ -6,14 +6,13 @@ module Pos.Binary.Infra.Slotting
 
 import           Universum
 
-import           Data.Time.Units    (Millisecond)
+import           Data.Time.Units (Millisecond)
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Core    ()
-import           Pos.Core.Timestamp (TimeDiff)
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData,
-                                     createSlottingDataUnsafe, getSlottingDataMap,
-                                     isValidSlottingDataMap)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Core ()
+import           Pos.Core.Slotting (TimeDiff)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createSlottingDataUnsafe,
+                                     getSlottingDataMap, isValidSlottingDataMap)
 
 deriveSimpleBi ''EpochSlottingData [
     Cons 'EpochSlottingData [

@@ -1,0 +1,150 @@
+name:                cardano-sl-block
+version:             1.0.3
+synopsis:            Cardano SL - block processing
+description:         Cardano SL - block processing
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2017 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                        Pos.Arbitrary.Block
+
+                        Pos.Block.Base
+                        Pos.Block.BHelpers
+                        Pos.Block.BListener
+                        Pos.Block.Configuration
+                        Pos.Block.Error
+                        Pos.Block.Logic
+                        Pos.Block.Network
+                        Pos.Block.Pure
+                        Pos.Block.RetrievalQueue
+                        Pos.Block.Slog
+                        Pos.Block.Types
+                        Pos.Block.Worker
+
+                        Pos.DB.Block
+                        Pos.DB.Block.Load
+
+                        Pos.GState.BlockExtra
+                        Pos.GState.SanityCheck
+
+                        -- LRC
+                        Pos.Lrc
+                        Pos.Lrc.DB
+                        Pos.Lrc.FtsPure
+                        Pos.Lrc.Genesis
+
+                        -- Binary serialization
+                        Pos.Binary.Block.Types
+
+                        -- Utilities
+                        Pos.Util.JsonLog
+
+                        -- Exposed for tests
+                        Pos.Block.Logic.VAR
+
+  other-modules:
+                        Pos.Block.BlockWorkMode
+                        Pos.Block.Logic.Creation
+                        Pos.Block.Logic.Header
+                        Pos.Block.Logic.Internal
+                        Pos.Block.Logic.Util
+                        Pos.Block.Network.Announce
+                        Pos.Block.Network.Listeners
+                        Pos.Block.Network.Logic
+                        Pos.Block.Network.Retrieval
+                        Pos.Block.Network.Types
+                        Pos.Block.Slog.Context
+                        Pos.Block.Slog.Logic
+                        Pos.Block.Slog.Types
+
+                        -- LRC
+                        Pos.Lrc.Consumers
+                        Pos.Lrc.DB.Leaders
+                        Pos.Lrc.DB.Lrc
+                        Pos.Lrc.DB.Richmen
+                        Pos.Lrc.Logic
+                        Pos.Lrc.Worker
+
+  build-depends:        QuickCheck
+                      , aeson
+                      , base
+                      , bytestring
+                      , cardano-sl-binary
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-db
+                      , cardano-sl-delegation
+                      , cardano-sl-infra
+                      , cardano-sl-lrc
+                      , cardano-sl-networking
+                      , cardano-sl-ssc
+                      , cardano-sl-txp
+                      , cardano-sl-update
+                      , cardano-sl-util
+                      , conduit
+                      , containers
+                      , cryptonite
+                      , data-default
+                      , directory
+                      , ekg-core
+                      , ether
+                      , exceptions
+                      , filepath
+                      , formatting
+                      , generic-arbitrary
+                      , lens
+                      , log-warper
+                      , mtl
+                      , random
+                      , reflection
+                      , rocksdb-haskell
+                      , safe-exceptions
+                      , serokell-util
+                      , stm
+                      , text
+                      , text-format
+                      , time-units
+                      , transformers
+                      , universum
+                      , unordered-containers
+
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+
+  ghc-options:          -Wall
+                        -fno-warn-orphans
+                        -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

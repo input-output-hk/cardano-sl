@@ -20,39 +20,38 @@ module Pos.Arbitrary.Core
 
 import           Universum
 
-import qualified Data.ByteString                   as BS (pack)
-import qualified Data.HashMap.Strict               as HM
-import qualified Data.Map                          as M
-import           Data.Time.Units                   (Microsecond, Millisecond, Second,
-                                                    TimeUnit (..), convertUnit)
-import           System.Random                     (Random)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
-                                                    scale, shrinkIntegral, sized,
-                                                    suchThat)
+import qualified Data.ByteString as BS (pack)
+import           Data.List ((!!))
+import qualified Data.Map as M
+import           Data.Time.Units (Microsecond, Millisecond, Second, TimeUnit (..), convertUnit)
+import           System.Random (Random)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
+                                  suchThat)
 
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-import           Test.QuickCheck.Instances         ()
+import           Test.QuickCheck.Instances ()
 
-import           Pos.Arbitrary.Crypto              ()
-import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVarInt (..),
-                                                    TinyVarInt (..), UnsignedVarInt (..))
-import           Pos.Binary.Core                   ()
-import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (addressHash, makeAddress)
-import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Configuration.Protocol   (HasProtocolConstants, epochSlots)
-import           Pos.Core.Constants                (sharedSeedLength)
-import qualified Pos.Core.Fee                      as Fee
-import qualified Pos.Core.Genesis                  as G
-import qualified Pos.Core.Slotting                 as Types
-import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..))
-import qualified Pos.Core.Types                    as Types
-import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
-                                                    mkVssCertificatesMap)
-import           Pos.Crypto                        (createPsk, toPublic)
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary                (nonrepeating)
-import           Pos.Util.Util                     (leftToPanic)
+import           Pos.Arbitrary.Crypto ()
+import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVarInt (..),
+                                   UnsignedVarInt (..))
+import           Pos.Binary.Core ()
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
+import qualified Pos.Core.Common.Fee as Fee
+import qualified Pos.Core.Common.Types as Types
+import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
+                                         epochSlots)
+import           Pos.Core.Constants (sharedSeedLength)
+import qualified Pos.Core.Genesis as G
+import qualified Pos.Core.Slotting as Types
+import           Pos.Core.Slotting.Types (Timestamp (..))
+import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.Update.Types (BlockVersionData (..))
+import qualified Pos.Core.Update.Types as U
+import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.Util (leftToPanic)
 
 {- NOTE: Deriving an 'Arbitrary' instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -434,11 +433,11 @@ instance Arbitrary Types.SharedSeed where
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ Types.SharedSeed $ BS.pack bs
 
-instance Arbitrary Types.SoftforkRule where
+instance Arbitrary U.SoftforkRule where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.BlockVersionData where
+instance Arbitrary U.BlockVersionData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -446,19 +445,21 @@ instance Arbitrary Types.BlockVersionData where
 -- Arbitrary types from MainExtra[header/body]data
 ----------------------------------------------------------------------------
 
-instance Arbitrary Types.ApplicationName where
+instance Arbitrary U.ApplicationName where
     arbitrary =
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
-        Types.mkApplicationName .
-        toText . map (chr . flip mod 128) . take Types.applicationNameMaxLength <$>
+        U.mkApplicationName .
+        toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
-    shrink = genericShrink
+      where
+        selectAlpha n = alphabet !! (n `mod` length alphabet)
+        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-instance Arbitrary Types.BlockVersion where
+instance Arbitrary U.BlockVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary Types.SoftwareVersion where
+instance Arbitrary U.SoftwareVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -493,9 +494,26 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
-instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
+instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
+    arbitrary = do
+        -- We have at least 2 owned addresses in system so we can send
+        -- transactions in block-gen/tests.
+        tboPoors <- choose (1, 100)
+        tboRichmen <- choose (1, 12)
+        tboTotalBalance <- choose (1000, maxCoinVal)
+        tboRichmenShare <- choose (0.55, 0.996)
+        let tboUseHDAddresses = False
+        return G.TestnetBalanceOptions {..}
+
+instance Arbitrary G.FakeAvvmOptions where
+    arbitrary = do
+        faoCount <- choose (0, 10)
+        faoOneBalance <- choose (5, 30)
+        return G.FakeAvvmOptions {..}
+
+instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
     arbitrary =
-        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation . HM.fromList <$> do
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
                                                         -- we want too many items, because
@@ -503,26 +521,9 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCertPair (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCertPair delegatePk issuer =
-            ( addressHash (toPublic issuer)
-            , createPsk issuer delegatePk 0 )
-
-instance Arbitrary G.BalanceDistribution where
-    arbitrary = do
-           sdRichmen <- choose (0, 20)
-           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
-           sdPoor <- choose (0, 20)
-           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorBalances{..}
-      --[ do stakeholders <- choose (1, 10000)
-      --     coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-      --     return (G.FlatBalances (fromIntegral stakeholders) coins)
-      -- , G.safeExpBalances <$> choose (0::Integer, 20)
-      -- , G.CustomBalances <$> arbitrary
-      -- ]
-    shrink = genericShrink
+        mkCert delegatePk issuer = createPsk issuer delegatePk 0
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -538,7 +539,7 @@ instance Arbitrary G.ProtocolConstants where
         G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
         arbitrary
 
-instance HasProtocolConstants => Arbitrary G.GenesisData where
+instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -551,7 +552,7 @@ instance HasProtocolConstants => Arbitrary G.GenesisData where
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
             True
         hasKnownFeePolicy _ = False
-        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMap <$> arbitrary
+        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
@@ -578,9 +579,9 @@ deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 deriving instance Arbitrary TinyVarInt
 
 ----------------------------------------------------------------------------
--- GodTossing
+-- SSC
 ----------------------------------------------------------------------------
 
-instance HasProtocolConstants => Arbitrary VssCertificate where
+instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.

@@ -1,0 +1,35 @@
+nodes:
+  node0:
+    type: core
+    region: undefined
+    static-routes: [[node1], [node2], [node4]]
+    addr: 127.0.0.1
+    port: 3000
+  node1:
+    type: core
+    region: undefined
+    static-routes: [[node0], [node2], [node4]]
+    addr: 127.0.0.1
+    port: 3001
+  node2:
+    type: core
+    region: undefined
+    static-routes: [[node0], [node1], [node4]]
+    addr: 127.0.0.1
+    port: 3002
+  node4:
+    type: relay
+    region: undefined
+    static-routes: [[node0], [node1], [node2]]
+    kademlia: false
+    addr: 127.0.0.1
+    port: 3004
+  node5:
+    type: relay
+    region: undefined
+    dynamic-subscribe: [[{"addr": "127.0.0.1", "port": 3004}]]
+    valency:   1 # optional
+    fallbacks: 1 # optional
+    kademlia: false
+    addr: 127.0.0.1
+    port: 3005

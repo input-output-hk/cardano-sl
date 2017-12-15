@@ -1,28 +1,27 @@
 module Daedalus.ClientApi where
 
 import Prelude
-import Daedalus.BackendApi as B
-import Daedalus.Crypto as Crypto
-import Data.Array as A
-import Data.Base58 as B58
-import Data.String.Base64 as B64
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString, CFilePath (..), ScrollOffset (..), ScrollLimit (..))
+import Daedalus.BackendApi as B
+import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString, CFilePath (..))
+import Daedalus.Crypto as Crypto
+import Daedalus.TLS (TLSOptions, FS, initTLS)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
+import Data.Array as A
+import Data.Base58 as B58
 import Data.Either (either)
 import Data.Foreign (Foreign)
-import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
 import Data.Maybe (isJust, maybe, Maybe(..))
 import Data.String (length, stripSuffix, Pattern(..))
-
-import Daedalus.TLS (TLSOptions, FS, initTLS)
-import Node.HTTP (HTTP)
+import Data.String.Base64 as B64
 import Node.Buffer (Buffer)
+import Node.HTTP (HTTP)
 
 -- TLS
 
@@ -895,6 +894,15 @@ systemVersion = mkEffFn1 $ fromAff <<< map encodeJson <<< B.systemVersion
 -- | ```
 syncProgress :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
 syncProgress = mkEffFn1 $ fromAff <<< map encodeJson <<< B.syncProgress
+
+-- Example in nodejs:
+-- | ```js
+-- | > api.localTimeDifference().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > 0
+-- | ```
+localTimeDifference :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Json)
+localTimeDifference = mkEffFn1 $ fromAff <<< map encodeJson <<< B.localTimeDifference
 
 --------------------------------------------------------------------------------
 -- JSON backup -----------------------------------------------------------------

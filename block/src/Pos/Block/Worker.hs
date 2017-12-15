@@ -16,13 +16,13 @@ import           Formatting (Format, bprint, build, fixed, int, now, sformat, sh
 import           Mockable (delay, fork)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
-import           System.Wlog (logDebug, logInfo, logWarning)
+import           System.Wlog (logDebug, logInfo, logNotice, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
-                                  createMainBlockAndApply, needRecovery)
+                                  createMainBlockAndApply)
 import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
@@ -47,7 +47,7 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Recovery.Info (recoveryCommGuard)
+import           Pos.Recovery.Info (needTriggerRecovery, recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
@@ -219,21 +219,16 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     -- to initialize).
     delay $ sec 3
 
-    repeatOnInterval $
-        -- This is different from recoveryGuard, because latter
-        -- also doesn't run computation if we don't know current slot.
-        -- The following needRecovery function only checks if we
-        -- have recovery variable in place now and tries to fill it
-        -- (by requesting tips) if it's empty.
-        whenM (needRecovery @ctx) $ do
-            triggerRecovery enqueueMsg
-            -- We don't want to ask for tips too frequently.
-            -- E.g. there may be a tip processing mistake so that we
-            -- never go into recovery even though we recieve
-            -- headers. Or it may happen that we will receive only
-            -- useless broken tips for some reason (attack?). This
-            -- will minimize risks and network load.
-            delay $ sec 20
+    repeatOnInterval $ whenM needTriggerRecovery $ do
+        logNotice "Triggering recovery"
+        triggerRecovery enqueueMsg
+        -- We don't want to ask for tips too frequently.
+        -- E.g. there may be a tip processing mistake so that we
+        -- never go into recovery even though we recieve
+        -- headers. Or it may happen that we will receive only
+        -- useless broken tips for some reason (attack?). This
+        -- will minimize risks and network load.
+        delay $ sec 20
   where
     repeatOnInterval action = void $ do
         delay $ sec 1

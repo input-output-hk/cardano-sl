@@ -216,6 +216,7 @@ executable wallet-new-swagger
   main-is:             Main.hs
   other-modules:       SwaggerGenOptions
                        Cardano.Wallet.API.V1.Swagger
+                       Cardano.Wallet.API.V1.Swagger.Example
   build-depends:       base
                      , aeson
                      , aeson-pretty
@@ -237,6 +238,9 @@ executable wallet-new-swagger
                      , unordered-containers
                      , universum
                      , cardano-sl
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-wallet
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

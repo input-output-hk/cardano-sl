@@ -272,6 +272,7 @@ test-suite wallet-new-specs
                       , http-client
                       , http-types
                       , insert-ordered-containers
+                      , ixset-typed
                       , lens
                       , neat-interpolation
                       , quickcheck-instances

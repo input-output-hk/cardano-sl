@@ -30,6 +30,7 @@ import           Test.Pos.Util (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
+import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
@@ -49,6 +50,14 @@ instance HasGenRequest (apiType a :> sub) =>
 instance HasGenRequest (argA a :> argB a :> sub) =>
          HasGenRequest (AlternativeApiArg argA argB a :> sub) where
     genRequest _ = genRequest (Proxy @(argA a :> argB a :> sub))
+
+-- NOTE(adinapoli): This can be improved to produce proper filtering & sorting
+-- queries.
+instance HasGenRequest sub => HasGenRequest (SortBy syms res :> sub) where
+    genRequest _ = genRequest (Proxy @sub)
+
+instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
+    genRequest _ = genRequest (Proxy @sub)
 
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)

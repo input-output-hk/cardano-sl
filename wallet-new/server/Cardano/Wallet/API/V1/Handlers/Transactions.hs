@@ -4,6 +4,8 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
+                                                  migrate)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
@@ -11,17 +13,14 @@ import qualified Pos.Wallet.Web.Methods.Txp as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
-                                                  migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 import qualified Data.IxSet.Typed as IxSet
 
+import           Data.Default
 import qualified Data.List.NonEmpty as NE
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
-import           Data.Default
-import qualified Data.List.NonEmpty as NE
 
 handlers :: ( HasConfigurations
             , HasCompileInfo

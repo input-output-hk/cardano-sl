@@ -84,12 +84,15 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
                       ]
 
 -- | Runs an edge node plus its wallet backend API.
-startEdgeNode :: (HasCompileInfo, HasConfigurations)
+startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
 startEdgeNode WalletStartupOptions{..} = do
-    (sscParams, nodeParams) <- getParameters
-    actionWithWallet sscParams nodeParams wsoWalletBackendParams
+  withConfigurations conf $ do
+      when (isDebugMode $ walletRunMode wsoWalletBackendParams) $
+          generateSwaggerDocumentation
+      (sscParams, nodeParams) <- getParameters
+      actionWithWallet sscParams nodeParams wsoWalletBackendParams
   where
     getParameters :: HasConfigurations => Production (SscParams, NodeParams)
     getParameters = do
@@ -119,23 +122,21 @@ startEdgeNode WalletStartupOptions{..} = do
 -- the reason why we don't generate a yaml file is because for swagger-ui is actually
 -- much better to start with the JSON input, as the tool is capable of generating
 -- better-looking YAMLs.
-generateSwaggerDocumentation :: (HasCompileInfo, HasUpdateConfiguration) => IO ()
-generateSwaggerDocumentation = do
+generateSwaggerDocumentation :: ( MonadIO m
+                                , HasCompileInfo
+                                , HasUpdateConfiguration
+                                ) => m ()
+generateSwaggerDocumentation = liftIO $ do
     BL8.writeFile "wallet-new/spec/swagger.json" (encodePretty Swagger.api)
     putText "Swagger API written on disk."
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
-    cfg@WalletStartupOptions{..} <- getWalletNodeOptions
-    putText "Wallet is starting..."
-    let loggingParams = CLI.loggingParams loggerName wsoNodeArgs
-        conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
-    when (isDebugMode $ walletRunMode wsoWalletBackendParams) .
-        loggerBracket loggingParams . withConfigurations conf $
-            generateSwaggerDocumentation
-    loggerBracket loggingParams . runProduction $ do
-        withConfigurations conf $ do
-            CLI.printFlags
-            logInfo "[Attention] Software is built with the wallet backend"
-            startEdgeNode cfg
+  cfg <- getWalletNodeOptions
+  putText "Wallet is starting..."
+  let loggingParams = CLI.loggingParams loggerName (wsoNodeArgs cfg)
+  loggerBracket loggingParams . runProduction $ do
+    CLI.printFlags
+    logInfo "[Attention] Software is built with the wallet backend"
+    startEdgeNode cfg

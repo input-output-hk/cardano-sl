@@ -16,7 +16,6 @@ module Pos.Util.CompileInfo
 
 import           Universum
 
-import qualified Data.Char as C
 import           Data.Default (Default (def))
 import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
@@ -54,7 +53,7 @@ withCompileInfo = give
 retrieveCompileTimeInfo :: TH.Q TH.Exp
 retrieveCompileTimeInfo = do
     cti <- TH.runIO $ do
-      ctiGitRevision <- dropTrailingNonChars . fromString <$> retrieveGit
+      ctiGitRevision <- T.strip . fromString <$> retrieveGit
       pure $ CompileTimeInfo {..}
     TH.lift cti
   where
@@ -68,4 +67,3 @@ retrieveCompileTimeInfo = do
         pure $ case exitCode of
             ExitSuccess -> output
             _           -> "Couldn't fetch git revision"
-    dropTrailingNonChars = T.dropWhileEnd (not . C.isAlphaNum)

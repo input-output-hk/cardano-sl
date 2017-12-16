@@ -234,7 +234,8 @@ recoveryTriggerWorkerImpl SendActions{..} = do
         -- sometimes ask for tips even if we're in relatively safe
         -- situation.
         (d :: Double) <- liftIO $ randomRIO (0,1)
-        when (not doTrigger && d < 0.005) $ getSyncStatus 5 >>= \case
+        -- 0.003 ~ every 333th time (second) ~ every 5.5 minutes.
+        when (not doTrigger && d < 0.003) $ getSyncStatus 5 >>= \case
             SSKindaSynced -> pass
             SSDoingRecovery -> pass
             _ -> do

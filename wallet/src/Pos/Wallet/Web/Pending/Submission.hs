@@ -15,7 +15,7 @@ import           Universum
 
 import           Control.Monad.Catch          (Handler (..), catches)
 import           Formatting                   (build, sformat, shown, stext, (%))
-import           System.Wlog                  (WithLogger, logInfo, logWarning)
+import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Client.Txp.History       (saveTx)
 import           Pos.Communication            (EnqueueMsg, submitTxRaw)
@@ -111,6 +111,7 @@ submitAndSavePtx
     => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     ack <- submitTxRaw enqueue _ptxTxAux
+    reportSubmitted ack
     saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
     addOnlyNewPendingTx ptx
     when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
@@ -138,3 +139,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
         logInfo $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
+    reportSubmitted ack =
+        logDebug $
+        sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
+                %build) ack
+

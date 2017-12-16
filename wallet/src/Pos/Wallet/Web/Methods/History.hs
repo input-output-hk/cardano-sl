@@ -17,8 +17,8 @@ import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logInfo, logWarning)
+import           Serokell.Util              (listJson, listJsonIndent)
+import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -37,11 +37,14 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
-                                             getWalletAddrs, getWalletAddrsSet)
+                                             getWalletAddrs)
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
-    addrs <- getWalletAddrs Ever cWalId >>= convertCIdTOAddrs
+    logDebug "getFullWalletHistory: start"
+
+    cAddrs <- getWalletAddrs Ever cWalId
+    addrs <- convertCIdTOAddrs cAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs
 
@@ -53,20 +56,25 @@ getFullWalletHistory cWalId = do
                 cWalId
             pure mempty
 
+    logDebug "getFullWalletHistory: fetched addresses and block/local histories"
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
-    logTxHistory "Block" blockHistory
     logTxHistory "Mempool" localHistory
 
     fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    walAddrs    <- getWalletAddrsSet Ever cWalId
     diff        <- getCurChainDifficulty
+    let !cAddrsSet = S.fromList cAddrs
+    logDebug "getFullWalletHistory: fetched full history"
+
     -- TODO when we introduce some mechanism to react on new tx in mempool,
     -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
     addHistoryTxs cWalId localHistory
-    cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
+    logDebug "getFullWalletHistory: invoked addHistoryTxs"
+
+    cHistory <- forM fullHistory (constructCTx cWalId cAddrsSet diff)
+    logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
@@ -92,7 +100,9 @@ getHistory cWalId accIds mAddrId = do
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
             | otherwise                -> throw errorBadAddress
 
-    first filterFn <$> getFullWalletHistory cWalId
+    !res <- first filterFn <$> getFullWalletHistory cWalId
+    logDebug "getHistory: filtered transactions"
+    return res
   where
     filterByAddrs :: S.Set (CId Addr)
                   -> Map TxId (CTx, POSIXTime)
@@ -123,7 +133,11 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
     (unsortedThs, n) <- getHistory cWalId accIds mAddrId
-    let sortedTxh = sortByTime (Map.elems unsortedThs)
+
+    let !sortedTxh = forceList $ sortByTime (Map.elems unsortedThs)
+    logDebug "getHistoryLimited: sorted transactions"
+
+    logCTxs "Total last 20" $ take 20 sortedTxh
     pure (applySkipLimit sortedTxh, n)
   where
     sortByTime :: [(CTx, POSIXTime)] -> [CTx]
@@ -131,6 +145,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         -- TODO: if we use a (lazy) heap sort here, we can get the
         -- first n values of the m sorted elements in O(m + n log m)
         map fst $ sortWith (Down . snd) thsWTime
+    forceList l = length l `seq` l
     applySkipLimit = take limit . drop skip
     limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
     skip = (fromIntegral $ fromMaybe defaultSkip mSkip)
@@ -199,6 +214,8 @@ addRecentPtxHistory wid currentHistory = do
         .   mapMaybe (ptxPoolInfo . _ptxCond)
         .   fromMaybe []
 
+-- FIXME: use @listChunkedJson k@ with appropriate @k@s, once available,
+-- in these 2 functions
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m)
     => Text -> t -> m ()
@@ -206,3 +223,11 @@ logTxHistory desc =
     logInfo .
     sformat (stext%" transactions history: "%listJson) desc .
     map _thTxId . toList
+
+logCTxs
+    :: (Container t, Element t ~ CTx, WithLogger m)
+    => Text -> t -> m ()
+logCTxs desc =
+    logInfo .
+    sformat (stext%" transactions history: "%listJsonIndent 4) desc .
+    map ctId . toList

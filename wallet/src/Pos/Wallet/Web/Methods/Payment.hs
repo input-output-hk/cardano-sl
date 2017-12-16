@@ -12,6 +12,7 @@ import           Universum
 
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
+import qualified Data.Map                         as M
 import           Data.Time.Units                  (Second)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
@@ -165,13 +166,13 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     logDebug "sendMoney: processed addrs"
 
-    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
     let getSinger addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
-                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+                            (M.lookup addr metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
               Left err -> throw err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure

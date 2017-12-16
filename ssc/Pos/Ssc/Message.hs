@@ -82,12 +82,12 @@ instance HasSscTag MCVssCertificate where
 
 -- TODO: someone who knows networking should take a look because this really
 -- doesn't look like something that anyone should ever have to write
-type SscMessageConstraints =
-    ( Each '[MessageLimited]
-        [ DataMsg MCCommitment
-        , DataMsg MCOpening
-        , DataMsg MCShares
-        , DataMsg MCVssCertificate ]
+type SscMessageConstraints m =
+    ( MessageLimited (DataMsg MCCommitment) m
+    , MessageLimited (DataMsg MCCommitment) m
+    , MessageLimited (DataMsg MCOpening) m
+    , MessageLimited (DataMsg MCShares) m
+    , MessageLimited (DataMsg MCVssCertificate) m
     , Each '[Message]
         [ InvOrData (Tagged MCCommitment     StakeholderId) MCCommitment
         , InvOrData (Tagged MCOpening        StakeholderId) MCOpening

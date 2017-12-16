@@ -40,6 +40,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
                                          getLocalHistoryDefault, saveTxDefault)
 import           Pos.Client.Txp.Network (submitTxRaw)
 import           Pos.Communication (SendActions (..))
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
                            largestHDAddressBoot, mkCoin)
@@ -239,6 +240,9 @@ instance HasConfiguration => MonadDB WalletWebMode where
 
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+
+instance HasConfiguration => HasAdoptedBlockVersionData WalletWebMode where
+    adoptedBVData = gsAdoptedBVData
 
 instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
        => MonadBListener WalletWebMode where

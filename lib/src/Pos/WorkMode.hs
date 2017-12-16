@@ -26,6 +26,7 @@ import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
                               NodeContext)
 import           Pos.Core (HasConfiguration)
@@ -155,6 +156,9 @@ instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (RealMode 
 
 instance HasConfiguration => MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+
+instance HasConfiguration => HasAdoptedBlockVersionData (RealMode ext) where
+    adoptedBVData = gsAdoptedBVData
 
 instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault

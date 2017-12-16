@@ -105,7 +105,7 @@ genGenesisInitializer = do
 -- Actual test
 ----------------------------------------------------------------------------
 
-lrcCorrectnessProp :: (HasConfigurations,HasCompileInfo) => BlockProperty ()
+lrcCorrectnessProp :: (HasConfigurations, HasCompileInfo) => BlockProperty ()
 lrcCorrectnessProp = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We

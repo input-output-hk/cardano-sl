@@ -103,9 +103,7 @@ type TxpMode ctx m =
          , Relay.ReqMsg    (Tagged TxMsgContents TxId)
          , Relay.MempoolMsg TxMsgContents
          ]
-    , Each '[MessageLimited]
-        '[ Relay.DataMsg TxMsgContents
-         ]
+    , MessageLimited (Relay.DataMsg TxMsgContents) m
     )
 
 ----------------------------------------------------------------------------

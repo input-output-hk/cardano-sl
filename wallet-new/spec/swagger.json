@@ -280,11 +280,7 @@
         },
         "Payment": {
             "example": {
-<<<<<<< HEAD
-                "sourceAccount": 1,
-=======
                 "sourceAccount": 2,
->>>>>>> origin/feature/new-wallet
                 "groupingPolicy": "OptimiseForSize",
                 "destinations": [
                     {
@@ -2800,6 +2796,7 @@
                 "produces": [
                     "application/json;charset=utf-8"
                 ],
+                "description": "For all transactions in CPtxWontApply condition, reset them to CPtxApplying condition so that they will be passed to resubmition",
                 "tags": [
                     "V0 (Deprecated)"
                 ]

@@ -6,7 +6,7 @@ node:
     severity: Debug
     handlers:
       - file: node.pub
-        round: 5
+        round: 1
       - file: node
     comm:
         severity: Debug

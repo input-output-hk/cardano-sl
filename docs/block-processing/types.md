@@ -3,9 +3,9 @@
 ## Table of contents
 
   + [Prerequisites](#prerequisites)
-  + Genesis block
-    * Genesis block header
-    * ????? more stuff
+  + [Genesis block](#genesis-block)
+    * [Genesis block header](#genesis-block-header)
+    * [Genesis block payload](#genesis-block-payload)
   + [Main block](#main-block)
     * [Main block header](#main-block-header)
     * [Main block signature](#main-block-signature)
@@ -59,6 +59,76 @@ TODO: cross-link
   * We assume that you know about hashing and public key cryptography used
     in Cardano SL – e.g. `Hash`, `PublicKey`, `Signature`,
     `RedeemPublicKey`.
+
+## Genesis block
+
+*keywords: `GenesisBlock`; `ExtraBodyData GenesisBlockchain`,
+`GenesisExtraBodyData`*
+
+Genesis blocks are blocks that are created at epoch boundary by nodes. They
+don't contain any data that can't be deduced from the blockchain, and they
+are not sent over the network.
+
+TODO: are they really not sent over the network? what about genesis headers?
+
+A genesis block is implemented as a `GenericBlock`:
+
+```haskell
+type GenesisBlock = GenericBlock GenesisBlockchain
+```
+
+It contains the following fields:
+
+  * `_gbHeader` – a [header](#genesis-block-header)
+
+  * `_gbBody` – a [payload](#genesis-block-payload) consisting of a list of
+    slot leaders chosen for the current epoch (i.e. the one which begins
+    with this block)
+
+  * `_gbExtra` – an attributes map, currently empty (`Attributes ()`)
+
+### Genesis block header
+
+*keywords: `GenesisBlockHeader`; `ConsensusData GenesisBlockchain`,
+`GenesisConsensusData`; `ExtraHeaderData GenesisBlockchain`,
+`GenesisExtraHeaderData`*
+
+A genesis block header is a `GenericBlockHeader`:
+
+```haskell
+type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
+```
+
+It contains the following fields:
+
+  * `_gbhPrevBlock` – a hash of the previous block. TODO: or header?
+
+  * `_gbhBodyProof` – a hash of `_gbLeaders` from the payload
+
+  * `_gbhConsensus` – meta-information about the block:
+
+      + `_gcdEpoch :: EpochIndex` – the epoch which the block belongs to (a
+        genesis block technically is at the very beginning of an epoch)
+      + `_gcdDifficulty :: ChainDifficulty` – difficulty of the chain ending
+        in this block (i.e. number of main blocks between the first block
+        ever and this block, inclusive)
+
+  * `_gbhExtra` – an attributes map, currently empty (`Attributes ()`)
+
+### Genesis block payload
+
+*keywords: `Body GenesisBlockchain`, `GenesisBody`; `SlotLeaders`*
+
+The body contains a single non-empty list of slot leaders that were chosen
+for the current epoch:
+
+```haskell
+data Body GenesisBlockchain = GenesisBody
+    { _gbLeaders :: SlotLeaders
+    }
+
+type SlotLeaders = NonEmpty StakeholderId
+```
 
 ## Main block
 

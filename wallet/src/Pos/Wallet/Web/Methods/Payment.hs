@@ -12,11 +12,10 @@ import           Universum
 
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
+import qualified Data.Map                         as M
 import           Data.Time.Units                  (Second)
-import           Formatting                       (sformat, (%))
-import qualified Formatting                       as F
 import           Mockable                         (concurrently, delay)
-import           System.Wlog                      (logDebug, logInfo)
+import           System.Wlog                      (logDebug)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -26,7 +25,7 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (Coin, HasConfiguration, addressF,
+import           Pos.Core                         (Coin, HasConfiguration,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
                                                    checkPassMatches, hash,
@@ -165,50 +164,43 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     logDebug "sendMoney: processed addrs"
 
-    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
     let getSinger addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
-                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+                            (M.lookup addr metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
               Left err -> throw err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
-    (th, dstAddrs) <-
-        rewrapTxError "Cannot send transaction" $ do
-            logDebug "sendMoney: we're to prepareMTx"
-            (txAux, inpTxOuts') <-
-                prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
-            logDebug "sendMoney: performed prepareMTx"
+    th <- rewrapTxError "Cannot send transaction" $ do
+        logDebug "sendMoney: we're to prepareMTx"
+        (txAux, inpTxOuts') <-
+            prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
+        logDebug "sendMoney: performed prepareMTx"
 
-            ts <- Just <$> getCurrentTimestamp
-            let tx = taTx txAux
-                txHash = hash tx
-                inpTxOuts = toList inpTxOuts'
-                dstAddrs  = map txOutAddress . toList $
-                            _txOutputs tx
-                th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-            ptx <- mkPendingTx srcWallet txHash txAux th
+        ts <- Just <$> getCurrentTimestamp
+        let tx = taTx txAux
+            txHash = hash tx
+            inpTxOuts = toList inpTxOuts'
+            dstAddrs  = map txOutAddress . toList $
+                        _txOutputs tx
+            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        ptx <- mkPendingTx srcWallet txHash txAux th
 
-            logDebug "sendMoney: performed mkPendingTx"
-            (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+        logDebug "sendMoney: performed mkPendingTx"
+        submitAndSaveNewPtx enqueueMsg ptx
+        logDebug "sendMoney: submitted and saved tx"
 
-    logInfo $
-        sformat ("Successfully spent money from "%
-                    listF ", " addressF % " addresses on " %
-                    listF ", " addressF)
-        (toList srcAddrs)
-        dstAddrs
+        return th
 
     addHistoryTx srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
+
+    logDebug "sendMoney: constructing response"
     fst <$> constructCTx srcWallet srcWalletAddrs diff th
-  where
-     -- TODO eliminate copy-paste
-     listF separator formatter =
-         F.later $ fold . intersperse separator . fmap (F.bprint formatter)

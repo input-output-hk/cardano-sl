@@ -29,6 +29,7 @@ import           Data.List                    (findIndex)
 import qualified Data.Set                     as S
 import           Data.Time.Clock.POSIX        (getPOSIXTime)
 import           Formatting                   (build, sformat, (%))
+import           System.Wlog                  (logDebug)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
@@ -116,7 +117,9 @@ getAccountMod
 getAccountMod balAndUtxo accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
+    logDebug "getAccountMod: gathering info about addresses.."
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
+    logDebug "getAccountMod: info about addresses gathered"
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                mapM (decodeCTypeOrFail . cadAmount) allAddrs
     meta <- getAccountMeta accId >>= maybeThrow noAccount

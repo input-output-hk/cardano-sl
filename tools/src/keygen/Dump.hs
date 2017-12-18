@@ -17,8 +17,9 @@ import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
-import           Pos.Core.Genesis (GeneratedSecrets (..), RichSecrets (..))
-import           Pos.Crypto (EncryptedSecretKey, SecretKey)
+import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..), RichSecrets (..),
+                                   poorSecretToEncKey)
+import           Pos.Crypto (SecretKey)
 import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, mkGenesisWalletUserSecret,
                                       takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
                                       writeUserSecretRelease)
@@ -48,9 +49,9 @@ dumpRichSecrets fp RichSecrets {..} =
 dumpPoorSecret
     :: (MonadIO m, MonadThrow m, WithLogger m)
     => FilePath
-    -> EncryptedSecretKey
+    -> PoorSecret
     -> m ()
-dumpPoorSecret fp hdwSk =
+dumpPoorSecret fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
     dumpUserSecret fp $
     foldl' (.) identity [ usKeys %~ (hdwSk :)
                         , usWallet ?~ mkGenesisWalletUserSecret hdwSk
@@ -78,7 +79,7 @@ dumpKeyfiles
     => (FilePath, FilePath) -- directory and key-file pattern
     -> [SecretKey]
     -> [RichSecrets]
-    -> [EncryptedSecretKey]
+    -> [PoorSecret]
     -> m ()
 dumpKeyfiles (dir, pat) dlgIssuers richs poors = do
     let keysDir = dir </> "generated-keys"

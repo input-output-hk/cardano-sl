@@ -30,6 +30,7 @@ outdated for newer version of the code.
     + [Node configuration](#node-configuration)
   * [Predefined configurations](#predefined-configurations)
     + [Mainnet configurations](#mainnet-configurations)
+      - [Using mainnet staging configuration with short epoch](#using-mainnet-staging-configuration-with-short-epoch)
     + [Internal staging configurations](#internal-staging-configurations)
     + [Devnet configuration](#devnet-configuration)
     + [Other configurations](#other-configurations)
@@ -643,10 +644,31 @@ file for different keys.
   - Different bootstrap stakeholders, stake is delegated to different
     public keys (number of stakeholders is the same).
   - Real mainnet has more fake addresses with 1 ADA (100 vs 6).
-* `mainnet_staging_short_epoch_full` is very similar to
-  `mainnet_dryrun_full`. There are two differences:
+* `mainnet_staging_short_epoch_full` is needed for testing, because in
+  real mainnet and in staging epoch is very long, but we want to be
+  sure that crossing epoch boundary won't lead to problems. Cluster
+  with this configuration doesn't run constantly, it's launched before
+  preparing installers for release. It is very similar to
+  `mainnet_dryrun_full`. There are few differences:
   - It has much smaller `k` which implies much shorter epoch.
-  - It also has only 4 core nodes.
+  - It also has only 3 core nodes with different keys. Corresponding
+    keys can be found in `secrets/mainnet-staging-short-epoch`
+    directory.
+  - It has more AVVM seeds with ADA for testing.
+
+#### Using mainnet staging configuration with short epoch
+
+`mainnet_staging_short_epoch_full` configuration can't be used as is,
+because it has hardcoded system start time which should be modified
+every time we want to launch cluster. In order to use it one needs to:
+
+1. Figure out system start time.
+2. Modify value of `startTime` in
+   `mainnet-staging-short-epoch-genesis.json`.
+3. Use `scripts/js/genesis-hash.hs` to compute new hash.
+4. Modify value of
+   `mainnet_staging_short_epoch_full.core.genesis.src.hash` in
+   configuration file to the hash from the previous step.
 
 ### Internal staging configurations
 

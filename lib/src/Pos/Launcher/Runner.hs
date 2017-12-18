@@ -6,8 +6,10 @@
 
 module Pos.Launcher.Runner
        ( -- * High level runners
-         runRealMode
+         cslMain
+       , runRealMode
        , runRealBasedMode
+
 
        -- * Exported for custom usage in CLI utils
        , runServer
@@ -22,6 +24,7 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import qualified Data.Map as M
+import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
 import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
                            killThread, throw)
@@ -44,13 +47,18 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
                                     Msg, OutSpecs (..), PackingType, PeerData, SendActions,
                                     VerInfo (..), allListeners, bipPacking, hoistSendActions,
                                     makeEnqueueMsg, makeSendActions)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
-import           Pos.Context (NodeContext (..))
+import           Pos.Context.Context (NodeContext (..))
+import           Pos.Core (BlockVersionData)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.DB (gsAdoptedBVData)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion)
+import           Pos.Logic.Types (LogicLayer (..), Logic)
 import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
                                     topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
@@ -59,9 +67,27 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.Web.Server (route53HealthCheckApplication, serveImpl)
+import           Pos.Web.Server (serveImpl, route53HealthCheckApplication)
 import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
                                WorkMode)
+
+-- | Generic CSL main entrypoint. Supply a continuation-style acquiring
+-- function for logic and diffusion layers, and a function which uses them to
+-- do the control flow part of the application. Diffusion is brought up,
+-- then logic, then they are brought down when the control action terminates.
+--
+-- Before cslMain one will probably do command-line argument parsing in order
+-- to get the obligations necessary to create the layers (i.e. to come up with
+-- the contiuation-style function).
+cslMain
+    :: ( )
+    => (forall x . ((DiffusionLayer m, LogicLayer m) -> m x) -> m x)
+    -> (Diffusion m -> Logic m -> m t)
+    -> m t
+cslMain withLayers control = withLayers $ \(diffusionLayer, logicLayer) ->
+    runDiffusionLayer diffusionLayer $
+        runLogicLayer logicLayer $
+            control (diffusion diffusionLayer) (logic logicLayer)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -93,10 +119,13 @@ runRealBasedMode
     -> NodeResources ext m
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) =
+runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) = giveAdoptedBVData $
     runRealModeDo (hoistNodeResources unwrap nr) outSpecs $
     ActionSpec $ \vI sendActions ->
         unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    giveAdoptedBVData :: ((HasAdoptedBlockVersionData (RealMode ext)) => r) -> r
+    giveAdoptedBVData = give (gsAdoptedBVData :: RealMode ext BlockVersionData)
 
 -- | RealMode runner.
 runRealModeDo
@@ -105,13 +134,13 @@ runRealModeDo
        , HasCompileInfo
        , Default ext
        , MonadTxpLocal (RealMode ext)
+       , HasAdoptedBlockVersionData (RealMode ext)
        )
     => NodeResources ext (RealMode ext)
     -> OutSpecs
     -> ActionSpec (RealMode ext) a
     -> Production a
-runRealModeDo NodeResources {..} outSpecs action =
-    do
+runRealModeDo NodeResources {..} outSpecs action = do
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
             jsonLogConfigFromHandle

@@ -27,9 +27,10 @@ import           Pos.StateLock (StateLock)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.
-type DlgMessageConstraint
+type DlgMessageConstraint m
      = ( Message (DataMsg ProxySKHeavy)
-       , MessageLimited (DataMsg ProxySKHeavy))
+       , MessageLimited (DataMsg ProxySKHeavy) m
+       )
 
 -- | This is a subset of 'WorkMode'.
 type DlgListenerConstraint ctx m
@@ -43,7 +44,7 @@ type DlgListenerConstraint ctx m
        , HasLens' ctx StateLock
        , HasLrcContext ctx
        , WithLogger m
-       , DlgMessageConstraint
+       , DlgMessageConstraint m
        , HasDlgConfiguration)
 
 -- | Listeners for requests related to delegation processing.

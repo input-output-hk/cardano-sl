@@ -27,8 +27,24 @@ library
 
                         Pos.DB.DB
 
+                        -- Diffusion layer
+                        Pos.Diffusion.Types
+                        Pos.Diffusion.Full
+                        Pos.Diffusion.Full.Block
+                        Pos.Diffusion.Full.Delegation
+                        Pos.Diffusion.Full.Ssc
+                        Pos.Diffusion.Full.Types
+                        Pos.Diffusion.Full.Txp
+                        Pos.Diffusion.Full.Update
+                        Pos.Diffusion.Subscription.Common
+                        Pos.Diffusion.Subscription.Dns
+                        Pos.Diffusion.Subscription.Dht
+
                         -- GState
                         Pos.GState
+
+                        -- Logic layer
+                        Pos.Logic.Types
 
                         -- Behavior
                         Pos.Behavior
@@ -55,6 +71,11 @@ library
 
                         -- Client CLI
                         Pos.Client.CLI
+                        Pos.Client.CLI.NodeOptions
+                        Pos.Client.CLI.Options
+                        Pos.Client.CLI.Params
+                        Pos.Client.CLI.Secrets
+                        Pos.Client.CLI.Util
 
                         -- Utilities/helpers
                         Pos.Util.Config
@@ -88,13 +109,6 @@ library
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
-
-                        -- Client
-                        Pos.Client.CLI.NodeOptions
-                        Pos.Client.CLI.Options
-                        Pos.Client.CLI.Params
-                        Pos.Client.CLI.Secrets
-                        Pos.Client.CLI.Util
 
                         -- NodeContext
                         Pos.Context.Context
@@ -157,6 +171,7 @@ library
                       , data-default
                       , deepseq
                       , directory
+                      , dns >= 3.0.0
                       , ed25519
                       , ekg-core
                       , ekg-statsd

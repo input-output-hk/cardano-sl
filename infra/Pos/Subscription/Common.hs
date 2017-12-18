@@ -27,7 +27,6 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              OutSpecs, SendActions, Worker, WorkerSpec,
                                              constantListeners, convH, toOutSpecs, withConnectionTo,
                                              worker)
-import           Pos.DB.Class (MonadGState)
 import           Pos.KnownPeers (MonadKnownPeers (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer)
@@ -39,9 +38,8 @@ type SubscriptionMode m =
     , Mockable Catch m
     , Mockable Bracket m
     , MonadKnownPeers m
-    , MonadGState m
     , Message MsgSubscribe
-    , MessageLimited MsgSubscribe
+    , MessageLimited MsgSubscribe m
     , Bi MsgSubscribe
     , Message Void
     )

@@ -77,8 +77,6 @@ type UpdateMode ctx m
       , Message $
           Relay.ReqMsg
              (Tagged UpdateVote (UpId, PublicKey, Bool))
-      , Each '[MessageLimited]
-          '[ Relay.DataMsg UpdateVote
-           , Relay.DataMsg (UpdateProposal, [UpdateVote])
-           ]
+      , MessageLimited (Relay.DataMsg UpdateVote) m
+      , MessageLimited (Relay.DataMsg (UpdateProposal, [UpdateVote])) m
       )

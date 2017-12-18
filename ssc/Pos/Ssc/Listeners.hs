@@ -37,7 +37,7 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmComm
 import           Pos.Ssc.Types (ldModifier)
 
 sscRelays
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => [Relay m]
 sscRelays =
     [ commitmentRelay
@@ -47,7 +47,7 @@ sscRelays =
     ]
 
 commitmentRelay
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => Relay m
 commitmentRelay =
     sscRelay CommitmentMsg
@@ -56,7 +56,7 @@ commitmentRelay =
              (\(MCCommitment comm) -> sscProcessCommitment comm)
 
 openingRelay
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => Relay m
 openingRelay =
     sscRelay OpeningMsg
@@ -65,7 +65,7 @@ openingRelay =
              (\(MCOpening key open) -> sscProcessOpening key open)
 
 sharesRelay
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => Relay m
 sharesRelay =
     sscRelay SharesMsg
@@ -74,7 +74,7 @@ sharesRelay =
              (\(MCShares key shares) -> sscProcessShares key shares)
 
 vssCertRelay
-    :: (SscMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints m, SscMode ctx m)
     => Relay m
 vssCertRelay =
     sscRelay VssCertificateMsg
@@ -87,7 +87,7 @@ sscRelay
        , Buildable err
        , Buildable contents
        , Typeable contents
-       , MessageLimited (DataMsg contents)
+       , MessageLimited (DataMsg contents) m
        , Bi (DataMsg contents)
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqOrRes (Tagged contents StakeholderId))

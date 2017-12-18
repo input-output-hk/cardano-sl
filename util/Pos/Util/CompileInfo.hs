@@ -18,6 +18,7 @@ import           Universum
 
 import           Data.Default (Default (def))
 import           Data.Reflection (Given (..), give, given)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 import           Instances.TH.Lift ()
@@ -52,7 +53,7 @@ withCompileInfo = give
 retrieveCompileTimeInfo :: TH.Q TH.Exp
 retrieveCompileTimeInfo = do
     cti <- TH.runIO $ do
-      ctiGitRevision <- fromString <$> retrieveGit
+      ctiGitRevision <- T.strip . fromString <$> retrieveGit
       pure $ CompileTimeInfo {..}
     TH.lift cti
   where
@@ -62,7 +63,7 @@ retrieveCompileTimeInfo = do
     retrieveFromGitExecutable :: IO String
     retrieveFromGitExecutable = do
         (exitCode,output,_) <-
-            readProcessWithExitCode "git" ["rev-parse", "--verify", "--short", "HEAD"] ""
+            readProcessWithExitCode "git" ["rev-parse", "--verify", "HEAD"] ""
         pure $ case exitCode of
             ExitSuccess -> output
             _           -> "Couldn't fetch git revision"

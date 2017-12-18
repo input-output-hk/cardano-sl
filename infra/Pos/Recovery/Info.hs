@@ -5,6 +5,7 @@ module Pos.Recovery.Info
        ( SyncStatus (..)
        , MonadRecoveryInfo(..)
        , recoveryInProgress
+       , getSyncStatusK
        , recoveryCommGuard
        , needTriggerRecovery
        ) where
@@ -105,8 +106,8 @@ recoveryCommGuard actionName action =
 -- away from the current slot, or current slot isn't known. It also
 -- returns False when we're actually doing recovery. So basically it
 -- returns true if we actually need to ask for tips right now.
-needTriggerRecovery :: (MonadRecoveryInfo m, HasConfiguration) => m Bool
-needTriggerRecovery = getSyncStatusK <&> \case
+needTriggerRecovery :: SyncStatus -> Bool
+needTriggerRecovery = \case
     SSKindaSynced   -> False
     SSDoingRecovery -> False
     SSInFuture{}    -> False

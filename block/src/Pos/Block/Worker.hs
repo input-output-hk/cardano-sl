@@ -48,7 +48,7 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Recovery.Info (SyncStatus (..), getSyncStatus, needTriggerRecovery,
+import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                     recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
@@ -222,10 +222,11 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     delay $ sec 3
 
     repeatOnInterval $ do
-        doTrigger <- needTriggerRecovery
+        doTrigger <- needTriggerRecovery <$> getSyncStatusK
         when doTrigger $ do
             logInfo "Triggering recovery because we need it"
             triggerRecovery enqueueMsg
+
 
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
@@ -234,11 +235,11 @@ recoveryTriggerWorkerImpl SendActions{..} = do
         -- sometimes ask for tips even if we're in relatively safe
         -- situation.
         (d :: Double) <- liftIO $ randomRIO (0,1)
-        -- 0.003 ~ every 333th time (second) ~ every 5.5 minutes.
-        when (not doTrigger && d < 0.003) $ getSyncStatus 5 >>= \case
-            SSKindaSynced -> pass
-            SSDoingRecovery -> pass
-            _ -> do
+        -- P = 0.004 ~ every 250th time (250 seconds ~ every 4.2 minutes)
+        let triggerSafety = not doTrigger && d < 0.004
+        when triggerSafety $ do
+            logInfo "Checking if we need recovery as a safety measure"
+            whenM (needTriggerRecovery <$> getSyncStatus 5) $ do
                 logInfo "Triggering recovery as a safety measure"
                 triggerRecovery enqueueMsg
 
@@ -248,7 +249,7 @@ recoveryTriggerWorkerImpl SendActions{..} = do
         -- headers. Or it may happen that we will receive only
         -- useless broken tips for some reason (attack?). This
         -- will minimize risks and network load.
-        delay $ sec 20
+        when (doTrigger || triggerSafety) $ delay $ sec 20
   where
     repeatOnInterval action = void $ do
         delay $ sec 1

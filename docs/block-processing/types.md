@@ -6,9 +6,10 @@
   + [Genesis block](#genesis-block)
     * [Genesis block header](#genesis-block-header)
     * [Genesis block payload](#genesis-block-payload)
+    * [Genesis block extra](#genesis-block-extra)
   + [Main block](#main-block)
     * [Main block header](#main-block-header)
-    * [Main block signature](#main-block-signature)
+    * [Main block signature](#main-block-signature) – IN PROGRESS
     * [Main block payload+proof](#main-block-payload-proof)
       + [Transactions payload+proof](#transactions-payload-proof)
       + [SSC payload+proof](#ssc-payload-proof)
@@ -34,16 +35,6 @@
     * [Update proposal](#update-proposal)
     * [Update vote](#update-vote)
 
-  + `MainExtraHeaderData`, other boring extrastuff that is just `Attributes ()`
-  + AsBinary
-  + StakeholderId
-  + GenericBlock (?), GenericBlockHeader (?)
-
-TODO: things like `TxInUnknown` and `Attributes` are described
-at [here](overall.md#unknown-data-handling), link there
-
-TODO: cross-link
-
 ## Prerequisites
 
   * You should have read the
@@ -58,18 +49,28 @@ TODO: cross-link
 
   * We assume that you know about hashing and public key cryptography used
     in Cardano SL – e.g. `Hash`, `PublicKey`, `Signature`,
-    `RedeemPublicKey`.
+    `RedeemPublicKey`. One additional thing that can be noted here is that a
+    `StakeholderId` is a hash (`AddressHash`) of a public key.
+
+  * We also assume that you know about `AsBinary`. If you don't, a
+    one-sentence explanation is that `AsBinary a` contains a serialized `a`.
+    It's intended to be used for types like public keys, where
+    deserialization can't fail (unless the key has a wrong length) but still
+    takes significant time and so we'd like to do it lazily.
+
+  * Finally, we assume that you've
+    read [Unknown data handling](overall.md#unknown-data-handling), which
+    explains things like `TxInUnknown` and `Attributes`. Whenever you see
+    words “attributes map” or “constructor provided for backwards
+    compatibility”, the linked document is probably relevant.
 
 ## Genesis block
 
-*keywords: `GenesisBlock`; `ExtraBodyData GenesisBlockchain`,
-`GenesisExtraBodyData`*
+*keywords: `GenesisBlock`*
 
 Genesis blocks are blocks that are created at epoch boundary by nodes. They
 don't contain any data that can't be deduced from the blockchain, and they
 are not sent over the network.
-
-TODO: are they really not sent over the network? what about genesis headers?
 
 A genesis block is implemented as a `GenericBlock`:
 
@@ -79,19 +80,20 @@ type GenesisBlock = GenericBlock GenesisBlockchain
 
 It contains the following fields:
 
-  * `_gbHeader` – a [header](#genesis-block-header)
+  * `_gbHeader :: GenesisBlockHeader` – a [header](#genesis-block-header)
 
-  * `_gbBody` – a [payload](#genesis-block-payload) consisting of a list of
-    slot leaders chosen for the current epoch (i.e. the one which begins
-    with this block)
+  * `_gbBody :: Body GenesisBlockchain` –
+    a [payload](#genesis-block-payload) consisting of a list of slot leaders
+    chosen for the current epoch (i.e. the one which begins with this block)
 
-  * `_gbExtra` – an attributes map, currently empty (`Attributes ()`)
+  * `_gbExtra :: GenesisExtraBodyData` – an attributes map, currently empty
+    (`Attributes ()`)
 
 ### Genesis block header
 
 *keywords: `GenesisBlockHeader`; `ConsensusData GenesisBlockchain`,
 `GenesisConsensusData`; `ExtraHeaderData GenesisBlockchain`,
-`GenesisExtraHeaderData`*
+`GenesisExtraHeaderData`, `GenesisHeaderAttributes`*
 
 A genesis block header is a `GenericBlockHeader`:
 
@@ -101,11 +103,13 @@ type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
 
 It contains the following fields:
 
-  * `_gbhPrevBlock` – a hash of the previous block. TODO: or header?
+  * `_gbhPrevBlock :: HeaderHash` – a hash of the previous block's header
 
-  * `_gbhBodyProof` – a hash of `_gbLeaders` from the payload
+  * `_gbhBodyProof :: BodyProof GenesisBlockchain` – a hash of `_gbLeaders`
+    from the payload
 
-  * `_gbhConsensus` – meta-information about the block:
+  * `_gbhConsensus :: ConsensusData GenesisBlockchain` – meta-information
+    about the block:
 
       + `_gcdEpoch :: EpochIndex` – the epoch which the block belongs to (a
         genesis block technically is at the very beginning of an epoch)
@@ -113,7 +117,8 @@ It contains the following fields:
         in this block (i.e. number of main blocks between the first block
         ever and this block, inclusive)
 
-  * `_gbhExtra` – an attributes map, currently empty (`Attributes ()`)
+  * `_gbhExtra :: GenesisExtraHeaderData` – an attributes map, currently
+    empty (`Attributes ()`)
 
 ### Genesis block payload
 
@@ -129,6 +134,24 @@ data Body GenesisBlockchain = GenesisBody
 
 type SlotLeaders = NonEmpty StakeholderId
 ```
+
+### Genesis block extra
+
+*keywords: `ExtraBodyData GenesisBlockchain`, `GenesisExtraBodyData`;
+`GenesisBodyAttributes`*
+
+The extra data stored in a genesis block (`_gbExtra`) currently contains
+only an empty attributes map:
+
+```haskell
+data GenesisExtraBodyData = GenesisExtraBodyData
+    { _gebAttributes :: GenesisBodyAttributes
+    }
+
+type GenesisBodyAttributes = Attributes ()
+```
+
+It might be extended later.
 
 ## Main block
 
@@ -146,19 +169,21 @@ type MainBlock = GenericBlock MainBlockchain
 
 It contains the following fields:
 
-  * `_gbHeader` – a [header](#main-block-header)
+  * `_gbHeader :: MainBlockHeader` – a [header](#main-block-header)
 
-  * `_gbBody` – several payloads
+  * `_gbBody :: Body MainBlockchain` – several payloads
     ([transactions](#transactions-payload-proof),
      [SSC](#ssc-payload-proof),
      [delegation](#delegation-payload-proof), and
      [update system](#update-system-payload-proof))
 
-  * `_gbExtra` – an attributes map, currently empty (`Attributes ()`)
+  * `_gbExtra :: MainExtraBodyData` – an attributes map, currently empty
+    (`Attributes ()`)
 
 ### Main block header
 
-*keywords: `MainBlockHeader`*
+*keywords: `MainBlockHeader`; `ConsensusData MainBlockchain`,
+`MainConsensusData`; `MainExtraHeaderData`*
 
 A main block header is a `GenericBlockHeader`:
 
@@ -168,32 +193,44 @@ type MainBlockHeader = GenericBlockHeader MainBlockchain
 
 It contains the following fields:
 
-  * `_gbhPrevBlock` – a hash of the previous block.
+  * `_gbhPrevBlock :: HeaderHash` – a hash of the previous block's header.
 
-  * `_gbhBodyProof` – proofs (e.g. hashes) of payloads from the block body;
-    they will be discussed in the section about block payloads.
+  * `_gbhBodyProof :: BodyProof MainBlockchain` – proofs (e.g. hashes) of
+    payloads from the block body; they will be discussed in the section
+    about [block payload](#main-block-payload-proof).
 
-  * `_gbhConsensus` – a bunch of meta-information about the block:
+  * `_gbhConsensus :: ConsensusData MainBlockchain` – meta-information about
+    the block:
 
       + `_mcdSlot :: SlotId` – the slot for which the block was generated
-      + `_mcdLeaderKey :: PublicKey` – public key of the slot leader
+      + `_mcdLeaderKey :: PublicKey` – public key of the slot leader (which
+        may be different from the block issuer, because of delegation)
       + `_mcdDifficulty :: ChainDifficulty` – difficulty of the chain ending
         in this block (i.e. number of main blocks between the first block
         ever and this block, inclusive)
-      + `_mcdSignature :: BlockSignature` – a signature of the block by
-        either its issuer or TODO
+      + `_mcdSignature :: BlockSignature` – a signature of the block by its
+        issuer (if the issuer isn't the block leader, it will be a delegated
+        signature confirming issuer's right to issue the block in this slot)
 
-  * `_gbhExtra` – TODO
+  * `_gbhExtra :: MainExtraHeaderData` – more information about the block:
 
-TODO: for all fields everywhere, say why we are including them
+      + `_mehBlockVersion :: BlockVersion` – the block version;
+        see [Software and block versions](us.md#software-and-block-versions)
+      + `_mehSoftwareVersion :: SoftwareVersion` – ditto
+      + `_mehEBDataProof :: Hash MainExtraBodyData` – a hash of the extra
+        data in the block (since ultimately a header needs to checksum *all*
+        data in the block)
+      + `_mehAttributes :: BlockHeaderAttributes` – an attributes map to
+        extend the header with more fields, currently empty
 
-TODO: must slot leader also be the block issuer?
+TODO: for all things, specify how their integrity is validated
 
 ### Main block signature
 
 *keywords: `BlockSignature`, `MainToSign`*
 
-A `BlockSignature` verifies that the block was issued by someone who had a right to issue it. 
+A `BlockSignature` verifies that the block was issued by someone who had a
+right to issue it.
 
 ```haskell
 -- | Signature of the block. Can be either regular signature from the
@@ -212,14 +249,23 @@ data BlockSignature
 `MainProof`*
 
 The block body consists of four payloads – transactions, SSC, delegation,
-and update system. Below we discuss each of those payloads, as well as
-corresponding proofs (stored in the header).
+and update system. In further sections we discuss each of those payloads, as
+well as corresponding proofs (stored in the header).
+
+```haskell
+data Body MainBlockchain = MainBody
+    { _mbTxPayload     :: TxPayload
+    , _mbSscPayload    :: SscPayload
+    , _mbDlgPayload    :: DlgPayload
+    , _mbUpdatePayload :: UpdatePayload
+    }
+```
 
 #### Transactions payload+proof
 
 *keywords: `TxPayload`, `TxProof`*
 
-The transaction payload contains of a [Merkle tree](#merkle-tree) with
+The transaction payload consists of a [Merkle tree](#merkle-tree) with
 transactions, and a list of witnesses corresponding to those transactions:
 
 ```haskell
@@ -232,6 +278,15 @@ data TxPayload = UnsafeTxPayload
 The invariant is that the tree of transactions and the list of witnesses
 have the same number of elements.
 
+The reason we separate transactions and their witnesses is that light
+clients might want to request transactions but not witnesses (since they
+don't have enough information to verify the witnesses anyway), and in order
+to be able to verify the acquired list of transactions given only the block
+header, we need a hash of transactions (separated from witnesses) in the
+header.
+
+----------------------------------------
+
 The proof of `TxPayload` looks like this:
 
 ```haskell
@@ -242,14 +297,12 @@ data TxProof = TxProof
     }
 ```
 
-The integrity of the transaction tree is ensured by recording the size and
-root of the tree; the root of a Merkle tree is a hash which depends on all
-other elements, and the shape of the tree is uniquely determined by the
-number of elements in the tree.
+  * The integrity of the transaction tree is ensured by recording the size
+    and root of the tree; the root of a Merkle tree is a hash which depends
+    on all other elements, and the shape of the tree is uniquely determined
+    by the number of elements in the tree.
 
-The integrity of the witnesses list is ensured by recording its hash.
-
-TODO: say why they are separated
+  * The integrity of the witnesses list is ensured by recording its hash.
 
 #### SSC payload+proof
 
@@ -277,6 +330,8 @@ data SscPayload
 ```
 
 This type has no invariants.
+
+----------------------------------------
 
 The proof of `SscPayload` simply consists of hashes of its fields:
 
@@ -379,20 +434,17 @@ type TxId = Hash Tx
 
 Inputs are represented like this: since currently unspent outputs can only
 originate from transactions, any unspent output can be referred to by
-specifying a transaction ID and index in the list of outputs:
+specifying a transaction ID and index in the list of that transaction's
+outputs:
 
 ```haskell
 data TxIn
-    = TxInUtxo
-    { txInHash  :: TxId
-    , txInIndex :: Word32
-    }
-    | TxInUnknown Word8 ByteString
+    = TxInUtxo                      -- an output of some other transaction
+        { txInHash  :: TxId
+        , txInIndex :: Word32
+        }
+    | TxInUnknown Word8 ByteString  -- for backwards compatibility
 ```
-
-The `TxInUnknown` constructor is needed to be able to extend `TxIn` in the
-future without breaking backwards compatibility. TODO: link wherever I
-should link
 
 Outputs themselves are represented like this:
 
@@ -420,11 +472,8 @@ data AddrType
     = ATPubKey              -- pay to public key
     | ATScript              -- pay to script
     | ATRedeem              -- pay to redeem public key
-    | ATUnknown Word8
+    | ATUnknown Word8       -- (for backwards compatibility)
 ```
-
-The `ATUnknown` constructor is for backwards compatibility. TODO: link
-wherever
 
 For each of those kinds, there is a corresponding constructor of
 `AddrSpendingData` – a type that specifies the condition which somebody has
@@ -505,7 +554,15 @@ data Address = Address
     }
 ```
 
-TODO: why not just hash `AddrSpendingData`?
+At this point a perceptive reader could note that we could accomplish the
+same goal in a simpler manner – just store a hash of `AddrSpendingData` and
+dispose of `Address'` entirely. However, it would mean that when you give
+your address to someone, they can easily change its `AddrAttributes` and the
+address would still be valid. This gives rise to certain legal problems. For
+instance, if you are a shop and you've been paid to an address that has had
+its `AddrAttributes` modified, you can still use the money but you might no
+longer have stake assigned to you – does that constitute a valid payment or
+not?
 
 #### Witness
 
@@ -566,7 +623,6 @@ data TxInWitness
     redemption.
 
   * An `UnknownWitnessType` is used for providing backwards compatibility.
-    TODO: link wherever I should link
 
 #### Script
 
@@ -695,6 +751,8 @@ The fields mean:
 
 The invariant of `VssCertificate` is that the signature must be valid.
 
+----------------------------------------
+
 A certificates map (`VssCertificatesMap`) is a set of certificates, indexed
 by stakeholder IDs (hashes of certificates' `vcSigningKey`s) for
 performance. There are two invariants:
@@ -749,6 +807,8 @@ This is similar to how signing a `VssCertificate` works, except for one
 thing: each commitment is only valid for one epoch, and we always know what
 epoch it is, so we don't have to include the epoch into `SignedCommitment`.
 
+----------------------------------------
+
 A commitments map (`CommitmentsMap`) is a set of signed commitments, indexed
 by stakeholder IDs. The invariant is that the IDs must correspond to
 commitments' `PublicKey`s.
@@ -758,8 +818,6 @@ commitments' `PublicKey`s.
 newtype CommitmentsMap = 
     CommitmentsMap (HashMap StakeholderId SignedCommitment)
 ```
-
-TODO: `CommitmentsMap` should have `Unsafe` in it
 
 ----------------------------------------
 
@@ -786,6 +844,8 @@ secret (which can be thought of as a simple bytestring).
 newtype Opening = Opening (AsBinary Secret)
 ```
 
+----------------------------------------
+
 An openings map (`OpeningsMap`) is a map from participants' IDs to their
 openings. It has no invariants (since the opening doesn't have a public key
 in it).
@@ -811,6 +871,8 @@ newtype DecShare = DecShare Scrape.DecryptedShare
 
 newtype EncShare = EncShare Scrape.EncryptedSi
 ```
+
+----------------------------------------
 
 A shares map (`SharesMap`) is a set of shares created by some participants
 and decrypted by other participants:
@@ -861,11 +923,10 @@ A `ProxyCert` is just a signature of `(pskDelegatePk, pskOmega)`:
 newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
 ```
 
-An invariant of `ProxySecretKey` is that its `pskCert` must be valid. TODO:
-is this right? If yes, why not `UnsafeProxySecretKey`?
-
 Note that “proxy secret key” is a misnomer – it really is a public key, not
-a secret key.
+a secret key. Also note that it might look like `ProxySecretKey` has an
+invariant (“the certificate in it is valid”), but in reality this isn't an
+invariant, it's simply something we check in code at certain points.
 
 ----------------------------------------
 
@@ -892,9 +953,6 @@ data ProxySignature w a = ProxySignature
     , psigSig :: XSignature
     }
 ```
-
-TODO: explain why we need to include `psigPsk` (I didn't understand the
-explanation given in source)
 
 Just like before, for heavy delegation we set `w = EpochIndex`:
 
@@ -992,8 +1050,6 @@ There are two associated invariants:
 
   * It may not be longer than 10 characters.
 
-TODO: `SystemTag` should probably have `Unsafe`
-
 ### Update vote
 
 *keywords: `UpdateVote`, `UpId`*
@@ -1017,5 +1073,3 @@ type UpId = Hash UpdateProposal
 ```
 
 The invariant of `UpdateVote` is that the signature is valid.
-
-TODO: `UpdateVote` should probably have `Unsafe`

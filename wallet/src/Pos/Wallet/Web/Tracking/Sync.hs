@@ -2,20 +2,42 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- To support actual wallet accounts we listen to applications and rollbacks
--- of blocks, extract transactions from block and extract our
--- accounts (such accounts which we can decrypt).
--- We synchronise wallet-db (acidic-state) with node-db
--- and support last seen tip for each walletset.
--- There are severals cases when we must  synchronise wallet-db and node-db:
--- • When we relaunch wallet. Desynchronization can be caused by interruption
---   during blocks application/rollback at the previous launch,
---   then wallet-db can fall behind from node-db (when interruption during rollback)
---   or vice versa (when interruption during application)
---   @syncWSetsWithGStateLock@ implements this functionality.
--- • When a user wants to import a secret key. Then we must rely on
---   Utxo (GStateDB), because blockchain can be large.
-
+-- | A module which contains logic for collecting and applying changes
+-- introduced by transaction application to wallet DB, as well as logic
+-- for syncronization of wallet DB with core DB.
+--
+-- In order to maintain actual information in wallet DB we watch for
+-- block applications and rollbacks, deriving subsequent changes to
+-- wallet DB. Such changes include updates to transaction history cache,
+-- 'Utxo' cache, sets of known addresses which belong to our wallet, etc.
+--
+-- Each module stores 'WalletTip' datatype, which contains header has of
+-- last block until which a wallet was synchronized with blockchain (or no such
+-- hash, if a wallet was never synchronized with blockchain).
+--
+-- In order to detect transactions which relate to our wallet we need a mechanism
+-- of detecting addresses which belong to our wallet. Transactions which include
+-- at least one of wallet's addresses as in their inputs or outputs relate to our
+-- wallet and should be added to transaction history and applied to 'Utxo' cache.
+-- As long as we use random generation of addresses, we have no way to predict which
+-- of wallet's addresses should appear in blockchain next, so we use encrypted
+-- /address attributes/ for own addresses detection. See module
+-- "Pos.Wallet.Web.Tracking.Decrypt" for more info.
+--
+-- Normally wallet DB is keeped in sync with core DB using @BListener@s -- special
+-- methods which get called every time a new block gets applied or rolled back.
+-- See module "Pos.Wallet.Web.Tracking.BListener" for more info.
+--
+-- However, there are cases when we should trigger wallet sync process by hand:
+--
+--   * When user imports a wallet or restores it from a mnemonic phrase. In this case
+--     we should traverse the whole blockchain to reestablish full wallet transaction history.
+--     Note that we don't perform syncing for newly generated wallets (because they can't
+--     have any transaction history).
+--   * When we detect that wallet's current sync tip has fallen behind current blockchain tip.
+--     This may happen e. g. if previous sync process has been interrupted. We compare wallet tips
+--     with current blockchain tip every time wallet restarts.
+--
 module Pos.Wallet.Web.Tracking.Sync
        ( syncWalletsWithGState
        , trackingApplyTxs
@@ -94,6 +116,7 @@ import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAcc
                                                    deleteAndInsertMM, deleteAndInsertVM,
                                                    indexedDeletions, sortedInsertions)
 
+-- | Type constraint which allows to take a block semaphore.
 type BlockLockMode ctx m =
      ( WithLogger m
      , MonadDBRead m
@@ -102,6 +125,8 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
+-- | Type constraint which provides read access to mempool and DB,
+-- allowing to use 'txMempoolToModifier'.
 type WalletTrackingEnvRead ctx m =
      ( BlockLockMode ctx m
      , MonadTxpMem WalletMempoolExt ctx m
@@ -111,14 +136,18 @@ type WalletTrackingEnvRead ctx m =
      , HasConfiguration
      )
 
+-- | Type constraint which allows performing wallet sync.
 type WalletTrackingEnv ctx m =
      ( WalletTrackingEnvRead ctx m
      , MonadWalletDB ctx m
      )
 
+-- | Helper function for syncing only one wallet.
 syncWalletOnImport :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
 
+-- | Given a root secret key of wallet, obtain 'CAccModifier' for this wallet
+-- which reflect changes caused by transactions currently stored in mempool.
 txMempoolToModifier :: WalletTrackingEnvRead ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifier encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
@@ -147,7 +176,8 @@ txMempoolToModifier encSK = do
 -- Logic
 ----------------------------------------------------------------------------
 
--- Iterate over blocks (using forward links) and actualize our accounts.
+-- | Check whether or not provided wallets are fully synchronized with current
+-- blockchain, and if not, initialize sync process.
 syncWalletsWithGState
     :: forall ctx m.
     ( MonadWalletDB ctx m
@@ -173,18 +203,21 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
         gstateTipH <- DB.getTipHeader
-        -- If account's syncTip is before the current gstate's tip,
-        -- then it loads accounts and addresses starting with @wHeader@.
-        -- syncTip can be before gstate's the current tip
-        -- when we call @syncWalletSetWithTip@ at the first time
-        -- or if the application was interrupted during rollback.
-        -- We don't load all blocks explicitly, because blockain can be long.
+
+        -- Here we check how far away wallet tip is from current
+        -- blockchain tip.
         wNewTip <-
             if (gstateTipH ^. difficultyL > fromIntegral blkSecurityParam + fromIntegral wdiff) then do
-                -- Wallet tip is "far" from gState tip,
-                -- rollback can't occur more then @blkSecurityParam@ blocks,
-                -- so we can sync wallet and GState without the block lock
-                -- to avoid blocking of blocks verification/application.
+                -- If wallet tip is deeper than 'blkSecurityParam' blocks away from blockchain tip,
+                -- then we can sync wallet until block with depth 'blkSecurityParam' without
+                -- taking block semaphore. It's safe because blocks deeper than 'blkSecurityParam'
+                -- cannot be rolled back.
+                -- We don't want to take block semaphore for syncing
+                -- blocks deeper than 'blkSecurityParam', because blockchain can be large,
+                -- and syncing may take a lot of time, and holding block semaphore for
+                -- extended period of time means no regular block processing
+                -- can proceed for extended period of time, which leads to poor performance
+                -- and various bugs.
                 bh <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
@@ -192,6 +225,9 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                 syncWalletWithGStateUnsafe encSK wTipH bh
                 pure $ Just bh
             else pure wTipH
+
+        -- All blocks not deeper than 'blkSecurityParam' must be processed under
+        -- block semaphore to avoid race conditions with possible rollbacks.
         withStateLockNoMetrics HighPriority $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
             tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
@@ -202,6 +238,8 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
 ----------------------------------------------------------------------------
 -- These operation aren't atomic and don't take the block lock.
 
+
+-- | Synchronize given wallet with core database.
 -- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
     :: forall ctx m .
@@ -221,30 +259,61 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     slottingData <- GS.getSlottingData
 
     let gstateHHash = headerHash gstateH
+        -- Passed to 'foldlUpWhileM', means "fetch blocks until their
+        -- difficulty is less than or equal to difficulty of @gstateH@"
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
         wAddr = encToCId encSK
         mappendR r mm = pure (r <> mm)
+        -- Shorthands for getting block difficulty.
         diff = (^. difficultyL)
         mDiff = Just . diff
+        -- Shorthand for getting tx payload of block.
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
+        -- Function which, given a block header, returns a timestamp of
+        -- this block's slot start.
         mainBlkHeaderTs mBlkH =
           getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
         blkHeaderTs = either (const Nothing) mainBlkHeaderTs
 
-        -- assuming that transactions are not created until syncing is complete
+        -- Here we assume that transactions are not created until syncing is complete.
         ptxBlkInfo = const Nothing
 
+        -- Wrapper around 'trackingRollbackTxs', which accepts 'Blund'
+        -- and unpacks its transaction payload.
         rollbackBlock :: [(CId Addr, HeaderHash)] -> Blund -> CAccModifier
         rollbackBlock dbUsed (b, u) =
             trackingRollbackTxs encSK dbUsed mDiff blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
+        -- Wrapper around 'trackingApplyTxs', which accepts 'Blund' and
+        -- unpacks its transaction payload.
         applyBlock :: [(CId Addr, HeaderHash)] -> Blund -> m CAccModifier
         applyBlock dbUsed (b, u) = pure $
             trackingApplyTxs encSK dbUsed mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
+        -- Fetch all blocks since 'wHeader' and until 'gstateH',
+        -- process their transactions and compute corresponding
+        -- 'CAccModifier'.
+        -- TODO: CSL-2039 It seems to be not working in case if some blocks has been
+        -- rolled back and some other blocks has been already applied:
+        --
+        --   V current blockchain tip
+        --   o
+        --   |   V wallet sync tip
+        --   o   o
+        --   |   |
+        --   o   o
+        --    \ /
+        --     o
+        --     |
+        --    ...
+        --
+        -- In case such as on illustration an attempt to apply blocks
+        -- between wallet sync tip and blockchain tip will be made, which will
+        -- fail. In this case a rollback processing followed by block application
+        -- processing should be performed.
         computeAccModifier :: BlockHeader -> m CAccModifier
         computeAccModifier wHeader = do
             dbUsed <- WS.getCustomAddresses WS.UsedAddr
@@ -252,24 +321,33 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
-                     -- If wallet's syncTip is before than the current tip in the blockchain,
-                     -- then it loads wallets starting with @wHeader@.
-                     -- Sync tip can be before the current tip
-                     -- when we call @syncWalletSetWithTip@ at the first time
-                     -- or if the application was interrupted during rollback.
-                     -- We don't load blocks explicitly, because blockain can be long.
+                     -- Wallet sync tip is deeper than current blockchain tip:
+                     -- we need to apply transactions in blocks from @wHeader@ to
+                     -- @gstateH@. We start from block right next to @wHeader@
+                     -- call @applyBlock@ for every block and consequentially
+                     -- combine resulting 'CAccModifier's from bottom to top.
                      maybe (pure mempty)
                          (\wNextH ->
                             foldlUpWhileM getBlund (applyBlock dbUsed) wNextH loadCond mappendR mempty)
                          =<< resolveForwardLink wHeader
                | diff gstateH < diff wHeader -> do
-                     -- This rollback can occur
-                     -- if the application was interrupted during blocks application.
+                     -- Wallet sync tip is higher than current blockchain tip:
+                     -- apparently, a rollback has occured which hasn't been processed
+                     -- properly.
+                     -- We start from @wHeader@ and rollback transactions in blocks until
+                     -- we reach @gstateH@.
+                     -- We can afford to load all rolled back blocks from DB together, because
+                     -- there's not more than 'blkSecurityParam' blocks which can be rolled back.
                      blunds <- getNewestFirst <$>
                          GS.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
                      pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
-               | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") wAddr)
+               | otherwise ->
+                     -- Turns out that wallet is already synced, do nothing.
+                     mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") wAddr)
 
+    -- If the wallet was never synced with blockchain, we should check if
+    -- genesis 'Utxo' contains some outputs belonging to wallet, and if
+    -- that's the case, initialize wallet DB with genesis data.
     whenNothing_ wTipHeader $ do
         let wdc = eskToWalletDecrCredentials encSK
             ownGenesisData =
@@ -281,9 +359,13 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         WS.updateWalletBalancesAndUtxo (utxoToModifier ownGenesisUtxo)
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
+
+    -- Finally compute the resulting modifier and apply it to wallet DB.
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet wAddr gstateHHash mapModifier
-    -- Mark the wallet as ready, so it will be available from api endpoints.
+
+    -- Wallet sync is done, so we mark the wallet as ready
+    -- to make it available from api endpoints.
     WS.setWalletReady wAddr True
     logInfoS $
         sformat ("Wallet "%build%" has been synced with tip "
@@ -295,6 +377,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 
+-- | Apply current modifier of set of used addresses to
+-- initial list of all used addresses. Returns set of resulting
+-- used addresses as 'HashSet'.
 constructAllUsed
     :: [(CId Addr, HeaderHash)]
     -> VoidModifier (CId Addr, HeaderHash)
@@ -306,10 +391,11 @@ constructAllUsed dbUsed modif =
     HM.fromList $
     zip dbUsed (repeat ()) -- not so good performance :(
 
--- Process transactions on block application,
--- decrypt our addresses, and add/delete them to/from wallet-db.
--- Addresses are used in TxIn's will be deleted,
--- in TxOut's will be added.
+-- | Given list of transactions with corresponding 'TxUndo's and
+-- block headers and additional info, derive 'CAccModifier' which
+-- accumulates all changes which these transactions cause in wallet DB
+-- (such as addition\/deletion of addresses, updates of transaction
+-- history and 'Utxo' caches, etc.)
 trackingApplyTxs
     :: HasConfiguration
     => EncryptedSecretKey                     -- ^ Wallet's secret key
@@ -328,6 +414,8 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
             hhs = repeat hh
             wh@(WithHash _ txId) = withHash (taTx tx)
         let thee@THEntryExtra{..} =
+                -- Performs detection of wallet's addresses and among transaction's
+                -- inputs and outputs. See "Pos.Wallet.Web.Tracking.Decrypt".
                 buildTHEntryExtra wdc (wh, undo) (getDiff blkHeader, getTs blkHeader)
 
             ownTxIns = map (fst . fst) theeInputs
@@ -344,8 +432,16 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
 
             mPtxBlkInfo = getPtxBlkInfo blkHeader
             addedPtxCandidates =
+                -- Here we only need to add wallet's /own outgoing transactions/
+                -- in 'camAddedPtxCandidates', because it's only these transactions
+                -- which may be created inside user's wallet.
+                -- Adding all transactions from block to 'camAddedPtxCandidates' doesn't
+                -- affect correctness of code, but may cause performance problems if
+                -- there's a lot of transactions in blocks.
                 if | Just ptxBlkInfo <- mPtxBlkInfo
-                     -> DL.cons (txId, ptxBlkInfo) camAddedPtxCandidates
+                     -> if not (null theeInputs)
+                        then DL.cons (txId, ptxBlkInfo) camAddedPtxCandidates
+                        else camAddedPtxCandidates
                    | otherwise
                      -> camAddedPtxCandidates
         CAccModifier
@@ -358,12 +454,14 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
             addedPtxCandidates
             camDeletedPtxCandidates
 
--- Process transactions on block rollback.
--- Like @trackingApplyTxs@, but vise versa.
+-- | Given list of transactions with corresponding 'TxUndo's and
+-- block headers and additional info, derive 'CAccModifier' which
+-- accumulates all changes caused by /rollback/ of these transactions.
+-- Like 'trackingApplyTxs', but vise versa.
 trackingRollbackTxs
     :: HasConfiguration
     => EncryptedSecretKey                      -- ^ Wallet's secret key
-    -> [(CId Addr, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
+    -> [(CId Addr, HeaderHash)]                -- ^ All used addresses from DB along with their 'HeaderHash'es
     -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
     -> [(TxAux, TxUndo, BlockHeader)]          -- ^ Txs of blocks and corresponding header hash
@@ -377,11 +475,18 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
             hh = headerHash blkHeader
             hhs = repeat hh
             thee@THEntryExtra{..} =
+                -- Performs detection of wallet's addresses and among transaction's
+                -- inputs and outputs. See "Pos.Wallet.Web.Tracking.Decrypt".
                 buildTHEntryExtra wdc (wh, undo) (getDiff blkHeader, getTs blkHeader)
 
             ownTxOutIns = map (fst . fst) theeOutputs
             deletedHistory = maybe camDeletedHistory (DL.snoc camDeletedHistory) (isTxEntryInteresting thee)
-            deletedPtxCandidates = DL.cons (txId, theeTxEntry) camDeletedPtxCandidates
+            deletedPtxCandidates =
+                -- See definition of @addedPtxCandidates@ in 'trackingApplyTxs'
+                -- for explanation.
+                if not (null theeInputs)
+                then DL.cons (txId, theeTxEntry) camDeletedPtxCandidates
+                else camDeletedPtxCandidates
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
@@ -402,14 +507,17 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
             camAddedPtxCandidates
             deletedPtxCandidates
 
+-- | After processing block application, apply changes contained
+-- in resulting 'CAccModifier' to wallet DB.
+-- TODO: Probably should be merged with 'rollbackModifierFromWallet'
+-- and be performed as single acidic action.
 applyModifierToWallet
     :: MonadWalletDB ctx m
-    => CId Wal
-    -> HeaderHash
-    -> CAccModifier
+    => CId Wal      -- ^ Wallet ID
+    -> HeaderHash   -- ^ Header hash of block until which wallet has been synced (new wallet sync tip)
+    -> CAccModifier -- ^ Modifier
     -> m ()
 applyModifierToWallet wid newTip CAccModifier{..} = do
-    -- TODO maybe do it as one acid-state transaction.
     mapM_ WS.addWAddress (sortedInsertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
@@ -420,17 +528,21 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.addOnlyNewTxMetas wid cMetas
     let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
     WS.insertIntoHistoryCache wid addedHistory
-    -- resubmitting worker can change ptx in db nonatomically, but
+    -- Resubmitting worker can change Ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
         WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
 
+-- | After processing rollback, apply changes contained in
+-- resulting 'CAccModifier' to wallet DB.
+-- TODO: Probably should be merged with 'applyModifierToWallet'
+-- and be performed as single acidic action.
 rollbackModifierFromWallet
     :: (MonadWalletDB ctx m, MonadSlots ctx m)
-    => CId Wal
-    -> HeaderHash
-    -> CAccModifier
+    => CId Wal      -- ^ Wallet ID
+    -> HeaderHash   -- ^ Header hash of block until which wallet has been rolled back (new wallet sync tip)
+    -> CAccModifier -- ^ Modifier
     -> m ()
 rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
@@ -442,17 +554,21 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-        let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
-        WS.removeFromHistoryCache wid deletedHistory
-        WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
+    let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
+    WS.removeFromHistoryCache wid deletedHistory
+    WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
 
--- Change address is an address which money remainder is sent to.
--- We will consider output address as "change" if:
+
+-- | Given subsets of inputs and outputs of transaction which
+-- belong to a wallet, determine set of /change addresses/.
+--
+-- /Change address/ is an address to which money remainder is sent.
+-- Output address is a /change address/ if:
 -- 1. it belongs to source account (taken from one of source addresses)
 -- 2. it's not mentioned in the blockchain (aka isn't "used" address)
 -- 3. there is at least one non "change" address among all outputs ones
-
+--
 -- The first point is very intuitive and needed for case when we
 -- send tx to somebody, i.e. to not our address.
 -- The second point is needed for case when
@@ -493,6 +609,13 @@ setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
+-- Used in order to optimize mempool accesses. All functions which
+-- need data about changes in mempool related to particular wallet
+-- accept this data as 'CachedCAccModifier'. If 'CachedCAccModifier'
+-- is already available (e. g. is passed to higher-level function
+-- as an argument), then it's passed directly. Otherwise we need
+-- to derive it from mempool using 'txMempoolToModifier'.
+-- 'fixingCachedAccModifier' is a helper for doing this.
 fixingCachedAccModifier
     :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
     => (CachedCAccModifier -> key -> m a)
@@ -500,6 +623,8 @@ fixingCachedAccModifier
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
+-- | A version of 'fixingCachedAccModifier' for
+-- actions which don't accept wallet key.
 fixCachedAccModifierFor
     :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
     => key

@@ -280,11 +280,7 @@
         },
         "Payment": {
             "example": {
-<<<<<<< HEAD
-                "sourceAccount": 1,
-=======
                 "sourceAccount": 2,
->>>>>>> origin/feature/new-wallet
                 "groupingPolicy": "OptimiseForSize",
                 "destinations": [
                     {

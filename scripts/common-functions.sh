@@ -182,12 +182,12 @@ function node_cmd {
   local wallet_args=$3
   local system_start=$4
   local config_dir=$5
-  local exec_name=$6
+  local conf_file=$6
   local st=''
   local reb=''
   local no_ntp=''
   local web=''
-  local config_key=''
+  local configuration=''
 
   ensure_run
 
@@ -216,14 +216,21 @@ function node_cmd {
   if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
+
+
+  if [[ "$conf_file" != "" ]]; then
+     configuration=" --configuration-file $conf_file "
+  fi
+
   if [[ "$CONFIG_KEY" != "" ]]; then
-    config_key=" --configuration-key $CONFIG_KEY "
+    configuration=" $configuration --configuration-key $CONFIG_KEY "
   fi
 
   local topology_file="$config_dir/topology$i.yaml"
   #local kademlia_file="$config_dir/kademlia$i.yaml"
+  local updater_file="$config_dir/updater$i.sh"
 
-  echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
+  echo -n " --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
@@ -234,8 +241,8 @@ function node_cmd {
     #echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
   fi
-  if [[ "$config_key" != "" ]]; then
-    echo -n " $config_key "
+  if [[ "$configuration" != "" ]]; then
+    echo -n " $configuration "
   fi
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $web "
@@ -253,6 +260,10 @@ function node_cmd {
   #   scripts/policies/policy_core.yaml
   #   scripts/policies/policy_relay.yaml
   #echo -n " --policies $config_dir/policy$i.yaml"
+  echo -n "  --update-latest-path $updater_file"
+  echo -n "  --update-with-package"
+  echo -n "  --update-server 'http://127.0.0.1:10228/'"
+  echo -n "  --no-ntp"
   echo ''
   sleep 0.8
 }

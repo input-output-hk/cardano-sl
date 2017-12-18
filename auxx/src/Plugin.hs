@@ -14,7 +14,7 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
-import           Data.Constraint (Dict(..))
+import           Data.Constraint (Dict (..))
 import           Formatting (float, int, sformat, stext, (%))
 import           Mockable (Catch, Delay, Mockable, delay)
 import           Node.Conversation (ConversationActions (..))
@@ -23,9 +23,8 @@ import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logInfo)
 
-import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..),
-                                    WorkerSpec, delegationRelays, relayPropagateOut, txRelays,
-                                    usRelays, worker)
+import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..), WorkerSpec,
+                                    delegationRelays, relayPropagateOut, txRelays, usRelays, worker)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
@@ -38,7 +37,7 @@ import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
 import qualified Lang
 import           Mode (MonadAuxxMode)
-import           Repl (WithCommandAction (..), PrintAction)
+import           Repl (PrintAction, WithCommandAction (..))
 
 ----------------------------------------------------------------------------
 -- Plugin implementation

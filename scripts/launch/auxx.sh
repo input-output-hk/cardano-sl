@@ -20,7 +20,7 @@ template="$binary $dht_conf $logs_conf \
                  --system-start 100500"  # random value, not used, but mandatory
 
 if [[ $1 == "init-dev" ]]; then
-    commands="add-key-pool 0,add-key-pool 1,add-key-pool 2,add-key-pool 3"
+    commands="add-key-pool 0 1 2 3"
 fi
 
 if [[ "$commands" != "" ]]; then

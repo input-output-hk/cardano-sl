@@ -9,7 +9,7 @@
     * [Genesis block extra](#genesis-block-extra)
   + [Main block](#main-block)
     * [Main block header](#main-block-header)
-    * [Main block signature](#main-block-signature) – IN PROGRESS
+    * [Main block signature](#main-block-signature)
     * [Main block payload+proof](#main-block-payload-proof)
       + [Transactions payload+proof](#transactions-payload-proof)
       + [SSC payload+proof](#ssc-payload-proof)
@@ -230,18 +230,44 @@ TODO: for all things, specify how their integrity is validated
 *keywords: `BlockSignature`, `MainToSign`*
 
 A `BlockSignature` verifies that the block was issued by someone who had a
-right to issue it.
+right to issue it, and also verifies that the block hasn't been tampered
+with:
 
 ```haskell
--- | Signature of the block. Can be either regular signature from the
--- issuer or delegated signature having a constraint on epoch indices
--- (it means the signature is valid only if block's slot id has epoch
--- inside the constrained interval).
 data BlockSignature
     = BlockSignature (Signature MainToSign)
     | BlockPSignatureLight (ProxySigLight MainToSign)
     | BlockPSignatureHeavy (ProxySigHeavy MainToSign)
 ```
+
+There are three kinds of signatures:
+
+  * `BlockSignature` – simply a signature of the block by its issuer
+
+  * `BlockPSignatureLight` – a light delegation signature (not discussed in
+    this document); this signature is used when the right to issue blocks
+    has been transferred on a temporary basis
+
+  * `BlockPSignatureHeavy` – a heavy delegation signature, used when the
+    right to issue blocks has been transferred “until further notice”
+
+The thing signed by a `BlockSignature` isn't the whole block, but only
+certain parts of it (this is done because signing is an expensive process
+and we'd like to sign as few bytes as we can get away with). The exact parts
+that are signed are specified by `MainToSign`:
+
+```haskell
+data MainToSign = MainToSign
+    { _msHeaderHash  :: HeaderHash                -- previous block's header
+    , _msBodyProof   :: BodyProof MainBlockchain  -- hashes of block's body
+    , _msSlot        :: SlotId                    -- current slot
+    , _msChainDiff   :: ChainDifficulty           -- difficulty
+    , _msExtraHeader :: MainExtraHeaderData       -- extra data from the header
+    }
+```
+
+The choice of signed data ensures that the whole block can be verified given
+a `BlockSignature`.
 
 ### Main block payload+proof
 

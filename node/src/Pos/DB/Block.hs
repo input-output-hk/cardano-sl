@@ -10,6 +10,8 @@ module Pos.DB.Block
        , blkGetUndo
        , blkGetBlund
 
+       , blkGetBlockBytes
+
        , deleteBlock
 
        , prepareBlockDB
@@ -148,17 +150,17 @@ loadDataWhile
     -> (a -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] a)
-loadDataWhile getter predicate start = NewestFirst <$> doIt start
+loadDataWhile getter predicate start = NewestFirst <$> doIt [] start
   where
-    doIt :: HeaderHash -> m [a]
-    doIt h
-        | h == genesisHash = pure []
+    doIt :: [a] -> HeaderHash -> m [a]
+    doIt !acc h
+        | h == genesisHash = pure (reverse acc)
         | otherwise = do
             d <- getter h
             let prev = d ^. prevBlockL
             if predicate d
-                then (d :) <$> doIt prev
-                else pure []
+                then doIt (d : acc) prev
+                else pure (reverse acc)
 
 -- For depth 'd' load blocks that have depth < 'd'. Given header
 -- (newest one) is assumed to have depth 0.
@@ -469,6 +471,12 @@ blkGetBlock ::
     -> m $ Maybe (Block ssc)
 blkGetBlock = dbGetBlock @(BlockHeader ssc) @(Block ssc) @Undo
 
+blkGetBlockBytes ::
+       forall ctx m. ( MonadRealDB ctx m )
+    => HeaderHash
+    -> m $ Maybe ByteString
+blkGetBlockBytes = blockDataPath >=> getBytes
+
 blkGetUndo ::
        forall ssc m. MonadBlockDB ssc m
     => HeaderHash
@@ -490,11 +498,16 @@ delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = flip catch handle $ liftIO $
-    either (\er -> throwM $ DBMalformed $
-             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
-    decodeFull <$>
-    BS.readFile fp
+getData fp = getBytes fp >>= decodeIt
+  where
+    decodeIt mbs = case mbs of
+        Nothing -> pure Nothing
+        Just bs -> case decodeFull bs of
+            Left err -> throwM $ DBMalformed $ sformat ("Couldn't deserialize "%build%", reason: "%build) fp err
+            Right it -> pure (Just it)
+
+getBytes :: forall m . (MonadIO m, MonadCatch m) => FilePath -> m (Maybe ByteString)
+getBytes fp = flip catch handle . fmap Just . liftIO $ BS.readFile fp
   where
     handle e
         | isDoesNotExistError e = pure Nothing

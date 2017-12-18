@@ -15,6 +15,7 @@ import qualified Serokell.Util.Base64           as B64
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
+import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (SendActions (..), prepareRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp)
@@ -95,7 +96,7 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
                L.newAddress RandomSeed passphrase accId
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
-                prepareRedemptionTx redeemSK dstAddr
+                prepareRedemptionTx getOwnUtxos redeemSK dstAddr
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux

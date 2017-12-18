@@ -215,7 +215,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
             (txAux, inpTxOuts') <-
-                prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+                prepareMTx getOwnUtxos getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux

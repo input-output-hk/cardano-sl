@@ -40,9 +40,9 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, fromScratch, lcTree,
-                              logInfo, ltSeverity, parseLoggerConfig, productionB, setupLogging,
-                              zoomLogger)
+import           System.Wlog (LoggerConfig (..), WithLogger, errorPlus, fromScratch, infoPlus,
+                              lcTree, logInfo, ltSeverity, maybeLogsDirB, parseLoggerConfig,
+                              productionB, setupLogging, warningPlus, zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
@@ -84,19 +84,19 @@ logMeasure miEvent miId miPayload = do
 
 defaultLogConfig :: LoggerConfig
 defaultLogConfig = fromScratch $ zoom lcTree $ do
-    ltSeverity ?= Warning
+    ltSeverity ?= warningPlus
     zoomLogger "sender" $ do
-        ltSeverity ?= Info
+        ltSeverity ?= infoPlus
         commLogger
     zoomLogger "receiver" $ do
-        ltSeverity ?= Info
+        ltSeverity ?= infoPlus
         commLogger
   where
-    commLogger = zoomLogger "comm" $ ltSeverity ?= Error
+    commLogger = zoomLogger "comm" $ ltSeverity ?= errorPlus
 
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
-    let cfgBuilder = productionB <> (mempty { _lcFilePrefix = logsPrefix })
+    let cfgBuilder = productionB <> maybeLogsDirB logsPrefix
     loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
     setupLogging Nothing $ loggerConfig <> cfgBuilder
 

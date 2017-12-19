@@ -28,7 +28,7 @@ import           Universum
 import           Control.Monad.Catch (MonadMask)
 import           Data.Time.Units (Microsecond)
 import           Mockable (CurrentTime, Mockable, currentTime)
-import           System.Wlog (LoggerNameBox, WithLogger, getLoggerName, usingLoggerName)
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
@@ -130,7 +130,7 @@ stateLockHelper ::
 stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     StateLockMetrics {..} <- view (lensOf @StateLockMetrics)
-    lname <- getLoggerName
+    lname <- askLoggerName
     liftIO . usingLoggerName lname $ slmWait reason
     timeBeginWait <- currentTime
     withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do

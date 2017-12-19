@@ -52,10 +52,13 @@ sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
 indexedDeletions :: IndexedMapModifier a -> [a]
 indexedDeletions = MM.deletions . immModifier
 
+instance (Eq a, Hashable a) => Semigroup (IndexedMapModifier a) where
+    IndexedMapModifier m1 c1 <> IndexedMapModifier m2 c2 =
+        IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
+
 instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
     mempty = IndexedMapModifier mempty 0
-    IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
-        IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
+    mappend = (<>)
 
 data CAccModifier = CAccModifier
     { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
@@ -68,10 +71,14 @@ data CAccModifier = CAccModifier
     , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }
 
+instance Semigroup CAccModifier where
+    (CAccModifier a b c d ah dh aptx dptx) <> (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
+        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah)
+                     (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
+
 instance Monoid CAccModifier where
     mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
-    (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
+    mappend = (<>)
 
 instance Buildable CAccModifier where
     build CAccModifier{..} =
@@ -157,4 +164,3 @@ deleteAndInsertMM dels ins mapModifier =
 
     deleteAcc :: (Hashable k, Eq k) => MapModifier k v -> k -> MapModifier k v
     deleteAcc = flip deleteNotDeep
-

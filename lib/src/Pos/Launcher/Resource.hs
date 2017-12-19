@@ -19,6 +19,7 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
+import           Nub (ordNub)
 import           Universum hiding (bracket)
 
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
@@ -33,9 +34,9 @@ import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
 import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
-import           System.Wlog (CanLog, LoggerConfig (..), WithLogger, getLoggerName, logError,
-                              logInfo, prefixB, productionB, releaseAllHandlers, setupLogging,
-                              showTidB, usingLoggerName)
+import           System.Wlog (CanLog, LoggerConfig (..), WithLogger, askLoggerName, consoleActionB,
+                              defaultHandleAction, logError, logInfo, maybeLogsDirB, productionB,
+                              removeAllHandlers, setupLogging, showTidB, usingLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Block.Slog (mkSlogContext)
@@ -67,10 +68,9 @@ import qualified Pos.Update.DB as GState
 import           Pos.Util (newInitFuture)
 import           Pos.Util.Timer (newTimer)
 
-import qualified System.Wlog as Logger
-
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
+import qualified System.Wlog as Logger
 #endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -221,20 +221,22 @@ getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
     let cfgBuilder = productionB
                   <> showTidB
-                  <> maybe mempty prefixB lpHandlerPrefix
+                  <> maybeLogsDirB lpHandlerPrefix
     cfg <- readLoggerConfig lpConfigPath
     pure $ overrideConsoleLog $ cfg <> cfgBuilder
   where
+    overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
-        Nothing         -> identity
-        Just consoleOut -> set Logger.lcConsoleOutput (Any consoleOut)
+        Nothing    -> identity
+        Just True  -> (<>) (consoleActionB defaultHandleAction)
+        Just False -> (<>) (consoleActionB (\_ _ -> pass))
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
 loggerBracket :: LoggingParams -> IO a -> IO a
-loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
+loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -380,7 +382,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport n, m ())
 createTransportTCP addrInfo = do
-    loggerName <- getLoggerName
+    loggerName <- askLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =

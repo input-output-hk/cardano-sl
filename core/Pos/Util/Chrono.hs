@@ -34,13 +34,13 @@ import           Pos.Binary.Class (Bi)
 newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
-            Container, NontrivialContainer,
+            ToList, Container,
             Binary, Bi,
             Arbitrary)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
-            Container, NontrivialContainer,
+            ToList, Container,
             Binary, Bi,
             Arbitrary)
 

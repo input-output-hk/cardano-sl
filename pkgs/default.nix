@@ -5230,11 +5230,11 @@ self: {
           description = "Types representing line and column positions and ranges in text files";
           license = stdenv.lib.licenses.asl20;
         }) {};
-      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
+      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, markdown-unlit, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.3.4";
-          sha256 = "155aa9316e4d3fbd55a4f91fee163e7cf27420008d80e15c296947c2466cc772";
+          version = "1.8.0";
+          sha256 = "370274f1420405e34e135dfcb73b6ed90dd2d6f8704d3c25811baa43a27db32c";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -5258,7 +5258,6 @@ self: {
             monad-loops
             mtl
             network
-            safecopy
             text
             text-format
             time
@@ -5267,11 +5266,13 @@ self: {
             universum
             unix
             unordered-containers
+            vector
             yaml
           ];
           executableHaskellDepends = [
             base
             exceptions
+            markdown-unlit
             text
             universum
             yaml
@@ -5318,6 +5319,27 @@ self: {
           description = "Conduit interface for lzma/xz compression";
           license = stdenv.lib.licenses.bsd3;
         }) { lzma = pkgs.lzma; };
+      markdown-unlit = callPackage ({ base, base-compat, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "markdown-unlit";
+          version = "0.4.0";
+          sha256 = "7c650cae7326a687265274d9e73c74ab2f7e570d7928ce9f47add9439d5b42ce";
+          isLibrary = true;
+          isExecutable = true;
+          libraryHaskellDepends = [
+            base
+            base-compat
+          ];
+          executableHaskellDepends = [
+            base
+            base-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/sol/markdown-unlit#readme";
+          description = "Literate Haskell support for Markdown";
+          license = stdenv.lib.licenses.mit;
+        }) {};
       math-functions = callPackage ({ base, deepseq, mkDerivation, primitive, stdenv, vector, vector-th-unbox }:
       mkDerivation {
           pname = "math-functions";
@@ -7843,8 +7865,8 @@ self: {
       universum = callPackage ({ base, bytestring, containers, deepseq, exceptions, ghc-prim, hashable, microlens, microlens-mtl, mkDerivation, mtl, safe, safe-exceptions, stdenv, stm, text, text-format, transformers, type-operators, unordered-containers, utf8-string, vector }:
       mkDerivation {
           pname = "universum";
-          version = "0.7.0";
-          sha256 = "2eb3398cafb621a0b8966e5d6af16989a3dac0ec7467c62fd3c9a127e84148b4";
+          version = "0.9.0";
+          sha256 = "b6ac8d57b20a030749af6a778192776f34466ce4ab5f60668ef2b8ea8a1195af";
           libraryHaskellDepends = [
             base
             bytestring

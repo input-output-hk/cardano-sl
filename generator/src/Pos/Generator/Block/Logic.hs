@@ -66,7 +66,7 @@ type BlockTxpGenMode g ctx m =
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
 genBlocks ::
-       forall g ctx m t . (BlockTxpGenMode g ctx m, Monoid t)
+       forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t

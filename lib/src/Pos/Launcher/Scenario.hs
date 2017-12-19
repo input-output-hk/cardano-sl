@@ -17,7 +17,7 @@ import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Mockable (mapConcurrently, race)
 import           Serokell.Util (listJson)
 import           System.Exit (ExitCode (..))
-import           System.Wlog (WithLogger, getLoggerName, logDebug, logInfo, logWarning)
+import           System.Wlog (WithLogger, askLoggerName, logDebug, logInfo, logWarning)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, wrapActionSpec)
 import           Pos.Context (getOurPublicKey, ncNetworkConfig)
@@ -118,7 +118,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     -- FIXME: looks like something bad.
     -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
     reportHandler (SomeException e) = do
-        loggerName <- getLoggerName
+        loggerName <- askLoggerName
         reportError $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)

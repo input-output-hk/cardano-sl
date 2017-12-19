@@ -55,7 +55,7 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), T
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
 import qualified Pos.Util.OutboundQueue as OQ.Reader
@@ -140,7 +140,7 @@ instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
 
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
-    getLoggerName = getLoggerNameDefault
+    askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where

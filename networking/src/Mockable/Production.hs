@@ -9,6 +9,8 @@ module Mockable.Production
        ( Production (..)
        ) where
 
+import           Universum (MonadFail (..))
+
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
@@ -20,6 +22,10 @@ import           Control.Monad.IO.Class (MonadIO)
 import qualified Crypto.Random as Rand
 import           Data.Time.Units (Hour)
 import qualified GHC.IO as GHC
+import           Serokell.Util.Concurrent as Serokell
+import qualified System.Metrics.Counter as EKG.Counter
+import qualified System.Metrics.Distribution as EKG.Distribution
+import qualified System.Metrics.Gauge as EKG.Gauge
 import           System.Wlog (CanLog (..), HasLoggerName (..))
 
 import           Control.Monad.Base (MonadBase (..))
@@ -33,11 +39,6 @@ import           Mockable.Exception (Bracket (..), Catch (..), Throw (..))
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
-import           Serokell.Util.Concurrent as Serokell
-import qualified System.Metrics.Counter as EKG.Counter
-import qualified System.Metrics.Distribution as EKG.Distribution
-import qualified System.Metrics.Gauge as EKG.Gauge
-import           Universum (MonadFail (..))
 
 newtype Production t = Production
     { runProduction :: IO t
@@ -181,7 +182,7 @@ instance MonadMask Production where
         \unmask -> runProduction $ act $ Production . unmask . runProduction
 
 instance HasLoggerName Production where
-    getLoggerName = return "*production*"
+    askLoggerName = return "*production*"
     modifyLoggerName = const id
 
 instance MonadBase IO Production where

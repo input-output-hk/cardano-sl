@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE RankNTypes            #-}
 
 -- | This module implements functionality of NTP client.
@@ -13,10 +14,12 @@ module NTP.Example
     -- there is no stop button, since `runNtpClientIO` does `initLogging`
     ) where
 
+import           Universum
+
 import           Control.Monad (void)
 import           Data.Default (def)
-import           System.Wlog (LoggerNameBox, Severity (..), initTerminalLogging, usingLoggerName)
-import           System.Wlog.Formatter (centiUtcTimeF)
+import           System.Wlog (LoggerNameBox, Severity (..), defaultConfig, setupLogging,
+                              severityPlus, termSeveritiesOutB, usingLoggerName)
 
 import           Mockable.Instances ()
 import           Mockable.Production (Production (..))
@@ -26,6 +29,8 @@ type WorkMode = LoggerNameBox Production
 
 runNtpClientIO :: NtpClientSettings WorkMode -> IO ()
 runNtpClientIO settings = do
-    initTerminalLogging centiUtcTimeF True True (Just Debug)
-    void $ runProduction $ usingLoggerName "ntp-example" $
+    setupLogging Nothing $
+        defaultConfig "ntp-example" <> termSeveritiesOutB (severityPlus Debug)
+    void $ runProduction $
+        usingLoggerName "ntp-example" $
         startNtpClient settings

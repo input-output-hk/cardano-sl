@@ -50,7 +50,7 @@ import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Mockable (Production, currentTime, runProduction)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode (MinWorkMode)
@@ -263,7 +263,7 @@ instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
-    getLoggerName = getLoggerNameDefault
+    askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
@@ -283,7 +283,7 @@ runSubTestMode connectionsState m =
     runStateT (runSubscriptionTestMode m) connectionsState
 
 instance HasLoggerName SubscriptionTestMode where
-    getLoggerName        = pure "explorer-subscription-test"
+    askLoggerName        = pure "explorer-subscription-test"
     modifyLoggerName _ a = a
 
 ----------------------------------------------------------------------------

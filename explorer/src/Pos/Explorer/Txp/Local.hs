@@ -8,6 +8,7 @@ module Pos.Explorer.Txp.Local
        , eTxNormalize
        ) where
 
+import           Nub (ordNub)
 import           Universum
 
 import qualified Data.HashMap.Strict as HM

@@ -1,7 +1,7 @@
 module Pos.Util.LoggerName
        ( LoggerName
        , HasLoggerName'(..)
-       , getLoggerNameDefault
+       , askLoggerNameDefault
        , modifyLoggerNameDefault
        ) where
 
@@ -12,10 +12,10 @@ import           System.Wlog (LoggerName)
 class HasLoggerName' ctx where
     loggerName :: Lens' ctx LoggerName
 
-getLoggerNameDefault
+askLoggerNameDefault
     :: (MonadReader ctx m, HasLoggerName' ctx)
     => m LoggerName
-getLoggerNameDefault = view loggerName
+askLoggerNameDefault = view loggerName
 
 modifyLoggerNameDefault
     :: (MonadReader ctx m, HasLoggerName' ctx)
@@ -23,4 +23,3 @@ modifyLoggerNameDefault
     -> m a
     -> m a
 modifyLoggerNameDefault f = local (loggerName %~ f)
-

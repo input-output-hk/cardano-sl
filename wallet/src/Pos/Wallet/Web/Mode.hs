@@ -73,7 +73,7 @@ import qualified Pos.Txp.DB as DB
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Util.OutboundQueue as OQ.Reader
@@ -220,7 +220,7 @@ instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx WalletWebM
     currentTimeSlotting = currentTimeSlottingSum
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
-    getLoggerName = getLoggerNameDefault
+    askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where

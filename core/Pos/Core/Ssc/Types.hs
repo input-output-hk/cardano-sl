@@ -90,7 +90,7 @@ type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Generic, Semigroup, Monoid, Show, Eq, Container, NFData)
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, ToList, NFData)
 
 type instance Element CommitmentsMap = SignedCommitment
 
@@ -212,20 +212,23 @@ instance Hashable VssCertificate where
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, Container, NontrivialContainer)
+    deriving (Eq, Show, Generic, NFData, ToList, Container)
 
 type instance Element VssCertificatesMap = VssCertificate
 
 makeWrapped ''VssCertificatesMap
 
 -- | A left-biased instance
-instance Monoid VssCertificatesMap where
-    mempty = UnsafeVssCertificatesMap mempty
-    mappend (UnsafeVssCertificatesMap a) (UnsafeVssCertificatesMap b) =
+instance Semigroup VssCertificatesMap where
+    (UnsafeVssCertificatesMap a) <> (UnsafeVssCertificatesMap b) =
         UnsafeVssCertificatesMap $
         a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
       where
         lVssKeys = HS.fromList (map vcVssKey (toList a))
+
+instance Monoid VssCertificatesMap where
+    mempty = UnsafeVssCertificatesMap mempty
+    mappend = (<>)
 
 ----------------------------------------------------------------------------
 -- Payload and proof

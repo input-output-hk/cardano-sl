@@ -12,6 +12,7 @@ module Pos.Wallet.Web.State.State
        , openMemState
        , closeState
 
+       , NeedSorting (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , CurrentAndRemoved (..)
@@ -106,7 +107,7 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..),
                                                CurrentAndRemoved (..),
-                                               CustomAddressType (..),
+                                               CustomAddressType (..), NeedSorting (..),
                                                PtxMetaUpdate (..), WalletBalances,
                                                WalletStorage, WalletTip (..))
 
@@ -170,8 +171,8 @@ getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
 getAccountWAddresses
     :: WebWalletModeDB ctx m
-    => AddressLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
-getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
+    => AddressLookupMode -> NeedSorting -> AccountId -> m (Maybe [CWAddressMeta])
+getAccountWAddresses mode ns ai = queryDisk $ A.GetAccountWAddresses mode ns ai
 
 doesWAddressExist
     :: WebWalletModeDB ctx m

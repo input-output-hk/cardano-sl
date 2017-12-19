@@ -156,18 +156,34 @@ getBlocks
     -> [HeaderHash]
     -> d (Either GetBlocksError [Block])
 getBlocks logic enqueue nodeId tipHeader checkpoints = do
-    headers <- requestHeaders
-    blocks <- requestBlocks headers
-    return (Right (toList blocks))
-    -- TODO exception handling? Don't just catchj all.
+    -- It is apparently an error to request headers for the tipHeader and
+    -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
+    -- you want. Sure, it's a silly thing to do, but should it be an error?
+    --
+    -- Anyway, the procedure was and still is: if it's just one block you want,
+    -- then you can skip requesting the headers and go straight to requesting
+    -- the block itself.
+    blocks <- if singleBlockHeader
+              then requestBlocks (NewestFirst (pure tipHeader))
+              else requestHeaders >>= requestBlocks
+    pure (Right (toList blocks))
+    -- TODO exception handling? Don't just catch all.
     -- What exactly is 'GetBlocksError' for?
     -- Maybe we don't need it?
   where
+
+    singleBlockHeader :: Bool
+    singleBlockHeader = case checkpoints of
+        [checkpointHash] -> checkpointHash == tipHash
+        _                -> False
     mgh :: MsgGetHeaders
     mgh = MsgGetHeaders
         { mghFrom = checkpoints
-        , mghTo = Just (headerHash tipHeader)
+        , mghTo = Just tipHash
         }
+
+    tipHash :: HeaderHash
+    tipHash = headerHash tipHeader
 
     -- | Make message which requests chain of blocks which is based on our
     -- tip. LcaChild is the first block after LCA we don't

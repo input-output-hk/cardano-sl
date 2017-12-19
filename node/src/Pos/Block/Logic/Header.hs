@@ -223,52 +223,52 @@ classifyHeaders inRecovery headers = do
 -- case we got deeper than 'recoveryHeadersMessage', we return
 -- 'recoveryHeadersMessage' headers starting from the the newest
 -- checkpoint that's in our main chain to the newest ones.
-getHeadersFromManyTo
-    :: forall ssc m.
-       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m, HasConfiguration, HasNodeConfiguration)
-    => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
-                            --   in any particular order
+getHeadersFromManyTo ::
+       forall ssc m.
+       ( DB.MonadBlockDB ssc m
+       , WithLogger m
+       , MonadError Text m
+       , HasConfiguration
+       , HasNodeConfiguration
+       )
+    => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
+                           --   in any particular order
     -> Maybe HeaderHash
     -> m (NewestFirst NE (BlockHeader ssc))
 getHeadersFromManyTo checkpoints startM = do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    validCheckpoints <- noteM "Failed to retrieve checkpoints" $
-        nonEmpty . catMaybes <$>
-        mapM (DB.blkGetHeader @ssc) (toList checkpoints)
-    tip <- GS.getTip
-    unless (all ((/= tip) . headerHash) validCheckpoints) $
-        throwError "Found checkpoint that is equal to our tip"
-    let startFrom = fromMaybe tip startM
-        isCheckpoint bh =
-            any (\c -> bh ^. headerHashG == c ^. headerHashG) validCheckpoints
-        parentIsCheckpoint bh =
-            any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
-        whileCond bh = not (isCheckpoint bh)
-    headers <- noteM "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
-        DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
-    let newestH = headers ^. _Wrapped . _neHead
-        oldestH = headers ^. _Wrapped . _neLast
-    logDebug $
-        sformat ("getHeadersFromManyTo: retrieved headers, oldest is "
-                % build % ", newest is " % build) oldestH newestH
-    if parentIsCheckpoint oldestH
-    then pure headers
-    else do
-        logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
-        inMainCheckpoints <-
-            noteM "Filtered set of valid checkpoints is empty" $
-            nonEmpty <$> filterM GS.isBlockInMainChain (toList validCheckpoints)
-        logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
-        let lowestCheckpoint =
-                maximumBy (comparing getEpochOrSlot) inMainCheckpoints
-            loadUpCond _ h = h < recoveryHeadersMessage
-        up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- note "loadHeadersUpWhile returned empty list" $
-            _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
-        logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
-        pure res
+
+    tip <- DB.getTipHeader @ssc
+    let tipHash = headerHash tip
+
+    -- This filters out invalid/unknown checkpoints also.
+    inMainCheckpoints <-
+        noteM "no checkpoints are in the main chain" $
+        nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints)
+    let inMainCheckpointsHashes = map headerHash inMainCheckpoints
+    when (tipHash `elem` inMainCheckpointsHashes) $
+        throwError "found checkpoint that is equal to our tip"
+    logDebug $ "got checkpoints in main chain"
+
+    if (tip ^. prevBlockL . headerHashG) `elem` inMainCheckpointsHashes
+        -- Optimization for the popular case "just get me the newest
+        -- block, i know the previous one".
+        then pure $ one tip
+        -- If optimization doesn't apply, just iterate down-up
+        -- starting with the newest header.
+        else do
+            newestCheckpoint <-
+                maximumBy (comparing getEpochOrSlot) . catMaybes <$>
+                mapM (DB.blkGetHeader @ssc) (toList inMainCheckpoints)
+            let loadUpCond _ h = h < recoveryHeadersMessage
+            up <- GS.loadHeadersUpWhile @ssc newestCheckpoint loadUpCond
+            res <-
+                note "loadHeadersUpWhile returned empty list" $
+                _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
+            logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+            pure res
   where
     noteM :: (MonadError e n) => e -> n (Maybe a) -> n a
     noteM reason action = note reason =<< action
@@ -338,9 +338,16 @@ getHeadersRange ::
     -> HeaderHash
     -> HeaderHash
     -> m (Either Text (OldestFirst NE HeaderHash))
-getHeadersRange _ older newer | older == newer = runExceptT $ do
+getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
     unlessM (isJust <$> (DB.blkGetHeader @ssc newer)) $
         throwError "getHeadersRange: can't find newer-older header"
+    whenJust depthLimitM $ \depthLimit ->
+        when (depthLimit < 1) $
+        throwError $
+        sformat ("getHeadersRange: depthLimit is "%int%
+                 ", we can't return the single requested header "%build)
+                depthLimit
+                newer
     pure $ OldestFirst $ one newer
 getHeadersRange depthLimitM older newer = runExceptT $ do
     -- oldest and newest blocks do exist

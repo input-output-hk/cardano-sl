@@ -254,7 +254,9 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     repeatOnInterval action = void $ do
         delay $ sec 1
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
-        void $ action `catchAny` \e -> reportOrLogE "recoveryTriggerWorker" e
+        void $ action `catchAny` \e -> do 
+            reportOrLogE "recoveryTriggerWorker" e
+            delay $ sec 15
         repeatOnInterval action
 
 ----------------------------------------------------------------------------

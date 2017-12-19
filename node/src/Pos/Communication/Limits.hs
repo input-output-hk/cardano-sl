@@ -24,7 +24,8 @@ import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
+import           Pos.Communication.Types.Protocol   (MsgSubscribe (..),
+                                                     MsgSubscribe1 (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import           Pos.Configuration                  (HasNodeConfiguration, recoveryHeadersMessage)
 import           Pos.Core                           (BlockVersionData (..),
@@ -301,7 +302,11 @@ instance HasNodeConfiguration => MessageLimited (MsgHeaders ssc) where
 instance MessageLimitedPure MsgSubscribe where
     msgLenLimit = 0
 
+instance MessageLimitedPure MsgSubscribe1 where
+    msgLenLimit = 0
+
 instance MessageLimited MsgSubscribe
+instance MessageLimited MsgSubscribe1
 
 ----------------------------------------------------------------------------
 -- Arbitrary

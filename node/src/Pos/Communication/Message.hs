@@ -10,7 +10,7 @@ import           Node.Message.Class               (Message (..))
 
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
-import           Pos.Communication.Types.Protocol (MsgSubscribe)
+import           Pos.Communication.Types.Protocol (MsgSubscribe, MsgSubscribe1)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg, ReqOrRes)
 import           Pos.Delegation.Types             (ProxySKLightConfirmation)
@@ -41,10 +41,13 @@ instance Message (MsgBlock ssc) where
     messageCode _ = 7
     formatMessage _ = "Block"
 
-instance Message MsgSubscribe where
+instance Message MsgSubscribe1 where
     messageCode _ = 13
-    formatMessage _ = "Subscribe"
+    formatMessage _ = "Subscribe1"
 
+instance Message MsgSubscribe where
+    messageCode _ = 14
+    formatMessage _ = "Subscribe"
 
 instance Message k => Message (ReqMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)

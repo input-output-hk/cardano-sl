@@ -39,6 +39,7 @@ module Pos.Communication.Types.Protocol
        , Origin (..)
        , Msg
        , MsgSubscribe (..)
+       , MsgSubscribe1 (..)
        ) where
 
 import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value)
@@ -316,8 +317,12 @@ instance Monad m => Monoid (MkListeners m) where
 -- needs to periodically send keep-alive like data to node B in order to ensure
 -- that the connection is valid.
 --
--- Kademia nodes might also use this if they want a guarantee that they receive
+-- Kademlia nodes might also use this if they want a guarantee that they receive
 -- messages from their peers (without subscription we rely on luck for some
 -- nodes to decide to add us to their list of known peers).
 data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
+    deriving (Generic, Show, Eq)
+
+-- | Old version of MsgSubscribe.
+data MsgSubscribe1 = MsgSubscribe1
     deriving (Generic, Show, Eq)

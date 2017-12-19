@@ -6578,6 +6578,8 @@ self: {
           pname = "servant";
           version = "0.12";
           sha256 = "09fd559b7d48e87bbb0eddbf8f8b9a2fd67197bfcdb2fcc8fd2b60295b941d41";
+          revision = "1";
+          editedCabalFile = "0gcpz466zjbcg95bpxybq1v939wmjwani1ml4fmblhckbcbkl723";
           setupHaskellDepends = [
             base
             Cabal
@@ -6664,6 +6666,8 @@ self: {
           pname = "servant-client-core";
           version = "0.12";
           sha256 = "a50cac1cb5225eab8632dc2cb8b1a9917deec67f46cb2f86c2cec31c9f366371";
+          revision = "1";
+          editedCabalFile = "0sfj0sj66f4wi2r4g9hr6p0010jc8l2h05mi23r0217ncwh8y3xm";
           libraryHaskellDepends = [
             base
             base-compat
@@ -6821,6 +6825,8 @@ self: {
           pname = "servant-server";
           version = "0.12";
           sha256 = "65f23367fc1cdc3ee63e37464b5e0c9680b87c6ac4c251fbece417921a993cc6";
+          revision = "1";
+          editedCabalFile = "1b0vqzbaaz3bqzdh640rss5xsyl0s5q42xccfdmzmpn559w3p81r";
           isLibrary = true;
           isExecutable = true;
           setupHaskellDepends = [

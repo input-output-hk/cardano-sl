@@ -141,8 +141,8 @@ instance
   where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
-        clientAddress <- L.newAddress RandomSeed passphrase accId
-        decodeCTypeOrFail (cadId clientAddress)
+        cAddrMeta <- L.newAddress_ RandomSeed passphrase accId
+        decodeCTypeOrFail (cwamId cAddrMeta)
 
 sendMoney
     :: MonadWalletWebMode m

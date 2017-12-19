@@ -35,9 +35,10 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMetas,
-                                             getHistoryCache, getPendingTx, getTxMeta,
-                                             getWalletPendingTxs, setWalletTxMeta)
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), AddressInfo (..),
+                                             addOnlyNewTxMetas, getHistoryCache,
+                                             getPendingTx, getTxMeta, getWalletPendingTxs,
+                                             setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
                                              getWalletAddrs, getWalletAddrsDetector)
 
@@ -87,7 +88,7 @@ getHistory
     -> m (Map TxId (CTx, POSIXTime), Word)
 getHistory cWalId accIds mAddrId = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    accAddrs <- S.fromList . map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+    accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
     allAccIds <- getWalletAccountIds cWalId
 
     let filterFn :: Map TxId (CTx, POSIXTime) -> Map TxId (CTx, POSIXTime)

@@ -269,18 +269,13 @@ getWalletAddresses =
     view wsWalletInfos
 
 getAccountWAddresses :: AddressLookupMode
-                  -> AccountId
-                  -> Query (Maybe [CWAddressMeta])
+                     -> AccountId
+                     -> Query (Maybe [AddressInfo])
 getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
-    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
-    fetch which = do
-        cAddresses <- preview (wsAccountInfos . ix accId . which)
-        -- here `cAddresses` has type `Maybe CAddresses`
-        pure $
-            (map adiCWAddressMeta . sortOn adiSortingKey . map snd . HM.toList)
-            <$> cAddresses
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
+    fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
 doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =

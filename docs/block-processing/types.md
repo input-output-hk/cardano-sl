@@ -17,7 +17,7 @@
       + [Update system payload+proof](#update-system-payload-proof)
   + [Transaction-related types](#transaction-related-types)
     * [Transaction](#transaction)
-      + [Address](#address) – IN PROGRESS
+      + [Address](#address)
       + [Witness](#witness)
       + [Script](#script)
     * [Merkle tree](#merkle-tree)
@@ -223,8 +223,6 @@ It contains the following fields:
       + `_mehAttributes :: BlockHeaderAttributes` – an attributes map to
         extend the header with more fields, currently empty
 
-TODO: for all things, specify how their integrity is validated
-
 ### Main block signature
 
 *keywords: `BlockSignature`, `MainToSign`*
@@ -306,7 +304,7 @@ have the same number of elements.
 
 The reason we separate transactions and their witnesses is that light
 clients might want to request transactions but not witnesses (since they
-don't have enough information to verify the witnesses anyway), and in order
+don't have enough information to verify the witnesses anyway), and- in order
 to be able to verify the acquired list of transactions given only the block
 header, we need a hash of transactions (separated from witnesses) in the
 header.
@@ -521,28 +519,31 @@ data AddrSpendingData
 
   * `RedeemASD pubkey` – you have to provide a signature by given redeem key
 
-These two types are stored in an `Address'`:
+These two types are stored in an `Address'` along with address attributes:
 
 ```haskell
 newtype Address' =
     Address' (AddrType, AddrSpendingData, Attributes AddrAttributes)
 ```
 
-TODO: describe `AddrAttributes`:
+Address's attributes store the derivation path (not explained in this
+document) and stake distribution. When money is sent to an address, we take
+only the distribution into account for the purpose of choosing slot leaders;
+it doesn't matter who the money actually belongs to (as determined by
+`AddrSpendingData`).
 
-```
+```haskell
 data AddrAttributes = AddrAttributes
-    { aaPkDerivationPath  :: !(Maybe HDAddressPayload)
-    , aaStakeDistribution :: !AddrStakeDistribution
-    } deriving (Eq, Ord, Show, Generic, Typeable)
+    { aaPkDerivationPath  :: Maybe HDAddressPayload
+    , aaStakeDistribution :: AddrStakeDistribution
+    }
+
+data HDAddressPayload = HDAddressPayload ByteString
 
 data AddrStakeDistribution
     = BootstrapEraDistr
-    -- ^ Stake distribution for bootstrap era.
     | SingleKeyDistr StakeholderId
-    -- ^ Stake distribution stating that all stake should go
-    -- to the given stakeholder.
-    | UnsafeMultiKeyDistr Map StakeholderId CoinPortion
+    | UnsafeMultiKeyDistr (Map StakeholderId CoinPortion)
     -- ^ Stake distribution which gives stake to multiple
     -- stakeholders. 'CoinPortion' is a portion of an output (output
     -- has a value, portion of this value is stake). The constructor
@@ -552,16 +553,31 @@ data AddrStakeDistribution
     --   • there must be at least 2 items, because if there is only one item,
     --     'SingleKeyDistr' can be used instead (which is smaller).
 
--- | HDAddressPayload consists of
---
--- * serialiazed and encrypted using HDPassphrase derivation path from the
--- root key to given descendant key (using ChaChaPoly1305 algorithm)
---
--- * cryptographic tag
---
--- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
-data HDAddressPayload = HDAddressPayload ByteString
+newtype CoinPortion = CoinPortion Word64
 ```
+
+There are three available distributions:
+
+  * `BootstrapEraDistr` – stake is assigned to bootstrap era stakeholders
+
+  * `SingleKeyDistr id` – all stake is assigned to the stakeholder with
+    given ID
+
+  * `UnsafeMultiKeyDistr map` – stake is divided between several
+    stakeholders. For each stakeholder there's provided a `CoinPortion` –
+    the dole of the stake that should be assigned to that stakeholder.
+
+Invariants of `UnsafeMultiKeyDistr`:
+
+  * The sum of portions must be 1.
+  * All portions must be positive (i.e. not 0).
+  * There must be at least two stakeholders.
+
+A `CoinPortion` is a newtype for `Word64`, and is interpreted as the
+numerator of `x / 10^15`. Its invariant is that the `x` must lie in the
+interval `[0; 10^15]`.
+
+----------------------------------------
 
 An `Address'` provides enough information to receive funds. However, a
 problem with `Address'` is that it reveals public keys, which is something

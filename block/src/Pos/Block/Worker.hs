@@ -16,13 +16,14 @@ import           Formatting (Format, bprint, build, fixed, int, now, sformat, sh
 import           Mockable (delay, fork)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
+import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
-                                  createMainBlockAndApply, needRecovery)
+                                  createMainBlockAndApply)
 import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
@@ -47,7 +48,8 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Recovery.Info (recoveryCommGuard)
+import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
+                                    recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
@@ -219,26 +221,42 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     -- to initialize).
     delay $ sec 3
 
-    repeatOnInterval $
-        -- This is different from recoveryGuard, because latter
-        -- also doesn't run computation if we don't know current slot.
-        -- The following needRecovery function only checks if we
-        -- have recovery variable in place now and tries to fill it
-        -- (by requesting tips) if it's empty.
-        whenM (needRecovery @ctx) $ do
+    repeatOnInterval $ do
+        doTrigger <- needTriggerRecovery <$> getSyncStatusK
+        when doTrigger $ do
+            logInfo "Triggering recovery because we need it"
             triggerRecovery enqueueMsg
-            -- We don't want to ask for tips too frequently.
-            -- E.g. there may be a tip processing mistake so that we
-            -- never go into recovery even though we recieve
-            -- headers. Or it may happen that we will receive only
-            -- useless broken tips for some reason (attack?). This
-            -- will minimize risks and network load.
-            delay $ sec 20
+
+
+        -- Sometimes we want to trigger recovery just in case. Maybe
+        -- we're just 5 slots late, but nobody wants to send us
+        -- blocks. It may happen sometimes, because nobody actually
+        -- guarantees that node will get updates on time. So we
+        -- sometimes ask for tips even if we're in relatively safe
+        -- situation.
+        (d :: Double) <- liftIO $ randomRIO (0,1)
+        -- P = 0.004 ~ every 250th time (250 seconds ~ every 4.2 minutes)
+        let triggerSafety = not doTrigger && d < 0.004
+        when triggerSafety $ do
+            logInfo "Checking if we need recovery as a safety measure"
+            whenM (needTriggerRecovery <$> getSyncStatus 5) $ do
+                logInfo "Triggering recovery as a safety measure"
+                triggerRecovery enqueueMsg
+
+        -- We don't want to ask for tips too frequently.
+        -- E.g. there may be a tip processing mistake so that we
+        -- never go into recovery even though we recieve
+        -- headers. Or it may happen that we will receive only
+        -- useless broken tips for some reason (attack?). This
+        -- will minimize risks and network load.
+        when (doTrigger || triggerSafety) $ delay $ sec 20
   where
     repeatOnInterval action = void $ do
         delay $ sec 1
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
-        void $ action `catchAny` \e -> reportOrLogE "recoveryTriggerWorker" e
+        void $ action `catchAny` \e -> do 
+            reportOrLogE "recoveryTriggerWorker" e
+            delay $ sec 15
         repeatOnInterval action
 
 ----------------------------------------------------------------------------

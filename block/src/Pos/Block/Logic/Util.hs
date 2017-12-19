@@ -7,7 +7,6 @@ module Pos.Block.Logic.Util
        (
          -- * Common/Utils
          lcaWithMainChain
-       , needRecovery
        , calcChainQuality
        , calcChainQualityM
        , calcOverallChainQuality
@@ -25,11 +24,10 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
-import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), diffEpochOrSlot,
-                           difficultyL, fixedTimeCQ, flattenSlotId, getEpochOrSlot, headerHash,
-                           prevBlockL)
+import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), difficultyL,
+                           fixedTimeCQ, flattenSlotId, headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, slotSecurityParam)
+import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
@@ -59,37 +57,7 @@ lcaWithMainChain headers =
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
 
--- | The phrase “we're in recovery mode” is confusing because it can mean two
--- different things:
---
--- 1. Last known block is more than K slots away from the current slot, or
---    current slot isn't known.
---
--- 2. We're actually in the process of requesting blocks because we have
---    detected that #1 happened. (See 'ncRecoveryHeader' and
---    'recoveryInProgress'.)
---
--- This function checks for #1. Note that even if we're doing recovery right
--- now, 'needRecovery' will still return 'True'.
---
-needRecovery
-    :: forall ctx m.
-    ( HasConfiguration
-    , MonadSlots ctx m
-    , MonadBlockDBRead m
-    )
-    => m Bool
-needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
-  where
-    isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader
-        let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
-                         lastKnownBlockSlot
-        pure $ case distance of
-            Just d  -> d > slotSecurityParam
-            Nothing -> True   -- if current slot < last known slot, it's very
-                              -- weird but at least we definitely know that
-                              -- we don't need to do recovery
+
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blocksCount' and another slot after that one for which we

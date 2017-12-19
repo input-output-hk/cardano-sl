@@ -157,8 +157,8 @@ deriving instance Show BlockHeader => Show ClassifyHeadersRes
 --    lca child is returned.
 -- * If chain of headers forks from our main chain too much, CHsUseless
 --    is returned, because paper suggests doing so.
--- * CHsUseless is also returned if we aren't too far behind the current slot
---    (i.e. if 'needRecovery' is false) but the newest header in the list isn't
+-- * CHsUseless is also returned if we aren't too far behind the current slot,
+--    but the newest header in the list isn't
 --    from the current slot. See CSL-177.
 classifyHeaders ::
        forall ctx m.

@@ -5,7 +5,9 @@ module Pos.Recovery.Info
        ( SyncStatus (..)
        , MonadRecoveryInfo(..)
        , recoveryInProgress
+       , getSyncStatusK
        , recoveryCommGuard
+       , needTriggerRecovery
        ) where
 
 import           Universum
@@ -75,16 +77,9 @@ recoveryInProgress =
         SSDoingRecovery -> True
         _ -> False
 
--- | This is a helper function which runs given action only if we are
--- kinda synchronized with the network.  It is useful for workers
--- which shouldn't do anything while we are not synchronized.
-recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m, HasConfiguration)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
-    getSyncStatus lagBehindParam >>= \case
-        SSKindaSynced -> action
-        status -> onIgnore status
+-- | Get sync status using K as lagBehind param.
+getSyncStatusK :: (MonadRecoveryInfo m, HasConfiguration) => m SyncStatus
+getSyncStatusK = getSyncStatus lagBehindParam
   where
     -- It's actually questionable which value to use here. The less it
     -- is, the stricter is the condition to do some
@@ -92,8 +87,28 @@ recoveryCommGuard actionName action =
     -- something smaller.
     lagBehindParam :: SlotCount
     lagBehindParam = slotSecurityParam
-    onIgnore status =
-        logDebug $
-        sformat
-            ("recoveryCommGuard: we are skipping action '"%stext%
-             "', because "%build) actionName status
+
+-- | This is a helper function which runs given action only if we are
+-- kinda synchronized with the network.  It is useful for workers
+-- which shouldn't do anything while we are not synchronized.
+recoveryCommGuard
+    :: (MonadRecoveryInfo m, WithLogger m, HasConfiguration)
+    => Text -> m () -> m ()
+recoveryCommGuard actionName action =
+    getSyncStatusK >>= \case
+        SSKindaSynced -> action
+        status ->
+            logDebug $
+            sformat ("recoveryCommGuard: we are skipping action '"%stext%
+                     "', because "%build) actionName status
+
+-- | This function checks that last known block is more than K slots
+-- away from the current slot, or current slot isn't known. It also
+-- returns False when we're actually doing recovery. So basically it
+-- returns true if we actually need to ask for tips right now.
+needTriggerRecovery :: SyncStatus -> Bool
+needTriggerRecovery = \case
+    SSKindaSynced   -> False
+    SSDoingRecovery -> False
+    SSInFuture{}    -> False
+    _               -> True

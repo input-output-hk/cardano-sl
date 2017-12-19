@@ -33,53 +33,54 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
 
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode(..), AddressInfo (..),
-                                             CurrentAndRemoved (..),
-                                             WebWalletModeDB, getAccountAddrMaps, getAccountIds,
+                                             CurrentAndRemoved (getCurrent, getRemoved),
+                                             WalletSnapshot,
+                                             getAccountAddrMaps, getAccountIds,
                                              getAccountWAddresses, getWalletMeta,
                                              getAccountMeta)
 
-getAccountMetaOrThrow :: (WebWalletModeDB ctx m, MonadThrow m) => AccountId -> m CAccountMeta
-getAccountMetaOrThrow accId = getAccountMeta accId >>= maybeThrow noAccount
+getAccountMetaOrThrow :: MonadThrow m => WalletSnapshot -> AccountId -> m CAccountMeta
+getAccountMetaOrThrow ws accId = maybeThrow noAccount (getAccountMeta ws accId)
   where
     noAccount =
         RequestError $ sformat ("No account with id "%build%" found") accId
 
-getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
+getWalletAccountIds :: WalletSnapshot -> CId Wal -> [AccountId]
+getWalletAccountIds ws cWalId = filter ((== cWalId) . aiWId) (getAccountIds ws)
 
-getAccountAddrsOrThrow
-    :: (WebWalletModeDB ctx m, MonadThrow m)
-    => AddressLookupMode -> AccountId -> m [AddressInfo]
-getAccountAddrsOrThrow mode accId =
-    getAccountWAddresses mode accId >>= maybeThrow noWallet
+getAccountAddrsOrThrow :: MonadThrow m
+                       => WalletSnapshot
+                       -> AddressLookupMode
+                       -> AccountId
+                       -> m [AddressInfo]
+getAccountAddrsOrThrow ws mode accId = maybeThrow noWallet (getAccountWAddresses ws mode accId)
   where
     noWallet =
         RequestError $
         sformat ("No account with id "%build%" found") accId
 
 getWalletAddrMetas
-    :: (WebWalletModeDB ctx m, MonadThrow m)
-    => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
-getWalletAddrMetas lookupMode cWalId = do
-    accountIds <- getWalletAccountIds cWalId
-    map adiCWAddressMeta <$> concatMapM (getAccountAddrsOrThrow lookupMode) accountIds
+    :: MonadThrow m
+    => WalletSnapshot
+    -> AddressLookupMode
+    -> CId Wal
+    -> m [CWAddressMeta]
+getWalletAddrMetas ws lookupMode cWalId = do
+    let accountIds = getWalletAccountIds ws cWalId
+    map adiCWAddressMeta <$> concatMapM (getAccountAddrsOrThrow ws lookupMode) accountIds
 
-getWalletAddrs
-    :: (WebWalletModeDB ctx m, MonadThrow m)
-    => AddressLookupMode -> CId Wal -> m [CId Addr]
-getWalletAddrs mode wid = cwamId <<$>> getWalletAddrMetas mode wid
+getWalletAddrs :: MonadThrow m => WalletSnapshot -> AddressLookupMode -> CId Wal -> m [CId Addr]
+getWalletAddrs ws mode wid = fmap cwamId <$> getWalletAddrMetas ws mode wid
 
-getWalletAddrsDetector
-    :: (WebWalletModeDB ctx m, MonadThrow m)
-    => AddressLookupMode -> CId Wal -> m (CId Addr -> Bool)
-getWalletAddrsDetector lookupMode cWalId = do
-    accIds <- getWalletAccountIds cWalId
-    accAddrMaps <- mapM getAccountAddrMaps accIds
+getWalletAddrsDetector :: WalletSnapshot -> AddressLookupMode -> CId Wal -> (CId Addr -> Bool)
+getWalletAddrsDetector ws lookupMode cWalId = do
+    let accIds = getWalletAccountIds ws cWalId
+    let accAddrMaps = map (getAccountAddrMaps ws) accIds
     let lookupExisting addr = any (HM.member addr . getCurrent) accAddrMaps
         lookupDeleted  addr = any (HM.member addr . getRemoved) accAddrMaps
         lookupEver     addr = lookupExisting addr
                            || lookupDeleted  addr
-    return $ case lookupMode of
+    case lookupMode of
         Existing -> lookupExisting
         Deleted  -> lookupDeleted
         Ever     -> lookupEver
@@ -87,12 +88,10 @@ getWalletAddrsDetector lookupMode cWalId = do
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType
 
-getWalletAssuredDepth
-    :: (WebWalletModeDB ctx m)
-    => CId Wal -> m (Maybe BlockCount)
-getWalletAssuredDepth wid =
-    assuredBlockDepth HighAssurance . cwAssurance <<$>>
-    getWalletMeta wid
+getWalletAssuredDepth :: WalletSnapshot -> CId Wal -> Maybe BlockCount
+getWalletAssuredDepth ws wid =
+    assuredBlockDepth HighAssurance . cwAssurance <$>
+    getWalletMeta ws wid
 
 testOnlyEndpoint :: (HasNodeConfiguration, MonadThrow m) => m a -> m a
 testOnlyEndpoint action

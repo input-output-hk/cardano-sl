@@ -36,9 +36,8 @@ import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
-                                                 getWalletAddrsDetector)
+import           Pos.Wallet.Web.State           (getWalletSnapshot, AddressLookupMode (Ever))
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsDetector)
 
 
 redeemAda
@@ -94,9 +93,10 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
+    ws <- getWalletSnapshot
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
-                prepareRedemptionTx getOwnUtxos redeemSK dstAddr
+                prepareRedemptionTx (getOwnUtxos ws) redeemSK dstAddr
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -104,13 +104,14 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
             txInputs = [TxOut redeemAddress redeemBalance]
             th = THEntry txHash tx Nothing txInputs [dstAddr] ts
             dstWallet = aiWId accId
-        ptx <- mkPendingTx dstWallet txHash txAux th
+        ptx <- mkPendingTx ws dstWallet txHash txAux th
 
         th <$ submitAndSaveNewPtx enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId
     addHistoryTx cWalId th
-    cWalAddrsDetector <- getWalletAddrsDetector Ever cWalId
+    ws' <- getWalletSnapshot
+    let cWalAddrsDetector = getWalletAddrsDetector ws' Ever cWalId
     diff <- getCurChainDifficulty
-    fst <$> constructCTx cWalId cWalAddrsDetector diff th
+    fst <$> constructCTx ws' cWalId cWalAddrsDetector diff th

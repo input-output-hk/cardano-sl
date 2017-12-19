@@ -9,6 +9,7 @@ module Pos.Wallet.Web.State.Storage
        , AccountInfo (..)
        , AddressInfo (..)
        , AddressLookupMode (..)
+       , CAddresses
        , CustomAddressType (..)
        , CurrentAndRemoved (..)
        , WalletBalances

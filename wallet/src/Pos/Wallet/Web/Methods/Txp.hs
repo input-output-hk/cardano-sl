@@ -26,7 +26,7 @@ import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletErr
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx, allPendingAddresses,
                                              ptxFirstSubmissionHandler, submitAndSavePtx)
-import           Pos.Wallet.Web.State       (getPendingTxs)
+import           Pos.Wallet.Web.State       (WalletSnapshot, getPendingTxs)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail)
 
 
@@ -60,13 +60,13 @@ submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
 
 -- | With regard to tx creation policy which is going to be used,
 -- get addresses which are refered by some yet unconfirmed transaction outputs.
-getPendingAddresses :: MonadWalletWebMode m => InputSelectionPolicy -> m PendingAddresses
-getPendingAddresses = \case
+getPendingAddresses :: WalletSnapshot -> InputSelectionPolicy -> PendingAddresses
+getPendingAddresses ws = \case
     OptimizeForSecurity ->
         -- NOTE (int-index) The pending transactions are ignored when we optimize
         -- for security, so it is faster to not get them. In case they start being
         -- used for other purposes, this shortcut must be removed.
-        return mempty
+        mempty
     OptimizeForHighThroughput ->
-        allPendingAddresses <$> getPendingTxs
+        allPendingAddresses (getPendingTxs ws)
 

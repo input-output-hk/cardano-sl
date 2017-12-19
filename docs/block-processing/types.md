@@ -89,6 +89,10 @@ It contains the following fields:
   * `_gbExtra :: GenesisExtraBodyData` – an attributes map, currently empty
     (`Attributes ()`)
 
+Invariants:
+
+  * Body proof in the header must be valid.
+
 ### Genesis block header
 
 *keywords: `GenesisBlockHeader`; `ConsensusData GenesisBlockchain`,
@@ -180,6 +184,29 @@ It contains the following fields:
   * `_gbExtra :: MainExtraBodyData` – an attributes map, currently empty
     (`Attributes ()`)
 
+Invariants:
+
+  * Header:
+      + Body proof (`_gbhBodyProof`) must be valid.
+      + Extra body hash (`_mehEBDataProof`) must be valid.
+
+  * SSC payload:
+      + Certificates must have valid time-to-live – the protocol defines
+        values `(vssMinTTL, vssMaxTTL)`, and we check that for each
+        certificate, `certExpiryEpoch - blockEpoch + 1` lies in the interval
+        `[vssMinTTL; vssMaxTTL]`.
+      + Commitments must have right signatures. To verify commitment's
+        signature, we must know the epoch – therefore it can't be checked as
+        a part of the commitment invariants.
+      + The commitments should each contain at least one share, and the
+        shares in commitments should be deserializable.
+      + The payload type should correspond to the slot of the block
+        (commitments are only allowed in slots `[0;2k)`, openings – in slots
+        `[4k;6k)`, and shares – in slots `[8k;10k)`).
+
+  * Delegation payload:
+      + All proxy keys must have the same epoch as the block itself.
+
 ### Main block header
 
 *keywords: `MainBlockHeader`; `ConsensusData MainBlockchain`,
@@ -222,6 +249,14 @@ It contains the following fields:
         data in the block)
       + `_mehAttributes :: BlockHeaderAttributes` – an attributes map to
         extend the header with more fields, currently empty
+
+Invariants:
+
+  * The signature must be valid.
+
+  * If the signature is a delegated signature (`BlockPSignatureLight` or
+    `BlockPSignatureHeavy`), it must not be self-signed – i.e. the
+    `pskIssuerPk` and `pskDelegatePk` must be different.
 
 ### Main block signature
 

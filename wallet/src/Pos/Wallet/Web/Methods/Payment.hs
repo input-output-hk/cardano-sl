@@ -53,6 +53,7 @@ import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWeb
                                                    convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
+import           Pos.Wallet.Web.State.State       (getPendingTxs)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds, getWalletAddrsSet)
@@ -82,10 +83,11 @@ getTxFee
      -> Coin
      -> m CCoin
 getTxFee srcAccount dstAccount coin = do
+    pendingTxs <- getPendingTxs
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
+        eitherToThrow =<< runTxCreator (computeTxFee pendingTxs utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource
@@ -167,7 +169,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
-    let getSinger addr = runIdentity $ do
+    let getSigner addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (M.lookup addr metasAndAdrresses)
@@ -177,10 +179,11 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
+    pendingTxs <- getPendingTxs
     th <- rewrapTxError "Cannot send transaction" $ do
         logDebug "sendMoney: we're to prepareMTx"
         (txAux, inpTxOuts') <-
-            prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx pendingTxs getSigner srcAddrs outputs (relatedAccount, passphrase)
         logDebug "sendMoney: performed prepareMTx"
 
         ts <- Just <$> getCurrentTimestamp

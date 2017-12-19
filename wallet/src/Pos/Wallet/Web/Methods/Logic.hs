@@ -64,7 +64,7 @@ import           Pos.Wallet.Web.State         (AddressLookupMode (Existing),
                                                setAccountMeta, setWalletMeta,
                                                setWalletPassLU, setWalletReady)
 import qualified Pos.Wallet.Web.State         as WS
-import           Pos.Wallet.Web.State.Storage (WalBalancesAndUtxo)
+import           Pos.Wallet.Web.State.Storage (NeedSorting (..), WalBalancesAndUtxo)
 import           Pos.Wallet.Web.Tracking      (CAccModifier (..), CachedCAccModifier,
                                                fixCachedAccModifierFor,
                                                fixingCachedAccModifier, sortedInsertions)
@@ -115,7 +115,7 @@ getAccountMod
     -> AccountId
     -> m CAccount
 getAccountMod balAndUtxo accMod accId = do
-    dbAddrs    <- getAccountAddrsOrThrow Existing accId
+    dbAddrs    <- getAccountAddrsOrThrow Existing (NeedSorting True) accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     logDebug "getAccountMod: gathering info about addresses.."
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds

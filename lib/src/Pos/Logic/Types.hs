@@ -167,38 +167,7 @@ instance Exception GetTipError
 
 -- | A diffusion layer: its interface, and a way to run it.
 data LogicLayer m = LogicLayer
-    { -- Morally, this should be  forall x . m x -> m x
-      --
-      -- But for a first iteration, the caller is given an  m ()  which
-      -- returns/throws when the logic layer returns/throws.
-      --
-      -- This allows us to temporarily maintain the worker model such that
-      -- the workers determine control: the program stops when any of
-      --   1. all workers finish
-      --   2. one worker crashes
-      --   3. some special shutdown  TVar  is written with  True
-      -- as it is and has always been.
-      --
-      -- The logic layer returning shouldn't make sense (but it may crash), as
-      -- it should be a completely passive thing, churning indefinitely like
-      -- the diffusion layer in response to events.
-      --
-      -- forall x . m x -> m x  supports the passive approach: the  m x  will
-      -- run, but if the logic layer crashes, it can throw an asynchronous
-      -- exception to that action (if the particular logic layer is an IO
-      -- implementation).
-      --
-      -- Ultimately we may want to go for a design in which the logic layer
-      -- (along with the diffusion layer) passively supports an application
-      -- control layer.
-      --
-      --   type Application m t = Logic m -> Diffusion m -> m t
-      --
-      -- With this design a "full" logic layer becomes far more portable: it
-      -- doesn't run all of the workers, it just provisions everything that an
-      -- application would need in order to run them. 
-      -- runLogicLayer :: forall x . (m () -> m x) -> m x
-      runLogicLayer :: forall x . m x -> m x
+    { runLogicLayer :: forall x . m x -> m x
     , logic         :: Logic m
     }
 
@@ -207,7 +176,7 @@ dummyLogicLayer
     :: ( Applicative m )
     => LogicLayer m
 dummyLogicLayer = LogicLayer
-    { runLogicLayer = identity -- \k -> k (pure ())
+    { runLogicLayer = identity
     , logic         = dummyLogic
     }
 

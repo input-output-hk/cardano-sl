@@ -15,9 +15,8 @@ import           Universum
 import           Data.Version (showVersion)
 import qualified NeatInterpolation as N
 import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
-                                      fullDesc, header, help, helpDoc, helper, info, infoOption,
-                                      long, maybeReader, metavar, option, progDesc, subparser,
-                                      value)
+                                      fullDesc, header, help, helper, info, infoOption, long,
+                                      maybeReader, metavar, option, progDesc, subparser, value)
 import           Pos.Communication (NodeId)
 import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
@@ -72,8 +71,8 @@ cmdParser = command "cmd" $ info opts desc
 -- Parse everything
 ----------------------------------------------------------------------------
 
-helpText :: Doc
-helpText = fromString @Doc $ toString @Text $ [N.text|
+helpContent :: String
+helpContent = toString @Text $ [N.text|
     Auxx start mode. Can be 'light', 'with-config', 'with-node', 'auto'.
     * 'light' mode requires no configuration to start, but the available.
       command set is limited.
@@ -86,7 +85,7 @@ helpText = fromString @Doc $ toString @Text $ [N.text|
 startModeParser :: Parser AuxxStartMode
 startModeParser =
     option startModeReader $
-    long "mode" <> value Automatic <> helpDoc (Just helpText)
+    long "mode" <> value Automatic <> help helpContent
   where
     startModeReader =
         maybeReader $ \case

@@ -95,7 +95,7 @@ getSignerFromList (HM.fromList . map swap . toList -> hm) =
 
 createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left err -> stopProperty $ sformat ("Failed to create tx: "%build) err
         Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -104,7 +104,7 @@ createMTxWorksWhenWeAreRichSpec = do
 
 stabilizationDoesNotFailSpec :: HasTxpConfigurations => TxpTestProperty ()
 stabilizationDoesNotFailSpec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left err@FailedToStabilize -> stopProperty $ pretty err
         Left _                     -> return ()
@@ -114,7 +114,7 @@ stabilizationDoesNotFailSpec = do
 
 feeIsNonzeroSpec :: HasTxpConfigurations => TxpTestProperty ()
 feeIsNonzeroSpec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left (NotEnoughMoney _) -> return ()
         Left err -> stopProperty $ pretty err
@@ -126,7 +126,7 @@ feeIsNonzeroSpec = do
 
 manyUtxoTo1Spec :: HasTxpConfigurations => TxpTestProperty ()
 manyUtxoTo1Spec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left err -> stopProperty $ pretty err
         Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -135,7 +135,7 @@ manyUtxoTo1Spec = do
 
 manyAddressesTo1Spec :: HasTxpConfigurations => TxpTestProperty ()
 manyAddressesTo1Spec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left err -> stopProperty $ pretty err
         Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -144,7 +144,7 @@ manyAddressesTo1Spec = do
 
 manyAddressesToManySpec :: HasTxpConfigurations => TxpTestProperty ()
 manyAddressesToManySpec = do
-    txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    txOrError <- createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     case txOrError of
         Left err -> stopProperty $ pretty err
         Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -169,7 +169,7 @@ redemptionSpec = do
 
 txWithRedeemOutputFailsSpec :: HasTxpConfigurations => TxpTestProperty ()
 txWithRedeemOutputFailsSpec = do
-    txOrError <- createMTx utxo (getSignerFromList signers) outputs addrData
+    txOrError <- createMTx mempty utxo (getSignerFromList signers) outputs addrData
     case txOrError of
         Left (OutputIsRedeem _) -> return ()
         Left err -> stopProperty $ pretty err
@@ -227,7 +227,7 @@ feeForManyAddressesSpec manyAddrs =
         Right _  -> return ()
   where
     createTxWithParams CreateMTxParams {..} =
-        createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+        createMTx mempty cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     -- considering two corner cases of utxo outputs distribution
     mkParams
         | manyAddrs = makeManyAddressesTo1Params

@@ -262,23 +262,28 @@ makeLenses ''InputPickerState
 
 type InputPicker = StateT InputPickerState (Either TxError)
 
-reallyPendingTx :: [PendingTx] -> [PendingTx]
-reallyPendingTx = filter isPending
+-- | Filters the input '[PendingTx]' to choose only the ones which are not
+-- yet persisted in the blockchain.
+nonConfirmedTransactions :: [PendingTx] -> [PendingTx]
+nonConfirmedTransactions = filter isPending
   where
+    -- | Is this 'PendingTx' really pending?
     isPending :: PendingTx -> Bool
     isPending PendingTx{..} = case _ptxCond of
         PtxInNewestBlocks _ -> False
         PtxPersisted        -> False
         _                   -> True
 
+-- | Returns the full list of "pending addresses", which are @output@ addresses
+-- associated to transactions not yet persisted in the blockchain.
 allPendingAddresses :: [PendingTx] -> Set Address
-allPendingAddresses pendingTxs = S.fromList $ concatMap grabTxOutput (reallyPendingTx pendingTxs)
+allPendingAddresses = S.unions . map grabTxOutputs . nonConfirmedTransactions
   where
-    grabTxOutput :: PendingTx -> [Address]
-    grabTxOutput PendingTx{..} =
+    grabTxOutputs :: PendingTx -> Set Address
+    grabTxOutputs PendingTx{..} =
         let (TxAux tx _) = _ptxTxAux
             (UnsafeTx _ outputs _) = tx
-            in map (\(TxOut a _) -> a) (toList outputs)
+            in S.fromList $ map (\(TxOut a _) -> a) (toList outputs)
 
 -- | Given filtered Utxo, desired outputs and fee size,
 -- prepare correct inputs and outputs for transaction
@@ -314,9 +319,13 @@ prepareTxRaw pendingTx utxo outputs (TxFee fee) = do
 
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
-    allUnspent = M.toList $ M.filter (onlyConfirmedInputs (allPendingAddresses pendingTx)) utxo
+    -- Try to filter only "confirmed" addresses, defaulting to the old policy if the
+    -- filtered collection is empty.
+    allUnspent = case M.filter (onlyConfirmedInputs (allPendingAddresses pendingTx)) utxo of
+        x | M.null x -> utxo -- pass the full, unfiltered utxo.
+        x -> x
     sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+        sortOn (Down . txOutValue . toaOut . snd) (M.toList allUnspent)
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do

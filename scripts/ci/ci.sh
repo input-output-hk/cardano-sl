@@ -81,5 +81,5 @@ if [[ ("$OS_NAME" == "linux") ]]; then
   echo "Done"
 fi
 
-buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   s3://ci-output-test --job $BUILDKITE_JOB_ID
-buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://ci-output-test --job $BUILDKITE_JOB_ID
+buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   s3://ci-output-sink --job $BUILDKITE_JOB_ID
+buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://ci-output-sink --job $BUILDKITE_JOB_ID

@@ -35,23 +35,26 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), AddressInfo (..),
+import           Pos.Wallet.Web.State       (WalletSnapshot, getWalletSnapshot,
+                                             AddressLookupMode (Ever), AddressInfo (..),
                                              addOnlyNewTxMetas, getHistoryCache,
                                              getPendingTx, getTxMeta, getWalletPendingTxs,
                                              setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
                                              getWalletAddrs, getWalletAddrsDetector)
 
-getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
-getFullWalletHistory cWalId = do
+getFullWalletHistory :: MonadWalletWebMode m
+                     => WalletSnapshot
+                     -> CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
+getFullWalletHistory ws cWalId = do
     logDebug "getFullWalletHistory: start"
 
-    cAddrs <- getWalletAddrs Ever cWalId
+    cAddrs <- getWalletAddrs ws Ever cWalId
     addrs <- convertCIdTOAddrs cAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs
 
-    blockHistory <- getHistoryCache cWalId >>= \case
+    blockHistory <- case getHistoryCache ws cWalId of
         Just hist -> pure hist
         Nothing -> do
             logWarning $
@@ -64,8 +67,8 @@ getFullWalletHistory cWalId = do
 
     logTxHistory "Mempool" localHistory
 
-    fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    walAddrsDetector <- getWalletAddrsDetector Ever cWalId
+    fullHistory <- addRecentPtxHistory ws cWalId $ localHistory `Map.union` blockHistory
+    let walAddrsDetector = getWalletAddrsDetector ws Ever cWalId
     diff        <- getCurChainDifficulty
     logDebug "getFullWalletHistory: fetched full history"
 
@@ -75,21 +78,23 @@ getFullWalletHistory cWalId = do
     -- transactions from block and resubmitting timestamp is already known.
     addHistoryTxs cWalId localHistory
     logDebug "getFullWalletHistory: invoked addHistoryTxs"
+    --TODO: does addHistoryTxs change the db such that we need to re-read for constructCTx?
 
-    !cHistory <- forM fullHistory (constructCTx cWalId walAddrsDetector diff)
+    !cHistory <- forM fullHistory (constructCTx ws cWalId walAddrsDetector diff)
     logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
     :: MonadWalletWebMode m
-    => CId Wal
+    => WalletSnapshot
+    -> CId Wal
     -> [AccountId]
     -> Maybe (CId Addr)
     -> m (Map TxId (CTx, POSIXTime), Word)
-getHistory cWalId accIds mAddrId = do
+getHistory ws cWalId accIds mAddrId = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
-    allAccIds <- getWalletAccountIds cWalId
+    accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
+    let allAccIds = getWalletAccountIds ws cWalId
 
     let filterFn :: Map TxId (CTx, POSIXTime) -> Map TxId (CTx, POSIXTime)
         !filterFn = case mAddrId of
@@ -103,7 +108,7 @@ getHistory cWalId accIds mAddrId = do
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
             | otherwise                -> throw errorBadAddress
 
-    res <- first filterFn <$> getFullWalletHistory cWalId
+    res <- first filterFn <$> getFullWalletHistory ws cWalId
     logDebug "getHistory: filtered transactions"
     return res
   where
@@ -128,14 +133,15 @@ getHistoryLimited
     -> Maybe ScrollLimit
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
+    ws <- getWalletSnapshot
     (cWalId, accIds) <- case (mCWalId, mAccId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth
-        (Just cWalId', Nothing) -> do
-            accIds' <- getWalletAccountIds cWalId'
-            pure (cWalId', accIds')
+        (Just cWalId', Nothing) ->
+            let accIds' = getWalletAccountIds ws cWalId'
+             in pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
-    (unsortedThs, n) <- getHistory cWalId accIds mAddrId
+    (unsortedThs, n) <- getHistory ws cWalId accIds mAddrId
 
     let !sortedTxh = forceList $ sortByTime (Map.elems unsortedThs)
     logDebug "getHistoryLimited: sorted transactions"
@@ -183,16 +189,17 @@ addHistoryTxs cWalId historyEntries = do
 
 constructCTx
     :: MonadWalletWebMode m
-    => CId Wal
+    => WalletSnapshot
+    -> CId Wal
     -> (CId Addr -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
+constructCTx ws cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
-            pure =<< getTxMeta cWalId cId
-    ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
+            pure $ getTxMeta ws cWalId cId
+    let ptxCond = encodeCType . fmap _ptxCond $ getPendingTx ws cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
         mkCTx diff wtx meta ptxCond addrBelongsToWallet
 
@@ -205,9 +212,9 @@ updateTransaction accId txId txMeta = do
 
 addRecentPtxHistory
     :: MonadWalletWebMode m
-    => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
-addRecentPtxHistory wid currentHistory = do
-    pendingTxs <- fromMaybe [] <$> getWalletPendingTxs wid
+    => WalletSnapshot -> CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
+addRecentPtxHistory ws wid currentHistory = do
+    let pendingTxs = fromMaybe [] (getWalletPendingTxs ws wid)
     let conditions = map _ptxCond pendingTxs
     -- show only actually pending transactions in logs
     logTxHistory "Pending" $ mapMaybe (preview _PtxApplying) conditions

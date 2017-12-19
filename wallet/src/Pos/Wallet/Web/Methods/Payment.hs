@@ -60,7 +60,8 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
                                                    convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), AddressInfo (..))
+import           Pos.Wallet.Web.State             (WalletSnapshot, getWalletSnapshot,
+                                                   AddressLookupMode (Ever, Existing), AddressInfo (..))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds,
@@ -80,9 +81,11 @@ newPayment sa passphrase srcAccount dstAccount coin policy =
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
-    notFasterThan (6 :: Second) $
+    notFasterThan (6 :: Second) $ do
+      ws <- getWalletSnapshot
       sendMoney
           sa
+          ws
           passphrase
           (AccountMoneySource srcAccount)
           (one (dstAccount, coin))
@@ -96,9 +99,11 @@ newPaymentBatch
     -> m CTx
 newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
-    notFasterThan (6 :: Second) $
+    notFasterThan (6 :: Second) $ do
+      ws <- getWalletSnapshot
       sendMoney
         sa
+        ws
         passphrase
         (AccountMoneySource src)
         npbTo
@@ -112,8 +117,9 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
-    pendingAddrs <- getPendingAddresses policy
-    utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
+    ws <- getWalletSnapshot
+    let pendingAddrs = getPendingAddresses ws policy
+    utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
@@ -125,21 +131,23 @@ data MoneySource
     | AddressMoneySource CWAddressMeta
     deriving (Show, Eq)
 
-getMoneySourceAddresses :: MonadWalletWebMode m => MoneySource -> m [CWAddressMeta]
-getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
-getMoneySourceAddresses (AccountMoneySource accId) =
-    map adiCWAddressMeta <$> getAccountAddrsOrThrow Existing accId
-getMoneySourceAddresses (WalletMoneySource wid) =
-    getWalletAccountIds wid >>=
-    concatMapM (getMoneySourceAddresses . AccountMoneySource)
+getMoneySourceAddresses :: MonadThrow m
+                        => WalletSnapshot -> MoneySource -> m [CWAddressMeta]
+getMoneySourceAddresses _ (AddressMoneySource addrId) = return $ one addrId
+getMoneySourceAddresses ws (AccountMoneySource accId) =
+    map adiCWAddressMeta <$> getAccountAddrsOrThrow ws Existing accId
+getMoneySourceAddresses ws (WalletMoneySource wid) =
+    concatMapM (getMoneySourceAddresses ws . AccountMoneySource)
+               (getWalletAccountIds ws wid)
 
-getSomeMoneySourceAccount :: MonadWalletWebMode m => MoneySource -> m AccountId
-getSomeMoneySourceAccount (AddressMoneySource addrId) =
+getSomeMoneySourceAccount :: MonadThrow m
+                          => WalletSnapshot -> MoneySource -> m AccountId
+getSomeMoneySourceAccount _ (AddressMoneySource addrId) =
     return $ addrMetaToAccount addrId
-getSomeMoneySourceAccount (AccountMoneySource accId) = return accId
-getSomeMoneySourceAccount (WalletMoneySource wid) = do
-    wAddr <- (head <$> getWalletAccountIds wid) >>= maybeThrow noWallets
-    getSomeMoneySourceAccount (AccountMoneySource wAddr)
+getSomeMoneySourceAccount _ (AccountMoneySource accId) = return accId
+getSomeMoneySourceAccount ws (WalletMoneySource wid) = do
+    wAddr <- maybeThrow noWallets (head (getWalletAccountIds ws wid))
+    getSomeMoneySourceAccount ws (AccountMoneySource wAddr)
   where
     noWallets = InternalError "Wallet has no accounts"
 
@@ -148,11 +156,11 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-getMoneySourceUtxo :: MonadWalletWebMode m => MoneySource -> m Utxo
-getMoneySourceUtxo =
-    getMoneySourceAddresses >=>
+getMoneySourceUtxo :: MonadWalletWebMode m => WalletSnapshot -> MoneySource -> m Utxo
+getMoneySourceUtxo ws =
+    getMoneySourceAddresses ws >=>
     mapM (decodeCTypeOrFail . cwamId) >=>
-    getOwnUtxos
+    getOwnUtxos ws
 
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
@@ -168,18 +176,22 @@ instance
   where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
-        cAddrMeta <- L.newAddress_ RandomSeed passphrase accId
+        -- TODO(adinapoli) This looks like a code smell, can we
+        -- remove this typeclass entirely?
+        ws <- getWalletSnapshot
+        cAddrMeta <- L.newAddress_ ws RandomSeed passphrase accId
         decodeCTypeOrFail (cwamId cAddrMeta)
 
 sendMoney
     :: MonadWalletWebMode m
     => SendActions m
+    -> WalletSnapshot
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
+sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
@@ -190,7 +202,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 
-    addrMetas' <- getMoneySourceAddresses moneySource
+    addrMetas' <- getMoneySourceAddresses ws moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
@@ -209,13 +221,13 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
               Left err -> throw err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
-    relatedAccount <- getSomeMoneySourceAccount moneySource
+    relatedAccount <- getSomeMoneySourceAccount ws moneySource
     outputs <- coinDistrToOutputs dstDistr
-    pendingAddrs <- getPendingAddresses policy
+    let pendingAddrs = getPendingAddresses ws policy
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
             (txAux, inpTxOuts') <-
-                prepareMTx getOwnUtxos getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+                prepareMTx (getOwnUtxos ws) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux
@@ -224,7 +236,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
                 dstAddrs  = map txOutAddress . toList $
                             _txOutputs tx
                 th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-            ptx <- mkPendingTx srcWallet txHash txAux th
+            ptx <- mkPendingTx ws srcWallet txHash txAux th
 
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
@@ -237,10 +249,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
 
     addHistoryTx srcWallet th
     diff <- getCurChainDifficulty
-    srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
+    let srcWalletAddrsDetector = getWalletAddrsDetector ws Ever srcWallet
 
     logDebug "sendMoney: constructing response"
-    fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th
+    fst <$> constructCTx ws srcWallet srcWalletAddrsDetector diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

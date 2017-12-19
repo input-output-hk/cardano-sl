@@ -11,34 +11,15 @@ module Pos.Wallet.Web.State.Acidic
        , tidyState
        , update
 
-       , GetProfile (..)
+         -- * Only query transaction
+       , GetWalletStorage (..)
+
+         -- * All the update transactions
        , DoesAccountExist (..)
-       , GetAccountIds (..)
-       , GetAccountMetas (..)
-       , GetAccountMeta (..)
-       , GetAccountAddrMaps (..)
-       , GetWalletMetas (..)
-       , GetWalletMeta (..)
-       , GetWalletMetaIncludeUnready (..)
-       , GetWalletPassLU (..)
-       , GetWalletSyncTip (..)
-       , GetWalletAddresses (..)
-       , GetWalletUtxo (..)
-       , GetWalletBalancesAndUtxo (..)
        , UpdateWalletBalancesAndUtxo (..)
        , SetWalletUtxo (..)
-       , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
-       , GetTxMeta (..)
-       , GetUpdates (..)
-       , GetNextUpdate (..)
        , TestReset (..)
-       , GetHistoryCache (..)
-       , GetCustomAddresses (..)
-       , GetCustomAddress (..)
-       , GetPendingTxs (..)
-       , GetWalletPendingTxs (..)
-       , GetPendingTx (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
@@ -53,7 +34,6 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletTxMeta (..)
        , AddOnlyNewTxMetas (..)
        , SetWalletTxHistory (..)
-       , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
        , RemoveTxMetas (..)
@@ -73,7 +53,6 @@ module Pos.Wallet.Web.State.Acidic
        , AddOnlyNewPendingTx (..)
        , CancelApplyingPtxs (..)
        , CancelSpecificApplyingPtx (..)
-       , GetWalletStorage (..)
        , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
@@ -120,33 +99,10 @@ tidyState = tidyExtendedState
 makeAcidic ''WalletStorage
     [
       'WS.testReset
-    , 'WS.getProfile
     , 'WS.doesAccountExist
-    , 'WS.getAccountIds
-    , 'WS.getAccountMetas
-    , 'WS.getAccountMeta
-    , 'WS.getAccountAddrMaps
-    , 'WS.getWalletMetas
-    , 'WS.getWalletMeta
-    , 'WS.getWalletMetaIncludeUnready
-    , 'WS.getWalletPassLU
-    , 'WS.getWalletSyncTip
-    , 'WS.getWalletAddresses
-    , 'WS.getWalletUtxo
-    , 'WS.getWalletBalancesAndUtxo
     , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
-    , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
-    , 'WS.getTxMeta
-    , 'WS.getUpdates
-    , 'WS.getNextUpdate
-    , 'WS.getHistoryCache
-    , 'WS.getCustomAddresses
-    , 'WS.getCustomAddress
-    , 'WS.getPendingTxs
-    , 'WS.getWalletPendingTxs
-    , 'WS.getPendingTx
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress
     , 'WS.createAccount
@@ -162,7 +118,6 @@ makeAcidic ''WalletStorage
     , 'WS.setWalletTxMeta
     , 'WS.addOnlyNewTxMetas
     , 'WS.setWalletTxHistory
-    , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
     , 'WS.removeTxMetas

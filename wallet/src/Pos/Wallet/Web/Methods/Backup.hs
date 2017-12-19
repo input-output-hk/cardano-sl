@@ -27,13 +27,14 @@ import           Pos.Wallet.Web.ClientTypes   (CFilePath (..), CId, CWallet, Wal
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
+import           Pos.Wallet.Web.State         (createAccount, getWalletMeta, getWalletSnapshot)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
+    ws <- getWalletSnapshot
     let wId = encToCId wbSecretKey
-    wExists <- isJust <$> getWalletMeta wId
+        wExists = isJust $ getWalletMeta ws wId
 
     if wExists
         then do
@@ -48,7 +49,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             for_ accList $ \(idx, meta) -> do
                 let aIdx = fromInteger $ fromIntegral idx
                     seedGen = DeterminedSeed aIdx
-                accId <- genUniqueAccountId seedGen wId
+                accId <- genUniqueAccountId ws seedGen wId
                 createAccount accId meta
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -70,5 +71,6 @@ importWalletJSON (CFilePath (toString -> fp)) = do
 
 exportWalletJSON :: MonadWalletWebMode m => CId Wal -> CFilePath -> m ()
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
-    wBackup <- TotalBackup <$> getWalletBackup wid
+    ws <- getWalletSnapshot
+    wBackup <- TotalBackup <$> getWalletBackup ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup

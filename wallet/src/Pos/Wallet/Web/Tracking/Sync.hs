@@ -95,7 +95,7 @@ import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletTip (..),
-                                                   WebWalletModeDB)
+                                                   WalletSnapshot, WebWalletModeDB)
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    deleteAndInsertIMM, deleteAndInsertMM,
@@ -126,8 +126,9 @@ type WalletTrackingEnv ext ctx m =
 syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState @WalletSscType . one
 
-txMempoolToModifier :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CAccModifier
-txMempoolToModifier encSK = do
+txMempoolToModifier :: WalletTrackingEnv ext ctx m
+                    => WalletSnapshot -> EncryptedSecretKey -> m CAccModifier
+txMempoolToModifier ws encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
         getDiff       = const Nothing  -- no difficulty (mempool txs)
@@ -143,7 +144,7 @@ txMempoolToModifier encSK = do
             throwM $ InternalError errMsg
 
     tipH <- DB.getTipHeader @WalletSscType
-    allAddresses <- getWalletAddrMetas Ever wId
+    allAddresses <- getWalletAddrMetas ws Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
@@ -165,7 +166,8 @@ syncWalletsWithGState
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
-    WS.getWalletSyncTip wAddr >>= \case
+    ws <- WS.getWalletSnapshot
+    case WS.getWalletSyncTip ws wAddr of
         Nothing                -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
         Just NotSynced         -> syncDo encSK Nothing
         Just (SyncedWith wTip) -> DB.blkGetHeader wTip >>= \case
@@ -252,9 +254,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
             trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
-        computeAccModifier :: BlockHeader ssc -> m CAccModifier
-        computeAccModifier wHeader = do
-            allAddresses <- getWalletAddrMetas Ever wAddr
+        computeAccModifier :: WalletSnapshot -> BlockHeader ssc -> m CAccModifier
+        computeAccModifier ws wHeader = do
+            allAddresses <- getWalletAddrMetas ws Ever wAddr
             logInfoS $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
@@ -288,7 +290,8 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         WS.updateWalletBalancesAndUtxo (utxoToModifier ownGenesisUtxo)
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
-    mapModifier@CAccModifier{..} <- computeAccModifier startFromH
+    ws <- WS.getWalletSnapshot
+    mapModifier@CAccModifier{..} <- computeAccModifier ws startFromH
     applyModifierToWallet wAddr gstateHHash mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
@@ -508,15 +511,17 @@ decryptAddress (hdPass, wCId) addr = do
 -- to given function.
 fixingCachedAccModifier
     :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
-    => (CachedCAccModifier -> key -> m a)
+    => WalletSnapshot
+    -> (CachedCAccModifier -> key -> m a)
     -> key -> m a
-fixingCachedAccModifier action key =
-    findKey key >>= txMempoolToModifier >>= flip action key
+fixingCachedAccModifier ws action key =
+    findKey key >>= txMempoolToModifier ws >>= flip action key
 
 fixCachedAccModifierFor
     :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
-    => key
+    => WalletSnapshot
+    -> key
     -> (CachedCAccModifier -> m a)
     -> m a
-fixCachedAccModifierFor key action =
-    fixingCachedAccModifier (const . action) key
+fixCachedAccModifierFor ws key action =
+    fixingCachedAccModifier ws (const . action) key

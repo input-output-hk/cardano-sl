@@ -15,30 +15,23 @@ import qualified Data.Map             as M
 import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
                                        isRedeemAddress, makePubKeyAddress)
 import           Pos.Crypto           (PublicKey)
-import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB               (MonadDBRead)
 import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
                                        getUtxoModifier)
 import qualified Pos.Txp.DB           as DB
 import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
 import qualified Pos.Util.Modifier    as MM
-import           Pos.Wallet.Web.State (WebWalletModeDB)
+import           Pos.Wallet.Web.State (WalletSnapshot)
 import qualified Pos.Wallet.Web.State as WS
 
-type BalancesEnv ext ctx m =
-    ( MonadRealDB ctx m
-    , MonadDBRead m
-    , MonadGState m
-    , WebWalletModeDB ctx m
-    , MonadMask m
-    , MonadTxpMem ext ctx m)
-
-getOwnUtxos :: BalancesEnv ext ctx m => [Address] -> m Utxo
-getOwnUtxos addrs = do
+getOwnUtxos :: (MonadIO m, MonadDBRead m, MonadTxpMem ext ctx m)
+            => WalletSnapshot -> [Address] -> m Utxo
+getOwnUtxos ws addrs = do
     let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
 
     updates <- getUtxoModifier
-    commonUtxo <- if null commonAddrs then pure mempty
-                  else WS.getWalletUtxo
+    let commonUtxo = if null commonAddrs then mempty
+                     else WS.getWalletUtxo ws
     redeemUtxo <- if null redeemAddrs then pure mempty
                   else DB.getFilteredUtxo redeemAddrs
 

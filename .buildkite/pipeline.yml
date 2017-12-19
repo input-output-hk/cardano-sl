@@ -4,8 +4,6 @@ steps:
     agents:
       system: x86_64-linux
 
-  - wait
-
   - label: 'stack2nix'
     command: 'scripts/ci/nix-shell.sh -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run scripts/check-stack2nix.sh'
     agents:

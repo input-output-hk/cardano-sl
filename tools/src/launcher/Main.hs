@@ -24,6 +24,7 @@ import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
+import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -34,7 +35,7 @@ import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, h
                                       info, infoOption, long, metavar, progDesc, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getExecutablePath)
+import           System.Environment (getEnv, getExecutablePath)
 import           System.Exit (ExitCode (..))
 import           System.FilePath ((</>))
 import qualified System.IO as IO
@@ -47,9 +48,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
 import qualified System.IO.Silently as Silently
-#endif
-
-#ifndef mingw32_HOST_OS
+#else
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
@@ -146,7 +145,7 @@ getLauncherOptions = do
             writeFile "config-error.log" $
                 sformat ("Failed to parse "%string%": "%shown) configPath err
             throwM $ LauncherConfigParseError configPath err
-        Right op -> pure op
+        Right op -> expandVars op
   where
     programInfo = info (helper <*> versionOption <*> configPathParser) $
         fullDesc <> progDesc ""
@@ -156,6 +155,43 @@ getLauncherOptions = do
     versionOption = infoOption
         ("cardano-launcher-" <> showVersion version)
         (long "version" <> help "Show version.")
+
+    -- Poor man's environment variable expansion.
+    expandVars :: LauncherOptions -> IO LauncherOptions
+#ifdef mingw32_HOST_OS
+    expandVars lo@(LO {..}) = do
+        -- %APPDATA%: nodeArgs, nodeDbPath,
+        --     nodeLogPath, updaterPath,
+        --     updateWindowsRunner, launcherLogsPrefix
+        -- %DAEDALUS_DIR%: nodePath, walletPath
+        appdata <- toText <$> getEnv "APPDATA"
+        daedalusDir <- toText <$> getEnv "DAEDALUS_DIR"
+        let replaceAppdata = replace "%APPDATA%" appdata
+            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+        pure lo
+            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
+            , loNodeDbPath          = replaceAppdata loNodeDbPath
+            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
+            , loUpdaterPath         = replaceAppdata loUpdaterPath
+            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
+            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
+            , loNodePath            = replaceDaedalusDir loNodePath
+            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
+            }
+#else
+    expandVars lo@(LO {..}) = do
+        home <- toText <$> getEnv "HOME"
+        let replaceHome = replace "$HOME" home
+        pure lo
+            { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
+            , loNodeDbPath         = replaceHome loNodeDbPath
+            , loNodeLogPath        = replaceHome <$> loNodeLogPath
+            , loUpdateArchive      = replaceHome <$> loUpdateArchive
+            , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
+            }
+#endif
+    replace :: Text -> Text -> FilePath -> FilePath
+    replace from to = toString . T.replace from to . toText
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|

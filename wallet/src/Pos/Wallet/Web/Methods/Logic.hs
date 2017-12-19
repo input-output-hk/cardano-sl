@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Methods.Logic
        , newAccount
        , newAccountIncludeUnready
        , newAddress
+       , newAddress_
        , markWalletReady
 
        , deleteWallet
@@ -54,7 +55,7 @@ import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAdd
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              addWAddress, createAccount, createWallet,
-                                             getAccountIds,
+                                             getAccountIds, doesAccountExist,
                                              getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
@@ -62,7 +63,6 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU, setWalletReady)
-import qualified Pos.Wallet.Web.State        as WS
 import           Pos.Wallet.Web.State.Storage (WalBalancesAndUtxo)
 import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
                                               fixCachedAccModifierFor,
@@ -185,6 +185,24 @@ getWallets = getWalletAddresses >>= mapM getWallet
 -- Creators
 ----------------------------------------------------------------------------
 
+newAddress_
+    :: MonadWalletWebMode m
+    => AddrGenSeed
+    -> PassPhrase
+    -> AccountId
+    -> m CWAddressMeta
+newAddress_ addGenSeed passphrase accId = do
+    -- check whether account exists
+    parentExists <- doesAccountExist accId
+    unless parentExists $ throwM noAccount
+
+    cAccAddr <- genUniqueAddress addGenSeed passphrase accId
+    addWAddress cAccAddr
+    return cAccAddr
+  where
+    noAccount =
+        RequestError $ sformat ("No account with id "%build%" found") accId
+
 newAddress
     :: MonadWalletWebMode m
     => AddrGenSeed
@@ -193,17 +211,9 @@ newAddress
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
     balAndUtxo <- getWalletBalancesAndUtxo
+    cwAddrMeta <- newAddress_ addGenSeed passphrase accId
     fixCachedAccModifierFor accId $ \accMod -> do
-        -- check whether account exists
-        parentExists <- WS.doesAccountExist accId
-        unless parentExists $ throwM noAccount
-
-        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
-        addWAddress cAccAddr
-        getWAddress balAndUtxo accMod cAccAddr
-  where
-    noAccount =
-        RequestError $ sformat ("No account with id "%build%" found") accId
+        getWAddress balAndUtxo accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m

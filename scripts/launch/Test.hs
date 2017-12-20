@@ -97,7 +97,6 @@ genScriptVersionL = genesisConstL
 richL :: AsValue t => Traversal' t Scientific
 richL = genSpecL
          . key "initializer"
-         . key "testnetInitializer"
          . key "testBalance"
          . key "richmen"
          . _Number

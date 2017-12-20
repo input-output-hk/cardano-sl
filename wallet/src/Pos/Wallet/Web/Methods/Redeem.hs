@@ -21,6 +21,7 @@ import           Pos.Communication              (SendActions (..), prepareRedemp
 import           Pos.Core                       (getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen)
+import           Pos.Txp                        (getMemPoolSnapshot)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
@@ -93,10 +94,11 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
-    ws <- getWalletSnapshot
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
-                prepareRedemptionTx (getOwnUtxos ws) redeemSK dstAddr
+                prepareRedemptionTx (getOwnUtxos ws mps) redeemSK dstAddr
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -106,7 +108,7 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
             dstWallet = aiWId accId
         ptx <- mkPendingTx ws dstWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx enqueueMsg ptx
+        th <$ submitAndSaveNewPtx mps enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId

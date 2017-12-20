@@ -48,6 +48,7 @@ import           Pos.Crypto                       (emptyPassphrase, encToPublic,
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp.MemState.Class           (getMemPoolSnapshot)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Wallet                       (getSecretKeysPlain)
 
@@ -194,12 +195,14 @@ send sendActions idx outputs = do
     skeys <- getSecretKeysPlain
     let skey = skeys !! idx
         curPk = encToPublic skey
+    mps <- getMemPoolSnapshot
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do
         ss <- mss `whenNothing` throwError (toException $ AuxxException "Invalid passphrase")
         ExceptT $ try $ submitTx
             (immediateConcurrentConversations sendActions ccPeers)
             getOwnUtxos
             mempty
+            mps
             ss
             (map TxOutAux outputs)
             curPk

@@ -38,7 +38,8 @@ import           Pos.Crypto                       (PassPhrase, ShouldCheckPassph
                                                    withSafeSignerUnsafe)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
+import           Pos.Txp                          (TxFee (..), Utxo, MemPoolSnapshot,
+                                                   getMemPoolSnapshot, _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
@@ -82,10 +83,12 @@ newPayment sa passphrase srcAccount dstAccount coin policy =
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
-      ws <- getWalletSnapshot
+      ws  <- getWalletSnapshot
+      mps <- getMemPoolSnapshot
       sendMoney
           sa
           ws
+          mps
           passphrase
           (AccountMoneySource srcAccount)
           (one (dstAccount, coin))
@@ -101,9 +104,11 @@ newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       ws <- getWalletSnapshot
+      mps <- getMemPoolSnapshot
       sendMoney
         sa
         ws
+        mps
         passphrase
         (AccountMoneySource src)
         npbTo
@@ -117,9 +122,10 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
-    ws <- getWalletSnapshot
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
     let pendingAddrs = getPendingAddresses ws policy
-    utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
+    utxo <- getMoneySourceUtxo ws mps (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
@@ -156,11 +162,15 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-getMoneySourceUtxo :: MonadWalletWebMode m => WalletSnapshot -> MoneySource -> m Utxo
-getMoneySourceUtxo ws =
+getMoneySourceUtxo :: MonadWalletWebMode m
+                   => WalletSnapshot
+                   -> MemPoolSnapshot
+                   -> MoneySource
+                   -> m Utxo
+getMoneySourceUtxo ws mps =
     getMoneySourceAddresses ws >=>
     mapM (decodeCTypeOrFail . cwamId) >=>
-    getOwnUtxos ws
+    getOwnUtxos ws mps
 
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
@@ -186,12 +196,13 @@ sendMoney
     :: MonadWalletWebMode m
     => SendActions m
     -> WalletSnapshot
+    -> MemPoolSnapshot
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
+sendMoney SendActions{..} ws mps passphrase moneySource dstDistr policy = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
@@ -227,7 +238,7 @@ sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
             (txAux, inpTxOuts') <-
-                prepareMTx (getOwnUtxos ws) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+                prepareMTx (getOwnUtxos ws mps) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux
@@ -238,7 +249,7 @@ sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
                 th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
             ptx <- mkPendingTx ws srcWallet txHash txAux th
 
-            (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+            (th, dstAddrs) <$ submitAndSaveNewPtx mps enqueueMsg ptx
 
     logInfoS $
         sformat ("Successfully spent money from "%

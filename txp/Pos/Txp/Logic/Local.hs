@@ -32,14 +32,14 @@ import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
-                                       TxpLocalDataPure, askTxpMem, getLocalTxs,
-                                       getUtxoModifier, modifyTxpLocalData,
-                                       setTxpLocalData)
+import           Pos.Txp.MemState     (GenericTxpLocalData (..), MemPoolSnapshot,
+                                       MonadTxpMem, TxpLocalDataPure, askTxpMem,
+                                       getLocalTxs, modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
                                        ToilModifier, ToilT, ToilVerFailure (..), Utxo,
-                                       execToilTLocal, mpLocalTxs, normalizeToil,
-                                       processTx, runDBToil, runToilTLocal, utxoGetReader)
+                                       UtxoModifier, execToilTLocal, mpLocalTxs,
+                                       normalizeToil, processTx, runDBToil, runToilTLocal,
+                                       utxoGetReader)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 type TxpLocalWorkMode ctx m =
@@ -81,16 +81,18 @@ instance MonadGState ProcessTxMode where
 txProcessTransaction
     :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock,
         HasLens' ctx StateLockMetrics, MonadMask m)
-    => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction itw =
-    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    => UtxoModifier -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction localUM itw =
+    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock localUM itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
 txProcessTransactionNoLock
     :: (TxpLocalWorkMode ctx m)
-    => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+    => UtxoModifier
+    -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
+txProcessTransactionNoLock localUM itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
@@ -109,7 +111,6 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    localUM <- lift $ getUtxoModifier @()
     let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
@@ -171,15 +172,15 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
 txNormalize
     :: ( TxpLocalWorkMode ctx m
        , MonadSlots ctx m)
-    => m ()
-txNormalize = getCurrentSlot >>= \case
+    => MemPoolSnapshot -> m ()
+txNormalize memPoolSnapshot = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
         setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
-        localTxs <- getLocalTxs
+        let localTxs = getLocalTxs memPoolSnapshot
         ToilModifier {..} <-
             runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
         setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

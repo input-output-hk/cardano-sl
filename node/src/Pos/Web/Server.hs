@@ -31,6 +31,7 @@ import           Servant.Utils.Enter             ((:~>) (NT), enter)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Aeson.Txp                   ()
+import           Pos.Aeson.Types                 ()
 import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
                                                   NodeContext, getOurPublicKey)
 import           Pos.Core                        (EpochIndex (..), SlotLeaders)
@@ -44,7 +45,7 @@ import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Ssc.GodTossing              (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, askTxpMem,
-                                                  getLocalTxs)
+                                                  getLocalTxs, getMemPoolSnapshot)
 import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (TxpExtra_TMP, WorkMode)
@@ -167,7 +168,7 @@ getUtxo :: HasConfiguration => WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word
-getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+getLocalTxsNum = fromIntegral . length . getLocalTxs <$> getMemPoolSnapshot
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers

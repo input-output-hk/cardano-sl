@@ -35,7 +35,7 @@ import           Pos.Aeson.WalletBackup     ()
 import           Pos.Core                   (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
-import           Pos.Txp                    (applyUtxoModToAddrCoinMap)
+import           Pos.Txp                    (MemPoolSnapshot, applyUtxoModToAddrCoinMap, getMemPoolSnapshot)
 import           Pos.Util                   (maybeThrow)
 import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
@@ -45,6 +45,7 @@ import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
                                              genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
+
                                              CAddress (..), CCoin, CId,
                                              CWAddressMeta (..), CWallet (..),
                                              CWalletMeta (..), Wal, addrMetaToAccount,
@@ -130,7 +131,8 @@ getAccountMod ws accMod accId = do
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
     gatherAddresses addrModifier dbAddrs = do
-        let memAddrs = sortedInsertions addrModifier
+        let memAddrs :: [CWAddressMeta]
+            memAddrs = sortedInsertions addrModifier
             dbAddrsSet = S.fromList dbAddrs
             relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
             unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
@@ -138,14 +140,16 @@ getAccountMod ws accMod accId = do
 
 getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
-    ws <- getWalletSnapshot
-    fixingCachedAccModifier ws (getAccountMod ws) accId
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
+    fixingCachedAccModifier ws mps (getAccountMod ws) accId
 
 getAccountsIncludeUnready
     :: MonadWalletWebMode m
     => WalletSnapshot
+    -> MemPoolSnapshot
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
-getAccountsIncludeUnready ws includeUnready mCAddr = do
+getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
       void $ maybeThrow (noWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
@@ -153,7 +157,7 @@ getAccountsIncludeUnready ws includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
-         fixCachedAccModifierFor ws wid $ \accMod ->
+         fixCachedAccModifierFor ws mps wid $ \accMod ->
              mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -165,14 +169,17 @@ getAccounts
     :: MonadWalletWebMode m
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
-    ws <- getWalletSnapshot
-    getAccountsIncludeUnready ws False mCAddr
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
+    getAccountsIncludeUnready ws mps False mCAddr
 
 getWalletIncludeUnready :: MonadWalletWebMode m
-                        => WalletSnapshot -> Bool -> CId Wal -> m CWallet
-getWalletIncludeUnready ws includeUnready cAddr = do
+                        => WalletSnapshot
+                        -> MemPoolSnapshot
+                        -> Bool -> CId Wal -> m CWallet
+getWalletIncludeUnready ws mps includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
-    accounts   <- getAccountsIncludeUnready ws includeUnready (Just cAddr)
+    accounts   <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
     balance    <- sumCCoin (map caAmount accounts)
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
@@ -185,12 +192,14 @@ getWalletIncludeUnready ws includeUnready cAddr = do
 getWallet :: MonadWalletWebMode m => CId Wal -> m CWallet
 getWallet wid = do
     ws <- getWalletSnapshot
-    getWalletIncludeUnready ws False wid
+    mps <- getMemPoolSnapshot
+    getWalletIncludeUnready ws mps False wid
 
 getWallets :: MonadWalletWebMode m => m [CWallet]
 getWallets = do
     ws <- getWalletSnapshot
-    mapM (getWalletIncludeUnready ws False) (getWalletAddresses ws)
+    mps <- getMemPoolSnapshot
+    mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
 
 ----------------------------------------------------------------------------
 -- Creators
@@ -223,18 +232,20 @@ newAddress
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
     ws <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    fixCachedAccModifierFor ws accId $ \accMod -> do
+    fixCachedAccModifierFor ws mps accId $ \accMod -> do
         getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
-    ws <- getWalletSnapshot
-    fixCachedAccModifierFor ws caInitWId $ \accMod -> do
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
+    fixCachedAccModifierFor ws mps caInitWId $ \accMod -> do
         -- check wallet exists
-        _ <- getWalletIncludeUnready ws includeUnready caInitWId
+        _ <- getWalletIncludeUnready ws mps includeUnready caInitWId
 
         cAddr <- genUniqueAccountId ws addGenSeed caInitWId
         createAccount cAddr caInitMeta
@@ -258,13 +269,14 @@ createWalletSafe
 createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     ws <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
     when wSetExists $
         throwM $ RequestError "Wallet with that mnemonics already exists"
     curTime <- liftIO getPOSIXTime
     createWallet cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
-    getWalletIncludeUnready ws True cid
+    getWalletIncludeUnready ws mps True cid
 
 
 ----------------------------------------------------------------------------

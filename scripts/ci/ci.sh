@@ -28,7 +28,11 @@ fi
 #done
 
 for trgt in $targets; do
-  echo building $trgt with nix
+  echo "Prebuilding dependencies for $trgt, quietly.."
+  nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
+          echo "Prebuild failed!"
+          
+  echo "Building $trgt verbosely.."
   nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
@@ -67,8 +71,9 @@ export BUILD_UID="$OS_NAME-${BUILDKITE_BRANCH//\//-}"
 export XZ_OPT=-1
 
 echo "Packing up daedalus-bridge ..."
-tar cJf daedalus-bridge-$BUILD_UID.tar.xz daedalus/
+tar cJf cardano-binaries-$BUILD_UID.tar.xz daedalus/
 echo "Done"
+buildkite-agent artifact upload "cardano-binaries-$BUILD_UID.tar.xz"   --job $BUILDKITE_JOB_ID
 
 # For now we dont have macOS developers on explorer
 if [[ ("$OS_NAME" == "linux") ]]; then
@@ -79,7 +84,5 @@ if [[ ("$OS_NAME" == "linux") ]]; then
   echo "Packing up explorer-frontend ..."
   tar cJf explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
   echo "Done"
+  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" --job $BUILDKITE_JOB_ID
 fi
-
-buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   --job $BUILDKITE_JOB_ID
-buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" --job $BUILDKITE_JOB_ID

@@ -21,4 +21,3 @@ export NIX_PATH="nixpkgs=$(${NIX_BUILD} fetch-nixpkgs.nix -o nixpkgs)"
 export NIX_BUILD_SHELL
 
 ${NIX_SHELL} -p nix bash coreutils zlib gmp ncurses purescript "$@"
-

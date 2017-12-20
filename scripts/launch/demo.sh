@@ -105,6 +105,13 @@ function prefix_args {
   done
 }
 
+function make_yaml_list {
+  local items="$1"
+  echo "$items" | sed 's/+RTS.*-RTS//g' | tr " " "\n" | grep -vE '^$' | while read l; do
+    echo "- \"$l\""
+  done
+}
+
 i=0
 while [[ $i -lt $panesCnt ]]; do
   im=$((i%4))
@@ -141,14 +148,40 @@ while [[ $i -lt $panesCnt ]]; do
     if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)
-        launcher_args="--node $node_ "
+
+        # TODO: make sure that this does exactly what is intended
+        full_node_args="$node_args $reb $no_ntp $keys_args"
+
+        CONFIG_PATH="/tmp/launcher-config.yaml"
+
+        echo "nodePath: $node_"                           > $CONFIG_PATH
+        echo "nodeArgs:"                                  >> $CONFIG_PATH
+        echo -e "$(make_yaml_list "$full_node_args")"     >> $CONFIG_PATH
+
+        ensure_run
+        echo "nodeDbPath: $run_dir/node-db$i"             >> $CONFIG_PATH
+
         if [[ "$UI" != "" ]]; then
-          ui_args_="$(prefix_args "$UI_ARGS" "-w")"
-          launcher_args=" $launcher_args --wlogging --wallet $UI $ui_args_"
+          echo "walletLogging: true"                      >> $CONFIG_PATH
+          echo "walletPath: $UI"                          >> $CONFIG_PATH
+          echo "walletArgs:"                              >> $CONFIG_PATH
+          echo -e "$(make_yaml_list "$UI_ARGS")"          >> $CONFIG_PATH
         fi
-        node_args_="$(prefix_args "$node_args" "-n")"
-        launcher_args=" $launcher_args --updater /usr/bin/env -u bash --update-archive $updater_file"
-        launcher_args=" $launcher_args --node-timeout 5 $node_args_ --system-start 0  --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
+
+        echo "updaterPath: /usr/bin/env"                  >> $CONFIG_PATH
+        echo "updaterArgs: [bash]"                        >> $CONFIG_PATH
+        echo "updateArchive: $updater_file"               >> $CONFIG_PATH
+        echo "nodeTimeoutSec: 5"                          >> $CONFIG_PATH
+        echo "configuration:"                             >> $CONFIG_PATH
+        echo "  filePath: lib/configuration.yaml"         >> $CONFIG_PATH
+        echo "  key: default"                             >> $CONFIG_PATH
+        # The following is required by `withConfigurations`
+        # (specifically, `withCoreConfigurations`). See
+        # Pos.Core.Configuration for more details.
+        echo "  systemStart: 0"                           >> $CONFIG_PATH
+
+        # TODO: make sure that this is the correct place to forward $rts_opts to
+        launcher_args="$rts_opts -c $CONFIG_PATH"
         tmux send-keys "$launcher_ $launcher_args" C-m
     else
         echo "$node_ $node_args"

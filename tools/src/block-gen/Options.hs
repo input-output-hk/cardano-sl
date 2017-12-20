@@ -19,8 +19,10 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+import           Pos.Client.CLI               (configurationOptionsParser)
 import           Pos.Core                     (isDevelopment)
 import           Pos.Generator.Block          (TxGenParams (..))
+import           Pos.Launcher.Configuration   (ConfigurationOptions)
 
 data BlockGenOptions = BlockGenOptions
     { bgoBlockN      :: !Word32
@@ -35,6 +37,7 @@ data BlockGenOptions = BlockGenOptions
     -- ^ Generating seed
     , bgoTxGenParams :: !TxGenParams
     -- ^ Transaction generator parameters
+    , bgoConfOptions :: !ConfigurationOptions
     }
 
 optionsParser :: Parser BlockGenOptions
@@ -73,6 +76,7 @@ optionsParser = do
             metavar "INT" <>
             help "Max number of outputs in tx")
 
+    bgoConfOptions <- configurationOptionsParser
 
     return BlockGenOptions{..}
   where

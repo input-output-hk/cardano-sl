@@ -4,12 +4,12 @@ module Pos.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), ToJSON (..), object, (.=))
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..), object, (.:), (.=))
+import           Data.Aeson.Types             (Parser, typeMismatch)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version                 (showVersion)
 
-import           Pos.Aeson.Options            (customOptionsWithTag)
-import           Pos.Client.Txp.Util          (InputSelectionPolicy)
+import           Pos.Client.Txp.Util          (InputSelectionPolicy(..))
 import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
@@ -41,7 +41,31 @@ deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
-deriveJSON (customOptionsWithTag "groupingPolicy") ''InputSelectionPolicy
+
+-- NOTE(adinapoli): We need a manual instance to ensure we map @OptimizeForSize@
+-- to @OptimizeForHighThroughput@, for exchanges backward compatibility.
+instance ToJSON InputSelectionPolicy where
+  toJSON pol =
+      let renderPolicy = toJSON @Text $ case pol of
+              OptimizeForSecurity       -> "OptimizeForSecurity"
+              OptimizeForHighThroughput -> "OptimizeForHighThroughput"
+          in object [ "groupingPolicy" .= renderPolicy ]
+
+-- NOTE(adinapoli): Super lenient decoder to overcome the fact some revisions of
+-- the API were using a raw JSON String and later versions used on Object like
+-- `{"groupingPolicy": "blabla" }`
+instance FromJSON InputSelectionPolicy where
+    parseJSON (Object o) = fromRawPolicy =<< (o .: "groupingPolicy")
+    parseJSON (String rawPolicy) = fromRawPolicy rawPolicy
+    parseJSON x = typeMismatch "Not a valid InputSelectionPolicy" x
+
+fromRawPolicy :: Text -> Parser InputSelectionPolicy
+fromRawPolicy rawPolicy = case rawPolicy of
+    "OptimizeForSecurity"       -> pure OptimizeForSecurity
+    "OptimizeForHighThroughput" -> pure OptimizeForHighThroughput
+    "OptimiseForSize"           -> pure OptimizeForHighThroughput
+    _                           -> typeMismatch "Not a valid InputSelectionPolicy" (String rawPolicy)
+
 
 deriveJSON defaultOptions ''CCoin
 deriveJSON defaultOptions ''CTxId

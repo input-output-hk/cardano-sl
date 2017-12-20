@@ -8,6 +8,7 @@ module Pos.Client.Txp.Util
        (
        -- * Tx creation params
          InputSelectionPolicy (..)
+       , PendingAddresses (..)
 
        -- * Tx creation
        , TxCreateMode
@@ -44,10 +45,11 @@ import           Control.Monad.Except     (ExceptT, MonadError (throwError), run
 import           Data.Default             (Default (..))
 import           Data.Fixed               (Fixed, HasResolution)
 import qualified Data.HashSet             as HS
-import           Data.List                (tail)
+import           Data.List                (partition, tail)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
 import qualified Data.Semigroup           as S
+import qualified Data.Set                 as Set
 import qualified Data.Text.Buildable
 import qualified Data.Vector              as V
 import           Formatting               (bprint, build, sformat, stext, (%))
@@ -80,6 +82,11 @@ type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 type TxWithSpendings = (TxAux, NonEmpty TxOut)
+
+-- | List of addresses which are refered by at least one output of transaction
+-- which is not yet confirmed i.e. detected in block.
+newtype PendingAddresses = PendingAddresses (Set Address)
+    deriving (Show, Monoid)
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =
@@ -291,13 +298,32 @@ makeLenses ''InputPickerState
 
 type InputPicker = StateT InputPickerState (Either TxError)
 
-plainInputPicker :: InputPickingWay
-plainInputPicker utxo _outputs moneyToSpent =
+plainInputPicker :: PendingAddresses -> InputPickingWay
+plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
     evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
   where
-    allUnspent = M.toList utxo
-    sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+    onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
+    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `Set.member` addrs)
+    --
+    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
+    -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
+    -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
+    -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
+    -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
+    -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
+    -- the `confirmed` set would tend to be quite big anyway.
+    -- We should revisit such policy and its implications during a proper rewrite.
+    --
+    -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
+    -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
+    -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
+    -- (The same malady the @OptimiseForSecurity@ policy was affected by).
+    sortedUnspent = confirmed ++ unconfirmed
+
+    (confirmed, unconfirmed) =
+      -- Give precedence to "confirmed" addresses.
+      partition (onlyConfirmedInputs pendingAddrs)
+                (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -417,15 +443,16 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
 
 prepareTxRaw
     :: Monad m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxFee
     -> TxCreator m TxRaw
-prepareTxRaw utxo outputs fee = do
+prepareTxRaw pendingTx utxo outputs fee = do
     inputSelectionPolicy <- view tcdInputSelectionPolicy
     let inputPicker =
           case inputSelectionPolicy of
-            OptimizeForSize     -> plainInputPicker
+            OptimizeForSize     -> plainInputPicker pendingTx
             OptimizeForSecurity -> groupedInputPicker
     prepareTxRawWithPicker inputPicker utxo outputs fee
 
@@ -444,75 +471,81 @@ mkOutputsWithRem addrData TxRaw {..}
 
 prepareInpsOuts
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> AddrData m
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOuts utxo outputs addrData = do
-    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
+prepareInpsOuts pendingTx utxo outputs addrData = do
+    txRaw@TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
     outputsWithRem <- mkOutputsWithRem addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
     :: TxCreateMode m
-    => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
+    => PendingAddresses
+    -> (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTx creator inputSelectionPolicy utxo outputs addrData =
+createGenericTx pendingTx creator inputSelectionPolicy utxo outputs addrData =
     runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOuts utxo outputs addrData
+        (inps, outs) <- prepareInpsOuts pendingTx utxo outputs addrData
         pure (creator inps outs, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
-    => (TxInputs -> TxOutputs -> TxAux)
+    => PendingAddresses
+    -> (TxInputs -> TxOutputs -> TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTxSingle creator = createGenericTx (creator . map snd)
+createGenericTxSingle pendingTx creator = createGenericTx pendingTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
     :: TxCreateMode m
-    => InputSelectionPolicy
+    => PendingAddresses
+    -> InputSelectionPolicy
     -> Utxo
     -> (Address -> SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx groupInputs utxo hdwSigners outputs addrData =
-    createGenericTx (makeMPubKeyTxAddrs hdwSigners)
+createMTx pendingTx groupInputs utxo hdwSigners outputs addrData =
+    createGenericTx pendingTx (makeMPubKeyTxAddrs hdwSigners)
     groupInputs utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
 createTx
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx utxo ss outputs addrData =
-    createGenericTxSingle (makePubKeyTx ss)
+createTx pendingTx utxo ss outputs addrData =
+    createGenericTxSingle pendingTx (makePubKeyTx ss)
     OptimizeForSecurity utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx utxo keys outputs addrData =
-    createGenericTxSingle (makeMOfNTx validator sks)
+createMOfNTx pendingTx utxo keys outputs addrData =
+    createGenericTxSingle pendingTx (makeMOfNTx validator sks)
     OptimizeForSecurity utxo outputs addrData
   where
     ids = map fst keys
@@ -529,7 +562,7 @@ createRedemptionTx
     -> m (Either TxError TxAux)
 createRedemptionTx utxo rsk outputs =
     runTxCreator whetherGroupedInputs $ do
-        TxRaw {..} <- prepareTxRaw utxo outputs (TxFee $ mkCoin 0)
+        TxRaw {..} <- prepareTxRaw mempty utxo outputs (TxFee $ mkCoin 0)
         let bareInputs = snd <$> trInputs
         pure $ makeRedemptionTx rsk bareInputs trOutputs
   where
@@ -554,21 +587,23 @@ withLinearFeePolicy action = view tcdFeePolicy >>= \case
 -- | Prepare transaction considering fees
 prepareTxWithFee
     :: (HasConfiguration, Monad m)
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-prepareTxWithFee utxo outputs = withLinearFeePolicy $ \linearPolicy ->
-    stabilizeTxFee linearPolicy utxo outputs
+prepareTxWithFee pendingTx utxo outputs = withLinearFeePolicy $ \linearPolicy ->
+    stabilizeTxFee pendingTx linearPolicy utxo outputs
 
 -- | Compute, how much fees we should pay to send money to given
 -- outputs
 computeTxFee
     :: (HasConfiguration, Monad m)
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee utxo outputs = do
-    TxRaw {..} <- prepareTxWithFee utxo outputs
+computeTxFee pendingTx utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
     let outAmount = sumTxOutCoins trOutputs
         inAmount = sumCoins $ map (txOutValue . fst) trInputs
         remaining = coinToInteger trRemainingMoney
@@ -620,11 +655,12 @@ computeTxFee utxo outputs = do
 -- To possibly find better solutions we iterate for several times more.
 stabilizeTxFee
     :: forall m. (HasConfiguration, Monad m)
-    => TxSizeLinear
+    => PendingAddresses
+    -> TxSizeLinear
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-stabilizeTxFee linearPolicy utxo outputs = do
+stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
     mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
@@ -639,7 +675,7 @@ stabilizeTxFee linearPolicy utxo outputs = do
                      -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
-        txRaw <- prepareTxRaw utxo outputs expectedFee
+        txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx txRaw
 

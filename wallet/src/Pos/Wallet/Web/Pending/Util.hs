@@ -9,16 +9,23 @@ module Pos.Wallet.Web.Pending.Util
     , mkPendingTx
     , isReclaimableFailure
     , usingPtxCoords
+    , allPendingAddresses
+    , nonConfirmedTransactions
     ) where
 
 import           Universum
 
+import qualified Data.Set                       as Set
 import           Formatting                     (build, sformat, (%))
 
 import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Client.Txp.Util            (PendingAddresses (..))
+import           Pos.Core.Types                 (Address)
 import           Pos.Slotting.Class             (getCurrentSlotInaccurate)
-import           Pos.Txp                        (ToilVerFailure (..), TxAux (..), TxId)
+import           Pos.Txp                        (ToilVerFailure (..), Tx (..), TxAux (..),
+                                                 TxId, TxOut (..))
 import           Pos.Util.Util                  (maybeThrow)
+
 import           Pos.Wallet.Web.ClientTypes     (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error           (WalletError (RequestError))
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
@@ -78,4 +85,28 @@ isReclaimableFailure = \case
 
 usingPtxCoords :: (CId Wal -> TxId -> a) -> PendingTx -> a
 usingPtxCoords f PendingTx{..} = f _ptxWallet _ptxTxId
+
+-- | Returns the full list of "pending addresses", which are @output@ addresses
+-- associated to transactions not yet persisted in the blockchain.
+allPendingAddresses :: [PendingTx] -> PendingAddresses
+allPendingAddresses =
+    PendingAddresses . Set.unions . map grabTxOutputs . nonConfirmedTransactions
+  where
+    grabTxOutputs :: PendingTx -> Set.Set Address
+    grabTxOutputs PendingTx{..} =
+        let (TxAux tx _) = _ptxTxAux
+            (UnsafeTx _ outputs _) = tx
+            in Set.fromList $ map (\(TxOut a _) -> a) (toList outputs)
+
+-- | Filters the input '[PendingTx]' to choose only the ones which are not
+-- yet persisted in the blockchain.
+nonConfirmedTransactions :: [PendingTx] -> [PendingTx]
+nonConfirmedTransactions = filter isPending
+  where
+    -- | Is this 'PendingTx' really pending?
+    isPending :: PendingTx -> Bool
+    isPending PendingTx{..} = case _ptxCond of
+        PtxInNewestBlocks _ -> False
+        PtxPersisted        -> False
+        _                   -> True
 

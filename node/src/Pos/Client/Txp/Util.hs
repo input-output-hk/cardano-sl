@@ -39,7 +39,7 @@ import           Control.Lens                 (makeLenses, (%=), (.=))
 import           Control.Monad.Except         (ExceptT, MonadError (throwError),
                                                runExceptT)
 import           Data.Fixed                   (Fixed, HasResolution)
-import           Data.List                    (tail)
+import           Data.List                    (partition, tail)
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Map                     as M
 import qualified Data.Semigroup               as S
@@ -314,18 +314,33 @@ prepareTxRaw pendingTx utxo outputs (TxFee fee) = do
             let trOutputs = outputs
             pure TxRaw {..}
   where
-    onlyConfirmedInputs :: S.Set Address -> TxOutAux -> Bool
-    onlyConfirmedInputs addrs (TxOutAux (TxOut addr _)) = not (addr `S.member` addrs)
+    onlyConfirmedInputs :: S.Set Address -> (TxIn, TxOutAux) -> Bool
+    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `S.member` addrs)
 
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
-    -- Try to filter only "confirmed" addresses, defaulting to the old policy if the
-    -- filtered collection is empty.
-    allUnspent = case M.filter (onlyConfirmedInputs (allPendingAddresses pendingTx)) utxo of
-        x | M.null x -> utxo -- pass the full, unfiltered utxo.
-        x -> x
-    sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) (M.toList allUnspent)
+    --
+    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
+    -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
+    -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
+    -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
+    -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
+    -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
+    -- the `confirmed` set would tend to be quite big anyway.
+    -- We should revisit such policy and its implications during a proper rewrite.
+    --
+    -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
+    -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
+    -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
+    -- (The same malady the @OptimiseForSecurity@ policy was affected by).
+    sortedUnspent = confirmed ++ unconfirmed
+
+    -- A set of all the unconfirmed addresses.
+    allPending = allPendingAddresses pendingTx
+
+    (confirmed, unconfirmed) =
+      -- Give precedence to "confirmed" addresses.
+      partition (onlyConfirmedInputs allPending) (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do

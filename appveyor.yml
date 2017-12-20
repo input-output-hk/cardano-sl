@@ -10,13 +10,9 @@ environment:
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
 
-init:
-  - ps: $env:VERSION = ($env:APPVEYOR_BUILD_VERSION).split(".")[0] + "." + ($env:APPVEYOR_BUILD_VERSION).split(".")[1]
-  - echo VERSION=%VERSION%
-
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
-- xcopy /q /s /e /r /k /i /v /h /y C:\projects\cardano-sl "%WORK_DIR%"
+- xcopy /q /s /e /r /k /i /v /h /y "%APPVEYOR_BUILD_FOLDER%" "%WORK_DIR%"
 - cd "%WORK_DIR%"
 # Restore cache
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
@@ -119,7 +115,7 @@ after_test:
       }
       .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work
     }
- - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
+ - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" "%APPVEYOR_BUILD_FOLDER%\daedalus"
 
 artifacts:
   - path: daedalus/

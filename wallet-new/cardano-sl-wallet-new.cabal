@@ -190,7 +190,6 @@ test-suite wallet-new-specs
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
-                    Spec
 
                     Cardano.Wallet.API.V0.Handlers
                     Cardano.Wallet.API.V1.Handlers

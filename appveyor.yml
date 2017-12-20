@@ -8,7 +8,6 @@ environment:
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
-    CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
     BUCKET: appveyor-ci-cache              
     AWS_ACCESS_KEY_ID: 
@@ -17,45 +16,32 @@ environment:
       secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
 
 init:
-  - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
-  - SET CACHED_STACK_ROOT=%BRANCH_CACHE_DIR%\sr
-  - SET CACHED_STACK_WORK=%BRANCH_CACHE_DIR%\sw
   - ps: $env:VERSION = ($env:APPVEYOR_BUILD_VERSION).split(".")[0] + "." + ($env:APPVEYOR_BUILD_VERSION).split(".")[1]
   - echo VERSION=%VERSION%
-
-cache:
-  # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
-
-  # Appveyor's cache is shared across all branch/PR builds for this project, so
-  # dependency/version differences can corrupt the cache. To fix that, we store
-  # copies of %STACK_ROOT% and .stack-work in the cache namespaced by branch,
-  # but only from branch builds. PR builds, which could make arbitrary changes
-  # to the dependency closure, are not allowed to update the cache; however,
-  # they get read access to the cache.
-
-  # Another quirk of Appveyor's cache is any cache directory not listed here
-  # gets deleted at the end of the build. The hardcoded branch directories will
-  # be preserved, even when building a branch which isn't listed. Managing
-  # hardcoded branches is necessary because there's an upper limit on supported
-  # cache size of any single cache directory. Branches which don't appear
-  # explicitly here are optimistically cached for consecutive builds on the same
-  # branch; however, their cache directories will be deleted whenever a
-  # different branch is built.
-  - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
-  - "%CACHE_DIR%\\master"
-  - "%CACHE_DIR%\\cardano-sl-%VERSION%"
-  # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
 - xcopy /q /s /e /r /k /i /v /h /y C:\projects\cardano-sl "%WORK_DIR%"
 - cd "%WORK_DIR%"
-# Setup cache dirs
+# Restore cache
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
-- Echo BRANCH_CACHE_DIR = %BRANCH_CACHE_DIR%
-- IF EXIST %CACHE_DIR% dir %CACHE_DIR%
-- IF EXIST %CACHED_STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_ROOT% %STACK_ROOT%
-- IF EXIST %CACHED_STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %CACHED_STACK_WORK% %STACK_WORK%
+- ps: Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
+- ps: 7z x cache-s3.zip cache-s3.exe
+- ps: .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME
+                 --git-branch=$env:APPVEYOR_REPO_BRANCH
+                 --suffix=windows
+                 --verbosity=info
+                 --concise
+                 restore
+                 stack --base-branch=master
+- ps: .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME
+                 --git-branch=$env:APPVEYOR_REPO_BRANCH
+                 --suffix=windows
+                 --verbosity=info
+                 --concise
+                 restore
+                 stack work --base-branch=master
+
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2m.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
 - ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102
@@ -82,7 +68,6 @@ test_script:
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
-      --work-dir %STACK_WORK%
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
@@ -98,7 +83,6 @@ test_script:
       --local-bin-path %WORK_DIR%
       --test
       --no-haddock-deps
-      --work-dir %STACK_WORK%
       --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
@@ -109,7 +93,7 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
+  - stack exec -- cardano-wallet-hs2purs
   # Prepare files for frontend build
   - copy log-config-prod.yaml daedalus\
   - copy node\configuration.yaml daedalus\
@@ -122,18 +106,16 @@ test_script:
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
-  - dir "%WORK_DIR%\daedalus\"
-  - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
-  - echo Stack cache content
-  - dir "%WORK_DIR%\%STACK_WORK%"
-  - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
 
 after_test:
- # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:
- # > STACK_WORK, as well as CACHED_STACK_WORK are relative directories, since stack doesn't support absolute ones.
- - cd "%WORK_DIR%"
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
- - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
+ - cd "%WORK_DIR%" # Get back to where cache-s3.exe is located
+ - ps: >-
+    if (-not $env:APPVEYOR_PULL_REQUEST_NUMBER ) {
+      if ($env:APPVEYOR_REPO_BRANCH -eq "master" ) {
+        .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack
+      }
+      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work
+    }
  - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus
 
 artifacts:

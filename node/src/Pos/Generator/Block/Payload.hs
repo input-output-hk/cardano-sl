@@ -216,7 +216,7 @@ genTxPayload = do
             makeTestTx = makeMPubKeyTxAddrs getSigner
 
         eTx <- lift . lift $
-            createGenericTx makeTestTx ownUtxo txOutAuxs changeAddrData
+            createGenericTx mempty makeTestTx ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux

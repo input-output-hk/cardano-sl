@@ -1,0 +1,115 @@
+# Stylish-haskell configuration file used for cardano-sl-1.0 by Serokell.
+# It's based on default config provided by `stylish-haskell --defaults` but has some changes
+# ==================================
+
+# The stylish-haskell tool is mainly configured by specifying steps. These steps
+# are a list, so they have an order, and one specific step may appear more than
+# once (if needed). Each file is processed by these steps in the given order.
+steps:
+  # Finally we decided to disable unicode_syntax
+  # - unicode_syntax:
+  #     # We disable `add_language_pragma` feature because
+  #     # we have `UnicodeSyntax` in `default-extensions`
+  #     add_language_pragma: false
+
+  # Align the right hand side of some elements.  This is quite conservative
+  # and only applies to statements where each element occupies a single
+  # line.
+  - simple_align:
+      cases: true
+      top_level_patterns: true
+      records: true
+
+  # Import cleanup
+  - imports:
+      # There are different ways we can align names and lists.
+      #
+      # - global: Align the import names and import list throughout the entire
+      #   file.
+      #
+      # - file: Like global, but don't add padding when there are no qualified
+      #   imports in the file.
+      #
+      # - group: Only align the imports per group (a group is formed by adjacent
+      #   import lines).
+      #
+      # - none: Do not perform any alignment.
+      #
+      # Default: global.
+      align: global
+
+  # Language pragmas
+  - language_pragmas:
+      # We can generate different styles of language pragma lists.
+      #
+      # - vertical: Vertical-spaced language pragmas, one per line.
+      #
+      # - compact: A more compact style.
+      #
+      # - compact_line: Similar to compact, but wrap each line with
+      #   `{-#LANGUAGE #-}'.
+      #
+      # Default: vertical.
+      style: vertical
+
+      # stylish-haskell can detect redundancy of some language pragmas. If this
+      # is set to true, it will remove those redundant pragmas. Default: true.
+      remove_redundant: true
+
+  # Replace tabs by spaces. This is disabled by default.
+  # - tabs:
+  #     # Number of spaces to use for each tab. Default: 8, as specified by the
+  #     # Haskell report.
+  #     spaces: 8
+
+  # Remove trailing whitespace
+  - trailing_whitespace: {}
+
+# A common setting is the number of columns (parts of) code will be wrapped
+# to. Different steps take this into account. Default: 80.
+columns: 90
+
+# By default, line endings are converted according to the OS. You can override
+# preferred format here.
+#
+# - native: Native newline format. CRLF on Windows, LF on other OSes.
+#
+# - lf: Convert to LF ("\n").
+#
+# - crlf: Convert to CRLF ("\r\n").
+#
+# Default: native.
+newline: native
+
+# These syntax-affecting language extensions are enabled so that
+# stylish-haskell wouldn't fail with parsing errors when processing files
+# in projects that have those extensions enabled in the .cabal file
+# rather than locally.
+#
+# To my best knowledge, no harm should result from enabling an extension
+# that isn't actually used in the file/project. —@neongreen
+language_extensions:
+  - BangPatterns
+  - ConstraintKinds
+  - DataKinds
+  - DefaultSignatures
+  - DeriveDataTypeable
+  - DeriveGeneric
+  - FlexibleContexts
+  - FlexibleInstances
+  - FunctionalDependencies
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - RecordWildCards
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TemplateHaskell
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - ViewPatterns

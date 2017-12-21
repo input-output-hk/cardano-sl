@@ -149,16 +149,16 @@ while [[ $i -lt $panesCnt ]]; do
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)
 
-        # TODO: make sure that this does exactly what is intended
-        full_node_args="$node_args $reb $no_ntp $keys_args"
+        ensure_run
 
-        CONFIG_PATH="/tmp/launcher-config.yaml"
+        full_node_args="$node_args $reb $no_ntp $keys_args $rts_opts"
+
+        CONFIG_PATH="$run_dir/launcher-config-$i.yaml"
 
         echo "nodePath: $node_"                           > $CONFIG_PATH
         echo "nodeArgs:"                                  >> $CONFIG_PATH
         echo -e "$(make_yaml_list "$full_node_args")"     >> $CONFIG_PATH
 
-        ensure_run
         echo "nodeDbPath: $run_dir/node-db$i"             >> $CONFIG_PATH
 
         if [[ "$UI" != "" ]]; then
@@ -180,8 +180,7 @@ while [[ $i -lt $panesCnt ]]; do
         # Pos.Core.Configuration for more details.
         echo "  systemStart: 0"                           >> $CONFIG_PATH
 
-        # TODO: make sure that this is the correct place to forward $rts_opts to
-        launcher_args="$rts_opts -c $CONFIG_PATH"
+        launcher_args="-c $CONFIG_PATH"
         tmux send-keys "$launcher_ $launcher_args" C-m
     else
         echo "$node_ $node_args"

@@ -242,6 +242,7 @@ getHeadersFromManyTo checkpoints startM = do
 
     tip <- DB.getTipHeader @ssc
     let tipHash = headerHash tip
+    let startHash = maybe tipHash headerHash startM
 
     -- This filters out invalid/unknown checkpoints also.
     inMainCheckpoints <-
@@ -262,7 +263,8 @@ getHeadersFromManyTo checkpoints startM = do
             newestCheckpoint <-
                 maximumBy (comparing getEpochOrSlot) . catMaybes <$>
                 mapM (DB.blkGetHeader @ssc) (toList inMainCheckpoints)
-            let loadUpCond _ h = h < recoveryHeadersMessage
+            let loadUpCond (headerHash -> curH) h =
+                    curH /= startHash && h < recoveryHeadersMessage
             up <- GS.loadHeadersUpWhile @ssc newestCheckpoint loadUpCond
             res <-
                 note "loadHeadersUpWhile returned empty list" $

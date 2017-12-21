@@ -60,7 +60,6 @@ vote diffusion idx decision upid = do
             if null ccPeers
                 then logError "Error: no addresses specified"
                 else do
-                    --submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
                     submitVote diffusion voteUpd
                     logInfo "Submitted vote"
 

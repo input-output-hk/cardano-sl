@@ -201,7 +201,6 @@ send diffusion idx outputs = do
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
         (txAux,_) <- lift $ prepareMTx getSigner def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw diffusion txAux)
-        -- txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
         Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
@@ -241,6 +240,4 @@ sendTxsFromFile diffusion txsFile = do
                 (topsortTxAuxes txAuxes)
         CmdCtx {..} <- getCmdCtx
         let submitOne = submitTxRaw diffusion
-                --submitTxRaw
-                --    (immediateConcurrentConversations sendActions ccPeers)
         mapM_ submitOne sortedTxAuxes

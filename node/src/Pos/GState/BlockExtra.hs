@@ -25,7 +25,7 @@ import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (serialize')
-import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
                                        HeaderHash, genesisHash, headerHash, slotIdF,
@@ -33,7 +33,7 @@ import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHa
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)
-import           Pos.DB.Block         (MonadBlockDB, blkGetBlock)
+import           Pos.DB.Block         (MonadBlockDB, blkGetBlock, blkGetHeader)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 import           Pos.Util.Util        (maybeThrow)
@@ -166,7 +166,7 @@ loadHeadersUpWhile
     => a
     -> (BlockHeader ssc -> Int -> Bool)
     -> m (OldestFirst [] (BlockHeader ssc))
-loadHeadersUpWhile = loadUpWhile $ fmap (fmap $ view blockHeader) . blkGetBlock
+loadHeadersUpWhile = loadUpWhile $ blkGetHeader
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile

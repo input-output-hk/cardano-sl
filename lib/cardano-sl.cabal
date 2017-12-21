@@ -42,8 +42,6 @@ library
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
 
-                        Pos.DHT.Workers
-
                         -- GState
                         Pos.GState
 
@@ -119,24 +117,10 @@ library
                         Test.Pos.Util
                         Test.Pos.Configuration
 
+                        Pos.Update.Worker
+
                         Pos.Util.Servant
 
-                        Pos.Block.BlockWorkMode
-                        Pos.Block.Network
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
-                        Pos.Block.Worker
-
-                        Pos.Delegation.Listeners
-                        Pos.Delegation.Worker
-
-                        Pos.Ssc.Worker
-
-                        Pos.Txp.Network.Listeners
-
-                        Pos.Update.Network.Listeners
-                        Pos.Update.Worker
 
   other-modules:        Pos.Aeson.Types
 
@@ -168,6 +152,25 @@ library
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd
+
+                        Pos.DHT.Workers
+
+                        Pos.Block.BlockWorkMode
+                        Pos.Block.Network
+                        Pos.Block.Network.Logic
+                        Pos.Block.Network.Retrieval
+                        Pos.Block.Network.Types
+                        Pos.Block.Worker
+
+                        Pos.Delegation.Listeners
+                        Pos.Delegation.Worker
+
+                        Pos.Ssc.Worker
+
+                        Pos.Txp.Network.Listeners
+
+                        Pos.Update.Network.Listeners
+
 
   build-depends:        MonadRandom
                       , QuickCheck

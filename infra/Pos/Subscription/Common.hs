@@ -35,7 +35,8 @@ import           Pos.Communication.Protocol            (Conversation (..),
 import           Pos.DB.Class                          (MonadGState)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
 import           Pos.Network.Types                     (Bucket (..), NodeType)
-import           Pos.Util.Timer                        (Timer, waitTimer, startTimer)
+import           Pos.Util.Timer                        (Timer, waitTimer, startTimer,
+                                                       setTimerDuration)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -87,6 +88,10 @@ subscribeTo keepAliveTimer sendActions peer = do
             logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
                                 peer
             send conv MsgSubscribeKeepAlive
+            -- If there is a suspicion that subscriptions are no longer valid,
+            -- we want to start sending keep-alive packets more frequently. Use
+            -- 20 seconds as we don't have access to slot duration here.
+            setTimerDuration keepAliveTimer $ 20 * 1000000
 
     convMsgSubscribe1 :: ConversationActions MsgSubscribe1 Void m -> m (Maybe Void)
     convMsgSubscribe1 conv = do

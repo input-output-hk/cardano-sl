@@ -19,35 +19,41 @@
 module Pos.Util.Timer
     ( Timer
     , newTimer
+    , setTimerDuration
     , waitTimer
     , startTimer
     ) where
 
 import Universum
-import Control.Concurrent.STM (newTVar, readTVar, retry, registerDelay)
+import Control.Concurrent (modifyMVar_)
+import Control.Concurrent.STM (readTVar, retry, registerDelay)
 
 data Timer = Timer
-  { delayDuration  :: !Int
-  , delaySemaphore :: !(TVar (TVar Bool))
+  { timerDuration   :: !(MVar Int)
+  , timerSempaphore :: !(TVar (TVar Bool))
   }
 
 -- | Create a new, inactive Timer given the number of microseconds. In order to
 -- activate it 'startTimer' needs to be called.
 newTimer :: MonadIO m => Int -> m Timer
-newTimer n
-    | n < 0     = error "newTimer: negative duration"
-    | otherwise = Timer n <$> atomically (newTVar True >>= newTVar)
+newTimer n = Timer <$> newMVar n <*> (newTVarIO True >>= newTVarIO)
+
+-- | Set the duration of a timer to a specified number of microseconds. Note
+-- that if the timer is already started, calling this function wont't restart
+-- it.
+setTimerDuration :: MonadIO m => Timer -> Int -> m ()
+setTimerDuration Timer{..} n = liftIO $ modifyMVar_ timerDuration $ \_ -> return $! n
 
 -- | Wait for the duration associated with the Timer that passed since the last
 -- time 'startTimer' was called.
 waitTimer :: Timer -> STM ()
 waitTimer Timer{..} = do
-  done <- readTVar =<< readTVar delaySemaphore
+  done <- readTVar =<< readTVar timerSempaphore
   unless done retry
 
 -- Start the timer. If the function is called before @t + n@, where @t@ is the
 -- time startTimer was called for the last time and @n@ is the number of
 -- microseconds associated with the Timer, the timer is restarted.
 startTimer :: MonadIO m => Timer -> m ()
-startTimer Timer{..} = liftIO (registerDelay delayDuration)
-    >>= atomically . writeTVar delaySemaphore
+startTimer Timer{..} = liftIO (registerDelay =<< readMVar timerDuration)
+    >>= atomically . writeTVar timerSempaphore

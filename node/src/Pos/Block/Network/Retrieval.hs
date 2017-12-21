@@ -16,6 +16,7 @@ import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S
+import           Data.Time.Units            (toMicroseconds)
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, stext, (%))
 import           Mockable                   (delay, handleAll)
@@ -45,12 +46,13 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, dif
                                              isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Reporting              (reportOrLogE, reportOrLogW)
+import           Pos.Slotting.Util          (getCurrentEpochSlotDuration)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              _NewestFirst, _OldestFirst)
-import           Pos.Util.Timer             (Timer, startTimer)
+import           Pos.Util.Timer             (Timer, setTimerDuration, startTimer)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
@@ -102,6 +104,8 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         -- Restart the timer for sending keep-alive like packets to node(s)
         -- we're subscribed to as when we keep receiving blocks from them it
         -- means the connection is sound.
+        slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
+        setTimerDuration keepAliveTimer $ 3 * slotDuration
         startTimer keepAliveTimer
         thingToDoNext
         mainLoop

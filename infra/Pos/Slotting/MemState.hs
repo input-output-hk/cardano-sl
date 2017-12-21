@@ -139,4 +139,3 @@ waitCurrentEpochEqualsM target = do
         currentEpoch <- getCurrentEpochIndex <$> readTVar var
         --  Wait until current epoch is >= target.
         when (currentEpoch < target) retry
-

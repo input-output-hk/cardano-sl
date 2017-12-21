@@ -25,6 +25,7 @@ import           Universum hiding (bracket)
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Default (Default)
 import qualified Data.Time as Time
+import           Data.Time.Units (toMicroseconds)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Bracket, Catch, Mockable, Production (..), Throw, bracket, throw)
 import           Network.QDisc.Fair (fairQDisc)
@@ -43,7 +44,8 @@ import           Pos.Block.Slog (mkSlogContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
+import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData,
+                           gdBlockVersionData, bvdSlotDuration)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
@@ -288,7 +290,9 @@ allocateNodeContext ancd txpSettings = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
+    let slotDuration :: Integer
+        slotDuration = toMicroseconds . bvdSlotDuration $ gdBlockVersionData genesisData
+    ncSubscriptionKeepAliveTimer <- newTimer $ 3 * fromIntegral slotDuration
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar

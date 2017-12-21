@@ -25,6 +25,8 @@ library
                         Pos.Configuration
                         Pos.Constants
 
+                        Pos.Arbitrary.Block.Message
+
                         Pos.DB.DB
 
                         -- Diffusion layer

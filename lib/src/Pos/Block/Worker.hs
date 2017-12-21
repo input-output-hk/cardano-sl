@@ -238,7 +238,6 @@ recoveryTriggerWorkerImpl diffusion = do
             logInfo "Triggering recovery because we need it"
             triggerRecovery diffusion
 
-
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
         -- blocks. It may happen sometimes, because nobody actually

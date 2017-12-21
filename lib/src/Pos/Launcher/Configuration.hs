@@ -16,9 +16,10 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), genericParseJSON, withObject, (.:))
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util (sec)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (WithLogger, logInfo)
 
@@ -29,7 +30,7 @@ import           Pos.Aeson.Core.Configuration ()
 import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Slotting (Timestamp)
+import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Delegation.Configuration
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration
@@ -75,7 +76,12 @@ data ConfigurationOptions = ConfigurationOptions
     } deriving (Show, Generic)
 
 instance FromJSON ConfigurationOptions where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON = withObject "ConfigurationOptions" $ \o -> do
+        cfoFilePath    <- o .: "filePath"
+        cfoKey         <- o .: "key"
+        cfoSystemStart <- (Timestamp . sec) <<$>> o .: "systemStart"
+        cfoSeed        <- o .: "seed"
+        pure ConfigurationOptions {..}
 
 defaultConfigurationOptions :: ConfigurationOptions
 defaultConfigurationOptions = ConfigurationOptions

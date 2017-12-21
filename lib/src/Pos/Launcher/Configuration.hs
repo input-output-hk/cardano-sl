@@ -16,7 +16,7 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON, withObject, (.:))
+import           Data.Aeson (FromJSON (..), genericParseJSON, withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
@@ -73,14 +73,14 @@ data ConfigurationOptions = ConfigurationOptions
       -- | Seed for secrets generation can be provided via CLI, in
       -- this case it overrides one from configuration file.
     , cfoSeed        :: !(Maybe Integer)
-    } deriving (Show, Generic)
+    } deriving (Show)
 
 instance FromJSON ConfigurationOptions where
     parseJSON = withObject "ConfigurationOptions" $ \o -> do
         cfoFilePath    <- o .: "filePath"
         cfoKey         <- o .: "key"
-        cfoSystemStart <- (Timestamp . sec) <<$>> o .: "systemStart"
-        cfoSeed        <- o .: "seed"
+        cfoSystemStart <- (Timestamp . sec) <<$>> o .:? "systemStart"
+        cfoSeed        <- o .:? "seed"
         pure ConfigurationOptions {..}
 
 defaultConfigurationOptions :: ConfigurationOptions

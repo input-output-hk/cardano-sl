@@ -140,4 +140,5 @@ addLogging SendActions{..} = SendActions{
                      Nothing  -> sformat ("Auxx received end of input")
                      Just rcv -> sformat ("Auxx received " % stext) (formatMessage rcv)
                  return mRcv
+      , sendRaw = sendRaw
       }

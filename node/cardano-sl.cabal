@@ -342,6 +342,7 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
+                      , cborg
                       , cereal
                       , conduit >= 1.2.8
                       , containers

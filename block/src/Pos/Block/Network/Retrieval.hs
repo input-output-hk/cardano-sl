@@ -78,7 +78,7 @@ retrievalWorkerImpl
     => Timer -> SendActions m -> m ()
 retrievalWorkerImpl keepAliveTimer SendActions {..} =
     handleAll mainLoopE $ do
-        logDebug "Starting retrievalWorker loop"
+        logInfo "Starting retrievalWorker loop"
         mainLoop
   where
     mainLoop = do

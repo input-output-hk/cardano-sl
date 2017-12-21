@@ -240,6 +240,4 @@ sendTxsFromFile diffusion txsFile = do
                 (topsortTxAuxes txAuxes)
         CmdCtx {..} <- getCmdCtx
         let submitOne = submitTxRaw diffusion
-                --submitTxRaw
-                --    (immediateConcurrentConversations sendActions ccPeers)
         mapM_ submitOne sortedTxAuxes

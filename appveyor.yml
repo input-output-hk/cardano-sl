@@ -101,7 +101,7 @@ after_test:
  - cd "%WORK_DIR%" # Get back to where cache-s3.exe is located
  - ps: >-
     if ( ($env:CACHE_S3_READY -eq $true) -and (-not $env:APPVEYOR_PULL_REQUEST_NUMBER) ) {
-      if ($env:APPVEYOR_REPO_BRANCH -eq "master" ) {
+      if ($env:APPVEYOR_REPO_BRANCH -eq "master" -Or $env:APPVEYOR_REPO_BRANCH -eq "develop" -Or $env:APPVEYOR_REPO_BRANCH -like "release*") {
         .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack
       }
       .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work

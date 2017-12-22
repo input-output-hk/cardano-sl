@@ -220,10 +220,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
 
-    let gstateHHash = headerHash gstateH
-        loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
-        wAddr = encToCId encSK
-        mappendR r mm = pure (r <> mm)
+    let wAddr = encToCId encSK
         diff = (^. difficultyL)
         mDiff = Just . diff
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
@@ -252,6 +249,8 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
+                     let loadCond (b,_undo) _ = b ^. difficultyL <= gstateH ^. difficultyL
+                         convertFoo rr blund = (rr <>) <$> applyBlock dbUsed blund
                      -- If wallet's syncTip is before than the current tip in the blockchain,
                      -- then it loads wallets starting with @wHeader@.
                      -- Sync tip can be before the current tip
@@ -260,7 +259,11 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                      -- We don't load blocks explicitly, because blockain can be long.
                      maybe (pure mempty)
                          (\wNextH ->
-                            foldlUpWhileM getBlund (applyBlock dbUsed) wNextH loadCond mappendR mempty)
+                            foldlUpWhileM getBlund
+                                          wNextH
+                                          loadCond
+                                          convertFoo
+                                          mempty)
                          =<< resolveForwardLink wHeader
                | diff gstateH < diff wHeader -> do
                      -- This rollback can occur
@@ -282,7 +285,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
-    applyModifierToWallet wAddr gstateHHash mapModifier
+    applyModifierToWallet wAddr (headerHash gstateH) mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
     logInfoS $

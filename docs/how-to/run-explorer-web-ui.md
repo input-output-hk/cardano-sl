@@ -9,9 +9,7 @@ Please make sure you have installed [`yarn`](https://yarnpkg.com/lang/en/docs/in
 Then do:
 
 ```
-$ cd cardano-sl
-$ stack exec -- cardano-explorer-hs2purs --bridge-path explorer/frontend/src/Generated/
-$ cd explorer/frontend
+$ cd cardano-sl/explorer/frontend
 $ ./scripts/build-explorer-frontend.sh
 ```
 

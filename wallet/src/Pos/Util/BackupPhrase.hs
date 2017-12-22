@@ -27,10 +27,6 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
-instance Bi BackupPhrase where
-    encode = encode . bpToList
-    decode = BackupPhrase <$> decode
-
 instance Arbitrary BackupPhrase where
     arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
     shrink    = genericShrink

@@ -70,10 +70,18 @@ popd
 export BUILD_UID="$OS_NAME-${BUILDKITE_BRANCH//\//-}"
 export XZ_OPT=-1
 
-echo "Packing up daedalus-bridge ..."
-tar cJf cardano-binaries-$BUILD_UID.tar.xz daedalus/
-echo "Done"
-buildkite-agent artifact upload "cardano-binaries-$BUILD_UID.tar.xz"   --job $BUILDKITE_JOB_ID
+###
+### Artifact upload
+###
+ARTIFACT_BUCKET=ci-output-sink        # ex- cardano-sl-travis
+CARDANO_ARTIFACT=cardano-binaries     # ex- daedalus-bridge
+CARDANO_ARTIFACT_FULL_NAME=${CARDANO_ARTIFACT}-${BUILD_UID}
+
+echo "Packing up ${CARDANO_ARTIFACT} ..."
+tar cJf ${CARDANO_ARTIFACT_FULL_NAME}.tar.xz daedalus/
+echo "Uploading.."
+buildkite-agent artifact upload ${CARDANO_ARTIFACT_FULL_NAME}.tar.xz s3://${ARTIFACT_BUCKET} --job ${BUILDKITE_JOB_ID}
+echo "Done."
 
 # For now we dont have macOS developers on explorer
 if [[ ("$OS_NAME" == "linux") ]]; then
@@ -83,8 +91,7 @@ if [[ ("$OS_NAME" == "linux") ]]; then
 
   echo "Packing up explorer-frontend ..."
   tar cJf explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
-  echo "Done"
-  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://ci-output-sink --job $BUILDKITE_JOB_ID
+  echo "Uploading.."
+  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://${ARTIFACT_BUCKET} --job $BUILDKITE_JOB_ID
+  echo "Done."
 fi
-
-buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   s3://ci-output-sink --job $BUILDKITE_JOB_ID

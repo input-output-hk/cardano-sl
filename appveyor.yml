@@ -9,7 +9,9 @@ environment:
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
-    BUCKET: appveyor-ci-cache              
+    CACHE_S3_VERSION: v0.1.1
+    AWS_REGION: us-west-1
+    S3_BUCKET: appveyor-ci-cache              
     AWS_ACCESS_KEY_ID: 
       secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
     AWS_SECRET_ACCESS_KEY:

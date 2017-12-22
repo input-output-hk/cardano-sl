@@ -127,7 +127,8 @@ library
                        Pos.Core.Update.Util
                        Pos.Core.Update.Version
 
-  build-depends:       QuickCheck
+  build-depends:       Cabal
+                     , QuickCheck
                      , aeson
                      , ansi-terminal
                      , autoexporter

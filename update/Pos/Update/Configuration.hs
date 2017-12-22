@@ -9,21 +9,22 @@ module Pos.Update.Configuration
        , withUpdateConfiguration
 
        , ourAppName
+       , ourSystemTag
        , lastKnownBlockVersion
        , curSoftwareVersion
-       , ourSystemTag
        ) where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), withObject, (.:), (.:?))
+import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
-import           Serokell.Aeson.Options (defaultOptions)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Update ()
-import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..))
+import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..),
+                           currentSystemTag)
 import           Pos.Core.Update (SystemTag)
 
 ----------------------------------------------------------------------------
@@ -52,7 +53,12 @@ data UpdateConfiguration = UpdateConfiguration
     deriving (Show, Generic)
 
 instance FromJSON UpdateConfiguration where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON = withObject "UpdateConfiguration" $ \o -> do
+        ccApplicationName       <- o .: "applicationName"
+        ccLastKnownBlockVersion <- o .: "lastKnownBlockVersion"
+        ccApplicationVersion    <- o .: "applicationVersion"
+        ccSystemTag             <- fromMaybe currentSystemTag <$> o .:? "systemTag"
+        pure UpdateConfiguration {..}
 
 ----------------------------------------------------------------------------
 -- Various constants

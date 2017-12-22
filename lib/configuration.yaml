@@ -101,7 +101,6 @@ dev: &dev
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: system
 
   ssc: &dev_ssc
     mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
@@ -294,7 +293,6 @@ mainnet_base: &mainnet_base
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
-    systemTag: none
 
   ssc:
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
@@ -14772,7 +14770,6 @@ mainnet_wallet_win64: &mainnet_wallet_win64
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
-    systemTag: win64
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
@@ -14783,7 +14780,6 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
-    systemTag: macos64
 
 ##############################################################################
 ##                                                                          ##
@@ -14809,7 +14805,6 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
-    systemTag: win64
 
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
@@ -14820,7 +14815,6 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
       bvMajor: 0
       bvMinor: 1
       bvAlt: 0
-    systemTag: macos64
 
 ##############################################################################
 ##                                                                          ##
@@ -14845,7 +14839,6 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: none
 
 mainnet_staging_short_epoch_wallet_win64:
   <<: *mainnet_staging_short_epoch_full
@@ -14856,7 +14849,6 @@ mainnet_staging_short_epoch_wallet_win64:
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: win64
 
 mainnet_staging_short_epoch_wallet_macos64:
   <<: *mainnet_staging_short_epoch_full
@@ -14867,7 +14859,6 @@ mainnet_staging_short_epoch_wallet_macos64:
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: macos64
 
 ##############################################################################
 ##                                                                          ##
@@ -14983,7 +14974,6 @@ internal_staging_wallet_win64:
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: win64
 
 internal_staging_wallet_macos64:
   <<: *internal_staging_full
@@ -14994,4 +14984,3 @@ internal_staging_wallet_macos64:
       bvMajor: 0
       bvMinor: 0
       bvAlt: 0
-    systemTag: macos64

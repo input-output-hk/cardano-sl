@@ -7102,7 +7102,7 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-core" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, autoexporter, base
-         , base58-bytestring, binary, bytestring, canonical-json
+         , base58-bytestring, binary, bytestring, Cabal, canonical-json
          , cardano-sl-binary, cardano-sl-crypto, cardano-sl-networking
          , cardano-sl-util, cborg, containers, cpphs, cryptonite
          , cryptonite-openssl, data-default, deepseq, deriving-compat
@@ -7120,7 +7120,7 @@ inherit (pkgs) mesa;};
            src = ./../core;
            libraryHaskellDepends = [
              aeson ansi-terminal autoexporter base base58-bytestring binary
-             bytestring canonical-json cardano-sl-binary cardano-sl-crypto
+             bytestring Cabal canonical-json cardano-sl-binary cardano-sl-crypto
              cardano-sl-networking cardano-sl-util cborg containers cryptonite
              cryptonite-openssl data-default deepseq deriving-compat digest
              directory exceptions extra filepath fmt formatting
@@ -7532,7 +7532,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-update" = callPackage
-        ({ mkDerivation, aeson, base, bytestring, cardano-sl-binary
+        ({ mkDerivation, aeson, base, bytestring, Cabal, cardano-sl-binary
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-util, conduit, containers, cpphs, data-default
@@ -7540,22 +7540,23 @@ inherit (pkgs) mesa;};
          , hashable, http-client, http-client-tls, http-conduit, lens
          , log-warper, memory, mtl, QuickCheck, reflection, resourcet
          , rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm
-         , tagged, text, text-format, time-units, transformers, universum
-         , unordered-containers
+         , tagged, template-haskell, text, text-format, time-units
+         , transformers, universum, unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-update";
            version = "1.0.3";
            src = ./../update;
            libraryHaskellDepends = [
-             aeson base bytestring cardano-sl-binary cardano-sl-core
+             aeson base bytestring Cabal cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-util conduit containers
              data-default directory ether exceptions formatting
              generic-arbitrary hashable http-client http-client-tls http-conduit
              lens log-warper memory mtl QuickCheck reflection resourcet
-             rocksdb-haskell safe-exceptions serokell-util stm tagged text
-             text-format time-units transformers universum unordered-containers
+             rocksdb-haskell safe-exceptions serokell-util stm tagged
+             template-haskell text text-format time-units transformers universum
+             unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;

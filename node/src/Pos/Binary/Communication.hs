@@ -20,7 +20,8 @@ import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   MsgSubscribe (..), VerInfo (..))
+                                                   MsgSubscribe (..),
+                                                   MsgSubscribe1 (..), VerInfo (..))
 import           Pos.Core                         (BlockVersion, HasConfiguration,
                                                    HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
@@ -76,12 +77,20 @@ msgBlockPrefix = CBOR.toStrictByteString prefix
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.
 -- TODO: Shall we encode this as `CBOR` TkNull?
+instance Bi MsgSubscribe1 where
+    encode MsgSubscribe1 = encode (42 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe1
+        n  -> fail $ "MsgSubscribe1 wrong byte:" <> show n
+
 instance Bi MsgSubscribe where
-  encode MsgSubscribe = encode (42 :: Word8)
-  decode = do
-    x <- decode @Word8
-    when (x /= 42) $ fail "wrong byte"
-    pure MsgSubscribe
+    encode = \case
+        MsgSubscribe          -> encode (42 :: Word8)
+        MsgSubscribeKeepAlive -> encode (43 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe
+        43 -> pure MsgSubscribeKeepAlive
+        n  -> fail $ "MsgSubscribe wrong byte: " <> show n
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

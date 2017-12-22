@@ -12,11 +12,12 @@ import           System.Wlog         (logInfo)
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher        (NodeParams (..), bracketNodeResources,
-                                      runRealBasedMode, withConfigurations)
+                                      loggerBracket, runRealBasedMode, withConfigurations)
 import           Pos.Network.Types   (NetworkConfig (..), Topology (..),
                                       topologyDequeuePolicy, topologyEnqueuePolicy,
                                       topologyFailurePolicy)
 import           Pos.Ssc.SscAlgo     (SscAlgo (GodTossingAlgo))
+import           Pos.Util            (logException)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
@@ -69,4 +70,8 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
         lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = getAuxxOptions >>= runProduction . action
+main = do
+    opts <- getAuxxOptions
+    let loggingParams = CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+    loggerBracket loggingParams . logException "auxx" $ do
+        runProduction $ action opts

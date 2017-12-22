@@ -67,6 +67,9 @@ module Pos.Util.Util
        -- * Aeson
        , parseJSONWithRead
 
+       -- * Exceptions
+       , logException
+
        -- * Instances
        -- ** Lift Byte
        -- ** Lift HashMap
@@ -93,6 +96,7 @@ import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
 import           Control.Concurrent             (myThreadId, threadDelay)
+import qualified Control.Exception.Safe         as E
 import           Control.Lens                   (ALens', Getter, Getting, Iso', LensRules,
                                                  cloneLens, coerced, foldMapOf, lensField,
                                                  lensRules, mappingNamer, to, ( # ))
@@ -135,6 +139,7 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
+import           Serokell.Util.Exceptions       ()
 import qualified System.Console.ANSI            as ANSI
 import           System.Directory               (canonicalizePath, createDirectory,
                                                  doesDirectoryExist,
@@ -144,7 +149,8 @@ import           System.FilePath                (normalise, pathSeparator, takeD
                                                  (</>))
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
-                                                 LoggerNameBox (..))
+                                                 LoggerName, LoggerNameBox (..),
+                                                 logError, usingLoggerName)
 import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
@@ -619,3 +625,14 @@ parseJSONWithRead :: Read a => A.Value -> A.Parser a
 parseJSONWithRead =
     either (fail . toString) pure . readEither @String <=<
     parseJSON
+
+----------------------------------------------------------------------------
+-- Exceptions
+----------------------------------------------------------------------------
+
+-- | Catch and log an exception, then rethrow it
+logException :: LoggerName -> IO a -> IO a
+logException name = E.handleAsync (\e -> handler e >> E.throw e)
+  where
+    handler :: E.SomeException -> IO ()
+    handler = usingLoggerName name . logError . pretty

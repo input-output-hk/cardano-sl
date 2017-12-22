@@ -84,5 +84,7 @@ if [[ ("$OS_NAME" == "linux") ]]; then
   echo "Packing up explorer-frontend ..."
   tar cJf explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
   echo "Done"
-  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" --job $BUILDKITE_JOB_ID
+  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://ci-output-sink --job $BUILDKITE_JOB_ID
 fi
+
+buildkite-agent artifact upload "daedalus-bridge-$BUILD_UID.tar.xz"   s3://ci-output-sink --job $BUILDKITE_JOB_ID

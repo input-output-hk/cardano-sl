@@ -78,9 +78,11 @@ CARDANO_ARTIFACT=cardano-binaries     # ex- daedalus-bridge
 CARDANO_ARTIFACT_FULL_NAME=${CARDANO_ARTIFACT}-${BUILD_UID}
 
 echo "Packing up ${CARDANO_ARTIFACT} ..."
-tar cJf ${CARDANO_ARTIFACT_FULL_NAME}.tar.xz daedalus/
+APP_NAME=cardano-sl
+mkdir -p ${APP_NAME}
+tar cJf ${APP_NAME}/${CARDANO_ARTIFACT_FULL_NAME}.tar.xz daedalus/
 echo "Uploading.."
-buildkite-agent artifact upload ${CARDANO_ARTIFACT_FULL_NAME}.tar.xz s3://${ARTIFACT_BUCKET} --job ${BUILDKITE_JOB_ID}
+buildkite-agent artifact upload ${APP_NAME}/${CARDANO_ARTIFACT_FULL_NAME}.tar.xz s3://${ARTIFACT_BUCKET} --job ${BUILDKITE_JOB_ID}
 echo "Done."
 
 # For now we dont have macOS developers on explorer
@@ -90,8 +92,10 @@ if [[ ("$OS_NAME" == "linux") ]]; then
   ./explorer/frontend/scripts/build.sh
 
   echo "Packing up explorer-frontend ..."
-  tar cJf explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
+  APP_NAME=cardano-sl-explorer
+  mkdir -p ${APP_NAME}
+  tar cJf ${APP_NAME}/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
   echo "Uploading.."
-  buildkite-agent artifact upload "explorer-frontend-$BUILD_UID.tar.xz" s3://${ARTIFACT_BUCKET} --job $BUILDKITE_JOB_ID
+  buildkite-agent artifact upload "${APP_NAME}/explorer-frontend-$BUILD_UID.tar.xz" s3://${ARTIFACT_BUCKET} --job $BUILDKITE_JOB_ID
   echo "Done."
 fi

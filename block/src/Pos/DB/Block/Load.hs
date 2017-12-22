@@ -53,17 +53,17 @@ loadDataWhile
     -> (a -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] a)
-loadDataWhile getter predicate start = NewestFirst <$> doIt start
+loadDataWhile getter predicate start = NewestFirst <$> doIt [] start
   where
-    doIt :: HeaderHash -> m [a]
-    doIt h
-        | h == genesisHash = pure []
+    doIt :: [a] -> HeaderHash -> m [a]
+    doIt !acc h
+        | h == genesisHash = pure (reverse acc)
         | otherwise = do
             d <- getter h
             let prev = d ^. prevBlockL
             if predicate d
-                then (d :) <$> doIt prev
-                else pure []
+                then doIt (d : acc) prev
+                else pure (reverse acc)
 
 -- For depth 'd' load blocks that have depth < 'd'. Given header
 -- (newest one) is assumed to have depth 0.

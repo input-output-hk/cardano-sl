@@ -24,7 +24,7 @@ for `cardano-sl` it doesn't make sense, because we don't even have a
 notion of _installer_ for it. So when we update `cardano-sl` it
 doesn't make sense to attach any data about installers into update
 proposal. There are few reasons to propose an update of `cardano-sl`:
-1. It allows us to make a protocol update without updating end
+1. It allows us to make a protocol-only update without updating end
    users. For example we may want to change some protocol parameter
    and not bother users with updates. Note that we can also propose an
    update of non-existing application, but it doesn't make much sense
@@ -34,17 +34,17 @@ proposal. There are few reasons to propose an update of `cardano-sl`:
    essential, probably doesn't deserve spending time on it).
 
 Flow for an update is the following (brief sketch, no details):
-1. Software update is proposed. Proposal is a datatype that gets into
+1. New software is prepared, some values in configuration are
+   changed. If we want to update `csl-daedalus`, new installers are
+   prepared. If we want to update `cardano-sl`, everything should be
+   setup to redeploy core and relay nodes.
+2. Software update is proposed. Proposal is a datatype that gets into
    the blockchain. It contains information about version changes and
    hashes of update files (can be empty). It also contains
    `BlockVersion` and `BlockVersionData`. They define protocol version
    and its parameters. They can be the same as the previous ones (in
    which case there is no protocol update) or can differ (then there
    is also a protocol update).
-2. New software is prepared, some values in configuration are
-   changed. If we want to update `csl-daedalus`, new installers are
-   prepared. If we want to update `cardano-sl`, everything should be
-   setup to redeploy core and relay nodes.
 3. If wallets should be updated, installers are uploaded to the S3 bucket.
 4. An update is confirmed by voting from majority of nodes.
 5. Nodes that see an update try to download and apply it
@@ -194,7 +194,11 @@ stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key ./key0.
 
 Let's break down the invocation of `propose-update`. First come arguments that you almost certainly won't need to modify:
 
-* `0` is the index of key that will be used to sign the update.
+* `0` is the index of key that will be used to sign the update. You
+  can use different key (if you add four keys on previous step, this
+  index should be in range `[0 .. 3]`). It's recommended that
+  different people use different keys so that later we can inspect the
+  blockchain to know who proposed which update.
 * `vote-all:true` flag means that update proposal will be submitted along
   with votes from all our keys.
 * `0.1.0` is block version to be used after the

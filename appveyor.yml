@@ -10,6 +10,11 @@ environment:
     STACK_WORK: ".w"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
+    BUCKET: appveyor-ci-cache              
+    AWS_ACCESS_KEY_ID: 
+      secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
+    AWS_SECRET_ACCESS_KEY:
+      secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%

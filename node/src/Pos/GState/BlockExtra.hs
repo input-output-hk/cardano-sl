@@ -11,6 +11,7 @@ module Pos.GState.BlockExtra
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
        , foldlUpWhileM
+       , loadHashesUpWhile
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
@@ -24,16 +25,15 @@ import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (serialize')
-import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Block.Types      (Blund)
 import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
-                                       HeaderHash, headerHash, slotIdF, unflattenSlotId,
-                                       genesisHash)
+                                       HeaderHash, genesisHash, headerHash, slotIdF,
+                                       unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)
-import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Block         (MonadBlockDB, blkGetBlock, blkGetHeader)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 import           Pos.Util.Util        (maybeThrow)
@@ -113,45 +113,52 @@ instance HasConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 
 foldlUpWhileM
-    :: forall a b ssc m r .
-    ( MonadBlockDB ssc m
+    :: forall a b m r .
+    ( MonadDBRead m
     , HasHeaderHash a
     )
-    => (Blund ssc -> m b)
-    -> a
-    -> ((Blund ssc, b) -> Int -> Bool)
-    -> (r -> b -> m r)
-    -> r
+    => (HeaderHash -> m (Maybe b)) -- ^ For each header we get b(lund)
+    -> a                           -- ^ We start iterating from it
+    -> (b -> Int -> Bool)          -- ^ Condition on b and depth
+    -> (r -> b -> m r)             -- ^ Conversion function
+    -> r                           -- ^ Starting value
     -> m r
-foldlUpWhileM morphM start condition accM init =
+foldlUpWhileM getData start condition accM init =
     loadUpWhileDo (headerHash start) 0 init
   where
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
-    loadUpWhileDo curH height !res = blkGetBlund curH >>= \case
+    loadUpWhileDo curH height !res = getData curH >>= \case
         Nothing -> pure res
-        Just x -> do
-            curB <- morphM x
+        Just someData -> do
             mbNextLink <- resolveForwardLink curH
-            if | not (condition (x, curB) height) -> pure res
+            if | not (condition someData height) -> pure res
                | Just nextLink <- mbNextLink -> do
-                     newRes <- accM res curB
+                     newRes <- accM res someData
                      loadUpWhileDo nextLink (succ height) newRes
-               | otherwise -> accM res curB
+               | otherwise -> accM res someData
 
--- Loads something from old to new.
+-- Loads something from old to new. foldlUpWhileM for (OldestFirst []).
 loadUpWhile
-    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a)
-    => (Blund ssc -> b)
+    :: forall a b m . (MonadDBRead m, HasHeaderHash a)
+    => (HeaderHash -> m (Maybe b))
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
 loadUpWhile morph start condition = OldestFirst . reverse <$>
     foldlUpWhileM
-        (pure . morph)
+        morph
         start
-        (\b h -> condition (snd b) h)
+        condition
         (\l e -> pure (e : l))
         []
+
+-- | Return hashes loaded up. Basically a forward links traversal.
+loadHashesUpWhile
+    :: forall m a. (HasHeaderHash a, MonadDBRead m)
+    => a
+    -> (HeaderHash -> Int -> Bool)
+    -> m (OldestFirst [] HeaderHash)
+loadHashesUpWhile = loadUpWhile (pure . Just)
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
@@ -159,8 +166,7 @@ loadHeadersUpWhile
     => a
     -> (BlockHeader ssc -> Int -> Bool)
     -> m (OldestFirst [] (BlockHeader ssc))
-loadHeadersUpWhile start condition =
-    loadUpWhile (view blockHeader . fst) start condition
+loadHeadersUpWhile = loadUpWhile $ blkGetHeader
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
@@ -168,7 +174,7 @@ loadBlocksUpWhile
     => a
     -> (Block ssc -> Int -> Bool)
     -> m (OldestFirst [] (Block ssc))
-loadBlocksUpWhile start condition = loadUpWhile fst start condition
+loadBlocksUpWhile = loadUpWhile $ blkGetBlock
 
 ----------------------------------------------------------------------------
 -- Initialization

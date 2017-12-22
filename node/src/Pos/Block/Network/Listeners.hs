@@ -14,9 +14,8 @@ import           Serokell.Util.Text              (listJson)
 import           System.Wlog                     (logDebug, logWarning)
 import           Universum
 
--- Also brings in Bi instances.
 import           Pos.Binary.Communication        (msgBlockPrefix)
-import           Pos.Block.Logic                 (getHeadersFromToIncl)
+import           Pos.Block.Logic                 (getHeadersRange)
 import           Pos.Block.Network.Announce      (handleHeadersCommunication)
 import           Pos.Block.Network.Logic         (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types         (MsgBlock (..), MsgGetBlocks (..),
@@ -26,6 +25,7 @@ import           Pos.Communication.Listener      (listenerConv)
 import           Pos.Communication.Protocol      (ConversationActions (..),
                                                   ListenerSpec (..), MkListeners,
                                                   OutSpecs, constantListeners)
+import           Pos.Configuration               (recoveryHeadersMessage)
 import qualified Pos.DB.Block                    as DB
 import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.Network.Types               (Bucket, NodeId)
@@ -74,9 +74,10 @@ handleGetBlocks (Proxy :: Proxy ssc) oq = listenerConv oq $ \__ourVerInfo nodeId
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        mHashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
-        case mHashes of
-            Just hashes -> do
+        -- We fail if we're requested to give more than
+        -- recoveryHeadersMessage headers at once.
+        getHeadersRange @ssc (Just $ recoveryHeadersMessage) mgbFrom mgbTo >>= \case
+            Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
@@ -97,11 +98,14 @@ handleGetBlocks (Proxy :: Proxy ssc) oq = listenerConv oq $ \__ourVerInfo nodeId
                             let prefix = msgBlockPrefix
                             in  sendRaw conv (BL.fromChunks [prefix, bytes])
                 logDebug "handleGetBlocks: blocks sending done"
-            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+            Left e -> do
+                let e' = "handleGetBlocks: got Left: " <> e
+                logWarning e'
+                send conv (MsgNoBlock e')
   where
     failMalformed =
         throwM $ DBMalformed $
-        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "handleGetBlocks: getHeadersRange returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------

@@ -76,8 +76,9 @@ handleHeadersCommunication conv = do
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
                     DB.blkGetHeader @ssc h
-                (c1:cxs, _)   -> runExceptT
-                    (getHeadersFromManyTo (c1:|cxs) mghTo)
+                (c1:cxs, _)   ->
+                    first ("getHeadersFromManyTo: " <>) <$>
+                    runExceptT (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
@@ -94,7 +95,7 @@ handleHeadersCommunication conv = do
         logDebug "handleGetHeaders: responded successfully"
         handleHeadersCommunication conv
     onNoHeaders reason = do
-        let err = "getheadersFromManyTo returned Nothing, reason: " <> reason
+        let err = "handleGetHeaders: couldn't retrieve headers, reason: " <> reason
         logWarning err
         send conv (MsgNoHeaders err)
     onRecovery = do

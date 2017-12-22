@@ -58,6 +58,7 @@ import           Universum
 import           Control.Lens (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State (MonadState)
 import           Data.Aeson (ToJSON)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
@@ -79,19 +80,18 @@ import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
-import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState,
-                                             ExplorerSocket(..), ExplorerSockets,
-                                             _ProdSocket, ccAddress, ccConnection,
+import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSocket (..),
+                                             ExplorerSockets, ccAddress, ccConnection,
                                              csAddressSubscribers, csBlocksPageSubscribers,
                                              csClients, csEpochsLastPageSubscribers,
-                                             csTxsSubscribers, mkClientContext)
+                                             csTxsSubscribers, mkClientContext, _ProdSocket)
 import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..),
-                                               EpochIndex (..), TxInternal (..),
-                                               fromCAddress, toTxBrief)
+import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..), EpochIndex (..),
+                                               TxInternal (..), fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Explorer.Web.Server (getEpochPage, getBlocksLastPage,
-                                          getEpochPagesOrThrow, topsortTxsOrFail)
+import           Pos.Explorer.Web.Server (getBlocksLastPage, getEpochPage, getEpochPagesOrThrow,
+                                          topsortTxsOrFail)
+
 
 -- * Event names
 
@@ -357,10 +357,11 @@ notifyEpochsLastPageSubscribers currentEpoch = do
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
     => HeaderHash -> HeaderHash -> m (Maybe [Blund])
-getBlundsFromTo recentBlock oldBlock = do
-    mheaders <- DB.getHeadersFromToIncl oldBlock recentBlock
-    forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        catMaybes <$> forM headers getBlund
+getBlundsFromTo recentBlock oldBlock =
+    DB.getHeadersRange Nothing oldBlock recentBlock >>= \case
+        Left _ -> pure Nothing
+        Right (getOldestFirst -> headers) ->
+            Just . catMaybes <$> forM (NE.tail headers) getBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)

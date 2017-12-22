@@ -9,14 +9,15 @@ module Pos.Block.Logic.Header
        , classifyHeaders
        , getHeadersFromManyTo
        , getHeadersOlderExp
-       , getHeadersFromToIncl
+       , getHeadersRange
        ) where
 
 import           Universum
+import           Unsafe (unsafeLast)
 
+import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
-import           Data.List.NonEmpty ((<|))
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
@@ -31,7 +32,6 @@ import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, Heade
                            epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
                            headerHashG, headerSlotL, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
@@ -263,41 +263,37 @@ getHeadersFromManyTo checkpoints startM = do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    validCheckpoints <- noteM "Failed to retrieve checkpoints" $
-        nonEmpty . catMaybes <$>
-        mapM DB.getHeader (toList checkpoints)
-    tip <- GS.getTip
-    unless (all ((/= tip) . headerHash) validCheckpoints) $
-        throwError "Found checkpoint that is equal to our tip"
-    let startFrom = fromMaybe tip startM
-        isCheckpoint bh =
-            any (\c -> bh ^. headerHashG == c ^. headerHashG) validCheckpoints
-        parentIsCheckpoint bh =
-            any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
-        whileCond bh = not (isCheckpoint bh)
-    headers <- noteM "Failed to load headers by depth" . fmap (_NewestFirst nonEmpty) $
-        DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
-    let newestH = headers ^. _NewestFirst . _neHead
-        oldestH = headers ^. _NewestFirst . _neLast
-    logDebug $
-        sformat ("getHeadersFromManyTo: retrieved headers, oldest is "
-                % build % ", newest is " % build) oldestH newestH
-    if parentIsCheckpoint oldestH
-    then pure headers
-    else do
-        logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
-        inMainCheckpoints <-
-            noteM "Filtered set of valid checkpoints is empty" $
-            nonEmpty <$> filterM GS.isBlockInMainChain (toList validCheckpoints)
-        logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
-        let lowestCheckpoint =
-                maximumBy (comparing getEpochOrSlot) inMainCheckpoints
-            loadUpCond _ h = h < recoveryHeadersMessage
-        up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- note "loadHeadersUpWhile returned empty list" $
-            _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
-        logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
-        pure res
+    tip <- DB.getTipHeader
+    let tipHash = headerHash tip
+    let startHash = maybe tipHash headerHash startM
+
+    -- This filters out invalid/unknown checkpoints also.
+    inMainCheckpoints <-
+        noteM "no checkpoints are in the main chain" $
+        nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints)
+    let inMainCheckpointsHashes = map headerHash inMainCheckpoints
+    when (tipHash `elem` inMainCheckpointsHashes) $
+        throwError "found checkpoint that is equal to our tip"
+    logDebug $ "got checkpoints in main chain"
+
+    if (tip ^. prevBlockL . headerHashG) `elem` inMainCheckpointsHashes
+        -- Optimization for the popular case "just get me the newest
+        -- block, i know the previous one".
+        then pure $ one tip
+        -- If optimization doesn't apply, just iterate down-up
+        -- starting with the newest header.
+        else do
+            newestCheckpoint <-
+                maximumBy (comparing getEpochOrSlot) . catMaybes <$>
+                mapM DB.getHeader (toList inMainCheckpoints)
+            let loadUpCond (headerHash -> curH) h =
+                    curH /= startHash && h < recoveryHeadersMessage
+            up <- GS.loadHeadersUpWhile newestCheckpoint loadUpCond
+            res <-
+                note "loadHeadersUpWhile returned empty list" $
+                _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
+            logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+            pure res
   where
     noteM :: (MonadError e n) => e -> n (Maybe a) -> n a
     noteM reason action = note reason =<< action
@@ -355,34 +351,96 @@ getHeadersOlderExp upto = do
                 | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
--- CSL-396 don't load all the blocks into memory at once
--- | Given @from@ and @to@ headers where @from@ is older (not strict)
--- than @to@, and valid chain in between can be found, headers in
--- range @[from..to]@ will be found.
-getHeadersFromToIncl
-    :: forall m. (HasConfiguration, MonadDBRead m)
-    => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
-getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
+-- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
+-- is older (not strict) than @to@, and valid chain in between can be
+-- found, headers in range @[from..to]@ will be found. If the number
+-- of headers in the chain (which should be returned) is more than
+-- @depthLimit@, error will be thrown.
+getHeadersRange ::
+       forall m. (HasConfiguration, MonadDBRead m)
+    => Maybe Word
+    -> HeaderHash
+    -> HeaderHash
+    -> m (Either Text (OldestFirst NE HeaderHash))
+getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
+    unlessM (isJust <$> DB.getHeader newer) $
+        throwError "getHeadersRange: can't find newer-older header"
+    whenJust depthLimitM $ \depthLimit ->
+        when (depthLimit < 1) $
+        throwError $
+        sformat ("getHeadersRange: depthLimit is "%int%
+                 ", we can't return the single requested header "%build)
+                depthLimit
+                newer
+    pure $ OldestFirst $ one newer
+getHeadersRange depthLimitM older newer = runExceptT $ do
     -- oldest and newest blocks do exist
-    start <- MaybeT $ DB.getHeader newer
-    end   <- MaybeT $ DB.getHeader older
-    guard $ getEpochOrSlot start >= getEpochOrSlot end
-    let lowerBound = getEpochOrSlot end
-    if newer == older
-    then pure $ one newer
-    else loadHeadersDo lowerBound (one newer) $ start ^. prevBlockL
+    newerHd <- fromMaybeM "can't retrieve newer header" $ DB.getHeader newer
+    olderHd <- fromMaybeM "can't retrieve older header" $ DB.getHeader older
+    let olderD = olderHd ^. difficultyL
+    let newerD = newerHd ^. difficultyL
+
+    -- Proving newerD >= olderD
+    let newerOlderF = "newer: "%build%", older: "%build
+    when (newerD == olderD) $
+        throwError $
+        sformat ("getHeadersRange: newer and older headers have "%
+                 "the same difficulty, but are not equal. "%newerOlderF)
+                newerHd olderHd
+    when (newerD < olderD) $
+        throwError $
+        sformat ("getHeadersRange: newer header is less dificult than older one. "%
+                 newerOlderF)
+                newerHd olderHd
+
+    -- How many epochs does this range cross.
+    let genDiff :: Int
+        genDiff = fromIntegral $ newerHd ^. epochIndexL - olderHd ^. epochIndexL
+    -- Number of blocks is difficulty difference + number of genesis blocks.
+    -- depthDiff + 1 is length of a list we'll return.
+    let depthDiff :: Word
+        depthDiff = fromIntegral $ genDiff + fromIntegral (newerD - olderD)
+
+    whenJust depthLimitM $ \depthLimit ->
+        when (depthDiff + 1 > depthLimit) $
+        throwError $
+        sformat ("getHeadersRange: requested "%int%" headers, but depthLimit is "%
+                 int%". Headers: "%newerOlderF)
+                depthDiff
+                depthLimit
+                newerHd olderHd
+
+    -- We load these depthDiff blocks.
+    let cond curHash _depth = curHash /= newer
+
+    -- This is [oldest..newest) headers, oldest first
+    allExceptNewest <- GS.loadHashesUpWhile older cond
+
+    -- Sometimes we will get an empty list, if we've just switched the
+    -- branch (after first checks are performed here) and olderHd is
+    -- no longer in the main chain.
+    -- CSL-1950 We should use snapshots here.
+    when (null $ allExceptNewest ^. _OldestFirst) $ throwError $
+        "getHeadersRange: loaded 0 headers though checks passed. " <>
+        "May be (very rare) concurrency problem, just retry"
+
+    -- It's safe to use 'unsafeLast' here after the last check.
+    let lastElem = allExceptNewest ^. _OldestFirst . to unsafeLast
+    when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
+        throwError $
+        sformat ("getHeadersRange: newest block parent is not "%
+                 "equal to the newest one iterated. It may indicate recent fork or "%
+                 "inconsistent request. Newest: "%build%
+                 ", last list hash: "%build%", already retrieved (w/o last): "%listJson)
+                newerHd
+                lastElem
+                allExceptNewest
+
+    -- We append last element and convert to nonempty.
+    let conv =
+           fromMaybe (error "getHeadersRange: can't happen") .
+           nonEmpty .
+           (++ [newer])
+    pure $ allExceptNewest & _OldestFirst %~ conv
   where
-    loadHeadersDo
-        :: EpochOrSlot
-        -> NonEmpty HeaderHash
-        -> HeaderHash
-        -> MaybeT m (NonEmpty HeaderHash)
-    loadHeadersDo lowerBound hashes nextHash
-        | nextHash == genesisHash = mzero
-        | nextHash == older = pure $ nextHash <| hashes
-        | otherwise = do
-            nextHeader <- MaybeT $ DB.getHeader nextHash
-            guard $ getEpochOrSlot nextHeader > lowerBound
-            -- hashes are being prepended so the oldest hash will be the last
-            -- one to be prepended and thus the order is OldestFirst
-            loadHeadersDo lowerBound (nextHash <| hashes) (nextHeader ^. prevBlockL)
+    fromMaybeM r m = ExceptT $ maybeToRight ("getHeadersRange: " <> r) <$> m

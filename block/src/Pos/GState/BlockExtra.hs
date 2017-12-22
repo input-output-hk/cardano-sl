@@ -11,6 +11,7 @@ module Pos.GState.BlockExtra
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
        , foldlUpWhileM
+       , loadHashesUpWhile
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
@@ -112,47 +113,52 @@ instance HasConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 
 foldlUpWhileM
-    :: forall a b datum m r .
-       (HasHeaderHash a, MonadDBRead m)
-    => (HeaderHash -> m (Maybe datum))
-    -> (datum -> m b)
-    -> a
-    -> ((datum, b) -> Int -> Bool)
-    -> (r -> b -> m r)
-    -> r
+    :: forall a b m r .
+    ( MonadDBRead m
+    , HasHeaderHash a
+    )
+    => (HeaderHash -> m (Maybe b)) -- ^ For each header we get b(lund)
+    -> a                           -- ^ We start iterating from it
+    -> (b -> Int -> Bool)          -- ^ Condition on b and depth
+    -> (r -> b -> m r)             -- ^ Conversion function
+    -> r                           -- ^ Starting value
     -> m r
-foldlUpWhileM getDatum morphM start condition accM init =
+foldlUpWhileM getData start condition accM init =
     loadUpWhileDo (headerHash start) 0 init
   where
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
-    loadUpWhileDo curH height !res = getDatum curH >>= \case
+    loadUpWhileDo curH height !res = getData curH >>= \case
         Nothing -> pure res
-        Just x -> do
-            curB <- morphM x
+        Just someData -> do
             mbNextLink <- resolveForwardLink curH
-            if | not (condition (x, curB) height) -> pure res
+            if | not (condition someData height) -> pure res
                | Just nextLink <- mbNextLink -> do
-                     newRes <- accM res curB
+                     newRes <- accM res someData
                      loadUpWhileDo nextLink (succ height) newRes
-               | otherwise -> accM res curB
+               | otherwise -> accM res someData
 
--- Loads something from old to new.
+-- Loads something from old to new. foldlUpWhileM for (OldestFirst []).
 loadUpWhile
-    :: forall a b datum m .
-       (HasHeaderHash a, MonadDBRead m)
-    => (HeaderHash -> m (Maybe datum))
-    -> (datum -> b)
+    :: forall a b m . (MonadDBRead m, HasHeaderHash a)
+    => (HeaderHash -> m (Maybe b))
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
-loadUpWhile getDatum morph start condition = OldestFirst . reverse <$>
+loadUpWhile morph start condition = OldestFirst . reverse <$>
     foldlUpWhileM
-        getDatum
-        (pure . morph)
+        morph
         start
-        (\b h -> condition (snd b) h)
+        condition
         (\l e -> pure (e : l))
         []
+
+-- | Return hashes loaded up. Basically a forward links traversal.
+loadHashesUpWhile
+    :: forall m a. (HasHeaderHash a, MonadDBRead m)
+    => a
+    -> (HeaderHash -> Int -> Bool)
+    -> m (OldestFirst [] HeaderHash)
+loadHashesUpWhile = loadUpWhile (pure . Just)
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
@@ -160,8 +166,7 @@ loadHeadersUpWhile
     => a
     -> (BlockHeader -> Int -> Bool)
     -> m (OldestFirst [] BlockHeader)
-loadHeadersUpWhile start condition =
-    loadUpWhile getHeader identity start condition
+loadHeadersUpWhile = loadUpWhile getHeader
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
@@ -169,7 +174,7 @@ loadBlocksUpWhile
     => a
     -> (Block -> Int -> Bool)
     -> m (OldestFirst [] Block)
-loadBlocksUpWhile start condition = loadUpWhile getBlock identity start condition
+loadBlocksUpWhile = loadUpWhile getBlock
 
 ----------------------------------------------------------------------------
 -- Initialization

@@ -12,7 +12,8 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Logic (getHeadersFromToIncl)
+import           Pos.Block.Configuration (recoveryHeadersMessage)
+import           Pos.Block.Logic (getHeadersRange)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
@@ -62,9 +63,10 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        mHashes <- getHeadersFromToIncl mgbFrom mgbTo
-        case mHashes of
-            Just hashes -> do
+        -- We fail if we're requested to give more than
+        -- recoveryHeadersMessage headers at once.
+        getHeadersRange (Just recoveryHeadersMessage) mgbFrom mgbTo >>= \case
+            Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
@@ -77,11 +79,14 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                             failMalformed
                         Just b -> send conv (MsgBlock b)
                 logDebug "handleGetBlocks: blocks sending done"
-            _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+            Left e -> do
+                let e' = "handleGetBlocks: got Left: " <> e
+                logWarning e'
+                send conv (MsgNoBlock e')
   where
     failMalformed =
         throwM $ DBMalformed $
-        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
+        "handleGetBlocks: getHeadersRange returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------

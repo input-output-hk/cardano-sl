@@ -71,7 +71,7 @@ main = do
     Update -> updateTest config c
     GenWalletConf outFile ->
         let config' = config & appNameL .~ walletAppName
-         in Y.encodeFile (F.encodeString outFile) (M.singleton cKey config)
+         in Y.encodeFile (F.encodeString outFile) (M.singleton cKey config')
 
 
 genSpecL :: AsValue t => Traversal' t Y.Value

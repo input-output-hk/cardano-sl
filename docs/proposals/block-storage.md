@@ -60,9 +60,8 @@ So, here's a list of requirements for a good solution:
 Out of all considered solutions (SQLite, storing blocks in an archive, CBOR
 map, some database) it seems that the ideal solution is very simple: 
 
-  1. Create a new RocksDB database for each epoch, with two columns (header
-     hash, block itself). Enable compression. Add an index by the first
-     column.
+  1. Create a new RocksDB database for each epoch, with keys = hashes and
+     values = blocks. Enable compression with dictionary.
 
   2. Store a map `hash -> epoch` in some other database (e.g. “blockindex”).
 
@@ -73,4 +72,43 @@ The pros are:
   * fast lookups
   * no new dependencies
   * compression out of the box
+  * checksumming out of the box
   * whole database can be uploaded/downloaded pretty easily
+
+## Why not just one database?
+
+Admittedly, storing all blocks in one RocksDB database is even easier than
+storing them in several databases, if only because we don't have to maintain
+a `hash -> epoch` map. However, there are two good arguments for splitting
+the database:
+
+  1. **With a split database, we won't have to redownload the whole
+     blockchain if hard drive corruption happens.**
+
+     It might seem that we shouldn't actually care that much about blocks,
+     because they can be redownloaded at any time. However, it doesn't mean
+     we shouldn't care about them *at all* – downloading the blockchain is a
+     slow operation (for Ethereum it can take up to a day even on a fast
+     connection), and it's entirely possible that we will have users with
+     slow connections and big, cheap, unreliable hard drives. Dividing the
+     blockchain into epochs is a nice tradeoff.
+
+     (It is also the tradeoff that Bitcoin makes, for instance.)
+
+  2. **A split database provides more flexibility for users.**
+
+     When the storage format isn't monolithic, it gives users some freedom
+     to adjust it to their circumstances:
+
+       * For instance, a user (e.g. an exchange) could write a simple script
+         to store old epochs on a RAID array and the latest epoch – on an
+         SSD.
+
+       * A trusted party (i.e. trusted by a particular group of users and
+         not necessarily by the whole community) could distribute a torrent
+         containing the first N epochs, and then everyone would just
+         download the missing blocks.
+
+       * Somebody could want to keep an incremental backup of the blockchain
+         on a portable hard drive (an incremental backup, of course, becomes
+         much harder to perform with a monolithic database).

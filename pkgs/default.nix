@@ -2416,7 +2416,7 @@ self: {
           description = "Cardano SL - update";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-util = callPackage ({ QuickCheck, aeson, autoexporter, base, bytestring, cardano-sl-networking, concurrent-extra, containers, cpphs, cryptonite, data-default, deepseq, directory, ether, exceptions, filepath, formatting, hashable, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, parsec, process, quickcheck-instances, random, reflection, resourcet, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      cardano-sl-util = callPackage ({ QuickCheck, aeson, autoexporter, base, bytestring, cardano-sl-networking, concurrent-extra, containers, cpphs, cryptonite, data-default, deepseq, directory, ether, exceptions, filepath, formatting, hashable, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, parsec, process, quickcheck-instances, random, reflection, resourcet, safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-util";
           version = "1.0.3";
@@ -2450,6 +2450,7 @@ self: {
             random
             reflection
             resourcet
+            safe-exceptions
             semigroups
             serokell-util
             stm
@@ -8700,4 +8701,3 @@ compiler.override {
   initialPackages = stackPackages;
   configurationCommon = { ... }: self: super: {};
 }
-

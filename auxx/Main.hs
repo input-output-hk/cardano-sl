@@ -23,6 +23,7 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
@@ -140,7 +141,7 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
             | otherwise = identity
         loggingParams = disableConsoleLog $
             CLI.loggingParams loggerName (aoCommonNodeArgs opts)
-    loggerBracket loggingParams $ do
+    loggerBracket loggingParams . logException "auxx" $ do
         let runAction a = runProduction $ action opts a
         case aoAction opts of
             Repl    -> withAuxxRepl $ \c -> runAction (Left c)

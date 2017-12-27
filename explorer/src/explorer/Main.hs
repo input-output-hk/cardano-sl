@@ -32,7 +32,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
                                NodeResources (..), bracketNodeResources, hoistNodeResources,
                                loggerBracket, runNode, runRealBasedMode, withConfigurations)
 import           Pos.Update (updateTriggerWorker)
-import           Pos.Util (mconcatPair)
+import           Pos.Util (logException, mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 
@@ -47,9 +47,9 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
-    loggerBracket loggingParams . runProduction $ do
+    loggerBracket loggingParams . logException "node" . runProduction $ do
         CLI.printFlags
-        logInfo $ "[Attention] Software is built with explorer part"
+        logInfo "[Attention] Software is built with explorer part"
         action args
 
 action :: ExplorerNodeArgs -> Production ()

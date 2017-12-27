@@ -14869,6 +14869,8 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
 ##                                                                          ##
 ##############################################################################
 
+# This configuration should be modified before using it.
+# For more information see `docs/configuration.md` in master branch.
 mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
   <<: *mainnet_base
   core:
@@ -14876,7 +14878,7 @@ mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
     genesis:
       src:
         file: mainnet-staging-short-epoch-genesis.json
-        hash: e7a53de0c136f1da2a8591cac6150ea790dbe428b5f7aa840d2ea210cbb00673
+        hash: 82f274fb611a7637c8162ebd2a5b2b2852fa82e5230e206e87d4eac97aa96016
   update:
     <<:
     applicationName: cardano-sl
@@ -14997,84 +14999,3 @@ devnet: &devnet
     networkDiameter: 18 # should be slightly less than slot duration
     mdNoBlocksSlotThreshold: 5 # should be less than 2 * k
     recoveryHeadersMessage: 200 # should be greater than k
-
-##############################################################################
-##                                                                          ##
-##   Testnet configs (full)                                                 ##
-##                                                                          ##
-##############################################################################
-
-testnet_public_full: &testnet_public_full
-  <<: *mainnet_base
-  core: &testnet_public_full_core
-    <<: *mainnet_base_core
-    genesis: &testnet_public_full_genesis
-      <<: *mainnet_base_genesis
-      spec:  &testnet_public_full_spec
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 60987900 #testnet protocolMagic
-        avvmDistr: *mainnet_avvmDistr
-        initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        24000
-              richmen:      7
-              richmenShare: 0.94
-              totalBalance: 13887504355000000
-              useHDAddresses: False
-            fakeAvvmBalance:
-              count: 100
-              oneBalance: 15000000
-            distribution:
-              testnetRichmenStakeDistr: []
-            seed: 0
-
-testnet_staging_full: &testnet_staging_full
-  <<: *testnet_public_full
-  core:
-    <<: *testnet_public_full_core
-    genesis:
-      <<: *testnet_public_full_genesis
-      spec:
-        <<: *testnet_public_full_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 60987900 #testnet protocolMagic
-          k: 108
-
-##############################################################################
-##                                                                          ##
-##   Testnet configs (wallet)                                               ##
-##                                                                          ##
-##############################################################################
-
-
-testnet_public_wallet_win64: &testnet_public_wallet_win64
-  <<: *testnet_public_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: win64
-
-testnet_public_wallet_macos64: &testnet_public_wallet_macos64
-  <<: *testnet_public_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: macos64
-
-testnet_staging_wallet_win64: &testnet_staging_wallet_win64
-  <<: *testnet_staging_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: win64
-
-testnet_staging_wallet_macos64: &testnet_staging_wallet_macos64
-  <<: *testnet_staging_full
-  update:
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: macos64

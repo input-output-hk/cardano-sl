@@ -10,8 +10,8 @@ import           Universum
 import           Pos.Core (BlockVersionData (bvdHeavyDelThd), EpochIndex, HasConfiguration,
                            genesisBlockVersionData)
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Lrc.Class (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen)
+import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util.Util (getKeys)
 

@@ -14,7 +14,7 @@ data User
     , sex        :: Bool
     }
 
-then the next deriveSimpleBi:
+then the following deriveSimpleBi:
 
 deriveSimpleBi ''User [
     Cons 'Login [

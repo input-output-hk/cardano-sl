@@ -15,7 +15,7 @@ import           Pos.Infra.Configuration (HasInfraConfiguration, ccNtpMaxError, 
 -- NTP
 ----------------------------------------------------------------------------
 
--- | Inaccuracy in call threadDelay (actually it is error much less than 1 sec)
+-- | Inaccuracy in call threadDelay (actually this error is much less than 1 sec)
 ntpMaxError :: HasInfraConfiguration => Microsecond
 ntpMaxError = mcs . ccNtpMaxError $ infraConfiguration
 

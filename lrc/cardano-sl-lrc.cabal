@@ -19,7 +19,7 @@ library
                        Pos.Lrc.Error
                        Pos.Lrc.Core
                        Pos.Lrc.Consumer
-                       Pos.Lrc.Class
+                       Pos.Lrc.RichmenComponent
                        Pos.Lrc.Context
                        Pos.Lrc.Mode
 

@@ -35,10 +35,10 @@ import           Pos.Core (Coin, HasConfiguration, ProxySKHeavy, StakeholderId, 
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.Delegation.RichmenComponent (RCDlg, getRichmenDlg)
-import           Pos.Lrc.Class (RichmenComponent (..), SomeRichmenComponent (..),
-                                someRichmenComponent)
 import           Pos.Lrc.DB.RichmenBase (getRichmenP, putRichmenP)
 import           Pos.Lrc.Logic (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.RichmenComponent (RichmenComponent (..), SomeRichmenComponent (..),
+                                           someRichmenComponent)
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Ssc.RichmenComponent (RCSsc, getRichmenSsc)
 import           Pos.Txp.GenesisUtxo (genesisStakes)

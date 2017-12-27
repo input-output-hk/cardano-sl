@@ -40,7 +40,7 @@ englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist
                , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
                , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
                , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean "
+               , "success" , "worry" , "rural" , "silver" , "invest" , "mean"
                ]
 
 -- | Number of words in backup phrase

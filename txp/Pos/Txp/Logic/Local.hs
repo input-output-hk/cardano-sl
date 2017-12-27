@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Logic for local processing of transactions.
--- Local transaction is transaction which hasn't been added in the blockchain yet.
+-- Local transaction is a transaction which has not yet been added to the blockchain.
 
 module Pos.Txp.Logic.Local
        ( TxpProcessTransactionMode

@@ -20,7 +20,7 @@ import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
 
 
 -- | This monad abstracts data needed for verifying headers/blocks
--- from the standpoint of delegatino component.
+-- from the standpoint of delegation component.
 class MonadThrow m => MonadCedeRead m where
     -- | Resolve public key of issuer (hashed) to the psk. This method
     -- never returns a revoke psk.

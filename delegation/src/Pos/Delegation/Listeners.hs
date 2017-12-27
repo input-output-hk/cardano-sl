@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE RankNTypes #-}
 
--- | Server listeners for delegation logic
+-- | Server listeners for delegation logic.
 
 module Pos.Delegation.Listeners
        ( delegationRelays

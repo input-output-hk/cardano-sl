@@ -8701,3 +8701,4 @@ compiler.override {
   initialPackages = stackPackages;
   configurationCommon = { ... }: self: super: {};
 }
+

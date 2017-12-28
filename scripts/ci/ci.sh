@@ -28,9 +28,9 @@ fi
 #done
 
 for trgt in $targets; do
-  echo "Prebuilding dependencies for $trgt, quietly.."
-  nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
-          echo "Prebuild failed!"
+  # echo "Prebuilding dependencies for $trgt, quietly.."
+  # nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
+  #         echo "Prebuild failed!"
           
   echo "Building $trgt verbosely.."
   nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT

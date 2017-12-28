@@ -60,7 +60,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs
 
-  echo "Launching a single node connected to '${environment}' ..."
+  echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
   if [ ! -d ${stateDir}tls ]; then
     mkdir ${stateDir}/tls/
@@ -68,11 +68,12 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   fi
   ''}
 
+
   ${executables.${executable}}                                     \
-    ${ ifWallet "--web"}                                           \
     --no-ntp                                                       \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
+    ${ ifWallet "--web"}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
     ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
     ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \
@@ -82,5 +83,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --db-path "${stateDir}/db"                                     \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
-    ${ ifWallet "--wallet-address ${walletListen}"}
+        ${ ifWallet "--wallet-address ${walletListen}"}    \
+        --ekg-server 127.0.0.1:8080 --metrics +RTS -T -RTS             
+
 ''

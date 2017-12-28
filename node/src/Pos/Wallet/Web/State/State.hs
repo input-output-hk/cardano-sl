@@ -181,7 +181,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB ctx m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
+getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Map TxId TxHistoryEntry)
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 getCustomAddresses :: WebWalletModeDB ctx m => CustomAddressType -> m [CId Addr]

@@ -31,9 +31,9 @@ Clone Cardano SL repository and go to the root directory:
     $ git clone https://github.com/input-output-hk/cardano-sl.git
     $ cd cardano-sl
 
-Switch to the latest release branch, for example, `cardano-sl-1.0`:
+Switch to the `master` branch:
 
-    $ git checkout cardano-sl-1.0
+    $ git checkout master
 
 ## Nix build mode (recommended)
 
@@ -56,11 +56,11 @@ Two steps remain, then:
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:
 
-        $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link cardano-sl-1.0
+        $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link master
 
-    The build output directory will be symlinked as `cardano-sl-1.0` (as specified by the command), and it will contain:
+    The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
 
-        $ ls cardano-sl-1.0/bin
+        $ ls master/bin
         cardano-node-simple
 
 NOTE: the various other Cardano components can be obtained through other attributes:

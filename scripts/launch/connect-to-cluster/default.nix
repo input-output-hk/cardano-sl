@@ -5,6 +5,7 @@
 , executable ? "wallet"
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
+, exchange ? false
 }:
 
 # TODO: DEVOPS-462: docker to use this script
@@ -36,6 +37,10 @@ let
       valency: 1
       fallbacks: 7
   '';
+  logConfig =
+    if exchange
+    then "log-config-exchanges.yaml"
+    else "log-config-qa.yaml";
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
@@ -55,7 +60,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--tlscert ${src}/scripts/tls-files/server.crt"}   \
     ${ ifWallet "--tlskey ${src}/scripts/tls-files/server.key"}    \
     ${ ifWallet "--tlsca ${src}/scripts/tls-files/ca.crt"}         \
-    --log-config ${src}/scripts/log-templates/log-config-qa.yaml   \
+    --log-config ${src}/scripts/log-templates/${logConfig}         \
     --topology "${topologyFile}"                                   \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"                                     \

@@ -3,9 +3,9 @@
 rotation:
     logLimit: 104857600 # 100MB
     keepFiles: 2
-severity: Debug
-termSeverity: Debug
-handlers:
-  - file: node.pub
-    round: 5
-  - file: node
+loggerTree:
+  severity: Debug+
+  files:
+    - node.pub
+    - node
+

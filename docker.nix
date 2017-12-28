@@ -1,12 +1,18 @@
-{ environment ? "mainnet", connect, gitrev, pkgs }:
+{ environment ? "mainnet"
+, connect
+, gitrev
+, pkgs
+, connectArgs ? {}
+}:
 
 with pkgs.lib;
+
 let
-  connectToCluster = connect {
+  connectToCluster = connect ({
     inherit gitrev environment;
     stateDir = "/wallet/${environment}";
     walletListen = "0.0.0.0:8090";
-  };
+  } // connectArgs);
   startScript = pkgs.writeScriptBin "cardano-start" ''
     #!/bin/sh
     set -e
@@ -18,13 +24,15 @@ let
     exec ${connectToCluster}
   '';
 in pkgs.dockerTools.buildImage {
-  name = "cardano-container-${environment}-1.0";
-  contents = [ pkgs.iana-etc startScript pkgs.openssl ] ++ optional true (with pkgs; [ bashInteractive coreutils utillinux iproute iputils curl socat ]);
+  name = "cardano-container-${environment}";
+  contents = with pkgs; [ iana-etc startScript openssl bashInteractive coreutils utillinux iproute iputils curl socat ];
   config = {
     Cmd = [ "cardano-start" ];
     ExposedPorts = {
       "3000/tcp" = {};
       "8090/tcp" = {};
+      "8100/tcp" = {}; # explorer api
+      "8080/tcp" = {}; # ekg
     };
   };
 }

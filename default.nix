@@ -88,8 +88,8 @@ let
     };
   });
   connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
-  mkDocker = { environment }: import ./docker.nix { inherit environment connect gitrev pkgs; };
   other = {
+    mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";

@@ -23,6 +23,7 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update (updateTriggerWorker)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 
@@ -64,6 +65,6 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    loggerBracket loggingParams . runProduction $ do
+    loggerBracket loggingParams . logException "node" . runProduction $ do
         CLI.printFlags
         withConfigurations conf $ action args

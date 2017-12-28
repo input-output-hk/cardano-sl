@@ -5,7 +5,7 @@ in
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; }; 
+      config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
     }
   }:
@@ -17,7 +17,7 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
-  dockerImage = (import fixedNixpkgs { config = {}; }).runCommand "cardano-container-hydra" {} ''
+  stagingWalletdockerImage = (import fixedNixpkgs { config = {}; }).runCommand "${iohkPkgs.dockerImages.stagingWallet.name}-hydra" {} ''
     mkdir -pv $out/nix-support/
     cat <<EOF > $out/nix-support/hydra-build-products
     file dockerimage ${iohkPkgs.dockerImages.stagingWallet}
@@ -39,5 +39,5 @@ let
     connectScripts.stagingExplorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
 in (mapTestOn platforms) // {
-  inherit dockerImage;
+  inherit stagingWalletdockerImage;
 }

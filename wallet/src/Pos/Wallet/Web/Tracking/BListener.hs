@@ -28,7 +28,7 @@ import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.GState as GS
-import           Pos.Reporting (MonadReporting, reportOrLogW)
+import           Pos.Reporting (MonadReporting, tryReport)
 import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
                                getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Base (flattenTxPayload)
@@ -196,9 +196,8 @@ catchInSync
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
     syncWallet wId `catchAny` \e -> do
-        -- TODO: do not duplicate logging
+        _ <- tryReport (prefix secure) e
         logWarningSP $ \sl -> prefix sl <> show e
-        reportOrLogW (prefix secure) e
   where
     -- REPORT:ERROR 'reportOrLogW' in wallet sync.
     fmt sl = "Failed to sync wallet "%secretOnlyF sl build%" in BListener ("%build%"): "

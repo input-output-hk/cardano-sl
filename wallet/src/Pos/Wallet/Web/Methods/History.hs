@@ -17,9 +17,9 @@ import           Control.Exception.Safe (impureThrow)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
-import           Formatting (build, sformat, stext, (%))
+import           Formatting (sformat, stext, (%))
 import           Serokell.Util (listJson, listJsonIndent)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
+import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, timestampToPosix)
@@ -59,13 +59,7 @@ getFullWalletHistory cWalId = do
 
     unfilteredLocalHistory <- getLocalHistory addrs
 
-    blockHistory <- getHistoryCache cWalId >>= \case
-        Just hist -> pure hist
-        Nothing -> do
-            logWarning $
-                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
-                cWalId
-            pure mempty
+    blockHistory <- getHistoryCache cWalId
 
     logDebug "getFullWalletHistory: fetched addresses and block/local histories"
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory

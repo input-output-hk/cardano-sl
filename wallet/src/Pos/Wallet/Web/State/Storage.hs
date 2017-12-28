@@ -390,8 +390,8 @@ getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
 -- | Get block history cache for given wallet.
-getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
-getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
+getHistoryCache :: CId Wal -> Query (Map TxId TxHistoryEntry)
+getHistoryCache cWalId = view $ wsHistoryCache . at cWalId . non' _Empty
 
 -- | Get set of all used or change addresses with corresponding
 -- header hashes of blocks these addresses were firtst encountered

@@ -5363,6 +5363,8 @@ self: {
           pname = "megaparsec";
           version = "6.2.0";
           sha256 = "8feaed80faf349cf67f642683173385e97e46d254db4eeefb3724de6993bd6cf";
+          revision = "1";
+          editedCabalFile = "1avlmfwf822bn7y8pgdbf67jsq2sdppvsrvhxd5na5jxvfx2j0lz";
           libraryHaskellDepends = [
             base
             bytestring

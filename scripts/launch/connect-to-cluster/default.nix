@@ -71,6 +71,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   ${executables.${executable}}                                     \
     ${ ifWallet "--web"}                                           \
     --no-ntp                                                       \
+    --ekg-server 127.0.0.1:8080 --metrics +RTS -T -RTS             \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \

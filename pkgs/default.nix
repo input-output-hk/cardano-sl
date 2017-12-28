@@ -2888,8 +2888,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "9173805b9c941bda1f37e5aeb68ae30f57a12df9b17bd2aa86db3b7d5236a678";
-          revision = "1";
-          editedCabalFile = "0hsq03i0qa0jvw7kaaqic40zvfkzhkd25dgvbdg6hjzylf1k1gax";
+          revision = "2";
+          editedCabalFile = "02j27xvlj0jw3b2jpfg6wbysj0blllin792wj6qnrgnrvd4haj7v";
           setupHaskellDepends = [
             base
             Cabal
@@ -3851,8 +3851,8 @@ self: {
       hscolour = callPackage ({ base, containers, mkDerivation, stdenv }:
       mkDerivation {
           pname = "hscolour";
-          version = "1.24.2";
-          sha256 = "55fb86bafdcad9613c25910b1cbca4b071c1ddc6365538c3b3d4e350cb30cf22";
+          version = "1.24.4";
+          sha256 = "243332b082294117f37b2c2c68079fa61af68b36223b3fc07594f245e0e5321d";
           isLibrary = true;
           isExecutable = true;
           enableSeparateDataOutput = true;
@@ -5804,8 +5804,8 @@ self: {
           pname = "semigroupoids";
           version = "5.2.1";
           sha256 = "79e41eb7cbcb4f152343b91243feac0a120375284c1207edaa73b23d8df6d200";
-          revision = "2";
-          editedCabalFile = "049j2jl6f5mxqnavi1aadx37j4bk5xksvkxsl43hp4rg7n53p11z";
+          revision = "3";
+          editedCabalFile = "0wzcnpz8pyjk823vqnq5s8krsb8i6cw573hcschpd9x5ynq4li70";
           setupHaskellDepends = [
             base
             Cabal
@@ -7139,8 +7139,8 @@ self: {
           pname = "utf8-string";
           version = "1.0.1.1";
           sha256 = "fb0b9e3acbe0605bcd1c63e51f290a7bbbe6628dfa3294ff453e4235fbaef140";
-          revision = "2";
-          editedCabalFile = "1b97s9picjl689hcz8scinv7c8k5iaal1livqr0l1l8yc4h0imhr";
+          revision = "3";
+          editedCabalFile = "02vhj5gykkqa2dyn7s6gn8is1b5fdn9xcqqvlls268g7cpv6rk38";
           libraryHaskellDepends = [
             base
             bytestring

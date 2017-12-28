@@ -3,6 +3,7 @@
 , stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "state-${executable}-${environment}"
 , config ? {}
 , executable ? "wallet"
+, topologyFile ? null
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
@@ -11,8 +12,7 @@
 
 with localLib;
 
-# TODO: DEVOPS-462: docker to use this script
-# TODO: DEVOPS-159: relays should be more predictable 
+# TODO: DEVOPS-159: relays DNS should be more predictable
 # TODO: DEVOPS-499: developer clusters based on runtime JSON
 # TODO: DEVOPS-462: exchanges should use a different topology
 
@@ -34,7 +34,7 @@ let
   ifWallet = localLib.optionalString (executable == "wallet");
   iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
   src = ./../../../.;
-  topologyFile = pkgs.writeText "topology-${environment}" ''
+  topologyFileDefault = pkgs.writeText "topology-${environment}" ''
     wallet:
       relays: [[{ host: ${environments.${environment}.relays} }]]
       valency: 1
@@ -47,7 +47,7 @@ let
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"} log-config-qa.yaml
-    cp -vi ${topologyFile} topology.yaml
+    cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   #!${pkgs.stdenv.shell}

@@ -82,5 +82,5 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --db-path "${stateDir}/db"                                     \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
-    ${ optionalString (walletListen != "") ''--wallet-address ${walletListen}''}
+    ${ ifWallet "--wallet-address ${walletListen}"}
 ''

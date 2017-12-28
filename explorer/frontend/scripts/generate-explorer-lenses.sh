@@ -11,6 +11,8 @@ DIR_TYPES_LENSES=$ROOT_DIR/src/Explorer/Lenses
 DIR_TIME_LENSES=$ROOT_DIR/src/Data/Time/Lenses
 DIR_VIEW_LENSES=$ROOT_DIR/src/Explorer/View/Lenses
 
+set -xe
+
 rm -rf $DIR_GENERATED_WEB
 rm -rf $DIR_GENERATED_TYPES
 rm -rf $DIR_TYPES_LENSES
@@ -18,8 +20,6 @@ rm -rf $DIR_TIME_LENSES
 rm -rf $DIR_VIEW_LENSES
 
 #BACKEND
-
-set -e
 
 mkdir -p $DIR_GENERATED_WEB
 

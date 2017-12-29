@@ -4,14 +4,15 @@ module Command.Dump
 
 import           Universum
 
+import           Codec.Compression.Lzma (compress)
 import           Control.Lens (_Wrapped)
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import           Formatting (build, sformat, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (pathSeparator)
 import           System.Wlog (logInfo)
 
-import           Pos.Binary (serialize')
+import           Pos.Binary (serialize)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockHeader, HeaderHash, blockHeaderHash, difficultyL, epochIndexL,
                            genesisHash, getEpochIndex, prevBlockL)
@@ -74,10 +75,10 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
         case _Wrapped nonEmpty blundsMaybeEmpty of
             Nothing -> pass
             Just blunds -> do
-                let sblunds = serialize' (0 :: Word8, blunds)
+                let sblunds = serialize (0 :: Word8, blunds)
                     path = sformat (string%string%"epoch"%build%".cbor")
                             outFolder [pathSeparator] (getEpochIndex epochIndex)
-                liftIO $ BS.writeFile (toString path) sblunds
+                liftIO $ BSL.writeFile (toString path) $ compress sblunds
                 whenJust maybePrev $ \prev -> do
                     maybeHeader <- DB.getHeader prev
                     case maybeHeader of

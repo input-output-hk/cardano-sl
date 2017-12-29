@@ -71,6 +71,7 @@ library
                      , lens
                      , loc
                      , log-warper
+                     , lzma
                      , megaparsec
                      , mmorph
                      , mtl

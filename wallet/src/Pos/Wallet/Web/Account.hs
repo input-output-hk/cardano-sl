@@ -132,14 +132,13 @@ generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
                       \you are approaching the limit") desc
     loop i = do
         rand  <- liftIO randomIO
-        value <- generator rand
-        bad   <- orM
-            [ isDuplicate rand value
-            , pure $ isHardened rand  -- using hardened keys only for now
-            ]
-        if bad
-            then loop (i - 1)
-            else return value
+        if isHardened rand then
+            loop (i - 1) -- use non-hardened keys only for now
+        else do
+            value <- generator rand
+            isDup <- isDuplicate rand value
+            if isDup then loop (i - 1)
+            else pure value
 generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
     whenM (notFit seed value) $

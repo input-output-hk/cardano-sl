@@ -27,6 +27,7 @@ module Lang.Value
        , AddrDistrPart(..)
        , ProposeUpdateParams(..)
        , RollbackParams(..)
+       , DumpParams(..)
        , ProposeUpdateSystem(..)
        , GenBlocksParams(..)
        , AddKeyParams (..)
@@ -70,6 +71,10 @@ data ProposeUpdateParams = ProposeUpdateParams
 data RollbackParams = RollbackParams
     { rpNum      :: !Word
     , rpDumpPath :: !FilePath
+    } deriving (Show)
+
+data DumpParams = DumpParams
+    { dumpOutFolder :: !FilePath
     } deriving (Show)
 
 data ProposeUpdateSystem = ProposeUpdateSystem

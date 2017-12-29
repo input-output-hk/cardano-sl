@@ -34,6 +34,7 @@ import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usK
 import           Pos.Util.Util (eitherToFail)
 
 import           Command.BlockGen (generateBlocks)
+import qualified Command.Dump as Dump
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
@@ -48,9 +49,10 @@ import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
-import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
-                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), SendMode (..), Value (..))
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), DumpParams (..),
+                             GenBlocksParams (..), ProposeUpdateParams (..),
+                             ProposeUpdateSystem (..), RollbackParams (..), SendMode (..),
+                             Value (..))
 import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
                        makePubKeyAddressAuxx)
 import           Repl (PrintAction)
@@ -463,6 +465,20 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         pure RollbackParams{..}
     , cpExec = \RollbackParams{..} -> do
         Rollback.rollbackAndDump rpNum rpDumpPath
+        return ValueUnit
+    , cpHelp = ""
+    },
+
+    let name = "dump" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        dumpOutFolder <- getArg tyFilePath "dump-folder"
+        pure DumpParams{..}
+    , cpExec = \DumpParams{..} -> do
+        Dump.dump dumpOutFolder
         return ValueUnit
     , cpHelp = ""
     },

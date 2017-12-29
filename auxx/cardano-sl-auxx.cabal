@@ -20,6 +20,7 @@ library
                        Command.BlockGen
                        Command.Proc
                        Command.Rollback
+                       Command.Dump
                        Command.Tx
                        Command.TyProjection
                        Command.Update
@@ -61,7 +62,9 @@ library
                      , constraints
                      , containers
                      , data-default
+                     , directory
                      , ether
+                     , filepath
                      , formatting
                      , generic-arbitrary
                      , haskeline

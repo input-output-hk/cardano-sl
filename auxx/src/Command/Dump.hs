@@ -8,15 +8,15 @@ import           Codec.Compression.Lzma (compress)
 import           Control.Lens (_Wrapped)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List.NonEmpty (last)
-import           Formatting (build, sformat, string, (%))
+import           Formatting (build, sformat, (%))
 import           System.Directory (createDirectoryIfMissing)
-import           System.FilePath (pathSeparator)
+import           System.FilePath ((</>))
 import           System.Wlog (logInfo, logWarning)
 
 import           Pos.Binary (serialize)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (BlockHeader, HeaderHash, blockHeaderHash, difficultyL, epochIndexL,
-                           genesisHash, getBlockHeader, getEpochIndex, prevBlockL)
+import           Pos.Core (BlockHeader, EpochIndex (..), HeaderHash, blockHeaderHash, difficultyL,
+                           epochIndexL, genesisHash, getBlockHeader, prevBlockL)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.BlockIndex as DB
@@ -78,9 +78,8 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
             Nothing -> pass
             Just (blunds :: NewestFirst NonEmpty Blund) -> do
                 let sblunds = serialize (0 :: Word8, blunds)
-                    path = sformat (string%string%"epoch"%build%".cbor")
-                            outFolder [pathSeparator] (getEpochIndex epochIndex)
-                liftIO $ BSL.writeFile (toString path) $ compress sblunds
+                    outPath = getOutPath epochIndex
+                liftIO $ BSL.writeFile outPath $ compress sblunds
                 whenJust maybePrev $ \prev -> do
                     maybeHeader <- DB.getHeader prev
                     case maybeHeader of
@@ -95,6 +94,12 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
                                     blockHeaderHash in
                             logWarning $ sformat ("DB contains block "%build%
                                 " but not its parent "%build) anchorHash prev
+
+    getOutPath :: EpochIndex -> FilePath
+    getOutPath epochIndex =
+        let outFile = toString $
+                sformat ("epoch"%build%".cbor") (getEpochIndex epochIndex)
+        in outFolder </> outFile
 
     getBlundThrow
         :: MonadDBRead m

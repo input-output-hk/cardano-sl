@@ -32,7 +32,6 @@ let
     cardano-report-server-static = [ "x86_64-linux" ];
     stack2nix = supportedSystems;
     purescript = supportedSystems;
-    dockerImage = [ "x86_64-linux" ];
     connectScripts.mainnetWallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.mainnetExplorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.stagingWallet   = [ "x86_64-linux" "x86_64-darwin" ];

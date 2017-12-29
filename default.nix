@@ -47,15 +47,11 @@ let
         ];
       });
 
-      cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
-      cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
-      cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
-      cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-      })));
+      }));
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
       cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
@@ -86,7 +82,7 @@ let
     };
   });
   connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
-  other = {
+  other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
@@ -95,7 +91,6 @@ let
       sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
-    inherit rawDockerImage dockerImage;
     connectScripts = {
       mainnetWallet = connect {};
       mainnetExplorer = connect { executable = "explorer"; };

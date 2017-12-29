@@ -6,7 +6,6 @@
 
 module ExplorerOptions
        ( Args (..)
-       , ExplorerNodeArgs (..)
        , getExplorerOptions
        ) where
 
@@ -30,11 +29,6 @@ import           Pos.Statistics             (EkgParams, StatsdParams, ekgParamsO
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
-
-data ExplorerNodeArgs = ExplorerNodeArgs
-    { enaCommonNodeArgs :: CLI.CommonNodeArgs
-    , enaExplorerArgs   :: Args
-    } deriving Show
 
 data Args = Args
     { dbPath             :: !FilePath
@@ -145,12 +139,6 @@ argsParser = do
 
     pure Args{..}
 
-explorerArgsParser :: Parser ExplorerNodeArgs
-explorerArgsParser = do
-    commonNodeArgs <- CLI.commonNodeArgsParser
-    explorerArgs <- argsParser
-    return $ ExplorerNodeArgs commonNodeArgs explorerArgs
-
 addrNodeOption :: Parser NetworkAddress
 addrNodeOption =
     option (fromParsec addrParser) $
@@ -158,13 +146,13 @@ addrNodeOption =
         metavar "HOST:PORT" <>
         help "Identifier of a node in a Kademlia network"
 
-getExplorerOptions :: IO ExplorerNodeArgs
+getExplorerOptions :: IO Args
 getExplorerOptions = do
     (res, ()) <-
         simpleOptions
             ("cardano-explorer-" <> showVersion version)
             "CardanoSL explorer node"
             "CardanoSL explorer node."
-            explorerArgsParser
+            argsParser
             empty
     pure res

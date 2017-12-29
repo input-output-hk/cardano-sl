@@ -31,9 +31,8 @@ import           Pos.Update          (updateTriggerWorker)
 import           Pos.Util            (inAssertMode, logException, mconcatPair)
 import           Pos.Util.UserSecret (usVss)
 
-import           ExplorerOptions     (Args (..), ExplorerNodeArgs (..),
-                                      getExplorerOptions)
-import           Params              (getNodeParams, gtSscParams)
+import           ExplorerOptions     (Args (..), getExplorerOptions)
+import           Params              (getLoggingParams, getNodeParams, gtSscParams)
 
 printFlags :: IO ()
 printFlags = do
@@ -49,10 +48,10 @@ printFlags = do
 main :: IO ()
 main = do
     args <- getExplorerOptions
-    let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
+    let loggingParams = getLoggingParams "node" args
     loggerBracket loggingParams . logException "node" $ do
         printFlags
-        runProduction $ action (enaExplorerArgs args)
+        runProduction $ action args
 
 action :: Args -> Production ()
 action args@Args {..} = withConfigurations conf $ do

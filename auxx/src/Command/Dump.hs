@@ -7,15 +7,16 @@ import           Universum
 import           Codec.Compression.Lzma (compress)
 import           Control.Lens (_Wrapped)
 import qualified Data.ByteString.Lazy as BSL
+import           Data.List.NonEmpty (last)
 import           Formatting (build, sformat, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (pathSeparator)
-import           System.Wlog (logInfo)
+import           System.Wlog (logInfo, logWarning)
 
 import           Pos.Binary (serialize)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockHeader, HeaderHash, blockHeaderHash, difficultyL, epochIndexL,
-                           genesisHash, getEpochIndex, prevBlockL)
+                           genesisHash, getBlockHeader, getEpochIndex, prevBlockL)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.BlockIndex as DB
@@ -54,15 +55,16 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
         pure (maybePrev, NewestFirst blundsMaybeEmpty)
       where
         doIt :: MonadAuxxMode m => [Blund] -> HeaderHash -> m (Maybe HeaderHash, [Blund])
-        doIt !acc h
-            | h == genesisHash = pure (Nothing, reverse acc)
-            | otherwise = do
-                d <- getBlundThrow h
-                let prev = d ^. prevBlockL
-                    newAcc = d : acc
-                case d ^. _1 of
-                    Left _  -> pure (Just prev, reverse newAcc)
-                    Right _ -> doIt newAcc prev
+        doIt !acc h = do
+            d <- getBlundThrow h
+            let newAcc = d : acc
+                prev = d ^. prevBlockL
+            case d ^. _1 of
+                Left _ -> pure
+                    ( if prev == genesisHash then Nothing else Just prev
+                    , reverse newAcc)
+                Right _ ->
+                    doIt newAcc prev
 
     doDump
         :: (MonadAuxxMode m, MonadIO m)
@@ -74,7 +76,7 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
         (maybePrev, blundsMaybeEmpty) <- loadEpoch $ blockHeaderHash start
         case _Wrapped nonEmpty blundsMaybeEmpty of
             Nothing -> pass
-            Just blunds -> do
+            Just (blunds :: NewestFirst NonEmpty Blund) -> do
                 let sblunds = serialize (0 :: Word8, blunds)
                     path = sformat (string%string%"epoch"%build%".cbor")
                             outFolder [pathSeparator] (getEpochIndex epochIndex)
@@ -83,7 +85,16 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
                     maybeHeader <- DB.getHeader prev
                     case maybeHeader of
                         Just header -> doDump header
-                        Nothing     -> error "DB contains block but not its parent"
+                        Nothing     ->
+                            let anchorHash =
+                                    blunds &
+                                    getNewestFirst &
+                                    last &
+                                    fst &
+                                    getBlockHeader &
+                                    blockHeaderHash in
+                            logWarning $ sformat ("DB contains block "%build%
+                                " but not its parent "%build) anchorHash prev
 
     getBlundThrow
         :: MonadDBRead m

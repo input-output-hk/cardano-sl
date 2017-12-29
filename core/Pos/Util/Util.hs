@@ -61,6 +61,10 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Building
+       , listChunkedBuilderJson
+       , listChunkedJson
+
        -- * Coloring
        , colorizeDull
 
@@ -118,9 +122,11 @@ import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
+import           Data.List.Split                (chunksOf)
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
+import           Data.Text.Lazy.Builder         (Builder)
 import           Data.Time                      (getCurrentTime)
 import           Data.Time.Clock                (NominalDiffTime)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
@@ -140,6 +146,7 @@ import           Mockable                       (ChannelT, Counter, Distribution
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           Serokell.Util.Exceptions       ()
+import           Serokell.Util.Text             (listBuilder)
 import qualified System.Console.ANSI            as ANSI
 import           System.Directory               (canonicalizePath, createDirectory,
                                                  doesDirectoryExist,
@@ -148,9 +155,9 @@ import           System.Directory               (canonicalizePath, createDirecto
 import           System.FilePath                (normalise, pathSeparator, takeDirectory,
                                                  (</>))
 import           System.IO                      (hClose, openTempFile)
-import           System.Wlog                    (CanLog, HasLoggerName (..),
-                                                 LoggerName, LoggerNameBox (..),
-                                                 logError, usingLoggerName)
+import           System.Wlog                    (CanLog, HasLoggerName (..), LoggerName,
+                                                 LoggerNameBox (..), logError,
+                                                 usingLoggerName)
 import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
@@ -376,7 +383,7 @@ getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
 
 -- | Use some monadic action to evaluate priority of value and sort a
--- list of values based on this priority. The order is descending
+-- values of values based on this priority. The order is descending
 -- because I need it.
 sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
 sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
@@ -603,6 +610,23 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+
+----------------------------------------------------------------------------
+-- Building
+----------------------------------------------------------------------------
+
+-- | Print list in JSON-style, per @chunkSize@ elements on a line.
+listChunkedBuilderJson :: (Container l, Buildable (Element l)) => Int -> l -> Builder
+listChunkedBuilderJson chunkSize values =
+    listBuilder @Builder @Builder @Builder "[" "" (newline <> "]") $
+    listBuilder @Builder @Builder @Builder newline ", " "" <$>
+    chunksOf chunkSize (toList values)
+  where
+    newline = "\n    "
+
+-- | Formatter to print list in JSON-style, per @chunkSize@ elements on a line.
+listChunkedJson :: (Container l, Buildable (Element l)) => Int -> F.Format r (l -> r)
+listChunkedJson chunkSize = F.later $ listChunkedBuilderJson chunkSize
 
 ----------------------------------------------------------------------------
 -- Coloring

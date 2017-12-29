@@ -16,16 +16,16 @@ import           Control.Exception          (throw)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logWarning)
+import           System.Wlog                (WithLogger)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
-import           Pos.Util.LogSafe           (logInfoS)
+import           Pos.Util.LogSafe           (logInfoSP, secureListF)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
@@ -39,24 +39,15 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrsSet,
-                                             getWalletAddrs)
+                                             getWalletAccountIds, getWalletAddrs,
+                                             getWalletAddrsSet)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
-
     unfilteredLocalHistory <- getLocalHistory addrs
-
-    blockHistory <- getHistoryCache cWalId >>= \case
-        Just hist -> pure hist
-        Nothing -> do
-            logWarning $
-                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
-                cWalId
-            pure mempty
-
+    blockHistory <- getHistoryCache cWalId
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
     logTxHistory "Block" blockHistory
@@ -206,7 +197,7 @@ addRecentPtxHistory wid currentHistory = do
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
     => Text -> t -> m ()
-logTxHistory desc =
-    logInfoS .
-    sformat (stext%" transactions history: "%listJson) desc .
-    map _thTxId . toList
+logTxHistory desc entries =
+    logInfoSP $ \sl ->
+        sformat (stext%" transactions history: "%secureListF sl listJson)
+        desc (map _thTxId $ toList entries)

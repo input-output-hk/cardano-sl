@@ -50,8 +50,8 @@ import           Data.Default            (Default (..))
 import           Data.Reflection         (Reifies (..), reflect)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX   (getPOSIXTime)
-import           Formatting              (bprint, build, builder, formatToString, sformat,
-                                          shown, stext, string, (%))
+import           Formatting              (bprint, build, builder, fconst, formatToString,
+                                          sformat, shown, stext, string, (%))
 import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
@@ -62,7 +62,7 @@ import qualified Servant.Server.Internal as SI
 import           System.Wlog             (LoggerName, LoggerNameBox, usingLoggerName)
 
 import           Pos.Util.LogSafe        (BuildableSafe, SecuredText, buildSafe,
-                                          logInfoSP, secretOnlyF, secretOnlyF2)
+                                          logInfoSP, plainOrSecureF, secretOnlyF)
 import           Pos.Util.Util           (colorizeDull)
 
 -------------------------------------------------------------------------
@@ -462,7 +462,8 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     reportResponse timer resp = do
         durationText <- timer
         logWithParamInfo $ \sl ->
-            sformat ("  "%stext%" "%stext%" "%stext%secretOnlyF2 sl (stext%stext))
+            sformat ("  "%stext%" "%stext%" "%stext
+                    %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText

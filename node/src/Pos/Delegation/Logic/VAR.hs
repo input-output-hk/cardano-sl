@@ -520,14 +520,16 @@ dlgApplyBlocks blunds = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
-            issuers = map pskIssuerPk proxySKs
-            edgeActions = map pskToDlgEdgeAction proxySKs
-        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
-        runDelegationStateAction $ do
-            dwTip .= headerHash block
-            forM_ issuers deleteFromDlgMemPool
-        pure $ SomeBatchOp batchOps
+        -- This simple check speeds up empty blocks application a little bit.
+        if null proxySKs then pure mempty else do
+            let issuers = map pskIssuerPk proxySKs
+                edgeActions = map pskToDlgEdgeAction proxySKs
+            transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+            let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+            runDelegationStateAction $ do
+                dwTip .= headerHash block
+                forM_ issuers deleteFromDlgMemPool
+            pure $ SomeBatchOp batchOps
 
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to

@@ -20,6 +20,7 @@ let
     inherit input;
     coreutils = builtins.storePath nixcfg.coreutils;
     tar = builtins.storePath nixcfg.tar;
+    shell = builtins.storePath nixcfg.shell;
     gzip = builtins.storePath nixcfg.gzip;
   };
   fetchNixpkgsTarWithNix = let

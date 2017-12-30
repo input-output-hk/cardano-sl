@@ -1,4 +1,7 @@
 -- | Post-mortem tool main.
+-- cardano-post-mortem
+-- Usage: cardano-post-mortem COMMAND
+--  analyzes the json logs from several directories or focused on a single transaction
 
 import           Universum
 
@@ -14,9 +17,12 @@ import           Options
 import           Statistics
 import           Types
 
-
 main :: IO ()
 main = parseOptions >>= \case
+
+  -- | command 'overview'
+  -- analyzes the json logs from LOGDIRS given a sample probability.
+
     Overview sampleProb logDirs -> do
         showLogDirs logDirs
         err $ "sample probability: " ++ show sampleProb
@@ -24,16 +30,30 @@ main = parseOptions >>= \case
         xs <- forM logDirs $ flip processLogDirOverview sampleProb
         chart xs "times.png"
         err "wrote times chart"
+
+    -- | command 'focus'
+    -- analyzes transaction FOCUS (txHash) in log folder LOGDIR (logDir)
+
     Focus txHash logDir         -> do
         err $ "transaction hash: " ++ show txHash
         err $ "logs directory: " ++ show logDir
         let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
         runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
         err $ "wrote result to " ++ show focusFile
+
+    -- | command 'txrelay'
+    -- analyzes transaction relays in the json logs from  LOGDIRS...
+    
     TxRelay logDirs             -> do
         showLogDirs logDirs
         err ""
         for_ logDirs processLogDirTxRelay
+
+    -- |  command 'throughput'
+    -- analyzes transaction throughput and waiting time per
+    -- time windows TXWINDOW and WAITWINDOW in the json logs
+    -- from LOGDIRS.
+
     Throughput txWindow waitWindow logDirs   -> do
         showLogDirs logDirs
         err $ "tx window: " ++ show txWindow
@@ -41,11 +61,15 @@ main = parseOptions >>= \case
         err ""
         for_ logDirs $ processLogDirThroughput txWindow waitWindow
 
+      
+-- | Function 'showLogDirs' is a helper function to print out a list of directories (FilePaths)
 showLogDirs :: [FilePath] -> IO ()
 showLogDirs logDirs = do
     err "log directories: "
     for_ logDirs $ \d -> err $ " - " ++ show d
 
+-- | Function 'processLogDirOverview' is a helper function to implement the overview feature
+-- it takes the FilePath logDir and the Double @sampleProb as a parameter. 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDirOverview logDir sampleProb = do
     err $ "processing log directory " ++ show logDir ++ " ..."

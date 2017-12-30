@@ -371,7 +371,7 @@ addHeaderToBlockRequestQueue
        (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
-    -> Bool -- Continues?
+    -> Bool -- ^ Was the block classified as chain continuation?
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     logDebug $ sformat ("addToBlockRequestQueue, : "%build) header

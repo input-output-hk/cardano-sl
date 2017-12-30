@@ -6,13 +6,6 @@ OUTPATH=/tmp/cardano-$CLUSTER-blockchain_$(date +%Y-%m-%d_%H-%M-%S)
 
 RELAY=relays.cardano-mainnet.iohk.io
 
-# Parse output of `nslookup` and extract IP addresses of the bootstrap nodes,
-# then format them into `--peer <IP>:3000` arguments.
-PEERS=$(\
-    nslookup $RELAY | \
-    awk '/^Address: / { print "--peer", $2 ":3000" }' | \
-    paste -sd ' ')
-
 echo "\
 wallet:
   relays: [[{ host: $RELAY }]]
@@ -21,17 +14,25 @@ wallet:
 " > $TOPOLOGY_FILE
 
 EXECMODE=""
+PEERS=""
 
 if [[ $1 == '--nowait' ]]; then
-	EXECMODE="cmd --commands=\"dump $OUTPATH\""
-	echo "Auxx does not support waiting for synchronization."
-	echo "The blockchain will be dumped without waiting until"
-	echo "it is downloaded completely."
+  EXECMODE="--mode=with-config cmd --commands=\"dump $OUTPATH\""
+  echo "Current state of the blockchain will be dumped. No"
+  echo "downloading will occur."
   echo ""
 elif [[ $1 == '--wait' ]]; then
-  EXECMODE="repl"
+  EXECMODE="--mode=with-node repl"
+
+  # Parse output of `nslookup` and extract IP addresses of the bootstrap nodes,
+  # then format them into `--peer <IP>:3000` arguments.
+  PEERS=$(\
+      nslookup $RELAY | \
+      awk '/^Address: / { print "--peer", $2 ":3000" }' | \
+      paste -sd ' ')
+
   echo "Auxx does not support waiting for synchronization."
-  echo "As soon as the logs show that the node is synched,"
+  echo "As soon as the logs show that the node is synced,"
   echo "execute the following command:"
   echo ""
   echo "    dump $OUTPATH"
@@ -41,14 +42,19 @@ else
   exit
 fi;
 
-stack exec -- cardano-auxx --mode=with-node               \
+EXECCMD="
+stack exec -- cardano-auxx                                \
   $EXECMODE                                               \
   --no-ntp                                                \
   --topology $TOPOLOGY_FILE                               \
   $PEERS                                                  \
   --log-config ./scripts/log-templates/log-config-qa.yaml \
-  --logs-prefix "logs/$CLUSTER"                           \
-  --db-path "db-$CLUSTER"                                 \
-  --keyfile secret-$CLUSTER.key                           \
+  --logs-prefix ./logs/$CLUSTER                           \
+  --db-path ./db-$CLUSTER                                 \
+  --keyfile ./secret-$CLUSTER.key                         \
   --configuration-file ./lib/configuration.yaml           \
-  --configuration-key mainnet_full
+  --configuration-key mainnet_full                        \
+"
+
+echo $EXECCMD
+eval $EXECCMD

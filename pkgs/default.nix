@@ -7009,8 +7009,8 @@ self: {
           pname = "utf8-string";
           version = "1.0.1.1";
           sha256 = "0h7imvxkahiy8pzr8cpsimifdfvv18lizrb33k6mnq70rcx9w2zv";
-          revision = "2";
-          editedCabalFile = "1b97s9picjl689hcz8scinv7c8k5iaal1livqr0l1l8yc4h0imhr";
+          revision = "3";
+          editedCabalFile = "02vhj5gykkqa2dyn7s6gn8is1b5fdn9xcqqvlls268g7cpv6rk38";
           libraryHaskellDepends = [
             base
             bytestring

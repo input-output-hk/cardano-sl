@@ -41,7 +41,7 @@ recordTxpMetrics ekgStore memPoolVar = do
               qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
               logDebug $ sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen
 
-        , slmAcquire = \timeWaited -> do
+        , slmAcquire = \reason timeWaited -> do
               liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength
               timeWaited' <- liftIO $ Metrics.Gauge.read ekgMemPoolWaitTime
               -- Assume a 0-value estimate means we haven't taken
@@ -50,9 +50,10 @@ recordTxpMetrics ekgStore memPoolVar = do
                         then fromIntegral timeWaited
                         else round $ alpha * fromIntegral timeWaited + (1 - alpha) * fromIntegral timeWaited'
               liftIO $ Metrics.Gauge.set ekgMemPoolWaitTime new_
-              logDebug $ sformat ("MemPool metrics acquire: wait time was "%shown) timeWaited
+              logDebug $ sformat ("MemPool metrics acquire: "%shown
+                                  %" wait time was "%shown) reason timeWaited
 
-        , slmRelease = \timeElapsed -> do
+        , slmRelease = \reason timeElapsed -> do
               newMemPoolSize <- _mpSize <$> readTVarIO memPoolVar
               liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral newMemPoolSize)
               timeElapsed' <- liftIO $ Metrics.Gauge.read ekgMemPoolModifyTime
@@ -60,6 +61,7 @@ recordTxpMetrics ekgStore memPoolVar = do
                         then fromIntegral timeElapsed
                         else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
               liftIO $ Metrics.Gauge.set ekgMemPoolModifyTime new_
-              logDebug $ sformat ("MemPool metrics release: modify time was "%shown%" size is "%shown)
-                         timeElapsed newMemPoolSize
+              logDebug $ sformat ("MemPool metrics release: "%shown
+                                  %" modify time was "%shown%" size is "%shown)
+                         reason timeElapsed newMemPoolSize
         }

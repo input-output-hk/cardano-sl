@@ -98,11 +98,12 @@ resubmitPtxsDuringSlot sendActions ptxs = do
 processPtxsToResubmit
     :: MonadPendings m
     => SendActions m -> SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit sendActions curSlot ptxs = do
+processPtxsToResubmit sendActions _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
-            take ptxsPerSlotLimit $
-            filter ((curSlot >=) . view ptxNextSubmitSlot) $
+            take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
+                                             -- though properly “min 1”
+                                             -- shouldn't be needed
             filter (has _PtxApplying . _ptxCond) $
             ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
@@ -133,7 +134,6 @@ processPtxsOnSlot
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
     let sortedPtxs =
-            sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             ptxs
 

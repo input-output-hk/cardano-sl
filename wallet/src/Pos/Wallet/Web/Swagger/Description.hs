@@ -143,6 +143,12 @@ instance HasCustomSwagger UpdateTx where
     swaggerModifier = modifyDescription
         "Update payment transaction."
 
+instance HasCustomSwagger ResetFailedPtxs where
+    swaggerModifier = modifyDescription
+        "For all transactions in CPtxWontApply condition, \
+        \reset them to CPtxApplying condition so that they will \
+        \be passed to resubmition"
+
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."

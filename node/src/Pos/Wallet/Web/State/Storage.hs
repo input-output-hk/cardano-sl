@@ -78,6 +78,7 @@ module Pos.Wallet.Web.State.Storage
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , resetFailedPtxs
        ) where
 
 import           Universum
@@ -112,7 +113,7 @@ import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
                                                  ptxSubmitTiming)
 import           Pos.Wallet.Web.Pending.Updates (incPtxSubmitTimingPure,
                                                  mkPtxSubmitTiming,
-                                                 ptxMarkAcknowledgedPure)
+                                                 ptxMarkAcknowledgedPure, resetFailedPtx)
 
 type AddressSortingKey = Int
 
@@ -490,6 +491,11 @@ ptxUpdateMeta wid txId updType =
                 ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
+
+resetFailedPtxs :: SlotId -> Update ()
+resetFailedPtxs curSlot =
+    wsWalletInfos . traversed .
+    wsPendingTxs . traversed %= resetFailedPtx curSlot
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =

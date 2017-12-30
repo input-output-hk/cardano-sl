@@ -41,6 +41,7 @@ module Pos.Wallet.Web.Api
 
        , NewPayment
        , TxFee
+       , ResetFailedPtxs
        , UpdateTx
        , GetHistory
        , GetPendingTxsSummary
@@ -294,6 +295,12 @@ type UpdateTx =
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
 
+type ResetFailedPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reset"
+    :> WRes Get ()
+
 type GetHistory =
        "txs"
     :> "histories"
@@ -462,6 +469,8 @@ type WalletApi = ApiPrefix :> (
      NewPayment
     :<|>
      TxFee
+    :<|>
+     ResetFailedPtxs
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx

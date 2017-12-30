@@ -20,6 +20,7 @@ module Pos.Wallet.Web.Methods.Misc
 
        , PendingTxsSummary (..)
        , gatherPendingTxsSummary
+       , resetAllFailedPtxs
        ) where
 
 import           Universum
@@ -34,6 +35,7 @@ import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
+import           Pos.Slotting                 (getCurrentSlotBlocking)
 import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
@@ -53,7 +55,7 @@ import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
 import           Pos.Wallet.Web.State         (getNextUpdate, getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
-                                               setProfile, testReset)
+                                               resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
 
@@ -145,7 +147,7 @@ dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
 
 ----------------------------------------------------------------------------
--- Print pending transactions info
+-- Pending txs
 ----------------------------------------------------------------------------
 
 data PendingTxsSummary = PendingTxsSummary
@@ -188,3 +190,7 @@ gatherPendingTxsSummary =
             , ptiInputs = _txInputs tx
             , ptiOutputs = _txOutputs tx
             }
+
+resetAllFailedPtxs :: MonadWalletWebMode m => m ()
+resetAllFailedPtxs =
+    testOnlyEndpoint $ getCurrentSlotBlocking >>= resetFailedPtxs

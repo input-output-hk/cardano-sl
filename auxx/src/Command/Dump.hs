@@ -98,7 +98,7 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
     getOutPath :: EpochIndex -> FilePath
     getOutPath epochIndex =
         let outFile = toString $
-                sformat ("epoch"%build%".cbor") (getEpochIndex epochIndex)
+                sformat ("epoch"%build%".cbor.lzma") (getEpochIndex epochIndex)
         in outFolder </> outFile
 
     getBlundThrow

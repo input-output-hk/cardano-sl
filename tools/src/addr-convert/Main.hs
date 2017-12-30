@@ -7,15 +7,13 @@ import           Universum
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, optional, progDesc,
-                                      short)
-import           Options.Applicative.Types (readerAsk)
+                                      info, infoOption, long, metavar, optional, progDesc, short,
+                                      strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 import           Pos.Aeson.Genesis (fromAvvmPk)
 import           Pos.Core (makeRedeemAddress)
-import           Pos.Util (textOption)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)
@@ -23,7 +21,7 @@ data AddrConvertOptions = AddrConvertOptions
 
 optionsParser :: Parser AddrConvertOptions
 optionsParser = do
-    address <- optional $ textOption $
+    address <- optional $ strOption $
            short   'a'
         <> long    "address"
         <> help    "Address to convert. It must be in base64(url) format."

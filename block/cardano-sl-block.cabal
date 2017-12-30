@@ -19,6 +19,7 @@ library
                         Pos.Block.BHelpers
                         Pos.Block.BListener
                         Pos.Block.Configuration
+                        Pos.Block.Dump
                         Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network
@@ -88,7 +89,9 @@ library
                       , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl-util
+                      , cborg
                       , conduit
+                      , conduit-combinators >= 1.1.2
                       , containers
                       , cryptonite
                       , data-default
@@ -101,6 +104,8 @@ library
                       , generic-arbitrary
                       , lens
                       , log-warper
+                      , lzma-conduit
+                      , mmorph
                       , mtl
                       , random
                       , reflection

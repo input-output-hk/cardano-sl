@@ -20,6 +20,7 @@ import           Formatting (int, sformat, (%))
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
@@ -239,3 +240,11 @@ instance Bi EdStandard.Signature where
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
 deriving instance Typeable a => Bi (RedeemSignature a)
+
+----------------------------------------------------------------------------
+-- Configuration
+----------------------------------------------------------------------------
+
+instance Bi ProtocolMagic where
+    encode (ProtocolMagic magic) = encode magic
+    decode = ProtocolMagic <$> decode

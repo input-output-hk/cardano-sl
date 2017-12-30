@@ -16,7 +16,7 @@ import           Data.Version (showVersion)
 import           Formatting (Format, format, mapf, text, (%))
 import qualified NeatInterpolation as NI (text)
 import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, progDesc, short)
+                                      info, infoOption, long, metavar, progDesc, short, strOption)
 import           System.Exit (ExitCode (ExitFailure))
 import           System.FilePath (normalise, takeFileName, (<.>), (</>))
 import qualified System.PosixCompat as PosixCompat
@@ -24,7 +24,7 @@ import           System.Process (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
-import           Pos.Util (directory, ls, textOption, withTempDir)
+import           Pos.Util (directory, ls, withTempDir)
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text
@@ -34,15 +34,15 @@ data UpdateGenOptions = UpdateGenOptions
 
 optionsParser :: Parser UpdateGenOptions
 optionsParser = do
-    oldDir <- textOption $
+    oldDir <- strOption $
            long    "old"
         <> metavar "PATH"
         <> help    "Path to directory with old program."
-    newDir <- textOption $
+    newDir <- strOption $
            long    "new"
         <> metavar "PATH"
         <> help    "Path to directory with new program."
-    outputTar <- textOption $
+    outputTar <- strOption $
            short   'o'
         <> long    "output"
         <> metavar "PATH"

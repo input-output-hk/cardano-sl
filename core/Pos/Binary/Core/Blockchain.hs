@@ -9,7 +9,7 @@ import           Universum
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration, protocolMagic)
 import           Pos.Util.Util (eitherToFail)
 
 instance ( Typeable b
@@ -22,7 +22,7 @@ instance ( Typeable b
          ) =>
          Bi (T.GenericBlockHeader b) where
     encode bh =  encodeListLen 5
-              <> encode (getProtocolMagic protocolMagic)
+              <> encode protocolMagic
               <> encode (T._gbhPrevBlock bh)
               <> encode (T._gbhBodyProof bh)
               <> encode (T._gbhConsensus bh)
@@ -30,7 +30,7 @@ instance ( Typeable b
     decode = do
         enforceSize "GenericBlockHeader b" 5
         blockMagic <- decode
-        when (blockMagic /= getProtocolMagic protocolMagic) $
+        when (blockMagic /= protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
         prevBlock <- decode
         bodyProof <- decode

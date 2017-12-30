@@ -15,7 +15,7 @@ import           Data.Coerce (coerce)
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic)
 import           Pos.Crypto.Signing.Tag (SignTag, signTag)
 import           Pos.Crypto.Signing.Types.Redeem
 
@@ -46,7 +46,7 @@ redeemDeterministicKeyGen seed =
 
 -- | Encode something with 'Binary' and sign it.
 redeemSign ::
-       (HasCryptoConfiguration, Bi a)
+       (HasCryptoConfiguration, Bi a, Bi ProtocolMagic)
     => SignTag
     -> RedeemSecretKey
     -> a
@@ -55,7 +55,7 @@ redeemSign tag k = coerce . redeemSignRaw (Just tag) k . Bi.serialize'
 
 -- | Alias for constructor.
 redeemSignRaw ::
-       HasCryptoConfiguration
+       (HasCryptoConfiguration, Bi ProtocolMagic)
     => Maybe SignTag
     -> RedeemSecretKey
     -> ByteString
@@ -68,7 +68,7 @@ redeemSignRaw mbTag (RedeemSecretKey k) x =
 -- CHECK: @redeemCheckSig
 -- | Verify a signature.
 redeemCheckSig
-    :: (HasCryptoConfiguration, Bi a)
+    :: (HasCryptoConfiguration, Bi a, Bi ProtocolMagic)
     => SignTag -> RedeemPublicKey -> a -> RedeemSignature a -> Bool
 redeemCheckSig tag k x s =
     redeemVerifyRaw (Just tag) k (Bi.serialize' x) (coerce s)
@@ -76,7 +76,7 @@ redeemCheckSig tag k x s =
 -- CHECK: @redeemVerifyRaw
 -- | Verify raw 'ByteString'.
 redeemVerifyRaw ::
-       HasCryptoConfiguration
+       (HasCryptoConfiguration, Bi ProtocolMagic)
     => Maybe SignTag
     -> RedeemPublicKey
     -> ByteString

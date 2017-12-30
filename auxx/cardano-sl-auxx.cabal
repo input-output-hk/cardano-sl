@@ -59,6 +59,7 @@ library
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
+                     , conduit-combinators
                      , constraints
                      , containers
                      , data-default
@@ -71,7 +72,6 @@ library
                      , lens
                      , loc
                      , log-warper
-                     , lzma
                      , megaparsec
                      , mmorph
                      , mtl
@@ -135,13 +135,14 @@ executable cardano-auxx
                      , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
+                     , conduit-combinators
                      , constraints
+                     , formatting
                      , log-warper
-                     , temporary
                      , network-transport-tcp
                      , safe-exceptions
+                     , temporary
                      , universum
-                     , formatting
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -199,6 +200,7 @@ test-suite cardano-auxx-test
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , conduit-combinators
                      , hspec
                      , universum >= 0.1.11
 

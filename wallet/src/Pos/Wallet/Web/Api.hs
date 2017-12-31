@@ -42,6 +42,7 @@ module Pos.Wallet.Web.Api
        , NewPayment
        , TxFee
        , ResetFailedPtxs
+       , CancelApplyingPtxs
        , UpdateTx
        , GetHistory
        , GetPendingTxsSummary
@@ -301,6 +302,12 @@ type ResetFailedPtxs =
     :> "reset"
     :> WRes Get ()
 
+type CancelApplyingPtxs =
+       "txs"
+    :> "resubmission"
+    :> "cancel"
+    :> WRes Get ()
+
 type GetHistory =
        "txs"
     :> "histories"
@@ -471,6 +478,8 @@ type WalletApi = ApiPrefix :> (
      TxFee
     :<|>
      ResetFailedPtxs
+    :<|>
+     CancelApplyingPtxs
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx

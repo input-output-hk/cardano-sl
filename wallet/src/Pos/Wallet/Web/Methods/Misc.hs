@@ -21,6 +21,7 @@ module Pos.Wallet.Web.Methods.Misc
        , PendingTxsSummary (..)
        , gatherPendingTxsSummary
        , resetAllFailedPtxs
+       , cancelAllApplyingPtxs
        ) where
 
 import           Universum
@@ -53,7 +54,8 @@ import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
-import           Pos.Wallet.Web.State         (getNextUpdate, getPendingTxs, getProfile,
+import           Pos.Wallet.Web.State         (cancelApplyingPtxs, getNextUpdate,
+                                               getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
@@ -194,3 +196,6 @@ gatherPendingTxsSummary =
 resetAllFailedPtxs :: MonadWalletWebMode m => m ()
 resetAllFailedPtxs =
     testOnlyEndpoint $ getCurrentSlotBlocking >>= resetFailedPtxs
+
+cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
+cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs

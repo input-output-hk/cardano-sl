@@ -60,12 +60,16 @@ class Blockchain p where
     -- * 'PublicKey' via 'mainHeaderLeaderKey'
       
     data ConsensusData p :: *
-    -- | the data 'ExtraHeaderData' contains whatever extra header data is required.
-    -- The fields currently accesible via lens are
-    -- * 'BlockVersion' via 'mainHeaderBlockVersion'
-    -- * 'SoftwareVersion' via 'mainHeaderSoftwareVersion'
-    -- * 'BlockHeaderAttributes' via 'mainHeaderAttributes'
-    -- * 'MainExtraBodyData' via 'mainHeaderEBDataProof''
+    -- | the type family 'ExtraHeaderData' contains whatever extra header data is required.
+    -- There are currently two instances of this type family 
+    -- * type instance ExtraHeaderData MainBlockchain = MainExtraHeaderData from core/Pos/Core/Block/Main/Chain.hs:63:10
+    -- * type instance ExtraHeaderData GenesisBlockchain = accessible from core/Pos/Core/Block/Genesis/Chain.hs:37:10
+    -- The fields currently accessible via lenses in the instance MainExtraHeaderData instance for the main block are
+    -- * The 'BlockVersion' via 'mainHeaderBlockVersion'
+    -- * The 'SoftwareVersion' via 'mainHeaderSoftwareVersion'
+    -- * Extra Address data in 'BlockHeaderAttributes' via 'mainHeaderAttributes'
+    -- * The proof data 'MainExtraBodyData' via 'mainHeaderEBDataProof''
+    -- The instance GenesisBlockchain contains only 'GenesisHeaderAttributes' via 'genHeaderAttributes'
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
       

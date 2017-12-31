@@ -17,6 +17,9 @@ module Pos.Wallet.Web.Methods.Misc
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
+
+       , PendingTxsSummary (..)
+       , gatherPendingTxsSummary
        ) where
 
 import           Universum
@@ -24,22 +27,32 @@ import           Universum
 import           Data.Aeson                   (encode)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Core                     (SoftwareVersion (..))
-import           Pos.Update.Configuration     (curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
+import           Formatting                   (bprint, build, (%))
+import           Serokell.Util.Text           (listJson)
 import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 
+import           Pos.Aeson.ClientTypes        ()
+import           Pos.Core                     (SlotId, SoftwareVersion (..))
+import           Pos.Crypto                   (hashHexF, hash)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut, TxId)
+import           Pos.Update.Configuration     (curSoftwareVersion)
+import           Pos.Util                     (maybeThrow)
+import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
+
 import           Pos.Aeson.Storage            ()
+import           Pos.Util.Chrono              (getNewestFirst, toNewestFirst)
 import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
-                                               SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CPtxCondition,
+                                               CUpdateInfo (..), SyncProgress (..),
+                                               cIdToAddress)
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (getNextUpdate, getProfile,
+import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
+                                               sortPtxsChrono)
+import           Pos.Wallet.Web.State         (getNextUpdate, getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
@@ -129,3 +142,52 @@ instance Buildable WalletStateSnapshot where
 
 dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
+
+----------------------------------------------------------------------------
+-- Print pending transactions info
+----------------------------------------------------------------------------
+
+data PendingTxsSummary = PendingTxsSummary
+    { ptiSlot    :: !SlotId
+    , ptiCond    :: !CPtxCondition
+    , ptiInputs  :: !(NonEmpty TxIn)
+    , ptiOutputs :: !(NonEmpty TxOut)
+    , ptiTxId    :: !TxId
+    } deriving (Eq, Show, Generic)
+
+deriveJSON defaultOptions ''PendingTxsSummary
+
+instance Buildable PendingTxsSummary where
+    build PendingTxsSummary{..} =
+        bprint (  "  slotId: "%build%
+                "\n  status: "%build%
+                "\n  inputs: "%listJson%
+                "\n  outputs: "%listJson%
+                "\n  id: "%hashHexF)
+            ptiSlot
+            ptiCond
+            ptiInputs
+            ptiOutputs
+            ptiTxId
+
+instance HasTruncateLogPolicy PendingTxsSummary where
+    -- called rarely, and we are very interested in the output
+    truncateLogPolicy = identity
+
+gatherPendingTxsSummary :: MonadWalletWebMode m => m [PendingTxsSummary]
+gatherPendingTxsSummary =
+    map mkInfo .
+    getNewestFirst . toNewestFirst . sortPtxsChrono .
+    filter unconfirmedPtx <$>
+    getPendingTxs
+  where
+    unconfirmedPtx = not . isPtxInBlocks . _ptxCond
+    mkInfo PendingTx{..} =
+        let tx = taTx _ptxTxAux
+        in  PendingTxsSummary
+            { ptiSlot = _ptxCreationSlot
+            , ptiCond = encodeCType (Just _ptxCond)
+            , ptiInputs = _txInputs tx
+            , ptiOutputs = _txOutputs tx
+            , ptiTxId = hash tx
+            }

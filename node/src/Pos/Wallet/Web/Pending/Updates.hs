@@ -6,6 +6,7 @@ module Pos.Wallet.Web.Pending.Updates
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure
     , resetFailedPtx
+    , cancelApplyingPtx
     ) where
 
 import           Universum
@@ -41,7 +42,7 @@ ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
     unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
 
--- | If given transaction is in 'PtxWontApply' condition, sets its condition
+-- | If given transaction has been canceled, sets its condition
 -- to 'PtxApplying'. This allows "stuck" transactions to be resubmitted
 -- again.
 --
@@ -53,3 +54,13 @@ resetFailedPtx curSlot ptx@PendingTx{..}
               , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
               }
     | otherwise = ptx
+
+-- | If given pending transaction is not yet confirmed, cancels it.
+cancelApplyingPtx :: HasConfiguration => PendingTx -> PendingTx
+cancelApplyingPtx ptx@PendingTx{..}
+    | PtxApplying poolInfo <- _ptxCond =
+          ptx { _ptxCond = PtxWontApply reason poolInfo
+              }
+    | otherwise = ptx
+  where
+    reason = "Canceled manually"

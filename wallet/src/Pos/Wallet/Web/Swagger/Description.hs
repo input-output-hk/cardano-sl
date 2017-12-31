@@ -149,6 +149,10 @@ instance HasCustomSwagger ResetFailedPtxs where
         \reset them to CPtxApplying condition so that they will \
         \be passed to resubmition"
 
+instance HasCustomSwagger CancelApplyingPtxs where
+    swaggerModifier = modifyDescription
+        "Cancels all transactions in CPtxApplying condition (unconfirmed)."
+
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."

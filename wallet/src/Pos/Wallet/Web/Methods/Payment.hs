@@ -14,6 +14,7 @@ import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
+import           Servant.Server                   (err405, errReasonPhrase)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -23,7 +24,8 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (InputSelectionPolicy, computeTxFee,
                                                    runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
-import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Configuration                (HasNodeConfiguration,
+                                                   walletTxCreationDisabled)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
@@ -148,6 +150,11 @@ sendMoney
     -> InputSelectionPolicy
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation is disabled by configuration!"
+        }
+
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`

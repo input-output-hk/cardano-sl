@@ -53,11 +53,22 @@ import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash
 class Blockchain p where
     -- | Proof of data stored in the body. Ensures immutability.
     data BodyProof p :: *
-    -- | Consensus data which can be used to check consensus properties.
+    -- | Consensus data which can be used to check consensus properties which is accessible via the Block Header.
+    -- * 'Signature' via 'mainHeaderSignature'
+    -- * 'ChainDifficulty' via 'mainHeaderDifficulty'
+    -- * 'SlotId' via 'mainHeaderSlot'
+    -- * 'PublicKey' via 'mainHeaderLeaderKey'
+      
     data ConsensusData p :: *
-    -- | Whatever extra header data is required.
+    -- | the data 'ExtraHeaderData' contains whatever extra header data is required.
+    -- The fields currently accesible via lens are
+    -- * 'BlockVersion' via 'mainHeaderBlockVersion'
+    -- * 'SoftwareVersion' via 'mainHeaderSoftwareVersion'
+    -- * 'BlockHeaderAttributes' via 'mainHeaderAttributes'
+    -- * 'MainExtraBodyData' via 'mainHeaderEBDataProof''
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
+      
     -- | Block header used in this blockchain.
     type BBlockHeader p :: *
     type BBlockHeader p = GenericBlockHeader p

@@ -17,7 +17,7 @@ module Mockable.Channel (
     ) where
 
 import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
-
+import Universum
 type family ChannelT (m :: * -> *) :: * -> *
 
 data Channel (m :: * -> *) (t :: *) where

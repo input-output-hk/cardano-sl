@@ -30,7 +30,7 @@ module Mockable.Exception (
     , try
 
     ) where
-
+import Universum(Either(Right,Left),Maybe,fmap,(.),return,flip,($),(>>),const)
 import           Control.Exception (Exception, SomeException)
 import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
 

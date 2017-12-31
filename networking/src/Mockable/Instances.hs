@@ -21,6 +21,7 @@ import           Mockable.Metrics
 import           Mockable.SharedAtomic (SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusiveT)
 
+import Universum(flip,($))
 instance (Mockable d m, MFunctor' d (ReaderT r m) m) => Mockable d (ReaderT r m) where
     liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt
 

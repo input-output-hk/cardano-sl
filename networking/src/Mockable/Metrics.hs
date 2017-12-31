@@ -31,7 +31,7 @@ module Mockable.Metrics (
 
 import           Data.Int (Int64)
 import           Mockable.Class
-
+import Universum
 type family Gauge (m :: * -> *) :: *
 type family Counter (m :: * -> *) :: *
 type family Distribution (m :: * -> *) :: *

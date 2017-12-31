@@ -13,7 +13,7 @@ module Mockable.Class
   ) where
 
 import           Data.Kind (Constraint)
-
+import Universum
 class MFunctor' f m n where
     hoist' :: (forall a . m a -> n a) -> f m t -> f n t
 

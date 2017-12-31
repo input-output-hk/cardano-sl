@@ -18,8 +18,8 @@ PEERS=""
 
 if [[ $1 == '--nowait' ]]; then
   EXECMODE="--mode=with-config cmd --commands=\"dump $OUTPATH\""
-  echo "Current state of the blockchain will be dumped. No"
-  echo "downloading will occur."
+  echo "Current state of the blockchain will be dumped."
+  echo "No downloading will occur."
   echo ""
 elif [[ $1 == '--wait' ]]; then
   EXECMODE="--mode=with-node repl"

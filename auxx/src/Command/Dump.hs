@@ -8,6 +8,7 @@ import           Codec.Compression.Lzma (compress)
 import           Control.Lens (_Wrapped)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List.NonEmpty (last)
+import qualified Data.Vector as V
 import           Formatting (build, sformat, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
@@ -133,7 +134,7 @@ dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
             Nothing -> pass
             Just (blocks :: NewestFirst NonEmpty Block) -> do
                 let stripped   = map stripProof blocks
-                    serialized = serialize (0 :: Word8, stripped)
+                    serialized = serialize (0 :: Word8, V.fromList $ toList stripped)
                     outPath    = getOutPath epochIndex
                 liftIO $ BSL.writeFile outPath $ compress serialized
                 whenJust maybePrev $ \prev -> do

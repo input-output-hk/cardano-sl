@@ -4,6 +4,8 @@
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.
 
+
+
 module Pos.Core.Block.Blockchain
        ( Blockchain (..)
        , BlockchainHelpers (..)
@@ -53,7 +55,7 @@ class Blockchain p where
     data BodyProof p :: *
     -- | Consensus data which can be used to check consensus properties.
     data ConsensusData p :: *
-    -- | Whatever extra data.
+    -- | Whatever extra header data is required.
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
     -- | Block header used in this blockchain.
@@ -65,13 +67,14 @@ class Blockchain p where
 
     -- | Body contains payload and other heavy data.
     data Body p :: *
-    -- | Whatever extra data.
+    -- | Whatever extra body data is required.
     type ExtraBodyData p :: *
     type ExtraBodyData p = ()
     -- | Block used in this blockchain.
     type BBlock p :: *
     type BBlock p = GenericBlock p
 
+    -- | The function 'mkBodyProof' creates a 'BodyProof' from a 'Body'
     mkBodyProof :: Body p -> BodyProof p
 
     -- | Check whether 'BodyProof' corresponds to 'Body.
@@ -103,7 +106,7 @@ class Blockchain p => BlockchainHelpers p where
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
---
+-- There are lenses(accessors) for these fields.
 -- The constructor has `Unsafe' prefix in its name, because there in
 -- general there may be some invariants which must hold for the
 -- contents of header.
@@ -114,7 +117,7 @@ data GenericBlockHeader b = UnsafeGenericBlockHeader
       _gbhBodyProof :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
       _gbhConsensus :: !(ConsensusData b)
-    , -- | Any extra data.
+    , -- | Any extra header data that is required.
       _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
@@ -252,6 +255,7 @@ recreateGenericBlock _gbHeader _gbBody _gbExtra = do
 
 ----------------------------------------------------------------------------
 -- Lenses
+-- accessor functions
 ----------------------------------------------------------------------------
 
 makeLenses ''GenericBlockHeader
@@ -276,3 +280,5 @@ gbBodyProof = gbHeader . gbhBodyProof
 -- | Lens from 'GenericBlock' to 'ConsensusData'.
 gbConsensus :: Lens' (GenericBlock b) (ConsensusData b)
 gbConsensus = gbHeader . gbhConsensus
+
+

@@ -25,17 +25,16 @@ import           Pos.Configuration                 (HasNodeConfiguration,
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
-import           Pos.Txp                           (TxAux (..), topsortTxs)
+import           Pos.Util.Chrono                   (getOldestFirst)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util       (usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Util       (sortPtxsChrono, usingPtxCoords)
 import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
@@ -137,14 +136,8 @@ processPtxsOnSlot
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
-    let sortedPtxs =
-            sortWith _ptxCreationSlot $
-            flip fromMaybe =<< topsortTxs wHash $
-            ptxs
-
+    let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
     processPtxs sendActions curSlot sortedPtxs
-  where
-    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

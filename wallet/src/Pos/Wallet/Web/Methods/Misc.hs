@@ -22,6 +22,7 @@ module Pos.Wallet.Web.Methods.Misc
        , gatherPendingTxsSummary
        , resetAllFailedPtxs
        , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
        ) where
 
 import           Universum
@@ -48,18 +49,19 @@ import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CPtxCondition,
+import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CPtxCondition, CTxId (..),
                                                CUpdateInfo (..), SyncProgress (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
-import           Pos.Wallet.Web.State         (cancelApplyingPtxs, getNextUpdate,
+import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
+                                               cancelSpecificApplyingPtx, getNextUpdate,
                                                getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
 
 ----------------------------------------------------------------------------
@@ -199,3 +201,8 @@ resetAllFailedPtxs =
 
 cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
 cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
+
+cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
+cancelOneApplyingPtx cTxId = do
+    txId <- decodeCTypeOrFail cTxId
+    testOnlyEndpoint (cancelSpecificApplyingPtx txId)

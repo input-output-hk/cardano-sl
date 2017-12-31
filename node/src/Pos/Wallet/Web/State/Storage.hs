@@ -80,6 +80,7 @@ module Pos.Wallet.Web.State.Storage
        , addOnlyNewPendingTx
        , resetFailedPtxs
        , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
        ) where
 
 import           Universum
@@ -503,6 +504,11 @@ cancelApplyingPtxs :: Update ()
 cancelApplyingPtxs =
     wsWalletInfos . traversed .
     wsPendingTxs . traversed %= cancelApplyingPtx
+
+cancelSpecificApplyingPtx :: TxId -> Update ()
+cancelSpecificApplyingPtx txId =
+    wsWalletInfos . traversed .
+    wsPendingTxs . ix txId %= cancelApplyingPtx
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =

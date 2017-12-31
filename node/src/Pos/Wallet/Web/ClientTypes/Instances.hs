@@ -22,7 +22,8 @@ import           Servant.Multipart                    (FromMultipart (..), looku
 
 import           Pos.Core                             (Address, Coin, decodeTextAddress,
                                                        mkCoin)
-import           Pos.Crypto                           (PassPhrase, passphraseLength)
+import           Pos.Crypto                           (PassPhrase, decodeHash,
+                                                       passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
 import           Pos.Util.LogSafe                     (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant                     (FromCType (..),
@@ -311,6 +312,8 @@ type instance OriginType CTxId = TxId
 instance ToCType CTxId where
     encodeCType = txIdToCTxId
 
+instance FromCType CTxId where
+    decodeCType (CTxId (CHash h)) = decodeHash h
 
 type instance OriginType CPtxCondition = Maybe PtxCondition
 

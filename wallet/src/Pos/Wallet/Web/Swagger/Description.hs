@@ -143,6 +143,14 @@ instance HasCustomSwagger UpdateTx where
     swaggerModifier = modifyDescription
         "Update payment transaction."
 
+instance HasCustomSwagger CancelApplyingPtxs where
+    swaggerModifier = modifyDescription
+        "Cancels all transactions in CPtxApplying condition (unconfirmed)."
+
+instance HasCustomSwagger CancelSpecificApplyingPtx where
+    swaggerModifier = modifyDescription
+        "Cancels specific transaction in CPtxApplying condition."
+
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."

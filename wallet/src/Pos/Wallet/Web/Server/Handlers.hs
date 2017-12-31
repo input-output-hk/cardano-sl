@@ -71,6 +71,10 @@ servantHandlers sendActions =
     :<|>
      M.getTxFee
     :<|>
+     M.cancelAllApplyingPtxs
+    :<|>
+     M.cancelOneApplyingPtx
+    :<|>
      M.updateTransaction
     :<|>
      M.getHistoryLimited

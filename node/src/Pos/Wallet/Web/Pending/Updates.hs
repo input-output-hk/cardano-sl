@@ -5,6 +5,7 @@ module Pos.Wallet.Web.Pending.Updates
     ( mkPtxSubmitTiming
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure
+    , cancelApplyingPtx
     ) where
 
 import           Universum
@@ -14,7 +15,8 @@ import           Control.Lens                 ((%=), (+=), (+~), (<<*=), (<<.=))
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Core.Types               (FlatSlotId, SlotId)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..),
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxSubmitTiming (..),
                                                pstNextDelay, pstNextSlot, ptxPeerAck,
                                                ptxSubmitTiming)
 
@@ -39,3 +41,14 @@ ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
     unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
+
+-- | If given pending transaction is not yet confirmed, cancels it.
+cancelApplyingPtx :: HasConfiguration => PendingTx -> PendingTx
+cancelApplyingPtx ptx@PendingTx{..}
+    | PtxApplying poolInfo <- _ptxCond =
+          ptx { _ptxCond = PtxWontApply reason poolInfo
+              , _ptxPeerAck = False
+              }
+    | otherwise = ptx
+  where
+    reason = "Canceled manually"

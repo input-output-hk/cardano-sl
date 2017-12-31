@@ -32,7 +32,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
                                              CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
-import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
+import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMetas,
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
@@ -204,15 +204,13 @@ addRecentPtxHistory
     :: MonadWalletWebMode m
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
-    pendingTxs <- getWalletPendingTxs wid
-    let candidates = toCandidates pendingTxs
-    logTxHistory "Pending" candidates
-    return $ Map.union currentHistory candidates
-  where
-    toCandidates =
-            txHistoryListToMap
-        .   mapMaybe (ptxPoolInfo . _ptxCond)
-        .   fromMaybe []
+    pendingTxs <- fromMaybe [] <$> getWalletPendingTxs wid
+    let conditions = map _ptxCond pendingTxs
+    -- show only actually pending transactions in logs
+    logTxHistory "Pending" $ mapMaybe (preview _PtxApplying) conditions
+    -- but return all transactions which are not yet in blocks
+    let candidatesList = txHistoryListToMap (mapMaybe ptxPoolInfo conditions)
+    return $ Map.union currentHistory candidatesList
 
 -- FIXME: use @listChunkedJson k@ with appropriate @k@s, once available,
 -- in these 2 functions

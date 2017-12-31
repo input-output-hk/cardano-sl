@@ -19,6 +19,8 @@ import           System.Wlog                  (WithLogger, logDebug, logInfo, lo
 
 import           Pos.Client.Txp.History       (saveTx)
 import           Pos.Communication            (EnqueueMsg, submitTxRaw)
+import           Pos.Configuration            (walletTxCreationDisabled)
+import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxPoolInfo)
@@ -110,6 +112,10 @@ submitAndSavePtx
     :: MonadWalletWebMode m
     => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
+    -- this should've been checked before, but just in case
+    when walletTxCreationDisabled $
+        throwM $ InternalError "Transaction creation is disabled by configuration!"
+
     ack <- submitTxRaw enqueue _ptxTxAux
     reportSubmitted ack
     saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack

@@ -12,14 +12,15 @@ module Main
 import           Universum            hiding (over)
 
 import           Data.Maybe           (fromJust)
-import           Formatting           (sformat, shown, (%))
+import           Formatting           (build, sformat, shown, (%))
 import           Mockable             (Production, currentTime, runProduction)
-import           System.Wlog          (modifyLoggerName)
+import           System.Wlog          (logInfo, modifyLoggerName)
 
 import           Pos.Binary           ()
 import           Pos.Client.CLI       (CommonNodeArgs (..))
 import qualified Pos.Client.CLI       as CLI
 import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Configuration    (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context          (HasNodeContext)
 import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..),
@@ -78,7 +79,12 @@ acidCleanupWorker WalletArgs{..} =
     cleanupAcidStatePeriodically walletAcidInterval
 
 walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions ->
+walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions -> do
+    logInfo $ sformat ("Production mode for API: "%build)
+        walletProductionApi
+    logInfo $ sformat ("Transaction submission disabled: "%build)
+        walletTxCreationDisabled
+
     walletServeWebFull
         sendActions
         walletDebug

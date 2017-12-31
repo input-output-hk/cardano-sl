@@ -443,19 +443,19 @@ dlgApplyBlocks dlgBlunds = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
         let proxySKs = getDlgPayload $ snd block
-            issuers = map pskIssuerPk proxySKs
-            edgeActions = map pskToDlgEdgeAction proxySKs
-            postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
-        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let batchOps =
-                SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
-                transCorrections <>
-                postedThisEpoch
-        runDelegationStateAction $ do
-            dwTip .= headerHash block
-            forM_ issuers deleteFromDlgMemPool
-        pure $ SomeBatchOp batchOps
-
+        if null proxySKs then pure mempty else do
+            let issuers = map pskIssuerPk proxySKs
+                edgeActions = map pskToDlgEdgeAction proxySKs
+                postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
+            transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+            let batchOps =
+                    SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
+                    transCorrections <>
+                    postedThisEpoch
+            runDelegationStateAction $ do
+                dwTip .= headerHash block
+                forM_ issuers deleteFromDlgMemPool
+            pure $ SomeBatchOp batchOps
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can

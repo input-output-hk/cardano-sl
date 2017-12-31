@@ -15,6 +15,7 @@ import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
 import           Data.Time.Units                  (Second)
 import           Mockable                         (concurrently, delay)
+import           Servant.Server                   (err405, errReasonPhrase)
 import           System.Wlog                      (logDebug)
 
 import           Pos.Aeson.ClientTypes            ()
@@ -24,7 +25,8 @@ import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
-import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Configuration                (HasNodeConfiguration,
+                                                   walletTxCreationDisabled)
 import           Pos.Core                         (Coin, HasConfiguration,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
@@ -150,6 +152,11 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation is disabled by configuration!"
+        }
+
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`

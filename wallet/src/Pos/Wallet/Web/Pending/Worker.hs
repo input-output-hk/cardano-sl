@@ -15,11 +15,13 @@ import           Data.Time.Units                   (Microsecond, Second, convert
 import           Formatting                        (build, sformat, (%))
 import           Mockable                          (delay, fork)
 import           Serokell.Util.Text                (listJson)
-import           System.Wlog                       (logInfo, modifyLoggerName)
+import           System.Wlog                       (logDebug, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
-import           Pos.Configuration                 (HasNodeConfiguration, pendingTxResubmitionPeriod)
+import           Pos.Configuration                 (HasNodeConfiguration,
+                                                    pendingTxResubmitionPeriod,
+                                                    walletTxCreationDisabled)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
@@ -125,7 +127,10 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ processPtxInNewestBlocks ptxs
-    processPtxsToResubmit sendActions curSlot ptxs
+
+    if walletTxCreationDisabled
+    then logDebug "Transaction resubmission is disabled"
+    else processPtxsToResubmit sendActions curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings m

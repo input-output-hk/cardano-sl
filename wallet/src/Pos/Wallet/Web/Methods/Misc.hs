@@ -43,6 +43,7 @@ import           Pos.Wallet.Web.State         (getNextUpdate, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
 
 
 ----------------------------------------------------------------------------
@@ -106,7 +107,7 @@ syncProgress =
 ----------------------------------------------------------------------------
 
 testResetAll :: MonadWalletWebMode m => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll = testOnlyEndpoint $ deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys

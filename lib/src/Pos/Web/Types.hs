@@ -9,9 +9,11 @@ module Pos.Web.Types
 import           Universum
 
 -- | Stages of SSC.
--- also called GodTossing algorithm.
--- GodTossing is a coin tossing with guaranteed output delivery. Nodes exchange commitments, openings, and shares, and in the end arrive at a shared seed.
--- See https://eprint.iacr.org/2016/889.pdf (“A Provably Secure Proof-of-Stake Blockchain Protocol”), section 4 for more details.
+-- Also called GodTossing algorithm.
+-- GodTossing is a coin tossing with guaranteed output delivery.
+-- Nodes exchange commitments, openings, and shares, and in the end arrive at a shared seed.
+-- See https://eprint.iacr.org/2016/889.pdf (“A Provably Secure Proof-of-Stake Blockchain Protocol”), 
+-- section 4 for more details.
 
 data SscStage
     = CommitmentStage

@@ -22,6 +22,7 @@ module Pos.Wallet.Web.Methods.Misc
        , gatherPendingTxsSummary
        , resetAllFailedPtxs
        , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
        ) where
 
 import           Universum
@@ -37,7 +38,7 @@ import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
 import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxId, TxIn, TxOut)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
@@ -48,13 +49,15 @@ import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CPtxCondition,
-                                               CUpdateInfo (..), SyncProgress (..))
+import           Pos.Wallet.Web.ClientTypes   (CHash (..), CProfile (..), CPtxCondition,
+                                               CTxId (..), CUpdateInfo (..),
+                                               SyncProgress (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
-import           Pos.Wallet.Web.State         (cancelApplyingPtxs, getNextUpdate,
+import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
+                                               cancelSpecificApplyingPtx, getNextUpdate,
                                                getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                resetFailedPtxs, setProfile, testReset)
@@ -199,3 +202,12 @@ resetAllFailedPtxs =
 
 cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
 cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
+
+cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
+cancelOneApplyingPtx cTxId = do
+    case fromCTxId cTxId of
+      Left _     -> fail "cancelSpecificApplyingPtx, can't convert"
+      Right txId -> testOnlyEndpoint (cancelSpecificApplyingPtx txId)
+  where
+    fromCTxId :: CTxId -> Either Text TxId
+    fromCTxId (CTxId (CHash _txId)) = undefined

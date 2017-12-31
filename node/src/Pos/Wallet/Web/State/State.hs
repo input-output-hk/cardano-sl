@@ -79,6 +79,7 @@ module Pos.Wallet.Web.State.State
        , addOnlyNewPendingTx
        , resetFailedPtxs
        , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
        , getWalletStorage
        , flushWalletStorage
        ) where
@@ -337,6 +338,9 @@ resetFailedPtxs = updateDisk ... A.ResetFailedPtxs
 
 cancelApplyingPtxs :: WebWalletModeDB ctx m => m ()
 cancelApplyingPtxs = updateDisk ... A.CancelApplyingPtxs
+
+cancelSpecificApplyingPtx :: WebWalletModeDB ctx m => TxId -> m ()
+cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
 
 flushWalletStorage :: WebWalletModeDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage

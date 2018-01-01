@@ -48,7 +48,7 @@ import           Data.Text             (Text)
 import           Data.Text.Buildable   (build)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
-import           Formatting            (bprint, builder, (%))
+import           Formatting            (bprint, (%))
 import qualified Formatting            as F
 import qualified Prelude
 import           Serokell.Util.Text    (listJson)
@@ -311,14 +311,13 @@ data CUpdateInfo = CUpdateInfo
 
 -- | Parameters to be passed in @ReformCanceledTxs@ endpoint.
 newtype ReformCanceledTxsParams = ReformCanceledTxsParams
-    { rctpCTxIds :: Maybe [CTxId]
-      -- ^ Transactions to reform; all available if not specified
+    { rctpBanned :: [CTxId]
+      -- ^ Banned transactions which must not be reformed.
     } deriving (Show, Generic)
 
 instance Buildable ReformCanceledTxsParams where
     build ReformCanceledTxsParams{..} =
-        bprint ("Requested transactions: "%builder)
-            (maybe "all" (bprint listJson) rctpCTxIds)
+        bprint ("Banned transactions: "%listJson) rctpBanned
 
 ----------------------------------------------------------------------------
 -- Reporting

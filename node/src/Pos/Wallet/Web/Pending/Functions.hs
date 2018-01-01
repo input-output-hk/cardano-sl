@@ -7,14 +7,19 @@ import           Universum
 import qualified Data.HashMap.Strict          as HM
 import           Control.Lens                 (has, each)
 
+import           Pos.Crypto                   (withHash, hash)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Core.Types               (ChainDifficulty, FlatSlotId, SlotId)
-import           Pos.Txp.Core                 (TxId, topsortTxs)
+import           Pos.Txp.Core                 (TxId, topsortTxs, taTx)
 import           Pos.Txp.Toil.Class           (MonadUtxoRead)
+import           Pos.Txp.Toil.Trans           (evalToilTEmpty)
+import           Pos.Txp.Toil.Failure         (ToilVerFailure)
+import           Pos.Txp.Toil.Utxo.Functions  (VTxContext (..), verifyTxUtxo, applyTxToUtxo)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxSubmitTiming (..), pstNextDelay,
-                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming, ptxCond, _PtxApplying)
+                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming,
+                                               ptxCond, _PtxApplying, ptxTxAux, ptxTxId)
 
 
 -- | Reevaluate all pending txs (in 'PtxApplying' state):
@@ -43,31 +48,64 @@ reevaluateApplyingPtxs ptxs curDifficulty = do
     let (present, missing) = undefined  -- HM.partition ....... applying
     -- Topsort the rest ('missing'), go one by one and either add to UTXO or
     -- mark as 'PtxWontApply'
-    (missingInvalid, missingValid) <- runToilT $ do
-        let sorted = topsortTxs undefined missing
-        -- TODO: is it okay that we don't do 'verifyGState' here?
-        fmap partitionEithers $ forM sorted $ \tx -> do
-            let vtc = VTxContext True     -- TODO: is it necessarily 'True'?
-            runExceptT (verifyTxUtxo vtc tx) >>= \case
-                Left err -> pure (Left (tx, err))
-                Right () -> applyTxToUtxo tx >> pure (Right tx)
-
-    -- Put it all together:
     --
-    --   * tx wasn't 'PtxApplying' -> do nothing
-    --   * tx isn't present but valid -> do nothing (it already is PtxApplying)
-    --   * tx is present in blocks -> set 'PtxInNewestBlocks'
-    --   * tx isn't present and invalid -> set 'PtxWontApply'
+    -- TODO: is evalToilTEmpty okay?
+    (missingInvalid, missingValid) <- evalToilTEmpty $ do
+        let sorted = fromMaybe missing $ topsortTxs undefined missing
+        -- TODO: is it okay that we don't do 'verifyGState' here?
+        fmap partitionEithers $ forM sorted $ \ptx -> do
+            let vtc = VTxContext True     -- TODO: is it necessarily 'True'?
+            let txAux  = ptx ^. ptxTxAux
+                txPure = taTx txAux
+            runExceptT (verifyTxUtxo vtc txAux) >>= \case
+                Left err -> pure (Left (ptx, err))
+                Right _  -> applyTxToUtxo (withHash txPure) >>
+                            pure (Right ptx)
+
     pure $ mconcat
+        -- tx wasn't 'PtxApplying' -> do nothing
         [ notApplying
-        , missingValid
-        , present & each . ptxCond %~ \case
-              PtxApplying _ -> PtxInNewestBlocks curDifficulty
-              other         -> other
-              -- TODO: @curDifficulty@ is a lie here, and in case of a
-              -- rollback it might hurt us because all transactions will
-              -- lose their 'PtxInNewestBlocks' status.
-        , missingInvalid & each . ptxCond %~ \case
-              (PtxApplying poolInfo, err) -> PtxWontApply err poolInfo
-              other                       -> other
+        -- tx isn't present but valid -> do nothing (it already is PtxApplying)
+        , mkHashMap (view ptxTxId) $
+            missingValid
+        -- tx is present in blocks -> set 'PtxInNewestBlocks'
+        , mkHashMap (view ptxTxId) $
+          map (setInNewestBlocks curDifficulty) $
+            present
+        -- tx isn't present and invalid -> set 'PtxWontApply'
+        , mkHashMap (view ptxTxId) $
+          map setWontApply $
+            missingInvalid
         ]
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+-- | Create a 'HashMap' by deriving a key from each value.
+mkHashMap
+    :: (Eq key, Hashable key)
+    => (val -> key) -> [val] -> HashMap key val
+mkHashMap f = HM.fromList . map (f &&& identity)
+
+-- | Cancel an 'PtxApplying' transaction by setting its status to
+-- 'PtxWontApply' with the given cancellation reason.
+setWontApply :: (PendingTx, ToilVerFailure) -> PendingTx
+setWontApply (ptx, err) =
+    case ptx ^. ptxCond of
+        PtxApplying poolInfo ->
+            ptx & ptxCond .~ PtxWontApply (pretty err) poolInfo
+        _otherwise -> ptx
+
+-- | Mark an 'PtxApplying' transaction as a transaction that has appeared in
+-- the blockchain.
+--
+-- TODO: @curDifficulty@ is a lie here, and in case of a rollback it might
+-- hurt us because all transactions will lose their 'PtxInNewestBlocks'
+-- status. Perhaps we should be setting some other status.
+setInNewestBlocks :: ChainDifficulty -> PendingTx -> PendingTx
+setInNewestBlocks curDifficulty ptx =
+    case ptx ^. ptxCond of
+        PtxApplying _ ->
+            ptx & ptxCond .~ PtxInNewestBlocks curDifficulty
+        _otherwise -> ptx

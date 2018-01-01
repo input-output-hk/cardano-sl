@@ -139,6 +139,15 @@ instance HasCustomSwagger TxFee where
         "Estimate fees for performing given transaction. \
         \Transaction will not be created."
 
+instance HasCustomSwagger ReformCanceledTxs where
+    swaggerModifier = modifyDescription
+        "For given ids of transactions which were once created, \
+        \forms these transactions from scratch and sends them again. \
+        \Only transactions which has been canceled and have PtxWontApply \
+        \state are affected. If no transaction specified, all ever canceled \
+        \ones are reformed and submitted. Returns information about \
+        \transactions which has been successfully created."
+
 instance HasCustomSwagger UpdateTx where
     swaggerModifier = modifyDescription
         "Update payment transaction."

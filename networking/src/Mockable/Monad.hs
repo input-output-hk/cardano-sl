@@ -15,7 +15,7 @@ import           Mockable.Exception (Bracket, Catch, Throw)
 import           Mockable.Metrics (Metrics)
 import           Mockable.SharedAtomic (SharedAtomic)
 import           Mockable.SharedExclusive (SharedExclusive)
-
+import           Universum
 -- | Bunch of Mockable-constraints.
 type MonadMockable m
     = ( Mockable Delay m

@@ -9,7 +9,7 @@ module Mockable.Production
        ( Production (..)
        ) where
 
-import           Universum (MonadFail (..))
+import           Universum (MonadFail (..), identity)
 
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
@@ -39,7 +39,7 @@ import           Mockable.Exception (Bracket (..), Catch (..), Throw (..))
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
-
+import           Universum(IO,Show,String, Functor, Applicative, Monad,($),return,(.),pure,const,Maybe(Just,Nothing))
 newtype Production t = Production
     { runProduction :: IO t
     } deriving (Functor, Applicative, Monad)
@@ -183,7 +183,7 @@ instance MonadMask Production where
 
 instance HasLoggerName Production where
     askLoggerName = return "*production*"
-    modifyLoggerName = const id
+    modifyLoggerName = const identity -- identity was renamed from id in universium
 
 instance MonadBase IO Production where
     liftBase = Production

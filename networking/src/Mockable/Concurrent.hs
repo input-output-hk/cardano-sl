@@ -50,7 +50,7 @@ import           Control.Exception (AsyncException (ThreadKilled), Exception)
 import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 import           Mockable.Exception
-
+import Universum
 type family ThreadId (m :: * -> *) :: *
 
 -- | Fork mock to add ability for threads manipulation.

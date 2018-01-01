@@ -63,6 +63,8 @@ import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp.DB.Utxo                  (getTxOut)
+import           Pos.Txp.Toil.Class               (MonadUtxoRead (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (Some (..))
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), jsonLogDefault)
@@ -223,6 +225,9 @@ instance HasConfiguration => MonadDB WalletWebMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
+
+instance HasConfiguration => MonadUtxoRead WalletWebMode where
+    utxoGet = getTxOut
 
 instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGenericWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where

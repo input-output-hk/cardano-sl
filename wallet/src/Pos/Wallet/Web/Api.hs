@@ -498,6 +498,8 @@ type WalletApi = ApiPrefix :> (
     :<|>
      CancelSpecificApplyingPtx
     :<|>
+     ReevaluateApplyingPtxs
+    :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>

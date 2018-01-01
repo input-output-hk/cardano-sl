@@ -2,6 +2,7 @@
 
 module Pos.Wallet.Web.Pending.Functions
     ( reevaluateApplyingPtxs
+    , mkHashMap
     ) where
 
 import           Universum

@@ -4,19 +4,26 @@
 -- | Transaction creation and fees
 
 module Pos.Wallet.Web.Methods.Payment
-       ( newPayment
+       ( ReformCanceledTxsParams (..)
+       , newPayment
        , getTxFee
+       , reformCanceledTxs
        ) where
 
 import           Universum
 
 import           Control.Exception                (throw)
+import           Control.Lens                     (ix)
+import           Control.Monad.Catch              (handleAll)
 import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
+import qualified Data.Set                         as S
 import           Data.Time.Units                  (Second)
+import           Formatting                       (build, sformat, shown, (%))
 import           Mockable                         (concurrently, delay)
+import           Serokell.Util.Text               (listJson)
 import           Servant.Server                   (err405, errReasonPhrase)
-import           System.Wlog                      (logDebug)
+import           System.Wlog                      (logDebug, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -34,16 +41,18 @@ import           Pos.Crypto                       (PassPhrase, ShouldCheckPassph
                                                    withSafeSignerUnsafe)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
+import           Pos.Txp                          (TxFee (..), TxId, Utxo, _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
+import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
                                                    CCoin, CId, CTx (..),
-                                                   CWAddressMeta (..), Wal,
+                                                   CWAddressMeta (..),
+                                                   ReformCanceledTxsParams (..), Wal,
                                                    addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
@@ -53,12 +62,14 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxE
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
                                                    convertCIdTOAddrs)
-import           Pos.Wallet.Web.Pending           (mkPendingTx)
+import           Pos.Wallet.Web.Pending           (PendingTx (..), PtxCondition (..),
+                                                   PtxPoolInfo, mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.State.State       (getPendingTxs)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds, getWalletAddrsSet)
+                                                   getWalletAccountIds, getWalletAddrsSet,
+                                                   testOnlyEndpoint)
 
 newPayment
     :: MonadWalletWebMode m
@@ -214,3 +225,59 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     logDebug "sendMoney: constructing response"
     fst <$> constructCTx srcWallet srcWalletAddrs diff th
+
+
+-- | For each specified transaction, if it has been canceled, creates
+-- new transaction with correspondent destination address and money.
+-- This works as `mapM newPayment`, so completion may take a lot of time.
+--
+-- NOTE: Work of this function relies on how wallet create transactions
+-- currently!
+reformCanceledTxs
+    :: MonadWalletWebMode m
+    => SendActions m -> PassPhrase -> ReformCanceledTxsParams -> m [CTx]
+reformCanceledTxs sendActions passphrase params = testOnlyEndpoint $ do
+    ptxs <- getPendingTxs
+    let canceledTxs :: [(TxId, (CId Wal, PtxPoolInfo))]
+        canceledTxs = flip mapMaybe ptxs $ \PendingTx{..} ->
+            case _ptxCond of
+                PtxWontApply _ poolInfo -> Just (_ptxTxId, (_ptxWallet, poolInfo))
+                _                       -> Nothing
+    logDebug $ sformat ("List of all canceled transactions ever: "%listJson)
+         (map fst canceledTxs)
+
+    txsToRecreate <- case rctpCTxIds params of
+        Nothing -> pure canceledTxs
+        Just requestedCTxs -> do
+            requestedTxs <- mapM decodeCTypeOrFail requestedCTxs
+            let requestedTxsSet = S.fromList requestedTxs
+            pure $ filter ((`S.member` requestedTxsSet) . fst) canceledTxs
+
+    logDebug $ sformat ("Transactions selected for recreation: "%listJson)
+        (map fst txsToRecreate)
+
+    fmap catMaybes . forM txsToRecreate $ \(txId, (wid, txEntry)) ->
+        handleAll (txCreationHandler txId) $ do
+            let moneySource = WalletMoneySource wid
+                outputs = _txOutputs (_thTx txEntry)
+            TxOut addr coin <-
+                maybeThrow noExpectedInput (outputs ^? ix primaryDestIndex)
+            let outDistr = (encodeCType addr, coin)
+            ctx <- sendMoney sendActions passphrase moneySource (one outDistr)
+
+            newTxId <- decodeCTypeOrFail (ctId ctx)
+            logInfo $ sformat ("Successfully recreated transaction "%build
+                              %", new transaction: "%build)
+                txId newTxId
+            return (Just ctx)
+  where
+    -- for all current transactions we have change address as 0-th output
+    -- and primary destination as 1-st output
+    primaryDestIndex = 1
+    noExpectedInput = InternalError "Transaction has no inputs"
+    txCreationHandler txId e = do
+        logWarning $ sformat ("Failed to recreate transaction "%build%": "%shown)
+             txId e
+        return Nothing
+
+

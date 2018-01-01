@@ -16,6 +16,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxMeta (..)
       , CTExMeta (..)
       , CPtxCondition (..)
+      , ReformCanceledTxsParams (..)
       , CInitialized (..)
       , AccountId (..)
       , CAccountId (..)
@@ -47,9 +48,10 @@ import           Data.Text             (Text)
 import           Data.Text.Buildable   (build)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
-import           Formatting            (bprint, (%))
+import           Formatting            (bprint, builder, (%))
 import qualified Formatting            as F
 import qualified Prelude
+import           Serokell.Util.Text    (listJson)
 import           Servant.Multipart     (FileData)
 
 import           Pos.Aeson.Types       ()
@@ -306,6 +308,17 @@ data CUpdateInfo = CUpdateInfo
     , cuiPositiveStake   :: !CCoin
     , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
+
+-- | Parameters to be passed in @ReformCanceledTxs@ endpoint.
+newtype ReformCanceledTxsParams = ReformCanceledTxsParams
+    { rctpCTxIds :: Maybe [CTxId]
+      -- ^ Transactions to reform; all available if not specified
+    } deriving (Show, Generic)
+
+instance Buildable ReformCanceledTxsParams where
+    build ReformCanceledTxsParams{..} =
+        bprint ("Requested transactions: "%builder)
+            (maybe "all" (bprint listJson) rctpCTxIds)
 
 ----------------------------------------------------------------------------
 -- Reporting

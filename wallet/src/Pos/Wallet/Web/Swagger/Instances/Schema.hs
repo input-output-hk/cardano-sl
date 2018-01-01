@@ -77,6 +77,7 @@ instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
+instance ToSchema      CT.ReformCanceledTxsParams
 instance ToParamSchema CT.CPassPhrase
 
 instance ToSchema WalletStateSnapshot where

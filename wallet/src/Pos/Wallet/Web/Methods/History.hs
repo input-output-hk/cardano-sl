@@ -204,7 +204,7 @@ addRecentPtxHistory
     :: MonadWalletWebMode m
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
-    pendingTxs <- maybe [] toList <$> getWalletPendingTxs wid
+    pendingTxs <- fromMaybe [] <$> getWalletPendingTxs wid
     let conditions = map _ptxCond pendingTxs
     -- show only actually pending transactions in logs
     logTxHistory "Pending" $ mapMaybe (preview _PtxApplying) conditions

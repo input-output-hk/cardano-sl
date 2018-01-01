@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 module Pos.Wallet.Web.Pending.Functions
     ( reevaluateApplyingPtxs
     ) where
@@ -5,21 +7,25 @@ module Pos.Wallet.Web.Pending.Functions
 import           Universum
 
 import qualified Data.HashMap.Strict          as HM
-import           Control.Lens                 (has, each, to)
+import qualified Data.HashSet                 as HS
+import           Control.Lens                 (has, to, folded, _Right)
 
-import           Pos.Crypto                   (WithHash (..), withHash, hash)
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Core.Slotting            (flatSlotId)
-import           Pos.Core.Types               (ChainDifficulty, FlatSlotId, SlotId)
-import           Pos.Txp.Core                 (Tx, TxId, topsortTxs, taTx)
+import           Pos.Block.Core               (Block, mainBlockTxPayload)
+import           Pos.Crypto                   (WithHash (..), hash)
+import           Pos.Core.Configuration       (HasConfiguration, genesisHash)
+import           Pos.Core.Types               (ChainDifficulty)
+import           Pos.Core.Class               (difficultyL, headerHash, prevBlockL)
+import qualified Pos.DB.DB                    as DB
+import qualified Pos.DB.Block                 as DB
+import           Pos.Txp.Core                 (Tx, TxId, topsortTxs, taTx, txpTxs)
 import           Pos.Txp.Toil.Class           (MonadUtxoRead)
 import           Pos.Txp.Toil.Trans           (evalToilTEmpty)
 import           Pos.Txp.Toil.Failure         (ToilVerFailure)
-import           Pos.Txp.Toil.Utxo.Functions  (VTxContext (..), verifyTxUtxo, applyTxToUtxo)
+import           Pos.Txp.Toil.Utxo.Functions  (VTxContext (..), verifyTxUtxo,
+                                               applyTxToUtxo)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxSubmitTiming (..), pstNextDelay,
-                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming,
                                                ptxCond, _PtxApplying, ptxTxAux, ptxTxId)
+import           Pos.Util.Util                (getKeys)
 
 
 -- | Reevaluate all pending txs (in 'PtxApplying' state):
@@ -34,22 +40,26 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..)
 -- shown doesn't include outputs from failed txs or mempool txs? I'm not
 -- sure
 reevaluateApplyingPtxs
-    :: (HasConfiguration, MonadUtxoRead m)
-    => HashMap TxId PendingTx
-    -> ChainDifficulty
-    -> m (HashMap TxId PendingTx)
-reevaluateApplyingPtxs ptxs curDifficulty = do
+    :: forall ssc m.
+       (DB.MonadBlockDB ssc m, HasConfiguration, MonadUtxoRead m)
+    => HashMap TxId PendingTx -> m (HashMap TxId PendingTx)
+reevaluateApplyingPtxs ptxs = do
     -- Get all 'PtxApplying' transactions
     let (applying, notApplying) = partitionHashMap isApplying ptxs
     -- Find those that are already in blocks; they'll be marked as
     -- 'PtxInNewestBlocks'
-    let (present, missing) = undefined  -- partitionHashMap ....... applying
+    presentIds <- getTxsBlockStatus @ssc (getKeys applying)
+    let present :: HashMap TxId (PendingTx, ChainDifficulty)
+        present = HM.intersectionWith (,) applying presentIds
+    let missing :: HashMap TxId PendingTx
+        missing = HM.difference applying presentIds
     -- Topsort the rest ('missing'), go one by one and either add to UTXO or
     -- mark as 'PtxWontApply'
     --
     -- TODO: is evalToilTEmpty okay?
     (missingInvalid, missingValid) <- evalToilTEmpty $ do
-        let sorted = fromMaybe missing $ topsortTxs ptxWithHash missing
+        let sorted = fromMaybe (toList missing) $
+                     topsortTxs ptxWithHash (toList missing)
         fmap partitionEithers $ forM sorted $ \ptx -> do
             let vtc = VTxContext True     -- TODO: is it necessarily 'True'?
             runExceptT (verifyTxUtxo vtc (ptx ^. ptxTxAux)) >>= \case
@@ -64,8 +74,7 @@ reevaluateApplyingPtxs ptxs curDifficulty = do
         , mkHashMap (view ptxTxId) $
             missingValid
         -- tx is present in blocks -> set 'PtxInNewestBlocks'
-        , mkHashMap (view ptxTxId) $
-          map (setInNewestBlocks curDifficulty) $
+        , fmap setInNewestBlocks $
             present
         -- tx isn't present and invalid -> set 'PtxWontApply'
         , mkHashMap (view ptxTxId) $
@@ -74,7 +83,7 @@ reevaluateApplyingPtxs ptxs curDifficulty = do
         ]
 
 ----------------------------------------------------------------------------
--- Utilities
+-- General utilities
 ----------------------------------------------------------------------------
 
 -- | Create a 'HashMap' by deriving a key from each value.
@@ -87,6 +96,10 @@ mkHashMap f = HM.fromList . map (f &&& identity)
 partitionHashMap
     :: (v -> Bool) -> HashMap k v -> (HashMap k v, HashMap k v)
 partitionHashMap p hm = (HM.filter p hm, HM.filter (not . p) hm)
+
+----------------------------------------------------------------------------
+-- Utilities for pending transactions
+----------------------------------------------------------------------------
 
 -- | Check if the transaction is in 'PtxApplying' state.
 isApplying :: PendingTx -> Bool
@@ -103,15 +116,11 @@ setWontApply (ptx, err) =
 
 -- | Mark an 'PtxApplying' transaction as a transaction that has appeared in
 -- the blockchain.
---
--- TODO: @curDifficulty@ is a lie here, and in case of a rollback it might
--- hurt us because all transactions will lose their 'PtxInNewestBlocks'
--- status. Perhaps we should be setting some other status.
-setInNewestBlocks :: ChainDifficulty -> PendingTx -> PendingTx
-setInNewestBlocks curDifficulty ptx =
+setInNewestBlocks :: (PendingTx, ChainDifficulty) -> PendingTx
+setInNewestBlocks (ptx, difficulty) =
     case ptx ^. ptxCond of
         PtxApplying _ ->
-            ptx & ptxCond .~ PtxInNewestBlocks curDifficulty
+            ptx & ptxCond .~ PtxInNewestBlocks difficulty
         _otherwise -> ptx
 
 -- | Get tx and hash out of a pending transaction.
@@ -120,3 +129,35 @@ ptxWithHash ptx =
     WithHash { whData = ptx ^. ptxTxAux . to taTx
              , whHash = ptx ^. ptxTxId
              }
+
+----------------------------------------------------------------------------
+-- Utilities for traversing the blockchain
+----------------------------------------------------------------------------
+
+-- | Get status of several transactions – for ones that are in the
+-- blockchain, say in what block they are.
+getTxsBlockStatus
+    :: forall ssc m. DB.MonadBlockDB ssc m
+    => HashSet TxId
+    -> m (HashMap TxId ChainDifficulty)
+getTxsBlockStatus txs = foldMapBlocks @ssc $ \block -> do
+    let blockTxs   = block ^.. _Right . mainBlockTxPayload . txpTxs . folded
+        blockTxIds = HS.fromList $ map hash blockTxs
+        blockDiff  = block ^. difficultyL
+    pure $ fmap (const blockDiff) $ HS.toMap $ HS.intersection txs blockTxIds
+
+-- | Traverse all blocks in the blockchain (starting from the newest one)
+-- and concatenate the results.
+foldMapBlocks
+    :: forall ssc m a. (DB.MonadBlockDB ssc m, Monoid a)
+    => (Block ssc -> m a) -> m a
+foldMapBlocks f = do
+    tip <- headerHash <$> DB.getTipHeader @ssc
+    go tip mempty
+  where
+    go h !acc
+        | h == genesisHash = pure acc
+        | otherwise = do
+              block <- DB.getBlockThrow @ssc h
+              val <- f block
+              go (block ^. prevBlockL) (acc <> val)

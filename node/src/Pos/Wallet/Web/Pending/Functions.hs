@@ -5,13 +5,13 @@ module Pos.Wallet.Web.Pending.Functions
 import           Universum
 
 import qualified Data.HashMap.Strict          as HM
-import           Control.Lens                 (has, each)
+import           Control.Lens                 (has, each, to)
 
-import           Pos.Crypto                   (withHash, hash)
+import           Pos.Crypto                   (WithHash (..), withHash, hash)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Core.Types               (ChainDifficulty, FlatSlotId, SlotId)
-import           Pos.Txp.Core                 (TxId, topsortTxs, taTx)
+import           Pos.Txp.Core                 (Tx, TxId, topsortTxs, taTx)
 import           Pos.Txp.Toil.Class           (MonadUtxoRead)
 import           Pos.Txp.Toil.Trans           (evalToilTEmpty)
 import           Pos.Txp.Toil.Failure         (ToilVerFailure)
@@ -40,26 +40,21 @@ reevaluateApplyingPtxs
     -> m (HashMap TxId PendingTx)
 reevaluateApplyingPtxs ptxs curDifficulty = do
     -- Get all 'PtxApplying' transactions
-    let applying, notApplying :: HashMap TxId PendingTx
-        applying    = HM.filter (has (ptxCond . _PtxApplying)) ptxs
-        notApplying = HM.filter (not . has (ptxCond . _PtxApplying)) ptxs
+    let (applying, notApplying) = partitionHashMap isApplying ptxs
     -- Find those that are already in blocks; they'll be marked as
     -- 'PtxInNewestBlocks'
-    let (present, missing) = undefined  -- HM.partition ....... applying
+    let (present, missing) = undefined  -- partitionHashMap ....... applying
     -- Topsort the rest ('missing'), go one by one and either add to UTXO or
     -- mark as 'PtxWontApply'
     --
     -- TODO: is evalToilTEmpty okay?
     (missingInvalid, missingValid) <- evalToilTEmpty $ do
-        let sorted = fromMaybe missing $ topsortTxs undefined missing
-        -- TODO: is it okay that we don't do 'verifyGState' here?
+        let sorted = fromMaybe missing $ topsortTxs ptxWithHash missing
         fmap partitionEithers $ forM sorted $ \ptx -> do
             let vtc = VTxContext True     -- TODO: is it necessarily 'True'?
-            let txAux  = ptx ^. ptxTxAux
-                txPure = taTx txAux
-            runExceptT (verifyTxUtxo vtc txAux) >>= \case
+            runExceptT (verifyTxUtxo vtc (ptx ^. ptxTxAux)) >>= \case
                 Left err -> pure (Left (ptx, err))
-                Right _  -> applyTxToUtxo (withHash txPure) >>
+                Right _  -> applyTxToUtxo (ptxWithHash ptx) >>
                             pure (Right ptx)
 
     pure $ mconcat
@@ -84,9 +79,18 @@ reevaluateApplyingPtxs ptxs curDifficulty = do
 
 -- | Create a 'HashMap' by deriving a key from each value.
 mkHashMap
-    :: (Eq key, Hashable key)
-    => (val -> key) -> [val] -> HashMap key val
+    :: (Eq k, Hashable k)
+    => (v -> k) -> [v] -> HashMap k v
 mkHashMap f = HM.fromList . map (f &&& identity)
+
+-- | Partition a 'HashMap'.
+partitionHashMap
+    :: (v -> Bool) -> HashMap k v -> (HashMap k v, HashMap k v)
+partitionHashMap p hm = (HM.filter p hm, HM.filter (not . p) hm)
+
+-- | Check if the transaction is in 'PtxApplying' state.
+isApplying :: PendingTx -> Bool
+isApplying = has (ptxCond . _PtxApplying)
 
 -- | Cancel an 'PtxApplying' transaction by setting its status to
 -- 'PtxWontApply' with the given cancellation reason.
@@ -109,3 +113,10 @@ setInNewestBlocks curDifficulty ptx =
         PtxApplying _ ->
             ptx & ptxCond .~ PtxInNewestBlocks curDifficulty
         _otherwise -> ptx
+
+-- | Get tx and hash out of a pending transaction.
+ptxWithHash :: PendingTx -> WithHash Tx
+ptxWithHash ptx =
+    WithHash { whData = ptx ^. ptxTxAux . to taTx
+             , whHash = ptx ^. ptxTxId
+             }

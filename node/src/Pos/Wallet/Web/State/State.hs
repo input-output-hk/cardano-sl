@@ -80,7 +80,7 @@ module Pos.Wallet.Web.State.State
        , resetFailedPtxs
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
-       , reevaluateApplyingPtxs
+       , reevaluateUncertainPtxs
        , getWalletStorage
        , flushWalletStorage
        ) where
@@ -351,14 +351,14 @@ cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
 
 -- TODO: we might also want to give out a list of transactions that we've
 -- failed to update
-reevaluateApplyingPtxs
+reevaluateUncertainPtxs
     :: ( WebWalletModeDB ctx m
        , MonadBlockDB WalletSscType m
        , MonadUtxoRead m )
     => m ()
-reevaluateApplyingPtxs = do
+reevaluateUncertainPtxs = do
     ptxs    <- F.mkHashMap (view ptxTxId) <$> getPendingTxs
-    newPtxs <- F.reevaluateApplyingPtxs @WalletSscType ptxs
+    newPtxs <- F.reevaluateUncertainPtxs @WalletSscType ptxs
     ifor_ (HM.intersectionWith (,) ptxs newPtxs) $ \id (ptx, newPtx) ->
         casPtxCondition (ptx ^. ptxWallet) id
             (ptx ^. ptxCond) (newPtx ^. ptxCond)

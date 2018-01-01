@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Pos.Wallet.Web.Pending.Functions
-    ( reevaluateApplyingPtxs
+    ( reevaluateUncertainPtxs
     , mkHashMap
     ) where
 
@@ -25,35 +25,38 @@ import           Pos.Txp.Toil.Failure         (ToilVerFailure)
 import           Pos.Txp.Toil.Utxo.Functions  (VTxContext (..), verifyTxUtxo,
                                                applyTxToUtxo)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               ptxCond, _PtxApplying, ptxTxAux, ptxTxId)
+                                               ptxCond, _PtxApplying, _PtxWontApply,
+                                               ptxTxAux, ptxTxId)
 import           Pos.Util.Util                (getKeys)
 
 
--- | Reevaluate all pending txs (in 'PtxApplying' state):
+-- | Reevaluate all pending txs (in 'PtxApplying' and 'PtxWontApply' states):
 --
+--   * 'PtxInNewestBlocks' for ones that are already in the blockchain
+--     (at any depth)
 --   * 'PtxWontApply' for ones that can't be applied
---   * 'PtxInNewestBlocks' for ones that are already
---     in the blockchain (at any depth)
 --   * 'PtxApplying' to ones that can be applied either directly or after
 --     applying some other transactions
 --
 -- TODO: do we need to do anything special to ensure that the UTXO we're
 -- shown doesn't include outputs from failed txs or mempool txs? I'm not
 -- sure
-reevaluateApplyingPtxs
+reevaluateUncertainPtxs
     :: forall ssc m.
        (DB.MonadBlockDB ssc m, HasConfiguration, MonadUtxoRead m)
     => HashMap TxId PendingTx -> m (HashMap TxId PendingTx)
-reevaluateApplyingPtxs ptxs = do
-    -- Get all 'PtxApplying' transactions
-    let (applying, notApplying) = partitionHashMap isApplying ptxs
+reevaluateUncertainPtxs ptxs = do
+    -- Get all transactions we're uncertain about
+    let isUncertain ptx = has (ptxCond . _PtxApplying)  ptx ||
+                          has (ptxCond . _PtxWontApply) ptx
+    let (uncertain, certain) = partitionHashMap isUncertain ptxs
     -- Find those that are already in blocks; they'll be marked as
     -- 'PtxInNewestBlocks'
-    presentIds <- getTxsBlockStatus @ssc (getKeys applying)
+    presentIds <- getTxsBlockStatus @ssc (getKeys uncertain)
     let present :: HashMap TxId (PendingTx, ChainDifficulty)
-        present = HM.intersectionWith (,) applying presentIds
+        present = HM.intersectionWith (,) uncertain presentIds
     let missing :: HashMap TxId PendingTx
-        missing = HM.difference applying presentIds
+        missing = HM.difference uncertain presentIds
     -- Topsort the rest ('missing'), go one by one and either add to UTXO or
     -- mark as 'PtxWontApply'
     --
@@ -69,18 +72,12 @@ reevaluateApplyingPtxs ptxs = do
                             pure (Right ptx)
 
     pure $ mconcat
-        -- tx wasn't 'PtxApplying' -> do nothing
-        [ notApplying
-        -- tx isn't present but valid -> do nothing (it already is PtxApplying)
-        , mkHashMap (view ptxTxId) $
-            missingValid
-        -- tx is present in blocks -> set 'PtxInNewestBlocks'
-        , fmap setInNewestBlocks $
-            present
-        -- tx isn't present and invalid -> set 'PtxWontApply'
-        , mkHashMap (view ptxTxId) $
-          map setWontApply $
-            missingInvalid
+        [ certain                          -- certain = do nothing
+        , map setInNewestBlocks present    -- present = PtxInNewestBlocks
+        , mkHashMap (view ptxTxId) $       -- invalid = PtxWontApply
+            map setWontApply missingInvalid
+        , mkHashMap (view ptxTxId) $       -- valid = PtxApplying
+            map setApplying missingValid
         ]
 
 ----------------------------------------------------------------------------
@@ -102,27 +99,27 @@ partitionHashMap p hm = (HM.filter p hm, HM.filter (not . p) hm)
 -- Utilities for pending transactions
 ----------------------------------------------------------------------------
 
--- | Check if the transaction is in 'PtxApplying' state.
-isApplying :: PendingTx -> Bool
-isApplying = has (ptxCond . _PtxApplying)
+-- | Mark a transaction with 'PtxInNewestBlocks'.
+setInNewestBlocks :: (PendingTx, ChainDifficulty) -> PendingTx
+setInNewestBlocks (ptx, difficulty) = ptx & ptxCond %~ \case
+    PtxApplying _    -> PtxInNewestBlocks difficulty
+    PtxWontApply _ _ -> PtxInNewestBlocks difficulty
+    other            -> other
 
--- | Cancel an 'PtxApplying' transaction by setting its status to
+-- | Cancel an __uncertain__ transaction by setting its status to
 -- 'PtxWontApply' with the given cancellation reason.
 setWontApply :: (PendingTx, ToilVerFailure) -> PendingTx
-setWontApply (ptx, err) =
-    case ptx ^. ptxCond of
-        PtxApplying poolInfo ->
-            ptx & ptxCond .~ PtxWontApply (pretty err) poolInfo
-        _otherwise -> ptx
+setWontApply (ptx, err) = ptx & ptxCond %~ \case
+    PtxApplying    poolInfo -> PtxWontApply (pretty err) poolInfo
+    PtxWontApply _ poolInfo -> PtxWontApply (pretty err) poolInfo
+    other                   -> other
 
--- | Mark an 'PtxApplying' transaction as a transaction that has appeared in
--- the blockchain.
-setInNewestBlocks :: (PendingTx, ChainDifficulty) -> PendingTx
-setInNewestBlocks (ptx, difficulty) =
-    case ptx ^. ptxCond of
-        PtxApplying _ ->
-            ptx & ptxCond .~ PtxInNewestBlocks difficulty
-        _otherwise -> ptx
+-- | Schedule an __uncertain__ transaction for resubmission by setting its
+-- status to 'PtxApplying'.
+setApplying :: PendingTx -> PendingTx
+setApplying ptx = ptx & ptxCond %~ \case
+    PtxWontApply _ poolInfo -> PtxApplying poolInfo
+    other                   -> other
 
 -- | Get tx and hash out of a pending transaction.
 ptxWithHash :: PendingTx -> WithHash Tx

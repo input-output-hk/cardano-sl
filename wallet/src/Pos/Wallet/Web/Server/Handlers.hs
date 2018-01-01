@@ -77,7 +77,7 @@ servantHandlers sendActions =
     :<|>
      M.cancelOneApplyingPtx
     :<|>
-     M.reevaluateAllApplyingPtxs
+     M.reevaluateAllUncertainPtxs
     :<|>
      M.updateTransaction
     :<|>

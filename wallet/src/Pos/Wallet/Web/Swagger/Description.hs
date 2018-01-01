@@ -157,10 +157,10 @@ instance HasCustomSwagger CancelSpecificApplyingPtx where
     swaggerModifier = modifyDescription
         "Cancels specific transaction in CPtxApplying condition."
 
-instance HasCustomSwagger ReevaluateApplyingPtxs where
+instance HasCustomSwagger ReevaluateUncertainPtxs where
     swaggerModifier = modifyDescription
         "Reevaluates the status of all transactions in CPtxApplying \
-        \condition (unconfirmed)."
+        \or CPtxWontApply conditions."
 
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription

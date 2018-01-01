@@ -60,6 +60,7 @@ cancelApplyingPtx :: HasConfiguration => PendingTx -> PendingTx
 cancelApplyingPtx ptx@PendingTx{..}
     | PtxApplying poolInfo <- _ptxCond =
           ptx { _ptxCond = PtxWontApply reason poolInfo
+              , _ptxPeerAck = False
               }
     | otherwise = ptx
   where

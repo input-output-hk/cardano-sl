@@ -44,6 +44,7 @@ module Pos.Wallet.Web.Api
        , ResetFailedPtxs
        , CancelApplyingPtxs
        , CancelSpecificApplyingPtx
+       , ReevaluateApplyingPtxs
        , UpdateTx
        , GetHistory
        , GetPendingTxsSummary
@@ -316,6 +317,12 @@ type CancelSpecificApplyingPtx =
     :> Capture "transaction" CTxId
     :> WRes Get ()
 
+type ReevaluateApplyingPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reevaluate"
+    :> WRes Get ()
+
 type GetHistory =
        "txs"
     :> "histories"
@@ -327,7 +334,7 @@ type GetHistory =
     :> WRes Get ([CTx], Word)
 
 type GetPendingTxsSummary =
-        "txs"
+       "txs"
     :> "pending"
     :> "summary"
     :> WRes Get [PendingTxsSummary]

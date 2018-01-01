@@ -38,7 +38,7 @@ import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
 import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Txp                      (Tx (..), TxAux (..), TxId, TxIn, TxOut)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
@@ -49,9 +49,8 @@ import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (CHash (..), CProfile (..), CPtxCondition,
-                                               CTxId (..), CUpdateInfo (..),
-                                               SyncProgress (..))
+import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CPtxCondition, CTxId (..),
+                                               CUpdateInfo (..), SyncProgress (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
@@ -62,7 +61,7 @@ import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
                                                getWalletStorage, removeNextUpdate,
                                                resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
 
 ----------------------------------------------------------------------------
@@ -205,9 +204,5 @@ cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
 
 cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
 cancelOneApplyingPtx cTxId = do
-    case fromCTxId cTxId of
-      Left _     -> fail "cancelSpecificApplyingPtx, can't convert"
-      Right txId -> testOnlyEndpoint (cancelSpecificApplyingPtx txId)
-  where
-    fromCTxId :: CTxId -> Either Text TxId
-    fromCTxId (CTxId (CHash _txId)) = undefined
+    txId <- decodeCTypeOrFail cTxId
+    testOnlyEndpoint (cancelSpecificApplyingPtx txId)

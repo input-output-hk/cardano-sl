@@ -65,7 +65,8 @@ import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWeb
 import           Pos.Wallet.Web.Pending           (PendingTx (..), PtxCondition (..),
                                                    PtxPoolInfo, mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
-import           Pos.Wallet.Web.State.State       (getPendingTxs)
+import           Pos.Wallet.Web.State.State       (cancelSpecificApplyingPtx,
+                                                   getPendingTxs)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds, getWalletAddrsSet,
@@ -265,9 +266,13 @@ reformCanceledTxs sendActions passphrase params = testOnlyEndpoint $ do
             let outDistr = (encodeCType addr, coin)
             ctx <- sendMoney sendActions passphrase moneySource (one outDistr)
 
+            -- it's name is now misleading, it actually totally removes transaction
+            -- disregard its status
+            cancelSpecificApplyingPtx txId
             newTxId <- decodeCTypeOrFail (ctId ctx)
             logInfo $ sformat ("Successfully recreated transaction "%build
-                              %", new transaction: "%build)
+                              %", new transaction: "%build%". Old transaction \
+                              \is removed")
                 txId newTxId
             return (Just ctx)
   where

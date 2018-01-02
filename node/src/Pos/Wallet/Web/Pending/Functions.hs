@@ -10,9 +10,9 @@ import           Universum
 import           Control.Lens                 (has, to, folded, _Right)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
-import           Formatting (sformat, (%))
-import           Serokell.Util (listJson)
-import           System.Wlog (logInfo, WithLogger)
+import           Formatting                   (sformat, (%))
+import           Serokell.Util                (listJson)
+import           System.Wlog                  (logInfo, WithLogger)
 
 import           Pos.Block.Core               (Block, mainBlockTxPayload)
 import           Pos.Crypto                   (WithHash (..), hash)
@@ -21,6 +21,7 @@ import           Pos.Core.Types               (ChainDifficulty)
 import           Pos.Core.Class               (difficultyL, headerHash, prevBlockL)
 import qualified Pos.DB.DB                    as DB
 import qualified Pos.DB.Block                 as DB
+import           Pos.StateLock                (withStateLock, Priority (..), MonadStateLock)
 import           Pos.Txp.Core                 (Tx, TxId, topsortTxs, taTx, txpTxs)
 import           Pos.Txp.Toil.Class           (MonadUtxoRead)
 import           Pos.Txp.Toil.Trans           (evalToilTEmpty)
@@ -45,10 +46,16 @@ import           Pos.Util.Util                (getKeys)
 -- shown doesn't include outputs from failed txs or mempool txs? I'm not
 -- sure
 reevaluateUncertainPtxs
-    :: forall ssc m.
-       (DB.MonadBlockDB ssc m, HasConfiguration, MonadUtxoRead m, WithLogger m)
+    :: forall ssc ctx m.
+       ( DB.MonadBlockDB ssc m
+       , MonadStateLock ctx m
+       , HasConfiguration
+       , MonadUtxoRead m
+       , WithLogger m
+       , MonadIO m
+       )
     => HashMap TxId PendingTx -> m (HashMap TxId PendingTx)
-reevaluateUncertainPtxs ptxs = do
+reevaluateUncertainPtxs ptxs =  withStateLock LowPriority "reevaluateUncertainPtxs" $ \__tip -> do
     -- Get all transactions we're uncertain about
     let isUncertain ptx = has (ptxCond . _PtxApplying)  ptx ||
                           has (ptxCond . _PtxWontApply) ptx
@@ -65,7 +72,7 @@ reevaluateUncertainPtxs ptxs = do
     --
     -- TODO: is evalToilTEmpty okay?
     (missingInvalid, missingValid) <- evalToilTEmpty $ do
-        let sorted = fromMaybe (toList missing) $
+        let sorted = fromMaybe (error "Pending transacrions couldn't be topsorted") $
                      topsortTxs ptxWithHash (toList missing)
         fmap partitionEithers $ forM sorted $ \ptx -> do
             let vtc = VTxContext True     -- TODO: is it necessarily 'True'?

@@ -99,6 +99,7 @@ import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Wallet.SscType           (WalletSscType)
+import           Pos.StateLock                (MonadStateLock)
 import           Pos.Txp                      (TxId, Utxo, UtxoModifier, MonadUtxoRead)
 import           Pos.Types                    (HeaderHash, SlotId)
 import           Pos.Util.Servant             (encodeCType)
@@ -357,6 +358,7 @@ reevaluateUncertainPtxs
        , MonadBlockDB WalletSscType m
        , MonadUtxoRead m
        , WithLogger m
+       , MonadStateLock ctx m
        )
     => m ()
 reevaluateUncertainPtxs = do

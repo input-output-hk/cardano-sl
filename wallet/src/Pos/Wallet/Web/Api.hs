@@ -321,7 +321,7 @@ type ReevaluateUncertainPtxs =
        "txs"
     :> "resubmission"
     :> "reevaluate"
-    :> WRes Get ()
+    :> WRes Post ()
 
 type GetHistory =
        "txs"

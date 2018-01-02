@@ -42,9 +42,6 @@ import           Pos.Util.Util                (getKeys)
 --   * 'PtxApplying' to ones that can be applied either directly or after
 --     applying some other transactions
 --
--- TODO: do we need to do anything special to ensure that the UTXO we're
--- shown doesn't include outputs from failed txs or mempool txs? I'm not
--- sure
 reevaluateUncertainPtxs
     :: forall ssc ctx m.
        ( DB.MonadBlockDB ssc m
@@ -69,10 +66,8 @@ reevaluateUncertainPtxs ptxs =  withStateLock LowPriority "reevaluateUncertainPt
         missing = HM.difference uncertain presentIds
     -- Topsort the rest ('missing'), go one by one and either add to UTXO or
     -- mark as 'PtxWontApply'
-    --
-    -- TODO: is evalToilTEmpty okay?
     (missingInvalid, missingValid) <- evalToilTEmpty $ do
-        let sorted = fromMaybe (error "Pending transacrions couldn't be topsorted") $
+        let sorted = fromMaybe (error "Pending transactions couldn't be topsorted") $
                      topsortTxs ptxWithHash (toList missing)
         fmap partitionEithers $ forM sorted $ \ptx -> do
             let vtc = VTxContext True     -- TODO: is it necessarily 'True'?

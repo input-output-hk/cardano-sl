@@ -79,6 +79,8 @@ servantHandlers sendActions =
     :<|>
      M.reevaluateAllUncertainPtxs
     :<|>
+     M.deleteCanceledPtxs
+    :<|>
      M.updateTransaction
     :<|>
      M.getHistoryLimited

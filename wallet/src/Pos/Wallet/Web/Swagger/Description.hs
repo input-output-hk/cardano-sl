@@ -162,6 +162,10 @@ instance HasCustomSwagger ReevaluateUncertainPtxs where
         "Reevaluates the status of all transactions in CPtxApplying \
         \or CPtxWontApply conditions."
 
+instance HasCustomSwagger DeleteCanceledPtxs where
+    swaggerModifier = modifyDescription
+        "Removes all canceled transactions from list tracked by resubmitter"
+
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."

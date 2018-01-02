@@ -15,25 +15,26 @@ import           Data.Time.Units                   (Microsecond, Second, convert
 import           Formatting                        (build, sformat, (%))
 import           Mockable                          (delay, fork)
 import           Serokell.Util.Text                (listJson)
-import           System.Wlog                       (logInfo, modifyLoggerName)
+import           System.Wlog                       (logDebug, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
-import           Pos.Configuration                 (HasNodeConfiguration, pendingTxResubmitionPeriod)
+import           Pos.Configuration                 (HasNodeConfiguration,
+                                                    pendingTxResubmitionPeriod,
+                                                    walletTxCreationDisabled)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
-import           Pos.Txp                           (TxAux (..), topsortTxs)
+import           Pos.Util.Chrono                   (getOldestFirst)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util       (usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Util       (sortPtxsChrono, usingPtxCoords)
 import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
@@ -98,11 +99,12 @@ resubmitPtxsDuringSlot sendActions ptxs = do
 processPtxsToResubmit
     :: MonadPendings m
     => SendActions m -> SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit sendActions curSlot ptxs = do
+processPtxsToResubmit sendActions _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
-            take ptxsPerSlotLimit $
-            filter ((curSlot >=) . view ptxNextSubmitSlot) $
+            take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
+                                             -- though properly “min 1”
+                                             -- shouldn't be needed
             filter (has _PtxApplying . _ptxCond) $
             ptxs
     logInfo $ sformat fmt (map _ptxTxId toResubmit)
@@ -125,21 +127,18 @@ processPtxs
     => SendActions m -> SlotId -> [PendingTx] -> m ()
 processPtxs sendActions curSlot ptxs = do
     mapM_ processPtxInNewestBlocks ptxs
-    processPtxsToResubmit sendActions curSlot ptxs
+
+    if walletTxCreationDisabled
+    then logDebug "Transaction resubmission is disabled"
+    else processPtxsToResubmit sendActions curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings m
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
     ptxs <- getPendingTxs
-    let sortedPtxs =
-            sortWith _ptxCreationSlot $
-            flip fromMaybe =<< topsortTxs wHash $
-            ptxs
-
+    let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
     processPtxs sendActions curSlot sortedPtxs
-  where
-    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

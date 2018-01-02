@@ -77,27 +77,39 @@ module Pos.Wallet.Web.State.State
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , resetFailedPtxs
+       , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
+       , reevaluateUncertainPtxs
        , getWalletStorage
        , flushWalletStorage
        ) where
 
+import           Control.Lens                 (ifor_)
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import qualified Data.Map                     as Map
+import qualified Data.HashMap.Strict          as HM
 import           Ether.Internal               (HasLens (..))
 import           Mockable                     (MonadMockable)
+import           System.Wlog (WithLogger)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
-import           Pos.Types                    (HeaderHash)
+import           Pos.DB.Block                 (MonadBlockDB)
+import           Pos.Wallet.SscType           (WalletSscType)
+import           Pos.StateLock                (MonadStateLock)
+import           Pos.Txp                      (TxId, Utxo, UtxoModifier, MonadUtxoRead)
+import           Pos.Types                    (HeaderHash, SlotId)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
                                                Wal)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                                               ptxWallet, ptxCond, ptxTxId)
+import qualified Pos.Wallet.Web.Pending.Functions as F
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
@@ -329,6 +341,32 @@ ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+
+resetFailedPtxs :: WebWalletModeDB ctx m => SlotId -> m ()
+resetFailedPtxs = updateDisk ... A.ResetFailedPtxs
+
+cancelApplyingPtxs :: WebWalletModeDB ctx m => m ()
+cancelApplyingPtxs = updateDisk ... A.CancelApplyingPtxs
+
+cancelSpecificApplyingPtx :: WebWalletModeDB ctx m => TxId -> m ()
+cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
+
+-- TODO: we might also want to give out a list of transactions that we've
+-- failed to update
+reevaluateUncertainPtxs
+    :: ( WebWalletModeDB ctx m
+       , MonadBlockDB WalletSscType m
+       , MonadUtxoRead m
+       , WithLogger m
+       , MonadStateLock ctx m
+       )
+    => m ()
+reevaluateUncertainPtxs = do
+    ptxs    <- F.mkHashMap (view ptxTxId) <$> getPendingTxs
+    newPtxs <- F.reevaluateUncertainPtxs @WalletSscType ptxs
+    ifor_ (HM.intersectionWith (,) ptxs newPtxs) $ \id (ptx, newPtx) ->
+        casPtxCondition (ptx ^. ptxWallet) id
+            (ptx ^. ptxCond) (newPtx ^. ptxCond)
 
 flushWalletStorage :: WebWalletModeDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage

@@ -41,8 +41,13 @@ module Pos.Wallet.Web.Api
 
        , NewPayment
        , TxFee
+       , ResetFailedPtxs
+       , CancelApplyingPtxs
+       , CancelSpecificApplyingPtx
+       , ReevaluateUncertainPtxs
        , UpdateTx
        , GetHistory
+       , GetPendingTxsSummary
 
        , NextUpdate
        , PostponeUpdate
@@ -65,35 +70,35 @@ module Pos.Wallet.Web.Api
        ) where
 
 
-import           Control.Lens               (from)
-import           Control.Monad.Catch        (try)
-import           Data.Reflection            (Reifies (..))
-import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReflectMethod (..),
-                                             ReqBody, Verb)
-import           Servant.Server             (HasServer (..))
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
-import           Servant.API.ContentTypes   (OctetStream)
+import           Control.Lens                (from)
+import           Control.Monad.Catch         (try)
+import           Data.Reflection             (Reifies (..))
+import           Servant.API                 ((:<|>), (:>), Capture, Delete, Get, JSON,
+                                              Post, Put, QueryParam, ReflectMethod (..),
+                                              ReqBody, Verb)
+import           Servant.API.ContentTypes    (OctetStream)
+import           Servant.Server              (HasServer (..))
+import           Servant.Swagger.UI          (SwaggerSchemaUI)
 import           Universum
 
-import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
-                                             CReqBody, DCQueryParam,
-                                             HasLoggingServer (..), LoggingApi,
-                                             ModifiesApiRes (..), ReportDecodeError (..),
-                                             VerbMod, WithTruncatedLog (..),
-                                             applyLoggingToHandler, inRouteServer,
-                                             serverHandlerL')
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin, CId,
-                                             CInitialized, CPaperVendWalletRedeem,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress,
-                                             Wal)
-import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
-                                             catchEndpointErrors)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Types                   (Coin, SoftwareVersion)
+import           Pos.Util.Servant            (ApiLoggingConfig, CCapture, CQueryParam,
+                                              CReqBody, DCQueryParam,
+                                              HasLoggingServer (..), LoggingApi,
+                                              ModifiesApiRes (..), ReportDecodeError (..),
+                                              VerbMod, WithTruncatedLog (..),
+                                              applyLoggingToHandler, inRouteServer,
+                                              serverHandlerL')
+import           Pos.Wallet.Web.ClientTypes  (Addr, CAccount, CAccountId, CAccountInit,
+                                              CAccountMeta, CAddress, CCoin, CId,
+                                              CInitialized, CPaperVendWalletRedeem,
+                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                              CUpdateInfo, CWallet, CWalletInit,
+                                              CWalletMeta, CWalletRedeem, SyncProgress,
+                                              Wal)
+import           Pos.Wallet.Web.Error        (WalletError (DecodeError),
+                                              catchEndpointErrors)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
@@ -293,6 +298,31 @@ type UpdateTx =
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
 
+type ResetFailedPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reset"
+    :> WRes Get ()
+
+type CancelApplyingPtxs =
+       "txs"
+    :> "resubmission"
+    :> "cancel"
+    :> WRes Get ()
+
+type CancelSpecificApplyingPtx =
+       "txs"
+    :> "resubmission"
+    :> "cancelsingle"
+    :> Capture "transaction" CTxId
+    :> WRes Get ()
+
+type ReevaluateUncertainPtxs =
+       "txs"
+    :> "resubmission"
+    :> "reevaluate"
+    :> WRes Post ()
+
 type GetHistory =
        "txs"
     :> "histories"
@@ -302,6 +332,12 @@ type GetHistory =
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
+
+type GetPendingTxsSummary =
+       "txs"
+    :> "pending"
+    :> "summary"
+    :> WRes Get [PendingTxsSummary]
 
 -------------------------------------------------------------------------
 -- Updates
@@ -456,10 +492,20 @@ type WalletApi = ApiPrefix :> (
     :<|>
      TxFee
     :<|>
+     ResetFailedPtxs
+    :<|>
+     CancelApplyingPtxs
+    :<|>
+     CancelSpecificApplyingPtx
+    :<|>
+     ReevaluateUncertainPtxs
+    :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
      GetHistory
+    :<|>
+     GetPendingTxsSummary
     :<|>
      -------------------------------------------------------------------------
      -- Updates

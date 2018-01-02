@@ -143,9 +143,32 @@ instance HasCustomSwagger UpdateTx where
     swaggerModifier = modifyDescription
         "Update payment transaction."
 
+instance HasCustomSwagger ResetFailedPtxs where
+    swaggerModifier = modifyDescription
+        "For all transactions in CPtxWontApply condition, \
+        \reset them to CPtxApplying condition so that they will \
+        \be passed to resubmition"
+
+instance HasCustomSwagger CancelApplyingPtxs where
+    swaggerModifier = modifyDescription
+        "Cancels all transactions in CPtxApplying condition (unconfirmed)."
+
+instance HasCustomSwagger CancelSpecificApplyingPtx where
+    swaggerModifier = modifyDescription
+        "Cancels specific transaction in CPtxApplying condition."
+
+instance HasCustomSwagger ReevaluateUncertainPtxs where
+    swaggerModifier = modifyDescription
+        "Reevaluates the status of all transactions in CPtxApplying \
+        \or CPtxWontApply conditions."
+
 instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."
+
+instance HasCustomSwagger GetPendingTxsSummary where
+    swaggerModifier = modifyDescription
+        "Get list of all unconfirmed transactions, newest first, with details."
 
 
 instance HasCustomSwagger NextUpdate where

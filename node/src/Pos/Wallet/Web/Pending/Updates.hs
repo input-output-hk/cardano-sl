@@ -5,6 +5,8 @@ module Pos.Wallet.Web.Pending.Updates
     ( mkPtxSubmitTiming
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure
+    , resetFailedPtx
+    , cancelApplyingPtx
     ) where
 
 import           Universum
@@ -14,9 +16,9 @@ import           Control.Lens                 ((%=), (+=), (+~), (<<*=), (<<.=))
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Core.Types               (FlatSlotId, SlotId)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..),
-                                               pstNextDelay, pstNextSlot, ptxPeerAck,
-                                               ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxSubmitTiming (..), pstNextDelay,
+                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
@@ -39,3 +41,27 @@ ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
     unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
+
+-- | If given transaction has been canceled, sets its condition
+-- to 'PtxApplying'. This allows "stuck" transactions to be resubmitted
+-- again.
+--
+-- Has no effect for transactions in other conditions.
+resetFailedPtx :: HasConfiguration => SlotId -> PendingTx -> PendingTx
+resetFailedPtx curSlot ptx@PendingTx{..}
+    | PtxWontApply _ poolInfo <- _ptxCond =
+          ptx { _ptxCond = PtxApplying poolInfo
+              , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
+              }
+    | otherwise = ptx
+
+-- | If given pending transaction is not yet confirmed, cancels it.
+cancelApplyingPtx :: HasConfiguration => PendingTx -> PendingTx
+cancelApplyingPtx ptx@PendingTx{..}
+    | PtxApplying poolInfo <- _ptxCond =
+          ptx { _ptxCond = PtxWontApply reason poolInfo
+              , _ptxPeerAck = False
+              }
+    | otherwise = ptx
+  where
+    reason = "Canceled manually"

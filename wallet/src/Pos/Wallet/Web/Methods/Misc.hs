@@ -17,32 +17,56 @@ module Pos.Wallet.Web.Methods.Misc
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
+
+       , PendingTxsSummary (..)
+       , gatherPendingTxsSummary
+       , dumpPendingTxsSummary
+       , resetAllFailedPtxs
+       , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
+       , reevaluateAllUncertainPtxs
        ) where
 
 import           Universum
 
 import           Data.Aeson                   (encode)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.Text.Buildable
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Core                     (SoftwareVersion (..), decodeTextAddress)
-import           Pos.Update.Configuration     (curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
+import           Formatting                   (bprint, build, (%))
+import           Serokell.Util.Text           (listJson)
 import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 
+import           Pos.Aeson.ClientTypes        ()
+import           Pos.Core                     (SlotId, SoftwareVersion (..),
+                                               decodeTextAddress)
+import           Pos.Crypto                   (hashHexF, hash)
+import           Pos.Slotting                 (getCurrentSlotBlocking)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut, TxId)
+import           Pos.Update.Configuration     (curSoftwareVersion)
+import           Pos.Util                     (maybeThrow)
+import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
+
 import           Pos.Aeson.Storage            ()
+import           Pos.Util.Chrono              (getNewestFirst, toNewestFirst)
 import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CUpdateInfo (..),
-                                               SyncProgress (..))
+import           Pos.Wallet.Web.ClientTypes   (CProfile (..), CPtxCondition, CTxId (..),
+                                               CUpdateInfo (..), SyncProgress (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (getNextUpdate, getProfile,
-                                               getWalletStorage, removeNextUpdate,
-                                               setProfile, testReset)
+import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
+                                               sortPtxsChrono)
+import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
+                                               cancelSpecificApplyingPtx, getNextUpdate,
+                                               getPendingTxs, getProfile,
+                                               getWalletStorage, reevaluateUncertainPtxs,
+                                               removeNextUpdate,
+                                               resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
 
 ----------------------------------------------------------------------------
@@ -106,7 +130,7 @@ syncProgress =
 ----------------------------------------------------------------------------
 
 testResetAll :: MonadWalletWebMode m => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll = testOnlyEndpoint $ deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
@@ -130,3 +154,72 @@ instance Buildable WalletStateSnapshot where
 
 dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage
+
+----------------------------------------------------------------------------
+-- Pending txs
+----------------------------------------------------------------------------
+
+data PendingTxsSummary = PendingTxsSummary
+    { ptiSlot    :: !SlotId
+    , ptiCond    :: !CPtxCondition
+    , ptiInputs  :: !(NonEmpty TxIn)
+    , ptiOutputs :: !(NonEmpty TxOut)
+    , ptiTxId    :: !TxId
+    } deriving (Eq, Show, Generic)
+
+deriveJSON defaultOptions ''PendingTxsSummary
+
+instance Buildable PendingTxsSummary where
+    build PendingTxsSummary{..} =
+        bprint (  "  slotId: "%build%
+                "\n  status: "%build%
+                "\n  inputs: "%listJson%
+                "\n  outputs: "%listJson%
+                "\n  id: "%hashHexF)
+            ptiSlot
+            ptiCond
+            ptiInputs
+            ptiOutputs
+            ptiTxId
+
+instance HasTruncateLogPolicy PendingTxsSummary where
+    -- called rarely, and we are very interested in the output
+    truncateLogPolicy = identity
+
+gatherPendingTxsSummary :: MonadWalletWebMode m => m [PendingTxsSummary]
+gatherPendingTxsSummary =
+    map mkInfo .
+    getNewestFirst . toNewestFirst . sortPtxsChrono .
+    filter unconfirmedPtx <$>
+    getPendingTxs
+  where
+    unconfirmedPtx = not . isPtxInBlocks . _ptxCond
+    mkInfo PendingTx{..} =
+        let tx = taTx _ptxTxAux
+        in  PendingTxsSummary
+            { ptiSlot = _ptxCreationSlot
+            , ptiCond = encodeCType (Just _ptxCond)
+            , ptiInputs = _txInputs tx
+            , ptiOutputs = _txOutputs tx
+            , ptiTxId = hash tx
+            }
+
+dumpPendingTxsSummary :: MonadWalletWebMode m => FilePath -> m ()
+dumpPendingTxsSummary path = do
+    summary <- gatherPendingTxsSummary
+    liftIO $ BSL.writeFile path (encode summary)
+
+resetAllFailedPtxs :: MonadWalletWebMode m => m ()
+resetAllFailedPtxs =
+    testOnlyEndpoint $ getCurrentSlotBlocking >>= resetFailedPtxs
+
+cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
+cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
+
+cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
+cancelOneApplyingPtx cTxId = do
+    txId <- decodeCTypeOrFail cTxId
+    testOnlyEndpoint (cancelSpecificApplyingPtx txId)
+
+reevaluateAllUncertainPtxs :: MonadWalletWebMode m => m ()
+reevaluateAllUncertainPtxs = testOnlyEndpoint reevaluateUncertainPtxs

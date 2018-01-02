@@ -21,7 +21,8 @@ import           Servant.Multipart                    (FromMultipart (..), looku
 
 import           Pos.Core                             (Address, Coin, decodeTextAddress,
                                                        mkCoin)
-import           Pos.Crypto                           (PassPhrase, passphraseLength)
+import           Pos.Crypto                           (PassPhrase, decodeHash,
+                                                       passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
@@ -35,11 +36,12 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount 
                                                        CAccountMeta (..), CAddress (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
-                                                       CId (..), CInitialized (..),
+                                                       CHash (..), CId (..),
+                                                       CInitialized (..),
                                                        CPaperVendWalletRedeem (..),
                                                        CPassPhrase (..), CProfile (..),
                                                        CPtxCondition, CTx (..),
-                                                       CTxId (..), CTxId, CTxMeta (..),
+                                                       CTxId (..), CTxMeta (..),
                                                        CUpdateInfo (..), CWallet (..),
                                                        CWallet, CWalletAssurance,
                                                        CWalletInit (..), CWalletMeta (..),
@@ -261,6 +263,8 @@ type instance OriginType CTxId = TxId
 instance ToCType CTxId where
     encodeCType = txIdToCTxId
 
+instance FromCType CTxId where
+    decodeCType (CTxId (CHash h)) = decodeHash h
 
 type instance OriginType CPtxCondition = Maybe PtxCondition
 

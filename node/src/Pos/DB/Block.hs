@@ -53,6 +53,11 @@ module Pos.DB.Block
        , dbGetUndoSscSumDefault
        , dbGetHeaderSscSumDefault
        , dbPutBlundSumDefault
+
+       -- * Internals
+       , getBlundThrow
+       , getBlockThrow
+       , getHeaderThrow
        ) where
 
 import           Universum

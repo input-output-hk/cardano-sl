@@ -257,24 +257,27 @@ reformCanceledTxs sendActions passphrase params = testOnlyEndpoint $ do
     logDebug $ sformat ("Transactions selected for recreation: "%listJson)
         (map fst txsToRecreate)
 
-    fmap catMaybes . forM txsToRecreate $ \(txId, (wid, txEntry)) ->
-        handleAll (txCreationHandler txId) $ do
-            let moneySource = WalletMoneySource wid
-                outputs = _txOutputs (_thTx txEntry)
-            TxOut addr coin <-
-                maybeThrow noExpectedInput (outputs ^? ix primaryDestIndex)
-            let outDistr = (encodeCType addr, coin)
-            ctx <- sendMoney sendActions passphrase moneySource (one outDistr)
+    let reformTx !prevSucceeded (txId, (wid, txEntry)) = do
+            mctx <- handleAll (txCreationHandler txId) $ do
+                let moneySource = WalletMoneySource wid
+                    outputs = _txOutputs (_thTx txEntry)
+                TxOut addr coin <-
+                    maybeThrow noExpectedInput (outputs ^? ix primaryDestIndex)
+                let outDistr = (encodeCType addr, coin)
+                ctx <- sendMoney sendActions passphrase moneySource (one outDistr)
 
-            -- it's name is now misleading, it actually totally removes transaction
-            -- disregard its status
-            cancelSpecificApplyingPtx txId
-            newTxId <- decodeCTypeOrFail (ctId ctx)
-            logInfo $ sformat ("Successfully recreated transaction "%build
-                              %", new transaction: "%build%". Old transaction \
-                              \is removed")
-                txId newTxId
-            return (Just ctx)
+                -- it's name is now misleading, it actually totally removes
+                -- transaction disregard its status
+                cancelSpecificApplyingPtx txId
+                newTxId <- decodeCTypeOrFail (ctId ctx)
+                logInfo $ sformat ("Successfully recreated transaction "%build
+                                %", new transaction: "%build%". Old transaction \
+                                \is removed")
+                    txId newTxId
+                return (Just ctx)
+            return $ maybe identity (:) mctx prevSucceeded
+
+    foldlM reformTx mempty txsToRecreate
   where
     -- for all current transactions we have change address as 0-th output
     -- and primary destination as 1-st output

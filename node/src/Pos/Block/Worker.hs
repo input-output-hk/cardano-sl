@@ -42,11 +42,11 @@ import           Pos.Core.Configuration      (criticalCQ, criticalCQBootstrap,
                                               HasConfiguration)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
-                                              FlatSlotId, SlotId (..),
+                                              FlatSlotId, SlotId (..), epochOrSlotToSlot,
                                               Timestamp (Timestamp), blkSecurityParam,
                                               difficultyL, epochSlots, fixedTimeCQSec,
                                               flattenSlotId, gbHeader, getSlotIndex,
-                                              slotIdF, unflattenSlotId)
+                                              slotIdF, unflattenSlotId, getEpochOrSlot)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
@@ -97,10 +97,17 @@ blkOnNewSlot =
 -- Block creation worker
 ----------------------------------------------------------------------------
 
-blockCreator
-    :: WorkMode ssc ctx m
-    => SlotId -> SendActions m -> m ()
+blockCreator ::
+       forall ssc ctx m. WorkMode ssc ctx m
+    => SlotId
+    -> SendActions m
+    -> m ()
 blockCreator (slotId@SlotId {..}) sendActions = do
+
+    -- Print difference between tip slot and current slot.
+    -- TODO: probably not the best place, but it's not the biggest concern now.
+    tipHeader <- DB.getTipHeader @ssc
+    logHowManySlotsBehind tipHeader
 
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlockAndApply siEpoch
@@ -125,6 +132,11 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                   (onKnownLeader leaders)
                   (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
+    logHowManySlotsBehind tipHeader =
+        let tipSlot = epochOrSlotToSlot (getEpochOrSlot tipHeader)
+            slotDiff = flattenSlotId slotId - flattenSlotId tipSlot
+        in logInfo $ sformat ("Difference between current slot and tip slot is: "%int) slotDiff
+
     onNoLeader =
         logWarning "Couldn't find a leader for current slot among known ones"
     logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS

@@ -20,6 +20,7 @@ module Pos.Wallet.Web.Methods.Misc
 
        , PendingTxsSummary (..)
        , gatherPendingTxsSummary
+       , dumpPendingTxsSummary
        , resetAllFailedPtxs
        , cancelAllApplyingPtxs
        , cancelOneApplyingPtx
@@ -29,6 +30,7 @@ import           Universum
 
 import           Data.Aeson                   (encode)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.Text.Buildable
 import           Formatting                   (bprint, build, (%))
 import           Serokell.Util.Text           (listJson)
@@ -199,6 +201,11 @@ gatherPendingTxsSummary =
             , ptiOutputs = _txOutputs tx
             , ptiTxId = hash tx
             }
+
+dumpPendingTxsSummary :: MonadWalletWebMode m => FilePath -> m ()
+dumpPendingTxsSummary path = do
+    summary <- gatherPendingTxsSummary
+    liftIO $ BSL.writeFile path (encode summary)
 
 resetAllFailedPtxs :: MonadWalletWebMode m => m ()
 resetAllFailedPtxs =

@@ -32,7 +32,7 @@ import           Pos.Util.UserSecret  (usVss)
 import           Pos.Wallet.SscType   (WalletSscType)
 import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                        getSKById, runWRealMode, syncWalletsWithGState,
-                                       walletServeWebFull, walletServerOuts)
+                                       walletServeWebFull, walletServerOuts, dumpPendingTxsSummary)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
 import           Pos.Web              (serveWebGT)
@@ -54,6 +54,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
                     (mainAction nr)
   where
     mainAction = runNodeWithInit $ do
+        whenJust walletDumpPending dumpPendingTxsSummary
         when (walletFlushDb) $ do
             putText "Flushing wallet db..."
             flushWalletStorage

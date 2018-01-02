@@ -508,7 +508,7 @@ cancelApplyingPtxs =
 cancelSpecificApplyingPtx :: TxId -> Update ()
 cancelSpecificApplyingPtx txId =
     wsWalletInfos . traversed .
-    wsPendingTxs . ix txId %= cancelApplyingPtx
+    wsPendingTxs . at txId .= Nothing
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =

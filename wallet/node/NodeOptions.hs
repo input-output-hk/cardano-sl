@@ -36,6 +36,7 @@ data WalletArgs = WalletArgs
     , walletAcidInterval :: !Minute
     , walletDebug        :: !Bool
     , walletFlushDb      :: !Bool
+    , walletDumpPending  :: !(Maybe FilePath)
     } deriving Show
 
 walletArgsParser :: Parser WalletNodeArgs
@@ -70,6 +71,9 @@ walletArgsParser = do
         long "flush-wallet-db" <>
         help "Flushes all blockchain-recoverable data from DB \
               \(everything excluding wallets/accounts/addresses, metadata)"
+    walletDumpPending <- optional $ strOption $
+        long "wallet-dump-pending" <>
+        help "Dump summary of all pending transactions to given file path"
 
     pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 

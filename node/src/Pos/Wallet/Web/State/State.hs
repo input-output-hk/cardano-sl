@@ -86,6 +86,7 @@ module Pos.Wallet.Web.State.State
        , cancelSpecificApplyingPtx
        , reevaluateUncertainPtxs
        , removeCanceledPtxs
+       , removePtx
        , getWalletStorage
        , flushWalletStorage
        ) where
@@ -367,6 +368,9 @@ cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
 
 removeCanceledPtxs :: WebWalletModeDB ctx m => m ()
 removeCanceledPtxs = updateDisk A.RemoveCanceledPtxs
+
+removePtx :: WebWalletModeDB ctx m => TxId -> m ()
+removePtx = updateDisk . A.RemovePtx
 
 -- TODO: we might also want to give out a list of transactions that we've
 -- failed to update

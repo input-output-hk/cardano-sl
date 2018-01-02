@@ -45,6 +45,7 @@ module Pos.Wallet.Web.Api
        , CancelApplyingPtxs
        , CancelSpecificApplyingPtx
        , ReevaluateUncertainPtxs
+       , DeletePtx
        , DeleteCanceledPtxs
        , UpdateTx
        , GetHistory
@@ -324,6 +325,13 @@ type ReevaluateUncertainPtxs =
     :> "reevaluate"
     :> WRes Post ()
 
+type DeletePtx =
+       "txs"
+    :> "pending"
+    :> "any"
+    :> CCapture "transaction" CTxId
+    :> WRes Delete ()
+
 type DeleteCanceledPtxs =
        "txs"
     :> "pending"
@@ -506,6 +514,8 @@ type WalletApi = ApiPrefix :> (
      CancelSpecificApplyingPtx
     :<|>
      ReevaluateUncertainPtxs
+    :<|>
+     DeletePtx
     :<|>
      DeleteCanceledPtxs
     :<|>

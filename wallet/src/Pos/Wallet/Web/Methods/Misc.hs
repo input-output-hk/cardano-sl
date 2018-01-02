@@ -25,6 +25,7 @@ module Pos.Wallet.Web.Methods.Misc
        , cancelAllApplyingPtxs
        , cancelOneApplyingPtx
        , reevaluateAllUncertainPtxs
+       , deletePtx
        , deleteCanceledPtxs
        ) where
 
@@ -65,7 +66,8 @@ import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
                                                getPendingTxs, getProfile,
                                                getWalletStorage, reevaluateUncertainPtxs,
                                                removeCanceledPtxs, removeNextUpdate,
-                                               resetFailedPtxs, setProfile, testReset)
+                                               removePtx, resetFailedPtxs, setProfile,
+                                               testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
@@ -227,3 +229,6 @@ reevaluateAllUncertainPtxs = testOnlyEndpoint reevaluateUncertainPtxs
 
 deleteCanceledPtxs :: MonadWalletWebMode m => m ()
 deleteCanceledPtxs = testOnlyEndpoint removeCanceledPtxs
+
+deletePtx :: MonadWalletWebMode m => TxId -> m ()
+deletePtx = removePtx

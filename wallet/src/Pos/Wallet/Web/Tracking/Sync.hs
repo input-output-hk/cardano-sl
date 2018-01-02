@@ -10,8 +10,8 @@
 -- There are severals cases when we must  synchronise wallet-db and node-db:
 -- • When we relaunch wallet. Desynchronization can be caused by interruption
 --   during blocks application/rollback at the previous launch,
---   then wallet-db can fall behind from node-db (when interruption during rollback)
---   or vice versa (when interruption during application)
+--   then wallet-db can fall behind from node-db (when interrupted during rollback)
+--   or vice versa (when interrupted during application)
 --   @syncWSetsWithGStateLock@ implements this functionality.
 -- • When a user wants to import a secret key. Then we must rely on
 --   Utxo (GStateDB), because blockchain can be large.

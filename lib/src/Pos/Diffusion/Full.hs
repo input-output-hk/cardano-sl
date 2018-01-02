@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
-import           Data.Time.Units (Millisecond)
+import           Data.Time.Units (Millisecond, Second)
 import           Formatting (Format, sformat, shown, (%))
 import           Mockable (Mockable, withAsync, Fork)
 import           Mockable.Production (Production)
@@ -40,8 +40,9 @@ import           Pos.Core.Configuration (protocolMagic)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance,
-                               stopDHTInstance)
+import           Pos.DHT.Real (KademliaDHTInstance (..), KademliaParams (..),
+                               startDHTInstance, stopDHTInstance,
+                               kademliaJoinNetworkNoThrow, kademliaJoinNetworkRetry)
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
 import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
@@ -55,7 +56,8 @@ import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBl
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
-                                    topologySubscriptionWorker, topologyMaxBucketSize)
+                                    topologySubscriptionWorker, topologyMaxBucketSize,
+                                    topologyRunKademlia)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
@@ -298,8 +300,6 @@ diffusionLayerFull networkConfig mEkgNodeMetrics expectLogic =
     acquire = pure ()
     release = \_ -> pure ()
 
--- FIXME TBD move the remainder into a separate module?
-
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.
 runDiffusionLayerFull
@@ -325,7 +325,8 @@ runDiffusionLayerFull networkConfig ourVerInfo mEkgNodeMetrics oq slotDuration l
                     -- send actions directly.
                     let sendActions :: SendActions d
                         sendActions = makeSendActions ourVerInfo oqEnqueue converse
-                    withAsync (subscriptionThread networkConfig' sendActions) $ \_ ->
+                    withAsync (subscriptionThread networkConfig' sendActions) $ \_ -> do
+                        joinKademlia networkConfig'
                         action
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
@@ -423,6 +424,23 @@ bracketKademlia nc@NetworkConfig {..} action = case ncTopology of
         k $ TopologyAuxx{..}
   where
     k topology = action (nc { ncTopology = topology })
+
+-- | Synchronously join the Kademlia network.
+joinKademlia
+    :: ( DiffusionWorkMode m )
+    => NetworkConfig KademliaDHTInstance
+    -> m ()
+joinKademlia networkConfig = case topologyRunKademlia (ncTopology networkConfig) of
+    -- See 'topologyRunKademlia' documentation: the second component is 'True'
+    -- iff it's essential that at least one of the initial peers is contacted.
+    -- Otherwise, it's OK to not find any initial peers and the program can
+    -- continue.
+    Just (kInst, True)  -> kademliaJoinNetworkRetry kInst (kdiInitialPeers kInst) retryInterval
+    Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
+    Nothing             -> return ()
+  where
+    retryInterval :: Second
+    retryInterval = 5
 
 data MissingKademliaParams = MissingKademliaParams
     deriving (Show)

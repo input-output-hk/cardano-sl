@@ -61,21 +61,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
     logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
         pk pkHash
 
-    {- TODO must be done by diffusion layer
-    -- Synchronously join the Kademlia network before doing any more.
-    --
-    -- See 'topologyRunKademlia' documentation: the second component is 'True'
-    -- iff it's essential that at least one of the initial peers is contacted.
-    -- Otherwise, it's OK to not find any initial peers and the program can
-    -- continue.
-    let retryInterval :: Second
-        retryInterval = 5
-    case topologyRunKademlia (ncTopology (ncNetworkConfig nrContext)) of
-        Just (kInst, True)  -> kademliaJoinNetworkRetry kInst (kdiInitialPeers kInst) retryInterval
-        Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
-        Nothing             -> return ()
-    -}
-
     let genesisStakeholders = gdBootStakeholders genesisData
     logInfo $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)

@@ -7,9 +7,12 @@ module Pos.Wallet.Web.Pending.Functions
 
 import           Universum
 
+import           Control.Lens                 (has, to, folded, _Right)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
-import           Control.Lens                 (has, to, folded, _Right)
+import           Formatting (sformat, (%))
+import           Serokell.Util (listJson)
+import           System.Wlog (logInfo, WithLogger)
 
 import           Pos.Block.Core               (Block, mainBlockTxPayload)
 import           Pos.Crypto                   (WithHash (..), hash)
@@ -43,7 +46,7 @@ import           Pos.Util.Util                (getKeys)
 -- sure
 reevaluateUncertainPtxs
     :: forall ssc m.
-       (DB.MonadBlockDB ssc m, HasConfiguration, MonadUtxoRead m)
+       (DB.MonadBlockDB ssc m, HasConfiguration, MonadUtxoRead m, WithLogger m)
     => HashMap TxId PendingTx -> m (HashMap TxId PendingTx)
 reevaluateUncertainPtxs ptxs = do
     -- Get all transactions we're uncertain about
@@ -70,6 +73,16 @@ reevaluateUncertainPtxs ptxs = do
                 Left err -> pure (Left (ptx, err))
                 Right _  -> applyTxToUtxo (ptxWithHash ptx) >>
                             pure (Right ptx)
+
+    logInfo $ sformat ("These transactions are certain and won't be affected: "
+                       %listJson) (HM.keys certain)
+    logInfo $ sformat ("These transactions are present in blocks: "
+                       %listJson) (HM.keys present)
+    logInfo $ sformat ("These transactions are not in blocks and invalid: "
+                       %listJson) (map (view ptxTxId . fst) missingInvalid)
+    logInfo $ sformat ("These transactions are not in blocks and valid: "
+                       %listJson) (map (view ptxTxId) missingValid)
+
 
     pure $ mconcat
         [ certain                          -- certain = do nothing

@@ -92,6 +92,7 @@ import qualified Data.Map                     as Map
 import qualified Data.HashMap.Strict          as HM
 import           Ether.Internal               (HasLens (..))
 import           Mockable                     (MonadMockable)
+import           System.Wlog (WithLogger)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
@@ -354,7 +355,9 @@ cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
 reevaluateUncertainPtxs
     :: ( WebWalletModeDB ctx m
        , MonadBlockDB WalletSscType m
-       , MonadUtxoRead m )
+       , MonadUtxoRead m
+       , WithLogger m
+       )
     => m ()
 reevaluateUncertainPtxs = do
     ptxs    <- F.mkHashMap (view ptxTxId) <$> getPendingTxs

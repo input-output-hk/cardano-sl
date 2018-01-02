@@ -37,8 +37,9 @@ import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
+import           Pos.Crypto                   (hashHexF, hash)
 import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut, TxId)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
@@ -159,6 +160,7 @@ data PendingTxsSummary = PendingTxsSummary
     , ptiCond    :: !CPtxCondition
     , ptiInputs  :: !(NonEmpty TxIn)
     , ptiOutputs :: !(NonEmpty TxOut)
+    , ptiTxId    :: !TxId
     } deriving (Eq, Show, Generic)
 
 deriveJSON defaultOptions ''PendingTxsSummary
@@ -168,11 +170,13 @@ instance Buildable PendingTxsSummary where
         bprint (  "  slotId: "%build%
                 "\n  status: "%build%
                 "\n  inputs: "%listJson%
-                "\n  outputs: "%listJson)
+                "\n  outputs: "%listJson%
+                "\n  id: "%hashHexF)
             ptiSlot
             ptiCond
             ptiInputs
             ptiOutputs
+            ptiTxId
 
 instance HasTruncateLogPolicy PendingTxsSummary where
     -- called rarely, and we are very interested in the output
@@ -193,6 +197,7 @@ gatherPendingTxsSummary =
             , ptiCond = encodeCType (Just _ptxCond)
             , ptiInputs = _txInputs tx
             , ptiOutputs = _txOutputs tx
+            , ptiTxId = hash tx
             }
 
 resetAllFailedPtxs :: MonadWalletWebMode m => m ()

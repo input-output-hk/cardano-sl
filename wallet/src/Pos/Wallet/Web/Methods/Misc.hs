@@ -24,6 +24,7 @@ module Pos.Wallet.Web.Methods.Misc
        , resetAllFailedPtxs
        , cancelAllApplyingPtxs
        , cancelOneApplyingPtx
+       , reevaluateAllUncertainPtxs
        ) where
 
 import           Universum
@@ -61,7 +62,8 @@ import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
 import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
                                                cancelSpecificApplyingPtx, getNextUpdate,
                                                getPendingTxs, getProfile,
-                                               getWalletStorage, removeNextUpdate,
+                                               getWalletStorage, reevaluateUncertainPtxs,
+                                               removeNextUpdate,
                                                resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
@@ -218,3 +220,6 @@ cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
 cancelOneApplyingPtx cTxId = do
     txId <- decodeCTypeOrFail cTxId
     testOnlyEndpoint (cancelSpecificApplyingPtx txId)
+
+reevaluateAllUncertainPtxs :: MonadWalletWebMode m => m ()
+reevaluateAllUncertainPtxs = testOnlyEndpoint reevaluateUncertainPtxs

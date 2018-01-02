@@ -13,6 +13,7 @@ module Pos.StateLock
        ( Priority (..)
        , StateLock (..)
        , newStateLock
+       , MonadStateLock
 
        , StateLockMetrics (..)
        , ignoreStateLockMetrics

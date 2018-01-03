@@ -16,6 +16,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxMeta (..)
       , CTExMeta (..)
       , CPtxCondition (..)
+      , ReformCanceledTxsParams (..)
       , CInitialized (..)
       , AccountId (..)
       , CAccountId (..)
@@ -50,6 +51,7 @@ import           Data.Typeable         (Typeable)
 import           Formatting            (bprint, (%))
 import qualified Formatting            as F
 import qualified Prelude
+import           Serokell.Util.Text    (listJson)
 import           Servant.Multipart     (FileData)
 
 import           Pos.Aeson.Types       ()
@@ -306,6 +308,16 @@ data CUpdateInfo = CUpdateInfo
     , cuiPositiveStake   :: !CCoin
     , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
+
+-- | Parameters to be passed in @ReformCanceledTxs@ endpoint.
+newtype ReformCanceledTxsParams = ReformCanceledTxsParams
+    { rctpBanned :: [CTxId]
+      -- ^ Banned transactions which must not be reformed.
+    } deriving (Show, Generic)
+
+instance Buildable ReformCanceledTxsParams where
+    build ReformCanceledTxsParams{..} =
+        bprint ("Banned transactions: "%listJson) rctpBanned
 
 ----------------------------------------------------------------------------
 -- Reporting

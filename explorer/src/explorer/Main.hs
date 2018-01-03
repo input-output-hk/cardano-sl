@@ -28,10 +28,10 @@ import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Txp (ExplorerExtra, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, liftToExplorerProd, notifierPlugin,
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
                                    runExplorerProd)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, hoistNodeResources,
+                               NodeResources (..), bracketNodeResources,
                                loggerBracket, runNode, withConfigurations, elimRealMode, runServer)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Update.Worker (updateTriggerWorker)
@@ -79,10 +79,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         bracketNodeResources currentParams sscParams
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
-            let extraCtx = makeExtraCtx
-            in runExplorerRealMode
-                (hoistNodeResources (liftToExplorerProd . runExplorerProd extraCtx) nr)
-                (runNode nr plugins)
+                runExplorerRealMode nr (runNode nr plugins)
   where
 
     conf :: ConfigurationOptions
@@ -90,15 +87,14 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => NodeResources ExplorerExtra ExplorerProd
+        => NodeResources ExplorerExtra
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode nr@NodeResources{..} (go, outSpecs) =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
-            hoistedNr = hoistNodeResources explorerModeToRealMode nr
-            elim = elimRealMode hoistedNr
+            elim = elimRealMode nr
             ekgNodeMetrics = EkgNodeMetrics
                 nrEkgStore
                 (runProduction . elim . explorerModeToRealMode)

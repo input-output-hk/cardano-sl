@@ -25,7 +25,7 @@ import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               elimRealMode, withConfigurations, hoistNodeResources)
+                               elimRealMode, withConfigurations)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
@@ -77,7 +77,7 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources EmptyMempoolExt AuxxMode
+    => NodeResources EmptyMempoolExt
     -> (WorkerSpec AuxxMode, OutSpecs)
     -> (WorkerSpec AuxxMode, OutSpecs)
 runNodeWithSinglePlugin nr (plugin, plOuts) =
@@ -124,7 +124,7 @@ action opts@AuxxOptions {..} command = do
           let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
           let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-              elimRealMode (hoistNodeResources toRealMode nr) $ toRealMode $
+              elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer -> do
                       diffusionLayerFull (npNetworkConfig nodeParams) Nothing $ \withLogic -> do
                           diffusionLayer <- withLogic (logic logicLayer)

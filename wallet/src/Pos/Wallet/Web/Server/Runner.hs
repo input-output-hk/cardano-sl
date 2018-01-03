@@ -28,7 +28,7 @@ import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Context (NodeContext (..))
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (elimRealMode, runServer)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -51,23 +51,20 @@ runWRealMode
        )
     => WalletState
     -> ConnectionsVar
-    -> NodeResources WalletMempoolExt WalletWebMode
+    -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn res (action, outSpecs) =
-    elimRealMode hoistedNr serverRealMode
+    elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode hoistedNr . walletWebModeToRealMode db conn)
-    hoistedNr = hoistNodeResources nat res
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
     serverRealMode :: RealMode WalletMempoolExt a
     serverRealMode = walletWebModeToRealMode db conn serverWalletWebMode
-    nat :: forall t . WalletWebMode t -> RealMode WalletMempoolExt t
-    nat = Mtl.withReaderT (\rmc -> (WalletWebModeContext db conn rmc))
 
 walletServeWebFull
     :: ( HasConfigurations

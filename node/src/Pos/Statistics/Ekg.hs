@@ -6,7 +6,7 @@ module Pos.Statistics.Ekg
        ) where
 
 import qualified Options.Applicative    as Opt
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParserNoWildcard)
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)--addrParserNoWildcard)
 import           Serokell.Util.OptParse (fromParsec)
 import           Universum
 
@@ -24,7 +24,7 @@ ekgParamsOption = do
         }
 
 ekgServerOption :: Opt.Parser NetworkAddress
-ekgServerOption = Opt.option (fromParsec addrParserNoWildcard) $
+ekgServerOption = Opt.option (fromParsec addrParser) $
     Opt.long "ekg-server" <>
     Opt.metavar "IP:PORT" <>
     Opt.help "Host and port for the EKG server"

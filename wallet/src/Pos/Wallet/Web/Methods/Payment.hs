@@ -41,10 +41,9 @@ import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
-                                                   CCoin, CId, CTx (..),
-                                                   CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
+                                                   CTx (..), CWAddressMeta (..), Wal,
+                                                   addrMetaToAccount, cadId, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
@@ -59,7 +58,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
 import           Pos.Wallet.Web.State.State       (getPendingTxs)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds, getWalletAddrsSet)
+                                                   getWalletAccountIds,
+                                                   getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletWebMode m
@@ -210,8 +210,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         return th
 
     addHistoryTx srcWallet th
-    srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
+    srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
 
     logDebug "sendMoney: constructing response"
-    fst <$> constructCTx srcWallet srcWalletAddrs diff th
+    fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th

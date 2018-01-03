@@ -154,7 +154,6 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode
                                   logError (sformat ("Error: "%build%" while trying to send to "%shown) err neighbours)
                               Right (tx, _) -> do
                                   res <- submitTxRaw diffusion tx
-                                  -- res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
                                   addTxSubmit tpsMVar
                                   logInfo $ if res
                                       then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
@@ -186,7 +185,6 @@ send
     -> NonEmpty TxOut
     -> m ()
 send diffusion idx outputs = do
-    CmdCtx{..} <- getCmdCtx
     skey <- takeSecret
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
@@ -238,6 +236,5 @@ sendTxsFromFile diffusion txsFile = do
             maybeThrow
                 (AuxxException "txs form a cycle")
                 (topsortTxAuxes txAuxes)
-        CmdCtx {..} <- getCmdCtx
         let submitOne = submitTxRaw diffusion
         mapM_ submitOne sortedTxAuxes

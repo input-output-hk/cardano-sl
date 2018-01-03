@@ -28,7 +28,7 @@ import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), 
                              mkUpdateProposalWSign)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
+import           Mode (MonadAuxxMode)
 import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------
@@ -43,7 +43,6 @@ vote
     -> UpId
     -> m ()
 vote diffusion idx decision upid = do
-    CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
     msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
@@ -57,11 +56,8 @@ vote diffusion idx decision upid = do
                     , uvDecision   = decision
                     , uvSignature  = signature
                 }
-            if null ccPeers
-                then logError "Error: no addresses specified"
-                else do
-                    submitVote diffusion voteUpd
-                    logInfo "Submitted vote"
+            submitVote diffusion voteUpd
+            logInfo "Submitted vote"
 
 ----------------------------------------------------------------------------
 -- Propose, hash installer
@@ -73,7 +69,6 @@ propose
     -> ProposeUpdateParams
     -> m UpId
 propose diffusion ProposeUpdateParams{..} = do
-    CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
@@ -93,18 +88,13 @@ propose diffusion ProposeUpdateParams{..} = do
                     udata
                     def
                     publisherSS
-        if null ccPeers
-            then reportFatalError "Error: no addresses specified"
-            else do
-                let upid = hash updateProposal
-                --let enqueue = immediateConcurrentConversations sendActions ccPeers
-                --submitUpdateProposal enqueue ss updateProposal
-                submitUpdateProposal diffusion ss updateProposal
-                if not puVoteAll then
-                    putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
-                else
-                    putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
-                return upid
+        let upid = hash updateProposal
+        submitUpdateProposal diffusion ss updateProposal
+        if not puVoteAll then
+            putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
+        else
+            putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+        return upid
 
 updateDataElement :: MonadAuxxMode m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

@@ -52,6 +52,9 @@ library
                         -- Behavior
                         Pos.Behavior
 
+                        -- Block
+                        Pos.Block.Network
+
                         -- Launcher
                         Pos.Launcher
                         Pos.Launcher.Configuration
@@ -156,7 +159,6 @@ library
                         Pos.DHT.Workers
 
                         Pos.Block.BlockWorkMode
-                        Pos.Block.Network
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
                         Pos.Block.Network.Types

@@ -10,6 +10,7 @@ import           Data.Tagged (Tagged)
 import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Infra ()
+import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core (StakeholderId)

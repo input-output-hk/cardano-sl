@@ -6,7 +6,7 @@ module Pos.Statistics.Ekg
        ) where
 
 import qualified Options.Applicative    as Opt
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)--addrParserNoWildcard)
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
 import           Serokell.Util.OptParse (fromParsec)
 import           Universum
 

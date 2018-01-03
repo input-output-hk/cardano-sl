@@ -84,6 +84,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
         ${ ifWallet "--wallet-address ${walletListen}"}    \
-        --ekg-server 127.0.0.1:8080 --metrics +RTS -T -RTS             
+        --ekg-server 0.0.0.0:8080 --metrics +RTS -T -RTS             
 
 ''

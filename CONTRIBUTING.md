@@ -22,6 +22,7 @@ Please make sure your contributions adhere to our coding guidelines:
 *  We are using [GitFlow](http://nvie.com/posts/a-successful-git-branching-model/.)
    branching model, so pull requests need to be based on and opened against the `develop`
    branch.
+*  Please refer to [this guide](https://chris.beams.io/posts/git-commit/) to write a good Git commit message.
 
 Please note that Cardano SL uses a custom prelude [Universum](https://github.com/serokell/universum)
 instead of the default one.

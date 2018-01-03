@@ -114,7 +114,7 @@ dev: &dev
     dlgCacheParam: 500
     recoveryHeadersMessage: 20 # should be greater than k
     messageCacheTimeout: 30
-    networkConnectionTimeout: 2000
+    networkConnectionTimeout: 2000 # ms
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds

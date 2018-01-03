@@ -109,11 +109,12 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 walletWebModeToRealMode
     :: WalletState
     -> ConnectionsVar
+    -> AddrCIdHashes
     -> WalletWebMode t
     -> RealMode WalletMempoolExt t
-walletWebModeToRealMode ws cv act = do
+walletWebModeToRealMode ws cv cidHashes act = do
     rmc <- ask
-    lift $ runReaderT act (WalletWebModeContext ws cv rmc)
+    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes rmc)
 
 makeLensesWith postfixLFields ''WalletWebModeContext
 

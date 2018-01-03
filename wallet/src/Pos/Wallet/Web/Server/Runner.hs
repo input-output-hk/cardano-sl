@@ -17,7 +17,6 @@ module Pos.Wallet.Web.Server.Runner
 import           Universum
 
 import qualified Control.Exception.Safe as E
-import qualified Control.Monad.Catch as Catch
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Ether.Internal (HasLens (..))
@@ -30,7 +29,7 @@ import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Context (NodeContext (..))
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (elimRealMode, runServer)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -53,26 +52,21 @@ runWRealMode
        )
     => WalletState
     -> ConnectionsVar
-    -> NodeResources WalletMempoolExt WalletWebMode
+    -> AddrCIdHashes
+    -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn res (action, outSpecs) = do
-    logDebug "runWRealMode = entered"
-    ref <- newIORef mempty
-    let nat :: forall t . WalletWebMode t -> RealMode WalletMempoolExt t
-        nat = Mtl.withReaderT (\rmc -> (WalletWebModeContext db conn (AddrCIdHashes ref) rmc))
-    logDebug "Going to `elimRealMode'"
-    elimRealMode hoistedNr serverRealMode
+runWRealMode db conn ref res (action, outSpecs) =
+    elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode hoistedNr . walletWebModeToRealMode db conn)
-    hoistedNr = hoistNodeResources nat res
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
     serverRealMode :: RealMode WalletMempoolExt a
-    serverRealMode = walletWebModeToRealMode db conn serverWalletWebMode
+    serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
 
 walletServeWebFull
     :: ( HasConfigurations

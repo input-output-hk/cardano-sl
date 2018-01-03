@@ -9,7 +9,6 @@ module Pos.Launcher.Resource
        (
          -- * Full resources
          NodeResources (..)
-       , hoistNodeResources
 
        , allocateNodeResources
        , releaseNodeResources
@@ -77,8 +76,7 @@ import qualified System.Wlog as Logger
 ----------------------------------------------------------------------------
 
 -- | This data type contains all resources used by node.
--- FIXME remove 'm' parameter, as it is not used.
-data NodeResources ext (m :: * -> *) = NodeResources
+data NodeResources ext = NodeResources
     { nrContext    :: !NodeContext
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !SscState
@@ -89,20 +87,13 @@ data NodeResources ext (m :: * -> *) = NodeResources
     , nrEkgStore   :: !Metrics.Store
     }
 
-hoistNodeResources
-    :: forall ext n m .
-       (forall a. n a -> m a)
-    -> NodeResources ext n
-    -> NodeResources ext m
-hoistNodeResources _ NodeResources {..} = NodeResources {..}
-
 ----------------------------------------------------------------------------
 -- Allocation/release/bracket
 ----------------------------------------------------------------------------
 
 -- | Allocate all resources used by node. They must be released eventually.
 allocateNodeResources
-    :: forall ext m.
+    :: forall ext .
        ( Default ext
        , HasConfiguration
        , HasNodeConfiguration
@@ -115,7 +106,7 @@ allocateNodeResources
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> Production (NodeResources ext m)
+    -> Production (NodeResources ext)
 allocateNodeResources networkConfig np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
@@ -182,7 +173,7 @@ allocateNodeResources networkConfig np@NodeParams {..} sscnp txpSettings initDB 
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       NodeResources ext m -> Production ()
+       NodeResources ext -> Production ()
 releaseNodeResources NodeResources {..} = do
     whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
@@ -190,9 +181,8 @@ releaseNodeResources NodeResources {..} = do
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
-bracketNodeResources :: forall ext m a.
+bracketNodeResources :: forall ext a.
       ( Default ext
-      , MonadIO m
       , HasConfiguration
       , HasNodeConfiguration
       , HasInfraConfiguration
@@ -203,7 +193,7 @@ bracketNodeResources :: forall ext m a.
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> (HasConfiguration => NodeResources ext m -> Production a)
+    -> (HasConfiguration => NodeResources ext -> Production a)
     -> Production a
 bracketNodeResources np sp txp initDB action = do
     let msg = "`NodeResources'"

@@ -20,7 +20,6 @@ import           Universum
 import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Fix (MonadFix)
 import           Data.Default (Default)
-import           Data.Reflection (give)
 import           JsonLog (jsonLog)
 import           Mockable.Production (Production (..))
 
@@ -28,12 +27,9 @@ import           Pos.Binary ()
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Context.Context (NodeContext (..))
-import           Pos.Core (BlockVersionData)
-import           Pos.DB (gsAdoptedBVData)
-import           Pos.Diffusion.Types (Diffusion, DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
-import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion (..))
 import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -57,37 +53,34 @@ import           Pos.WorkMode (RealMode, RealModeContext (..), WorkMode)
 runRealMode
     :: forall ext ctx a.
        (HasCompileInfo, WorkMode ctx (RealMode ext))
-    => NodeResources ext (RealMode ext)
+    => NodeResources ext
     -> (ActionSpec (RealMode ext) a, OutSpecs)
     -> Production a
-runRealMode = runRealBasedMode @ext @ctx identity
+runRealMode = runRealBasedMode @ext
 
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
-    :: forall ext ctx m a.
-       ( HasCompileInfo
-       , WorkMode ctx m
-       , Default ext
+    :: forall ext a.
+       ( Default ext
+       , HasCompileInfo
+       , HasConfigurations
+       , HasAdoptedBlockVersionData (RealMode ext)
        , MonadTxpLocal (RealMode ext)
        -- MonadTxpLocal is meh,
        -- we can't remove @ext@ from @RealMode@ because
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => (forall b. m b -> RealMode ext b)
-    -> NodeResources ext m
+    => NodeResources ext
     -> (ActionSpec (RealMode ext) a, OutSpecs)
     -> Production a
-runRealBasedMode unwrap nr@NodeResources {..} (actionSpec, outSpecs) = giveAdoptedBVData $
-    elimRealMode hoistedNr $ runServer
+runRealBasedMode nr@NodeResources {..} (actionSpec, outSpecs) =
+    elimRealMode nr $ runServer
         ncNodeParams
-        (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode hoistedNr))
+        (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode nr))
         outSpecs
         actionSpec
   where
-    hoistedNr = hoistNodeResources unwrap nr
-    giveAdoptedBVData :: ((HasAdoptedBlockVersionData (RealMode ext)) => r) -> r
-    giveAdoptedBVData = give (gsAdoptedBVData :: RealMode ext BlockVersionData)
     NodeContext {..} = nrContext
 
 -- | RealMode runner: creates a JSON log configuration and uses the
@@ -99,7 +92,7 @@ elimRealMode
        , MonadTxpLocal (RealMode ext)
        , HasAdoptedBlockVersionData (RealMode ext)
        )
-    => NodeResources ext (RealMode ext)
+    => NodeResources ext
     -> RealMode ext t
     -> Production t
 elimRealMode NodeResources {..} action = do

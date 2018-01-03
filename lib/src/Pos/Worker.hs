@@ -28,7 +28,7 @@ import           Pos.Worker.Types (WorkerSpec, localWorker)
 allWorkers
     :: forall ext ctx m .
        WorkMode ctx m
-    => NodeResources ext m -> ([WorkerSpec m], OutSpecs)
+    => NodeResources ext -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
     [
       -- Only workers of "onNewSlot" type

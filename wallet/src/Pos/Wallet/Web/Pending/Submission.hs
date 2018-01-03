@@ -130,7 +130,7 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
            (saveTx (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
-           ack <- submittx _ptxTxAux
+           ack <- submitTx _ptxTxAux
            reportSubmitted ack
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond

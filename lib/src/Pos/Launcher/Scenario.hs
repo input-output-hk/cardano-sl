@@ -48,7 +48,7 @@ runNode'
     :: forall ext ctx m.
        ( HasCompileInfo, WorkMode ctx m
        )
-    => NodeResources ext m
+    => NodeResources ext
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
@@ -116,7 +116,7 @@ runNode
     :: ( HasCompileInfo
        , WorkMode ctx m
        )
-    => NodeResources ext m
+    => NodeResources ext
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =

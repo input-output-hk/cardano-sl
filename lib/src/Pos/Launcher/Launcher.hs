@@ -42,7 +42,7 @@ runNodeReal
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
   where
-    action :: HasConfiguration => NodeResources EmptyMempoolExt (RealMode EmptyMempoolExt) -> Production ()
+    action :: HasConfiguration => NodeResources EmptyMempoolExt -> Production ()
     action nr@NodeResources {..} = giveAdoptedBVData $
         runRealMode
             nr

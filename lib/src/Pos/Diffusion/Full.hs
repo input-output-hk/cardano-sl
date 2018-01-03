@@ -13,27 +13,21 @@ import           Universum
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second)
-import           Formatting (Format, sformat, shown, (%))
+import           Formatting (Format)
 import           Mockable (Mockable, withAsync, Fork)
-import           Mockable.Production (Production)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
-import           Network.QDisc.Fair (fairQDisc)
-import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport)
-import           Network.Transport.Concrete (concrete)
-import qualified Network.Transport.TCP as TCP
 import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
 import           Node.Conversation (Converse, converseWith, Conversation)
 import           System.Random (newStdGen)
-import           System.Wlog (WithLogger, CanLog, logError, usingLoggerName, askLoggerName)
+import           System.Wlog (WithLogger, CanLog, usingLoggerName)
 
 import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
-import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout,
-                                    networkConnectionTimeout)
+import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
 import           Pos.Core (BlockVersionData (..), HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Configuration (protocolMagic)
@@ -85,10 +79,11 @@ diffusionLayerFull
        , Mockable Fork m
        )
     => NetworkConfig KademliaParams
+    -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull networkConfig mEkgNodeMetrics expectLogic =
+diffusionLayerFull networkConfig transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
@@ -215,6 +210,7 @@ diffusionLayerFull networkConfig mEkgNodeMetrics expectLogic =
             runDiffusionLayer :: forall y . d y -> d y
             runDiffusionLayer = runDiffusionLayerFull
                 networkConfig
+                transport
                 ourVerInfo
                 mEkgNodeMetrics
                 oq
@@ -306,6 +302,7 @@ runDiffusionLayerFull
     :: forall d x .
        ( DiffusionWorkMode d, MonadFix d )
     => NetworkConfig KademliaParams
+    -> Transport d
     -> VerInfo
     -> Maybe (EkgNodeMetrics d)
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
@@ -313,21 +310,20 @@ runDiffusionLayerFull
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig ourVerInfo mEkgNodeMetrics oq slotDuration listeners action =
-    bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
-        bracketKademlia networkConfig $ \networkConfig' ->
-            timeWarpNode transport ourVerInfo listeners $ \nd converse -> do
-                withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
-                    case mEkgNodeMetrics of
-                        Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
-                        Nothing -> pure ()
-                    -- Subscription worker bypasses the outbound queue and uses
-                    -- send actions directly.
-                    let sendActions :: SendActions d
-                        sendActions = makeSendActions ourVerInfo oqEnqueue converse
-                    withAsync (subscriptionThread networkConfig' sendActions) $ \_ -> do
-                        joinKademlia networkConfig'
-                        action
+runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq slotDuration listeners action =
+    bracketKademlia networkConfig $ \networkConfig' ->
+        timeWarpNode transport ourVerInfo listeners $ \nd converse -> do
+            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
+                case mEkgNodeMetrics of
+                    Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
+                    Nothing -> pure ()
+                -- Subscription worker bypasses the outbound queue and uses
+                -- send actions directly.
+                let sendActions :: SendActions d
+                    sendActions = makeSendActions ourVerInfo oqEnqueue converse
+                withAsync (subscriptionThread networkConfig' sendActions) $ \_ -> do
+                    joinKademlia networkConfig'
+                    action
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
     oqEnqueue msgType k = do
@@ -446,43 +442,3 @@ data MissingKademliaParams = MissingKademliaParams
     deriving (Show)
 
 instance Exception MissingKademliaParams
-
-----------------------------------------------------------------------------
--- Transport
-----------------------------------------------------------------------------
-
-createTransportTCP
-    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, MonadThrow m)
-    => TCP.TCPAddr
-    -> m (Transport n, m ())
-createTransportTCP addrInfo = do
-    loggerName <- askLoggerName
-    let tcpParams =
-            (TCP.defaultTCPParameters
-             { TCP.transportConnectTimeout =
-                   Just $ fromIntegral networkConnectionTimeout
-             , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
-             -- Will check the peer's claimed host against the observed host
-             -- when new connections are made. This prevents an easy denial
-             -- of service attack.
-             , TCP.tcpCheckPeerHost = True
-             , TCP.tcpServerExceptionHandler = \e ->
-                     usingLoggerName (loggerName <> "transport") $
-                         logError $ sformat ("Exception in tcp server: " % shown) e
-             })
-    transportE <-
-        liftIO $ TCP.createTransport addrInfo tcpParams
-    case transportE of
-        Left e -> do
-            logError $ sformat ("Error creating TCP transport: " % shown) e
-            throwM e
-        Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
-
--- | RAII for 'Transport'.
-bracketTransport
-    :: (HasNodeConfiguration, MonadIO m, MonadIO n, MonadMask m, WithLogger m)
-    => TCP.TCPAddr
-    -> (Transport n -> m a)
-    -> m a
-bracketTransport tcpAddr k =
-    bracket (createTransportTCP tcpAddr) snd (k . fst)

@@ -30,6 +30,7 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion (..))
 import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -116,9 +117,9 @@ elimRealMode NodeResources {..} action = do
         nrContext
 
 -- | "Batteries-included" server.
--- Bring up a full diffusion layer and use it to run some action.
--- Also brings up ekg monitoring, route53 health check, statds, according to
--- parameters. 
+-- Bring up a full diffusion layer over a TCP transport and use it to run some
+-- action. Also brings up ekg monitoring, route53 health check, statds,
+-- according to parameters. 
 runServer
     :: forall ctx m t .
        ( DiffusionWorkMode m
@@ -131,17 +132,19 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    logicLayerFull jsonLog $ \logicLayer -> do
-        diffusionLayerFull npNetworkConfig (Just ekgNodeMetrics) $ \withLogic -> do
-            diffusionLayer <- withLogic (logic logicLayer)
-            when npEnableMetrics (registerEkgMetrics ekgStore)
-            runLogicLayer logicLayer $
-                runDiffusionLayer diffusionLayer $
-                maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
-                maybeWithEkg $
-                maybeWithStatsd $
-                act (diffusion diffusionLayer)
+    logicLayerFull jsonLog $ \logicLayer ->
+        bracketTransportTCP tcpAddr $ \transport ->
+            diffusionLayerFull npNetworkConfig transport (Just ekgNodeMetrics) $ \withLogic -> do
+                diffusionLayer <- withLogic (logic logicLayer)
+                when npEnableMetrics (registerEkgMetrics ekgStore)
+                runLogicLayer logicLayer $
+                    runDiffusionLayer diffusionLayer $
+                    maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
+                    maybeWithEkg $
+                    maybeWithStatsd $
+                    act (diffusion diffusionLayer)
   where
+    tcpAddr = ncTcpAddr npNetworkConfig
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of
         Nothing -> ("127.0.0.1", 3030)

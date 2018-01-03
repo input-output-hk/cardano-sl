@@ -30,6 +30,7 @@ library
                         Pos.DB.DB
 
                         -- Diffusion layer
+                        Pos.Diffusion.Transport.TCP
                         Pos.Diffusion.Types
                         Pos.Diffusion.Full
                         Pos.Diffusion.Full.Block

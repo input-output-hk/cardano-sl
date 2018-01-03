@@ -119,7 +119,6 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e
     logDebug "Finished requesting tips for recovery"
-  where
 
 requestTipOuts :: BlockInstancesConstraint m => Proxy m -> OutSpecs
 requestTipOuts _ =

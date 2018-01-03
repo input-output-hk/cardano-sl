@@ -53,7 +53,7 @@ import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              addWAddress, createAccount, createWallet,
-                                             getAccountIds, getAccountMeta,
+                                             getAccountIds,
                                              getWalletAddresses,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              isCustomAddress, removeAccount,
@@ -64,7 +64,7 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifi
                                              fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds)
+                                             getWalletAccountIds, getAccountMetaOrThrow)
 
 
 ----------------------------------------------------------------------------
@@ -100,11 +100,9 @@ getAccount accMod accId = do
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
     balance <- sumCCoin (map cadAmount allAddrs)
-    meta <- getAccountMeta accId >>= maybeThrow noAccount
+    meta <- getAccountMetaOrThrow accId
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
-    noAccount =
-        RequestError $ sformat ("No account with id "%build%" found") accId
     gatherAddresses addrModifier dbAddrs = do
         let memAddrs = sortedInsertions addrModifier
             relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
@@ -165,7 +163,7 @@ newAddress
 newAddress addGenSeed passphrase accId =
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccount accMod accId
+        _ <- getAccountMetaOrThrow accId
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr

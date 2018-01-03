@@ -31,9 +31,9 @@ Clone Cardano SL repository and go to the root directory:
     $ git clone https://github.com/input-output-hk/cardano-sl.git
     $ cd cardano-sl
 
-Switch to the `master` branch:
+Switch to the latest release branch, for example, `cardano-sl-1.0`:
 
-    $ git checkout master
+    $ git checkout cardano-sl-1.0
 
 ## Nix build mode (recommended)
 
@@ -50,8 +50,8 @@ Two steps remain, then:
 
     ..and then add two following lines:
 
-        binary-caches            = https://cache.nixos.org https://hydra.iohk.io
-        binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+        binary-caches             = https://cache.nixos.org https://hydra.iohk.io
+        binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
 2.  Except on Windows (where Nix will not function) update `~/.stack/config.yaml` to enable Nix builds. Add the following:
 
@@ -123,8 +123,6 @@ Clone Daedalus repository and go to the root directory:
 
 To run acceptance tests one first has to have cluster running. We can run cluster on our machine with:
 
-    $ tmux
-    $ nix-shell
     [nix-shell:~/cardano-sl]$ ./scripts/launch/demo-with-wallet-api.sh
 
 Then navigate to the Daedalus repo and follow the [Daedalus test instructions](https://github.com/input-output-hk/daedalus#testing)

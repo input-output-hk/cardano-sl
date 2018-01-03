@@ -28,7 +28,7 @@ import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mk
                              mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
+import           Mode (MonadAuxxMode)
 import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------
@@ -43,7 +43,6 @@ vote
     -> UpId
     -> m ()
 vote diffusion idx decision upid = do
-    CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
     mbVoteUpd <- withSafeSigner skey (pure emptyPassphrase) $ mapM $ \signer ->
@@ -64,7 +63,6 @@ propose
     -> ProposeUpdateParams
     -> m UpId
 propose diffusion ProposeUpdateParams{..} = do
-    CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
@@ -84,18 +82,13 @@ propose diffusion ProposeUpdateParams{..} = do
                     udata
                     def
                     publisherSS
-        if null ccPeers
-            then reportFatalError "Error: no addresses specified"
-            else do
-                let upid = hash updateProposal
-                --let enqueue = immediateConcurrentConversations sendActions ccPeers
-                --submitUpdateProposal enqueue ss updateProposal
-                submitUpdateProposal diffusion ss updateProposal
-                if not puVoteAll then
-                    putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
-                else
-                    putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
-                return upid
+        let upid = hash updateProposal
+        submitUpdateProposal diffusion ss updateProposal
+        if not puVoteAll then
+            putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
+        else
+            putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+        return upid
 
 updateDataElement :: MonadAuxxMode m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

@@ -371,7 +371,6 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
             <*> getArg tyEpochIndex "cur"
             <*> getArg tyBool "dry"
     , cpExec = \(i, delegatePk, curEpoch, dry) -> do
-        CmdCtx {..} <- getCmdCtx
         issuerSk <- (!! i) <$> getSecretKeysPlain
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
             Nothing -> logError "Invalid passphrase"

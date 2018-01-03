@@ -16,7 +16,7 @@ fi
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
-#projects="core db lrc infra update ssc godtossing txp"
+#projects="core db lrc infra update ssc txp"
 #to_build=''
 
 #for prj in $projects; do
@@ -49,6 +49,7 @@ pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
   echo $TRAVIS_BUILD_NUMBER > build-id
   echo $TRAVIS_COMMIT > commit-id
+  echo https://travis-ci.org/${TRAVIS_REPO_SLUG}/jobs/$TRAVIS_JOB_ID > ci-url
   cp ../log-config-prod.yaml .
   cp ../node/configuration.yaml .
   cp ../node/*genesis*.json .

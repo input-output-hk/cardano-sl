@@ -15,6 +15,7 @@ module Test.Pos.Wallet.Web.Mode
        , walletPropertyToProperty
        , walletPropertySpec
 
+       , submitTxTestMode
        , getSentTxs
        ) where
 
@@ -83,7 +84,6 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
@@ -420,5 +420,5 @@ instance (HasCompileInfo, HasConfigurations) => MonadTxpLocal WalletTestMode whe
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
 
-instance MonadWalletSendActions WalletTestMode where
-    sendTxToNetwork txAux = True <$ (asks wtcSentTxs >>= atomically . flip STM.modifyTVar (txAux:))
+submitTxTestMode :: TxAux -> WalletTestMode Bool
+submitTxTestMode txAux = True <$ (asks wtcSentTxs >>= atomically . flip STM.modifyTVar (txAux:))

@@ -13,11 +13,10 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
-import           Pos.Communication (SendActions)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
-import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..))
+import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletState)
 import           Pos.WorkMode (RealModeContext (..))
@@ -140,7 +139,6 @@ testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
                          <*> testAddrCIdHashes
-                         <*> testSendActions
                          <*> testRealModeContext
   where
     testStorage :: IO WalletState
@@ -151,9 +149,6 @@ testV1Context =
 
     testAddrCIdHashes :: IO AddrCIdHashes
     testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
-
-    testSendActions :: IO (STM.TMVar (SendActions WalletWebMode))
-    testSendActions = STM.newEmptyTMVarIO
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.

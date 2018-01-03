@@ -14,7 +14,7 @@ readonly CARDANO_DOCS_REPO="${HOME}"/cardanodocs
 readonly LATEST_ROOT=haddock/latest
 readonly RELEASE_ROOT=haddock/release
 
-readonly CURRENT_BRANCH="${TRAVIS_BRANCH}"
+readonly CURRENT_BRANCH="${BUILDKITE_BRANCH}"
 
 echo "**** 2. Change external Haskell-related links to the Hackage-based ones ****"
 sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' "${PROJECT_DOC_DIR}"/*.html

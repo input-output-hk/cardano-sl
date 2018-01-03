@@ -6,8 +6,7 @@
 
 module Pos.Launcher.Runner
        ( -- * High level runners
-         cslMain
-       , runRealMode
+         runRealMode
        , runRealBasedMode
 
        , elimRealMode
@@ -39,7 +38,7 @@ import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion (..))
 import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Full (logicLayerFull, LogicWorkMode)
-import           Pos.Logic.Types (LogicLayer (..), Logic)
+import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Statsd (withStatsd)
@@ -49,52 +48,6 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..), WorkMode)
-
--- | Generic CSL main entrypoint. Supply a continuation-style acquiring
--- function for logic and diffusion layers, and a function which uses them to
--- do the control flow part of the application. Diffusion is brought up,
--- then logic, then they are brought down when the control action terminates.
---
--- Before cslMain one will probably do command-line argument parsing in order
--- to get the obligations necessary to create the layers (i.e. to come up with
--- the contiuation-style function).
---
--- NB: the diffusion and logic monad does not have to be the same as the
--- target monad. In practice we'll have the target  n ~ IO  but  m  will
--- probably be something more involved, like RealMode.
---
--- The story for launching:
---
---   The DiffusionLayer and LogicLayer will be parameterized by the application
---   specific monad (RealMode for instance). Creating them, however, can be
---   done with a less intimidating monad, like Production (IO).
---
---   With the layers in-hand, along with any extra resources like a rocks
---   database or whatever, there should be enough information to discharge
---   the RealMode extras, and get back down to Production.
---
---   withLayers $ \(logicLayer, diffusionLayer) -> do
---     let dischargeRealMode =
---     dischargeRealMode $ runLogicLayer logicLayer $ runDiffusionLayer diffusionLayer $
---       control (logic logiclayer, diffusion diffusionLayer)
---
---   Ah but can it work for the format peers component of real mode context?
---   No! Because the diffusion layer will have to give format peers from within
---   the real mode context itself.
---   Right, using a  Diffusion d  to discharge a part of  d  makes no sense
---   at all. See why? If  d  abstracts over terms which are provided by a
---    Diffusion d  then it makes 0 sense to have the diffusion layer work
---   within  d . There's a cycle.
-cslMain
-    :: forall m t .
-       ( )
-    => (forall x . ((DiffusionLayer m, LogicLayer m) -> m x) -> m x)
-    -> (Diffusion m -> Logic m -> m t)
-    -> m t
-cslMain withLayers control = withLayers $ \(diffusionLayer, logicLayer) ->
-    runDiffusionLayer diffusionLayer $
-        runLogicLayer logicLayer $
-            control (diffusion diffusionLayer) (logic logicLayer)
 
 ----------------------------------------------------------------------------
 -- High level runners

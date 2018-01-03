@@ -53,7 +53,12 @@ Two steps remain, then:
         binary-caches             = https://cache.nixos.org https://hydra.iohk.io
         binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
-2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
+2.  Except on Windows (where Nix will not function) update `~/.stack/config.yaml` to enable Nix builds. Add the following:
+
+        nix:
+          enable: true
+
+3.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:
 
         $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link cardano-sl-1.0
@@ -93,6 +98,10 @@ After that, in order to build Cardano SL with wallet capabilities, run the follo
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
+Dependecy version collisions have been encountered on OS X. If you run into something [like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696), try running the following from outside of a `nix-shell`
+
+    nix-shell -p moreutils expect --run "unbuffer ./scripts/build/cardano-sl.sh | ts"
+
 It is suggested having at least 8GB of RAM and some swap space for the build process. As the project is fairly large and GHC parallelizes builds very effectively, memory and CPU consumption during the build process is high. Please make sure you have enough free disk space as well.
 
 After the project is built - it can take quite a long time -  the built binaries can be launched using the `stack exec` command. Let's discuss important binaries briefly before proceeding to the next step.
@@ -116,13 +125,7 @@ To run acceptance tests one first has to have cluster running. We can run cluste
 
     [nix-shell:~/cardano-sl]$ ./scripts/launch/demo-with-wallet-api.sh
 
-Then navigate to daedalus repo and run tests server with:
-
-    [nix-shell:~/daedalus]$ npm run hot-server
-
-and in the seperate terminal window run tests:
-
-    [nix-shell:~/daedalus]$ npm run test
+Then navigate to the Daedalus repo and follow the [Daedalus test instructions](https://github.com/input-output-hk/daedalus#testing)
 
 You should see acceptance tests being run for about 5 minutes. Note that acceptance tests will be actively be taking window focus until they are finished. If it complains about `cardano-node.log` not existing just create it in the path with:
 

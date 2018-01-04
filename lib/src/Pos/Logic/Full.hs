@@ -167,7 +167,7 @@ logicLayerFull jsonLogTx k =
                 tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
 
             postVote = KeyVal
-                { toKey = \UpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
+                { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
                 , handleInv = \(Tagged (id, pk, dec)) -> Update.isVoteNeeded id pk dec
                 , handleReq = \(Tagged (id, pk, dec)) -> Update.getLocalVote id pk dec
                 , handleData = Update.handleVote

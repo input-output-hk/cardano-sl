@@ -7,7 +7,8 @@
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
-, walletListen ? ""
+, walletListen ? "127.0.0.1:8090"
+, ekgListen ? "127.0.0.1:8000"
 }:
 
 with localLib;
@@ -83,7 +84,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --db-path "${stateDir}/db"                                     \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
-        ${ ifWallet "--wallet-address ${walletListen}"}    \
-        --ekg-server 127.0.0.1:8080 --metrics +RTS -T -RTS             
-
+    ${ ifWallet "--wallet-address ${walletListen}" }               \
+    --ekg-server ${ekgListen} --metrics +RTS -T -RTS
 ''

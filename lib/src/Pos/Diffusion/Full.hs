@@ -147,21 +147,21 @@ diffusionLayerFull networkConfig transport mEkgNodeMetrics expectLogic =
             -- Definition of usWorkers plainly shows the out specs = mempty.
             usWorkerOutSpecs = mempty
 
-            -- announceBlockOuts from blkCreatorWorker
-            -- announceBlockOuts from blkMetricCheckerWorker
+            -- announceBlockHeaderOuts from blkCreatorWorker
+            -- announceBlockHeaderOuts from blkMetricCheckerWorker
             -- along with the retrieval worker outs which also include
-            -- announceBlockouts.
+            -- announceBlockHeaderOuts.
             blockWorkerOutSpecs = mconcat
-                [ announceBlockOuts
-                , announceBlockOuts
-                , announceBlockOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
-                                                          (Proxy :: Proxy MsgBlock)
-                                                  ]
+                [ announceBlockHeaderOuts
+                , announceBlockHeaderOuts
+                , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
+                                                                (Proxy :: Proxy MsgBlock)
+                                                        ]
                 ]
 
-            announceBlockOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
-                                                   (Proxy :: Proxy MsgGetHeaders)
-                                           ]
+            announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
+                                                         (Proxy :: Proxy MsgGetHeaders)
+                                                 ]
 
             -- It's a local worker, no out specs.
             delegationWorkerOutSpecs = mempty
@@ -232,8 +232,8 @@ diffusionLayerFull networkConfig transport mEkgNodeMetrics expectLogic =
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
             requestTip = Diffusion.Block.requestTip enqueue
 
-            announceBlock :: MainBlockHeader -> d ()
-            announceBlock = void . Diffusion.Block.announceBlock logic enqueue
+            announceBlockHeader :: MainBlockHeader -> d ()
+            announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic enqueue
 
             sendTx :: TxAux -> d Bool
             sendTx = Diffusion.Txp.sendTx enqueue

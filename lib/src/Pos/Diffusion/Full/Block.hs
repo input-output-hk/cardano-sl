@@ -5,7 +5,7 @@
 module Pos.Diffusion.Full.Block
     ( getBlocks
     , requestTip
-    , announceBlock
+    , announceBlockHeader
     , handleHeadersCommunication
 
     , blockListeners
@@ -143,6 +143,8 @@ enqueueMsgSingle enqueue msg conv = do
             "enqueueMsgSingle: contacted more than one peers, probably internal error"
         [x] -> pure x
 
+-- | Get some blocks from the network.
+-- No verification is done
 getBlocks
     :: forall d .
        ( DiffusionWorkMode d
@@ -271,7 +273,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         case chainE of
             Left e -> do
-                let msg = sformat ("Error retrieving blocks frmo "%shortHashF%
+                let msg = sformat ("Error retrieving blocks from "%shortHashF%
                                    " to "%shortHashF%" from peer "%
                                    build%": "%stext)
                                   lcaChildHash newestHash nodeId e
@@ -372,7 +374,8 @@ requestTip enqueue k = enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> p
         logWarning $ sformat ("requestTip: got enexpected response: "%shown) t
         throwM $ DialogUnexpected "peer sent more than one tip"
 
-announceBlock
+-- | Announce a block header.
+announceBlockHeader
     :: forall d .
        ( DiffusionWorkMode d
        )
@@ -380,7 +383,7 @@ announceBlock
     -> EnqueueMsg d
     -> MainBlockHeader
     -> d (Map NodeId (d ()))
-announceBlock logic enqueue header =  do
+announceBlockHeader logic enqueue header =  do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
@@ -410,8 +413,13 @@ announceBlock logic enqueue header =  do
                 (headerHash header)
                 nodeId
         send cA $ MsgHeaders (one (Right header))
+        -- After we announce, the peer is given an opportunity to request more
+        -- headers within the same conversation.
         handleHeadersCommunication logic cA
 
+-- | A conversation for incoming MsgGetHeaders messages.
+-- For each of these messages, we'll try to send back the relevant headers,
+-- until the client closes up.
 handleHeadersCommunication
     :: forall d .
        ( DiffusionWorkMode d
@@ -428,12 +436,19 @@ handleHeadersCommunication logic conv = do
         -- recovery mode.
         ifM (recoveryInProgress logic) onRecovery $ do
             headers <- case (mghFrom,mghTo) of
+                -- This is how a peer requests our tip: empty checkpoint list,
+                -- Nothing for the limiting hash.
                 ([], Nothing) -> Right . one <$> getLastMainHeader
+                -- This is how a peer requests one particular header: empty
+                -- checkpoint list, Just for the limiting hash.
                 ([], Just h)  -> do
                     bheader <- getBlockHeader logic h
                     case bheader of
                         Left _ -> pure $ Left "getBlockHeader failed"
                         Right mHeader -> pure . maybeToRight "getBlockHeader returned Nothing" . fmap one $ mHeader
+                -- This is how a peer requests a chain of headers.
+                -- NB: if the limiting hash is Nothing, getBlockHeaders will
+                -- substitute our current tip.
                 (c1:cxs, _)   -> do
                     headers <- getBlockHeaders logic (c1:|cxs) mghTo
                     case headers of
@@ -481,8 +496,11 @@ blockListeners
     -> OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
 blockListeners logic oq = constantListeners $ map ($ oq)
-    [ handleGetHeaders logic
+    [ -- Peer wants some block headers from us.
+      handleGetHeaders logic
+      -- Peer wants some blocks from us.
     , handleGetBlocks logic
+      -- Peer has a block header for us (yes, singular only).
     , handleBlockHeaders logic
     ]
 
@@ -501,8 +519,10 @@ handleGetHeaders
     -> (ListenerSpec m, OutSpecs)
 handleGetHeaders logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     logDebug $ "handleGetHeaders: request from " <> show nodeId
-    handleHeadersCommunication logic conv --(convToSProxy conv)
+    handleHeadersCommunication logic conv
 
+-- | Handler for a GetBlocks request from a client.
+-- It looks up the Block corresponding to each HeaderHash and sends it.
 handleGetBlocks
     :: forall pack m.
        ( DiffusionWorkMode m )
@@ -523,23 +543,14 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
                     getBlock logic hHash >>= \case
-                        Right (Just b) -> send conv (MsgBlock b)
-                        -- TODO handle Left *and* Right Nothing
-                        _ -> do
-                            send conv (MsgNoBlock $
-                                       "Couldn't retrieve block with hash " <> pretty hHash)
-                            --failMalformed
+                        Right (Just b) -> send conv $
+                            MsgBlock b
+                        Right Nothing  -> send conv $
+                            MsgNoBlock ("Block with hash " <> pretty hHash <> " not found")
+                        Left _         -> send conv $
+                            MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
-  {-
-  where
-    FIXME this makes no sense. Diffusion layer should not make judgements about
-    malformedness of the database.
-    failMalformed =
-        throwM $ DBMalformed $
-        "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
-        "have corresponding block in storage."
-  -}
 
 ----------------------------------------------------------------------------
 -- Header propagation

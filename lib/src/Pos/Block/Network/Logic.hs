@@ -59,7 +59,7 @@ import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (requestTip, announceBlock))
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (requestTip, announceBlockHeader))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc (lrcSingleShot)
@@ -592,7 +592,7 @@ relayBlock diffusion (Right mainBlk) = do
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%shortHashF%".")
                        (mainBlk ^. gbHeader . headerHashG)
-            void $ Diffusion.announceBlock diffusion $ mainBlk ^. gbHeader
+            void $ Diffusion.announceBlockHeader diffusion $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

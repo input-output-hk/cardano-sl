@@ -46,7 +46,7 @@ import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlock))
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                     recoveryCommGuard)
@@ -210,7 +210,7 @@ onNewSlotWhenLeader slotId pske diffusion = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (Right createdBlk)
-            void $ Diffusion.announceBlock diffusion $ createdBlk ^. gbHeader
+            void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------

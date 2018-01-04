@@ -38,10 +38,10 @@ import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimit
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, ListenerSpec, MkListeners (..),
-                                             MsgType (..), NodeId, Origin (..), OutSpecs,
-                                             constantListeners, waitForConversations)
-import           Pos.Core (HeaderHash, headerHash, headerHashG, prevBlockL)
+                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
+                                             waitForConversations, OutSpecs, ListenerSpec,
+                                             MkListeners (..), constantListeners)
+import           Pos.Core (HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -50,13 +50,11 @@ import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionT
 import           Pos.Logic.Types (GetBlockHeadersError (..), GetTipError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
--- NB: the logic-layer security policy is actually available here in the
--- diffusion layer by way of the WorkMode constraint.
-import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
-                                      SecurityParams (..))
-import           Pos.Util (buildListBounds, _neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), _NewestFirst)
-import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
+import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
+                                      AttackTarget (..), SecurityParams (..))
+import           Pos.Util (_neHead, _neLast)
+import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE, nonEmptyNewestFirst)
+import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -80,47 +78,6 @@ instance Exception BlockNetLogicException where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
     displayException = toString . pretty
-
-
--- | Result of 'matchHeadersRequest'
-data MatchReqHeadersRes
-    = MRGood
-      -- ^ Headers were indeed requested and precisely match our
-      -- request
-    | MRUnexpected Text
-      -- ^ Headers don't represent valid response to our
-      -- request. Reason is attached.
-    deriving (Show)
-
--- TODO This function is used ONLY in recovery mode, so passing the
--- flag is redundant, it's always True.
-matchRequestedHeaders
-    :: HasConfiguration
-    => NewestFirst NE BlockHeader
-    -> MsgGetHeaders
-    -> Bool
-    -> MatchReqHeadersRes
-matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
-    let newTip = headers ^. _NewestFirst . _neHead
-        startHeader = headers ^. _NewestFirst . _neLast
-        startMatches =
-            or [ (startHeader ^. headerHashG) `elem` mghFrom
-               , (startHeader ^. prevBlockL) `elem` mghFrom
-               ]
-        mghToMatches
-            | inRecovery = True
-            | isNothing mghTo = True
-            | otherwise = Just (headerHash newTip) == mghTo
-    in if | not startMatches ->
-            MRUnexpected $ sformat ("start (from) header "%build%
-                                    " doesn't match request "%build)
-                                   startHeader mgh
-          | not mghToMatches ->
-            MRUnexpected $ sformat ("finish (to) header "%build%
-                                    " doesn't match request "%build%
-                                    ", recovery: "%shown%", newTip:"%build)
-                                   mghTo mgh inRecovery newTip
-          | otherwise -> MRGood
 
 ----------------------------------------------------------------------------
 -- Networking
@@ -233,18 +190,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                     (unitBuilder $ biSize headers)
                     nodeId
                     (map headerHash headers)
-                case matchRequestedHeaders headers mgh inRecovery of
-                    MRGood           -> return headers
-                    MRUnexpected msg -> do
-                        logWarning $ sformat
-                            ("requestHeaders: headers received were not requested or are invalid"%
-                             ", peer id: "%build%", reason:"%stext)
-                            nodeId msg
-                        logWarning $ sformat
-                            ("requestHeaders: unexpected or invalid headers: "%listJson) headers
-                        throwM $ DialogUnexpected $
-                            sformat ("requestHeaders: received unexpected headers from "%build) nodeId
-
+                return headers
 
     requestBlocks :: NewestFirst NE BlockHeader -> d (NewestFirst NE Block)
     requestBlocks headers = enqueueMsgSingle
@@ -262,6 +208,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
         -- TODO don't be so wasteful.
         let oldestHeader = headers ^. _NewestFirst . _neLast
             newestHeader = headers ^. _NewestFirst . _neHead
+            numBlocks = length headers
             lcaChild = oldestHeader
             newestHash = headerHash newestHeader
             lcaChildHash = headerHash lcaChild
@@ -270,7 +217,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                            newestHash
         send conv $ mkBlocksRequest lcaChildHash newestHash
         logDebug "Requested blocks, waiting for the response"
-        chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
+        chainE <- runExceptT (retrieveBlocks conv numBlocks)
         case chainE of
             Left e -> do
                 let msg = sformat ("Error retrieving blocks from "%shortHashF%
@@ -279,76 +226,55 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                                   lcaChildHash newestHash nodeId e
                 logWarning msg
                 throwM $ DialogUnexpected msg
-            Right blocks -> do
-                logDebug $ sformat
-                    ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
-                    (blocks ^. _NewestFirst . to NE.length)
-                    (unitBuilder $ biSize blocks)
-                    (getNewestFirst $ map headerHash blocks)
-                return blocks
+            Right bs -> case nonEmptyNewestFirst bs of
+                Nothing -> do
+                    let msg = sformat ("Peer gave an empty blocks list")
+                    throwM $ DialogUnexpected msg
+                Just blocks -> do
+                    logDebug $ sformat
+                        ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                        (blocks ^. _NewestFirst . to NE.length)
+                        (unitBuilder $ biSize bs)
+                        (map (headerHash . view blockHeader) blocks)
+                    return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.
     retrieveBlocks
         :: ConversationActions MsgGetBlocks MsgBlock d
-        -> BlockHeader
-        -> HeaderHash
-        -> ExceptT Text d (NewestFirst NE Block)
-    retrieveBlocks conv lcaChild endH = do
-        blocks <- retrieveBlocksDo 0 conv (lcaChild ^. prevBlockL) endH []
-        let b0 = blocks ^. _NewestFirst . _neHead
-        if headerHash b0 == headerHash lcaChild
-           then pure blocks
-           else throwError $ sformat
-                    ("First block of chain is "%build%
-                     " instead of expected "%build)
-                    (b0 ^. blockHeader) lcaChild
+        -> Int
+        -> ExceptT Text d (NewestFirst [] Block)
+    retrieveBlocks conv numBlocks = retrieveBlocksDo conv numBlocks []
 
     -- Content of retrieveBlocks.
-    -- Receive until a block with a given hash 'endH' is found.
-    -- Assumes that 'endH' is the hash of a block which is older than 'prevH'.
-    -- Retrieval starts with 'prevH'.
+    -- Receive a given number of blocks. If the server doesn't send this
+    -- many blocks, an error will be given.
     --
     -- Copied from the old logic but modified to use an accumulator rather
     -- than fmapping (<|). That changed the order so we're now NewestFirst
     -- (presumably the server sends them oldest first, as that assumption was
     -- required for the old version to correctly say OldestFirst).
-    --
-    -- FIXME it strikes me as weird that we check for hash equality to determine
-    -- when to stop. Why not stop when the server stops feeding?
     retrieveBlocksDo
-        :: Int        -- ^ Index of block we're requesting
-        -> ConversationActions MsgGetBlocks MsgBlock d
-        -> HeaderHash -- ^ We're expecting a child of this block
-        -> HeaderHash -- ^ Block at which to stop
+        :: ConversationActions MsgGetBlocks MsgBlock d
+        -> Int        -- ^ Index of block we're requesting
         -> [Block]    -- ^ Accumulator
-        -> ExceptT Text d (NewestFirst NE Block)
-    retrieveBlocksDo !i conv prevH endH !acc = lift (recvLimited conv) >>= \case
-        Nothing ->
-            throwError $ sformat ("Failed to receive block #"%int) i
-        Just (MsgNoBlock t) ->
-            throwError $ sformat ("Server failed to return block #"%int%": "%stext) i t
-        Just (MsgBlock block) -> do
-            let prevH' = block ^. prevBlockL
-                curH = headerHash block
-            when (prevH' /= prevH) $ do
-                throwError $ sformat
-                    ("Received block #"%int%" with prev hash "%shortHashF%
-                     " while "%shortHashF%" was expected: "%build)
-                    i prevH' prevH (block ^. blockHeader)
-            -- FIXME
-            -- Something to do with recording progress here.
-            -- Perhaps we could restore it by offering a streaming interface
-            -- for getBlocks.
-            --progressHeaderVar <- view (lensOf @ProgressHeaderTag)
-            --atomically $ do void $ tryTakeTMVar progressHeaderVar
-            --                putTMVar progressHeaderVar $ block ^. blockHeader
-            if curH == endH
-            -- Presumably the 'endH' block is the newest, i.e. the server
-            -- sends blocks oldest first.
-            then pure $ NewestFirst (block :| acc)
-            else retrieveBlocksDo (i+1) conv curH endH (block : acc)
-            --else over _Wrapped (block <|) <$> retrieveBlocksDo (i+1) conv curH endH
+        -> ExceptT Text d (NewestFirst [] Block)
+    retrieveBlocksDo conv !i !acc
+        | i <= 0    = pure $ NewestFirst acc
+        | otherwise = lift (recvLimited conv) >>= \case
+              Nothing ->
+                  throwError $ sformat ("Block retrieval cut short by peer at index #"%int) i
+              Just (MsgNoBlock t) ->
+                  throwError $ sformat ("Peer failed to produce block #"%int%": "%stext) i t
+              Just (MsgBlock block) -> do
+                  -- FIXME
+                  -- Something to do with recording progress here.
+                  -- Perhaps we could restore it by offering a streaming interface
+                  -- for getBlocks.
+                  --progressHeaderVar <- view (lensOf @ProgressHeaderTag)
+                  --atomically $ do void $ tryTakeTMVar progressHeaderVar
+                  --                putTMVar progressHeaderVar $ block ^. blockHeader
+                  retrieveBlocksDo conv (i - 1) (block : acc)
 
 requestTip
     :: forall d t .
@@ -430,10 +356,9 @@ handleHeadersCommunication
 handleHeadersCommunication logic conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        -- FIXME recoveryInProgress is a logic layer notion; get it from the
-        -- logic layer itself. Better yet: don't use it at all. Diffusion layer
-        -- is entirely capable of serving blocks even if the logic layer is in
-        -- recovery mode.
+        -- FIXME 
+        -- Diffusion layer is entirely capable of serving blocks even if the
+        -- logic layer is in recovery mode.
         ifM (recoveryInProgress logic) onRecovery $ do
             headers <- case (mghFrom,mghTo) of
                 -- This is how a peer requests our tip: empty checkpoint list,

@@ -10,12 +10,14 @@ if [ -n "$NIX_SSL_CERT_FILE" ]; then
   export SSL_CERT_FILE=$NIX_SSL_CERT_FILE
 fi
 
-export ARGS="--bridge-path frontend/src/Generated/"
+ARGS="--bridge-path frontend/src/Generated/"
 
 set -xe
 set -v
 
 pushd $scriptDir/../..
+  echo EXPLORER_NIX_FILE=$EXPLORER_NIX_FILE
+  echo EXPLORER_EXECUTABLE=$EXPLORER_EXECUTABLE
   if [ -n "$EXPLORER_NIX_FILE" ]; then
     $(nix-build -A cardano-sl-explorer-static $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs $ARGS
   elif [ -n "$EXPLORER_EXECUTABLE" ]; then

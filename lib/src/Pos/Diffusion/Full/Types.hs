@@ -27,11 +27,9 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.TimeWarp (CanJsonLog)
 
 type DiffusionWorkMode m
     = ( WithLogger m
-      , CanJsonLog m
       , MonadMockable m
       , MonadIO m
       , HasConfiguration

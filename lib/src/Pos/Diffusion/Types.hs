@@ -33,8 +33,8 @@ data Diffusion m = Diffusion
       -- for each header received, dump it into the block retrieval queue and
       -- let the retrieval worker figure out all the recovery mode business.
     , requestTip         :: forall t . (BlockHeader -> NodeId -> m t) -> m (Map NodeId (m t))
-      -- Announce a block.
-    , announceBlock      :: MainBlockHeader -> m ()
+      -- Announce a block header.
+    , announceBlockHeader :: MainBlockHeader -> m ()
       -- Returns a Bool iff at least one peer accepted the transaction.
       -- I believe it's for the benefit of wallets who wish to know that the
       -- transaction has a hope of making it into a block.
@@ -92,7 +92,7 @@ dummyDiffusionLayer = DiffusionLayer
     dummyDiffusion = Diffusion
         { getBlocks          = \_ _ _ -> pure (Left (GetBlocksError "not implemented"))
         , requestTip         = \_ -> pure mempty
-        , announceBlock      = \_ -> pure ()
+        , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure False
         , sendUpdateProposal = \_ _ _ -> pure ()
         , sendVote           = \_ -> pure ()

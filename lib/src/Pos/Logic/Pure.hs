@@ -3,6 +3,9 @@
 module Pos.Logic.Pure
     ( pureLogic
     , blockVersionData
+    , blockHeader
+    , block
+    , mainBlockHeaderHash
     ) where
 
 import           Universum
@@ -10,6 +13,7 @@ import           Universum
 import           Data.Default (def)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Cardano.Crypto.Wallet (xpub, xsignature)
 import qualified Crypto.Hash as Crypto (hash)
 
@@ -37,13 +41,15 @@ import           Pos.Logic.Types (Logic (..), KeyVal (..))
 -- any request.
 pureLogic
     :: ( Applicative m )
-    => Logic m
-pureLogic = Logic
+    => Int -- How many blocks to give for each request.
+    -> Logic m
+pureLogic batchSize = Logic
     { ourStakeholderId   = stakeholderId
     , getBlock           = \_ -> pure (Right (Just block))
+    , getBlocks          = \_ _ -> pure (Right (manyBlocks batchSize))
     , getBlockHeader     = \_ -> pure (Right (Just blockHeader))
-    , getBlockHeaders    = \_ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getBlockHeaders'   = \_ _ -> pure (Right (Just (OldestFirst (pure mainBlockHeaderHash))))
+    , getBlockHeaders    = \_ _ -> pure (Right (NewestFirst (manyBlockHeaders batchSize)))
+    , getBlockHeaders'   = \_ _ -> pure (Right (Just (OldestFirst (manyBlockHeaderHashes batchSize))))
     , getTip             = pure (Right block)
     , getTipHeader       = pure (Right blockHeader)
     , getAdoptedBVData   = pure blockVersionData
@@ -70,6 +76,15 @@ pureLogic = Logic
         , handleData = \_ -> pure False
         }
 
+manyBlocks :: Int -> [Block]
+manyBlocks batchSize = replicate batchSize block
+
+manyBlockHeaders :: Int -> NonEmpty BlockHeader
+manyBlockHeaders batchSize = blockHeader :| replicate (batchSize - 1) blockHeader
+
+manyBlockHeaderHashes :: Int -> NonEmpty HeaderHash
+manyBlockHeaderHashes batchSize = mainBlockHeaderHash :| replicate (batchSize - 1) mainBlockHeaderHash
+
 stakeholderId :: StakeholderId
 stakeholderId = AbstractHash (Crypto.hash (mempty :: ByteString))
 
@@ -95,7 +110,8 @@ data BlockVersionData = BlockVersionData
 blockVersionData :: BlockVersionData
 blockVersionData = BlockVersionData
     { bvdScriptVersion = 0
-    , bvdSlotDuration  = 0
+    -- Must be high because it controls the keepalive.
+    , bvdSlotDuration  = 20000
     -- FIXME
     -- Unfortunately, the choices we make here will affect the functioning of
     -- the diffusion layer.

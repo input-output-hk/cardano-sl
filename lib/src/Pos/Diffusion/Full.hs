@@ -24,7 +24,7 @@ import           Node.Conversation (Converse, converseWith, Conversation)
 import           System.Random (newStdGen)
 import           System.Wlog (WithLogger, CanLog, usingLoggerName)
 
-import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
+import           Pos.Block.Network (MsgGetHeaders, MsgBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
@@ -147,10 +147,11 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 
             -- A single worker checkForReceivedBlocksWorker with
             -- requestTipOuts from Pos.Block.Network.
-            securityWorkerOutSpecs = toOutSpecs
+            securityWorkerOutSpecs = mempty {- toOutSpecs
                 [ convH (Proxy :: Proxy MsgGetHeaders)
                         (Proxy :: Proxy MsgHeaders)
                 ]
+            -}
 
             -- Definition of usWorkers plainly shows the out specs = mempty.
             usWorkerOutSpecs = mempty
@@ -159,10 +160,14 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             -- announceBlockHeaderOuts from blkMetricCheckerWorker
             -- along with the retrieval worker outs which also include
             -- announceBlockHeaderOuts.
+            blockWorkerOutSpecs = toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
+                                                     (Proxy :: Proxy MsgBlock)
+                                             ]
+            {-
             blockWorkerOutSpecs = mconcat
                 [ announceBlockHeaderOuts
                 , announceBlockHeaderOuts
-                , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
+                , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
                                                                 (Proxy :: Proxy MsgBlock)
                                                         ]
                 ]
@@ -170,6 +175,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                          (Proxy :: Proxy MsgGetHeaders)
                                                  ]
+            -}
 
             -- It's a local worker, no out specs.
             delegationWorkerOutSpecs = mempty
@@ -235,7 +241,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                       -> BlockHeader
                       -> [HeaderHash]
                       -> d (Either GetBlocksError [Block])
-            getBlocks = Diffusion.Block.getBlocks logic enqueue
+            getBlocks = Diffusion.Block.getBlocks' logic enqueue
 
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
             requestTip = Diffusion.Block.requestTip enqueue

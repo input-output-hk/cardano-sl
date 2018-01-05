@@ -38,7 +38,7 @@ import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
 import           Pos.Logic.Types (LogicLayer (..), Logic (..), KeyVal (..),
-                                  GetTipError (..), GetBlockError (..),
+                                  GetTipError (..), GetBlockError (..), GetBlocksError (..),
                                   GetBlockHeadersError (..), GetBlockHeaderError (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
@@ -108,6 +108,12 @@ logicLayerFull jsonLogTx k =
         let
             getBlock :: HeaderHash -> m (Either GetBlockError (Maybe Block))
             getBlock = fmap Right . DB.getBlock
+
+            getBlocks
+                :: NonEmpty HeaderHash
+                -> Maybe HeaderHash
+                -> m (Either GetBlocksError [Block])
+            getBlocks = error "getBlocks not implemented at the moment"
 
             getTip :: m (Either GetTipError Block)
             getTip = fmap Right DB.getTipBlock

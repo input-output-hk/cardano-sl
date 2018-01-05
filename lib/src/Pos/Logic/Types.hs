@@ -6,6 +6,7 @@ module Pos.Logic.Types
     , Logic (..)
     , KeyVal (..)
     , GetBlockError (..)
+    , GetBlocksError (..)
     , GetBlockHeaderError (..)
     , GetBlockHeadersError (..)
     , GetTipError (..)
@@ -35,6 +36,7 @@ data Logic m = Logic
       ourStakeholderId   :: StakeholderId
       -- Get a block, perhaps from a database.
     , getBlock           :: HeaderHash -> m (Either GetBlockError (Maybe Block))
+    , getBlocks          :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlocksError [Block])
       -- Get a block header.
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
@@ -147,6 +149,11 @@ data GetBlockError = GetBlockError Text
 deriving instance Show GetBlockError
 instance Exception GetBlockError
 
+data GetBlocksError = GetBlocksError Text
+
+deriving instance Show GetBlocksError
+instance Exception GetBlocksError
+
 -- | Failure description for getting a block header from the logic layer.
 data GetBlockHeaderError = GetBlockHeaderError Text
 
@@ -186,6 +193,7 @@ dummyLogicLayer = LogicLayer
     dummyLogic = Logic
         { ourStakeholderId   = error "dummy: no stakeholder id"
         , getBlock           = \_ -> pure (error "dummy: can't get block")
+        , getBlocks          = \_ _ -> pure (error "dummy: can't get blocks")
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
         , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
         , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")

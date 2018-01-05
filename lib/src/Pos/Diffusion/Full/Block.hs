@@ -4,33 +4,33 @@
 
 module Pos.Diffusion.Full.Block
     ( getBlocks
+    , getBlocks'
     , requestTip
     , announceBlockHeader
     , handleHeadersCommunication
 
     , blockListeners
+
+    , handleGetBlocks -- so it isn't unused...
+    , handleGetHeaders -- so it isn't unused...
     ) where
 
 import           Universum
 
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Exception (Exception (..))
-import           Control.Lens (to)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 -- TODO hopefully we can get rid of this import. It's needed for the
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
-import           Formatting (build, sformat, (%), shown, bprint, stext, int, builder)
+import           Formatting (build, sformat, (%), shown, bprint, stext, int)
 import           Mockable (throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
-import           Pos.Binary.Class (biSize)
 -- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
@@ -47,7 +47,11 @@ import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Logic.Types (Logic (..), GetBlockHeadersError (..), GetTipError (..))
+import           Pos.Logic.Types (Logic, getBlockHeaders, postBlockHeader, getTip,
+                                  getBlock, getBlockHeaders', recoveryInProgress,
+                                  getBlockHeader, securityParams,
+                                  GetBlockHeadersError (..), GetTipError (..))
+import qualified Pos.Logic.Types as Logic (getBlocks)
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
@@ -183,6 +187,8 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                             nodeId
                             t
             Just (MsgHeaders headers) -> do
+                logDebug $ sformat "requestHeaders: received headers"
+                {-
                 logDebug $ sformat
                     ("requestHeaders: received "%int%" headers of total size "%builder%
                      " from nodeId "%build%": "%listJson)
@@ -190,6 +196,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                     (unitBuilder $ biSize headers)
                     nodeId
                     (map headerHash headers)
+                -}
                 return headers
 
     requestBlocks :: NewestFirst NE BlockHeader -> d (NewestFirst NE Block)
@@ -231,11 +238,14 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                     let msg = sformat ("Peer gave an empty blocks list")
                     throwM $ DialogUnexpected msg
                 Just blocks -> do
+                    {-
                     logDebug $ sformat
                         ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
                         (blocks ^. _NewestFirst . to NE.length)
                         (unitBuilder $ biSize bs)
                         (map (headerHash . view blockHeader) blocks)
+                    -}
+                    logDebug $ sformat "Received blocks"
                     return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are
@@ -275,6 +285,85 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                   --atomically $ do void $ tryTakeTMVar progressHeaderVar
                   --                putTMVar progressHeaderVar $ block ^. blockHeader
                   retrieveBlocksDo conv (i - 1) (block : acc)
+
+-- | Get some blocks from the network.
+-- No verification is done
+getBlocks'
+    :: forall d .
+       ( DiffusionWorkMode d
+       , HasAdoptedBlockVersionData d
+       )
+    => Logic d
+    -> EnqueueMsg d
+    -> NodeId
+    -> BlockHeader
+    -> [HeaderHash]
+    -> d (Either GetBlocksError [Block])
+getBlocks' __logic enqueue nodeId tipHeader checkpoints = do
+    blocks <- requestBlocks
+    pure (Right (toList blocks))
+  where
+
+    mgh :: MsgGetHeaders
+    mgh = MsgGetHeaders
+        { mghFrom = checkpoints
+        , mghTo = Just tipHash
+        }
+
+    tipHash :: HeaderHash
+    tipHash = headerHash tipHeader
+
+    requestBlocks :: d (NewestFirst NE Block)
+    requestBlocks = enqueueMsgSingle
+        enqueue
+        (MsgRequestBlockHeaders (Just (S.singleton nodeId)))
+        (Conversation requestBlocksConversation)
+
+    requestBlocksConversation
+        :: ConversationActions MsgGetHeaders MsgBlock d
+        -> d (NewestFirst NE Block)
+    requestBlocksConversation conv = do
+        logDebug $ sformat ("requestBlocks: sending "%build) mgh
+        send conv mgh
+        chainE <- runExceptT (retrieveBlocks conv)
+        case chainE of
+            Left e -> do
+                let msg = sformat ("Error retrieving blocks: "%shown) e
+                logWarning msg
+                throwM $ DialogUnexpected msg
+            Right bs -> case nonEmptyNewestFirst bs of
+                Nothing -> do
+                    let msg = sformat ("Peer gave an empty blocks list")
+                    throwM $ DialogUnexpected msg
+                Just blocks -> do
+                    logDebug $ sformat "Received blocks"
+                    return blocks
+
+    -- A piece of the block retrieval conversation in which the blocks are
+    -- pulled in one-by-one.
+    retrieveBlocks
+        :: ConversationActions MsgGetHeaders MsgBlock d
+        -> ExceptT Text d (NewestFirst [] Block)
+    retrieveBlocks conv = retrieveBlocksDo conv []
+
+    -- Content of retrieveBlocks.
+    -- Receive a given number of blocks. If the server doesn't send this
+    -- many blocks, an error will be given.
+    --
+    -- Copied from the old logic but modified to use an accumulator rather
+    -- than fmapping (<|). That changed the order so we're now NewestFirst
+    -- (presumably the server sends them oldest first, as that assumption was
+    -- required for the old version to correctly say OldestFirst).
+    retrieveBlocksDo
+        :: ConversationActions MsgGetHeaders MsgBlock d
+        -> [Block]    -- ^ Accumulator
+        -> ExceptT Text d (NewestFirst [] Block)
+    retrieveBlocksDo conv !acc = lift (recvLimited conv) >>= \case
+        Nothing -> return $ NewestFirst acc
+        Just (MsgNoBlock t) ->
+            throwError $ sformat ("Peer failed to produce block: "%stext) t
+        Just (MsgBlock block) -> do
+            retrieveBlocksDo conv (block : acc)
 
 requestTip
     :: forall d t .
@@ -408,7 +497,6 @@ handleHeadersCommunication logic conv = do
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
         send conv (MsgNoHeaders "server node is in recovery mode")
 
-
 -- |
 -- = Listeners
 
@@ -422,11 +510,13 @@ blockListeners
     -> MkListeners m
 blockListeners logic oq = constantListeners $ map ($ oq)
     [ -- Peer wants some block headers from us.
-      handleGetHeaders logic
+    --  handleGetHeaders logic
       -- Peer wants some blocks from us.
-    , handleGetBlocks logic
+    --, handleGetBlocks logic
       -- Peer has a block header for us (yes, singular only).
-    , handleBlockHeaders logic
+      handleBlockHeaders logic
+      -- Get blocks from headers and checkpoints.
+    , handleGetBlocks' logic
     ]
 
 ----------------------------------------------------------------------------
@@ -462,10 +552,13 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
         mHashes <- getBlockHeaders' logic mgbFrom mgbTo
         case mHashes of
             Right (Just hashes) -> do
+                logDebug $ sformat "handleGetBlocks: started sending"
+                {-
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
+                -}
                 for_ hashes $ \hHash ->
                     getBlock logic hHash >>= \case
                         Right (Just b) -> send conv $
@@ -476,6 +569,113 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                             MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+
+{-
+handleGetBlocks'
+    :: forall pack m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetBlocks' logic oq = listenerConv oq $ \__ourVerInfo __nodeId conv -> do
+    mbMsg <- recvLimited conv
+    whenJust mbMsg $ \mgh -> do
+        Right neHeaders <- getHeadersFromMsgGetHeaders logic mgh
+        let headers = getNewestFirst neHeaders
+        forM_ headers $ \header -> do
+            let hHash = headerHash header
+            getBlock logic hHash >>= \case
+                Right (Just b) -> send conv $
+                    MsgBlock b
+                Right Nothing  -> send conv $
+                    MsgNoBlock ("Block with hash " <> pretty hHash <> " not found")
+                Left _         -> send conv $
+                    MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
+
+getHeadersFromMsgGetHeaders
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> MsgGetHeaders
+    -> m (Either Text (NewestFirst NE BlockHeader))
+getHeadersFromMsgGetHeaders logic MsgGetHeaders {..} = case (mghFrom, mghTo) of
+    -- This is how a peer requests our tip: empty checkpoint list,
+    -- Nothing for the limiting hash.
+    ([], Nothing) -> Right . one <$> getLastMainHeader
+    -- This is how a peer requests one particular header: empty
+    -- checkpoint list, Just for the limiting hash.
+    ([], Just h)  -> do
+        bheader <- getBlockHeader logic h
+        case bheader of
+            Left _ -> pure $ Left "getBlockHeader failed"
+            Right mHeader -> pure . maybeToRight "getBlockHeader returned Nothing" . fmap one $ mHeader
+    -- This is how a peer requests a chain of headers.
+    -- NB: if the limiting hash is Nothing, getBlockHeaders will
+    -- substitute our current tip.
+    (c1:cxs, _)   -> do
+        headers <- getBlockHeaders logic (c1:|cxs) mghTo
+        case headers of
+            Left (GetBlockHeadersError txt) -> pure (Left txt)
+            Right hs -> pure (Right hs)
+  where
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    getLastMainHeader :: m BlockHeader
+    getLastMainHeader = do
+        etip :: Either GetTipError Block <- getTip logic
+        case etip of
+            Left err@(GetTipError _) -> throw err
+            Right tip -> let tipHeader = tip ^. blockHeader in case tip of
+                Left _  -> do
+                    bheader <- getBlockHeader logic (tip ^. prevBlockL)
+                    case bheader of
+                        Left err -> throw err
+                        Right mHeader -> pure $ fromMaybe tipHeader mHeader
+                Right _ -> pure tipHeader
+-}
+
+handleGetBlocks'
+    :: forall pack m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleGetBlocks' logic oq = listenerConv oq $ \__ourVerInfo __nodeId conv -> do
+    mbMsg <- recvLimited conv
+    whenJust mbMsg $ getBlocksFromMsgGetHeaders logic conv
+
+getBlocksFromMsgGetHeaders
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> ConversationActions MsgBlock MsgGetHeaders m
+    -> MsgGetHeaders
+    -> m ()
+getBlocksFromMsgGetHeaders logic conv MsgGetHeaders {..} = case (mghFrom, mghTo) of
+    ([], Nothing) -> sendLastMainBlock
+    ([], Just h)  -> do
+        bheader <- getBlock logic h
+        case bheader of
+            Left _ -> error "Left"
+            Right Nothing -> error "Right Nothing"
+            Right (Just block) -> send conv (MsgBlock block)
+    -- Next step: make getBlocks an iterator style, so we can send in tandem
+    -- with reading.
+    (c1:cxs, _)   -> do
+        blocks <- Logic.getBlocks logic (c1:|cxs) mghTo
+        case blocks of
+            Left _ -> error "Left"
+            Right blocks' -> forM_ blocks' $ \block ->
+                send conv (MsgBlock block)
+  where
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    sendLastMainBlock :: m ()
+    sendLastMainBlock = do
+        etip :: Either GetTipError Block <- getTip logic
+        case etip of
+            Left err@(GetTipError _) -> throw err
+            Right tip -> send conv (MsgBlock tip)
 
 ----------------------------------------------------------------------------
 -- Header propagation

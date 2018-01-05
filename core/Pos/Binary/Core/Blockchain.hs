@@ -10,7 +10,6 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
-import           Pos.Util.Util (eitherToFail)
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -32,11 +31,11 @@ instance ( Typeable b
         blockMagic <- decode
         when (blockMagic /= getProtocolMagic protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
-        prevBlock <- decode
-        bodyProof <- decode
-        consensus <- decode
-        extra     <- decode
-        eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra
+        _gbhPrevBlock <- decode
+        _gbhBodyProof <- decode
+        _gbhConsensus <- decode
+        _gbhExtra     <- decode
+        pure T.UnsafeGenericBlockHeader {..}
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -55,7 +54,7 @@ instance ( Typeable b
               <> encode (T._gbExtra gb)
     decode = do
         enforceSize "GenericBlock" 3
-        header <- decode
-        body   <- decode
-        extra  <- decode
-        eitherToFail $ T.recreateGenericBlock header body extra
+        _gbHeader <- decode
+        _gbBody   <- decode
+        _gbExtra  <- decode
+        pure T.UnsafeGenericBlock {..}

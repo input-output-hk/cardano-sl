@@ -334,6 +334,24 @@ instance (HasBlockConfiguration, HasNodeConfiguration, HasAdoptedBlockVersionDat
     getMsgLenLimit _ = do
         headerLimit <- getMsgLenLimit (Proxy @BlockHeader)
         return $
+            -- Absolutely terrible. But we're stuck with it, due to backwards
+            -- compatibility.
+            --
+            -- If the client has a smaller 'recoveryHeadersMessage' than the
+            -- server, the client will never be able to recover!
+            -- So why in hell is this configurable? It really ought to be
+            -- defined on the block chain, no?
+            --
+            -- Anyway, a better solution is to just define the message limit
+            -- for the header itself, and have the client pull them in
+            -- one-at-a-time, stopping if at any point is thinks there's too
+            -- many.
+            -- Even better: don't blindly get the headers, but instead ask
+            -- for the entire chain starting at a given point or set of
+            -- checkpoints. The server can supply the blocks one-by-one and the
+            -- client can cut it short if any of them is bogus. This way, the
+            -- server can't just feed an arbitrary number of blocks unless it
+            -- is able to forge the best chain.
             MsgHeaders <$> vectorOf recoveryHeadersMessage headerLimit
 
 -- TODO: Update once we move to CBOR.

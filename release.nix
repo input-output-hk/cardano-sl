@@ -5,7 +5,7 @@ in
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; }; 
+      config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
     }
   }:
@@ -16,6 +16,13 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 });
 
 let
+  iohkPkgs = import ./. { gitrev = cardano.rev; };
+  stagingWalletdockerImage = (import fixedNixpkgs { config = {}; }).runCommand "${iohkPkgs.dockerImages.stagingWallet.name}-hydra" {} ''
+    mkdir -pv $out/nix-support/
+    cat <<EOF > $out/nix-support/hydra-build-products
+    file dockerimage ${iohkPkgs.dockerImages.stagingWallet}
+    EOF
+  '';
   platforms = {
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
@@ -27,13 +34,11 @@ let
     stack2nix = supportedSystems;
     purescript = supportedSystems;
     dockerImage = [ "x86_64-linux" ];
+    connectScripts.mainnetWallet   = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.mainnetExplorer = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.stagingWallet   = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.stagingExplorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
-  connect = import ./scripts/launch/connect-to-cluster/default.nix;
-  connectScripts = {
-    mainnetWallet = connect { inherit (cardano) rev; };
-    mainnetExplorer = connect { inherit (cardano) rev; executable = "explorer"; };
-    stagingWallet = connect { inherit (cardano) rev; environment = "mainnet-staging"; };
-    stagingExplorer = connect { inherit (cardano) rev; executable = "explorer"; environment = "mainnet-staging"; };
-  };
-in { connect = connectScripts; }
-   // mapTestOn platforms
+in (mapTestOn platforms) // {
+  inherit stagingWalletdockerImage;
+}

@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Monad.Catch          (Handler (..), catches, onException)
+import           Control.Monad.Catch          (onException)
 import           Formatting                   (build, sformat, shown, stext, (%))
 import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Serokell.Util                (hour)
@@ -118,8 +118,10 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            (saveTx (_ptxTxId, _ptxTxAux)
-               `catches` handlers)
-               `onException` creationFailedHandler
+               `catch` invalidTxHandler)
+               `onException` creationFailedHandler  -- NB. 'onException' will
+                                                    -- rethrow after the handler
+                                                    -- finishes
            addOnlyNewPendingTx ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack
@@ -128,17 +130,17 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
            _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
            when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
-    handlers =
-        [ Handler $ \e ->
-            if isReclaimableFailure e
-                then minorError "reclaimable" (SomeException e)
-                else nonReclaimableError (SomeException e)
+    invalidTxHandler e = if isReclaimableFailure e
+        then minorError "reclaimable" (SomeException e)
+        else nonReclaimableError (SomeException e)
 
-        , Handler $ \e@SomeException{} ->
-            -- I don't know where this error can came from,
-            -- but it's better to try with tx again than to regret, right?
-            minorError "unknown error" e
-        ]
+    creationFailedHandler =
+        -- tx creation shouldn't fail if any of peers accepted our tx, but still,
+        -- if transaction was detected in blocks and its state got updated by tracker
+        -- while transaction creation failed, due to protocol error or bug,
+        -- then we better not remove this pending transaction
+        void $ usingPtxCoords removeOnlyCreatingPtx ptx
+
     minorError desc e = do
         reportError desc e ", but was given another chance"
         pshOnMinor e
@@ -155,10 +157,4 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
         sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
                 %build) ack
 
-    creationFailedHandler =
-        -- tx creation shouldn't fail if any of peers accepted our tx, but still,
-        -- if transaction was detected in blocks and its state got updated by tracker
-        -- while transaction creation failed, due to protocol error or bug,
-        -- then we better not remove this pending transaction
-        void $ usingPtxCoords removeOnlyCreatingPtx ptx
     badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"

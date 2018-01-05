@@ -7,23 +7,18 @@ module Pos.DHT.Configuration
 
 import           Universum
 
-import           Pos.Infra.Configuration (HasInfraConfiguration, ccEnhancedMessageBroadcast,
-                                          ccEnhancedMessageTimeout, ccKademliaDumpInterval,
-                                          ccNeighboursSendThreshold, infraConfiguration)
-
 -- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
-neighborsSendThreshold :: (HasInfraConfiguration, Integral a) => a
-neighborsSendThreshold =
-    fromIntegral . ccNeighboursSendThreshold $ infraConfiguration
+neighborsSendThreshold :: (Integral a) => a
+neighborsSendThreshold = 2
 
 -- | Interval for dumping state of Kademlia in slots
-kademliaDumpInterval :: (HasInfraConfiguration, Integral a) => a
-kademliaDumpInterval = fromIntegral . ccKademliaDumpInterval $ infraConfiguration
+kademliaDumpInterval :: (Integral a) => a
+kademliaDumpInterval = 4
 
 -- | Broadcast to nodes whose were pinged at most @enhancedMessageTimeout@ seconds ago.
-enhancedMessageTimeout :: (HasInfraConfiguration, Integral a) => a
-enhancedMessageTimeout = fromIntegral . ccEnhancedMessageTimeout $ infraConfiguration
+enhancedMessageTimeout :: (Integral a) => a
+enhancedMessageTimeout = 360
 
 -- | Number of nodes from batch for enhanced bessage broadcast
-enhancedMessageBroadcast :: (HasInfraConfiguration, Integral a) => a
-enhancedMessageBroadcast = fromIntegral . ccEnhancedMessageBroadcast $ infraConfiguration
+enhancedMessageBroadcast :: (Integral a) => a
+enhancedMessageBroadcast = 2

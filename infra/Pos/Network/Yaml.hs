@@ -314,7 +314,7 @@ instance FromJSON Topology where
                   "normal"      -> return TopologyP2P{..}
                   _             -> fail "P2P variant: expected 'traditional' or 'normal'"
           _ ->
-            fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
+            fail "Topology: expected exactly one of 'nodes', 'wallet', or 'p2p'"
 
 maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited

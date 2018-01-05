@@ -41,6 +41,7 @@ import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Statsd (withStatsd)
 import           Pos.Reporting.Ekg (withEkgServer, registerEkgMetrics, EkgNodeMetrics (..))
 import           Pos.Txp (MonadTxpLocal)
+import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
@@ -134,7 +135,7 @@ runServer
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP tcpAddr $ \transport ->
-            diffusionLayerFull npNetworkConfig transport (Just ekgNodeMetrics) $ \withLogic -> do
+            diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
                 when npEnableMetrics (registerEkgMetrics ekgStore)
                 runLogicLayer logicLayer $

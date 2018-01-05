@@ -6,14 +6,11 @@ module Pos.Communication.Configuration
 
 import           Universum
 
-import           Pos.Infra.Configuration (HasInfraConfiguration, ccMaxInvSize, ccMaxMempoolMsgSize,
-                                          ccMaxReqSize, infraConfiguration)
+maxReqSize :: Word32
+maxReqSize = 102
 
-maxReqSize :: HasInfraConfiguration => Word32
-maxReqSize = ccMaxReqSize infraConfiguration
+maxMempoolMsgSize :: Word32
+maxMempoolMsgSize = 100
 
-maxMempoolMsgSize :: HasInfraConfiguration => Word32
-maxMempoolMsgSize = ccMaxMempoolMsgSize infraConfiguration
-
-maxInvSize :: HasInfraConfiguration => Word32
-maxInvSize = ccMaxInvSize infraConfiguration
+maxInvSize :: Word32
+maxInvSize = 102

@@ -42,7 +42,6 @@ import           Pos.DHT.Model.Types (DHTData, DHTException (..), DHTKey, DHTNod
                                       randomDHTKey)
 import           Pos.DHT.Real.Param (KademliaParams (..))
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.TimeLimit (runWithRandomIntervals)
 import           Pos.Util.TimeWarp (NetworkAddress)
@@ -57,7 +56,6 @@ foreverRejoinNetwork
     :: ( MonadMockable m
        , MonadIO m
        , WithLogger m
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m a
@@ -128,7 +126,6 @@ rejoinNetwork
        , WithLogger m
        , Bi DHTData
        , Bi DHTKey
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m ()
@@ -151,8 +148,7 @@ withKademliaLogger action = modifyLoggerName (<> "kademlia") action
 --
 -- You can get DHTNode using @toDHTNode@ and Kademlia function @peersToNodeIds@.
 kademliaGetKnownPeers
-    :: HasInfraConfiguration
-    => KademliaDHTInstance
+    :: KademliaDHTInstance
     -> STM [NetworkAddress]
 kademliaGetKnownPeers inst = do
     let kInst = kdiHandle inst

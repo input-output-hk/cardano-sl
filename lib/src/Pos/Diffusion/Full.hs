@@ -29,7 +29,7 @@ import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
-import           Pos.Core (BlockVersionData (..), HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Configuration (protocolMagic)
 import           Pos.Core.Txp (TxAux)
@@ -56,7 +56,6 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (.
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
-import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -80,11 +79,12 @@ diffusionLayerFull
        , Mockable Throw m
        )
     => NetworkConfig KademliaParams
+    -> BlockVersion -- For making the VerInfo.
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull networkConfig transport mEkgNodeMetrics expectLogic =
+diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
@@ -94,6 +94,13 @@ diffusionLayerFull networkConfig transport mEkgNodeMetrics expectLogic =
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
             ourVerInfo :: VerInfo
+            -- TODO pull protocol magic from an explicit configuration argument
+            -- rather than from a magic Data.Reflection instance.
+            -- The lastKnownBlockVersion can go into that configuration record
+            -- as well. Goal: eliminate all Has*Configuration constraints from
+            -- full diffusion layer.
+            -- Ah but that won't be so easy, because serialization instances
+            -- currently depend on these... so defer it for later.
             ourVerInfo = VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins (outs <> workerOuts)
 
             ins :: HandlerSpecs

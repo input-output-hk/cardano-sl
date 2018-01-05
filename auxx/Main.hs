@@ -30,6 +30,7 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
+import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
@@ -128,7 +129,7 @@ action opts@AuxxOptions {..} command = do
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (npNetworkConfig nodeParams) transport Nothing $ \withLogic -> do
+                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                                   (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)

@@ -84,6 +84,7 @@ applyToil
     :: GlobalApplyToilMode m
     => [(TxAux, TxUndo)]
     -> m ()
+applyToil [] = pass
 applyToil txun = do
     applyTxsToStakes txun
     mapM_ (applyTxToUtxo' . withTxId . fst) txun

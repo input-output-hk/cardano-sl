@@ -142,12 +142,12 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
+    adoptedBlockData <- gsAdoptedBVData
+    let ctx = Utxo.VTxContext verifyVersions (bvdScriptVersion adoptedBlockData)
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx
     pure txUndo
-  where
-    ctx = Utxo.VTxContext verifyVersions
 
 isRedeemTx :: MonadUtxoRead m => TxAux -> m Bool
 isRedeemTx txAux = do

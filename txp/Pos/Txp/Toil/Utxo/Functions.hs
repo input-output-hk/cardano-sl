@@ -17,8 +17,8 @@ import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatF
                                 verResToMonadError, verifyGeneric)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
-                           isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core (AddrType (..), Address (..), HasConfiguration, ScriptVersion, addressF,
+                           integerToCoin, isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
@@ -43,7 +43,8 @@ import           Pos.Txp.Toil.Types (TxFee (..))
 data VTxContext = VTxContext
     { -- | Verify that script versions in tx are known, addresses' and
       -- witnesses' types are known, attributes are known too.
-      vtcVerifyAllIsKnown :: !Bool
+      vtcVerifyAllIsKnown     :: !Bool
+    , vtcAdoptedScriptVersion :: !ScriptVersion
 --    , vtcSlotId   :: !SlotId         -- ^ Slot id of block transaction is checked in
 --    , vtcLeaderId :: !StakeholderId  -- ^ Leader id of block transaction is checked in
     } deriving (Show)
@@ -205,6 +206,8 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
                 redVer = scrVersion twRedeemer
             when (valVer /= redVer) $
                 throwError $ WitnessScriptVerMismatch valVer redVer
+            when (valVer > vtcAdoptedScriptVersion) $
+                throwError $ WitnessAdoptedScriptVerMismatch valVer vtcAdoptedScriptVersion
             when (vtcVerifyAllIsKnown && not (isKnownScriptVersion valVer)) $
                 throwError $ WitnessUnknownScriptVer valVer
             over _Left WitnessScriptError $

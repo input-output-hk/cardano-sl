@@ -19,8 +19,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
 import           Pos.Arbitrary.Txp (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
-import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress, makePubKeyAddressBoot,
-                           makeScriptAddress, mkCoin, sumCoins)
+import           Pos.Core (HasConfiguration, ScriptVersion, addressHash, checkPubKeyAddress,
+                           makePubKeyAddressBoot, makeScriptAddress, mkCoin, scrVersion, sumCoins)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
 import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, toPublic, unsafeHash,
@@ -79,6 +79,9 @@ spec = withDefConfiguration $ describe "Txp.Toil.Utxo" $ do
 -- Properties
 ----------------------------------------------------------------------------
 
+adoptedScriptVersion :: ScriptVersion
+adoptedScriptVersion = 0
+
 findTxInUtxo :: HasConfiguration => TxIn -> TxOutAux -> Utxo -> Bool
 findTxInUtxo key txO utxo =
     let utxo' = M.delete key utxo
@@ -96,7 +99,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
             let id = hash tx
             (idx, out) <- zip [0..] (toList _txOutputs)
             pure ((TxInUtxo id idx), TxOutAux out)
-        vtxContext = VTxContext False
+        vtxContext = VTxContext False adoptedScriptVersion
         txAux = TxAux newTx witness
     in counterexample ("\n"+|nameF "txs" (blockListF' "-" genericF txs)|+""
                            +|nameF "transaction" (B.build txAux)|+"") $
@@ -106,7 +109,7 @@ badSigsTx :: HasConfiguration => SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let (tx@UnsafeTx {..}, utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        ctx = VTxContext False
+        ctx = VTxContext False adoptedScriptVersion
         transactionVerRes =
             verifyTxUtxoPure ctx utxo $ TxAux tx txWits
         notAllSignaturesAreValid =
@@ -119,7 +122,7 @@ doubleInputTx :: HasConfiguration => SmallGenerator DoubleInputTx -> Property
 doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
     let ((tx@UnsafeTx {..}), utxo, _extendedInputs, txWits) =
             getTxFromGoodTx ls
-        ctx = VTxContext False
+        ctx = VTxContext False adoptedScriptVersion
         transactionVerRes =
             verifyTxUtxoPure ctx utxo $ TxAux tx txWits
         someInputsAreDuplicated =
@@ -129,7 +132,7 @@ doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
 validateGoodTx :: HasConfiguration => SmallGenerator GoodTx -> Property
 validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@(tx, utxo, _, txWits) = getTxFromGoodTx ls
-        ctx = VTxContext False
+        ctx = VTxContext False adoptedScriptVersion
         transactionVerRes =
             verifyTxUtxoPure ctx utxo $ TxAux tx txWits
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
@@ -260,10 +263,19 @@ scriptTxSpec = describe "script transactions" $ do
                       PkWitness <$> arbitrary <*> arbitrary)
 
         it "validator script provided in witness doesn't match \
-           \the validator for which the address was created" $ do
+           \the validator for which the address was created \
+           \it checks that the version check happens before running the scripts"  $ do
             let witness = ScriptWitness intValidator goodIntRedeemer
             txShouldFailWithWitnessMismatch $ checkScriptTx
                 alwaysSuccessValidator
+                (const witness)
+
+        it "validator script provided in witness is greater \
+           \than adopted script version" $ do
+            let intValidatorWithVersionOne = intValidator {scrVersion = 1}
+            let witness = ScriptWitness intValidatorWithVersionOne intValidatorWithVersionOne
+            txShouldFailWithInvalidAdoptedScriptVer $ checkScriptTx
+                intValidatorWithVersionOne
                 (const witness)
 
         it "validator script isn't a proper validator, \
@@ -406,7 +418,7 @@ scriptTxSpec = describe "script transactions" $ do
         in  (TxInUtxo txid 0, outp, one ((TxInUtxo txid 0), (TxOutAux outp)))
 
     -- Do not verify versions
-    vtxContext = VTxContext False
+    vtxContext = VTxContext False adoptedScriptVersion
 
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
@@ -435,24 +447,41 @@ scriptTxSpec = describe "script transactions" $ do
 -- | Script transaction should pass the check and return 'Right'.
 txShouldSucceed :: Either ToilVerFailure () -> Expectation
 txShouldSucceed test = whenLeft test $ \x ->
-    expectationFailure $ "unexpected failure: " <> show x
+    expectationFailure $ toString $ "unexpected failure: " <> pretty x
 
 -- | Transaction should fail with a 'ToilWitnessDoesntMatch' error.
 txShouldFailWithWitnessMismatch :: Either ToilVerFailure () -> Expectation
 txShouldFailWithWitnessMismatch = \case
     Left ToilWitnessDoesntMatch{} -> pass
-    other -> expectationFailure $
+    other -> expectationFailure $ toString $
         "expected: Left ToilWitnessDoesntMatch{..}\n" <>
-        " but got: " <> show other
+        " but got: " <> either pretty show other
 
 -- | Transaction should fail with a Plutus error.
 txShouldFailWithPlutus :: Either ToilVerFailure () -> PlutusError -> Expectation
 txShouldFailWithPlutus res err = case res of
     Left ToilInvalidWitness{..}
         | tiwReason == WitnessScriptError err -> pass
-        | otherwise -> expectationFailure $
-              "expected: " <> show (WitnessScriptError err) <> "\n" <>
-              " but got: " <> show tiwReason
-    other -> expectationFailure $
-        "expected: Left ...: " <> show (WitnessScriptError err) <> "\n" <>
-        " but got: " <> show other
+        | otherwise -> expectationFailure $ toString $
+              "expected: " <> pretty (WitnessScriptError err) <> "\n" <>
+              " but got: " <> pretty tiwReason
+    other -> expectationFailure $ toString $
+        "expected: Left ...: " <> pretty (WitnessScriptError err) <> "\n" <>
+        " but got: " <> either pretty show other
+
+-- | Transaction should fail with a 'ToilInvalidWitness'
+-- specifically 'WitnessAdoptedScriptVerMismatch' error.
+txShouldFailWithInvalidAdoptedScriptVer :: Either ToilVerFailure () -> Expectation
+txShouldFailWithInvalidAdoptedScriptVer = \case
+    Left (ToilInvalidWitness _ _ c) -> case c of
+        WitnessAdoptedScriptVerMismatch _ _ -> pass
+        WitnessScriptVerMismatch a b -> expectationFailure $ toString $
+            "expected: WitnessAdoptedScriptVerMismatch\n" <>
+            " but got: WitnessScriptVerMismatch " <>
+            pretty a <> " " <> pretty b
+        other -> expectationFailure $ toString $
+            "expected: WitnessAdoptedScriptVerMismatch\n" <>
+            " but got: " <> pretty other
+    other -> expectationFailure $ toString $
+        "expected: Left ToilInvalidWitness\n" <>
+        " but got: " <> either pretty show other

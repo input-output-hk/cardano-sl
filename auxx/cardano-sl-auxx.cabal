@@ -20,7 +20,7 @@ library
                        Command.BlockGen
                        Command.Proc
                        Command.Rollback
-                       Command.Dump
+                       Command.DumpBlockchain
                        Command.Tx
                        Command.TyProjection
                        Command.Update

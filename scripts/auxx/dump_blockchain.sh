@@ -17,7 +17,7 @@ EXECMODE=""
 PEERS=""
 
 if [[ $1 == '--nowait' ]]; then
-  EXECMODE="--mode=with-config cmd --commands=\"dump $OUTPATH\""
+  EXECMODE="--mode=with-config cmd --commands=\"dump-blockchain $OUTPATH\""
   echo "Current state of the blockchain will be dumped."
   echo "No downloading will occur."
   echo ""
@@ -35,7 +35,7 @@ elif [[ $1 == '--wait' ]]; then
   echo "As soon as the logs show that the node is synced,"
   echo "execute the following command:"
   echo ""
-  echo "    dump $OUTPATH"
+  echo "    dump-blockchain $OUTPATH"
   echo ""
 else
 	echo "Usage: $0 [--wait|--nowait]"

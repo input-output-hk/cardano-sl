@@ -1,5 +1,5 @@
-module Command.Dump
-    ( dump
+module Command.DumpBlockchain
+    ( dumpBlockchain
     ) where
 
 import           Universum
@@ -86,11 +86,11 @@ stripProof (Right mb) = Right $ GenericBlockNoProof mb
 
 -- | Dump whole blockchain in CBOR format to the specified folder.
 -- Each epoch will be at <outFolder>/epoch<epochIndex>.cbor.
-dump
+dumpBlockchain
     :: (MonadAuxxMode m, MonadIO m)
     => FilePath
     -> m ()
-dump outFolder = withStateLock HighPriority "auxx" $ \_ -> do
+dumpBlockchain outFolder = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     liftIO $ createDirectoryIfMissing True outFolder
     tipHeader <- DB.getTipHeader

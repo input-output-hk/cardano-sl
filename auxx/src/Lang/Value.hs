@@ -27,7 +27,7 @@ module Lang.Value
        , AddrDistrPart(..)
        , ProposeUpdateParams(..)
        , RollbackParams(..)
-       , DumpParams(..)
+       , DumpBlockchainParams(..)
        , ProposeUpdateSystem(..)
        , GenBlocksParams(..)
        , AddKeyParams (..)
@@ -73,7 +73,7 @@ data RollbackParams = RollbackParams
     , rpDumpPath :: !FilePath
     } deriving (Show)
 
-data DumpParams = DumpParams
+data DumpBlockchainParams = DumpBlockchainParams
     { dumpOutFolder :: !FilePath
     } deriving (Show)
 

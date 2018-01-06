@@ -9,6 +9,7 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
+, exchange ? false
 }:
 
 with localLib;
@@ -41,13 +42,17 @@ let
       valency: 1
       fallbacks: 7
   '';
+  logConfig =
+    if exchange
+    then "log-config-exchanges.yaml"
+    else "log-config-qa.yaml";
   configFiles = pkgs.runCommand "cardano-config" {} ''
     mkdir -pv $out
     cd $out
     cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"} log-config-qa.yaml
+    cp -vi ${iohkPkgs.cardano-sl.src + "/../scripts/log-templates/${logConfig}"} ${logConfig}
     cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
@@ -78,7 +83,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
     ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
     ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \
-    --log-config ${configFiles}/log-config-qa.yaml                 \
+    --log-config ${configFiles}/${logConfig}                       \
     --topology "${configFiles}/topology.yaml"                      \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"                                     \

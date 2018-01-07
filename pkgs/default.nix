@@ -3905,6 +3905,8 @@ self: {
           pname = "http-api-data";
           version = "0.3.7.1";
           sha256 = "1zbmf0kkfsw7pfznisi205gh7jd284gfarxsyiavd2iw26akwqwc";
+          revision = "1";
+          editedCabalFile = "0g57k71bssf81yba6xf9fcxlys8m5ax5kvrs4gvckahf5ihdxds6";
           setupHaskellDepends = [
             base
             Cabal

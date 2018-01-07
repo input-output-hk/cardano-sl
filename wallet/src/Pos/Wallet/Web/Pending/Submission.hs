@@ -116,9 +116,9 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            saveTx (_ptxTxId, _ptxTxAux) `catches` handlers
+           addOnlyNewPendingTx ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack
-           addOnlyNewPendingTx ptx
            when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers =

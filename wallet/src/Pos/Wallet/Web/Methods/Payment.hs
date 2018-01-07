@@ -70,7 +70,11 @@ newPayment
     -> Coin
     -> m CTx
 newPayment sa passphrase srcAccount dstAccount coin =
-    notFasterThan (1 :: Second) $  -- in order not to overflow relay
+    -- This is done for two reasons:
+    -- 1. In order not to overflow relay.
+    -- 2. To let other things (e. g. block processing) happen if
+    -- `newPayment`s are done continuously.
+    notFasterThan (6 :: Second) $
     sendMoney
         sa
         passphrase

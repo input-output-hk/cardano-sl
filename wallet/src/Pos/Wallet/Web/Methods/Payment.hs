@@ -43,7 +43,7 @@ import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressP
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
                                                    CTx (..), CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, cadId, mkCCoin)
+                                                   addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)

@@ -11,6 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletBalances
+       , WalBalancesAndUtxo
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , Query
@@ -151,6 +152,7 @@ makeLenses ''WalletInfo
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
 type WalletBalances = AddrCoinMap
+type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
@@ -279,7 +281,7 @@ getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
 
-getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
+getWalletBalancesAndUtxo :: Query WalBalancesAndUtxo
 getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
 
 updateWalletBalancesAndUtxo :: UtxoModifier -> Update ()

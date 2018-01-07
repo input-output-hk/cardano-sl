@@ -46,7 +46,7 @@ import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr,
                                                    CCoin, CId, CTx (..),
                                                    CWAddressMeta (..), NewBatchPayment (..),
                                                    Wal, addrMetaToAccount, mkCCoin)
@@ -76,12 +76,17 @@ newPayment
     -> InputSelectionPolicy
     -> m CTx
 newPayment sa passphrase srcAccount dstAccount coin policy =
-    sendMoney
-        sa
-        passphrase
-        (AccountMoneySource srcAccount)
-        (one (dstAccount, coin))
-        policy
+    -- This is done for two reasons:
+    -- 1. In order not to overflow relay.
+    -- 2. To let other things (e. g. block processing) happen if
+    -- `newPayment`s are done continuously.
+    notFasterThan (6 :: Second) $
+      sendMoney
+          sa
+          passphrase
+          (AccountMoneySource srcAccount)
+          (one (dstAccount, coin))
+          policy
 
 newPaymentBatch
     :: MonadWalletWebMode m

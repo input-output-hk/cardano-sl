@@ -5,6 +5,7 @@
 module Pos.Configuration
        ( NodeConfiguration (..)
        , HasNodeConfiguration
+       , InputSelectionPolicyConf (..)
        , nodeConfiguration
        , withNodeConfiguration
 
@@ -28,11 +29,14 @@ module Pos.Configuration
 
        -- * Transaction resubmition constants
        , pendingTxResubmitionPeriod
+
+       -- * Transaction formation
+       , txDefInputSelectionPolicy
        ) where
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Aeson             (FromJSON (..), genericParseJSON, withText)
 import           Data.Reflection        (Given (..), give)
 import           Data.Time.Units        (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -76,10 +80,26 @@ data NodeConfiguration = NodeConfiguration
       -- ^ InvMsg propagation queue capacity
     , ccPendingTxResubmissionPeriod :: !Int
       -- ^ Minimal delay between pending transactions resubmission
+    , ccTxDefInputSelectionPolicy   :: !InputSelectionPolicyConf
+      -- ^ Default policy to pick inputs when forming transaction
     } deriving (Show, Generic)
 
 instance FromJSON NodeConfiguration where
     parseJSON = genericParseJSON defaultOptions
+
+-- | Specifies the way Uxtos are going to be grouped.
+-- This maps 1-to-1 to @InputSelectionPolicy@, but has another 'FromJSON'
+-- instance which parses from String.
+data InputSelectionPolicyConf
+    = OptimizeForSecurityConf  -- ^ Spend everything from the address
+    | OptimizeForSizeConf      -- ^ No grouping
+    deriving (Show, Eq, Generic)
+
+instance FromJSON InputSelectionPolicyConf where
+    parseJSON = withText "InputSelectionPolicy" $ \case
+        "OptimizeForSecurity" -> pure OptimizeForSecurityConf
+        "OptimizeForSize"     -> pure OptimizeForSizeConf
+        _ -> fail "Unknown transaction inputs grouping policy"
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -146,6 +166,15 @@ dlgCacheParam = fromIntegral . ccDlgCacheParam $ nodeConfiguration
 -- we are not receiving generated blocks.
 mdNoBlocksSlotThreshold :: (HasNodeConfiguration, Integral i) => i
 mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ nodeConfiguration
+
+----------------------------------------------------------------------------
+-- Transactions formation
+----------------------------------------------------------------------------
+
+-- | Specifies how inputs should be selected when forming transaction.
+-- This is default behaviour and may be overriden.
+txDefInputSelectionPolicy :: HasNodeConfiguration => InputSelectionPolicyConf
+txDefInputSelectionPolicy = ccTxDefInputSelectionPolicy $ nodeConfiguration
 
 ----------------------------------------------------------------------------
 -- Transactions resubmition

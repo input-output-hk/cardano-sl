@@ -55,6 +55,9 @@ import           Serokell.Util            (listJson)
 
 import           Pos.Binary               (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
+import           Pos.Configuration        (HasNodeConfiguration,
+                                           InputSelectionPolicyConf (..),
+                                           txDefInputSelectionPolicy)
 import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
                                            bvdTxFeePolicy, calculateTxSizeLinear,
                                            coinToInteger, integerToCoin, isRedeemAddress,
@@ -147,7 +150,7 @@ isCheckedTxError = \case
 -- Tx creation
 -----------------------------------------------------------------------------
 
--- | Specifies the way Uxtos are going to be grouped.
+-- | Specifies the way Utxo is going to be grouped.
 data InputSelectionPolicy
     = OptimizeForSecurity  -- ^ Spend everything from the address
     | OptimizeForSize      -- ^ No grouping
@@ -161,8 +164,13 @@ instance Buildable InputSelectionPolicy where
 instance Buildable (SecureLog InputSelectionPolicy) where
     build = buildUnsecure
 
-instance Default InputSelectionPolicy where
-    def = OptimizeForSecurity
+instance HasNodeConfiguration => Default InputSelectionPolicy where
+    def = inputSelectionPolicyFromConf txDefInputSelectionPolicy
+
+inputSelectionPolicyFromConf :: InputSelectionPolicyConf -> InputSelectionPolicy
+inputSelectionPolicyFromConf = \case
+    OptimizeForSecurityConf -> OptimizeForSecurity
+    OptimizeForSizeConf     -> OptimizeForSize
 
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m

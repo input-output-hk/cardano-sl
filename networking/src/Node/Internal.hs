@@ -349,7 +349,8 @@ stIncrBytes peer bytes stats =
     case Map.lookup peer (stPeerStatistics stats) of
       Nothing -> return ()
       Just peerStats -> modifySharedAtomic peerStats $ \ps ->
-          return (pstIncrBytes bytes ps, ())
+          let !ps' = pstIncrBytes bytes ps
+          in  return (ps', ())
 
 pstIncrBytes :: Int -> PeerStatistics -> PeerStatistics
 pstIncrBytes bytes peerStatistics = peerStatistics {

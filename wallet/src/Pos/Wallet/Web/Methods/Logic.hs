@@ -25,9 +25,11 @@ module Pos.Wallet.Web.Methods.Logic
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex, notElem)
+import           Data.List                  (findIndex)
+import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (logDebug)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -49,11 +51,11 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CWalletMeta (..), Wal, addrMetaToAccount,
                                              encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              addWAddress, createAccount, createWallet,
-                                             getAccountIds,
+                                             doesAccountExist, getAccountIds,
                                              getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
@@ -73,7 +75,6 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
 -- Getters
 ----------------------------------------------------------------------------
 
-
 sumCCoin :: MonadThrow m => [CCoin] -> m CCoin
 sumCCoin ccoins = mkCCoin . unsafeIntegerToCoin . sumCoins <$> mapM decodeCTypeOrFail ccoins
 
@@ -90,7 +91,7 @@ getWAddressBalanceWithMod
     -> CWAddressMeta
     -> m Coin
 getWAddressBalanceWithMod balancesAndUtxo accMod addr =
-    getBalanceWithMod balancesAndUtxo accMod <$> decodeCTypeOrFail (cwamId addr)
+    getBalanceWithMod balancesAndUtxo accMod <$> convertCIdTOAddr (cwamId addr)
 
 -- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
@@ -118,17 +119,19 @@ getAccountMod
 getAccountMod balAndUtxo accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
+    logDebug "getAccountMod: gathering info about addresses.."
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
-    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-               mapM (decodeCTypeOrFail . cadAmount) allAddrs
+    logDebug "getAccountMod: info about addresses gathered"
+    balance <- sumCCoin (map cadAmount allAddrs)
+    logDebug "getAccountMod: evaluated total balance"
     meta <- getAccountMetaOrThrow accId
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
     gatherAddresses addrModifier dbAddrs = do
         let memAddrs = sortedInsertions addrModifier
+            dbAddrsSet = S.fromList dbAddrs
             relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
-            -- @|relatedMemAddrs|@ is O(1) while @dbAddrs@ is large
-            unknownMemAddrs = filter (`notElem` dbAddrs) relatedMemAddrs
+            unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
 getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
@@ -192,11 +195,15 @@ newAddress addGenSeed passphrase accId = do
     balAndUtxo <- getWalletBalancesAndUtxo
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccountMod balAndUtxo accMod accId
+        parentExists <- doesAccountExist accId
+        unless parentExists $ throwM noAccount
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress balAndUtxo accMod cAccAddr
+  where
+    noAccount =
+        RequestError $ sformat ("No account with id "%build%" found") accId
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m

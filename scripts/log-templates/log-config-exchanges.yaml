@@ -1,0 +1,17 @@
+rotation:
+    logLimit: 104857600 # 100MB
+    keepFiles: 100
+severity: Debug
+node:
+    severity: Debug
+    handlers:
+      - file: node.pub
+        round: 1
+      - file: node
+    comm:
+        severity: Debug
+    dht:
+        severity: Info
+    worker:
+      us:
+        severity: Debug

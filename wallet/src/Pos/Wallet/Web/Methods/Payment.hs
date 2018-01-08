@@ -12,9 +12,11 @@ import           Universum
 
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
-import           Formatting                       (sformat, (%))
-import qualified Formatting                       as F
+import qualified Data.Map                         as M
+import           Data.Time.Units                  (Second)
 import           Servant.Server                   (err405, errReasonPhrase)
+import           Mockable                         (concurrently, delay)
+import           System.Wlog                      (logDebug)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -26,7 +28,7 @@ import           Pos.Client.Txp.Util              (InputSelectionPolicy, compute
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration,
                                                    walletTxCreationDisabled)
-import           Pos.Core                         (Coin, HasConfiguration, addressF,
+import           Pos.Core                         (Coin, HasConfiguration,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
                                                    checkPassMatches, hash,
@@ -37,7 +39,6 @@ import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
-import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
@@ -51,7 +52,8 @@ import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
+                                                   convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
@@ -67,13 +69,16 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment sa passphrase srcAccount dstAccount coin policy = do
+newPayment sa passphrase srcAccount dstAccount coin policy =
+    notFasterThan (1 :: Second) $  -- in order not to overflow relay
     sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
         policy
+  where
+    notFasterThan time action = fst <$> concurrently action (delay time)
 
 getTxFee
      :: MonadWalletWebMode m
@@ -160,52 +165,54 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 
+    logDebug "sendMoney: start retrieving addrs"
+
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
+    logDebug "sendMoney: retrieved addrs"
 
-    srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
-    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+
+    logDebug "sendMoney: processed addrs"
+
+    let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
     let getSinger addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
-                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+                            (M.lookup addr metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
               Left err -> throw err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
-    (th, dstAddrs) <-
-        rewrapTxError "Cannot send transaction" $ do
-            (txAux, inpTxOuts') <-
-                prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
+    th <- rewrapTxError "Cannot send transaction" $ do
+        logDebug "sendMoney: we're to prepareMTx"
+        (txAux, inpTxOuts') <-
+            prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
+        logDebug "sendMoney: performed prepareMTx"
 
-            ts <- Just <$> getCurrentTimestamp
-            let tx = taTx txAux
-                txHash = hash tx
-                inpTxOuts = toList inpTxOuts'
-                dstAddrs  = map txOutAddress . toList $
-                            _txOutputs tx
-                th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-            ptx <- mkPendingTx srcWallet txHash txAux th
+        ts <- Just <$> getCurrentTimestamp
+        let tx = taTx txAux
+            txHash = hash tx
+            inpTxOuts = toList inpTxOuts'
+            dstAddrs  = map txOutAddress . toList $
+                        _txOutputs tx
+            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        ptx <- mkPendingTx srcWallet txHash txAux th
 
-            (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+        logDebug "sendMoney: performed mkPendingTx"
+        submitAndSaveNewPtx enqueueMsg ptx
+        logDebug "sendMoney: submitted and saved tx"
 
-    logInfoS $
-        sformat ("Successfully spent money from "%
-                    listF ", " addressF % " addresses on " %
-                    listF ", " addressF)
-        (toList srcAddrs)
-        dstAddrs
+        return th
 
     addHistoryTx srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
+
+    logDebug "sendMoney: constructing response"
     fst <$> constructCTx srcWallet srcWalletAddrs diff th
-  where
-     -- TODO eliminate copy-paste
-     listF separator formatter =
-         F.later $ fold . intersperse separator . fmap (F.bprint formatter)

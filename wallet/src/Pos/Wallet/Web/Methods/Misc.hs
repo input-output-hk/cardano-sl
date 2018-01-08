@@ -14,6 +14,8 @@ module Pos.Wallet.Web.Methods.Misc
 
        , syncProgress
 
+       , requestShutdown
+
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
@@ -34,20 +36,22 @@ import           Data.Aeson.TH                (defaultOptions, deriveJSON)
 import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.Text.Buildable
 import           Formatting                   (bprint, build, (%))
-import           Serokell.Util.Text           (listJson)
+import           Mockable                     (async, delay)
+import           Serokell.Util                (listJson, sec)
 import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
-import           Pos.Crypto                   (hashHexF, hash)
+import           Pos.Crypto                   (hash, hashHexF)
 import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut, TxId)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxId, TxIn, TxOut)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
 
 import           Pos.Aeson.Storage            ()
+import           Pos.Shutdown                 (triggerShutdown)
 import           Pos.Util.Chrono              (getNewestFirst, toNewestFirst)
 import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
@@ -63,8 +67,8 @@ import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
                                                cancelSpecificApplyingPtx, getNextUpdate,
                                                getPendingTxs, getProfile,
                                                getWalletStorage, reevaluateUncertainPtxs,
-                                               removeNextUpdate,
-                                               resetFailedPtxs, setProfile, testReset)
+                                               removeNextUpdate, resetFailedPtxs,
+                                               setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
@@ -113,6 +117,16 @@ postponeUpdate = removeNextUpdate
 -- | Delete next update info and restart immediately
 applyUpdate :: MonadWalletWebMode m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
+
+----------------------------------------------------------------------------
+-- System
+----------------------------------------------------------------------------
+
+-- | Triggers shutdown in a short interval after called. Delay is
+-- needed in order for http request to succeed.
+requestShutdown :: MonadWalletWebMode m => m ()
+requestShutdown = void $ async $ delay (sec 1) >> triggerShutdown
+--requestShutdown = triggerShutdown
 
 ----------------------------------------------------------------------------
 -- Sync progress

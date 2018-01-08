@@ -220,3 +220,8 @@ instance HasCustomSwagger ExportBackupJSON where
         "Export full information about wallet in JSON format into a file under \
         \given path. Wallet may be later restored from this file with \
         \'ImportBackupJSON' endpoint."
+
+
+instance HasCustomSwagger RequestShutdown where
+    swaggerModifier = modifyDescription
+        "Shutdown the node asynchronously."

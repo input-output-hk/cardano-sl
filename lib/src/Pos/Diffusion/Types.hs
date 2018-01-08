@@ -27,6 +27,15 @@ data Diffusion m = Diffusion
                          -> BlockHeader
                          -> [HeaderHash]
                          -> m (Either GetBlocksError [Block])
+      -- An issue with this setup: backpressure.
+      -- The server side will just dump the blocks as fast as possible, but we
+      -- want the TCP socket to push back on it if the client can't keep up.
+    , streamBlocks       :: forall t .
+                            ( Monoid t )
+                         => BlockHeader
+                         -> [HeaderHash]
+                         -> (Block -> m t)
+                         -> m t
       -- This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
       -- This type is chosen so that it fits with the current implementation:
@@ -91,6 +100,7 @@ dummyDiffusionLayer = DiffusionLayer
     dummyDiffusion :: Applicative m => Diffusion m
     dummyDiffusion = Diffusion
         { getBlocks          = \_ _ _ -> pure (Left (GetBlocksError "not implemented"))
+        , streamBlocks       = \_ _ _ -> pure mempty
         , requestTip         = \_ -> pure mempty
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure False

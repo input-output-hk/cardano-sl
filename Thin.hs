@@ -3,6 +3,7 @@
 
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
 
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.IO.Class (liftIO)
@@ -47,8 +48,8 @@ main =
             bracketTransportTCP tcpAddr2 $ \transport2 ->
             diffusionLayerFull networkConfig1 blockVersion transport1 Nothing $ \expectLogic1 ->
             diffusionLayerFull networkConfig2 blockVersion transport2 Nothing $ \expectLogic2 -> do
-                diffusionLayer1 <- expectLogic1 (pureLogic 8192)
-                diffusionLayer2 <- expectLogic2 (pureLogic 8192)
+                diffusionLayer1 <- expectLogic1 (pureLogic 160000)
+                diffusionLayer2 <- expectLogic2 (pureLogic 160000)
                 let diffusion1 = diffusion diffusionLayer1
                 -- Run 2 first because it's the server.
                 runDiffusionLayer diffusionLayer2 $
@@ -62,6 +63,7 @@ main =
                         -- => 840kb per request
                         -- 500 requests gives 1,000,000 blocks and 420Mb of
                         --   block data.
+                        {-
                         let downloadBlocks 0 = pure ()
                             downloadBlocks n = do
                                 blks <- getBlocks diffusion1 serverNodeId blockHeader [mainBlockHeaderHash]
@@ -70,8 +72,10 @@ main =
                                     Right its -> do
                                         -- logInfo $ sformat shown (length its)
                                         downloadBlocks (n-1)
+                        -}
                         start <- liftIO getCurrentTime
-                        downloadBlocks 8
+                        --downloadBlocks 8
+                        streamBlocks diffusion1 blockHeader [mainBlockHeaderHash] $ \block -> pure ()
                         end <- liftIO getCurrentTime
                         logInfo $ sformat ("Retrieval elapsed wall-clock time is: "%shown) (diffUTCTime end start)
   where

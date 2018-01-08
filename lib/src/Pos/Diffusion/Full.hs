@@ -243,6 +243,14 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                       -> d (Either GetBlocksError [Block])
             getBlocks = Diffusion.Block.getBlocks' logic enqueue
 
+            streamBlocks :: forall t .
+                            ( Monoid t )
+                         => BlockHeader
+                         -> [HeaderHash]
+                         -> (Block -> d t)
+                         -> d t
+            streamBlocks = Diffusion.Block.streamBlocks logic enqueue
+
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
             requestTip = Diffusion.Block.requestTip enqueue
 

@@ -5,6 +5,7 @@
 module Pos.Diffusion.Full.Block
     ( getBlocks
     , getBlocks'
+    , streamBlocks
     , requestTip
     , announceBlockHeader
     , handleHeadersCommunication
@@ -364,6 +365,56 @@ getBlocks' __logic enqueue nodeId tipHeader checkpoints = do
             throwError $ sformat ("Peer failed to produce block: "%stext) t
         Just (MsgBlock block) -> do
             retrieveBlocksDo conv (block : acc)
+
+-- | Get some blocks from the network.
+-- No verification is done
+streamBlocks
+    :: forall d t .
+       ( Monoid t
+       , DiffusionWorkMode d
+       , HasAdoptedBlockVersionData d
+       )
+    => Logic d
+    -> EnqueueMsg d
+    -> BlockHeader
+    -> [HeaderHash]
+    -> (Block -> d t)
+    -> d t
+streamBlocks __logic enqueue tipHeader checkpoints k = requestBlocks
+  where
+
+    mgh :: MsgGetHeaders
+    mgh = MsgGetHeaders
+        { mghFrom = checkpoints
+        , mghTo = Just tipHash
+        }
+
+    tipHash :: HeaderHash
+    tipHash = headerHash tipHeader
+
+    requestBlocks :: d t
+    requestBlocks = enqueueMsgSingle
+        enqueue
+        (MsgRequestBlockHeaders Nothing)
+        (Conversation requestBlocksConversation)
+
+    requestBlocksConversation
+        :: ConversationActions MsgGetHeaders MsgBlock d
+        -> d t
+    requestBlocksConversation conv = do
+        logDebug $ sformat ("requestBlocks: sending "%build) mgh
+        send conv mgh
+        retrieveBlocks conv mempty
+
+    -- A piece of the block retrieval conversation in which the blocks are
+    -- pulled in one-by-one.
+    retrieveBlocks :: ConversationActions MsgGetHeaders MsgBlock d -> t -> d t
+    retrieveBlocks conv !acc = recvLimited conv >>= \case
+        Nothing -> return acc
+        Just (MsgNoBlock _) -> return acc
+        Just (MsgBlock block) -> do
+            t <- k block
+            retrieveBlocks conv (acc `mappend` t)
 
 requestTip
     :: forall d t .

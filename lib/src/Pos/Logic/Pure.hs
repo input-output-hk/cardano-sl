@@ -76,12 +76,15 @@ pureLogic batchSize = Logic
         , handleData = \_ -> pure False
         }
 
+{-# INLINE manyBlocks #-}
 manyBlocks :: Int -> [Block]
 manyBlocks batchSize = replicate batchSize block
 
+{-# INLINE manyBlockHeaders #-}
 manyBlockHeaders :: Int -> NonEmpty BlockHeader
 manyBlockHeaders batchSize = blockHeader :| replicate (batchSize - 1) blockHeader
 
+{-# INLINE manyBlockHeaderHashes #-}
 manyBlockHeaderHashes :: Int -> NonEmpty HeaderHash
 manyBlockHeaderHashes batchSize = mainBlockHeaderHash :| replicate (batchSize - 1) mainBlockHeaderHash
 

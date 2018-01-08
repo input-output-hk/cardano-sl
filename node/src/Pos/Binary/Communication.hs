@@ -2,9 +2,13 @@
 
 -- | Communication-related serialization -- messages mostly.
 
-module Pos.Binary.Communication () where
+module Pos.Binary.Communication
+    ( msgBlockPrefix
+    ) where
 
 import           Universum
+import qualified Data.ByteString                  as BS
+import qualified Codec.CBOR.Write                 as CBOR (toStrictByteString)
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
@@ -62,6 +66,12 @@ instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
             t -> fail $ "MsgBlock wrong tag: " <> show t
+
+-- | Get an encoded MsgBlock from an encoded block.
+msgBlockPrefix :: BS.ByteString
+msgBlockPrefix = CBOR.toStrictByteString prefix
+  where
+    prefix = encodeListLen 2 <> encode (0 :: Word8)
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

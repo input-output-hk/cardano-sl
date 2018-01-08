@@ -1151,6 +1151,7 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            cborg
             cereal
             conduit
             containers
@@ -2888,8 +2889,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "9173805b9c941bda1f37e5aeb68ae30f57a12df9b17bd2aa86db3b7d5236a678";
-          revision = "2";
-          editedCabalFile = "02j27xvlj0jw3b2jpfg6wbysj0blllin792wj6qnrgnrvd4haj7v";
+          revision = "3";
+          editedCabalFile = "17qqdl8p04vy314jp045100989lh84cbhqv6ghizm87xpk7ck4j3";
           setupHaskellDepends = [
             base
             Cabal
@@ -3965,6 +3966,8 @@ self: {
           pname = "http-api-data";
           version = "0.3.7.1";
           sha256 = "8c633e95113c8ab655f4ba67e51e41a2c9035f0122ea68bfbb876b37277075fd";
+          revision = "1";
+          editedCabalFile = "0g57k71bssf81yba6xf9fcxlys8m5ax5kvrs4gvckahf5ihdxds6";
           setupHaskellDepends = [
             base
             Cabal
@@ -4983,9 +4986,9 @@ self: {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
-            url = "https://github.com/arybczak/time-warp-nt.git";
-            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
-            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
+            url = "https://github.com/serokell/time-warp-nt.git";
+            sha256 = "0dwxcg3x62mghaz3zm77lnqdi8c63ny9sxrq4p0kwf51zyr6ip4d";
+            rev = "b199cfd9c7a1cf9bb12bc307e717d08df8b77cd1";
           };
           isLibrary = true;
           isExecutable = true;

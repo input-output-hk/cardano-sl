@@ -161,6 +161,9 @@ mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ nodeConfigu
 pendingTxResubmitionPeriod :: HasNodeConfiguration => Second
 pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ nodeConfiguration
 
+----------------------------------------------------------------------------
+-- Wallet parameters
+----------------------------------------------------------------------------
 -- | If 'True', some dangerous endpoints, like one which resets wallet state,
 -- should throw exception if used.
 walletProductionApi :: HasNodeConfiguration => Bool

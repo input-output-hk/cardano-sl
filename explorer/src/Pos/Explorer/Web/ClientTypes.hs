@@ -424,11 +424,11 @@ toTxBrief txi = CTxBrief {..}
 sumCoinOfInputsOutputs :: [Maybe (CAddress, Coin)] -> CCoin
 sumCoinOfInputsOutputs addressListMB
     | Just addressList <- sequence addressListMB = do
-        -- | Get total number of coins from an address
+        -- Get total number of coins from an address
         let addressCoins :: (CAddress, Coin) -> Integer
             addressCoins (_, coin) = coinToInteger coin
 
-        -- | Arbitrary precision, so we don't overflow
+        -- Arbitrary precision, so we don't overflow
         let addressCoinList :: [Integer]
             addressCoinList = addressCoins <$> addressList
         mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList

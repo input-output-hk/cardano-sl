@@ -66,21 +66,21 @@ import           Test.Pos.Block.Logic.Mode (TestParams (..))
 -- testing (and running).
 type ExplorerMode ctx m =
     ( MonadDBRead m
-    -- ^ Database operations
+    --  Database operations
     , MonadSlots ctx m
-    -- ^ Slotting
+    --  Slotting
     , MonadThrow m
     , MonadCatch m
     , MonadMask m
-    -- ^ General utility operations
+    --  General utility operations
     , HasExplorerCSLInterface m
-    -- ^ For mocking external functions
+    --  For mocking external functions
     , HasGenesisRedeemAddressInfo m
-    -- ^ Genesis operations
+    --  Genesis operations
     , MonadTxpMem (MempoolExt m) ctx m
-    -- ^ Txp, could be @TxpLocalWorkMode@
+    --  Txp, could be @TxpLocalWorkMode@
     , MinWorkMode m
-    -- ^ The rest of the constraints - logger, mockable, configurations
+    --  The rest of the constraints - logger, mockable, configurations
     )
 
 ----------------------------------------------------------------------------

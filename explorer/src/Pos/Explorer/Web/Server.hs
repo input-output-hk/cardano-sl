@@ -827,8 +827,8 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
     in case mDecodedBase64 of
         Just addr -> do
             -- the decoded address can be both the RSCoin address and the Cardano address.
-            -- * RSCoin address == 32 bytes
-            -- * Cardano address >= 34 bytes
+            -- 1. RSCoin address == 32 bytes
+            -- 2. Cardano address >= 34 bytes
             if (BS.length addr == 32)
                 then pure $ makeRedeemAddress $ redeemPkBuild addr
                 else either badCardanoAddress pure (fromCAddress cAddr)

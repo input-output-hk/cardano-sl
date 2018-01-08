@@ -25,6 +25,6 @@ pushd "${scriptDir}"
      https://github.com/luite/hfsevents.git > hfsevents.nix
 
   # Generate cardano-sl package set
-  runInShell ./stack2nix/bin/stack2nix --test ./.. > default.nix.new
+  runInShell ./stack2nix/bin/stack2nix --hackage-snapshot 2018-01-08T08:56:04Z -j8 --test ./.. > default.nix.new
   mv default.nix.new default.nix
 popd

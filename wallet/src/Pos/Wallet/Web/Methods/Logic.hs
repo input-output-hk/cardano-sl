@@ -62,12 +62,13 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU, setWalletReady)
+import qualified Pos.Wallet.Web.State        as WS
 import           Pos.Wallet.Web.State.Storage (WalBalancesAndUtxo)
-import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
-                                             fixCachedAccModifierFor,
-                                             fixingCachedAccModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getAccountMetaOrThrow)
+import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
+                                              fixCachedAccModifierFor,
+                                              fixingCachedAccModifier, sortedInsertions)
+import           Pos.Wallet.Web.Util         (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                              getWalletAccountIds, getAccountMetaOrThrow)
 
 
 ----------------------------------------------------------------------------
@@ -194,11 +195,15 @@ newAddress addGenSeed passphrase accId = do
     balAndUtxo <- getWalletBalancesAndUtxo
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccountMod balAndUtxo accMod accId
+        parentExists <- WS.doesAccountExist accId
+        unless parentExists $ throwM noAccount
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress balAndUtxo accMod cAccAddr
+  where
+    noAccount =
+        RequestError $ sformat ("No account with id "%build%" found") accId
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m

@@ -48,8 +48,8 @@ main =
             bracketTransportTCP tcpAddr2 $ \transport2 ->
             diffusionLayerFull networkConfig1 blockVersion transport1 Nothing $ \expectLogic1 ->
             diffusionLayerFull networkConfig2 blockVersion transport2 Nothing $ \expectLogic2 -> do
-                diffusionLayer1 <- expectLogic1 (pureLogic 160000)
-                diffusionLayer2 <- expectLogic2 (pureLogic 160000)
+                diffusionLayer1 <- expectLogic1 (pureLogic 40000)
+                diffusionLayer2 <- expectLogic2 (pureLogic 40000)
                 let diffusion1 = diffusion diffusionLayer1
                 -- Run 2 first because it's the server.
                 runDiffusionLayer diffusionLayer2 $
@@ -75,7 +75,7 @@ main =
                         -}
                         start <- liftIO getCurrentTime
                         --downloadBlocks 8
-                        streamBlocks diffusion1 blockHeader [mainBlockHeaderHash] $ \block -> pure ()
+                        streamBlocks diffusion1 blockHeader [mainBlockHeaderHash] $ \(!block) -> pure ()
                         end <- liftIO getCurrentTime
                         logInfo $ sformat ("Retrieval elapsed wall-clock time is: "%shown) (diffUTCTime end start)
   where

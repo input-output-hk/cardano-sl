@@ -47,6 +47,7 @@ module Pos.Util.Util
        , (<//>)
        , divRoundUp
        , sleep
+       , textOption
 
        ) where
 
@@ -71,6 +72,8 @@ import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Language.Haskell.TH as TH
+import           Options.Applicative (option)
+import           Options.Applicative.Types (readerAsk)
 import qualified Prelude
 import           Serokell.Util.Exceptions ()
 import           System.Wlog (LoggerName, logError, usingLoggerName)
@@ -267,3 +270,6 @@ median l = NE.sort l NE.!! middle
 -}
 sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
+
+-- | A CLI option that is parsed as text.
+textOption = option (toText <$> readerAsk)

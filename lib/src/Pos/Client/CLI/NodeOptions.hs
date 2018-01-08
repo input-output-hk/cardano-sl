@@ -28,6 +28,7 @@ import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser, opti
 import           Pos.HealthCheck.Route53 (route53HealthCheckOption)
 import           Pos.Network.CLI (NetworkConfigOpts, networkConfigOption)
 import           Pos.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
+import           Pos.Util (textOption)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 
@@ -49,6 +50,7 @@ data CommonNodeArgs = CommonNodeArgs
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
+    , cnaBlockStorageMirror  :: !(Maybe Text)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -101,6 +103,10 @@ commonNodeArgsParser = do
     cnaDumpGenesisDataPath <- optional $ strOption $
         long "dump-genesis-data-to" <>
         help "Dump genesis data in canonical JSON format to this file."
+
+    cnaBlockStorageMirror <- optional $ textOption $
+        long "block-storage-mirror" <>
+        help "URL for a mirror that stores epochs in *.cbor.lzma format."
 
     pure CommonNodeArgs{..}
 

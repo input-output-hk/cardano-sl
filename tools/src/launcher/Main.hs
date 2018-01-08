@@ -69,7 +69,7 @@ import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendRepo
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util (HasLens (..), directory, postfixLFields, sleep, textOption)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
@@ -102,9 +102,6 @@ data Executable = EWallet | ENode | EUpdater
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
-    let textOption :: IsString a => Mod OptionFields String -> Parser a
-        textOption = fmap fromString . strOption
-
     -- Node-related args
     loNodePath <- textOption $
         long    "node" <>

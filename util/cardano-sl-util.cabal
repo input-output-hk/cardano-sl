@@ -63,6 +63,7 @@ library
                      , lrucache
                      , mmorph
                      , mtl
+                     , optparse-applicative
                      , parsec
                      , process
                      , quickcheck-instances

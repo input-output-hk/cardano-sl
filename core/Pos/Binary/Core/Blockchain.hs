@@ -5,8 +5,6 @@ module Pos.Binary.Core.Blockchain
        ) where
 
 import           Universum
-import           Codec.CBOR.Encoding (encodeBytes)
-import qualified Data.ByteString as BS
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
@@ -50,15 +48,6 @@ instance ( Typeable b
          , HasCryptoConfiguration
          ) =>
          Bi (T.GenericBlock b) where
-    encode _ = encodeBytes bytes418
-    decode = do
-        _ :: ByteString <- decode
-        let _gbHeader = error "decoded header"
-            _gbBody   = error "decoded body"
-            _gbExtra  = error "decoded extra"
-        pure $ T.UnsafeGenericBlock {..} 
-
-{-
     encode gb =  encodeListLen 3
               <> encode (T._gbHeader gb)
               <> encode (T._gbBody gb)
@@ -69,7 +58,3 @@ instance ( Typeable b
         _gbBody   <- decode
         _gbExtra  <- decode
         pure T.UnsafeGenericBlock {..}
--}
-
-bytes418 :: ByteString
-bytes418 = BS.replicate 418 0

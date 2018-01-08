@@ -148,9 +148,9 @@ instance
 -- body itself. Also there may be other invariants specific for
 -- particular blockchains.
 data GenericBlock b = UnsafeGenericBlock
-    { _gbHeader :: (GenericBlockHeader b)
-    , _gbBody   :: (Body b)
-    , _gbExtra  :: (ExtraBodyData b)
+    { _gbHeader :: !(GenericBlockHeader b)
+    , _gbBody   :: !(Body b)
+    , _gbExtra  :: !(ExtraBodyData b)
     } deriving (Generic)
 
 deriving instance

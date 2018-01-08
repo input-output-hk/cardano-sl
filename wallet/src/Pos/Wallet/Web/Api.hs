@@ -27,10 +27,12 @@ module Pos.Wallet.Web.Api
        , WSettingsApi    , WSettingsApiRecord(..)
        , WBackupApi      , WBackupApiRecord(..)
        , WInfoApi        , WInfoApiRecord(..)
+       , WSystemApi      , WSystemApiRecord(..)
        -- ** Something
        , WalletVerb
 
        -- * Swagger API
+
        , WalletSwaggerApi
        , swaggerWalletApi
        ) where
@@ -126,6 +128,7 @@ data WalletApiRecord route = WalletApiRecord
   , _settings    :: route :- WSettingsApi         -- /settings
   , _backup      :: route :- WBackupApi           -- /backup
   , _info        :: route :- WInfoApi             -- /info
+  , _system      :: route :- WSystemApi           -- /system
   }
   deriving (Generic)
 
@@ -517,6 +520,21 @@ data WBackupApiRecord route = WBackupApiRecord
         \ endpoint above."
     :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] CFilePath
+    :> WRes Post NoContent
+  }
+  deriving (Generic)
+
+-- ~~~~~~~~~~
+--   /system
+-- ~~~~~~~~~~
+
+type WSystemApi = "system" :> ToServant (WSystemApiRecord AsApi)
+
+data WSystemApiRecord route = WSystemApiRecord
+  {
+    _requestShutdown :: route
+    :- "shutdown"
+    :> Summary "Request a shutdown from node."
     :> WRes Post NoContent
   }
   deriving (Generic)

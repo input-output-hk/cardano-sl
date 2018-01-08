@@ -19,7 +19,7 @@ import qualified Data.Text as T
 type ByteOffset = Int64
 
 data DecoderStep m t =
-      Done !BS.ByteString !ByteOffset !t
+      Done !BS.ByteString !ByteOffset t
     | Fail !BS.ByteString !ByteOffset !T.Text
     | Partial (Maybe BS.ByteString -> Decoder m t)
 

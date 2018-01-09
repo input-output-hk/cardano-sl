@@ -33,6 +33,7 @@ hoistDecoder
     -> Decoder m t
     -> Decoder n t
 hoistDecoder nat (Decoder m) = Decoder (hoistDecoderStep nat <$> nat m)
+{-# INLINE hoistDecoder #-}
 
 hoistDecoderStep
     :: ( Functor n )
@@ -43,9 +44,9 @@ hoistDecoderStep nat step = case step of
     Done trailing offset t   -> Done trailing offset t
     Fail trailing offset err -> Fail trailing offset err
     Partial k                -> Partial $ hoistDecoder nat . k
+{-# INLINE hoistDecoderStep #-}
 
 -- | Feed input through a decoder.
---
 continueDecoding
     :: ( Monad m )
     => DecoderStep m t
@@ -55,13 +56,16 @@ continueDecoding decoderStep bs = case decoderStep of
     Done trailing offset t   -> pure $ Done (BS.append trailing bs) offset t
     Fail trailing offset err -> pure $ Fail (BS.append trailing bs) offset err
     Partial k                -> runDecoder (k (Just bs))
-
+{-# INLINE continueDecoding #-}
 
 pureDone :: Monad m => BS.ByteString -> ByteOffset -> t -> Decoder m t
 pureDone trailing offset t = Decoder . return $ Done trailing offset t
+{-# INLINE pureDone #-}
 
 pureFail :: Monad m => BS.ByteString -> ByteOffset -> T.Text -> Decoder m t
 pureFail trailing offset err = Decoder . return $ Fail trailing offset err
+{-# INLINE pureFail #-}
 
 purePartial :: Monad m => (Maybe BS.ByteString -> Decoder m t) -> Decoder m t
 purePartial k = Decoder . return $ Partial k
+{-# INLINE purePartial #-}

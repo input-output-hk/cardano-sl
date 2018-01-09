@@ -24,16 +24,16 @@ import           Pos.Crypto (Hash)
 
 instance Bi (Core.BodyProof BC.MainBlockchain) where
     encode bc =  encodeListLen 4
-              <> encode (BC.mpTxProof bc)
-              <> encode (BC.mpMpcProof bc)
-              <> encode (BC.mpProxySKsProof bc)
-              <> encode (BC.mpUpdateProof bc)
+              <> ({-# SCC "encode_body_proof_txp" #-} encode (BC.mpTxProof bc))
+              <> ({-# SCC "encode_body_proof_mpc" #-} encode (BC.mpMpcProof bc))
+              <> ({-# SCC "encode_body_proof_dlg" #-} encode (BC.mpProxySKsProof bc))
+              <> ({-# SCC "encode_body_proof_upd" #-} encode (BC.mpUpdateProof bc))
     decode = do
         enforceSize "Core.BodyProof BC.MainBlockChain" 4
-        BC.MainProof <$> decode <*>
-                         decode <*>
-                         decode <*>
-                         decode
+        BC.MainProof <$> ({-# SCC "decode_body_proof_txp" #-} decode) <*>
+                         ({-# SCC "decode_body_proof_mpc" #-} decode) <*>
+                         ({-# SCC "decode_body_proof_dlg" #-} decode) <*>
+                         ({-# SCC "decode_body_proof_upd" #-} decode)
 
 instance Bi BC.BlockSignature where
     encode input = case input of
@@ -51,16 +51,16 @@ instance Bi BC.BlockSignature where
 
 instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
     encode cd =  encodeListLen 4
-              <> encode (BC._mcdSlot cd)
-              <> encode (BC._mcdLeaderKey cd)
-              <> encode (BC._mcdDifficulty cd)
-              <> encode (BC._mcdSignature cd)
+              <> ({-# SCC "encode_consensus_slot" #-} encode (BC._mcdSlot cd))
+              <> ({-# SCC "encode_consensus_lead" #-} encode (BC._mcdLeaderKey cd))
+              <> ({-# SCC "encode_consensus_diff" #-} encode (BC._mcdDifficulty cd))
+              <> ({-# SCC "encode_consensus_sign" #-} encode (BC._mcdSignature cd))
     decode = do
         enforceSize "BC.ConsensusData BC.MainBlockchain)" 4
-        BC.MainConsensusData <$> decode <*>
-                                 decode <*>
-                                 decode <*>
-                                 decode
+        BC.MainConsensusData <$> ({-# SCC "decode_consensus_slot" #-} decode) <*>
+                                 ({-# SCC "decode_consensus_lead" #-} decode) <*>
+                                 ({-# SCC "decode_consensus_diff" #-} decode) <*>
+                                 ({-# SCC "decode_consensus_sign" #-} decode)
 
 instance HasConfiguration => Bi (BC.Body BC.MainBlockchain) where
     encode bc =  encodeListLen 4

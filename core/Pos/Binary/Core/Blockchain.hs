@@ -22,19 +22,19 @@ instance ( Typeable b
          Bi (T.GenericBlockHeader b) where
     encode bh =  encodeListLen 5
               <> encode (getProtocolMagic protocolMagic)
-              <> {-# SCC "encode_header_prev" #-} encode (T._gbhPrevBlock bh)
-              <> {-# SCC "encode_header_body_proof" #-} encode (T._gbhBodyProof bh)
-              <> {-# SCC "encode_header_consensus" #-} encode (T._gbhConsensus bh)
-              <> {-# SCC "encode_header_extra" #-} encode (T._gbhExtra bh)
+              <> ({-# SCC "encode_header_prev" #-} encode (T._gbhPrevBlock bh))
+              <> ({-# SCC "encode_header_body_proof" #-} encode (T._gbhBodyProof bh))
+              <> ({-# SCC "encode_header_consensus" #-} encode (T._gbhConsensus bh))
+              <> ({-# SCC "encode_header_extra" #-} encode (T._gbhExtra bh))
     decode = do
         enforceSize "GenericBlockHeader b" 5
-        blockMagic <- {-# SCC "decode_header_magic" #-} decode
+        blockMagic <- ({-# SCC "decode_header_magic" #-} decode)
         when (blockMagic /= getProtocolMagic protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
-        _gbhPrevBlock <- {-# SCC "decode_header_prev" #-} decode
-        _gbhBodyProof <- {-# SCC "decode_header_body_proof" #-} decode
-        _gbhConsensus <- {-# SCC "decode_header_consensus" #-} decode
-        _gbhExtra     <- {-# SCC "decode_header_extra" #-} decode
+        _gbhPrevBlock <- ({-# SCC "decode_header_prev" #-} decode)
+        _gbhBodyProof <- ({-# SCC "decode_header_body_proof" #-} decode)
+        _gbhConsensus <- ({-# SCC "decode_header_consensus" #-} decode)
+        _gbhExtra     <- ({-# SCC "decode_header_extra" #-} decode)
         pure T.UnsafeGenericBlockHeader {..}
 
 instance ( Typeable b
@@ -49,12 +49,12 @@ instance ( Typeable b
          ) =>
          Bi (T.GenericBlock b) where
     encode gb =  encodeListLen 3
-              <> {-# SCC "encode_block_header" #-} encode (T._gbHeader gb)
-              <> {-# SCC "encode_block_body" #-} encode (T._gbBody gb)
-              <> {-# SCC "encode_block_extra" #-} encode (T._gbExtra gb)
+              <> ({-# SCC "encode_block_header" #-} encode (T._gbHeader gb))
+              <> ({-# SCC "encode_block_body" #-} encode (T._gbBody gb))
+              <> ({-# SCC "encode_block_extra" #-} encode (T._gbExtra gb))
     decode = do
         enforceSize "GenericBlock" 3
-        _gbHeader <- {-# SCC "decode_block_header" #-} decode
-        _gbBody   <- {-# SCC "decode_block_body" #-} decode
-        _gbExtra  <- {-# SCC "decode_block_extra" #-} decode
+        _gbHeader <- ({-# SCC "decode_block_header" #-} decode)
+        _gbBody   <- ({-# SCC "decode_block_body" #-} decode)
+        _gbExtra  <- ({-# SCC "decode_block_extra" #-} decode)
         pure T.UnsafeGenericBlock {..}

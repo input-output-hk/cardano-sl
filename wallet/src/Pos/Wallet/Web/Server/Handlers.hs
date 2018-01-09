@@ -75,6 +75,8 @@ servantHandlers sendActions =
     :<|>
      M.getHistoryLimited
     :<|>
+     M.gatherPendingTxsSummary
+    :<|>
 
      M.nextUpdate
     :<|>

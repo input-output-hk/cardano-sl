@@ -147,6 +147,10 @@ instance HasCustomSwagger GetHistory where
     swaggerModifier = modifyDescription
         "Get the history of transactions."
 
+instance HasCustomSwagger GetPendingTxsSummary where
+    swaggerModifier = modifyDescription
+        "Get list of all unconfirmed transactions, newest first, with details."
+
 
 instance HasCustomSwagger NextUpdate where
     swaggerModifier = modifyDescription

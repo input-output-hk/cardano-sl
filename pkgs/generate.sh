@@ -4,7 +4,7 @@
 # regenerate the `pkgs/default.nix` file based on the current contents of cardano-sl.cabal and stack.yaml
 
 function runInShell {
-  nix-shell -j 4 -p cabal2nix nix-prefetch-scripts coreutils cabal-install stack --run "$*"
+  nix-shell -j 4 -p nix-prefetch-scripts coreutils cabal-install haskell.compiler.ghc802 --run "$*"
 }
 
 set -xe

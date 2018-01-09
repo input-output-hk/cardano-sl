@@ -4,7 +4,7 @@
 # regenerate the `pkgs/default.nix` file based on the current contents of cardano-sl.cabal and stack.yaml
 
 function runInShell {
-  nix-shell -j 4 -p nix cabal2nix glibcLocales --pure --run "LANG=en_US.utf-8 NIX_REMOTE=daemon NIX_PATH=$NIX_PATH $*"
+  nix-shell -j 4 -p nix cabal2nix glibcLocales --pure --run "LANG=en_US.utf-8 NIX_REMOTE=$NIX_REMOTE NIX_PATH=$NIX_PATH $*"
 }
 
 set -xe

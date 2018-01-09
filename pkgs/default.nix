@@ -2839,8 +2839,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "0y566r97sfyvhsmd4yxiz4ns2mqgwf5bdbp56wgxl6wlkidq0wwi";
-          revision = "2";
-          editedCabalFile = "02j27xvlj0jw3b2jpfg6wbysj0blllin792wj6qnrgnrvd4haj7v";
+          revision = "3";
+          editedCabalFile = "17qqdl8p04vy314jp045100989lh84cbhqv6ghizm87xpk7ck4j3";
           setupHaskellDepends = [
             base
             Cabal

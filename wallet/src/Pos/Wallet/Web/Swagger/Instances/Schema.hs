@@ -9,19 +9,21 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 
 import           Universum
 
-import           Control.Lens                (mapped, (?~))
+import           Control.Lens                (ix, mapped, (?~))
 import           Data.Swagger                (NamedSchema (..), SwaggerType (..),
                                               ToParamSchema (..), ToSchema (..),
-                                              declareNamedSchema, declareSchemaRef,
+                                              declareNamedSchema, declareSchema,
+                                              declareSchemaRef,
                                               defaultSchemaOptions, format,
-                                              genericDeclareNamedSchema, name, properties,
-                                              required, type_)
+                                              genericDeclareNamedSchema, minItems,
+                                              name, properties, required,
+                                              sketchSchema, type_)
 import           Data.Typeable               (Typeable, typeRep)
 import           Servant.Multipart           (FileData (..))
 
 import           Pos.Types                   (ApplicationName, BlockCount (..),
                                               BlockVersion, ChainDifficulty, Coin,
-                                              SlotCount (..), SoftwareVersion)
+                                              SlotCount (..), SoftwareVersion, mkCoin)
 import           Pos.Util.BackupPhrase       (BackupPhrase)
 
 import qualified Pos.Wallet.Web.ClientTypes  as CT
@@ -99,6 +101,18 @@ instance ToSchema FileData where
                 ]
             & required .~ [ "fdInputFile", "fdFileName", "fdFileCType", "fdFilePath"]
 
+instance ToSchema CT.NewBatchPayment where
+    declareNamedSchema _ = do
+        cAccountIdSchema <- declareSchemaRef (Proxy @CT.CAccountId)
+        return $ NamedSchema (Just "NewBatchPayment") $
+            sketchSchema example
+                & properties . ix "npbFrom" .~ cAccountIdSchema
+      where
+        example = CT.NewBatchPayment
+            { CT.npbFrom = CT.CAccountId "<walletId@accountId>"
+            , CT.npbTo   = (CT.CId (CT.CHash "<address>"), mkCoin 228) :|
+                          [(CT.CId (CT.CHash "<address>"), mkCoin 701)]
+            }
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.
@@ -109,3 +123,9 @@ instance {-# OVERLAPPING #-}
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
+
+instance ToSchema a => ToSchema (NonEmpty a) where
+    declareNamedSchema _ = do
+        schema <- declareSchema (Proxy :: Proxy [a])
+        pure $ NamedSchema Nothing $ schema
+            & minItems ?~ 1

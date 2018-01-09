@@ -40,6 +40,7 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
+       , NewPaymentBatch
        , TxFee
        , ResetFailedPtxs
        , CancelApplyingPtxs
@@ -94,8 +95,8 @@ import           Pos.Wallet.Web.ClientTypes  (Addr, CAccount, CAccountId, CAccou
                                               CInitialized, CPaperVendWalletRedeem,
                                               CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                               CUpdateInfo, CWallet, CWalletInit,
-                                              CWalletMeta, CWalletRedeem, SyncProgress,
-                                              Wal)
+                                              CWalletMeta, CWalletRedeem, NewBatchPayment,
+                                              SyncProgress, Wal)
 import           Pos.Wallet.Web.Error        (WalletError (DecodeError),
                                               catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
@@ -280,6 +281,14 @@ type NewPayment =
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
+    :> WRes Post CTx
+
+type NewPaymentBatch =
+       "txs"
+    :> "payments"
+    :> "batch"
+    :> DCQueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] NewBatchPayment
     :> WRes Post CTx
 
 type TxFee =
@@ -489,6 +498,8 @@ type WalletApi = ApiPrefix :> (
     -- TODO: for now we only support one2one sending. We should extend this
     -- to support many2many
      NewPayment
+    :<|>
+     NewPaymentBatch
     :<|>
      TxFee
     :<|>

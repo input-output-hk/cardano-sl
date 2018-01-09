@@ -5,6 +5,7 @@
 
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
+       , newPaymentBatch
        , getTxFee
        ) where
 
@@ -42,7 +43,8 @@ import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
-                                                   CTx (..), CWAddressMeta (..), Wal,
+                                                   CTx (..), CWAddressMeta (..),
+                                                   NewBatchPayment (..), Wal,
                                                    addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
@@ -75,13 +77,26 @@ newPayment sa passphrase srcAccount dstAccount coin =
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $
-    sendMoney
+      sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
-  where
-    notFasterThan time action = fst <$> concurrently action (delay time)
+
+newPaymentBatch
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> PassPhrase
+    -> NewBatchPayment
+    -> m CTx
+newPaymentBatch sa passphrase NewBatchPayment {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    notFasterThan (6 :: Second) $
+      sendMoney
+        sa
+        passphrase
+        (AccountMoneySource src)
+        npbTo
 
 getTxFee
      :: MonadWalletWebMode m
@@ -219,3 +234,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     logDebug "sendMoney: constructing response"
     fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+notFasterThan :: Second -> WalletWebMode a -> WalletWebMode a
+notFasterThan time action = fst <$> concurrently action (delay time)

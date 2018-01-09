@@ -6938,9 +6938,9 @@ inherit (pkgs) mesa;};
              base58-bytestring base64-bytestring binary bytestring
              canonical-json cardano-crypto cardano-report-server cardano-sl-core
              cardano-sl-db cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc
-             cardano-sl-ssc cardano-sl-txp cardano-sl-update cereal conduit
-             containers cpphs cryptonite cryptonite-openssl data-default deepseq
-             deriving-compat digest directory dlist dns ed25519 ekg-core
+             cardano-sl-ssc cardano-sl-txp cardano-sl-update cborg cereal
+             conduit containers cpphs cryptonite cryptonite-openssl data-default
+             deepseq deriving-compat digest directory dlist dns ed25519 ekg-core
              ekg-statsd ekg-wai ether exceptions file-embed filelock filepath
              focus formatting generic-arbitrary hashable http-client
              http-client-tls http-conduit http-types iproute kademlia lens
@@ -27227,9 +27227,9 @@ inherit (pkgs) which;};
            pname = "node-sketch";
            version = "0.2.0.0";
            src = fetchgit {
-             url = "https://github.com/arybczak/time-warp-nt.git";
-             sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
-             rev = "74acf3c98ec402490e4ae086a60227560cde166d";
+             url = "https://github.com/serokell/time-warp-nt.git";
+             sha256 = "0dwxcg3x62mghaz3zm77lnqdi8c63ny9sxrq4p0kwf51zyr6ip4d";
+             rev = "b199cfd9c7a1cf9bb12bc307e717d08df8b77cd1";
            };
            isLibrary = true;
            isExecutable = true;

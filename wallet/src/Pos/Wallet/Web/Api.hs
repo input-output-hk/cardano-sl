@@ -66,6 +66,8 @@ module Pos.Wallet.Web.Api
        , ImportBackupJSON
        , ExportBackupJSON
 
+       , RequestShutdown
+
        , WalletSwaggerApi
        , swaggerWalletApi
        ) where
@@ -433,6 +435,19 @@ type ExportBackupJSON =
     :> ReqBody '[JSON] Text
     :> WRes Post ()
 
+----------------------------------------------------------------------------
+-- System
+----------------------------------------------------------------------------
+
+type RequestShutdown =
+       "system"
+    :> "shutdown"
+    :> WRes Post ()
+
+----------------------------------------------------------------------------
+-- API
+----------------------------------------------------------------------------
+
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
@@ -554,6 +569,11 @@ type WalletApi = ApiPrefix :> (
      ImportBackupJSON
     :<|>
      ExportBackupJSON
+    :<|>
+     ----------------------------------------------------------------------------
+     -- System
+     ----------------------------------------------------------------------------
+     RequestShutdown
     )
 
 -- | Helper Proxy.

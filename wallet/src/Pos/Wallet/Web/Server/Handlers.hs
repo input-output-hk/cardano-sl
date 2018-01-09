@@ -112,3 +112,6 @@ servantHandlers sendActions =
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
+    :<|>
+
+     M.requestShutdown

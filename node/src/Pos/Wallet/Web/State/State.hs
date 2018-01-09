@@ -16,6 +16,7 @@ module Pos.Wallet.Web.State.State
 
        -- * Getters
        , getProfile
+       , doesAccountExist
        , getAccountIds
        , getAccountMetas
        , getAccountMeta
@@ -127,6 +128,9 @@ updateDisk
     :: (EventState event ~ WalletStorage, UpdateEvent event, WebWalletModeDB ctx m)
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
+
+doesAccountExist :: WebWalletModeDB ctx m => AccountId -> m Bool
+doesAccountExist = queryDisk . A.DoesAccountExist
 
 getAccountIds :: WebWalletModeDB ctx m => m [AccountId]
 getAccountIds = queryDisk A.GetAccountIds

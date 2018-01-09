@@ -28,6 +28,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
@@ -142,7 +143,7 @@ main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
     let loggingParams = CLI.loggingParams loggerName (wnaCommonNodeArgs args)
-    loggerBracket loggingParams . runProduction $ do
+    loggerBracket loggingParams . logException "node" . runProduction $ do
         CLI.printFlags
         logInfo "[Attention] Software is built with wallet part"
         action args

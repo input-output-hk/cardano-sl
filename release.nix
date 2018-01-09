@@ -18,6 +18,7 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 let
   platforms = {
     cardano-sl = supportedSystems;
+    cardano-sl-auxx = supportedSystems;
     cardano-sl-node-static = supportedSystems;
     cardano-sl-tools = supportedSystems;
     cardano-sl-wallet = supportedSystems;

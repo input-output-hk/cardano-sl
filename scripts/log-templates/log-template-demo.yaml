@@ -3,9 +3,8 @@
 rotation:
     logLimit: 104857600 # 100 MB
     keepFiles: 20
-severity: Debug
-termSeverity: Debug
-handlers:
-  - file: {{file}}.pub
-    round: 5
-  - file: {{file}}
+loggerTree:
+  severity: Debug+
+  files:
+    - {{file}}.pub
+    - {{file}}

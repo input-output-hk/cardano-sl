@@ -31,9 +31,9 @@ Clone Cardano SL repository and go to the root directory:
     $ git clone https://github.com/input-output-hk/cardano-sl.git
     $ cd cardano-sl
 
-Switch to the latest release branch, for example, `cardano-sl-1.0`:
+Switch to the `master` branch:
 
-    $ git checkout cardano-sl-1.0
+    $ git checkout master
 
 ## Nix build mode (recommended)
 

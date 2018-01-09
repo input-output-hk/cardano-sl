@@ -1,0 +1,15 @@
+nodes:
+  "server":
+    type: relay
+    static-routes: [["ghost"]]
+    region: undefined
+    addr: "127.0.0.1"
+    port: 3001
+  # We have to put in this "ghost" because giving an empty set of alternatives
+  # causes a parse failure -_-
+  "ghost":
+    type: core
+    static-routes: [["server"]]
+    region: undefined
+    addr: "127.0.0.1"
+    port: 3002

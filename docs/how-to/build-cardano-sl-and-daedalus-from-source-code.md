@@ -63,9 +63,9 @@ Two steps remain, then:
 
         $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link cardano-sl-1.0
 
-    The build output directory will be symlinked as `cardano-sl-1.0` (as specified by the command), and it will contain:
+    The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
 
-        $ ls cardano-sl-1.0/bin
+        $ ls master/bin
         cardano-node-simple
 
 NOTE: the various other Cardano components can be obtained through other attributes:

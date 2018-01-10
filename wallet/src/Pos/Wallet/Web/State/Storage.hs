@@ -20,6 +20,7 @@ module Pos.Wallet.Web.State.Storage
        , flushWalletStorage
        , getProfile
        , setProfile
+       , doesAccountExist
        , getAccountIds
        , getAccountMeta
        , getWalletMeta
@@ -336,6 +337,9 @@ doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
     exists which =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (cwamId addrMeta))
+
+doesAccountExist :: AccountId -> Query Bool
+doesAccountExist accId = view $ wsAccountInfos . at accId . to isJust
 
 -- | Get transaction metadata given wallet ID and transaction ID.
 getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)

@@ -32,11 +32,12 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
                                              ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
+import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, MonadWalletDBRead,
                                        addOnlyNewTxMetas, getHistoryCache, getPendingTx, getTxMeta,
                                        getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
+import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrs, getWalletAddrsSet)
 import           Servant.API.ContentTypes (NoContent (..))
 
@@ -51,7 +52,7 @@ getFullWalletHistory
     :: MonadWalletHistory ctx m
     => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
+    addrs <- getWalletAddrs Ever cWalId >>= convertCIdTOAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs
 

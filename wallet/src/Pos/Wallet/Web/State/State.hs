@@ -29,6 +29,7 @@ module Pos.Wallet.Web.State.State
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
+       , doesAccountExist
        , doesWAddressExist
        , getTxMeta
        , getWalletTxHistory
@@ -243,6 +244,9 @@ setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
 
 setProfile :: MonadWalletDB ctx m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile
+
+doesAccountExist :: MonadWalletDBRead ctx m => AccountId -> m Bool
+doesAccountExist = queryDisk . A.DoesAccountExist
 
 setWalletTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId

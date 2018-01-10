@@ -183,7 +183,8 @@ To run acceptance tests one first has to have cluster running. We can run cluste
     $ tmux
     [nix-shell:~/cardano-sl]$ ./scripts/launch/demo-with-wallet-api.sh
 
-**Important**: you have to build a node with Stack (using `./scripts/build/cardano-sl.sh`) to run this script.
+**Important**: you have to build a node with Stack (using `./scripts/build/cardano-sl.sh`) to run this
+script.
 
 Then navigate to daedalus repo and run tests server with:
 

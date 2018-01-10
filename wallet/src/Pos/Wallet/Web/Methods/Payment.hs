@@ -49,7 +49,8 @@ import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressP
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
                                                    CCoin, CId, CTx (..),
                                                    CWAddressMeta (..), NewBatchPayment (..),
-                                                   Wal, addrMetaToAccount, mkCCoin)
+                                                   Wal, addrMetaToAccount, cadId,
+                                                   mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
@@ -62,7 +63,8 @@ import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds, getWalletAddrsSet)
+                                                   getWalletAccountIds,
+                                                   getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletWebMode m
@@ -227,9 +229,11 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
         dstAddrs
 
     addHistoryTx srcWallet th
-    srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
-    fst <$> constructCTx srcWallet srcWalletAddrs diff th
+    srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
+
+    logDebug "sendMoney: constructing response"
+    fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

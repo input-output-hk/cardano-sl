@@ -142,7 +142,12 @@ getLauncherOptions = do
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do
-            writeFile "config-error.log" $
+#ifdef mingw32_HOST_OS
+            logDir <- (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
+#else
+            logDir <- (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
+#endif
+            writeFile (logDir </> "config-error.log") $
                 sformat ("Failed to parse "%string%": "%shown) configPath err
             throwM $ LauncherConfigParseError configPath err
         Right op -> expandVars op

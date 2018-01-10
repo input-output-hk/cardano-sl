@@ -35,13 +35,16 @@ instance ( Typeable b
     decode = do
         enforceSize "GenericBlockHeader b" 5
         blockMagic <- decode
-        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
-            "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
-        prevBlock <- decode
-        bodyProof <- decode
-        consensus <- decode
-        extra     <- decode
-        toCborError $ T.recreateGenericHeader prevBlock bodyProof consensus extra
+        -- TODO include ProtocolMagic in the definition of GenericBlockHeader,
+        -- and decode it, eliminating this failure case. Protocol magic checks
+        -- must not happen in decoding.
+        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError
+            "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+        _gbhPrevBlock <- ({-# SCC "decode_header_prev" #-} decode)
+        _gbhBodyProof <- ({-# SCC "decode_header_body_proof" #-} decode)
+        _gbhConsensus <- ({-# SCC "decode_header_consensus" #-} decode)
+        _gbhExtra     <- ({-# SCC "decode_header_extra" #-} decode)
+        toCborError $ T.recreateGenericHeader _gbhPrevBlock _gbhBodyProof _gbhConsensus _gbhExtra
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -60,10 +63,10 @@ instance ( Typeable b
               <> encode (T._gbExtra gb)
     decode = do
         enforceSize "GenericBlock" 3
-        header <- decode
-        body   <- decode
-        extra  <- decode
-        toCborError $ T.recreateGenericBlock header body extra
+        _gbHeader <- ({-# SCC "decode_block_header" #-} decode)
+        _gbBody   <- ({-# SCC "decode_block_body" #-} decode)
+        _gbExtra  <- ({-# SCC "decode_block_extra" #-} decode)
+        toCborError $ T.recreateGenericBlock _gbHeader _gbBody _gbExtra
 
 ----------------------------------------------------------------------------
 -- BlockHeader

@@ -20,6 +20,8 @@ module Pos.Wallet.Web.Methods.Misc
 
        , PendingTxsSummary (..)
        , gatherPendingTxsSummary
+       , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
        ) where
 
 import           Universum
@@ -45,18 +47,20 @@ import           Pos.Wallet.KeyStorage        (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode        (applyLastUpdate, connectedPeers,
                                                localChainDifficulty,
                                                networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CPtxCondition,
-                                               CUpdateInfo (..), SyncProgress (..),
-                                               cIdToAddress)
+import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CTxId (..),
+                                               CPtxCondition, CUpdateInfo (..),
+                                               SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
-import           Pos.Wallet.Web.State         (getNextUpdate, getPendingTxs, getProfile,
+import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
+                                               cancelSpecificApplyingPtx, getNextUpdate,
+                                               getPendingTxs, getProfile,
                                                getWalletStorage, removeNextUpdate,
                                                setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
 
 ----------------------------------------------------------------------------
@@ -191,3 +195,11 @@ gatherPendingTxsSummary =
             , ptiOutputs = _txOutputs tx
             , ptiTxId = hash tx
             }
+
+cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
+cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
+
+cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
+cancelOneApplyingPtx cTxId = do
+    txId <- decodeCTypeOrFail cTxId
+    testOnlyEndpoint (cancelSpecificApplyingPtx txId)

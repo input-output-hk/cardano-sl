@@ -57,7 +57,7 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
                                        MonadWalletDBRead, addWAddress, createAccount, createWallet,
-                                       getAccountIds, getAccountMeta, getWalletAddresses,
+                                       getAccountIds, getWalletAddresses,
                                        getWalletMetaIncludeUnready, getWalletPassLU,
                                        isCustomAddress, removeAccount, removeHistoryCache,
                                        removeTxMetas, removeWallet, setAccountMeta, setWalletMeta,
@@ -66,7 +66,7 @@ import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), Cach
                                           fixCachedAccModifierFor, fixingCachedAccModifier,
                                           sortedInsertions)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                      getWalletAccountIds)
+                                      getAccountMetaOrThrow, getWalletAccountIds)
 
 type MonadWalletLogicRead ctx m =
     ( MonadIO m
@@ -123,11 +123,9 @@ getAccount accMod accId = do
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
     balance <- sumCCoin (map cadAmount allAddrs)
-    meta <- getAccountMeta accId >>= maybeThrow noAccount
+    meta <- getAccountMetaOrThrow accId
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
-    noAccount =
-        RequestError $ sformat ("No account with id "%build%" found") accId
     gatherAddresses addrModifier dbAddrs = do
         let memAddrs = sortedInsertions addrModifier
             relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
@@ -188,7 +186,7 @@ newAddress
 newAddress addGenSeed passphrase accId =
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
-        _ <- getAccount accMod accId
+        _ <- getAccountMetaOrThrow accId
 
         cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr

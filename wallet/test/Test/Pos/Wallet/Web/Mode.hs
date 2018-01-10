@@ -360,8 +360,8 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
       where
         emptyStateMetrics = StateLockMetrics
             { slmWait = const $ pure ()
-            , slmAcquire = const $ pure ()
-            , slmRelease = const $ pure ()
+            , slmAcquire = const $ const $ pure ()
+            , slmRelease = const $ const $ pure ()
             }
 
 instance HasConfigurations => MonadWalletDB WalletTestContext WalletTestMode

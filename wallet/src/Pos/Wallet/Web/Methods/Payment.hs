@@ -43,10 +43,9 @@ import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
-                                                   CCoin, CId, CTx (..),
-                                                   CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
+                                                   CTx (..), CWAddressMeta (..), Wal,
+                                                   addrMetaToAccount, mkCCoin, cadId)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)

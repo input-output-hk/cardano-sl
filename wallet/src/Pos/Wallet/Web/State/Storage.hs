@@ -11,6 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletBalances
+       , WalBalancesAndUtxo
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , Query
@@ -174,6 +175,7 @@ type CustomAddresses = HashMap (CId Addr) HeaderHash
 
 -- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
+type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
 -- | Datatype which defines full structure of acid-state.
 data WalletStorage = WalletStorage
@@ -348,7 +350,7 @@ getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
 
 -- | Get wallet 'Utxo' cache together with balances cache atomically.
-getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
+getWalletBalancesAndUtxo :: Query WalBalancesAndUtxo
 getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
 
 -- | Given 'UtxoModifier', update wallet 'Utxo' cache together with

@@ -17,6 +17,7 @@ module Pos.Wallet.Web.State.State
 
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , WalBalancesAndUtxo
 
        -- * Getters
        , getProfile
@@ -98,8 +99,8 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletState, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
-                                               WalletTip (..))
+                                               PtxMetaUpdate (..), WalBalancesAndUtxo,
+                                               WalletBalances, WalletStorage, WalletTip (..))
 
 -- | Type constraint which only allows access to
 -- wallet DB state handler.

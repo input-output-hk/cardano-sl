@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 -- | Specification of Pos.Client.Txp.Util
 
@@ -93,16 +94,12 @@ getSignerFromList :: NonEmpty (SafeSigner, Address) -> (Address -> SafeSigner)
 getSignerFromList (HM.fromList . map swap . toList -> hm) =
     \addr -> fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
 
--- TODO [CSM-527] test with ungrouped inputs picking as well.
-useGroupedInputs :: InputSelectionPolicy
-useGroupedInputs = OptimizeForSecurity
-
 testCreateMTx
     :: HasTxpConfigurations
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
 testCreateMTx CreateMTxParams{..} =
-    createMTx useGroupedInputs cmpUtxo (getSignerFromList cmpSigners)
+    createMTx mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
 createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => TxpTestProperty ()
@@ -182,7 +179,7 @@ redemptionSpec = do
 txWithRedeemOutputFailsSpec :: HasTxpConfigurations => TxpTestProperty ()
 txWithRedeemOutputFailsSpec = do
     txOrError <-
-        createMTx useGroupedInputs utxo (getSignerFromList signers) outputs addrData
+        createMTx mempty OptimizeForSecurity utxo (getSignerFromList signers) outputs addrData
     case txOrError of
         Left (OutputIsRedeem _) -> return ()
         Left err -> stopProperty $ pretty err
@@ -250,13 +247,15 @@ feeForManyAddressesSpec manyAddrs =
 
 -- | Container for parameters of `createMTx`.
 data CreateMTxParams = CreateMTxParams
-    { cmpUtxo     :: !Utxo
+    { cmpInputSelectionPolicy :: InputSelectionPolicy
+    -- ^ Input selection policy
+    , cmpUtxo                 :: !Utxo
     -- ^ Unspent transaction outputs.
-    , cmpSigners  :: !(NonEmpty (SafeSigner, Address))
+    , cmpSigners              :: !(NonEmpty (SafeSigner, Address))
     -- ^ Wrappers around secret keys for addresses in Utxo.
-    , cmpOutputs  :: !TxOutputs
+    , cmpOutputs              :: !TxOutputs
     -- ^ A (nonempty) list of desired tx outputs.
-    , cmpAddrData :: !(AddrData TxpTestMode)
+    , cmpAddrData             :: !(AddrData TxpTestMode)
     -- ^ Data that is normally used for creation of change addresses.
     -- In tests, it is always `()`.
     }
@@ -275,6 +274,7 @@ makeManyUtxoTo1Params numFrom amountEachFrom amountTo = CreateMTxParams {..}
             k <- [0..numFrom-1]]
     cmpSigners = one (fakeSigner sk, addr)
     cmpOutputs = one txOutAuxOutput
+    cmpInputSelectionPolicy = OptimizeForSecurity
     cmpAddrData = ()
 
 makeManyAddressesToManyParams :: Word8 -> Integer -> Word8 -> Integer -> CreateMTxParams
@@ -294,6 +294,7 @@ makeManyAddressesToManyParams numFrom amountEachFrom numTo amountEachTo = Create
     cmpUtxo = M.fromList [(TxInUtxo (unsafeIntegerToTxId $ fromIntegral k) 0, txOutAux) |
         (k, txOutAux) <- zip [0..numFrom-1] txOutAuxInputs]
     cmpOutputs = NE.fromList txOutAuxOutputs
+    cmpInputSelectionPolicy = OptimizeForSecurity
     cmpAddrData = ()
 
 makeManyAddressesTo1Params :: Word8 -> Integer -> Integer -> CreateMTxParams

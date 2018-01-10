@@ -15,13 +15,15 @@ import           Universum
 
 import           Control.Monad.Catch          (Handler (..), catches)
 import           Formatting                   (build, sformat, shown, stext, (%))
-import           System.Wlog                  (WithLogger, logInfo)
+import           System.Wlog                  (WithLogger, logDebug, logInfo)
+import           Serokell.Util                (hour)
 
-import           Pos.Client.Txp.History       (saveTx)
+import           Pos.Client.Txp.History       (saveTx, thTimestamp)
 import           Pos.Communication            (EnqueueMsg, submitTxRaw)
 import           Pos.Util.LogSafe             (logInfoS, logWarningS)
 import           Pos.Configuration            (walletTxCreationDisabled)
-import           Pos.Wallet.Web.Error         (WalletError(InternalError))
+import           Pos.Core                     (getCurrentTimestamp, diffTimestamp)
+import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxPoolInfo)
@@ -116,10 +118,22 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
 
-    ack <- submitTxRaw enqueue _ptxTxAux
-    saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
-    addOnlyNewPendingTx ptx
-    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+    now <- getCurrentTimestamp
+    if | PtxApplying poolInfo <- _ptxCond,
+         Just creationTime <- poolInfo ^. thTimestamp,
+         diffTimestamp now creationTime > hour 1 -> do
+           let newCond = PtxWontApply "1h limit exceeded" poolInfo
+           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+           logInfo $
+             sformat ("Pending transaction #"%build%" discarded becauce \
+                      \the 1h time limit was exceeded")
+                      _ptxTxId
+       | otherwise -> do
+           ack <- submitTxRaw enqueue _ptxTxAux
+           reportSubmitted ack
+           saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
+           addOnlyNewPendingTx ptx
+           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers accepted =
         [ Handler $ \e ->
@@ -144,3 +158,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
         logInfoS $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
+
+    reportSubmitted ack =
+        logDebug $
+        sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
+                %build) ack

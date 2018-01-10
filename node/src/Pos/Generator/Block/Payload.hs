@@ -218,7 +218,7 @@ genTxPayload = do
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux

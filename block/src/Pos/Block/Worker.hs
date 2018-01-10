@@ -34,9 +34,9 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
                                              onNewSlotWorker, worker)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),
-                           Timestamp (Timestamp), blkSecurityParam, difficultyL, epochSlots,
-                           fixedTimeCQSec, flattenSlotId, gbHeader, getSlotIndex, slotIdF,
-                           unflattenSlotId)
+                           Timestamp (Timestamp), blkSecurityParam, difficultyL, epochOrSlotToSlot,
+                           epochSlots, fixedTimeCQSec, flattenSlotId, gbHeader, getEpochOrSlot,
+                           getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Common (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
@@ -62,7 +62,6 @@ import           Pos.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Util.Timer (Timer)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 
-
 ----------------------------------------------------------------------------
 -- All workers
 ----------------------------------------------------------------------------
@@ -85,8 +84,19 @@ informerWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
+            -- Printe tip header
             logDebug $ sformat ("Our tip header: "%build) tipHeader
+            -- Print the difference between tip slot and current slot.
+            logHowManySlotsBehind slotId tipHeader
+            -- Compute and report metrics
             metricWorker slotId
+  where
+    logHowManySlotsBehind slotId tipHeader =
+        let tipSlot = epochOrSlotToSlot (getEpochOrSlot tipHeader)
+            slotDiff = flattenSlotId slotId - flattenSlotId tipSlot
+        in logInfo $ sformat ("Difference between current slot and tip slot is: "
+                              %int) slotDiff
+
 
 ----------------------------------------------------------------------------
 -- Block creation worker
@@ -254,7 +264,7 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     repeatOnInterval action = void $ do
         delay $ sec 1
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
-        void $ action `catchAny` \e -> do 
+        void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
             delay $ sec 15
         repeatOnInterval action

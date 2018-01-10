@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
-                                             getWalletAddrs)
+                                             getWalletAddrs, getWalletAddrsDetector)
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
@@ -64,8 +64,8 @@ getFullWalletHistory cWalId = do
     logTxHistory "Mempool" localHistory
 
     fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
+    walAddrsDetector <- getWalletAddrsDetector Ever cWalId
     diff        <- getCurChainDifficulty
-    let !cAddrsSet = S.fromList cAddrs
     logDebug "getFullWalletHistory: fetched full history"
 
     -- TODO when we introduce some mechanism to react on new tx in mempool,
@@ -75,7 +75,7 @@ getFullWalletHistory cWalId = do
     addHistoryTxs cWalId localHistory
     logDebug "getFullWalletHistory: invoked addHistoryTxs"
 
-    !cHistory <- forM fullHistory (constructCTx cWalId cAddrsSet diff)
+    !cHistory <- forM fullHistory (constructCTx cWalId walAddrsDetector diff)
     logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
@@ -183,17 +183,17 @@ addHistoryTxs cWalId historyEntries = do
 constructCTx
     :: MonadWalletWebMode m
     => CId Wal
-    -> Set (CId Addr)
+    -> (CId Addr -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
+constructCTx cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
             pure =<< getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
-        mkCTx diff wtx meta ptxCond walAddrsSet
+        mkCTx diff wtx meta ptxCond addrBelongsToWallet
 
 getCurChainDifficulty :: MonadWalletWebMode m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty

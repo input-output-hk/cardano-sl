@@ -2,7 +2,9 @@
 
 -- | Communication-related serialization -- messages mostly.
 
-module Pos.Binary.Communication () where
+module Pos.Binary.Communication
+    (
+    ) where
 
 import           Universum
 

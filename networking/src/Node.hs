@@ -217,13 +217,13 @@ nodeConversationActions
     -> ChannelOut m
     -> ConversationActions snd rcv m
 nodeConversationActions node _ packing inchan outchan =
-    ConversationActions nodeSend nodeRecv
+    ConversationActions nodeSend nodeRecv nodeSendRaw
     where
 
     mtu = LL.nodeMtu (LL.nodeEnvironment node)
 
     nodeSend = \body ->
-        pack packing body >>= LL.writeMany mtu outchan
+        pack packing body >>= nodeSendRaw
 
     nodeRecv :: Word32 -> m (Maybe rcv)
     nodeRecv limit = do
@@ -231,6 +231,8 @@ nodeConversationActions node _ packing inchan outchan =
         case next of
             End     -> pure Nothing
             Input t -> pure (Just t)
+
+    nodeSendRaw = LL.writeMany mtu outchan
 
 data NodeAction packing peerData m t =
     NodeAction (peerData -> [Listener packing peerData m])

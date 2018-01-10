@@ -11,6 +11,7 @@ module Node.Conversation
     , hoistConversationActions
     ) where
 
+import           Data.ByteString.Lazy (ByteString)
 import           Data.Word (Word32)
 import qualified Node.Internal as LL
 import           Node.Message.Class
@@ -62,6 +63,9 @@ data ConversationActions body rcv m = ConversationActions {
        --   in by this use of 'recv'. If the limit is exceeded, the
        --   'LimitExceeded' exception is thrown.
      , recv :: Word32 -> m (Maybe rcv)
+
+       -- | Send raw bytes.
+     , sendRaw :: ByteString -> m ()
      }
 
 hoistConversationActions
@@ -69,7 +73,8 @@ hoistConversationActions
     -> ConversationActions body rcv n
     -> ConversationActions body rcv m
 hoistConversationActions nat ConversationActions {..} =
-  ConversationActions send' recv'
+  ConversationActions send' recv' sendRaw'
       where
         send' = nat . send
         recv' = nat . recv
+        sendRaw' = nat . sendRaw

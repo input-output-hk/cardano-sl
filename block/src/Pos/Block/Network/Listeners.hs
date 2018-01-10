@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Server which deals with blocks processing.
 
 module Pos.Block.Network.Listeners
@@ -6,11 +8,14 @@ module Pos.Block.Network.Listeners
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as BL (fromChunks)
 import           Formatting (build, int, sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
+import           Node.Conversation (sendRaw)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
+import           Pos.Binary.Block.Network (msgBlockPrefix)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (recoveryHeadersMessage)
 import           Pos.Block.Logic (getHeadersRange)
@@ -22,13 +27,14 @@ import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
-import qualified Pos.DB.Block as DB
+import qualified Pos.DB.Class as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
 import           Pos.Util.Chrono (NewestFirst (..))
 
 blockListeners
-    :: BlockWorkMode ctx m
+    :: forall pack ctx m .
+       (BlockWorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
 blockListeners oq = constantListeners $ map ($ oq)
@@ -72,12 +78,20 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
-                    DB.getBlock hHash >>= \case
+                    DB.dbGetSerBlock hHash >>= \case
                         Nothing -> do
                             send conv (MsgNoBlock $
                                        "Couldn't retrieve block with hash " <> pretty hHash)
                             failMalformed
-                        Just b -> send conv (MsgBlock b)
+                        -- Warning: unsafe magic stopgap measure.
+                        -- We don't want to deserialize the block, because that
+                        -- is prohibitively expensive. Instead, we read the
+                        -- bytes from the database and assume they are
+                        -- well-formed, and then throw on the MsgBlock
+                        -- encoding prefix so that clients can still decode it.
+                        Just (DB.Serialized bytes) ->
+                            let prefix = msgBlockPrefix
+                            in  sendRaw conv (BL.fromChunks [prefix, bytes])
                 logDebug "handleGetBlocks: blocks sending done"
             Left e -> do
                 let e' = "handleGetBlocks: got Left: " <> e

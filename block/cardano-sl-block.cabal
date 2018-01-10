@@ -42,6 +42,7 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Block.Types
+                        Pos.Binary.Block.Network
 
                         -- Utilities
                         Pos.Util.JsonLog
@@ -88,6 +89,7 @@ library
                       , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl-util
+                      , cborg
                       , conduit
                       , containers
                       , cryptonite

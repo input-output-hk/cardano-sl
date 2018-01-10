@@ -44,6 +44,7 @@ module Pos.Wallet.Web.Api
        , TxFee
        , UpdateTx
        , GetHistory
+       , GetPendingTxsSummary
 
        , NextUpdate
        , PostponeUpdate
@@ -68,15 +69,15 @@ module Pos.Wallet.Web.Api
        ) where
 
 
-import           Control.Lens               (from)
-import           Control.Monad.Catch        (try)
-import           Data.Reflection            (Reifies (..))
-import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReflectMethod (..),
-                                             ReqBody, Verb)
-import           Servant.Server             (HasServer (..))
-import           Servant.Swagger.UI         (SwaggerSchemaUI)
-import           Servant.API.ContentTypes   (OctetStream)
+import           Control.Lens                (from)
+import           Control.Monad.Catch         (try)
+import           Data.Reflection             (Reifies (..))
+import           Servant.API                 ((:<|>), (:>), Capture, Delete, Get, JSON,
+                                              Post, Put, QueryParam, ReflectMethod (..),
+                                              ReqBody, Verb)
+import           Servant.API.ContentTypes    (OctetStream)
+import           Servant.Server              (HasServer (..))
+import           Servant.Swagger.UI          (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Client.Txp.Util         (InputSelectionPolicy)
@@ -98,7 +99,7 @@ import           Pos.Wallet.Web.ClientTypes  (Addr, CAccount, CAccountId, CAccou
                                               SyncProgress, Wal)
 import           Pos.Wallet.Web.Error        (WalletError (DecodeError),
                                               catchEndpointErrors)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
@@ -318,6 +319,12 @@ type GetHistory =
     :> QueryParam "limit" ScrollLimit
     :> WRes Get ([CTx], Word)
 
+type GetPendingTxsSummary =
+        "txs"
+    :> "pending"
+    :> "summary"
+    :> WRes Get [PendingTxsSummary]
+
 -------------------------------------------------------------------------
 -- Updates
 -------------------------------------------------------------------------
@@ -485,6 +492,8 @@ type WalletApi = ApiPrefix :> (
      UpdateTx
     :<|>
      GetHistory
+    :<|>
+     GetPendingTxsSummary
     :<|>
      -------------------------------------------------------------------------
      -- Updates

@@ -6,6 +6,7 @@
 module Pos.Wallet.Web.Pending.Util
     ( ptxPoolInfo
     , isPtxInBlocks
+    , sortPtxsChrono
     , mkPendingTx
     , isReclaimableFailure
     , usingPtxCoords
@@ -16,8 +17,11 @@ import           Universum
 import           Formatting                     (build, sformat, (%))
 
 import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Crypto                     (WithHash (..))
 import           Pos.Slotting.Class             (getCurrentSlotInaccurate)
-import           Pos.Txp                        (ToilVerFailure (..), TxAux (..), TxId)
+import           Pos.Txp                        (ToilVerFailure (..), TxAux (..), TxId,
+                                                 topsortTxs)
+import           Pos.Util.Chrono                (OldestFirst (..))
 import           Pos.Util.Util                  (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes     (CId, CWalletMeta (..), Wal, cwAssurance)
 import           Pos.Wallet.Web.Error           (WalletError (RequestError))
@@ -34,6 +38,13 @@ ptxPoolInfo _                  = Nothing
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
+
+-- | Sort pending transactions as close as possible to chronological order.
+sortPtxsChrono :: [PendingTx] -> OldestFirst [] PendingTx
+sortPtxsChrono = OldestFirst . sortWith _ptxCreationSlot . tryTopsort
+  where
+    tryTopsort txs = fromMaybe txs $ topsortTxs wHash txs
+    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 mkPendingTx
     :: MonadWalletWebMode m

@@ -32,7 +32,7 @@ import qualified Pos.Wallet.Web.ClientTypes  as CT
 import qualified Pos.Wallet.Web.Error.Types  as ET
 
 import           Pos.Aeson.Storage           ()
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
@@ -92,6 +92,9 @@ instance ToSchema      CT.ClientInfo
 
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty
+
+instance ToSchema PendingTxsSummary where
+    declareNamedSchema _ = pure $ NamedSchema (Just "PendingTxsSummary") mempty
 
 instance ToSchema FileData where
     declareNamedSchema _ = do

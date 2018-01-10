@@ -104,10 +104,10 @@ relayDemo = do
     runEnqueue $ do
 
       block "* Basic relay test: edge to core" [nodeR] $ do
-        send Asynchronous (nodeEs !! 0) (MsgTransaction OriginSender) (MsgId 0)
+        void $ send Asynchronous (nodeEs !! 0) (MsgTransaction OriginSender) (MsgId 0)
 
       block "* Basic relay test: code to edge" [nodeR] $ do
-        send Asynchronous nodeC1 (MsgAnnounceBlockHeader OriginSender) (MsgId 100)
+        void $ send Asynchronous nodeC1 (MsgAnnounceBlockHeader OriginSender) (MsgId 100)
 
       -- In order to test rate limiting, we send a message from all of the edge
       -- nodes at once. These should then arrive at the (single) core node one
@@ -120,16 +120,16 @@ relayDemo = do
       -- a message from the queue and it actually adding to the in-flight).
       block "* Rate limiting" [nodeR] $ do
         forM_ (zip nodeEs [200..209]) $ \(nodeE, n) ->
-          send Asynchronous nodeE (MsgTransaction OriginSender) (MsgId n)
+          void $ send Asynchronous nodeE (MsgTransaction OriginSender) (MsgId n)
 
       block "* Priorities" [nodeR] $ do
         -- We schedule two transactions and a block header in quick succession.
         -- Although we enqueue the transactions before the block header, we
         -- should see in the output that the block headers are given priority.
         forM_ [300, 303 .. 309] $ \n -> do
-          send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
-          send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
-          send Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
+          _ <- send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
+          _ <- send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
+          _ <- send Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
           liftIO $ threadDelay 2500000
 
       block "* Latency masking (and sync API)" [nodeC2] $ do
@@ -137,14 +137,14 @@ relayDemo = do
         -- (We cannot send two blocks at a time though, because then MaxAhead
         -- would not be satisfiable).
         forM_ [400, 402 .. 408] $ \n -> do
-          send Asynchronous nodeC3 (MsgAnnounceBlockHeader OriginSender) (MsgId n)
-          send Synchronous  nodeC3 (MsgMPC OriginSender)                 (MsgId (n + 1))
+          _ <- send Asynchronous nodeC3 (MsgAnnounceBlockHeader OriginSender) (MsgId n)
+          void $ send Synchronous  nodeC3 (MsgMPC OriginSender)                 (MsgId (n + 1))
 
       block "* Sending to specific nodes" nodeEs $ do
         -- This will send to the relay node
-        send Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
+        _ <- send Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
         -- Edge nodes can never send to core nodes
-        send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
+        void $ send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
       logNotice "End of demo"
 
@@ -231,18 +231,28 @@ simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
 data Sync = Synchronous | Asynchronous
 
--- | Send a message from the specified node
-send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
-send sync from msgType msgId = do
+sendImpl :: Bool -> Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
+sendImpl success sync from msgType msgId = do
     logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     True <- addToMsgPool (nodeMsgPool from) msgData
     enqueue (nodeOutQ from) msgType msgObj
   where
     msgData = MsgData (nodeId from) msgType msgId
-    msgObj  = mkMsgObj msgData
+    msgObj  = MsgObj msgData
+                $ if success
+                    then \nid -> sendNodeId nid msgData
+                    else error "connection error"
     enqueue = \oq mt conv -> case sync of
-                Synchronous  -> void $ OutQ.enqueueSync oq mt conv
-                Asynchronous -> void $ OutQ.enqueue oq mt conv
+                Synchronous  -> map fst <$> OutQ.enqueueSync' oq mt conv
+                Asynchronous -> map fst <$> OutQ.enqueue oq mt conv
+
+-- | Send a message from the specified node
+send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
+send = sendImpl True
+
+-- | Error when seding a message from the specified node
+sendError :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
+sendError = sendImpl False
 
 {-------------------------------------------------------------------------------
   Message pool
@@ -294,6 +304,12 @@ mkMsgObj msgData = MsgObj{..}
   where
     msgSend :: NodeId -> IO ()
     msgSend nid = sendNodeId nid msgData
+
+mkMsgObjErr :: MsgData -> MsgObj
+mkMsgObjErr msgData = MsgObj{..}
+  where
+    msgSend :: NodeId -> IO ()
+    msgSend _ = error "send error"
 
 {-------------------------------------------------------------------------------
   Node IDs

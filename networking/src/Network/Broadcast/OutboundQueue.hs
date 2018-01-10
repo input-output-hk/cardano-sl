@@ -30,6 +30,7 @@
 
 module Network.Broadcast.OutboundQueue (
     OutboundQ -- opaque
+  , qConnections
     -- * Initialization
   , new
     -- ** Enqueueing policy
@@ -72,6 +73,8 @@ module Network.Broadcast.OutboundQueue (
   , simplePeers
   , peersFromList
   , updatePeersBucket
+    -- * Connection status
+  , ConnectionStatus(..)
     -- * Debugging
   , registerQueueMetrics
   , dumpState
@@ -337,6 +340,13 @@ setInFlightFor Packet{..} f var = liftIO $ modifyMVar_ var (return . update)
     updateInnerMap :: Map Precedence Int -> Map Precedence Int
     updateInnerMap = Map.adjust f packetPrec
 
+-- | Connection status
+data ConnectionStatus =
+      Connecting
+    | Connected
+    | ConnectionBroken
+    deriving (Eq, Ord, Show)
+
 -- | The outbound queue (opaque data structure)
 --
 -- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
@@ -392,6 +402,9 @@ data OutboundQ msg nid buck = ( FormatMsg msg
 
       -- | Some metrics about the queue's health
     , qHealth          :: QHealth buck
+
+      -- | Connections statuses
+    , qConnections     :: MVar (Map nid ConnectionStatus)
     }
 
 -- | Use a formatter to get a dump of the state.
@@ -456,6 +469,7 @@ new qSelf
     qFailures    <- newMVar Map.empty
     qRateLimited <- newMVar Set.empty
     qHealth      <- newQHealth
+    qConnections <- newMVar Map.empty
 
     -- Only look for control messages when the queue is empty
     let checkCtrlMsg :: IO (Maybe CtrlMsg)
@@ -785,6 +799,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
           return Nothing
         Just alt -> liftIO $ do
           sentVar <- newEmptyMVar
+          applyMVar_ qConnections $ Map.alter alterConnStatus alt
           let packet = Packet {
                            packetPayload  = msg
                          , packetDestId   = alt
@@ -824,6 +839,12 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
     debugEnqueued enqueued =
       sformat (string % ": message " % formatMsg % " enqueued to " % shown)
               qSelf msg (map packetDestId enqueued)
+
+    alterConnStatus :: Maybe ConnectionStatus -> Maybe ConnectionStatus
+    alterConnStatus Nothing                 = Just Connecting
+    alterConnStatus (Just Connecting)       = Just Connecting
+    alterConnStatus (Just Connected)        = Just Connected
+    alterConnStatus (Just ConnectionBroken) = Just Connecting
 
 -- | Node ID with current stats needed to pick a node from a list of alts
 data NodeWithStats nid = NodeWithStats {
@@ -998,7 +1019,7 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
             logFailure outQ FailedSend (Some p, err)
             intFailure outQ p sendStartTime err
           Right _  ->
-            return ()
+            applyMVar_ qConnections $ Map.update (const $ Just Connected) (packetDestId p)
 
         logDebug $ debugSent p
 
@@ -1027,6 +1048,7 @@ intFailure :: forall m msg nid buck a. MonadIO m
            -> SomeException     -- ^ The exception thrown by the send action
            -> m ()
 intFailure OutQ{..} p sendStartTime err = do
+    applyMVar_ qConnections $ Map.update (const $ Just ConnectionBroken) (packetDestId p)
     applyMVar_ qFailures $
       Map.insert (packetDestId p) (
           sendStartTime

@@ -1,9 +1,11 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Test.Network.Broadcast.OutboundQueueSpec
        ( spec
        ) where
 
 import           Control.Monad
+import           Control.Concurrent.MVar (readMVar)
 import           Data.List (delete)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
@@ -17,9 +19,9 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, forAll, ioProperty, property,
                                   (===), (==>))
 
--- disable logging
 testInFlight :: IO Bool
 testInFlight = do
+    -- disable logging
     removeAllHandlers
 
     -- Set up some test nodes
@@ -45,6 +47,46 @@ testInFlight = do
 allGreaterThanZero :: M.Map NodeId (M.Map OutQ.Precedence Int) -> Bool
 allGreaterThanZero imap = all (>= 0) $ (concatMap M.elems (M.elems imap))
 
+testConnStatus :: Property
+testConnStatus = forAll arbitrary $ \(as :: [Bool]) ->
+    ioProperty $ do
+      -- disable logging
+      removeAllHandlers
+
+      -- Set up test nodes
+      allNodes <- M.runProduction $ do
+          ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore (CommsDelay 0)
+          forM_ ns $ \theNode -> setPeers theNode (delete theNode ns)
+          return ns
+
+      let sendingNode = allNodes !! 0
+
+      nss <- runEnqueue $ do
+        -- Send messages synchronously
+        forM (zip [1..] as) $ \(n, success) -> do
+          if success
+            then send Synchronous sendingNode (MsgTransaction OriginSender) (MsgId n)
+            else sendError Synchronous sendingNode (MsgTransaction OriginSender) (MsgId n)
+
+      -- Flush all queues
+      forM_ (map nodeOutQ allNodes) OutQ.flush
+
+      -- Node ids to which we sent messages
+      let ns :: [NodeId_]
+          ns = map nodeId_ $ concat nss
+      let expected :: M.Map NodeId_ OutQ.ConnectionStatus
+          expected = M.fromList
+            $ zip ns
+            $ map (\noErr -> if noErr then OutQ.Connected else OutQ.ConnectionBroken) as
+
+      checkConnections expected sendingNode
+
+    where
+    checkConnections :: M.Map NodeId_ OutQ.ConnectionStatus -> Node -> IO Property
+    checkConnections expected n = do
+        cns <- readMVar (OutQ.qConnections . nodeOutQ $ n)
+        return $ expected === M.mapKeys nodeId_ cns
+
 spec :: Spec
 spec = describe "OutBoundQ" $ do
     -- We test that `removePeer` will never yield something like
@@ -57,6 +99,8 @@ spec = describe "OutBoundQ" $ do
       -- that after that we never have a negative count for
       -- the `qInFlight` field of a `OutBoundQ`.
       it "inflight conversations" $ ioProperty $ testInFlight
+
+    it "connection status" testConnStatus
 
 newtype FiniteInt = FI Int deriving (Show, Eq, Ord)
 

@@ -987,8 +987,8 @@ self: {
       cabal-doctest = callPackage ({ Cabal, base, directory, filepath, mkDerivation, stdenv }:
       mkDerivation {
           pname = "cabal-doctest";
-          version = "1.0.4";
-          sha256 = "6de8b655ca7168e27e4204923e56b3ed16517814072a9d30f3b2a43babe24a0f";
+          version = "1.0.2";
+          sha256 = "4a1b8cdfcca9cd1e3dcb0afca4fefeb348c8be4d0eb0be7fe013bd2a9cd47c40";
           libraryHaskellDepends = [
             base
             Cabal

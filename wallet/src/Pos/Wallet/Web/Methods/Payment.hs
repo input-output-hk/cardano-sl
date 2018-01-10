@@ -23,8 +23,8 @@ import           Pos.Aeson.WalletBackup           ()
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (InputSelectionPolicy, computeTxFee,
-                                                   runTxCreator)
+import           Pos.Client.Txp.Util              (InputSelectionPolicy (..),
+                                                   computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration,
                                                    walletTxCreationDisabled)
@@ -50,7 +50,8 @@ import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic     as L
-import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
+import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
+                                                   getPendingAddresses, rewrapTxError,
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
                                                    convertCIdTOAddrs)
@@ -86,10 +87,11 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
+    pendingAddrs <- getPendingAddresses policy
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource
@@ -174,7 +176,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
-    let getSinger addr = runIdentity $ do
+    let getSigner addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (M.lookup addr metasAndAdrresses)
@@ -184,10 +186,11 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
+    pendingAddrs <- getPendingAddresses policy
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
             (txAux, inpTxOuts') <-
-                prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
+                prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux

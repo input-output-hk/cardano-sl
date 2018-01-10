@@ -987,8 +987,8 @@ self: {
       cabal-doctest = callPackage ({ Cabal, base, directory, filepath, mkDerivation, stdenv }:
       mkDerivation {
           pname = "cabal-doctest";
-          version = "1.0.2";
-          sha256 = "4a1b8cdfcca9cd1e3dcb0afca4fefeb348c8be4d0eb0be7fe013bd2a9cd47c40";
+          version = "1.0.4";
+          sha256 = "6de8b655ca7168e27e4204923e56b3ed16517814072a9d30f3b2a43babe24a0f";
           libraryHaskellDepends = [
             base
             Cabal
@@ -2281,8 +2281,8 @@ self: {
           pname = "comonad";
           version = "5.0.2";
           sha256 = "1bb0fe396ecd16008411862ee453e8bd7c3e0f3a7299537dd59466604a54b784";
-          revision = "1";
-          editedCabalFile = "1lnsnx8p3wlfhd1xfc68za3b00vq77z2m6b0vqiw2laqmpj9akcw";
+          revision = "2";
+          editedCabalFile = "1ngks9bym68rw0xdq43n14nay4kxdxv2n7alwfd9wcpismfz009g";
           setupHaskellDepends = [
             base
             Cabal

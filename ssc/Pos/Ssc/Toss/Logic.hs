@@ -90,7 +90,10 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackSsc :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] SscPayload -> m ()
+rollbackSsc :: (HasConfiguration, MonadToss m) =>
+    EpochOrSlot
+    -> NewestFirst [] SscPayload
+    -> m ()
 rollbackSsc oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
         logError "rollbackSsc: most genesis block is passed to rollback"

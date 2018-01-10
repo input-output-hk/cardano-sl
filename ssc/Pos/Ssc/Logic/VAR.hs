@@ -20,8 +20,8 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, HasConfiguration, HeaderHash, epochIndexL,
-                           epochOrSlotG, headerHash)
+import           Pos.Core (BlockVersionData, ComponentBlock (..), HasConfiguration, HeaderHash,
+                           epochIndexL, epochOrSlotG, headerHash)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
@@ -191,8 +191,8 @@ verifyAndApplyMultiRichmen onlyCerts env =
     tossToVerifier . hoist (supplyPureTossEnv env) .
     mapM_ verifyAndApplyDo
   where
-    verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
-    verifyAndApplyDo (Right (header, payload)) =
+    verifyAndApplyDo (ComponentBlockGenesis header) = applyGenesisBlock $ header ^. epochIndexL
+    verifyAndApplyDo (ComponentBlockMain header payload) =
         verifyAndApplySscPayload (Right header) $
         filterPayload payload
     filterPayload payload
@@ -224,7 +224,9 @@ sscRollbackU
 sscRollbackU blocks = tossToUpdate $ rollbackSsc oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
-    payloads = over _Wrapped (map snd . rights . toList) blocks
+    payloads = NewestFirst $ mapMaybe extractPayload $ toList blocks
+    extractPayload (ComponentBlockMain _ a)  = Just a
+    extractPayload (ComponentBlockGenesis _) = Nothing
 
 ----------------------------------------------------------------------------
 -- Utilities

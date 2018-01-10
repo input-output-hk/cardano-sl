@@ -11,13 +11,16 @@ module Pos.Wallet.Web.Util
     , getWalletAddrsSet
     , decodeCTypeOrFail
     , getWalletAssuredDepth
+    , testOnlyEndpoint
     ) where
 
 import           Universum
 
 import qualified Data.Set as S
 import           Formatting (build, sformat, (%))
+import           Servant.Server (err405, errReasonPhrase)
 
+import           Pos.Configuration (HasNodeConfiguration, walletProductionApi)
 import           Pos.Core (BlockCount)
 import           Pos.Util.Servant (FromCType (..), OriginType)
 import           Pos.Util.Util (maybeThrow)
@@ -76,3 +79,11 @@ getWalletAssuredDepth
 getWalletAssuredDepth wid =
     assuredBlockDepth HighAssurance . cwAssurance <<$>>
     getWalletMeta wid
+
+testOnlyEndpoint :: (HasNodeConfiguration, MonadThrow m) => m a -> m a
+testOnlyEndpoint action
+    | walletProductionApi = throwM err405{ errReasonPhrase = errReason }
+    | otherwise = action
+  where
+    errReason = "Disabled in production, switch 'walletProductionApi' \
+                \parameter in config if you want to use this endpoint"

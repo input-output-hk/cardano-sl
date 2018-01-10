@@ -28,14 +28,15 @@ import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
 import           Mockable (MonadMockable)
-import           Pos.Core (SoftwareVersion (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util (maybeThrow)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
 import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (SoftwareVersion (..))
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util (maybeThrow)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
@@ -48,6 +49,7 @@ import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNext
                                        getWalletStorage, removeNextUpdate, resetFailedPtxs,
                                        setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
+import           Pos.Wallet.Web.Util (testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -123,8 +125,11 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
-testResetAll = deleteAllSecretKeys >> testReset >> return NoContent
+testResetAll ::
+       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m, MonadKeys m)
+    => m NoContent
+testResetAll =
+    testOnlyEndpoint $ deleteAllSecretKeys >> testReset >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Print wallet state

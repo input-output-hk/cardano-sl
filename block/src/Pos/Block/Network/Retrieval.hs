@@ -101,6 +101,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                 -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
+        startTimer keepAliveTimer
         thingToDoNext
         mainLoop
     mainLoopE e = do

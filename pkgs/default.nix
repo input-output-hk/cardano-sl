@@ -2252,8 +2252,8 @@ self: {
           pname = "comonad";
           version = "5.0.2";
           sha256 = "115pai560rllsmym76bj787kwz5xx19y8bl6262005nddqwzxc0v";
-          revision = "1";
-          editedCabalFile = "1lnsnx8p3wlfhd1xfc68za3b00vq77z2m6b0vqiw2laqmpj9akcw";
+          revision = "2";
+          editedCabalFile = "1ngks9bym68rw0xdq43n14nay4kxdxv2n7alwfd9wcpismfz009g";
           setupHaskellDepends = [
             base
             Cabal
@@ -4744,8 +4744,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "1by8xwjc23l6pa9l4iv7zp82dykpll3vc3hgxk0pgva724n8xhma";
-          revision = "2";
-          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
+          revision = "3";
+          editedCabalFile = "0z6vmdgz9r2fbgzh2xvrw6cy5h7m1jv911jah615s6xgr52smhrf";
           libraryHaskellDepends = [
             base
           ];

@@ -16,9 +16,7 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Formatting (sformat, shown, (%))
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logInfo)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
@@ -76,7 +74,6 @@ prettyGenesisJson theGenesisData =
 withCoreConfigurations ::
        forall m r.
        ( MonadThrow m
-       , WithLogger m
        , MonadIO m
        , Canonical.FromJSON (Either SchemaError) GenesisData
        )
@@ -129,7 +126,6 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         theSystemStart <- case mSystemStart of
             Just it -> do
-                logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
                 return it
             Nothing -> throwM MissingSystemStartTime
 
@@ -145,8 +141,6 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
-        logInfo $ "We are going to generate genesis data from genesis spec," <>
-                  " it can take a lot of time if there are many HD addresses!"
         withGenesisSpec theSystemStart theConf act
 
 withGenesisSpec

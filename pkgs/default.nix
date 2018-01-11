@@ -1463,7 +1463,7 @@ self: {
           description = "Cardano SL - binary serialization";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, lens, log-warper, mkDerivation, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, conduit, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, lens, log-warper, mkDerivation, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-block";
           version = "1.0.3";
@@ -1484,6 +1484,7 @@ self: {
             cardano-sl-txp
             cardano-sl-update
             cardano-sl-util
+            cborg
             conduit
             containers
             cryptonite
@@ -5739,11 +5740,11 @@ self: {
       network-transport-tcp = callPackage ({ base, bytestring, containers, data-accessor, fetchgit, mkDerivation, network, network-transport, stdenv, uuid }:
       mkDerivation {
           pname = "network-transport-tcp";
-          version = "0.5.1";
+          version = "0.6.0";
           src = fetchgit {
             url = "https://github.com/serokell/network-transport-tcp";
-            sha256 = "1l4df0wgaixslah2c05wvq3srdbw1rmq246889wn3r8h43l9i0wl";
-            rev = "24dd213cef81d383083feb7f5d9ce4b8a6be8168";
+            sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
+            rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
           };
           libraryHaskellDepends = [
             base
@@ -8703,3 +8704,4 @@ compiler.override {
   initialPackages = stackPackages;
   configurationCommon = { ... }: self: super: {};
 }
+

@@ -12,6 +12,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+import qualified Prelude (show)
 import           Universum
 
 import           Control.Concurrent (modifyMVar_)
@@ -139,10 +140,19 @@ data LauncherArgs = LauncherArgs
     , daedalusDir :: !(Maybe FilePath)
     }
 
-data LauncherConfigParseError = LauncherConfigParseError !FilePath !(Y.ParseException)
-    deriving (Show)
+data LauncherError =
+      ConfigParseError !FilePath !(Y.ParseException)
+    | NoDaedalusDir [(String, String)]
 
-instance Exception LauncherConfigParseError
+instance Show LauncherError where
+    show (ConfigParseError configPath yamlException) = toString $
+        sformat ("Failed to parse config at "%string%": "%shown) configPath yamlException
+    show (NoDaedalusDir env) = toString $
+        sformat ("%DAEDALUS_DIR% is not in the environment "%
+                "and was not provided as a command line argument.\n"%
+                "Complete dump of the environment follows:\n"%shown) env
+
+instance Exception LauncherError
 
 launcherArgsParser :: Parser LauncherArgs
 launcherArgsParser = do
@@ -173,7 +183,7 @@ getLauncherOptions = do
             createDirectoryIfMissing True logDir
             writeFile (logDir </> "config-error.log") $
                 sformat ("Failed to parse "%string%": "%shown) configPath err
-            throwM $ LauncherConfigParseError configPath err
+            throwM $ ConfigParseError configPath err
         Right op -> expandVars daedalusDir op
   where
     programInfo = info (helper <*> versionOption <*> launcherArgsParser) $
@@ -194,16 +204,14 @@ getLauncherOptions = do
         --     updateWindowsRunner, launcherLogsPrefix
         -- %DAEDALUS_DIR%: nodePath, walletPath
         appdata <- toText <$> getEnv "APPDATA"
-        daedalusDirEnv <- toText <<$>> lookupEnv "DAEDALUS_DIR"
-        case daedalusDirEnv <|> daedalusDirArg of
+        daedalusDirEnv <- lookupEnv "DAEDALUS_DIR"
+        case daedalusDirArg <|> daedalusDirEnv of
             Nothing -> do
-                fullEnv <- getEnvironment
-                throwM $ sformat ("%DAEDALUS_DIR% is not in the environment "%
-                    "and was not provided as a command line argument.\n"%
-                    "Complete dump of the environment follows:\n"%stext) (show fullEnv)
+                env <- getEnvironment
+                throwM $ NoDaedalusDir env
             Just daedalusDir -> do
                 let replaceAppdata = replace "%APPDATA%" appdata
-                    replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+                    replaceDaedalusDir = replace "%DAEDALUS_DIR%" (toText daedalusDir)
                 pure lo
                     { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
                     , loNodeDbPath          = replaceAppdata loNodeDbPath

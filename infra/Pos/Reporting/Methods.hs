@@ -343,7 +343,8 @@ reportNode sendLogs extendWithNodeInfo reportType =
 reportMisbehaviour
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
-reportMisbehaviour isCritical message = do
+reportMisbehaviour isCritical message = when False $ do -- TODO: Add a flag wether to report
+                                                        -- misbehaviors
     nodeType <- getNodeType <$> ask
     case nodeType of
         NodeCore -> reportNode True True (RMisbehavior isCritical message)

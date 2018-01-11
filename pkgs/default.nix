@@ -7432,7 +7432,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-util, containers, cpphs, cryptonite, data-default
-         , ether, exceptions, formatting, generic-arbitrary, lens
+         , ekg-core, ether, exceptions, formatting, generic-arbitrary, lens
          , log-warper, memory, mmorph, mono-traversable, mtl, parsec
          , QuickCheck, reflection, rocksdb-haskell, safe-exceptions
          , serokell-util, stdenv, stm, tagged, text, text-format, time-units
@@ -7446,10 +7446,10 @@ inherit (pkgs) mesa;};
              aeson array base bytestring cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-util containers cryptonite
-             data-default ether exceptions formatting generic-arbitrary lens
-             log-warper memory mmorph mono-traversable mtl parsec QuickCheck
-             reflection rocksdb-haskell safe-exceptions serokell-util stm tagged
-             text text-format time-units transformers universum
+             data-default ekg-core ether exceptions formatting generic-arbitrary
+             lens log-warper memory mmorph mono-traversable mtl parsec
+             QuickCheck reflection rocksdb-haskell safe-exceptions serokell-util
+             stm tagged text text-format time-units transformers universum
              unordered-containers
            ];
            libraryToolDepends = [ cpphs ];

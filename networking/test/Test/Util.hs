@@ -40,7 +40,7 @@ module Test.Util
 
 import           Control.Concurrent.STM (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception (Exception, SomeException (..))
+import           Control.Exception.Safe
 import           Control.Lens (makeLenses, (%=))
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -55,7 +55,6 @@ import           GHC.Generics (Generic)
 import           Mockable.Class (Mockable)
 import           Mockable.Concurrent (Async, Concurrently, Delay, delay, forConcurrently, fork,
                                       wait, withAsync)
-import           Mockable.Exception (Catch, Throw, catch, finally, throw)
 import           Mockable.Production (Production (..))
 import           Mockable.SharedExclusive (SharedExclusive, newSharedExclusive, putSharedExclusive,
                                            readSharedExclusive, takeSharedExclusive)
@@ -84,8 +83,7 @@ timeout
     :: ( Mockable Delay m
        , Mockable Async m
        , Mockable SharedExclusive m
-       , Mockable Catch m
-       , Mockable Throw m
+       , MonadCatch m
        )
     => String
     -> Microsecond
@@ -207,8 +205,7 @@ sendAll
        , Mockable Concurrently m
        , Mockable Delay m
        , Mockable Async m
-       , Mockable Throw m
-       , Mockable Catch m
+       , MonadCatch m
        , Mockable SharedExclusive m
        )
     => Converse BinaryP () m
@@ -229,8 +226,7 @@ receiveAll
        , Mockable Delay m
        , Mockable Async m
        , Mockable SharedExclusive m
-       , Mockable Throw m
-       , Mockable Catch m
+       , MonadCatch m
        )
     => (msg -> m ())
     -> Listener BinaryP () m

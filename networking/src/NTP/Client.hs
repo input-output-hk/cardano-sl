@@ -16,10 +16,9 @@ module NTP.Client
 
 import           Control.Concurrent.STM (atomically, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO, writeTVar)
-import           Control.Exception.Lifted (bracketOnError)
 import           Control.Lens ((%=), (.=), _Just)
 import           Control.Monad (forM_, forever, unless, void, when)
-import           Control.Monad.Catch (Exception, MonadCatch, catchAll, handleAll, throwM)
+import           Control.Exception.Safe
 import           Control.Monad.State (gets)
 import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -108,7 +107,7 @@ instance Exception NoHostResolved
 type NtpMonad m =
     ( MonadIO m
     , MonadBaseControl IO m
-    , MonadCatch m
+    , MonadMask m
     , WithLogger m
     , Mockable Fork m
     )
@@ -131,7 +130,7 @@ handleCollectedResponses cli = do
     case mres of
         Nothing        -> log cli Error "Protocol error: responses are not awaited"
         Just []        -> log cli Warning "No servers responded"
-        Just responses -> handleE `handleAll` do
+        Just responses -> handleE `handleAny` do
             let time = selection responses
             log cli Info $ sformat ("Evaluated clock offset "%shown%
                 " mcs for request at "%shown%" mcs")
@@ -145,7 +144,7 @@ doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
-    handleAll handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
+    handleAny handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
   where
     sendDo a@(SockAddrInet _ _) (IPv4Sock sock)      = sendTo' sock a
     sendDo a@(SockAddrInet _ _) (BothSock sock _)    = sendTo' sock a
@@ -181,7 +180,7 @@ startSend addrs cli = do
 -- Try to create IPv4 and IPv6 socket.
 mkSockets :: forall m . NtpMonad m => NtpClientSettings m -> m Sockets
 mkSockets settings = do
-    (sock1MB, sock2MB) <- doMkSockets `catchAll` handlerE
+    (sock1MB, sock2MB) <- doMkSockets `catchAny` handlerE
     whenJust sock1MB logging
     whenJust sock2MB logging
     case (fst <$> sock1MB, fst <$> sock2MB) of
@@ -231,7 +230,7 @@ doReceive sock cli = forever $ do
         Left  (_, _, err)    ->
             log cli Warning $ sformat ("Error while receiving time: "%shown) err
         Right (_, _, packet) ->
-            handleNtpPacket cli packet `catchAll` handleE
+            handleNtpPacket cli packet `catchAny` handleE
   where
     handleE = log cli Warning . sformat ("Error while handle packet: "%shown)
 
@@ -245,7 +244,7 @@ startReceive cli = do
         IPv4Sock sIPv4 -> runDoReceive True sIPv4
         IPv6Sock sIPv6 -> runDoReceive False sIPv6
   where
-    runDoReceive isIPv4 sock = doReceive sock cli `catchAll` handleE isIPv4 sock
+    runDoReceive isIPv4 sock = doReceive sock cli `catchAny` handleE isIPv4 sock
     -- got error while receiving data, retrying in 5 sec
     handleE isIPv4 sock e = do
         closed <- liftIO . readTVarIO $ ncClosed cli
@@ -278,7 +277,7 @@ stopNtpClient cli = do
         socketsToList <$> readTVar (ncSockets cli)
 
     -- unblock receiving from socket in case no one replies
-    forM_ sockets $ \s -> liftIO (close s) `catchAll` (const $ pure ())
+    forM_ sockets $ \s -> liftIO (close s) `catchAny` (const $ pure ())
 
 startNtpClient :: NtpMonad m => NtpClientSettings m -> m (NtpStopButton m)
 startNtpClient settings =

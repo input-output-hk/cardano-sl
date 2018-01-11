@@ -56,7 +56,7 @@ module Node (
 
     ) where
 
-import           Control.Exception (Exception (..), SomeException)
+import           Control.Exception.Safe
 import           Control.Monad (unless, when)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.ByteString as BS
@@ -71,7 +71,6 @@ import qualified Mockable.Channel as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.CurrentTime
-import           Mockable.Exception
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
@@ -171,8 +170,8 @@ makeListenerIndex = foldr combine (M.empty, [])
 
 nodeConverse
     :: forall m packing peerData .
-       ( Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
-       , Mockable Bracket m, Mockable SharedAtomic m, Mockable SharedExclusive m
+       ( Mockable Channel.Channel m
+       , MonadMask m, Mockable SharedAtomic m, Mockable SharedExclusive m
        , Mockable Async m, Ord (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
@@ -205,7 +204,7 @@ nodeConverse nodeUnit packing = Converse nodeConverse
 -- | Conversation actions for a given peer and in/out channels.
 nodeConversationActions
     :: forall packing peerData snd rcv m .
-       ( Mockable Throw m
+       ( MonadThrow m
        , Mockable Channel.Channel m
        , Serializable packing snd
        , Serializable packing rcv
@@ -272,8 +271,8 @@ manualNodeEndPoint ep _ = LL.NodeEndPoint {
 --   finish.
 node
     :: forall packing peerData m t .
-       ( Mockable Fork m, Mockable Throw m, Mockable Channel.Channel m
-       , Mockable SharedAtomic m, Mockable Bracket m, Mockable Catch m
+       ( Mockable Fork m, Mockable Channel.Channel m
+       , Mockable SharedAtomic m, MonadMask m
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable SharedExclusive m
@@ -370,7 +369,7 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
 recvNext
     :: forall packing m thing .
        ( Mockable Channel.Channel m
-       , Mockable Throw m
+       , MonadThrow m
        , Serializable packing thing
        )
     => Packing packing m

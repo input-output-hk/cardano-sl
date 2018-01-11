@@ -46,10 +46,11 @@ module Mockable.Concurrent (
 
   ) where
 
-import           Control.Exception (AsyncException (ThreadKilled), Exception)
+import           Control.Exception (AsyncException (..))
+import           Control.Exception.Safe hiding (throwTo)
+--import           Control.Exception (AsyncException (ThreadKilled), Exception)
 import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
-import           Mockable.Exception
 
 type family ThreadId (m :: * -> *) :: *
 
@@ -121,13 +122,14 @@ data Async m t where
     AsyncThreadId :: Promise m t -> Async m (ThreadId m)
     Race :: m t -> m r -> Async m (Either t r)
     Link :: Promise m t -> Async m ()
+    UnsafeUnmask :: m a -> Async m a
 
 {-# INLINE async #-}
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
 async m = liftMockable $ Async m
 
 {-# INLINE asyncWithUnmask #-}
-asyncWithUnmask :: ( Mockable Async m, Mockable Bracket m )
+asyncWithUnmask :: ( Mockable Async m )
                 => ((forall a. m a -> m a) -> m t) -> m (Promise m t)
 asyncWithUnmask f = async (f unsafeUnmask)
 
@@ -137,7 +139,7 @@ withAsync mterm k = liftMockable $ WithAsync mterm k
 
 {-# INLINE withAsyncWithUnmask #-}
 withAsyncWithUnmask
-    :: ( Mockable Async m, Mockable Bracket m )
+    :: ( Mockable Async m )
     => ((forall a. m a -> m a) -> m t) -> (Promise m t -> m r) -> m r
 withAsyncWithUnmask f = withAsync (f unsafeUnmask)
 
@@ -169,6 +171,10 @@ race a b = liftMockable $ Race a b
 link :: ( Mockable Async m ) => Promise m t -> m ()
 link promise = liftMockable $ Link promise
 
+{-# INLINE unsafeUnmask #-}
+unsafeUnmask :: Mockable Async m => m a -> m a
+unsafeUnmask act = liftMockable $ UnsafeUnmask act
+
 instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n where
     hoist' nat (Async act)     = Async $ nat act
     hoist' nat (WithAsync m k) = WithAsync (nat m) (nat . k)
@@ -178,6 +184,7 @@ instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n
     hoist' _ (AsyncThreadId p) = AsyncThreadId p
     hoist' nat (Race p e)      = Race (nat p) (nat e)
     hoist' _ (Link p)          = Link p
+    hoist' nat (UnsafeUnmask m) = UnsafeUnmask (nat m)
 
 data Concurrently m t where
     Concurrently :: m a -> m b -> Concurrently m (a, b)
@@ -229,12 +236,12 @@ waitAnyNonFail promises = waitAny promises >>= handleRes
 
 {-# INLINE waitAnyUnexceptional #-}
 waitAnyUnexceptional
-    :: ( Mockable Async m, Mockable Catch m, Eq (Promise m (Maybe a)) )
+    :: ( Mockable Async m, MonadCatch m, Eq (Promise m (Maybe a)) )
     => [m a] -> m (Maybe a)
 waitAnyUnexceptional acts = impl
   where
     impl = (fmap . fmap) snd $ waitAnyNonFail =<< mapM toAsync acts
-    toAsync :: ( Mockable Async m, Mockable Catch m ) => m a -> m (Promise m (Maybe a))
+    toAsync :: ( Mockable Async m, MonadCatch m ) => m a -> m (Promise m (Maybe a))
     toAsync = async . forPromise
-    forPromise :: ( Mockable Async m, Mockable Catch m ) => m a -> m (Maybe a)
-    forPromise a = (Just <$> a) `catchAll` (const $ pure Nothing)
+    forPromise :: ( Mockable Async m, MonadCatch m ) => m a -> m (Maybe a)
+    forPromise a = (Just <$> a) `catchAny` (const $ pure Nothing)

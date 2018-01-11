@@ -31,7 +31,6 @@ Library
                         Mockable.Class
                         Mockable.Concurrent
                         Mockable.CurrentTime
-                        Mockable.Exception
                         Mockable.Instances
                         Mockable.Monad
                         Mockable.Production
@@ -89,6 +88,7 @@ Library
                       , resourcet
                       , transformers-lift
                       , universum
+                      , safe-exceptions
                       , serokell-util
                       , stm
                       , text
@@ -118,6 +118,7 @@ executable discovery
                       , containers
                       , network-transport-tcp
                       , random
+                      , safe-exceptions
                       , time-units
 
   hs-source-dirs:       examples
@@ -248,6 +249,7 @@ test-suite cardano-sl-networking-test
                      , network-transport-inmemory
                      , QuickCheck
                      , random
+                     , safe-exceptions
                      , serokell-util >= 0.1.2.3
                      , stm
                      , time-units

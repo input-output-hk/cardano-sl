@@ -44,7 +44,8 @@ module Node.Internal (
     Timeout(..)
   ) where
 
-import           Control.Exception hiding (bracket, catch, finally, throw)
+import           Control.Exception.Safe
+import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad (forM, forM_, when)
 import           Control.Monad.Fix (MonadFix)
 import           Data.Binary
@@ -63,14 +64,12 @@ import qualified Data.NonEmptySet as NESet
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Time.Units (Microsecond)
-import           Data.Typeable
 import           Formatting (sformat, shown, (%))
 import           GHC.Generics (Generic)
 import qualified Mockable.Channel as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.CurrentTime (CurrentTime, currentTime)
-import           Mockable.Exception
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
@@ -245,7 +244,7 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 -- | Do multiple sends on a 'ChannelOut'.
 writeMany
     :: forall m .
-       ( Monad m, Mockable Throw m )
+       ( Monad m, MonadThrow m )
     => Word32 -- ^ Split into chunks of at most this size in bytes. 0 means no split.
     -> ChannelOut m
     -> LBS.ByteString
@@ -616,7 +615,7 @@ manualNodeEndPoint ep = NodeEndPoint {
 startNode
     :: forall packingType peerData m .
        ( Mockable SharedAtomic m, Mockable Channel.Channel m
-       , Mockable Bracket m, Mockable Throw m, Mockable Catch m
+       , MonadMask m
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
@@ -673,7 +672,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode
-    :: ( WithLogger m, Mockable Throw m, Mockable Async m, Mockable SharedAtomic m )
+    :: ( WithLogger m, MonadThrow m, Mockable Async m, Mockable SharedAtomic m )
     => Node packingType peerData m
     -> m ()
 stopNode Node {..} = do
@@ -759,7 +758,7 @@ waitForRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
        , Mockable Async m
-       , Mockable Catch m
+       , MonadCatch m
        , WithLogger m
        , Show (ThreadId m)
        )
@@ -790,8 +789,8 @@ waitForRunningHandlers node = do
 nodeDispatcher
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
-       , Ord (ThreadId m), Mockable Bracket m, Mockable SharedExclusive m
-       , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
+       , Ord (ThreadId m), MonadMask m, Mockable SharedExclusive m
+       , Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , Serializable packingType peerData
@@ -1272,7 +1271,7 @@ nodeDispatcher node handlerInOut =
 --   connections, and also for actions which use outbound connections.
 spawnHandler
     :: forall peerData m t .
-       ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
+       ( Mockable SharedAtomic m, MonadCatch m
        , Mockable Async m, Ord (ThreadId m)
        , Mockable Metrics.Metrics m, Mockable CurrentTime m
        , WithLogger m
@@ -1384,10 +1383,10 @@ fixedSizeBuilder n =
 --   give an ACK before the specified timeout ('nodeAckTimeout').
 withInOutChannel
     :: forall packingType peerData m a .
-       ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
-       , Mockable SharedAtomic m, Mockable Throw m
+       ( MonadMask m, Mockable Async m, Ord (ThreadId m)
+       , Mockable SharedAtomic m
        , Mockable SharedExclusive m
-       , Mockable Catch m, Mockable Channel.Channel m
+       , Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , MonadFix m, WithLogger m
@@ -1468,8 +1467,7 @@ data PeerDataTransmission m =
 disconnectFromPeer
     :: ( Mockable SharedExclusive m
        , Mockable SharedAtomic m
-       , Mockable Bracket m
-       , Mockable Throw m
+       , MonadMask m
        )
     => Node packingType peerData m
     -> NodeId
@@ -1573,8 +1571,7 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
 --   arrive when the first lightweight connection to a peer is opened.
 connectToPeer
     :: forall packingType peerData m r .
-       ( Mockable Throw m
-       , Mockable Bracket m
+       ( MonadMask m
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
        , Serializable packingType peerData
@@ -1778,3 +1775,24 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                 readSharedExclusive excl
                 startConnecting
             Right () -> return ()
+
+bracketWithException
+    :: ( MonadMask m, Exception e )
+    => m r
+    -> (r -> Maybe e -> m b)
+    -> (r -> m c)
+    -> m c
+bracketWithException before after thing = UnsafeExc.mask $ \restore -> do
+  --
+  -- The implementation is largely based on 'bracket' from 'safe-exceptions-0.1.6.0'
+  --
+    x <- before
+    res1 <- UnsafeExc.try $ restore (thing x)
+    case res1 of
+        Left (e1 :: SomeException) -> do
+            _ :: Either SomeException b <-
+                UnsafeExc.try $ UnsafeExc.uninterruptibleMask_ $ after x (UnsafeExc.fromException e1)
+            UnsafeExc.throwM e1
+        Right y -> do
+            _ <- UnsafeExc.uninterruptibleMask_ $ after x Nothing
+            return y

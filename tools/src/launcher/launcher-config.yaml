@@ -1,5 +1,5 @@
 # Path to the node executable
-nodePath: .stack-work/install/x86_64-linux/lts-9.1/8.0.2/bin/cardano-node
+nodePath: .stack-work/install/x86_64-linux-nopie/lts-9.1/8.0.2/bin/cardano-node
 
 # Arguments to be passed to the node
 nodeArgs:

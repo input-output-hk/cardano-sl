@@ -32,13 +32,15 @@ import           Data.Version (showVersion)
 import qualified Data.Yaml as Y
 import           Formatting (int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, progDesc, short, strOption)
+import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
+                                      execParserPure, footerDoc, fullDesc, handleParseResult,
+                                      header, help, helper, info, infoOption, long, metavar,
+                                      progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getEnv, getEnvironment, getExecutablePath, lookupEnv)
+import           System.Environment (getEnv, getExecutablePath, getProgName)
 import           System.Exit (ExitCode (..))
-import           System.FilePath ((</>))
+import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
@@ -136,56 +138,73 @@ data UpdaterData = UpdaterData
     }
 
 data LauncherArgs = LauncherArgs
-    { configPath  :: !FilePath
-    , daedalusDir :: !(Maybe FilePath)
+    { maybeConfigPath  :: !(Maybe FilePath)
     }
 
 data LauncherError =
       ConfigParseError !FilePath !(Y.ParseException)
-    | NoDaedalusDir [(String, String)]
 
 instance Show LauncherError where
     show (ConfigParseError configPath yamlException) = toString $
         sformat ("Failed to parse config at "%string%": "%shown) configPath yamlException
-    show (NoDaedalusDir env) = toString $
-        sformat ("%DAEDALUS_DIR% is not in the environment "%
-                "and was not provided as a command line argument.\n"%
-                "Complete dump of the environment follows:\n"%shown) env
 
 instance Exception LauncherError
 
 launcherArgsParser :: Parser LauncherArgs
 launcherArgsParser = do
-    configPath <- strOption $
+    maybeConfigPath <- optional $ strOption $
         short   'c' <>
         long    "config" <>
         help    "Path to the launcher configuration file." <>
         metavar "PATH"
-    daedalusDir <- optional $ strOption $
-        long    "daedalus-dir" <>
-        help    "Path to Daedalus installation directory." <>
-        metavar "PATH"
     pure $ LauncherArgs {..}
+
+getDefaultLogDir :: IO FilePath
+getDefaultLogDir =
+#ifdef mingw32_HOST_OS
+    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
+#else
+    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
+#endif
+
+-- | Write @contents@ into @filename@ under default logging directory.
+--
+-- This function is only intended to be used before normal logging
+-- is initialized. Its purpose is to provide at least some information
+-- in cases where normal reporting methods don't work yet.
+reportErrorDefault :: FilePath -> Text -> IO ()
+reportErrorDefault filename contents = do
+    logDir <- getDefaultLogDir
+    createDirectoryIfMissing True logDir
+    writeFile (logDir </> filename) contents
 
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
-    LauncherArgs {..} <- execParser programInfo
+    LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do
-            -- Since at this point we have failed to parse the config,
-            -- the only option is to hardcode where to leave the error log.
-#ifdef mingw32_HOST_OS
-            logDir <- (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
-#else
-            logDir <- (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
-#endif
-            createDirectoryIfMissing True logDir
-            writeFile (logDir </> "config-error.log") $
-                sformat ("Failed to parse "%string%": "%shown) configPath err
+            reportErrorDefault "config-parse-error.log" $ show err
             throwM $ ConfigParseError configPath err
-        Right op -> expandVars daedalusDir op
+        Right op -> expandVars op
   where
+    execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
+    execParserEither pinfo = do
+        args <- getArgs
+        case execParserPure defaultPrefs pinfo args of
+            Success a -> pure $ Right a
+            Failure failure -> do
+                progn <- getProgName
+                let (msg, exitCode) = renderFailure failure progn
+                pure $ Left (toText msg, exitCode)
+            CompletionInvoked compl -> handleParseResult $ CompletionInvoked compl
+
+    parseErrorHandler :: (Text, ExitCode) -> IO a
+    parseErrorHandler (msg, exitCode) = do
+        reportErrorDefault "cli-parse-error.log" msg
+        exitWith exitCode
+
     programInfo = info (helper <*> versionOption <*> launcherArgsParser) $
         fullDesc <> progDesc ""
                  <> header "Tool to launch Cardano SL."
@@ -195,35 +214,35 @@ getLauncherOptions = do
         ("cardano-launcher-" <> showVersion version)
         (long "version" <> help "Show version.")
 
+    defaultConfigPath :: IO FilePath
+    defaultConfigPath = do
+        launcherDir <- takeDirectory <$> getExecutablePath
+        pure $ launcherDir </> "launcher-config.yaml"
+
     -- Poor man's environment variable expansion.
-    expandVars :: Maybe FilePath -> LauncherOptions -> IO LauncherOptions
+    expandVars :: LauncherOptions -> IO LauncherOptions
 #ifdef mingw32_HOST_OS
-    expandVars daedalusDirArg lo@(LO {..}) = do
+    expandVars lo@(LO {..}) = do
         -- %APPDATA%: nodeArgs, nodeDbPath,
         --     nodeLogPath, updaterPath,
         --     updateWindowsRunner, launcherLogsPrefix
         -- %DAEDALUS_DIR%: nodePath, walletPath
         appdata <- toText <$> getEnv "APPDATA"
-        daedalusDirEnv <- lookupEnv "DAEDALUS_DIR"
-        case daedalusDirArg <|> daedalusDirEnv of
-            Nothing -> do
-                env <- getEnvironment
-                throwM $ NoDaedalusDir env
-            Just daedalusDir -> do
-                let replaceAppdata = replace "%APPDATA%" appdata
-                    replaceDaedalusDir = replace "%DAEDALUS_DIR%" (toText daedalusDir)
-                pure lo
-                    { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
-                    , loNodeDbPath          = replaceAppdata loNodeDbPath
-                    , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
-                    , loUpdaterPath         = replaceAppdata loUpdaterPath
-                    , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
-                    , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
-                    , loNodePath            = replaceDaedalusDir loNodePath
-                    , loWalletPath          = replaceDaedalusDir <$> loWalletPath
-                    }
+        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
+        let replaceAppdata = replace "%APPDATA%" appdata
+            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+        pure lo
+            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
+            , loNodeDbPath          = replaceAppdata loNodeDbPath
+            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
+            , loUpdaterPath         = replaceAppdata loUpdaterPath
+            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
+            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
+            , loNodePath            = replaceDaedalusDir loNodePath
+            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
+            }
 #else
-    expandVars _ lo@(LO {..}) = do
+    expandVars lo@(LO {..}) = do
         home <- toText <$> getEnv "HOME"
         let replaceHome = replace "$HOME" home
         pure lo

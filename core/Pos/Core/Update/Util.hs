@@ -90,7 +90,7 @@ mkUpdateProposalWSign upBlockVersion upBlockVersionMod upSoftwareVersion upData 
     upSignature = safeSign SignUSProposal ss toSign
 
 mkVoteId :: UpdateVote -> VoteId
-mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
+mkVoteId vote = (uvProposalId vote, uvKey vote, uvDecision vote)
 
 mkUpdateProof
     :: Bi UpdatePayload

@@ -444,7 +444,7 @@ putNewProposal slotOrHeader totalStake votesAndStakes up = insertActiveProposal 
     blkHeaderHash = either (const Nothing) (Just . view headerHashG) slotOrHeader
     votes = HM.fromList . map convertVote $ votesAndStakes
     -- New proposal always has a fresh vote (not revote).
-    convertVote (UpdateVote {..}, _) = (uvKey, newVoteState uvDecision)
+    convertVote (vote, _) = (uvKey vote, newVoteState (uvDecision vote))
     ups =
         UndecidedProposalState
         { upsVotes = votes

@@ -23,7 +23,6 @@ type LrcMode ctx m
        , MonadDB m
        , MonadIO m
        , Mockables m [Async, Concurrently, Delay]
-                     -- ^ alphabet for the youngest haskellers
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasConfiguration

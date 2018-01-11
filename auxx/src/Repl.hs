@@ -91,9 +91,12 @@ createAuxxRepl = do
         withCommand :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
         withCommand cont = do
             cmd <- takeMVar nextCommandVar
-            res <- handleAsync
-                (\e -> return $ CommandFailure e)
-                (CommandSuccess <$ cont cmd)
+            res <-
+                -- We do not want the REPL to crash when a command is interrupted
+                -- with an async exception, hence 'handleAsync'.
+                handleAsync
+                    (\e -> return $ CommandFailure e)
+                    (CommandSuccess <$ cont cmd)
             putMVar lastResultVar res
         getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
         getPrintAction = liftIO $ (liftIO .) <$> readMVar printActionVar

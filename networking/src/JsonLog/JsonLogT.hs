@@ -29,7 +29,6 @@ module JsonLog.JsonLogT
     ) where
 
 import           Control.Concurrent.MVar (MVar, withMVar)
-import           Control.Exception.Safe ()
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO (..))

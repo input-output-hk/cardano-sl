@@ -47,8 +47,7 @@ module Mockable.Concurrent (
   ) where
 
 import           Control.Exception (AsyncException (..))
-import           Control.Exception.Safe hiding (throwTo)
---import           Control.Exception (AsyncException (ThreadKilled), Exception)
+import           Control.Exception.Safe (Exception, MonadCatch, catchAny)
 import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 

@@ -11,7 +11,6 @@ module Pos.NtpCheck
 
 import           Universum
 
-import           Control.Exception.Safe ()
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)

@@ -406,6 +406,7 @@ library
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
+                      , servant-client
                       , stm
                       , stm-containers
                       , string-qq

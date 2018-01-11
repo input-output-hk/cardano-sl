@@ -5,7 +5,7 @@ module Test.Network.Broadcast.OutboundQueueSpec
        ) where
 
 import           Control.Monad
-import           Control.Concurrent.MVar (readMVar)
+import           Control.Concurrent.MVar (modifyMVar_, newMVar, readMVar)
 import           Data.List (delete)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
@@ -19,21 +19,31 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, forAll, ioProperty, property,
                                   (===), (==>))
 
+setupNodes :: Int -> IO [Node]
+setupNodes n = M.runProduction $ do
+    ns <- forM [1..n] $ \nodeIdx -> newNode (C nodeIdx) NodeCore (CommsDelay 0) onConnChange
+    forM_ ns $ \theNode -> setPeers theNode (delete theNode ns)
+    return ns
+    where
+        onConnChange :: OutQ.ConnectionChangeAction IO NodeId
+        onConnChange = OutQ.ConnectionChangeAction (const $ return ())
+
 testInFlight :: IO Bool
 testInFlight = do
     -- disable logging
     removeAllHandlers
 
     -- Set up some test nodes
-    allNodes <- M.runProduction $ do
-      ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore  (CommsDelay 0)
-      forM_ ns $ \theNode -> setPeers theNode  (delete theNode ns)
-      return ns
+    allNodes <- setupNodes 4
 
     runEnqueue $ do
       -- Send messages asynchronously
       forM_ [1..1000] $ \n -> do
-        send Asynchronous (allNodes !! 0) (MsgTransaction OriginSender) (MsgId n)
+        send Asynchronous
+             (allNodes !! 0)
+             (MsgTransaction OriginSender)
+             (MsgId n)
+             (OutQ.ConnectionChangeAction $ \_ -> return ())
       -- Abruptly unsubscribe whilst messages are getting delivered
       forM_ allNodes $ \theNode -> setPeers theNode []
 
@@ -54,10 +64,7 @@ testConnStatus = forAll arbitrary $ \(as :: [Bool]) ->
       removeAllHandlers
 
       -- Set up test nodes
-      allNodes <- M.runProduction $ do
-          ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore (CommsDelay 0)
-          forM_ ns $ \theNode -> setPeers theNode (delete theNode ns)
-          return ns
+      allNodes <- setupNodes 4
 
       let sendingNode = allNodes !! 0
 
@@ -65,8 +72,16 @@ testConnStatus = forAll arbitrary $ \(as :: [Bool]) ->
         -- Send messages synchronously
         forM (zip [1..] as) $ \(n, success) -> do
           if success
-            then send Synchronous sendingNode (MsgTransaction OriginSender) (MsgId n)
-            else sendError Synchronous sendingNode (MsgTransaction OriginSender) (MsgId n)
+            then send Synchronous
+                      sendingNode
+                      (MsgTransaction OriginSender)
+                      (MsgId n)
+                      (OutQ.ConnectionChangeAction $ \_ -> return ())
+            else sendError Synchronous
+                           sendingNode
+                           (MsgTransaction OriginSender)
+                           (MsgId n)
+                           (OutQ.ConnectionChangeAction $ \_ -> return ())
 
       -- Flush all queues
       forM_ (map nodeOutQ allNodes) OutQ.flush
@@ -87,6 +102,51 @@ testConnStatus = forAll arbitrary $ \(as :: [Bool]) ->
         cns <- readMVar (OutQ.qConnections . nodeOutQ $ n)
         return $ expected === M.mapKeys nodeId_ cns
 
+testConnChangeAction :: Property
+testConnChangeAction = forAll arbitrary $ \(as :: [Bool]) ->
+    ioProperty $ do
+        -- disable logging
+        removeAllHandlers
+
+        -- Define connection change action
+        connsMVar <- newMVar M.empty
+        let onConnChange :: OutQ.ConnectionChangeAction IO NodeId
+            onConnChange = OutQ.ConnectionChangeAction $ \conns ->
+                modifyMVar_ connsMVar (const $ return conns)
+
+        -- Set up test nodes
+        (sendingNode, allNodes) <- setupNodes' 4 onConnChange
+
+        runEnqueue $ do
+          -- Send messages asynchronously
+          forM_ (zip [1..] as) $ \(n, success) -> do
+            if success
+              then send Asynchronous
+                        sendingNode
+                        (MsgTransaction OriginSender)
+                        (MsgId n)
+                        (OutQ.liftConnectionChangeAction onConnChange)
+              else sendError Asynchronous
+                             sendingNode
+                             (MsgTransaction OriginSender)
+                             (MsgId n)
+                             (OutQ.liftConnectionChangeAction onConnChange)
+
+        -- Flush all queues
+        forM_ (map nodeOutQ allNodes) OutQ.flush
+
+        conns <- readMVar connsMVar
+        qConns <- readMVar (OutQ.qConnections . nodeOutQ $ sendingNode)
+
+        return $ conns === qConns
+
+    where
+        setupNodes' :: Int -> OutQ.ConnectionChangeAction IO NodeId -> IO (Node, [Node])
+        setupNodes' n onConnsChange = do
+            nodes <- setupNodes (n - 1)
+            sendingNode <- newNode (C n) NodeCore (CommsDelay 0) onConnsChange
+            return (sendingNode, sendingNode : nodes)
+
 spec :: Spec
 spec = describe "OutBoundQ" $ do
     -- We test that `removePeer` will never yield something like
@@ -101,6 +161,8 @@ spec = describe "OutBoundQ" $ do
       it "inflight conversations" $ ioProperty $ testInFlight
 
     it "connection status" testConnStatus
+
+    it "connection change action" testConnChangeAction
 
 newtype FiniteInt = FI Int deriving (Show, Eq, Ord)
 

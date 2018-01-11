@@ -83,10 +83,10 @@ relayDemo = do
 
     -- Set up some test nodes
     (nodeC1, nodeC2, nodeR, nodeEs, nodeC3) <- M.runProduction $ do
-      nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0)
-      nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0)
-      nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0)
-      nodeEs <- forM [1 .. 9] $ \n -> newNode (E n) NodeEdge (CommsDelay 0)
+      nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0) onConnChange
+      nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0) onConnChange
+      nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0) onConnChange
+      nodeEs <- forM [1 .. 9] $ \n -> newNode (E n) NodeEdge (CommsDelay 0) onConnChange
 
       setPeers nodeR  (nodeC1 : nodeC2 : nodeEs)
       setPeers nodeC1 [nodeR]
@@ -95,8 +95,8 @@ relayDemo = do
       -- Two core nodes that communicate directly with each other
       -- (disjoint from the nodes we set up above)
 
-      nodeC3 <- newNode (C 3) NodeCore (CommsDelay 0)
-      nodeC4 <- newNode (C 4) NodeCore (CommsDelay 1000000)
+      nodeC3 <- newNode (C 3) NodeCore (CommsDelay 0) (OutQ.liftConnectionChangeAction onConnChange)
+      nodeC4 <- newNode (C 4) NodeCore (CommsDelay 1000000) onConnChange
 
       setPeers nodeC3 [nodeC4]
       return (nodeC1, nodeC2, nodeR, nodeEs, nodeC3)
@@ -104,10 +104,18 @@ relayDemo = do
     runEnqueue $ do
 
       block "* Basic relay test: edge to core" [nodeR] $ do
-        void $ send Asynchronous (nodeEs !! 0) (MsgTransaction OriginSender) (MsgId 0)
+        void $ send Asynchronous
+                    (nodeEs !! 0)
+                    (MsgTransaction OriginSender)
+                    (MsgId 0)
+                    (OutQ.liftConnectionChangeAction onConnChange)
 
       block "* Basic relay test: code to edge" [nodeR] $ do
-        void $ send Asynchronous nodeC1 (MsgAnnounceBlockHeader OriginSender) (MsgId 100)
+        void $ send Asynchronous
+                    nodeC1
+                    (MsgAnnounceBlockHeader OriginSender)
+                    (MsgId 100)
+                    (OutQ.liftConnectionChangeAction onConnChange)
 
       -- In order to test rate limiting, we send a message from all of the edge
       -- nodes at once. These should then arrive at the (single) core node one
@@ -120,16 +128,32 @@ relayDemo = do
       -- a message from the queue and it actually adding to the in-flight).
       block "* Rate limiting" [nodeR] $ do
         forM_ (zip nodeEs [200..209]) $ \(nodeE, n) ->
-          void $ send Asynchronous nodeE (MsgTransaction OriginSender) (MsgId n)
+          void $ send Asynchronous
+                      nodeE
+                      (MsgTransaction OriginSender)
+                      (MsgId n)
+                      (OutQ.liftConnectionChangeAction onConnChange)
 
       block "* Priorities" [nodeR] $ do
         -- We schedule two transactions and a block header in quick succession.
         -- Although we enqueue the transactions before the block header, we
         -- should see in the output that the block headers are given priority.
         forM_ [300, 303 .. 309] $ \n -> do
-          _ <- send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
-          _ <- send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
-          _ <- send Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
+          _ <- send Asynchronous
+                    nodeR
+                    (MsgTransaction OriginSender)
+                    (MsgId n)
+                    (OutQ.liftConnectionChangeAction onConnChange)
+          _ <- send Asynchronous
+                    nodeR
+                    (MsgTransaction OriginSender)
+                    (MsgId (n + 1))
+                    (OutQ.liftConnectionChangeAction onConnChange)
+          _ <- send Asynchronous
+                    nodeR
+                    (MsgAnnounceBlockHeader OriginSender)
+                    (MsgId (n + 2))
+                    (OutQ.liftConnectionChangeAction onConnChange)
           liftIO $ threadDelay 2500000
 
       block "* Latency masking (and sync API)" [nodeC2] $ do
@@ -137,16 +161,35 @@ relayDemo = do
         -- (We cannot send two blocks at a time though, because then MaxAhead
         -- would not be satisfiable).
         forM_ [400, 402 .. 408] $ \n -> do
-          _ <- send Asynchronous nodeC3 (MsgAnnounceBlockHeader OriginSender) (MsgId n)
-          void $ send Synchronous  nodeC3 (MsgMPC OriginSender)                 (MsgId (n + 1))
+          _ <- send Asynchronous
+                    nodeC3
+                    (MsgAnnounceBlockHeader OriginSender)
+                    (MsgId n)
+                    (OutQ.liftConnectionChangeAction onConnChange)
+          void $ send Synchronous
+                      nodeC3
+                      (MsgMPC OriginSender)
+                      (MsgId (n + 1))
+                      (OutQ.liftConnectionChangeAction onConnChange)
 
       block "* Sending to specific nodes" nodeEs $ do
         -- This will send to the relay node
-        _ <- send Asynchronous nodeC1 (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR]))) (MsgId 500)
+        _ <- send Asynchronous
+                  nodeC1
+                  (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC2, nodeR])))
+                  (MsgId 500)
+                  (OutQ.liftConnectionChangeAction onConnChange)
         -- Edge nodes can never send to core nodes
-        void $ send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
+        void $ send Asynchronous
+                    (nodeEs !! 0)
+                    (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1])))
+                    (MsgId 501)
+                    (OutQ.liftConnectionChangeAction onConnChange)
 
       logNotice "End of demo"
+    where
+        onConnChange :: OutQ.ConnectionChangeAction IO NodeId
+        onConnChange = OutQ.ConnectionChangeAction $ \_ -> return ()
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -166,8 +209,13 @@ instance Eq Node where
     n1 == n2 = nodeId n1 == nodeId n2
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
-newNode :: MonadIO m => NodeId_ -> NodeType -> CommsDelay -> m Node
-newNode nodeId_ nodeType commsDelay = liftIO $ do
+newNode :: MonadIO m
+        => NodeId_
+        -> NodeType
+        -> CommsDelay
+        -> OutQ.ConnectionChangeAction IO NodeId
+        -> m Node
+newNode nodeId_ nodeType commsDelay onConnChange = liftIO $ do
     nodeOutQ     <- OutQ.new (show nodeId_)
                              demoEnqueuePolicy
                              demoDequeuePolicy
@@ -177,21 +225,21 @@ newNode nodeId_ nodeType commsDelay = liftIO $ do
     nodeId       <- NodeId nodeId_ commsDelay <$> newSyncVar
     nodeMsgPool  <- newMsgPool
     let node = Node{..}
-    _worker   <- forkIO $ runDequeue $ nodeDequeueWorker node
-    _listener <- forkIO $ runEnqueue $ nodeForwardListener node
+    _worker   <- forkIO $ runDequeue $ nodeDequeueWorker node (OutQ.liftConnectionChangeAction onConnChange)
+    _listener <- forkIO $ runEnqueue $ nodeForwardListener node (OutQ.liftConnectionChangeAction onConnChange)
     return node
 
 -- | Worker that monitors the queue and sends all enqueued messages
-nodeDequeueWorker :: Node -> Dequeue ()
-nodeDequeueWorker node =
-    OutQ.dequeueThread (nodeOutQ node) sendMsg
+nodeDequeueWorker :: Node -> OutQ.ConnectionChangeAction Dequeue NodeId -> Dequeue ()
+nodeDequeueWorker node onConnChange =
+    OutQ.dequeueThread (nodeOutQ node) sendMsg onConnChange
   where
     sendMsg :: OutQ.SendMsg Dequeue MsgObj_ NodeId
     sendMsg msg nodeId = liftIO $ msgSend msg nodeId
 
 -- | Listener that forwards any new messages that arrive at the node
-nodeForwardListener :: Node -> Enqueue ()
-nodeForwardListener node = forever $ do
+nodeForwardListener :: Node -> OutQ.ConnectionChangeAction Enqueue NodeId -> Enqueue ()
+nodeForwardListener node onConnChange = forever $ do
     msgData <- recvNodeId (nodeId node)
     added   <- addToMsgPool (nodeMsgPool node) msgData
     let msgObj = mkMsgObj msgData
@@ -212,6 +260,7 @@ nodeForwardListener node = forever $ do
           OutQ.enqueue (nodeOutQ node)
                        msgType'
                        msgObj
+                       onConnChange
   where
     received, discarded :: MsgObj -> Text
     received  = sformat (shown % ": received "  % formatMsg) (nodeId node)
@@ -231,27 +280,45 @@ simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
 data Sync = Synchronous | Asynchronous
 
-sendImpl :: Bool -> Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
-sendImpl success sync from msgType msgId = do
+sendImpl :: Bool
+         -> Sync
+         -> Node
+         -> MsgType NodeId
+         -> MsgId
+         -> OutQ.ConnectionChangeAction Enqueue NodeId
+         -> Enqueue [NodeId]
+sendImpl success sync from msgType msgId onConnChange = do
     logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     True <- addToMsgPool (nodeMsgPool from) msgData
-    enqueue (nodeOutQ from) msgType msgObj
+    enq (nodeOutQ from) msgType msgObj
   where
     msgData = MsgData (nodeId from) msgType msgId
     msgObj  = MsgObj msgData
                 $ if success
                     then \nid -> sendNodeId nid msgData
                     else error "connection error"
-    enqueue = \oq mt conv -> case sync of
-                Synchronous  -> map fst <$> OutQ.enqueueSync' oq mt conv
-                Asynchronous -> map fst <$> OutQ.enqueue oq mt conv
+    enq = \oq mt conv -> case sync of
+                Synchronous
+                    -> map fst <$> OutQ.enqueueSync' oq mt conv onConnChange
+                Asynchronous
+                    -> map fst <$> OutQ.enqueue oq mt conv onConnChange
 
 -- | Send a message from the specified node
-send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
+send :: Sync
+     -> Node
+     -> MsgType NodeId
+     -> MsgId
+     -> OutQ.ConnectionChangeAction Enqueue NodeId
+     -> Enqueue [NodeId]
 send = sendImpl True
 
 -- | Error when seding a message from the specified node
-sendError :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue [NodeId]
+sendError :: Sync
+          -> Node
+          -> MsgType NodeId
+          -> MsgId
+          -> OutQ.ConnectionChangeAction Enqueue NodeId
+          -> Enqueue [NodeId]
 sendError = sendImpl False
 
 {-------------------------------------------------------------------------------

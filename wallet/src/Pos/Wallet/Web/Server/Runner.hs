@@ -33,8 +33,9 @@ import           Pos.Launcher.Runner (runRealBasedMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (addInitialRichAccount)
-import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
+import           Pos.Wallet.Web.Methods (AddrCIdHashes(..), addInitialRichAccount)
+import           Pos.Wallet.Web.Mode (WalletWebMode,
+                                      WalletWebModeContext (..),
                                       WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
@@ -53,9 +54,10 @@ runWRealMode
     -> Production a
 runWRealMode db conn res spec = do
     saVar <- atomically STM.newEmptyTMVar
+    ref <- newIORef mempty
     runRealBasedMode
-        (Mtl.withReaderT (WalletWebModeContext db conn saVar))
-        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ rmc) -> rmc))
+        (Mtl.withReaderT (WalletWebModeContext db conn (AddrCIdHashes ref) saVar))
+        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ _ rmc) -> rmc))
         res
         spec
 

@@ -13,6 +13,8 @@ import           Universum
 
 import           Control.Exception (throw)
 import           Control.Monad.Except (runExcept)
+import           Servant.Server (err405, errReasonPhrase)
+import           System.Wlog (logDebug)
 
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
@@ -20,6 +22,7 @@ import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy, computeTxFee, runTxCreator)
+import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Coin, TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, ShouldCheckPassphrase (..), checkPassMatches, hash,
@@ -37,6 +40,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CCoin, CId, C
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
+import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
 import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs, rewrapTxError,
                                              submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
@@ -143,6 +147,11 @@ sendMoney
     -> InputSelectionPolicy
     -> m CTx
 sendMoney passphrase moneySource dstDistr policy = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation is disabled by configuration!"
+        }
+
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`
@@ -151,7 +160,10 @@ sendMoney passphrase moneySource dstDistr policy = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
+    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+
+    logDebug "sendMoney: processed addrs"
+
     let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
     allSecrets <- getSecretKeys
 

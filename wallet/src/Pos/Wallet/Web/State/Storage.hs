@@ -11,6 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletBalances
+       , WalBalancesAndUtxo
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , Query
@@ -19,6 +20,7 @@ module Pos.Wallet.Web.State.Storage
        , flushWalletStorage
        , getProfile
        , setProfile
+       , doesAccountExist
        , getAccountIds
        , getAccountMeta
        , getWalletMeta
@@ -174,6 +176,7 @@ type CustomAddresses = HashMap (CId Addr) HeaderHash
 
 -- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
+type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
 -- | Datatype which defines full structure of acid-state.
 data WalletStorage = WalletStorage
@@ -335,6 +338,9 @@ doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (cwamId addrMeta))
 
+doesAccountExist :: AccountId -> Query Bool
+doesAccountExist accId = view $ wsAccountInfos . at accId . to isJust
+
 -- | Get transaction metadata given wallet ID and transaction ID.
 getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
@@ -348,7 +354,7 @@ getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
 
 -- | Get wallet 'Utxo' cache together with balances cache atomically.
-getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
+getWalletBalancesAndUtxo :: Query WalBalancesAndUtxo
 getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
 
 -- | Given 'UtxoModifier', update wallet 'Utxo' cache together with

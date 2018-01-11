@@ -123,6 +123,8 @@ dev: &dev
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds
+    walletProductionApi: false
+    walletTxCreationDisabled: false
 
 
 ##############################################################################
@@ -314,6 +316,8 @@ mainnet_base: &mainnet_base
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds
+    walletProductionApi: true
+    walletTxCreationDisabled: false
 
 
 ##############################################################################

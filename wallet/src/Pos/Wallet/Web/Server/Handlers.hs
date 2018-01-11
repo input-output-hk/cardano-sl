@@ -22,7 +22,6 @@ import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
 import qualified Pos.Wallet.Web.Api as A
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 
 ----------------------------------------------------------------------------
 -- The wallet API with Swagger
@@ -79,7 +78,7 @@ walletsHandlers = toServant' A.WWalletsApiRecord
 
 accountsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WAccountsApi m
 accountsHandlers = toServant' A.WAccountsApiRecord
-    { _getAccount    = fixingCachedAccModifier M.getAccount
+    { _getAccount    = M.getAccount
     , _getAccounts   = M.getAccounts
     , _updateAccount = M.updateAccount
     , _newAccount    = M.newAccount RandomSeed

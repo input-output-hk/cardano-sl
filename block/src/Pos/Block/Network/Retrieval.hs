@@ -87,20 +87,20 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
-        -- Reading the queue is a priority, because it sets recovery
-        -- variable in case header is alternative. So if the queue
-        -- contains lots of headers after a long delay, we'll first
-        -- iterate over them and set recovery variable to a latest
-        -- one, and only then we'll do recovery.
+        -- Reading the queue is a priority, because it sets the recovery
+        -- variable in case the header is classified as alternative. So if the
+        -- queue contains lots of headers after a long delay, we'll first
+        -- iterate over them and set recovery variable to the latest one, and
+        -- only then we'll do recovery.
         thingToDoNext <- atomically $ do
             mbQueuedHeadersChunk <- tryReadTBQueue queue
             mbRecHeader <- tryReadTMVar recHeaderVar
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                -- Dispatch task.
+                -- Dispatch the task
                 (Just (nodeId, task), _) ->
                     pure (handleBlockRetrieval nodeId task)
-                -- No tasks & recovery header is there ⇒ do recovery.
+                -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
         -- Restart the timer for sending keep-alive like packets to node(s)
@@ -114,7 +114,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
     mainLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         reportOrLogE "retrievalWorker mainLoopE: error caught " e
-        delay $ sec 1
+        delay (sec 1)
         mainLoop
 
     -----------------
@@ -131,7 +131,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
             nodeId
             brtHeader
 
-    -- When we have continuation, we just try to get and apply it.
+    -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do
         let hHash = headerHash header
         logDebug $ "handleContinues: " <> pretty hHash
@@ -142,9 +142,9 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
 
-    -- When we have alternative header, we should check whether it's
-    -- really recovery mode (server side should send us headers as a
-    -- proof) and then enter recovery mode.
+    -- When we have an alternative header, we should check whether it's actually
+    -- recovery mode (server side should send us headers as a proof) and then
+    -- enter recovery mode.
     handleAlternative nodeId header = do
         logDebug $ "handleAlternative: " <> pretty (headerHash header)
         classifyNewHeader header >>= \case
@@ -175,8 +175,8 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat enqueueMsg nodeId
 
-    -- Recovery handling. We assume that header in recovery var makes
-    -- sense and just query headers/blocks.
+    -- Recovery handling. We assume that header in the recovery variable is
+    -- appropriate and just query headers/blocks.
     handleRecovery nodeId header = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers and blocks"
@@ -287,7 +287,7 @@ dropRecoveryHeader nodeId = do
                    maybe "noth" show realPeer <> " vs " <> show nodeId
     pure kicked
 
--- | Drops recovery header and, if it was successful, queries tips.
+-- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
     :: (BlockWorkMode ctx m)
     => EnqueueMsg m -> NodeId -> m ()

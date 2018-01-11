@@ -21,6 +21,7 @@ import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Client.Txp.History (saveTx)
 import           Pos.Client.Txp.Network (TxMode)
+import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
@@ -120,6 +121,10 @@ submitAndSavePtx
     :: TxSubmissionMode ctx m
     => PtxSubmissionHandlers m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+    -- this should've been checked before, but just in case
+    when walletTxCreationDisabled $
+        throwM $ InternalError "Transaction creation is disabled by configuration!"
+
     addOnlyNewPendingTx ptx
     ack <- sendTxToNetwork _ptxTxAux
     (saveTx (_ptxTxId, _ptxTxAux)

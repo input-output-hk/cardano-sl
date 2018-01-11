@@ -278,9 +278,7 @@ getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
     fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
-    fetch which = do
-        addresses <- preview (wsAccountInfos . ix accId . which)
-        pure (HM.elems <$> addresses)
+    fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
 doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =

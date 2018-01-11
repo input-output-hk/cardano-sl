@@ -118,7 +118,7 @@ instance (Applicative m, MessageLimited w m) => MessageLimited (ProxySecretKey w
                          <*> getMsgLenLimit Proxy
                          <*> getMsgLenLimit Proxy
       where
-        f a b c d = ProxySecretKey <$> a <+> b <+> c <+> d
+        f a b c d = UnsafeProxySecretKey <$> a <+> b <+> c <+> d
 
 ----------------------------------------------------------------------------
 ---- SSC

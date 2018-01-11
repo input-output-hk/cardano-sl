@@ -35,7 +35,7 @@ instance Bi (Core.BodyProof BC.MainBlockchain) where
                          decode <*>
                          decode
 
-instance Bi BC.BlockSignature where
+instance HasConfiguration => Bi BC.BlockSignature where
     encode input = case input of
         BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
         BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy

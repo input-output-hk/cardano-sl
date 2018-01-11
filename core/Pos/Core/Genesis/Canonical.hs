@@ -145,14 +145,14 @@ instance Monad m => ToJSON m Address where
     toJSON = fmap JSString . toObjectKey
 
 instance Monad m => ToJSON m (ProxySecretKey EpochIndex) where
-    toJSON ProxySecretKey {..} =
+    toJSON psk =
         -- omega is encoded as a number, because in genesis we always
         -- set it to 0.
         mkObject
-            [ ("omega", pure (JSNum . fromIntegral $ pskOmega))
-            , ("issuerPk", toJSON pskIssuerPk)
-            , ("delegatePk", toJSON pskDelegatePk)
-            , ("cert", toJSON pskCert)
+            [ ("omega", pure (JSNum . fromIntegral $ pskOmega psk))
+            , ("issuerPk", toJSON $ pskIssuerPk psk)
+            , ("delegatePk", toJSON $ pskDelegatePk psk)
+            , ("cert", toJSON $ pskCert psk)
             ]
 
 instance Monad m => ToJSON m SoftforkRule where
@@ -386,7 +386,7 @@ instance ReportSchemaErrors m => FromJSON m (ProxySecretKey EpochIndex) where
         pskIssuerPk <- fromJSField obj "issuerPk"
         pskDelegatePk <- fromJSField obj "delegatePk"
         pskCert <- fromJSField obj "cert"
-        return ProxySecretKey {..}
+        pure UnsafeProxySecretKey{..}
 
 instance ReportSchemaErrors m => FromJSON m SoftforkRule where
     fromJSON obj = do

@@ -20,10 +20,12 @@ import           Formatting (int, sformat, (%))
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
+import           Pos.Crypto.Signing.Check (validateProxySecretKey)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..))
@@ -174,19 +176,25 @@ instance Bi a => Bi (Signed a) where
 
 deriving instance Typeable w => Bi (ProxyCert w)
 
-instance Bi w => Bi (ProxySecretKey w) where
-    encode ProxySecretKey{..} = encodeListLen 4
-                             <> encode pskOmega
-                             <> encode pskIssuerPk
-                             <> encode pskDelegatePk
-                             <> encode pskCert
-    decode = ProxySecretKey <$  enforceSize "ProxySecretKey" 4
-                            <*> decode
-                            <*> decode
-                            <*> decode
-                            <*> decode
+instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
+    encode UnsafeProxySecretKey{..} =
+        encodeListLen 4
+        <> encode pskOmega
+        <> encode pskIssuerPk
+        <> encode pskDelegatePk
+        <> encode pskCert
+    decode = do
+        enforceSize "ProxySecretKey" 4
+        pskOmega      <- decode
+        pskIssuerPk   <- decode
+        pskDelegatePk <- decode
+        pskCert       <- decode
+        case validateProxySecretKey UnsafeProxySecretKey{..} of
+            Left err  -> fail $ toString ("decode@ProxySecretKey: " <> err)
+            Right psk -> pure psk
 
-instance (Typeable a, Bi w) => Bi (ProxySignature w a) where
+instance (Typeable a, Bi w, HasCryptoConfiguration) =>
+         Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk
                              <> encode psigSig

@@ -82,25 +82,26 @@ import           Servant.Server              (HasServer (..))
 import           Servant.Swagger.UI          (SwaggerSchemaUI)
 import           Universum
 
-import           Pos.Client.Txp.Util         (InputSelectionPolicy)
-import           Pos.Types                   (Coin, SoftwareVersion)
-import           Pos.Util.Servant            (ApiLoggingConfig, CCapture, CQueryParam,
-                                              CReqBody, DCQueryParam, DReqBody,
-                                              HasLoggingServer (..), LoggingApi,
-                                              ModifiesApiRes (..), ReportDecodeError (..),
-                                              VerbMod, WithTruncatedLog (..),
-                                              applyLoggingToHandler, inRouteServer,
-                                              serverHandlerL')
-import           Pos.Wallet.Web.ClientTypes  (Addr, CAccount, CAccountId, CAccountInit,
-                                              CAccountMeta, CAddress, CCoin, CFilePath,
-                                              ClientInfo, CId, CInitialized, CPaperVendWalletRedeem,
-                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                              CUpdateInfo, CWallet, CWalletInit,
-                                              CWalletMeta, CWalletRedeem, ScrollLimit,
-                                              ScrollOffset, NewBatchPayment,
-                                              SyncProgress, Wal)
-import           Pos.Wallet.Web.Error        (WalletError (DecodeError),
-                                              catchEndpointErrors)
+-------
+import           Pos.Client.Txp.Util        (InputSelectionPolicy)
+import           Pos.Types                  (Coin, SoftwareVersion)
+import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
+                                             CReqBody, DCQueryParam, DReqBody,
+                                             HasLoggingServer (..), LoggingApi,
+                                             ModifiesApiRes (..), ReportDecodeError (..),
+                                             VerbMod, WithTruncatedLog (..),
+                                             applyLoggingToHandler, inRouteServer,
+                                             serverHandlerL')
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
+                                             CAccountMeta, CAddress, CCoin, CFilePath, ClientInfo,
+                                             CId, CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, ScrollLimit,
+                                             ScrollOffset, NewBatchPayment,
+                                             SyncProgress, Wal)
+import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
+                                             catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | Common prefix for all endpoints.

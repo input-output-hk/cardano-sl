@@ -4,9 +4,8 @@ module Pos.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..),
-                                               object, withArray, withObject, (.:),
-                                               (.=))
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..), object,
+                                               withArray, withObject, (.:), (.=))
 import           Data.Aeson.Types             (Parser, typeMismatch)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version                 (showVersion)

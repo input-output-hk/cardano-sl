@@ -35,7 +35,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic, Throw, throw)
+import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic)
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
@@ -109,7 +109,7 @@ hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
 makeEnqueueMsg
     :: forall m .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -120,7 +120,7 @@ makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
 alternativeConversations
     :: forall m t .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => NodeId
     -> VerInfo -- ^ Ours
@@ -152,7 +152,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs
         logWarning $ sformat
             ("Failed to choose appropriate conversation: "%listJson)
             errs
-        throw $ NE.head errs
+        throwM $ NE.head errs
 
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
@@ -178,7 +178,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs
 makeSendActions
     :: forall m .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -248,7 +248,7 @@ type LocalOnNewSlotComm ctx m =
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
-    , Mockable Throw m
+    , MonadThrow m
     , Mockable SharedAtomic m
     , HasConfiguration
     )

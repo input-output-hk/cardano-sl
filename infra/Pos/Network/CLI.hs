@@ -26,14 +26,14 @@ module Pos.Network.CLI
 import           Universum
 
 import           Control.Concurrent
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe
 import qualified Data.ByteString.Char8 as BS.C8
 import           Data.IP (IPv4)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
-import           Mockable (Catch, Mockable, Throw, fork, throw, try)
+import           Mockable (Mockable, fork)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
@@ -185,7 +185,7 @@ monitorStaticConfig :: forall m. (
                          WithLogger     m
                        , MonadIO        m
                        , Mockable Fork  m
-                       , Mockable Catch m
+                       , MonadCatch     m
                        )
                     => NetworkConfigOpts
                     -> NodeMetadata    -- ^ Original metadata (at startup)
@@ -266,8 +266,7 @@ intNetworkConfigOpts ::
        ( WithLogger m
        , MonadIO m
        , Mockable Fork m
-       , Mockable Catch m
-       , Mockable Throw m
+       , MonadCatch m
        )
     => NetworkConfigOpts
     -> m (T.NetworkConfig DHT.KademliaParams)

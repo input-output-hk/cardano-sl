@@ -9,13 +9,13 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
+import           Control.Exception.Safe
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum hiding (bracket)
+import           Universum
 import qualified Data.List.NonEmpty as NE
 
 import           Formatting (sformat, shown, (%))
-import           Mockable (Bracket, Catch, Mockable, Throw, bracket, try)
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
@@ -35,9 +35,7 @@ import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
 type SubscriptionMode m =
     ( MonadIO m
     , WithLogger m
-    , Mockable Throw m
-    , Mockable Catch m
-    , Mockable Bracket m
+    , MonadMask m
     , MonadKnownPeers m
     , Message MsgSubscribe
     , Message MsgSubscribe1

@@ -28,12 +28,13 @@ module Pos.Communication.Relay.Logic
        , MinRelayWorkMode
        ) where
 
+import           Control.Exception.Safe
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Proxy (asProxyTypeOf)
 import           Data.Tagged (Tagged, tagWith)
 import           Data.Typeable (typeRep)
 import           Formatting (build, sformat, shown, stext, (%))
-import           Mockable (MonadMockable, handleAll, throw, try)
+import           Mockable (MonadMockable)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logDebug, logError, logWarning)
@@ -352,7 +353,7 @@ invReqDataFlowDo what key dt peer conv = do
   where
     replyWithData (Left (ReqMsg (Just key'))) = do
         -- Stop if the peer sends the wrong key. Basically a protocol error.
-        unless (key' == key) (throw MismatchedKey)
+        unless (key' == key) (throwM MismatchedKey)
         send conv $ Right $ DataMsg dt
         it <- recvLimited conv
         maybe handleD checkResponse it
@@ -363,7 +364,7 @@ invReqDataFlowDo what key dt peer conv = do
         logError $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" unexpected response")
                     what peer
-        throw UnexpectedResponse
+        throwM UnexpectedResponse
 
     checkResponse (Right resMsg) = return (Just resMsg)
     -- The peer sent a ReqMsg where a ResMsg was expected.
@@ -371,14 +372,14 @@ invReqDataFlowDo what key dt peer conv = do
         logError $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" unexpected request")
                     what peer
-        throw UnexpectedRequest
+        throwM UnexpectedRequest
 
     handleD = do
         logError $
             sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
                      \Inv key = "%build)
                     what peer key
-        throw UnexpectedEnd
+        throwM UnexpectedEnd
 
 dataFlow
     :: forall contents m.
@@ -389,7 +390,7 @@ dataFlow
        , Message Void
        )
     => Text -> EnqueueMsg m -> Msg -> contents -> m ()
-dataFlow what enqueue msg dt = handleAll handleE $ do
+dataFlow what enqueue msg dt = handleAny handleE $ do
     its <- enqueue msg $
         \_ _ -> pure $ Conversation $ \(conv :: ConversationActions (DataMsg contents) Void m) ->
             send conv $ DataMsg dt
@@ -471,7 +472,7 @@ invReqDataFlow
     -> key
     -> contents
     -> m (Map NodeId (Either SomeException (Maybe (ResMsg key))))
-invReqDataFlow what enqueue msg key dt = handleAll handleE $ do
+invReqDataFlow what enqueue msg key dt = handleAny handleE $ do
     its <- enqueue msg $
         \addr _ -> pure $ Conversation $ invReqDataFlowDo what key dt addr
     waitForConversations (fmap try its)
@@ -485,4 +486,4 @@ invReqDataFlow what enqueue msg key dt = handleAll handleE $ do
         logWarning $
             sformat ("Error sending "%stext%", key = "%build%": "%shown)
                 what key e
-        throw e
+        throwM e

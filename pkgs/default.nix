@@ -1958,7 +1958,7 @@ self: {
           description = "Cardano SL - arbitrary data generation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, bytestring, cardano-report-server, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-networking, cardano-sl-util, conduit, containers, cpphs, directory, dns, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, log-warper, lzma-conduit, mkDerivation, monad-control, mtl, network-info, network-transport, network-transport-tcp, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, tar, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, yaml }:
+      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, bytestring, cardano-report-server, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-networking, cardano-sl-util, conduit, containers, cpphs, directory, dns, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, log-warper, lzma-conduit, mkDerivation, monad-control, mtl, network-info, network-transport, network-transport-tcp, optparse-applicative, parsec, reflection, safe-exceptions, serokell-util, stdenv, stm, tagged, tar, text, text-format, time, time-units, transformers, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "cardano-sl-infra";
           version = "1.0.3";
@@ -2002,6 +2002,7 @@ self: {
             parsec
             QuickCheck
             reflection
+            safe-exceptions
             serokell-util
             stm
             tagged
@@ -2055,7 +2056,7 @@ self: {
           description = "Cardano SL - Leaders and Richmen computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-networking = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, ekg-core, exceptions, formatting, hashable, hspec, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, network, network-transport, network-transport-inmemory, network-transport-tcp, optparse-simple, random, resourcet, serokell-util, statistics, stdenv, stm, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum }:
+      cardano-sl-networking = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, ekg-core, exceptions, formatting, hashable, hspec, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, network, network-transport, network-transport-inmemory, network-transport-tcp, optparse-simple, random, resourcet, safe-exceptions, serokell-util, statistics, stdenv, stm, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum }:
       mkDerivation {
           pname = "cardano-sl-networking";
           version = "1.0.3";
@@ -2089,6 +2090,7 @@ self: {
             QuickCheck
             random
             resourcet
+            safe-exceptions
             serokell-util
             statistics
             stm
@@ -2119,6 +2121,7 @@ self: {
             optparse-simple
             random
             resourcet
+            safe-exceptions
             serokell-util
             text
             text-format
@@ -2138,6 +2141,7 @@ self: {
             network-transport-tcp
             QuickCheck
             random
+            safe-exceptions
             serokell-util
             stm
             time-units

@@ -35,9 +35,8 @@ module Repl
 import           Universum
 
 import           Control.Concurrent.Async (race_)
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (displayException, handleAsync)
 import           Data.Text (strip)
-import           Mockable (Catch, Mockable, handle)
 import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
 
@@ -58,7 +57,7 @@ data CommandResult
 -- commands to execute (via 'withCommand') and get the Haskeline-compatible
 -- printing action (via 'getPrintAction').
 data WithCommandAction = WithCommandAction
-    { withCommand    :: forall m. (MonadIO m, Mockable Catch m) => (Text -> m ()) -> m ()
+    { withCommand    :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
         -- ^ Get the next command to execute. Rather than using simple @m
         -- 'Command'@ method, we use a CPS-ed version to guarantee valid
         -- exception handling, automate 'CommandResult' detection, and avoid
@@ -89,12 +88,15 @@ createAuxxRepl = do
     lastResultVar <- newEmptyMVar
     (printActionVar :: MVar (PrintAction IO)) <- newEmptyMVar
     let
-        withCommand :: forall m. (MonadIO m, Mockable Catch m) => (Text -> m ()) -> m ()
+        withCommand :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
         withCommand cont = do
             cmd <- takeMVar nextCommandVar
-            res <- handle
-                (\e -> return $ CommandFailure e)
-                (CommandSuccess <$ cont cmd)
+            res <-
+                -- We do not want the REPL to crash when a command is interrupted
+                -- with an async exception, hence 'handleAsync'.
+                handleAsync
+                    (\e -> return $ CommandFailure e)
+                    (CommandSuccess <$ cont cmd)
             putMVar lastResultVar res
         getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
         getPrintAction = liftIO $ (liftIO .) <$> readMVar printActionVar

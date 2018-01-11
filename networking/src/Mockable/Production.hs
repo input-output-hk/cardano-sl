@@ -14,9 +14,9 @@ import           Universum (MonadFail (..))
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
-import qualified Control.Exception as Exception
+import           Control.Exception.Safe (MonadCatch, MonadMask (..), MonadThrow)
+import qualified Control.Exception.Safe as Exception
 import           Control.Monad (forever)
-import           Control.Monad.Catch (MonadCatch (..), MonadMask (..), MonadThrow (..))
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO)
 import qualified Crypto.Random as Rand
@@ -35,7 +35,6 @@ import           Mockable.Class (Mockable (..))
 import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..), Promise,
                                       RunInUnboundThread (..), ThreadId)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
-import           Mockable.Exception (Bracket (..), Catch (..), Throw (..))
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
@@ -90,6 +89,8 @@ instance Mockable Async Production where
     liftMockable (AsyncThreadId p)      = Production $ return (Conc.asyncThreadId p)
     liftMockable (Race a b)             = Production $ Conc.race (runProduction a) (runProduction b)
     liftMockable (Link p)               = Production $ Conc.link p
+    liftMockable (UnsafeUnmask act)     = Production $
+        GHC.unsafeUnmask (runProduction act)
 
 instance Mockable Concurrently Production where
     {-# INLINABLE liftMockable #-}
@@ -135,37 +136,6 @@ instance Mockable Channel Production where
     liftMockable (TryReadChannel channel) = Production . Conc.atomically $ Conc.tryReadTChan channel
     liftMockable (UnGetChannel channel t) = Production . Conc.atomically $ Conc.unGetTChan channel t
     liftMockable (WriteChannel channel t) = Production . Conc.atomically $ Conc.writeTChan channel t
-
-instance Mockable Bracket Production where
-    {-# INLINABLE liftMockable #-}
-    {-# SPECIALIZE INLINE liftMockable :: Bracket Production t -> Production t #-}
-
-    liftMockable (Mask_ act) = Production $
-        Exception.mask_ (runProduction act)
-    liftMockable (UnsafeUnmask act) = Production $
-        GHC.unsafeUnmask (runProduction act)
-
-    liftMockable (Bracket acquire release act) = Production $
-        Exception.bracket (runProduction acquire) (runProduction . release) (runProduction . act)
-
-    -- Base implementation doesn't give such a bracket so we have to do it
-    -- ourselves.
-    liftMockable (BracketWithException acquire release act) = Production $ mask $ \restore -> do
-        a <- runProduction acquire
-        r <- restore (runProduction (act a)) `catch` \e -> do
-                 _ <- runProduction (release a (Just e))
-                 Exception.throwIO e
-        _ <- runProduction (release a Nothing)
-        return r
-
-instance Mockable Throw Production where
-    {-# INLINABLE liftMockable #-}
-    liftMockable (Throw e) = Production $ Exception.throwIO e
-
-instance Mockable Catch Production where
-    {-# INLINABLE liftMockable #-}
-    liftMockable (Catch action handler) = Production $
-        runProduction action `Exception.catch` (runProduction . handler)
 
 newtype FailException = FailException String
 

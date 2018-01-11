@@ -9,7 +9,7 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, (%))
-import           Mockable (Async, Catch, Delay, Fork, Mockable)
+import           Mockable (Async, Delay, Fork, Mockable)
 import           Network.Kademlia (takeSnapshot)
 import           System.Wlog (WithLogger, logNotice)
 
@@ -35,7 +35,6 @@ type DhtWorkMode ctx m =
     , Mockable Async m
     , Mockable Fork m
     , Mockable Delay m
-    , Mockable Catch m
     , MonadRecoveryInfo m
     , MonadReader ctx m
     , MonadReporting ctx m

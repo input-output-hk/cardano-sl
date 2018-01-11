@@ -14,7 +14,6 @@ import           Universum
 import           Control.Monad.Except (runExceptT)
 import           Ether.Internal (lensOf)
 import           Formatting (build, sformat, (%))
-import           Mockable (throw)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -55,7 +54,7 @@ announceBlock enqueue header = do
         let throwOnIgnored nId =
                 whenJust (nodeIdToAddress nId) $ \addr ->
                     whenM (shouldIgnoreAddress addr) $
-                        throw AttackNoBlocksTriggered
+                        throwM AttackNoBlocksTriggered
         when (AttackNoBlocks `elem` spAttackTypes) (throwOnIgnored nodeId)
         logDebug $
             sformat

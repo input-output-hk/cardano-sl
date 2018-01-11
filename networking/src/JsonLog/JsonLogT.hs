@@ -51,7 +51,6 @@ import           Mockable.Channel (Channel, ChannelT)
 import           Mockable.Class (Mockable (..))
 import           Mockable.Concurrent (Async, Concurrently, Delay, Fork, Promise, ThreadId)
 import           Mockable.CurrentTime (CurrentTime)
-import           Mockable.Exception (Bracket, Catch, Throw, catchAll)
 import           Mockable.Instances (liftMockableWrappedM)
 import           Mockable.Metrics (Counter, Distribution, Gauge, Metrics)
 import           Mockable.SharedAtomic (SharedAtomic, SharedAtomicT)
@@ -100,18 +99,6 @@ type instance SharedAtomicT (JsonLogT m) = SharedAtomicT m
 type instance SharedExclusiveT (JsonLogT m) = SharedExclusiveT m
 type instance ChannelT (JsonLogT m) = ChannelT m
 
-instance Mockable Catch m => Mockable Catch (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Throw m => Mockable Throw (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Bracket m => Mockable Bracket (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
 instance Mockable Fork m => Mockable Fork (JsonLogT m) where
 
     liftMockable = liftMockableWrappedM
@@ -150,7 +137,7 @@ instance Mockable Metrics m => Mockable Metrics (JsonLogT m) where
     liftMockable = liftMockableWrappedM
 
 jsonLogDefault
-    :: (ToJSON a, Mockable Catch m, MonadIO m, WithLogger m)
+    :: (ToJSON a, MonadCatch m, MonadIO m, WithLogger m)
     => JsonLogConfig
     -> a -> m ()
 jsonLogDefault jlc x =
@@ -159,16 +146,16 @@ jsonLogDefault jlc x =
         JsonLogConfig v decide -> do
             event <- toEvent <$> timedIO x
             b     <- liftIO (decide event)
-                `catchAll` \e -> do
+                `catchAny` \e -> do
                     logWarning $ sformat ("error in deciding whether to json log: "%shown) e
                     return False
             when b $ liftIO (withMVar v $ flip hPut $ encode event)
-                `catchAll` \e ->
+                `catchAny` \e ->
                     logWarning $ sformat ("can't write json log: "%shown) e
 
 instance ( MonadIO m
          , WithLogger m
-         , Mockable Catch m) => CanJsonLog (JsonLogT m) where
+         , MonadCatch m) => CanJsonLog (JsonLogT m) where
 
     jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)
 

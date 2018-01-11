@@ -40,7 +40,8 @@ module Test.Util
 
 import           Control.Concurrent.STM (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception (Exception, SomeException (..))
+import           Control.Exception.Safe (Exception, MonadCatch, SomeException (..), catch, finally,
+                                         throwM)
 import           Control.Lens (makeLenses, (%=))
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -55,7 +56,6 @@ import           GHC.Generics (Generic)
 import           Mockable.Class (Mockable)
 import           Mockable.Concurrent (Async, Concurrently, Delay, delay, forConcurrently, fork,
                                       wait, withAsync)
-import           Mockable.Exception (Catch, Throw, catch, finally, throw)
 import           Mockable.Production (Production (..))
 import           Mockable.SharedExclusive (SharedExclusive, newSharedExclusive, putSharedExclusive,
                                            readSharedExclusive, takeSharedExclusive)
@@ -71,9 +71,9 @@ import           Test.QuickCheck.Gen (choose)
 import           Test.QuickCheck.Modifiers (getLarge)
 import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
 
-import           Node (Conversation (..), Conversation (..), ConversationActions (..),
-                       Listener (..), Message (..), NodeAction (..), NodeEnvironment, NodeId,
-                       converseWith, noReceiveDelay, node, nodeId, simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..), Listener (..), Message (..),
+                       NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
+                       nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
 
@@ -84,8 +84,7 @@ timeout
     :: ( Mockable Delay m
        , Mockable Async m
        , Mockable SharedExclusive m
-       , Mockable Catch m
-       , Mockable Throw m
+       , MonadCatch m
        )
     => String
     -> Microsecond
@@ -103,7 +102,7 @@ timeout str us m = do
         withAsync timeoutAction $ \_ -> do
             choice <- readSharedExclusive var
             case choice of
-                Left e  -> throw e
+                Left e  -> throwM e
                 Right t -> return t
 
 -- * Parcel
@@ -189,7 +188,7 @@ newWork testState workerName act = do
 throwLeft :: Exception e => Production (Either e a) -> Production a
 throwLeft = (>>= f)
   where
-    f (Left e)  = throw e
+    f (Left e)  = throwM e
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout
@@ -207,8 +206,7 @@ sendAll
        , Mockable Concurrently m
        , Mockable Delay m
        , Mockable Async m
-       , Mockable Throw m
-       , Mockable Catch m
+       , MonadCatch m
        , Mockable SharedExclusive m
        )
     => Converse BinaryP () m
@@ -229,8 +227,7 @@ receiveAll
        , Mockable Delay m
        , Mockable Async m
        , Mockable SharedExclusive m
-       , Mockable Throw m
-       , Mockable Catch m
+       , MonadCatch m
        )
     => (msg -> m ())
     -> Listener BinaryP () m

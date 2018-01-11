@@ -26,14 +26,14 @@ module Pos.Network.CLI
 import           Universum
 
 import           Control.Concurrent
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (throwM, try)
 import qualified Data.ByteString.Char8 as BS.C8
 import           Data.IP (IPv4)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
-import           Mockable (Catch, Mockable, Throw, fork, throw, try)
+import           Mockable (Mockable, fork)
 import           Mockable.Concurrent
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
@@ -185,7 +185,7 @@ monitorStaticConfig :: forall m. (
                          WithLogger     m
                        , MonadIO        m
                        , Mockable Fork  m
-                       , Mockable Catch m
+                       , MonadCatch     m
                        )
                     => NetworkConfigOpts
                     -> NodeMetadata    -- ^ Original metadata (at startup)
@@ -266,8 +266,7 @@ intNetworkConfigOpts ::
        ( WithLogger m
        , MonadIO m
        , Mockable Fork m
-       , Mockable Catch m
-       , Mockable Throw m
+       , MonadCatch m
        )
     => NetworkConfigOpts
     -> m (T.NetworkConfig DHT.KademliaParams)
@@ -291,12 +290,12 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                     Right kparams -> return $ Just kparams
                     Left MissingKademliaConfig ->
                         let ekparams' = getKademliaParamsFromStatic kademliaPeers
-                        in  either (throw . CannotParseKademliaConfig . Left)
+                        in  either (throwM . CannotParseKademliaConfig . Left)
                                    (return . Just)
                                    ekparams'
-                    Left err -> throw err
+                    Left err -> throwM err
                 else do when (isJust ncoKademlia) $
-                            throw $ RedundantCliParameter $
+                            throwM $ RedundantCliParameter $
                             "TopologyStatic doesn't require kademlia, but it was passed"
                         pure Nothing
             topology <- case nmType of
@@ -309,7 +308,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                                  topologyOptKademlia,
                                  topologyMaxSubscrs = nmMaxSubscrs
                                }
-                T.NodeEdge  -> throw NetworkConfigSelfEdge
+                T.NodeEdge  -> throwM NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
         Y.TopologyBehindNAT{..} -> do
@@ -317,21 +316,21 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
           -- think the program will bind a socket.
-          whenJust ncoKademlia $ const $ throw $
+          whenJust ncoKademlia $ const $ throwM $
               RedundantCliParameter
               "BehindNAT topology is used, so no kademlia config is expected"
-          when (isJust ncoBindAddress) $ throw $ RedundantCliParameter $
+          when (isJust ncoBindAddress) $ throwM $ RedundantCliParameter $
               "BehindNAT topology is used, no bind address is expected"
-          when (isJust ncoExternalAddress) $ throw $ RedundantCliParameter $
+          when (isJust ncoExternalAddress) $ throwM $ RedundantCliParameter $
               "BehindNAT topology is used, no external address is expected"
           pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
         Y.TopologyP2P{..} -> do
-          kparams <- either throw return =<< liftIO getKademliaParamsFromFile
+          kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
           tcpAddr <- createTcpAddr (Just kparams)
           pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
                , tcpAddr )
         Y.TopologyTraditional{..} -> do
-              kparams <- either throw return =<< liftIO getKademliaParamsFromFile
+              kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
               tcpAddr <- createTcpAddr (Just kparams)
               pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
                    , tcpAddr )
@@ -368,10 +367,10 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         let kademliaExternal :: Maybe NetworkAddress
             kademliaExternal = join $ DHT.kpExternalAddress <$> kademliaBind
         bindAddr@(bindHost, bindPort) <-
-            maybe (throw MissingBindAddress) pure ncoBindAddress
+            maybe (throwM MissingBindAddress) pure ncoBindAddress
         whenJust ((,) <$> kademliaExternal <*> ncoExternalAddress) $ \(kademliaEx::NetworkAddress,paramEx::NetworkAddress) ->
             when (kademliaEx /= paramEx) $
-            throw $ InconsistentParameters $
+            throwM $ InconsistentParameters $
             sformat ("Kademlia network address is "%build%
                      " but external address passed in cli is "%build%
                      ". They must be the same")

@@ -2,7 +2,7 @@
 
 1. Make sure you’ve follow [the instructions to build from source using Nix](build-cardano-sl-and-daedalus-from-source-code.md)
 2. Make sure you’re on latest `cardano-sl-X.X` branch
-3. To build a script that will contain everything needed to connect to mainnet: `$ nix-build -A connectScripts.mainnetWallet -o connect-to-mainnet`
+3. To build a script that will contain everything needed to connect to mainnet: `$ nix-build release.nix -A connectScripts.mainnetWallet -o connect-to-mainnet`
 4. Alternatively you can connect to different environments and different executables by building the scripts:
 - Explorer node with mainnet: `$ nix-build -A connectScripts.mainnetExplorer -o connect-explorer-to-mainnet
 - Wallet to staging: `$ nix-build -A connectScripts.stagingWallet -o connect-to-staging`

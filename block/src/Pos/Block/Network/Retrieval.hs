@@ -10,6 +10,7 @@ import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
+import           Control.Exception.Safe
 import           Control.Lens (to, _Wrapped)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM (retry)
@@ -19,7 +20,7 @@ import qualified Data.Set as S
 import           Data.Time.Units (toMicroseconds)
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, builder, int, sformat, stext, (%))
-import           Mockable (delay, handleAll)
+import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (listJson, sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
@@ -79,7 +80,7 @@ retrievalWorkerImpl
        (BlockWorkMode ctx m)
     => Timer -> SendActions m -> m ()
 retrievalWorkerImpl keepAliveTimer SendActions {..} =
-    handleAll mainLoopE $ do
+    handleAny mainLoopE $ do
         logInfo "Starting retrievalWorker loop"
         mainLoop
   where
@@ -162,7 +163,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
     -----------------
 
     handleRecoveryWithHandler nodeId header =
-        handleAll (handleRecoveryE nodeId header) $
+        handleAny (handleRecoveryE nodeId header) $
         handleRecovery nodeId header
 
     -- We immediately drop recovery mode/header and request tips
@@ -298,7 +299,7 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
         delay $ sec 2
-        handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
+        handleAny handleRecoveryTriggerE $ triggerRecovery enqueue
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.

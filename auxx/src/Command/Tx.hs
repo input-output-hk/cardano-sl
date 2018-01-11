@@ -23,7 +23,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
-import           Mockable (Mockable, SharedAtomic, SharedAtomicT, bracket, concurrently,
+import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently,
                            currentTime, delay, forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
@@ -95,7 +95,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
-    Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
+    bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
         liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show genesisSlotDuration
                                                    , "sendMode=" <> show sendMode

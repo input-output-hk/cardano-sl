@@ -10,7 +10,7 @@ import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
-import           Control.Exception.Safe
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to, _Wrapped)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM (retry)

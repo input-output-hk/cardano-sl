@@ -56,7 +56,8 @@ module Node (
 
     ) where
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (Exception (..), MonadMask, MonadThrow, SomeException,
+                                         catch, onException, throwM)
 import           Control.Monad (unless, when)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.ByteString as BS
@@ -330,11 +331,11 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
     logException :: forall s . SomeException -> m s
     logException e = do
         logError $ sformat ("node stopped with exception " % shown) e
-        throw e
+        throwM e
     logNodeException :: forall s . SomeException -> m s
     logNodeException e = do
         logError $ sformat ("exception while stopping node " % shown) e
-        throw e
+        throwM e
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut
@@ -396,10 +397,10 @@ recvNext packing limit (LL.ChannelIn channel) = readNonEmpty (return End) $ \bs 
             Just bs -> if BS.null bs then readNonEmpty nothing just else just bs
 
     go !remaining decoderStep = case decoderStep of
-        Fail trailing offset err -> throw $ NoParse trailing offset err
+        Fail trailing offset err -> throwM $ NoParse trailing offset err
         Done trailing _ thing -> return (trailing, Input thing)
         Partial next -> do
-            when (remaining < 0) (throw LimitExceeded)
+            when (remaining < 0) (throwM LimitExceeded)
             readNonEmpty (runDecoder (next Nothing) >>= go remaining) $ \bs ->
                 let remaining' = remaining - BS.length bs
                 in  runDecoder (next (Just bs)) >>= go remaining'

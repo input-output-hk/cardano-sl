@@ -11,7 +11,7 @@
 
 module Main where
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (finally)
 import           Control.Monad (forM, forM_, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Binary

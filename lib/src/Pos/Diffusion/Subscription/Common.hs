@@ -14,10 +14,10 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (try)
 import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Mockable, Delay, delay)
+import           Mockable (Delay, Mockable, delay)
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 

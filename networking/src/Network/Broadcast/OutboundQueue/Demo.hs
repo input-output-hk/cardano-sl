@@ -11,7 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
-import           Control.Exception.Safe
+import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function

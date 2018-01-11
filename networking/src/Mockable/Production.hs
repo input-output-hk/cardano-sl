@@ -14,7 +14,7 @@ import           Universum (MonadFail (..))
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
-import           Control.Exception.Safe (MonadMask(..), MonadThrow, MonadCatch)
+import           Control.Exception.Safe (MonadCatch, MonadMask (..), MonadThrow)
 import qualified Control.Exception.Safe as Exception
 import           Control.Monad (forever)
 import           Control.Monad.Fix (MonadFix)

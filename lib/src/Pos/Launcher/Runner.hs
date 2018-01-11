@@ -26,8 +26,7 @@ import           Data.Default (Default)
 import qualified Data.Map as M
 import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
-import           Mockable (MonadMockable, Production (..), async, cancel,
-                           killThread)
+import           Mockable (MonadMockable, Production (..), async, cancel, killThread)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
@@ -54,11 +53,11 @@ import           Pos.Core (BlockVersionData)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB (gsAdoptedBVData)
+import           Pos.Diffusion.Types (Diffusion, DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
-import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion)
-import           Pos.Logic.Types (LogicLayer (..), Logic)
+import           Pos.Logic.Types (Logic, LogicLayer (..))
 import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
                                     topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
@@ -68,7 +67,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBloc
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Util.Util (eitherToThrow)
-import           Pos.Web.Server (serveImpl, route53HealthCheckApplication)
+import           Pos.Web.Server (route53HealthCheckApplication, serveImpl)
 import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
                                WorkMode)
 

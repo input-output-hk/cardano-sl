@@ -40,7 +40,8 @@ module Test.Util
 
 import           Control.Concurrent.STM (STM, atomically, check)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception.Safe
+import           Control.Exception.Safe (Exception, MonadCatch, SomeException (..), catch, finally,
+                                         throwM)
 import           Control.Lens (makeLenses, (%=))
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -70,9 +71,9 @@ import           Test.QuickCheck.Gen (choose)
 import           Test.QuickCheck.Modifiers (getLarge)
 import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
 
-import           Node (Conversation (..), Conversation (..), ConversationActions (..),
-                       Listener (..), Message (..), NodeAction (..), NodeEnvironment, NodeId,
-                       converseWith, noReceiveDelay, node, nodeId, simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..), Listener (..), Message (..),
+                       NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
+                       nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
 
@@ -101,7 +102,7 @@ timeout str us m = do
         withAsync timeoutAction $ \_ -> do
             choice <- readSharedExclusive var
             case choice of
-                Left e  -> throw e
+                Left e  -> throwM e
                 Right t -> return t
 
 -- * Parcel
@@ -187,7 +188,7 @@ newWork testState workerName act = do
 throwLeft :: Exception e => Production (Either e a) -> Production a
 throwLeft = (>>= f)
   where
-    f (Left e)  = throw e
+    f (Left e)  = throwM e
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout

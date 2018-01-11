@@ -23,8 +23,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
-import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently,
-                           currentTime, delay, forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
+                           forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Random (randomRIO)

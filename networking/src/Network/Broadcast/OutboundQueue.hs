@@ -79,7 +79,8 @@ module Network.Broadcast.OutboundQueue (
   ) where
 
 import           Control.Concurrent
-import           Control.Exception.Safe
+import           Control.Exception.Safe (MonadMask, SomeException, displayException, finally, mask_,
+                                         try)
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class

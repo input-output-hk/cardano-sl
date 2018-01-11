@@ -20,14 +20,13 @@ module Pos.DHT.Real.Real
 import           Nub (ordNub)
 import           Universum
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as B8 (unpack)
 import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, shown, (%))
-import           Mockable (Delay, Mockable, MonadMockable, delay,
-                           waitAnyUnexceptional, withAsync)
+import           Mockable (Delay, Mockable, MonadMockable, delay, waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state), KademliaState (sTree))
 import qualified Network.Kademlia.Tree as K (toView)

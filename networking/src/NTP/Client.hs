@@ -16,9 +16,10 @@ module NTP.Client
 
 import           Control.Concurrent.STM (atomically, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO, writeTVar)
+import           Control.Exception.Safe (Exception, MonadMask, bracketOnError, catchAny, handleAny,
+                                         throwM)
 import           Control.Lens ((%=), (.=), _Just)
 import           Control.Monad (forM_, forever, unless, void, when)
-import           Control.Exception.Safe
 import           Control.Monad.State (gets)
 import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)

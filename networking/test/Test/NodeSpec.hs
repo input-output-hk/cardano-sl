@@ -13,7 +13,7 @@ module Test.NodeSpec
 
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Exception.Safe
+import           Control.Exception.Safe (catch)
 import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, when)
 import           Control.Monad.IO.Class (liftIO)

@@ -9,14 +9,13 @@ module Pos.NtpCheck
     , NtpCheckMonad
     ) where
 
-import           Universum hiding (bracket)
+import           Universum
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe ()
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
-import           Mockable (CurrentTime, Delay, Fork, Mockable, Mockables,
-                           currentTime)
+import           Mockable (CurrentTime, Delay, Fork, Mockable, Mockables, currentTime)
 import           NTP.Client (NtpClientSettings (..), ntpSingleShot, pressNtpStopButton,
                              startNtpClient)
 import           Serokell.Util (sec)

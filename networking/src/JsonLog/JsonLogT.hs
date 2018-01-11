@@ -29,6 +29,7 @@ module JsonLog.JsonLogT
     ) where
 
 import           Control.Concurrent.MVar (MVar, withMVar)
+import           Control.Exception.Safe ()
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -37,7 +38,6 @@ import           Control.Monad.Trans.Class (MonadTrans)
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal)
 import           Control.Monad.Trans.Reader (ReaderT (..))
-import           Control.Exception.Safe
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy (hPut)
 import           Formatting (sformat, shown, (%))

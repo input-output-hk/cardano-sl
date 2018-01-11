@@ -176,14 +176,14 @@ unsafeUnmask :: Mockable Async m => m a -> m a
 unsafeUnmask act = liftMockable $ UnsafeUnmask act
 
 instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n where
-    hoist' nat (Async act)     = Async $ nat act
-    hoist' nat (WithAsync m k) = WithAsync (nat m) (nat . k)
-    hoist' _ (Wait p)          = Wait p
-    hoist' _ (WaitAny p)       = WaitAny p
-    hoist' _ (CancelWith p e)  = CancelWith p e
-    hoist' _ (AsyncThreadId p) = AsyncThreadId p
-    hoist' nat (Race p e)      = Race (nat p) (nat e)
-    hoist' _ (Link p)          = Link p
+    hoist' nat (Async act)      = Async $ nat act
+    hoist' nat (WithAsync m k)  = WithAsync (nat m) (nat . k)
+    hoist' _ (Wait p)           = Wait p
+    hoist' _ (WaitAny p)        = WaitAny p
+    hoist' _ (CancelWith p e)   = CancelWith p e
+    hoist' _ (AsyncThreadId p)  = AsyncThreadId p
+    hoist' nat (Race p e)       = Race (nat p) (nat e)
+    hoist' _ (Link p)           = Link p
     hoist' nat (UnsafeUnmask m) = UnsafeUnmask (nat m)
 
 data Concurrently m t where

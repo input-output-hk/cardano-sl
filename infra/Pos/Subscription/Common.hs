@@ -9,11 +9,11 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (try)
+import qualified Data.List.NonEmpty as NE
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum
-import qualified Data.List.NonEmpty as NE
 
 import           Formatting (sformat, shown, (%))
 import           Node.Message.Class (Message)
@@ -24,13 +24,12 @@ import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              ListenerSpec, MkListeners, MsgSubscribe (..),
-                                             MsgSubscribe1 (..), NodeId,
-                                             OutSpecs, SendActions, Worker, WorkerSpec,
-                                             constantListeners, convH, toOutSpecs, withConnectionTo,
-                                             worker)
+                                             MsgSubscribe1 (..), NodeId, OutSpecs, SendActions,
+                                             Worker, WorkerSpec, constantListeners, convH,
+                                             toOutSpecs, withConnectionTo, worker)
 import           Pos.KnownPeers (MonadKnownPeers (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
-import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
+import           Pos.Util.Timer (Timer, setTimerDuration, startTimer, waitTimer)
 
 type SubscriptionMode m =
     ( MonadIO m

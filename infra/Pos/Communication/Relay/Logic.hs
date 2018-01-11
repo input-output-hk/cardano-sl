@@ -28,7 +28,7 @@ module Pos.Communication.Relay.Logic
        , MinRelayWorkMode
        ) where
 
-import           Control.Exception.Safe
+import           Control.Exception.Safe (handleAny, try)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Proxy (asProxyTypeOf)
 import           Data.Tagged (Tagged, tagWith)

@@ -44,9 +44,10 @@ module Node.Internal (
     Timeout(..)
   ) where
 
-import           Control.Exception.Safe
-import qualified Control.Monad.Catch as UnsafeExc
+import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow,
+                                         SomeException, bracket, catch, finally, throwM)
 import           Control.Monad (forM, forM_, when)
+import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Fix (MonadFix)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -115,7 +116,7 @@ data NodeState peerData m = NodeState {
 
 -- | An exception which is thrown when something times out.
 data Timeout = Timeout
-  deriving (Show, Typeable)
+  deriving (Show)
 
 instance Exception Timeout
 
@@ -231,7 +232,7 @@ deriving instance Binary Nonce
 data NodeException =
        ProtocolError String
      | InternalError String
-  deriving (Show, Typeable)
+  deriving (Show)
 
 instance Exception NodeException
 
@@ -252,7 +253,7 @@ writeMany
 writeMany mtu (ChannelOut conn) bss = mapM_ sendUnit units
   where
     sendUnit :: [BS.ByteString] -> m ()
-    sendUnit unit = NT.send conn unit >>= either throw pure
+    sendUnit unit = NT.send conn unit >>= either throwM pure
     units :: [[BS.ByteString]]
     units = fmap LBS.toChunks (chop bss)
     chop :: LBS.ByteString -> [LBS.ByteString]
@@ -645,7 +646,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
         ; let receiveDelay = mkReceiveDelay node
               connectDelay = mkConnectDelay node
         ; node <- case mEndPoint of
-              Left err -> throw err
+              Left err -> throwM err
               Right endPoint -> do
                   sharedState <- initialNodeState prng
                   -- TODO this thread should get exceptions from the dispatcher thread.
@@ -678,7 +679,7 @@ stopNode
 stopNode Node {..} = do
     modifySharedAtomic nodeState $ \nodeState ->
         if _nodeStateClosed nodeState
-        then throw $ userError "stopNode : already stopped"
+        then throwM $ userError "stopNode : already stopped"
         else pure (nodeState { _nodeStateClosed = True }, ())
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
@@ -841,11 +842,11 @@ nodeDispatcher node handlerInOut =
 
           -- End point failure is unrecoverable.
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) reason) ->
-              throw (InternalError $ "EndPoint failed: " ++ reason)
+              throwM (InternalError $ "EndPoint failed: " ++ reason)
 
           -- Transport failure is unrecoverable.
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) reason) ->
-              throw (InternalError $ "Transport failed " ++ reason)
+              throwM (InternalError $ "Transport failed " ++ reason)
 
     -- EndPointClosed is the final event that we will receive. There may be
     -- connections which remain open! ConnectionClosed events may be
@@ -886,7 +887,7 @@ nodeDispatcher node handlerInOut =
         withSharedAtomic nstate $ \nodeState ->
             if _nodeStateClosed nodeState
             then pure ()
-            else throw (InternalError "EndPoint prematurely closed")
+            else throwM (InternalError "EndPoint prematurely closed")
 
     connectionOpened
         :: DispatcherState peerData m
@@ -1028,10 +1029,10 @@ nodeDispatcher node handlerInOut =
             -- We're waiting for peer data on this connection, but we don't
             -- have an entry for the peer. That's an internal error.
             Nothing -> do
-                throw $ InternalError "node dispatcher inconsistent state (waiting for peer data)"
+                throwM $ InternalError "node dispatcher inconsistent state (waiting for peer data)"
 
             Just (GotPeerData _ _) -> do
-                throw $ InternalError "node dispatcher inconsistent state (already got peer data)"
+                throwM $ InternalError "node dispatcher inconsistent state (already got peer data)"
 
         -- Waiting for a handshake. Try to get a control header and then
         -- move on.
@@ -1063,7 +1064,7 @@ nodeDispatcher node handlerInOut =
                               respondAndHandle conn = do
                                   outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
                                   case outcome of
-                                      Left err -> throw err
+                                      Left err -> throwM err
                                       Right () -> do
                                           handlerInOut peerData (NodeId peer) (ChannelIn channel) (ChannelOut conn)
                           -- Resource releaser for bracketWithException.
@@ -1323,7 +1324,7 @@ spawnHandler stateVar provenance action =
     exceptional :: SomeHandler m -> Microsecond -> SharedAtomicT m Int -> SomeException -> m t
     exceptional someHandler startTime totalBytesVar e = do
         signalFinished someHandler startTime totalBytesVar (Just e)
-        throw e
+        throwM e
 
     signalFinished :: SomeHandler m -> Microsecond -> SharedAtomicT m Int -> Maybe SomeException -> m ()
     signalFinished someHandler startTime totalBytesVar outcome = do
@@ -1428,7 +1429,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
                       -- This isn't so unlikely in the case of self-connections.
                       outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
                       case outcome of
-                          Left err -> throw err
+                          Left err -> throwM err
                           Right _ -> do
                               peerData <- readSharedExclusive peerDataVar
                               action peerData channel (ChannelOut conn)
@@ -1506,7 +1507,7 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
                     | otherwise -> do
                           return $ Just (AllGoingDown (GoingDown (n - 1) excl))
 
-                _ -> throw (InternalError "finishClosing : impossible")
+                _ -> throwM (InternalError "finishClosing : impossible")
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.update (const choice) peer map
@@ -1545,11 +1546,11 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
                     , Just (ComingUp !_m excl) <- comingUp ->
                           return . Left $ excl
 
-                    | otherwise -> throw (InternalError "startClosing : impossible")
+                    | otherwise -> throwM (InternalError "startClosing : impossible")
 
-                Nothing -> throw (InternalError "startClosing : impossible")
-                Just (AllGoingDown _) -> throw (InternalError "startClosing : impossible")
-                Just (AllComingUp _) -> throw (InternalError "startClosing : impossible")
+                Nothing -> throwM (InternalError "startClosing : impossible")
+                Just (AllGoingDown _) -> throwM (InternalError "startClosing : impossible")
+                Just (AllComingUp _) -> throwM (InternalError "startClosing : impossible")
 
             case choice of
                 Left excl -> return (nodeState, Left excl)
@@ -1626,10 +1627,10 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                     | PeerDataTransmitted <- transmission ->
                           return (it, Nothing)
 
-                    | otherwise -> throw (InternalError "impossible")
+                    | otherwise -> throwM (InternalError "impossible")
                 _ -> do
                     logError "getPeerDataResponsibility: unexpected peer state"
-                    throw $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
+                    throwM $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
@@ -1664,7 +1665,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                     | False <- responsibility -> return it
                 _ -> do
                     logError "dischargePeerDataResponsibility: unexpected peer state"
-                    throw $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
+                    throwM $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
@@ -1683,7 +1684,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
         case mconn of
             -- Throwing the error will induce the bracket resource releaser
-            Left err   -> throw err
+            Left err   -> throwM err
             Right conn -> return conn
 
     -- Update the OutboundConnectionState at this peer to no longer show
@@ -1691,7 +1692,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
     -- the first to come up.
     finishConnecting _ (merr :: Maybe SomeException) = do
         modifySharedAtomic nodeState $ \nodeState -> do
-            when (_nodeStateClosed nodeState) (throw $ InternalError "connectToPeer : node closed while establishing connection!")
+            when (_nodeStateClosed nodeState) (throwM $ InternalError "connectToPeer : node closed while establishing connection!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 
@@ -1724,7 +1725,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                                   Just _  -> established
                           return . Just $ Stable comingUp' established' goingDown transmission
 
-                _ -> throw (InternalError "finishConnecting : impossible")
+                _ -> throwM (InternalError "finishConnecting : impossible")
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.update (const choice) peer map
@@ -1736,7 +1737,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
     -- as going up.
     startConnecting = do
         canOpen <- modifySharedAtomic nodeState $ \nodeState -> do
-            when (_nodeStateClosed nodeState) (throw $ userError "connectToPeer : you're doing it wrong! Our node is closed!")
+            when (_nodeStateClosed nodeState) (throwM $ userError "connectToPeer : you're doing it wrong! Our node is closed!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 
@@ -1776,6 +1777,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                 startConnecting
             Right () -> return ()
 
+-- FIXME: Remove this once https://github.com/fpco/safe-exceptions/pull/28 is merged.
 bracketWithException
     :: ( MonadMask m, Exception e )
     => m r
@@ -1783,9 +1785,6 @@ bracketWithException
     -> (r -> m c)
     -> m c
 bracketWithException before after thing = UnsafeExc.mask $ \restore -> do
-  --
-  -- The implementation is largely based on 'bracket' from 'safe-exceptions-0.1.6.0'
-  --
     x <- before
     res1 <- UnsafeExc.try $ restore (thing x)
     case res1 of

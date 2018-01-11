@@ -238,11 +238,6 @@ pattern.
 
 ## Migration
 
-We should get rid of `Mockable Throw`, `Mockable Catch`, and `Mockable Bracket`,
-as they buy us nothing compared to `MonadThrow`, `MonadCatch`, and `MonadMask`,
-but have less ecosystem support -- for instance, the `safe-exceptions` package
-doesn't use them.
-
 We should identify the parts of the code that use `ExceptT` or
 `MonadError` in impure or potentially impure code and replace them
 with exceptions. If code can be made pure by replacing `MonadError`

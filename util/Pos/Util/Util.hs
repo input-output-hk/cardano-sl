@@ -8,6 +8,7 @@ module Pos.Util.Util
        , eitherToFail
        , eitherToThrow
        , leftToPanic
+       , logException
 
        -- * Ether
        , ether
@@ -52,6 +53,7 @@ module Pos.Util.Util
 import           Universum
 
 import           Control.Concurrent (threadDelay)
+import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Aeson (FromJSON (..))
@@ -70,7 +72,8 @@ import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
-
+import           Serokell.Util.Exceptions ()
+import           System.Wlog (LoggerName, logError, usingLoggerName)
 
 ----------------------------------------------------------------------------
 -- Exceptions/errors
@@ -94,6 +97,13 @@ eitherToThrow = either throwM pure
 -- Intended usage is when you're sure that value must be right.
 leftToPanic :: Buildable a => Text -> Either a b -> b
 leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
+
+-- | Catch and log an exception, then rethrow it
+logException :: LoggerName -> IO a -> IO a
+logException name = E.handleAsync (\e -> handler e >> E.throw e)
+  where
+    handler :: E.SomeException -> IO ()
+    handler = usingLoggerName name . logError . pretty
 
 ----------------------------------------------------------------------------
 -- Ether

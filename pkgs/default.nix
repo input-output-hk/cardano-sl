@@ -1463,7 +1463,7 @@ self: {
           description = "Cardano SL - binary serialization";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, conduit, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, lens, log-warper, mkDerivation, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, conduit, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, lens, log-warper, mkDerivation, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-block";
           version = "1.0.3";
@@ -1484,6 +1484,7 @@ self: {
             cardano-sl-txp
             cardano-sl-update
             cardano-sl-util
+            cborg
             conduit
             containers
             cryptonite
@@ -2416,7 +2417,7 @@ self: {
           description = "Cardano SL - update";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-util = callPackage ({ QuickCheck, aeson, autoexporter, base, bytestring, cardano-sl-networking, concurrent-extra, containers, cpphs, cryptonite, data-default, deepseq, directory, ether, exceptions, filepath, formatting, hashable, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, parsec, process, quickcheck-instances, random, reflection, resourcet, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      cardano-sl-util = callPackage ({ QuickCheck, aeson, autoexporter, base, bytestring, cardano-sl-networking, concurrent-extra, containers, cpphs, cryptonite, data-default, deepseq, directory, ether, exceptions, filepath, formatting, hashable, lens, log-warper, lrucache, mkDerivation, mmorph, mtl, parsec, process, quickcheck-instances, random, reflection, resourcet, safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-util";
           version = "1.0.3";
@@ -2450,6 +2451,7 @@ self: {
             random
             reflection
             resourcet
+            safe-exceptions
             semigroups
             serokell-util
             stm
@@ -2889,8 +2891,8 @@ self: {
           pname = "comonad";
           version = "5.0.2";
           sha256 = "1bb0fe396ecd16008411862ee453e8bd7c3e0f3a7299537dd59466604a54b784";
-          revision = "1";
-          editedCabalFile = "1lnsnx8p3wlfhd1xfc68za3b00vq77z2m6b0vqiw2laqmpj9akcw";
+          revision = "2";
+          editedCabalFile = "1ngks9bym68rw0xdq43n14nay4kxdxv2n7alwfd9wcpismfz009g";
           setupHaskellDepends = [
             base
             Cabal
@@ -3511,8 +3513,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "9173805b9c941bda1f37e5aeb68ae30f57a12df9b17bd2aa86db3b7d5236a678";
-          revision = "2";
-          editedCabalFile = "02j27xvlj0jw3b2jpfg6wbysj0blllin792wj6qnrgnrvd4haj7v";
+          revision = "3";
+          editedCabalFile = "17qqdl8p04vy314jp045100989lh84cbhqv6ghizm87xpk7ck4j3";
           setupHaskellDepends = [
             base
             Cabal
@@ -4651,6 +4653,8 @@ self: {
           pname = "http-api-data";
           version = "0.3.7.1";
           sha256 = "8c633e95113c8ab655f4ba67e51e41a2c9035f0122ea68bfbb876b37277075fd";
+          revision = "1";
+          editedCabalFile = "0g57k71bssf81yba6xf9fcxlys8m5ax5kvrs4gvckahf5ihdxds6";
           setupHaskellDepends = [
             base
             Cabal
@@ -5626,8 +5630,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "aac28e2c1147ed77c1ec0f0eb607a577fa26d0fd67474293ba860ec124efc8af";
-          revision = "2";
-          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
+          revision = "3";
+          editedCabalFile = "0z6vmdgz9r2fbgzh2xvrw6cy5h7m1jv911jah615s6xgr52smhrf";
           libraryHaskellDepends = [
             base
           ];
@@ -5736,11 +5740,11 @@ self: {
       network-transport-tcp = callPackage ({ base, bytestring, containers, data-accessor, fetchgit, mkDerivation, network, network-transport, stdenv, uuid }:
       mkDerivation {
           pname = "network-transport-tcp";
-          version = "0.5.1";
+          version = "0.6.0";
           src = fetchgit {
             url = "https://github.com/serokell/network-transport-tcp";
-            sha256 = "1l4df0wgaixslah2c05wvq3srdbw1rmq246889wn3r8h43l9i0wl";
-            rev = "24dd213cef81d383083feb7f5d9ce4b8a6be8168";
+            sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
+            rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
           };
           libraryHaskellDepends = [
             base

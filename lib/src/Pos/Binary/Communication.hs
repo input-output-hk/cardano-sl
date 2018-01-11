@@ -2,7 +2,9 @@
 
 -- | Communication-related serialization -- messages mostly.
 
-module Pos.Binary.Communication () where
+module Pos.Binary.Communication
+    (
+    ) where
 
 import           Universum
 
@@ -15,7 +17,8 @@ import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   MsgSubscribe (..), VerInfo (..))
+                                                   MsgSubscribe (..), MsgSubscribe1 (..),
+                                                   VerInfo (..))
 import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
 
 -- TODO: move into each component
@@ -63,6 +66,12 @@ instance HasConfiguration => Bi MsgBlock where
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.
 -- TODO: Shall we encode this as `CBOR` TkNull?
+instance Bi MsgSubscribe1 where
+    encode MsgSubscribe1 = encode (42 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe1
+        n  -> fail $ "MsgSubscribe1 wrong byte:" <> show n
+
 instance Bi MsgSubscribe where
     encode = \case
         MsgSubscribe          -> encode (42 :: Word8)

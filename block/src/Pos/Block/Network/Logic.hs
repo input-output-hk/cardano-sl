@@ -395,7 +395,7 @@ addHeaderToBlockRequestQueue
        (BlockWorkMode ctx m)
     => NodeId
     -> BlockHeader
-    -> Bool -- ^ Was classified as chain continuation
+    -> Bool -- ^ Was the block classified as chain continuation?
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     let hHash = headerHash header

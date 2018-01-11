@@ -48,6 +48,7 @@ let
         };
       });
 
+      cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
@@ -58,7 +59,7 @@ let
         doCheck = ! pkgs.stdenv.isDarwin;
       })));
 
-      cardano-sl-static = justStaticExecutables self.cardano-sl;
+      cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
@@ -86,77 +87,9 @@ let
       });
     };
   });
-  rawDockerImage = let
-    topologyFile = pkgs.writeText "topology.yaml" ''
-      wallet:
-        relays:
-          [
-            [
-              { host: nodes.awstest.iohkdev.io }
-            ]
-          ]
-        valency: 1
-        fallbacks: 7
-    '';
-    SYSTEM_START_TIME = 1504820421;
-    configFiles = pkgs.runCommand "cardano-config" {} ''
-      mkdir -pv $out
-      cd $out
-      cp -vi ${cardanoPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-      cp -vi ${cardanoPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-      cp -vi ${cardanoPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-      cp -vi ${cardanoPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"} log-config-qa.yaml
-      cp -vi ${topologyFile} topology.yaml
-    '';
-    startScript = pkgs.writeScriptBin "cardano-start" ''
-      #!/bin/sh
-      set -e
-      set -x
-      set -o pipefail
-      if [ ! -d /wallet ]; then
-        echo /wallet volume not mounted, you need to create one with `docket volume create` and pass the correct -v flag to `docker run`
-        exit 1
-      fi
-      if [ ! -d /wallet/tls ]; then
-        mkdir /wallet/tls/
-        openssl req -x509 -newkey rsa:2048 -keyout /wallet/tls/server.key -out /wallet/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
-      fi
-      cardano-node \
-        "--tlscert" /wallet/tls/server.cert \
-        "--tlskey" /wallet/tls/server.key \
-        "--tlsca" /wallet/tls/server.cert \
-        "--no-ntp" \
-        "--topology" "${configFiles}/topology.yaml" \
-        "--log-config" "${configFiles}/log-config-qa.yaml" \
-        "--logs-prefix" "/wallet/logs/" \
-        "--db-path" "/wallet/db" \
-        "--wallet-db-path" "/wallet/wdb" \
-        "--system-start" ${toString SYSTEM_START_TIME} \
-        "--keyfile" "/wallet/secret.key" \
-        "--configuration-file" "${configFiles}/configuration.yaml" \
-        "--configuration-key" "mainnet_dryrun_full" \
-        "--wallet-address" "0.0.0.0:8090"
-    '';
-  in pkgs.dockerTools.buildImage {
-    name = "cardano-container-staging-1.0";
-    contents = [ cardanoPkgs.cardano-sl-wallet pkgs.iana-etc startScript pkgs.openssl ] ++ optional true (with pkgs; [ bashInteractive coreutils utillinux iproute iputils curl socat ]);
-    config = {
-      Cmd = [
-        "cardano-start"
-      ];
-      ExposedPorts = {
-        "3000/tcp" = {};
-        "8090/tcp" = {};
-      };
-    };
-  };
-  dockerImage = pkgs.runCommand "cardano-container-hydra" {} ''
-    mkdir -pv $out/nix-support/
-    cat <<EOF > $out/nix-support/hydra-build-products
-    file dockerimage ${rawDockerImage}
-    EOF
-  '';
-  upstream = {
+  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  other = rec {
+    mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
@@ -164,6 +97,15 @@ let
       sha256 = "1ippcbki5hgsanh2xi6wzgwbpqcl6iq81wqvfz91j0rldyh7kbl8";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
-    inherit rawDockerImage dockerImage;
+    connectScripts = {
+      mainnetWallet = connect {};
+      mainnetExplorer = connect { executable = "explorer"; };
+      stagingWallet = connect { environment = "mainnet-staging"; };
+      stagingExplorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
+    };
+    dockerImages = {
+      mainnetWallet = mkDocker { environment = "mainnet"; };
+      stagingWallet = mkDocker { environment = "mainnet-staging"; };
+    };
   };
-in cardanoPkgs // upstream
+in cardanoPkgs // other

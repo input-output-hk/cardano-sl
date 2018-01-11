@@ -26,7 +26,8 @@ import           Universum
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..), firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
+                             firstHardened)
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,

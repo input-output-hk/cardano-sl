@@ -69,6 +69,7 @@ library
                      , random
                      , reflection
                      , resourcet
+                     , safe-exceptions
                      , semigroups
                      , serokell-util
                      , stm

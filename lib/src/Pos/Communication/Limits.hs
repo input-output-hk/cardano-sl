@@ -26,7 +26,7 @@ import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
-import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
+import           Pos.Communication.Types.Protocol (MsgSubscribe (..), MsgSubscribe1 (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (EpochIndex, VssCertificate, BlockVersionData (..),
@@ -338,6 +338,10 @@ instance (HasBlockConfiguration, HasNodeConfiguration, HasAdoptedBlockVersionDat
 
 -- TODO: Update once we move to CBOR.
 instance (Applicative m) => MessageLimited MsgSubscribe m where
+    getMsgLenLimit _ = pure 0
+
+-- TODO: Update once we move to CBOR.
+instance (Applicative m) => MessageLimited MsgSubscribe1 m where
     getMsgLenLimit _ = pure 0
 
 ----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
--- | Block retrieval queue with accompanied datatypes.
+-- | Block retrieval queue with accompanying datatypes.
 module Pos.Block.RetrievalQueue
        ( BlockRetrievalQueueTag
        , BlockRetrievalQueue
@@ -12,7 +12,8 @@ import           Control.Concurrent.STM (TBQueue)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Network.Types (NodeId)
 
--- | Task that block retrieval queue is asked to do.
+-- | Task that is put in the block retrieval queue for the retrieval
+-- worker to perform.
 data BlockRetrievalTask = BlockRetrievalTask
     { brtHeader    :: !BlockHeader
       -- ^ Header we're insterested in.

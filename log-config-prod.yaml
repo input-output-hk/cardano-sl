@@ -1,9 +1,8 @@
 rotation:
     logLimit: 5242880 # 5MB
     keepFiles: 20
-severity: Debug
-termSeverity: Debug
-handlers:
-  - file: pub/node.pub    # NB. the / will work on Windows too
-    round: 5              # because we do filepath normalization
-  - file: node
+loggerTree:
+  severity: Debug+
+  files:
+    - pub/node.pub
+    - node

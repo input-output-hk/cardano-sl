@@ -12,7 +12,7 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Formatting (sformat, shown, (%))
+import           Formatting (build, sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
@@ -20,6 +20,7 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
@@ -28,6 +29,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
@@ -98,7 +100,12 @@ walletProd ::
        )
     => WalletArgs
     -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions ->
+walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions -> do
+    logInfo $ sformat ("Production mode for API: "%build)
+        walletProductionApi
+    logInfo $ sformat ("Transaction submission disabled: "%build)
+        walletTxCreationDisabled
+
     walletServeWebFull
         sendActions
         walletDebug
@@ -142,7 +149,7 @@ main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
     let loggingParams = CLI.loggingParams loggerName (wnaCommonNodeArgs args)
-    loggerBracket loggingParams . runProduction $ do
+    loggerBracket loggingParams . logException "node" . runProduction $ do
         CLI.printFlags
         logInfo "[Attention] Software is built with wallet part"
         action args

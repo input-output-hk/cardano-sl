@@ -31,9 +31,9 @@ Clone Cardano SL repository and go to the root directory:
     $ git clone https://github.com/input-output-hk/cardano-sl.git
     $ cd cardano-sl
 
-Switch to the latest release branch, for example, `cardano-sl-1.0`:
+Switch to the `master` branch:
 
-    $ git checkout cardano-sl-1.0
+    $ git checkout master
 
 ## Nix build mode (recommended)
 
@@ -50,17 +50,17 @@ Two steps remain, then:
 
     ..and then add two following lines:
 
-        binary-caches             = https://cache.nixos.org https://hydra.iohk.io
-        binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+        binary-caches            = https://cache.nixos.org https://hydra.iohk.io
+        binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-static`:
 
-        $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link cardano-sl-1.0
+        $ nix-build -A cardano-sl-static --cores 0 --max-jobs 2 --no-build-output --out-link master
 
-    The build output directory will be symlinked as `cardano-sl-1.0` (as specified by the command), and it will contain:
+    The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
 
-        $ ls cardano-sl-1.0/bin
+        $ ls master/bin
         cardano-node-simple
 
 NOTE: the various other Cardano components can be obtained through other attributes:
@@ -93,9 +93,66 @@ After that, in order to build Cardano SL with wallet capabilities, run the follo
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
+Dependecy version collisions have been encountered on macOS. If you run into something
+[like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696),
+try running the following command from outside of a `nix-shell`
+
+    $ nix-shell -p moreutils expect --run "unbuffer ./scripts/build/cardano-sl.sh | ts"
+
 It is suggested having at least 8GB of RAM and some swap space for the build process. As the project is fairly large and GHC parallelizes builds very effectively, memory and CPU consumption during the build process is high. Please make sure you have enough free disk space as well.
 
 After the project is built - it can take quite a long time -  the built binaries can be launched using the `stack exec` command. Let's discuss important binaries briefly before proceeding to the next step.
+
+## Stack build mode (for developers)
+
+It is possible to build Cardano node with Stack only, without Nix.
+Please note that in this case you have to install external dependencies
+by yourself (see below).
+
+### Install Stack
+
+[Stack](https://docs.haskellstack.org/en/stable/README/) is a cross-platform program
+for developing Haskell projects. 
+
+Recommended way, for all Unix-systems:
+
+    $ curl -ssl https://get.haskellstack.org/ | sh
+
+On macOS it is possible to install it with `brew`:
+
+    $ brew install haskell-stack
+
+### Setup Environment and Dependencies
+
+To install Haskell compiler of required version run:
+
+    $ stack setup
+
+Then install C-preprocessor for Haskell:
+
+    $ stack install cpphs
+
+Finally install C-library for RocksDB.
+
+On Ubuntu:
+
+    $ sudo apt-get install librocksdb-dev
+
+On macOS:
+
+    $ brew install rocksdb
+
+### Jemalloc Notice 
+
+Please make sure that you have [jemalloc](http://jemalloc.net/) package, version `4.5.0`.
+If you have newer version of it - you will probably get linker errors during building.
+
+### Building
+
+Run the building script:
+
+    $ cd cardano-sl
+    [~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
 ## Daedalus Wallet
 
@@ -114,7 +171,10 @@ Clone Daedalus repository and go to the root directory:
 
 To run acceptance tests one first has to have cluster running. We can run cluster on our machine with:
 
+    $ tmux
     [nix-shell:~/cardano-sl]$ ./scripts/launch/demo-with-wallet-api.sh
+
+**Important**: you have to build a node with Stack (using `./scripts/build/cardano-sl.sh`) to run this script.
 
 Then navigate to daedalus repo and run tests server with:
 

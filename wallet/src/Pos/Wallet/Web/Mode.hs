@@ -91,7 +91,8 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
 import           Pos.Wallet.Web.ClientTypes (AccountId, cadId)
-import           Pos.Wallet.Web.Methods (MonadWalletLogic, newAddress)
+import           Pos.Wallet.Web.Methods (MonadWalletLogic, MonadConvertToAddr,
+                                         newAddress, AddrCIdHashes)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,
@@ -102,6 +103,7 @@ import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebW
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
+    , wwmcHashes          :: !AddrCIdHashes
     , wwmcSendActions     :: !(STM.TMVar (SendActions WalletWebMode))
     , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
     }
@@ -110,6 +112,9 @@ data WalletWebModeContext = WalletWebModeContext
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 makeLensesWith postfixLFields ''WalletWebModeContext
+
+instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
+    lensOf = wwmcHashes_L
 
 instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
@@ -184,6 +189,7 @@ type MonadWalletWebMode ctx m =
     , MonadReader ctx m
     , MonadKnownPeers m
     , MonadFormatPeers m
+    , MonadConvertToAddr ctx m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
     , HasReportingContext ctx

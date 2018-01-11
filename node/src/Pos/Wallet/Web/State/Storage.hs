@@ -76,6 +76,7 @@ module Pos.Wallet.Web.State.Storage
        , updateHistoryCache
        , insertIntoHistoryCache
        , removeFromHistoryCache
+       , updateHistoryCache2
        , setPtxCondition
        , casPtxCondition
        , ptxUpdateMeta
@@ -466,8 +467,7 @@ testReset = put def
 -- Legacy transaction, no longer used. For existing Db tx logs only. Now use
 -- 'removeHistoryCache', 'insertIntoHistoryCache' or 'removeFromHistoryCache'
 updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId cTxs =
-    wsHistoryCache . at cWalId ?= txHistoryListToMap cTxs
+updateHistoryCache cWalId = updateHistoryCache2 cWalId . txHistoryListToMap
 
 insertIntoHistoryCache :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
 insertIntoHistoryCache cWalId cTxs =
@@ -476,6 +476,10 @@ insertIntoHistoryCache cWalId cTxs =
 removeFromHistoryCache :: CId Wal -> Map TxId () -> Update ()
 removeFromHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId . non' _Empty %= (`M.difference` cTxs)
+
+updateHistoryCache2 :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
+updateHistoryCache2 cWalId cTxs =
+    wsHistoryCache . at cWalId ?= cTxs
 
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'

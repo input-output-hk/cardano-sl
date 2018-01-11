@@ -199,7 +199,7 @@ getCurChainDifficulty :: MonadWalletWebMode m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
-updateTransaction accId txId txMeta = do
+updateTransaction accId txId txMeta =
     setWalletTxMeta (aiWId accId) txId txMeta
 
 addRecentPtxHistory

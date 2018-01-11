@@ -323,6 +323,9 @@ removeFromHistoryCache cWalId cTxs
     cTxs' :: Map TxId ()
     cTxs' = Map.map (const ()) cTxs
 
+updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
+updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache2 cWalId
+
 setPtxCondition
     :: WebWalletModeDB ctx m
     => CId Wal -> TxId -> PtxCondition -> m ()

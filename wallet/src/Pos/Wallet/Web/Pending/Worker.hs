@@ -9,8 +9,8 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (has)
-import           Control.Monad.Catch (handleAll)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
 import           Mockable (delay, fork)
@@ -72,7 +72,7 @@ processPtxInNewestBlocks PendingTx{..} = do
 
 resubmitTx :: MonadPendings ctx m => PendingTx -> m ()
 resubmitTx ptx =
-    handleAll (\_ -> pass) $ do
+    handleAny (\_ -> pass) $ do
         logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
         submitAndSavePtx submissionH ptx

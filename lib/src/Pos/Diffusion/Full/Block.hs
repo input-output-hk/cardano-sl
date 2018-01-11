@@ -13,7 +13,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty (NonEmpty ((:|)))

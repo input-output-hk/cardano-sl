@@ -28,9 +28,9 @@ import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import           Control.Exception (ErrorCall (..), Exception (..))
+import           Control.Exception (ErrorCall (..))
+import           Control.Exception.Safe (Exception (..), try)
 import           Control.Lens (each, to)
-import           Control.Monad.Catch (try)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
 import qualified Data.ByteString as BS

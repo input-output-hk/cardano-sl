@@ -6,7 +6,7 @@ module Pos.Ssc.Mode
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
+import           Control.Exception.Safe (MonadMask)
 import qualified Crypto.Random as Rand
 import           Ether.Internal (HasLens (..))
 import           Mockable (MonadMockable)

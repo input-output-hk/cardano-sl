@@ -16,7 +16,7 @@ module Pos.Explorer.Socket.Util
     , regroupBySnd
     ) where
 
-import           Control.Monad.Catch (MonadCatch)
+import           Control.Exception.Safe (MonadCatch)
 import           Control.Monad.Reader (MonadReader)
 import           Control.Monad.State (MonadState)
 import           Control.Monad.Trans (MonadIO)

@@ -13,7 +13,7 @@ module Pos.Web.Server
 
 import           Universum
 
-import qualified Control.Monad.Catch as Catch
+import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
@@ -100,10 +100,10 @@ convertHandler nc nodeDBs txpData handler =
         (runProduction $
          Mtl.runReaderT
              handler
-             (WebModeContext nodeDBs txpData nc)) `Catch.catches`
+             (WebModeContext nodeDBs txpData nc)) `E.catches`
     excHandlers
   where
-    excHandlers = [Catch.Handler catchServant]
+    excHandlers = [E.Handler catchServant]
     catchServant = throwError
 
 withNat

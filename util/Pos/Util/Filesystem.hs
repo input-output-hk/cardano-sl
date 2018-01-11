@@ -14,7 +14,7 @@ module Pos.Util.Filesystem
 import           Universum
 
 import           Control.Concurrent (myThreadId)
-import qualified Control.Monad.Catch as MC
+import qualified Control.Exception.Safe as E
 import           Data.Char (isAlphaNum)
 import           Data.List (last)
 import           Data.Time (getCurrentTime)
@@ -86,7 +86,7 @@ getCanonicalTemporaryDirectory = getTemporaryDirectory >>= canonicalizePath
 -- Behaves exactly the same as 'withTempFile', except that the parent temporary directory
 -- will be that returned by 'getCanonicalTemporaryDirectory'.
 -- Taken from http://hackage.haskell.org/package/temporary, BSD3 licence.
-withSystemTempFile :: (MonadIO m, MC.MonadMask m) =>
+withSystemTempFile :: (MonadIO m, E.MonadMask m) =>
                       String   -- ^ File name template
                    -> (FilePath -> Handle -> m a) -- ^ Callback that can use the file
                    -> m a
@@ -107,13 +107,13 @@ withTempFile :: (MonadIO m, MonadMask m)
              -- ^ Callback that can use the file
              -> m a
 withTempFile tmpDir template action =
-  MC.bracket
+  E.bracket
     (liftIO (openTempFile tmpDir template))
     (\(name, handle) -> liftIO (hClose handle >> ignoringIOErrors (removeFile name)))
     (uncurry action)
   where
-     ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
-     ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+     ignoringIOErrors :: E.MonadCatch m => m () -> m ()
+     ignoringIOErrors ioe = ioe `E.catch` (\e -> const (return ()) (e :: Prelude.IOError))
 
 withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
 withMaybeFile Nothing     _    f = f Nothing

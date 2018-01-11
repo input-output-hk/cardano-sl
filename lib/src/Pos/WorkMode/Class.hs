@@ -13,7 +13,7 @@ module Pos.WorkMode.Class
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
+import           Control.Exception.Safe (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)

@@ -11,7 +11,7 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.Except (runExcept)
 import           Servant.Server (err405, errReasonPhrase)
 import           System.Wlog (logDebug)
@@ -172,7 +172,7 @@ sendMoney passphrase moneySource dstDistr policy = do
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
-              Left err -> throw err
+              Left err -> impureThrow err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource

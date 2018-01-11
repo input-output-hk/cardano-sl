@@ -15,7 +15,7 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Monad.Catch (Handler (..), catches, onException)
+import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Formatting (build, sformat, shown, stext, (%))
 import           System.Wlog (WithLogger, logInfo)
 

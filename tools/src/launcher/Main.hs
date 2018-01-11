@@ -16,7 +16,6 @@ import           Universum
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (tryAny)
 import           Control.Lens (makeLensesWith)
 import qualified Data.ByteString.Lazy as BS.L
 import           Data.List (isSuffixOf)
@@ -51,7 +50,7 @@ import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception.Safe (handle, mask_, throwM)
+import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 

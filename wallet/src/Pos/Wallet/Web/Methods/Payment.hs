@@ -5,6 +5,7 @@
 
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
+       , newPaymentBatch
        , getTxFee
        ) where
 
@@ -13,10 +14,12 @@ import           Universum
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
+import           Data.Time.Units                  (Second)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
+import           Mockable                         (concurrently, delay)
 import           Servant.Server                   (err405, errReasonPhrase)
-import           System.Wlog (logDebug)
+import           System.Wlog                      (logDebug)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -43,9 +46,10 @@ import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
-                                                   CTx (..), CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, 
+                                                   CId, CTx (..), CWAddressMeta (..),
+                                                   NewBatchPayment (..),
+                                                   Wal, addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
@@ -71,13 +75,29 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment sa passphrase srcAccount dstAccount coin policy = do
+newPayment sa passphrase srcAccount dstAccount coin policy =
     sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
         policy
+
+newPaymentBatch
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> PassPhrase
+    -> NewBatchPayment
+    -> m CTx
+newPaymentBatch sa passphrase NewBatchPayment {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    notFasterThan (6 :: Second) $
+      sendMoney
+        sa
+        passphrase
+        (AccountMoneySource src)
+        npbTo
+        npbPolicy
 
 getTxFee
      :: MonadWalletWebMode m
@@ -220,3 +240,10 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
      -- TODO eliminate copy-paste
      listF separator formatter =
          F.later $ fold . intersperse separator . fmap (F.bprint formatter)
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+notFasterThan :: Second -> WalletWebMode a -> WalletWebMode a
+notFasterThan time action = fst <$> concurrently action (delay time)

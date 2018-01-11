@@ -13,6 +13,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CPwHash
       , CTx (..)
       , CTxId (..)
+      , NewBatchPayment (..)
       , CTxMeta (..)
       , CTExMeta (..)
       , CPtxCondition (..)
@@ -49,17 +50,19 @@ import           Control.Lens          (makeLenses)
 import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Text             (Text)
-import           Data.Text.Buildable   (build)
+import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
 import           Data.Version          (Version)
-import           Formatting            (bprint, (%))
+import           Formatting            (bprint, build, later, (%))
 import qualified Formatting            as F
 import qualified Prelude
+import           Serokell.Util         (mapBuilder)
 import           Servant.Multipart     (FileData)
 
 import           Pos.Aeson.Types       ()
-import           Pos.Core.Types        (ScriptVersion)
+import           Pos.Client.Txp.Util   (InputSelectionPolicy)
+import           Pos.Core.Types        (Coin, ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
@@ -303,6 +306,20 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexId          :: CId Addr
     } deriving (Show, Generic)
+
+data NewBatchPayment = NewBatchPayment
+    { npbFrom                 :: CAccountId
+    , npbTo                   :: NonEmpty (CId Addr, Coin)
+    , npbPolicy               :: InputSelectionPolicy
+    } deriving (Show, Generic)
+
+instance Buildable NewBatchPayment where
+    build NewBatchPayment{..} =
+        bprint ("{ from="%build%" to="%later mapBuilder%" policy="%build%" }")
+               npbFrom npbTo npbPolicy
+
+instance Buildable (SecureLog NewBatchPayment) where
+    build = buildUnsecure
 
 -- | Update system data
 data CUpdateInfo = CUpdateInfo

@@ -4,7 +4,9 @@ module Pos.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..), object, (.:), (.=))
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..),
+                                               object, withArray, withObject, (.:),
+                                               (.=))
 import           Data.Aeson.Types             (Parser, typeMismatch)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version                 (showVersion)
@@ -20,7 +22,8 @@ import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
                                                CTxId, CTxMeta, CUpdateInfo, CWAddressMeta,
                                                CWallet, CWalletAssurance, CWalletInit,
                                                CWalletMeta, CWalletRedeem,
-                                               ClientInfo (..), SyncProgress, Wal)
+                                               ClientInfo (..), NewBatchPayment (..),
+                                               SyncProgress, Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -97,3 +100,30 @@ instance ToJSON ClientInfo where
             , "cabalVersion" .= showVersion ciCabalVersion
             , "apiVersion" .= ciApiVersion
             ]
+
+instance FromJSON NewBatchPayment where
+    parseJSON = withObject "NewBatchPayment" $ \o -> do
+        npbFrom <- o .: "from"
+        npbTo <- (`whenNothing` expectedOneRecipient) . nonEmpty . toList =<< withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
+        npbPolicy <- o .: "policy"
+        return NewBatchPayment {..}
+      where
+        expectedOneRecipient = fail "Expected at least one recipient."
+        collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
+            \o -> (,)
+                <$> o .: "address"
+                <*> o .: "amount"
+
+instance ToJSON NewBatchPayment where
+    toJSON NewBatchPayment {..} =
+        object
+            [ "from" .= toJSON npbFrom
+            , "to" .= map toRecipient (toList npbTo)
+            , "policy" .= npbPolicy
+            ]
+      where
+        toRecipient (address, amount) =
+            object
+                [ "address" .= address
+                , "amount" .= amount
+                ]

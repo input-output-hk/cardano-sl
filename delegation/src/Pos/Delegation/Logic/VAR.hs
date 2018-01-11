@@ -25,8 +25,8 @@ import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, StakeholderId, addressHash,
-                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core (ComponentBlock (..), EpochIndex (..), HasConfiguration, StakeholderId,
+                           addressHash, epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, BlockchainHelpers, MainBlockchain, mainBlockDlgPayload,
                                  mainBlockSlot)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
@@ -424,7 +424,7 @@ dlgApplyBlocks dlgBlunds = do
   where
     blocks = map fst dlgBlunds
     applyBlock :: DlgBlund -> m SomeBatchOp
-    applyBlock ((Left block), DlgUndo{..}) = do
+    applyBlock ((ComponentBlockGenesis block), DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
@@ -439,10 +439,10 @@ dlgApplyBlocks dlgBlunds = do
                 SomeBatchOp $ map GS.DelPostedThisEpoch $
                 HS.toList duPrevEpochPosted
         pure $ edgeOp <> transCorrections <> postedOp
-    applyBlock ((Right block), _) = do
+    applyBlock ((ComponentBlockMain header payload), _) = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
-        let proxySKs = getDlgPayload $ snd block
+        let proxySKs = getDlgPayload payload
         if null proxySKs then pure mempty else do
             let issuers = map pskIssuerPk proxySKs
                 edgeActions = map pskToDlgEdgeAction proxySKs
@@ -453,7 +453,7 @@ dlgApplyBlocks dlgBlunds = do
                     transCorrections <>
                     postedThisEpoch
             runDelegationStateAction $ do
-                dwTip .= headerHash block
+                dwTip .= headerHash header
                 forM_ issuers deleteFromDlgMemPool
             pure $ SomeBatchOp batchOps
 
@@ -472,11 +472,11 @@ dlgRollbackBlocks dlgBlunds = do
     getNewestFirst <$> mapM rollbackBlund dlgBlunds
   where
     rollbackBlund :: DlgBlund -> m SomeBatchOp
-    rollbackBlund (Left _, DlgUndo{..}) =
+    rollbackBlund (ComponentBlockGenesis _, DlgUndo{..}) =
         -- We should restore "this epoch posted" set to one from the undo
         pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
-    rollbackBlund (Right block, DlgUndo{..}) = do
-        let proxySKs = getDlgPayload $ snd block
+    rollbackBlund (ComponentBlockMain _ payload, DlgUndo{..}) = do
+        let proxySKs = getDlgPayload payload
             issuers = map pskIssuerPk proxySKs
             backDeleted = issuers \\ map pskIssuerPk duPsks
             edgeActions = map (DlgEdgeDel . addressHash) backDeleted

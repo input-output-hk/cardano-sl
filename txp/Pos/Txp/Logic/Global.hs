@@ -11,7 +11,6 @@ module Pos.Txp.Logic.Global
        , runToilAction
        ) where
 
-import           Control.Lens (choosing)
 import           Control.Monad.Except (runExceptT)
 import           Data.Default (Default)
 import qualified Data.HashMap.Strict as HM
@@ -19,6 +18,7 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Universum
 
+import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Class (epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
@@ -51,13 +51,13 @@ verifyBlocks
        TxpGlobalVerifyMode m
     => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
 verifyBlocks verifyAllIsKnown newChain = do
-    let epoch = NE.last (getOldestFirst newChain) ^. choosing epochIndexL (_1 . epochIndexL)
+    let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     fst <$> runToilAction @_ @() (mapM (verifyDo epoch) newChain)
   where
     verifyDo epoch = verifyToil epoch verifyAllIsKnown . convertPayload
     convertPayload :: TxpBlock -> [TxAux]
-    convertPayload (Left _)             = []
-    convertPayload (Right (_, payload)) = flattenTxPayload payload
+    convertPayload (ComponentBlockMain _ payload) = flattenTxPayload payload
+    convertPayload (ComponentBlockGenesis _ )     = []
 
 data ApplyBlocksSettings extra m = ApplyBlocksSettings
     { absApplySingle     :: TxpBlund -> m ()
@@ -134,5 +134,5 @@ runToilAction action = runDBToil . runToilTGlobal $ action
 
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: TxpBlund -> [(TxAux, TxUndo)]
-blundToAuxNUndo (Left _, _)                = []
-blundToAuxNUndo (Right (_, payload), undo) = zip (flattenTxPayload payload) undo
+blundToAuxNUndo (ComponentBlockGenesis _ , _)        = []
+blundToAuxNUndo (ComponentBlockMain _ payload, undo) = zip (flattenTxPayload payload) undo

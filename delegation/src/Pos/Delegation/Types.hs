@@ -17,13 +17,9 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Core ()
-import           Pos.Core (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                           HasHeaderHash (..), IsGenesisHeader, IsMainHeader, ProxySKHeavy,
-                           StakeholderId)
+import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
 import           Pos.Core.Delegation (DlgPayload (..), mkDlgPayload)
 import           Pos.Crypto (PublicKey)
-import           Pos.Util.Some (Some)
 
 -- | Undo for the delegation component.
 data DlgUndo = DlgUndo
@@ -56,19 +52,6 @@ type ProxySKBlockInfo = Maybe (ProxySKHeavy, PublicKey)
 -- DlgBlock
 ----------------------------------------------------------------------------
 
--- [CSL-1156] Find a better way for this
-type DlgBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, DlgPayload)
-
-instance HasDifficulty (Some IsMainHeader, DlgPayload) where
-    difficultyL = _1 . difficultyL
-instance HasEpochIndex (Some IsMainHeader, DlgPayload) where
-    epochIndexL = _1 . epochIndexL
-instance HasHeaderHash (Some IsMainHeader, DlgPayload) where
-    headerHash     = headerHash . fst
-instance HasEpochOrSlot (Some IsMainHeader, DlgPayload) where
-    getEpochOrSlot = getEpochOrSlot . fst
-
-instance HasHeaderHash DlgBlock where
-    headerHash     = either headerHash headerHash
+type DlgBlock = ComponentBlock DlgPayload
 
 type DlgBlund = (DlgBlock, DlgUndo)

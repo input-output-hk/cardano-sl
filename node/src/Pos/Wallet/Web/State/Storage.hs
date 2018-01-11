@@ -9,7 +9,6 @@ module Pos.Wallet.Web.State.Storage
        , AccountInfo (..)
        , AddressInfo (..)
        , AddressLookupMode (..)
-       , NeedSorting (..)
        , CustomAddressType (..)
        , CurrentAndRemoved (..)
        , WalletBalances
@@ -219,9 +218,6 @@ data CurrentAndRemoved a = CurrentAndRemoved
     , getRemoved :: a
     }
 
--- | Whether need to sort resulting list.
-newtype NeedSorting = NeedSorting Bool
-
 getProfile :: Query CProfile
 getProfile = view wsProfile
 
@@ -273,22 +269,15 @@ getWalletAddresses =
     view wsWalletInfos
 
 getAccountWAddresses :: AddressLookupMode
-                  -> NeedSorting
-                  -> AccountId
-                  -> Query (Maybe [CWAddressMeta])
-getAccountWAddresses mode (NeedSorting needSorting) accId =
+                     -> AccountId
+                     -> Query (Maybe [AddressInfo])
+getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
-    sorting
-        | needSorting = sortOn adiSortingKey
-        | otherwise = identity
-    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
     fetch which = do
-        cAddresses <- preview (wsAccountInfos . ix accId . which)
-        -- here `cAddresses` has type `Maybe CAddresses`
-        pure $
-            (map adiCWAddressMeta . sorting . toList)
-            <$> cAddresses
+        addresses <- preview (wsAccountInfos . ix accId . which)
+        pure (HM.elems <$> addresses)
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
 doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
@@ -559,7 +548,6 @@ deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
-deriveSafeCopySimple 0 'base ''NeedSorting
 deriveSafeCopySimple 0 'base ''CustomAddressType
 deriveSafeCopySimple 0 'base ''CurrentAndRemoved
 deriveSafeCopySimple 0 'base ''TxAux

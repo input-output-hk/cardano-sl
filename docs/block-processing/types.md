@@ -69,8 +69,8 @@
 *keywords: `GenesisBlock`*
 
 Genesis blocks are blocks that are created at epoch boundary by nodes. They
-don't contain any data that can't be deduced from the blockchain, and they
-are not sent over the network.
+don't contain any data that can't be deduced from the blockchain, but they
+are sent over the network anyway because that's more convenient.
 
 A genesis block is implemented as a `GenericBlock`:
 
@@ -231,19 +231,25 @@ It contains the following fields:
 
       + `_mcdSlot :: SlotId` – the slot for which the block was generated
       + `_mcdLeaderKey :: PublicKey` – public key of the slot leader (which
-        may be different from the block issuer, because of delegation)
+        may be different from the block issuer, because of delegation; if
+        the issuer isn't the slot leader, the signature will contain the
+        actual issuer)
       + `_mcdDifficulty :: ChainDifficulty` – difficulty of the chain ending
         in this block (i.e. number of main blocks between the first block
         ever and this block, inclusive)
       + `_mcdSignature :: BlockSignature` – a signature of the block by its
-        issuer (if the issuer isn't the block leader, it will be a delegated
+        issuer (if the issuer isn't the slot leader, it will be a delegated
         signature confirming issuer's right to issue the block in this slot)
 
   * `_gbhExtra :: MainExtraHeaderData` – more information about the block:
 
-      + `_mehBlockVersion :: BlockVersion` – the block version;
-        see [Software and block versions](us.md#software-and-block-versions)
-      + `_mehSoftwareVersion :: SoftwareVersion` – ditto
+      + `_mehBlockVersion :: BlockVersion` – the block version; see
+        [Software and block versions](us.md#software-and-block-versions).
+        Block version can be associated with a set of protocol rules. Rules
+        associated with `_mehBlockVersion` from a block are the rules used to
+        create that block (i.e. the block must adhere to these rules).
+      + `_mehSoftwareVersion :: SoftwareVersion` – the software version (see
+        the same link); the version of software that created the block
       + `_mehEBDataProof :: Hash MainExtraBodyData` – a hash of the extra
         data in the block (since ultimately a header needs to checksum *all*
         data in the block)
@@ -284,10 +290,12 @@ There are three kinds of signatures:
   * `BlockPSignatureHeavy` – a heavy delegation signature, used when the
     right to issue blocks has been transferred “until further notice”
 
-The thing signed by a `BlockSignature` isn't the whole block, but only
-certain parts of it (this is done because signing is an expensive process
-and we'd like to sign as few bytes as we can get away with). The exact parts
-that are signed are specified by `MainToSign`:
+The thing signed by a `BlockSignature` isn't the whole block, but basically
+`MainBlockHeader` without the `BlockSignature`. We avoid signing the whole
+block because signing is an expensive process and we'd like to sign as few
+bytes as we can get away with; since a `MainBlockHeader` already contains
+hashes of all parts of the block, it works out. The exact parts that are
+signed are specified by `MainToSign`:
 
 ```haskell
 data MainToSign = MainToSign
@@ -1036,6 +1044,9 @@ Just like before, for heavy delegation we set `w = EpochIndex`:
 ```haskell
 type ProxySigHeavy a = ProxySignature EpochIndex a
 ```
+
+The reason `psigPsk` is included into a proxy signature is that we need to
+know who was the actual signer to check the singature.
 
 ## Update system related types
 

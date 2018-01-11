@@ -40,7 +40,7 @@ data PtxSubmissionHandlers m = PtxSubmissionHandlers
       -- Exception is not specified explicitely to prevent a wish
       -- to disassemble the cases - it's already done.
       pshOnNonReclaimable  :: forall e. (Exception e, Buildable e)
-                           => Bool -> e -> m ()
+                           => e -> m ()
       -- | When minor error occurs, which means that transaction has
       -- a chance to be applied later.
     , pshOnMinor           :: SomeException -> m ()
@@ -51,27 +51,18 @@ ptxFirstSubmissionHandler
     => PtxSubmissionHandlers m
 ptxFirstSubmissionHandler =
     PtxSubmissionHandlers
-    { pshOnNonReclaimable = \peerAck e ->
-        if peerAck
-        then reportPeerApplied
-        else throwM e
+    { pshOnNonReclaimable = throwM
     , pshOnMinor = \_ -> pass
     }
-  where
-     reportPeerApplied =
-        logInfo "Some peer applied new tx, while we didn't - considering \
-                \transaction made"
 
 ptxResubmissionHandler
     :: MonadWalletWebMode m
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
-    { pshOnNonReclaimable = \peerAck e ->
+    { pshOnNonReclaimable = \e ->
         if | _ptxPeerAck ->
              reportPeerAppliedEarlier
-           | peerAck ->
-             reportPeerApplied
            | PtxApplying poolInfo <- _ptxCond -> do
              cancelPtx poolInfo e
              throwM e
@@ -91,11 +82,6 @@ ptxResubmissionHandler PendingTx{..} =
     reportPeerAppliedEarlier =
         logInfoS $
         sformat ("Some peer applied tx #"%build%" earlier - continuing \
-            \tracking")
-            _ptxTxId
-    reportPeerApplied =
-        logInfoS $
-        sformat ("Peer applied tx #"%build%", while we didn't - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
@@ -129,17 +115,17 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
                       \the 1h time limit was exceeded")
                       _ptxTxId
        | otherwise -> do
+           saveTx (_ptxTxId, _ptxTxAux) `catches` handlers
+           addOnlyNewPendingTx ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack
-           saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
-           addOnlyNewPendingTx ptx
            when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
-    handlers accepted =
+    handlers =
         [ Handler $ \e ->
             if isReclaimableFailure e
                 then minorError "reclaimable" (SomeException e)
-                else nonReclaimableError accepted (SomeException e)
+                else nonReclaimableError (SomeException e)
 
         , Handler $ \e@SomeException{} ->
             -- I don't know where this error can came from,
@@ -150,9 +136,9 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     minorError desc e = do
         reportError desc e ", but was given another chance"
         pshOnMinor e
-    nonReclaimableError accepted e = do
+    nonReclaimableError e = do
         reportError "fatal" e ""
-        pshOnNonReclaimable accepted e
+        pshOnNonReclaimable e
 
     reportError desc e outcome =
         logInfoS $

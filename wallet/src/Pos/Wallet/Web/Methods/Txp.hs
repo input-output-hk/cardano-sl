@@ -6,6 +6,7 @@
 
 module Pos.Wallet.Web.Methods.Txp
     ( MonadWalletTxFull
+    , gatherPendingTxsSummary
     , rewrapTxError
     , coinDistrToOutputs
     , submitAndSaveNewPtx
@@ -20,14 +21,21 @@ import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (isCheckedTxError)
 import           Pos.Core.Common (Coin)
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
-import           Pos.Crypto (PassPhrase)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto (PassPhrase, hash)
+import           Pos.Util.Chrono (getNewestFirst, toNewestFirst)
+import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
-import           Pos.Wallet.Web.Pending (PendingTx, TxSubmissionMode, ptxFirstSubmissionHandler,
-                                         submitAndSavePtx)
+import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending (PendingTx(..), TxSubmissionMode, isPtxInBlocks,
+                                         ptxFirstSubmissionHandler, sortPtxsChrono)
+import           Pos.Wallet.Web.Pending.Submission (submitAndSavePtx)
+import           Pos.Wallet.Web.State (getPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary (..))
+
 
 type MonadWalletTxFull ctx m =
     ( TxSubmissionMode ctx m
@@ -63,3 +71,21 @@ submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
     => PendingTx -> m ()
 submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
+
+gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
+gatherPendingTxsSummary =
+    map mkInfo .
+    getNewestFirst . toNewestFirst . sortPtxsChrono .
+    filter unconfirmedPtx <$>
+    getPendingTxs
+  where
+    unconfirmedPtx = not . isPtxInBlocks . _ptxCond
+    mkInfo PendingTx{..} =
+        let tx = taTx _ptxTxAux
+        in  PendingTxsSummary
+            { ptiSlot = _ptxCreationSlot
+            , ptiCond = encodeCType (Just _ptxCond)
+            , ptiInputs = _txInputs tx
+            , ptiOutputs = _txOutputs tx
+            , ptiTxId = hash tx
+            }

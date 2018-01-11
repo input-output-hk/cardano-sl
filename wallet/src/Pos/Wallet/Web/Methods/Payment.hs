@@ -14,7 +14,6 @@ import           Universum
 import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
-import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
 import           Servant.Server                   (err405, errReasonPhrase)
 import           System.Wlog (logDebug)

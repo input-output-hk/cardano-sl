@@ -91,8 +91,8 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
 import           Pos.Wallet.Web.ClientTypes (AccountId, cadId)
-import           Pos.Wallet.Web.Methods (MonadWalletLogic, MonadConvertToAddr,
-                                         newAddress, AddrCIdHashes)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress)
+import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,

@@ -1,22 +1,25 @@
 -- | Pending tx utils which db depends on
 
 module Pos.Wallet.Web.Pending.Util
-    ( mkPtxSubmitTiming
-    , incPtxSubmitTimingPure
+    ( incPtxSubmitTimingPure
+    , mkPtxSubmitTiming
     , ptxMarkAcknowledgedPure
     , resetFailedPtx
+    , sortPtxsChrono
     ) where
 
 import           Universum
 
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
-                                               ptxPeerAck, ptxSubmitTiming)
-
+import           Pos.Core.Configuration         (HasConfiguration)
+import           Pos.Crypto                     (WithHash (..))
+import           Pos.Core.Slotting              (FlatSlotId, SlotId, flatSlotId)
+import           Pos.Txp                        (TxAux (..), topsortTxs)
+import           Pos.Util.Chrono                (OldestFirst (..))
+import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition (..),
+                                                 PtxSubmitTiming (..), pstNextDelay,
+                                                 pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming creationSlot =
@@ -24,8 +27,15 @@ mkPtxSubmitTiming creationSlot =
     { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
     , _pstNextDelay = 1
     }
+    where
+      initialSubmitDelay = 3 :: FlatSlotId
+
+-- | Sort pending transactions as close as possible to chronological order.
+sortPtxsChrono :: [PendingTx] -> OldestFirst [] PendingTx
+sortPtxsChrono = OldestFirst . sortWith _ptxCreationSlot . tryTopsort
   where
-    initialSubmitDelay = 3 :: FlatSlotId
+    tryTopsort txs = fromMaybe txs $ topsortTxs wHash txs
+    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 incPtxSubmitTimingPure
     :: HasConfiguration

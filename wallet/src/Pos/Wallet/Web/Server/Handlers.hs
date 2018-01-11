@@ -17,6 +17,7 @@ import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
+
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
 import qualified Pos.Wallet.Web.Api as A
@@ -105,6 +106,7 @@ txsHandlers = toServant' A.WTxsApiRecord
     , _resetFailedPtxs = M.resetAllFailedPtxs
     , _updateTx        = M.updateTransaction
     , _getHistory      = M.getHistoryLimited
+    , _pendingSummary  = M.gatherPendingTxsSummary
     }
 
 updateHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WUpdateApi m

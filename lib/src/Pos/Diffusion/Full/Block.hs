@@ -24,7 +24,6 @@ import qualified Data.Text.Buildable as B
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
 import           Formatting (build, sformat, (%), shown, bprint, stext, int, builder)
-import           Mockable (throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
@@ -383,7 +382,7 @@ announceBlock logic enqueue header =  do
             throwOnIgnored nId =
                 whenJust (nodeIdToAddress nId) $ \addr ->
                     when (shouldIgnoreAddress addr) $
-                        throw AttackNoBlocksTriggered
+                        throwM AttackNoBlocksTriggered
         -- TODO the when condition is not necessary, as it's a part of the
         -- conjunction in shouldIgnoreAddress
         when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
@@ -430,12 +429,12 @@ handleHeadersCommunication logic conv = do
     getLastMainHeader = do
         etip :: Either GetTipError Block <- getTip logic
         case etip of
-            Left err@(GetTipError _) -> throw err
+            Left err@(GetTipError _) -> throwM err
             Right tip -> let tipHeader = tip ^. blockHeader in case tip of
                 Left _  -> do
                     bheader <- getBlockHeader logic (tip ^. prevBlockL)
                     case bheader of
-                        Left err -> throw err
+                        Left err -> throwM err
                         Right mHeader -> pure $ fromMaybe tipHeader mHeader
                 Right _ -> pure tipHeader
     handleSuccess :: NewestFirst NE BlockHeader -> d ()

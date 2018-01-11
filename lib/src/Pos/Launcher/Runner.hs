@@ -18,7 +18,7 @@ module Pos.Launcher.Runner
        , initQueue
        ) where
 
-import           Universum hiding (bracket)
+import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
@@ -26,8 +26,8 @@ import           Data.Default (Default)
 import qualified Data.Map as M
 import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
-import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
-                           killThread, throw)
+import           Mockable (MonadMockable, Production (..), async, cancel,
+                           killThread)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
@@ -67,6 +67,7 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.Util (eitherToThrow)
 import           Pos.Web.Server (serveImpl, route53HealthCheckApplication)
 import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
                                WorkMode)
@@ -226,7 +227,7 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
     N.converseWith converse nodeId (k nodeId)
 
 oqEnqueue
-    :: ( Mockable Throw m, MonadIO m, WithLogger m )
+    :: ( MonadThrow m, MonadIO m, WithLogger m )
     => OQ m
     -> Msg
     -> (NodeId -> VerInfo -> N.Conversation PackingType m t)
@@ -234,7 +235,7 @@ oqEnqueue
 oqEnqueue oq msgType k = do
     itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
     let itMap = M.fromList itList
-    return ((>>= either throw return) <$> itMap)
+    return ((>>= eitherToThrow) <$> itMap)
 
 oqDequeue
     :: ( MonadIO m

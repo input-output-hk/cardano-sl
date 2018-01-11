@@ -12,11 +12,12 @@ module Pos.Diffusion.Subscription.Common
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum hiding (bracket)
+import           Universum
 
+import           Control.Exception.Safe
 import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Bracket, Catch, Mockable, Throw, Delay, delay, bracket, try)
+import           Mockable (Mockable, Delay, delay)
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
@@ -33,9 +34,7 @@ import           Pos.Network.Types (Bucket (..), NodeType)
 type SubscriptionMode m =
     ( MonadIO m
     , WithLogger m
-    , Mockable Throw m
-    , Mockable Catch m
-    , Mockable Bracket m
+    , MonadMask m
     , Mockable Delay m
     , Message MsgSubscribe
     , MessageLimited MsgSubscribe m

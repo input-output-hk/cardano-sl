@@ -8,14 +8,14 @@ module Pos.Diffusion.Full
     ) where
 
 import           Nub (ordNub)
-import           Universum hiding (bracket)
+import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Reflection (Given, give, given)
 import           Data.Time.Units (Millisecond)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Bracket, Catch, Mockable, Throw, bracket, throw, withAsync)
+import           Mockable (withAsync)
 import           Mockable.Production (Production)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
@@ -226,7 +226,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
                 itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
                 let itMap = M.fromList itList
-                return ((>>= either throw return) <$> itMap)
+                return ((>>= either throwM return) <$> itMap)
 
             getBlocks :: NodeId
                       -> BlockHeader
@@ -319,7 +319,7 @@ runDiffusionLayerFull networkConfig ourVerInfo oq slotDuration listeners action 
     oqEnqueue msgType k = do
         itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
         let itMap = M.fromList itList
-        return ((>>= either throw return) <$> itMap)
+        return ((>>= either throwM return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) -> do
             dnsSubscriptionWorker oq networkConfig dnsDomains slotDuration sactions
@@ -357,7 +357,7 @@ timeWarpNode transport ourVerInfo listeners k = do
 ----------------------------------------------------------------------------
 
 createKademliaInstance ::
-       (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
+       (HasNodeConfiguration, MonadIO m, MonadCatch m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
@@ -369,7 +369,7 @@ createKademliaInstance kp defaultPort =
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
-    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
@@ -380,7 +380,7 @@ bracketKademliaInstance kp defaultPort action =
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
 bracketKademlia
-    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
     => NetworkConfig KademliaParams
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
@@ -421,7 +421,7 @@ instance Exception MissingKademliaParams
 ----------------------------------------------------------------------------
 
 createTransportTCP
-    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, Mockable Throw m)
+    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, MonadThrow m)
     => TCP.TCPAddr
     -> m (Transport n, m ())
 createTransportTCP addrInfo = do
@@ -444,12 +444,12 @@ createTransportTCP addrInfo = do
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
-            throw e
+            throwM e
         Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
 
 -- | RAII for 'Transport'.
 bracketTransport
-    :: (HasNodeConfiguration, MonadIO m, MonadIO n, Mockable Throw m, Mockable Bracket m, WithLogger m)
+    :: (HasNodeConfiguration, MonadIO m, MonadIO n, MonadMask m, WithLogger m)
     => TCP.TCPAddr
     -> (Transport n -> m a)
     -> m a

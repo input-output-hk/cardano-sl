@@ -65,7 +65,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   ${ifWallet ''
   if [ ! -d ${stateDir}tls ]; then
     mkdir ${stateDir}/tls/
-    openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
+    ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
   fi
   ''}
 

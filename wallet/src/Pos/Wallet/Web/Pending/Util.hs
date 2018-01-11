@@ -12,14 +12,14 @@ import           Universum
 
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 
-import           Pos.Core.Configuration         (HasConfiguration)
-import           Pos.Crypto                     (WithHash (..))
-import           Pos.Core.Slotting              (FlatSlotId, SlotId, flatSlotId)
-import           Pos.Txp                        (TxAux (..), topsortTxs)
-import           Pos.Util.Chrono                (OldestFirst (..))
-import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition (..),
-                                                 PtxSubmitTiming (..), pstNextDelay,
-                                                 pstNextSlot, ptxPeerAck, ptxSubmitTiming)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
+import           Pos.Crypto (WithHash (..))
+import           Pos.Txp (TxAux (..), topsortTxs)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
+                                               PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
+                                               ptxPeerAck, ptxSubmitTiming)
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming creationSlot =

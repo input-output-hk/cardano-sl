@@ -11,11 +11,10 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Exception                (throw)
-import           Control.Monad.Except             (runExcept)
-import qualified Data.Map                         as M
-import qualified Formatting                       as F
-import           Servant.Server                   (err405, errReasonPhrase)
+import           Control.Exception (throw)
+import           Control.Monad.Except (runExcept)
+import qualified Data.Map as M
+import           Servant.Server (err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 
 import           Pos.Client.KeyStorage (getSecretKeys)

@@ -35,39 +35,35 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
-import           Formatting                   (bprint, build, (%))
-import           Mockable                     (MonadMockable)
-import           Serokell.Util.Text           (listJson)
-import           Servant.API.ContentTypes     (MimeRender (..), NoContent (..),
-                                               OctetStream)
+import           Formatting (bprint, build, (%))
+import           Mockable (MonadMockable)
+import           Serokell.Util.Text (listJson)
+import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-import           Pos.Configuration            (HasNodeConfiguration)
-import           Pos.Core                     (Address, SlotId, SoftwareVersion (..))
-import           Pos.Crypto                   (hashHexF)
-import           Pos.NtpCheck                 (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
-import           Pos.Slotting                 (MonadSlots, getCurrentSlotBlocking)
-import           Pos.Txp                      (TxIn, TxOut, TxId)
-import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util                     (maybeThrow,lensOf, HasLens)
-import           Pos.Util.Servant             (HasTruncateLogPolicy (..))
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (Address, SlotId, SoftwareVersion (..))
+import           Pos.Crypto (hashHexF)
+import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Txp (TxId, TxIn, TxOut)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 
-import           Pos.Client.KeyStorage        (MonadKeys, deleteAllSecretKeys)
+import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Aeson.Storage     ()
-import           Pos.Wallet.WalletMode        (MonadBlockchainInfo, MonadUpdates,
-                                               applyLastUpdate, connectedPeers,
-                                               localChainDifficulty,
-                                               networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CHash, CId (..), CProfile (..),
-                                               CPtxCondition, CUpdateInfo (..),
-                                               SyncProgress (..), cIdToAddress)
-import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead,
-                                               getNextUpdate, getProfile,
-                                               getWalletStorage, removeNextUpdate,
-                                               resetFailedPtxs, setProfile, testReset)
+import           Pos.Wallet.Aeson.Storage ()
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
+                                        connectedPeers, localChainDifficulty,
+                                        networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CPtxCondition,
+                                             CUpdateInfo (..), SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
+                                       getWalletStorage, removeNextUpdate, resetFailedPtxs,
+                                       setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util          (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util (testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
 -- Profile

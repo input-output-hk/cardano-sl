@@ -35,32 +35,30 @@ module Pos.Wallet.Web.Api
        , swaggerWalletApi
        ) where
 
-import           Control.Lens                (from)
-import           Control.Monad.Catch         (try)
-import           Data.Reflection             (Reifies (..))
-import           Servant.API                 ((:<|>), (:>), Capture, Delete, Description,
-                                              Get, JSON, Post, Put, QueryParam,
-                                              ReqBody, Summary, Verb)
-import           Servant.API.ContentTypes    (NoContent, OctetStream)
-import           Servant.Generic             ((:-), AsApi, ToServant)
-import           Servant.Swagger.UI          (SwaggerSchemaUI)
 import           Universum
 
-import           Pos.Client.Txp.Util        (InputSelectionPolicy)
-import           Pos.Core                   (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
-                                             CReqBody, DCQueryParam, DReqBody,
-                                             LoggingApi, ModifiesApiRes (..), ReportDecodeError (..),
-                                             VerbMod, serverHandlerL')
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin, CFilePath, ClientInfo,
-                                             CId, CInitialized, CPaperVendWalletRedeem,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ScrollLimit,
-                                             ScrollOffset, SyncProgress, Wal, NewBatchPayment)
-import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
-                                             catchEndpointErrors)
+import           Control.Lens (from)
+import           Control.Monad.Catch (try)
+import           Data.Reflection (Reifies (..))
+import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get, JSON, Post, Put,
+                              QueryParam, ReqBody, Summary, Verb)
+import           Servant.API.ContentTypes (NoContent, OctetStream)
+import           Servant.Generic ((:-), AsApi, ToServant)
+import           Servant.Swagger.UI (SwaggerSchemaUI)
+
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core (Coin, SoftwareVersion)
+import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReqBody, DCQueryParam,
+                                   DReqBody, LoggingApi, ModifiesApiRes (..),
+                                   ReportDecodeError (..), VerbMod, serverHandlerL')
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
+                                             CAddress, CCoin, CFilePath, CId, CInitialized,
+                                             CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
+                                             CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, ClientInfo,
+                                             NewBatchPayment, ScrollLimit, ScrollOffset,
+                                             SyncProgress, Wal)
+import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | API result modification mode used here.

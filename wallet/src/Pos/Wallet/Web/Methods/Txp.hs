@@ -28,13 +28,13 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary (..))
 import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending (PendingTx(..), TxSubmissionMode, isPtxInBlocks,
+import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode, isPtxInBlocks,
                                          ptxFirstSubmissionHandler, sortPtxsChrono)
 import           Pos.Wallet.Web.Pending.Submission (submitAndSavePtx)
 import           Pos.Wallet.Web.State (getPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary (..))
 
 
 type MonadWalletTxFull ctx m =

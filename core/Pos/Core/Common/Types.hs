@@ -100,7 +100,7 @@ data AddrSpendingData
     -- ^ Funds can be spent by revealing a 'Script' and providing a
     -- redeemer 'Script'.
     | RedeemASD !RedeemPublicKey
-    -- ^ Funds can be spent by revealing a 'RedeemScript' and providing a
+    -- ^ Funds can be spent by revealing a 'RedeemPublicKey' and providing a
     -- valid signature.
     | UnknownASD !Word8 !ByteString
     -- ^ Unknown type of spending data. It consists of a tag and

@@ -217,7 +217,7 @@ decodeKnownCborDataItem = do
 
 -- | Like `decodeKnownCborDataItem`, but assumes nothing about the Haskell
 -- type we want to deserialise back, therefore it yields the `ByteString`
--- Tag 24 sorrounded (stripping such tag away).
+-- Tag 24 surrounded (stripping such tag away).
 -- In CBOR notation, if the data was serialised as:
 -- >>> 24(h'DEADBEEF')
 -- then `decodeUnknownCborDataItem` yields the inner 'DEADBEEF', unchanged.

@@ -254,9 +254,6 @@ Either Text Tx`. We can use `eitherToFail` helper function if we want
 to use this function inside a monad from external library which uses
 `MonadFail` to fail.
 
-We should make sure that no code imports `Control.Exception` or
-`Control.Monad.Catch`, and use `Control.Exception.Safe` instead.
-
 We should locate all usages of `forkIO` and replace with appropriate functions
 from `async`.
 

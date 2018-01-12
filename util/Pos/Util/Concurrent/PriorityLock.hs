@@ -14,7 +14,6 @@ module Pos.Util.Concurrent.PriorityLock
        ) where
 
 import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar, takeTMVar)
-import           Control.Exception.Safe (MonadMask)
 import           Universum
 
 import           Pos.Util.Queue (Q, dequeue, enqueue, queue)

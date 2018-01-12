@@ -37,7 +37,6 @@ import           Network.Transport.Abstract
 -- TODO use NonEmptySet instead.
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TBQueue
-import           Control.Exception.Safe ()
 import qualified Data.Set as S
 import           Data.Typeable
 import           Mockable.Class

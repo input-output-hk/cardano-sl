@@ -25,7 +25,6 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Exception.Safe (MonadMask)
 import           Data.Time.Units (Microsecond)
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)

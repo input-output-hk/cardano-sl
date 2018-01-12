@@ -18,7 +18,6 @@ module Pos.Wallet.Web.Mode
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Exception.Safe (MonadMask)
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl)

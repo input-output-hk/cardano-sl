@@ -6,7 +6,6 @@ module Pos.GState.SanityCheck
 
 import           Universum
 
-import           Control.Exception.Safe (MonadMask)
 import           System.Wlog (WithLogger)
 
 import           Pos.DB.Class (MonadDBRead)

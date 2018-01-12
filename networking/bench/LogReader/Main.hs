@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative (empty, (<|>))
-import           Control.Exception.Safe (Exception, handle)
 import           Control.Lens (at, (%=), (^.), _2, _Just)
 import           Control.Monad (forM_)
 import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)

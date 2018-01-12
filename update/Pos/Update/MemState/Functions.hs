@@ -7,7 +7,6 @@ module Pos.Update.MemState.Functions
 
 import           Universum
 
-import           Control.Exception.Safe (MonadMask)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)

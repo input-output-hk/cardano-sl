@@ -16,7 +16,6 @@ module Pos.Explorer.ExplorerMode
 
 import           Universum
 
-import           Control.Exception.Safe (MonadMask)
 import           Control.Lens (lens, makeLensesWith)
 import           Ether.Internal (HasLens (..))
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))

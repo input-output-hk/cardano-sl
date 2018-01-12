@@ -1,4 +1,4 @@
-resolver: lts-9.1
+resolver: lts-10.3
 
 flags:
   ether:
@@ -39,44 +39,32 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
-- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.9.0
-- serokell-util-0.5.2
-- pvss-0.2.0
+# Serokell packages
+- log-warper-1.8.5                # TODO: remove after appear on Stackage
+- rocksdb-haskell-1.0.0
+- serokell-util-0.6.0
+- universum-1.0.2                 # TODO: remove after appear on Stackage
+
+# miscellaneous packages
 - base58-bytestring-0.1.0
-- log-warper-1.8.0
-- concurrent-extra-0.7.0.10       # not yet on Stackage
-# - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- json-sop-0.2.0.3
+- lens-sop-0.2.0.2
+- loc-0.1.3.1
+- pipes-interleave-1.1.1
+- pvss-0.2.0
+- systemd-1.1.2
+- tabl-1.0.3
+- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
+
+# servant
 - servant-0.12
 - servant-server-0.12
 - servant-client-0.12
 - servant-client-core-0.12
 - servant-multipart-0.11
 - servant-docs-0.11.1             # needed for servant-0.12
-- servant-swagger-1.1.4           # needed for servant-0.12
-- servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
 - servant-quickcheck-0.0.4
-- ether-0.5.1.0
-- pipes-interleave-1.1.1
-- rocksdb-haskell-1.0.0
-- generic-arbitrary-0.1.0
-- happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
-- entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
-- fmt-0.5.0.0
-- systemd-1.1.2
-- tabl-1.0.3
-# ekg-statsd version without the unnecessary diffing optimisation
-- ekg-statsd-0.2.2.0
-# https://github.com/fpco/lts-haskell/issues/70
-- fgl-5.5.3.1
-- megaparsec-6.2.0
-- parser-combinators-0.2.0
-- loc-0.1.3.1
-- lens-sop-0.2.0.2
-- json-sop-0.2.0.3
-- servant-generic-0.1.0.1
 
 # GitHub dependencies
 ## Serokell fork of time-units; don't show microseconds in unicode
@@ -96,7 +84,7 @@ extra-deps:
   commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
 ## plutus; smart-contracts language
 - git: https://github.com/input-output-hk/plutus-prototype
-  commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
+  commit: c8ea123947fb62e4e02ca46f0eaadc5b47da3605 # from chshersh/csl2125-ghc-8.2.2 branch
 ## ed25519
 - git: https://github.com/thoughtpolice/hs-ed25519
   # We're waiting on next release

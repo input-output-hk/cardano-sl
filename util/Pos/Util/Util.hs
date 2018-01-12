@@ -349,8 +349,8 @@ dumpSplices x = do
 histogram :: forall a. Ord a => [a] -> Map a Int
 histogram = foldl' step M.empty
   where
-    step :: Map a Int -> a -> Map a Int
-    step m x = M.insertWith (+) x 1 m
+    step :: a -> Map a Int -> Map a Int
+    step x = M.insertWith (+) x 1
 
 median :: Ord a => NonEmpty a -> a
 median l = NE.sort l NE.!! middle

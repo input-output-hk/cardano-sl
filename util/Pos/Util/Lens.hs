@@ -14,7 +14,6 @@ module Pos.Util.Lens
        ) where
 
 import           Universum
-import           Unsafe (unsafeInit, unsafeLast)
 
 import           Control.Lens (LensRules, lensField, lensRules, mappingNamer)
 
@@ -32,8 +31,8 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 
 -- | Lens for the last element of 'NonEmpty'.
 _neLast :: Lens' (NonEmpty a) a
-_neLast f (x :| []) = (:| []) <$> f x
-_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+_neLast f (x :| [])       = (:| []) <$> f x
+_neLast f (x :| (l : ls)) = (\y -> x :| init (l :| ls) ++ [y]) <$> f (last (l :| ls))
 
 ----------------------------------------------------------------------------
 -- Custom LensRules

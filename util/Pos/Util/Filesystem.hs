@@ -16,7 +16,6 @@ import           Universum
 import           Control.Concurrent (myThreadId)
 import qualified Control.Exception.Safe as E
 import           Data.Char (isAlphaNum)
-import           Data.List (last)
 import           Data.Time (getCurrentTime)
 import qualified Prelude
 import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
@@ -69,7 +68,7 @@ withTempDir parentDir template = bracket acquire dispose
 -- which is a bit more lenient than `System.FilePath.takeDirectory`.
 directory :: FilePath -> FilePath
 directory "" = ""
-directory f = case last f of
+directory f@(y:ys) = case last (y :| ys) of
     x | x == pathSeparator -> f
     _ -> takeDirectory (normalise f)
 

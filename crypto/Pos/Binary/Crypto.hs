@@ -27,7 +27,6 @@ import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash 
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
-import           Pos.Crypto.Signing.Check (validateProxySecretKey)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..))
@@ -192,8 +191,7 @@ instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
         pskIssuerPk   <- decode
         pskDelegatePk <- decode
         pskCert       <- decode
-        toCborError . over _Left ("decode@ProxySecretKey: " <>) $
-            validateProxySecretKey UnsafeProxySecretKey{..}
+        pure UnsafeProxySecretKey {..}
 
 instance (Typeable a, Bi w, HasCryptoConfiguration) =>
          Bi (ProxySignature w a) where
@@ -207,6 +205,7 @@ instance (Typeable a, Bi w, HasCryptoConfiguration) =>
 
 instance Bi PassPhrase where
     encode pp = encode (ByteArray.convert pp :: ByteString)
+    -- FIXME do not validate here...
     decode = do
         bs <- decode @ByteString
         let bl = BS.length bs

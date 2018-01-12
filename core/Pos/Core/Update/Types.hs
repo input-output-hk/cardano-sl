@@ -5,8 +5,7 @@
 module Pos.Core.Update.Types
        (
          -- * Version
-         ApplicationName
-       , getApplicationName
+         ApplicationName (..)
        , applicationNameMaxLength
        , mkApplicationName
        , BlockVersion (..)

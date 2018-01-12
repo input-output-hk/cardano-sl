@@ -14,7 +14,6 @@ import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
 import qualified Pos.Core.Txp as T
-import           Pos.Util.Util (toCborError)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -54,8 +53,7 @@ instance Bi T.Tx where
                 <> encode (T._txAttributes tx)
     decode = do
         enforceSize "Tx" 3
-        res <- T.mkTx <$> decode <*> decode <*> decode
-        toCborError res
+        T.UnsafeTx <$> decode <*> decode <*> decode
 
 instance Bi T.TxInWitness where
     encode input = case input of

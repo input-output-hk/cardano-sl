@@ -92,10 +92,6 @@ toCertPair vc = (getCertId vc, vc)
 -- with duplicate signing keys or with duplicate 'vcVssKey's.
 mkVssCertificatesMap :: [VssCertificate] -> Either Text VssCertificatesMap
 mkVssCertificatesMap certs = do
-    unless (allDistinct (map vcSigningKey certs)) $
-        Left "mkVssCertificatesMap: two certs have the same signing key"
-    unless (allDistinct (map vcVssKey certs)) $
-        Left "mkVssCertificatesMap: two certs have the same VSS key"
     pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away

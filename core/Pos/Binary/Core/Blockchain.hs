@@ -12,17 +12,16 @@ import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeList
 import           Pos.Binary.Core.Block ()
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
-import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlockchain, MainBlockchain)
+import           Pos.Core.Block.Union.Types (BlockHeader (..))
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
-import           Pos.Util.Util (cborError, toCborError)
+import           Pos.Util.Util (cborError)
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)
-         , T.BlockchainHelpers b
          , HasCryptoConfiguration
          ) =>
          Bi (T.GenericBlockHeader b) where
@@ -38,13 +37,13 @@ instance ( Typeable b
         -- TODO include ProtocolMagic in the definition of GenericBlockHeader,
         -- and decode it, eliminating this failure case. Protocol magic checks
         -- must not happen in decoding.
-        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError
-            "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
+            "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
         _gbhPrevBlock <- ({-# SCC "decode_header_prev" #-} decode)
         _gbhBodyProof <- ({-# SCC "decode_header_body_proof" #-} decode)
         _gbhConsensus <- ({-# SCC "decode_header_consensus" #-} decode)
         _gbhExtra     <- ({-# SCC "decode_header_extra" #-} decode)
-        toCborError $ T.recreateGenericHeader _gbhPrevBlock _gbhBodyProof _gbhConsensus _gbhExtra
+        pure T.UnsafeGenericBlockHeader {..}
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -53,7 +52,6 @@ instance ( Typeable b
          , Bi (T.ExtraHeaderData b)
          , Bi (T.Body b)
          , Bi (T.ExtraBodyData b)
-         , T.BlockchainHelpers b
          , HasCryptoConfiguration
          ) =>
          Bi (T.GenericBlock b) where
@@ -66,15 +64,13 @@ instance ( Typeable b
         _gbHeader <- ({-# SCC "decode_block_header" #-} decode)
         _gbBody   <- ({-# SCC "decode_block_body" #-} decode)
         _gbExtra  <- ({-# SCC "decode_block_extra" #-} decode)
-        toCborError $ T.recreateGenericBlock _gbHeader _gbBody _gbExtra
+        pure T.UnsafeGenericBlock {..}
 
 ----------------------------------------------------------------------------
 -- BlockHeader
 ----------------------------------------------------------------------------
 
 instance ( HasConfiguration
-         , T.BlockchainHelpers MainBlockchain
-         , T.BlockchainHelpers GenesisBlockchain
          ) =>
          Bi BlockHeader where
    encode x = encodeListLen 2 <> encodeWord tag <> body
@@ -89,4 +85,4 @@ instance ( HasConfiguration
        case t of
            0 -> BlockHeaderGenesis <$!> decode
            1 -> BlockHeaderMain <$!> decode
-           _ -> cborError $ "decode@BlockHeader: unknown tag " <> show t
+           _ -> cborError $ "decode@BlockHeader: unknown tag " <> pretty t

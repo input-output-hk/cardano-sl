@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Util
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
-    , getWalletAddrsSet
+    , getWalletAddrsDetector
     , decodeCTypeOrFail
     , getWalletAssuredDepth
     , testOnlyEndpoint
@@ -16,7 +16,7 @@ module Pos.Wallet.Web.Util
 
 import           Universum
 
-import qualified Data.Set as S
+import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           Servant.Server (err405, errReasonPhrase)
 
@@ -29,7 +29,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta,
                                              CWAddressMeta (..), Wal, cwAssurance)
 
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressLookupMode, MonadWalletDBRead, getAccountIds,
+import           Pos.Wallet.Web.State (AddressLookupMode (..), CurrentAndRemoved (..),
+                                       MonadWalletDBRead, getAccountAddrMaps, getAccountIds,
                                        getAccountMeta, getAccountWAddresses, getWalletMeta)
 
 getAccountMetaOrThrow ::
@@ -62,13 +63,22 @@ getWalletAddrMetas lookupMode cWalId =
 getWalletAddrs
     :: (MonadWalletDBRead ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CId Addr]
-getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
+getWalletAddrs mode wid = cwamId <<$>> getWalletAddrMetas mode wid
 
-getWalletAddrsSet
+getWalletAddrsDetector
     :: (MonadWalletDBRead ctx m, MonadThrow m)
-    => AddressLookupMode -> CId Wal -> m (Set (CId Addr))
-getWalletAddrsSet lookupMode cWalId =
-    S.fromList . map cwamId <$> getWalletAddrMetas lookupMode cWalId
+    => AddressLookupMode -> CId Wal -> m (CId Addr -> Bool)
+getWalletAddrsDetector lookupMode cWalId = do
+    accIds <- getWalletAccountIds cWalId
+    accAddrMaps <- mapM getAccountAddrMaps accIds
+    let lookupExisting addr = any (HM.member addr . getCurrent) accAddrMaps
+        lookupDeleted  addr = any (HM.member addr . getRemoved) accAddrMaps
+        lookupEver     addr = lookupExisting addr
+                           || lookupDeleted  addr
+    return $ case lookupMode of
+        Existing -> lookupExisting
+        Deleted  -> lookupDeleted
+        Ever     -> lookupEver
 
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType

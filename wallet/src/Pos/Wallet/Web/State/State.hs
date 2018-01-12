@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.State
        ( WalletState
        , WalletTip (..)
        , PtxMetaUpdate (..)
+       , AddressInfo (..)
        , getWalletWebState
        , MonadWalletDBAccess
        , MonadWalletDBRead
@@ -17,12 +18,14 @@ module Pos.Wallet.Web.State.State
 
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , CurrentAndRemoved (..)
        , WalBalancesAndUtxo
 
        -- * Getters
        , getProfile
        , getAccountIds
        , getAccountMeta
+       , getAccountAddrMaps
        , getAccountWAddresses
        , getWalletMeta
        , getWalletMetaIncludeUnready
@@ -99,7 +102,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CId,
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletState, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
-import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), CustomAddressType (..),
+import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..),
+                                               CurrentAndRemoved (..), CustomAddressType (..),
                                                PtxMetaUpdate (..), WalBalancesAndUtxo,
                                                WalletBalances, WalletStorage, WalletTip (..))
 
@@ -159,6 +163,11 @@ getAccountIds = queryDisk A.GetAccountIds
 
 getAccountMeta :: MonadWalletDBRead ctx m => AccountId -> m (Maybe CAccountMeta)
 getAccountMeta = queryDisk . A.GetAccountMeta
+
+getAccountAddrMaps
+    :: MonadWalletDBRead ctx m
+    => AccountId -> m (CurrentAndRemoved (HashMap (CId Addr) AddressInfo))
+getAccountAddrMaps = queryDisk . A.GetAccountAddrMaps
 
 getWalletAddresses :: MonadWalletDBRead ctx m => m [CId Wal]
 getWalletAddresses = queryDisk A.GetWalletAddresses

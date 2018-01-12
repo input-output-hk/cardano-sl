@@ -47,7 +47,7 @@ import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutpu
 import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever, Existing), MonadWalletDBRead)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrsSet)
+                                      getWalletAccountIds, getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletTxFull ctx m
@@ -196,6 +196,8 @@ sendMoney passphrase moneySource dstDistr policy = do
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
     _ <- addHistoryTxMeta srcWallet th
-    srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
-    fst <$> constructCTx srcWallet srcWalletAddrs diff th
+    srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
+
+    logDebug "sendMoney: constructing response"
+    fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th

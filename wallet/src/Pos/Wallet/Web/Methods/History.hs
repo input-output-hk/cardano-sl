@@ -37,7 +37,8 @@ import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplyi
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, MonadWalletDBRead,
                                        addOnlyNewTxMetas, getHistoryCache, getPendingTx, getTxMeta,
                                        getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs)
+import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
+                                      getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))
 
 
@@ -72,11 +73,11 @@ getFullWalletHistory cWalId = do
     logTxHistory "Mempool" localHistory
 
     fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    diff        <- getCurChainDifficulty
-    let !cAddrsSet = S.fromList cAddrs
+    walAddrsDetector <- getWalletAddrsDetector Ever cWalId
+    diff <- getCurChainDifficulty
     logDebug "getFullWalletHistory: fetched full history"
 
-    !cHistory <- forM fullHistory (constructCTx cWalId cAddrsSet diff)
+    !cHistory <- forM fullHistory (constructCTx cWalId walAddrsDetector diff)
     logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
@@ -187,17 +188,17 @@ addHistoryTxsMeta cWalId historyEntries = do
 constructCTx
     :: (MonadThrow m, MonadWalletDBRead ctx m)
     => CId Wal
-    -> Set (CId Addr)
+    -> (CId Addr -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
+constructCTx cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
             pure =<< getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
-        mkCTx diff wtx meta ptxCond walAddrsSet
+        mkCTx diff wtx meta ptxCond addrBelongsToWallet
 
 getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty

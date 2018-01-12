@@ -16,6 +16,7 @@ import           Universum
 import           Control.Exception          (throw)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
+import           Serokell.Util              (sec)
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson, listJsonIndent)
@@ -32,7 +33,7 @@ import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficul
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
                                              CTxMeta (..), CWAddressMeta (..),
-                                             ScrollLimit, ScrollOffset, Wal, mkCTx)
+                                             ScrollLimit, ScrollOffset, Wal, SinceTime, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdToAddrs, convertCIdToAddr)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
@@ -123,10 +124,11 @@ getHistoryLimited
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
+    -> Maybe SinceTime
     -> Maybe ScrollOffset
     -> Maybe ScrollLimit
     -> m ([CTx], Word)
-getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
+getHistoryLimited mCWalId mAccId mAddrId mSince mSkip mLimit = do
     logDebug "getHistoryLimited: started"
     (cWalId, accIds) <- case (mCWalId, mAccId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
@@ -142,8 +144,11 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     let getTxTimestamp entry@THEntry{..} =
             (entry,) . maybe curTime ctmDate <$> getTxMeta cWalId (encodeCType _thTxId)
     txsWithTime <- mapM getTxTimestamp (Map.elems unsortedThs)
+    let sinceMicroseconds = sec $ maybe 0 fromIntegral mSince
+    let sincePOSIX = timestampToPosix $ fromIntegral sinceMicroseconds
+    let sinceTxsWithTime = filter ((> sincePOSIX) . snd) txsWithTime
 
-    let !sortedTxh = forceList $ sortByTime txsWithTime
+    let !sortedTxh = forceList $ sortByTime sinceTxsWithTime
     logDebug "getHistoryLimited: sorted transactions"
 
     let respEntries = applySkipLimit sortedTxh

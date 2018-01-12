@@ -29,7 +29,6 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
 import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
-import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -190,7 +189,7 @@ instance Arbitrary (MerkleNode Tx) where
     shrink = genericShrink
 
 instance Arbitrary TxProof where
-    arbitrary = makeSmall genericArbitrary
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary TxAux where

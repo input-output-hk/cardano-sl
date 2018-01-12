@@ -28,7 +28,7 @@ import           Data.Typeable (typeRep)
 import           Formatting (formatToString, int, (%))
 import           Prelude (read)
 import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, modifyMaxSize, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, counterexample, forAll,
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
@@ -84,14 +84,20 @@ identityTest fun = prop (typeName @a) fun
     typeName :: forall x. Typeable x => String
     typeName = show $ typeRep (Proxy @a)
 
+-- This does a lot of deserializing/serializing which tends to be very
+-- expensive, so we limit the size.
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-binaryTest =
+binaryTest = modifyMaxSize (const 8) $
     identityTest @a $ \x -> binaryEncodeDecode x
                        .&&. cborFlatTermValid x
                        .&&. cborCanonicalRep x
 
+-- This tend to be expensive and cause a lot of disk I/O, which can be
+-- devastating on the developer's desktop system, so we limit the size and
+-- max success count.
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
-safeCopyTest = identityTest @a safeCopyEncodeDecode
+safeCopyTest = modifyMaxSize (const 8) $ modifyMaxSuccess (const 10) $
+    identityTest @a safeCopyEncodeDecode
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
 showReadTest = identityTest @a showReadId

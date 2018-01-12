@@ -34,124 +34,16 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 
-- location:
-    git: https://github.com/well-typed/cborg
-    # Has support for canonical cbor
-    commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
-  subdirs:
-  - cborg
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/time-units.git
-    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/kademlia.git
-    commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/plutus-prototype
-    commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
-  extra-dep: true
-- location:
-    git: https://github.com/thoughtpolice/hs-ed25519
-    # We're waiting on next release
-    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
-  extra-dep: true
-# These three are needed for cardano-sl-networking
-- location:
-    git: https://github.com/serokell/network-transport-tcp
-    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/network-transport
-    commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
-  extra-dep: true
-- location:
-      git: https://github.com/avieth/network-transport-inmemory
-      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
-  extra-dep: true
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
-- location:
-    git: https://github.com/serokell/swagger2
-    commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
-  extra-dep: true
-
-- location:
-    git: https://github.com/haskell-crypto/cryptonite
-    commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
-  extra-dep: true
-# Required for explorer
-- location:
-    git: https://github.com/serokell/engine.io.git
-    commit: a594e402fd450f11ad60d09ddbd93db500000632
-  extra-dep: true
-  subdirs:
-    - socket-io
-    - engine-io
-    - engine-io-wai
-
-# Version of "dns" with proper Windows & Unix multiple-nameservers support
-- location:
-    git: https://github.com/kazu-yamamoto/dns.git
-    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
-  extra-dep: true
-
-- location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
-  extra-dep: true
-
-- location:
-    git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
-    commit: 49f501a082d745f3b880677220a29cafaa181452
-  extra-dep: true
-
-# Required due to conduit bump
-# See https://github.com/alphaHeavy/lzma-conduit/pull/18
-- location:
-    git: https://github.com/serokell/lzma-conduit.git
-    commit: 0f6a8754bcd97c701465d71f4a0ad83f2c11aaf4
-  extra-dep: true
-# I don't think making a PR to servant is a good idea at this point
-- location:
-    git: https://github.com/serokell/servant.git
-    commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
-  extra-dep: true
-  subdirs:
-    - servant-server
-- location:
-    git: https://github.com/serokell/servant-multipart.git
-    commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/log-warper.git
-    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
-  extra-dep: true
-
 nix:
   shell-file: shell.nix
 
 extra-deps:
-- ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
-- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.9.0
-- serokell-util-0.5.2
-- pvss-0.2.0
+# Serokell packages
+- log-warper-1.8.10               # TODO: remove after appear on Stackage
+- serokell-util-0.6.0
+- universum-1.0.4                 # TODO: remove after appear on Stackage
+
+# miscellaneous packages
 - base58-bytestring-0.1.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
@@ -204,6 +96,83 @@ extra-deps:
 - statistics-0.14.0.2
 - validation-0.6.1
 
+
+# GitHub dependencies
+## Segfault-free bindindgs to rocksdb
+- git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
+  commit: 49f501a082d745f3b880677220a29cafaa181452
+## Serokell fork of time-units; don't show microseconds in unicode
+- git: https://github.com/serokell/time-units.git
+  commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+## cborg
+- git: https://github.com/well-typed/cborg
+  # Has support for canonical cbor
+  commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
+  subdirs:
+  - cborg
+# acid-state (required for Pos.Wallet.Web)
+- git: https://github.com/serokell/acid-state.git
+  commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
+## kademlia; P2P discovery
+- git: https://github.com/serokell/kademlia.git
+  commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
+## plutus; smart-contracts language
+- git: https://github.com/input-output-hk/plutus-prototype
+  commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
+## ed25519
+- git: https://github.com/thoughtpolice/hs-ed25519
+  # We're waiting on next release
+  commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
+## logging report server
+- git: https://github.com/input-output-hk/cardano-report-server.git
+  commit: c6e2474ef7703a46e1e645d1e3b6136c8f31310b # master 0.4.7
+
+# These three are needed for cardano-sl-networking
+- git: https://github.com/serokell/network-transport-tcp
+  commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
+- git: https://github.com/serokell/network-transport
+  commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+- git: https://github.com/avieth/network-transport-inmemory
+  commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+- git: https://github.com/input-output-hk/cardano-crypto
+  commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+
+# We're using forked version of 'swagger2' package because of bug in haddock package.
+# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
+# be fixed, we'll back to Hackage-version.
+- git: https://github.com/serokell/swagger2
+  commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
+
+- git: https://github.com/haskell-crypto/cryptonite
+  commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
+
+# Required for explorer
+- git: https://github.com/serokell/engine.io.git
+  commit: a594e402fd450f11ad60d09ddbd93db500000632
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
+# Version of "dns" with proper Windows & Unix multiple-nameservers support
+- git: https://github.com/kazu-yamamoto/dns.git
+  commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
+
+- git: https://github.com/well-typed/canonical-json.git
+  commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+
+# Required due to conduit bump
+# See https://github.com/alphaHeavy/lzma-conduit/pull/18
+- git: https://github.com/serokell/lzma-conduit.git
+  commit: 0f6a8754bcd97c701465d71f4a0ad83f2c11aaf4
+
+# I don't think making a PR to servant is a good idea at this point
+- git: https://github.com/serokell/servant.git
+  commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
+  subdirs:
+    - servant-server
+- git: https://github.com/serokell/servant-multipart.git
+  commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

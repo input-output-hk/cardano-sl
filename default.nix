@@ -88,8 +88,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "be52e67113332280911bcc4924d42f90e21f1144";
-      sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
+      rev = "3b1807dc5011704ae6a045e612a679c6fbf9ceb3";
+      sha256 = "0p545wbfrg569hspcdpw9v6zd9ngifdj2wsvxpxsdypw124j3jdl";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {

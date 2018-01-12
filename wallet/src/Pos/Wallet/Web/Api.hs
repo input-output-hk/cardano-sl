@@ -97,7 +97,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ScrollLimit,
+                                             CWalletMeta, CWalletRedeem, ScrollLimit, SinceTime,
                                              ScrollOffset, NewBatchPayment,
                                              SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
@@ -331,6 +331,7 @@ type GetHistory =
     :> QueryParam "walletId" (CId Wal)
     :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
+    :> QueryParam "since" SinceTime
     :> QueryParam "skip" ScrollOffset
     :> QueryParam "limit" ScrollLimit
     :> WRes Get ([CTx], Word)

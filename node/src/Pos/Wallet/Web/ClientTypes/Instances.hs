@@ -49,8 +49,8 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), ApiVersio
                                                        CWallet, CWalletAssurance,
                                                        CWalletInit (..), CWalletMeta (..),
                                                        CWalletRedeem (..),
-                                                       ClientInfo (..), ScrollLimit (..),
-                                                       ScrollOffset (..),
+                                                       ClientInfo (..), SinceTime (..),
+                                                       ScrollLimit (..), ScrollOffset (..),
                                                        SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 
@@ -238,6 +238,9 @@ instance Buildable CInitialized where
 instance Buildable (SecureLog CInitialized) where
     build = buildUnsecure
 
+instance Buildable (SecureLog SinceTime) where
+    build = buildUnsecure
+
 instance Buildable (SecureLog ScrollOffset) where
     build = buildUnsecure
 
@@ -343,6 +346,9 @@ instance FromHttpApiData CTxId where
 
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase
+
+instance FromHttpApiData SinceTime where
+    parseUrlPiece = fmap SinceTime . parseUrlPiece
 
 instance FromHttpApiData ScrollOffset where
     parseUrlPiece = fmap ScrollOffset . parseUrlPiece

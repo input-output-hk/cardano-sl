@@ -17,11 +17,13 @@ import           Universum
 
 import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Formatting (build, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logInfo)
+import           Serokell.Util (hour)
+import           System.Wlog (WithLogger, logDebug, logInfo)
 
-import           Pos.Client.Txp.History (saveTx)
+import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
+import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
@@ -125,15 +127,27 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
 
-    addOnlyNewPendingTx ptx
-    ack <- sendTxToNetwork _ptxTxAux
-    (saveTx (_ptxTxId, _ptxTxAux)
-        `catches` handlers ack)
-        `onException` creationFailedHandler
+    now <- getCurrentTimestamp
+    if | PtxApplying poolInfo <- _ptxCond,
+         Just creationTime <- poolInfo ^. thTimestamp,
+         diffTimestamp now creationTime > hour 1 -> do
+           let newCond = PtxWontApply "1h limit exceeded" poolInfo
+           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+           logInfo $
+             sformat ("Pending transaction #"%build%" discarded becauce \
+                      \the 1h time limit was exceeded")
+                      _ptxTxId
+       | otherwise -> do
+           addOnlyNewPendingTx ptx
+           ack <- sendTxToNetwork _ptxTxAux
+           reportSubmitted ack
+           (saveTx (_ptxTxId, _ptxTxAux)
+               `catches` handlers ack)
+               `onException` creationFailedHandler
 
-    poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
-    _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
-    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+           poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
+           _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
+           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers accepted =
         [ Handler $ \e ->
@@ -164,3 +178,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         -- then we better not remove this pending transaction
         void $ usingPtxCoords removeOnlyCreatingPtx ptx
     badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"
+
+    reportSubmitted ack =
+        logDebug $
+        sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
+                %build) ack

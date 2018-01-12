@@ -22,7 +22,7 @@ import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx)
-import           Pos.Client.Txp.Util (InputSelectionPolicy, computeTxFee, runTxCreator)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Coin, TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Core.Txp (_txOutputs)
@@ -42,7 +42,8 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
 import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
-import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs, rewrapTxError,
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs,
+                                             getPendingAddresses, rewrapTxError,
                                              submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever, Existing), MonadWalletDBRead)
@@ -93,10 +94,11 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
+    pendingAddrs <- getPendingAddresses policy
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -168,7 +170,7 @@ sendMoney passphrase moneySource dstDistr policy = do
     let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
-    let getSinger addr = runIdentity $ do
+    let getSigner addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (M.lookup addr metasAndAdrresses)
@@ -178,9 +180,10 @@ sendMoney passphrase moneySource dstDistr policy = do
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
+    pendingAddrs <- getPendingAddresses policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux

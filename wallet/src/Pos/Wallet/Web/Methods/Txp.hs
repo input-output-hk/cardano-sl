@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Methods.Txp
     , rewrapTxError
     , coinDistrToOutputs
     , submitAndSaveNewPtx
+    , getPendingAddresses
     ) where
 
 import           Universum
@@ -19,7 +20,8 @@ import           Formatting (build, sformat, stext, (%))
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util (isCheckedTxError)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), PendingAddresses (..),
+                                      isCheckedTxError)
 import           Pos.Core.Common (Coin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (PassPhrase, hash)
@@ -30,10 +32,10 @@ import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary (..))
 import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode, isPtxInBlocks,
-                                         ptxFirstSubmissionHandler, sortPtxsChrono)
+import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode, allPendingAddresses,
+                                         isPtxInBlocks, ptxFirstSubmissionHandler, sortPtxsChrono)
 import           Pos.Wallet.Web.Pending.Submission (submitAndSavePtx)
-import           Pos.Wallet.Web.State (getPendingTxs)
+import           Pos.Wallet.Web.State (MonadWalletDBRead, getPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 
@@ -89,3 +91,15 @@ gatherPendingTxsSummary =
             , ptiOutputs = _txOutputs tx
             , ptiTxId = hash tx
             }
+
+-- | With regard to tx creation policy which is going to be used,
+-- get addresses which are refered by some yet unconfirmed transaction outputs.
+getPendingAddresses :: MonadWalletDBRead ctx m => InputSelectionPolicy -> m PendingAddresses
+getPendingAddresses = \case
+    OptimizeForSecurity ->
+        -- NOTE (int-index) The pending transactions are ignored when we optimize
+        -- for security, so it is faster to not get them. In case they start being
+        -- used for other purposes, this shortcut must be removed.
+        return mempty
+    OptimizeForHighThroughput ->
+        allPendingAddresses <$> getPendingTxs

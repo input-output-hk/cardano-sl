@@ -369,7 +369,7 @@ data WTxsApiRecord route = WTxsApiRecord
   , _pendingSummary :: route
     :- "pending"
     :> "summary"
-    :> Summary "Get the pending tx summeries."
+    :> Summary "Get the pending tx summaries."
     :> WRes Get [PendingTxsSummary]
   }
   deriving (Generic)

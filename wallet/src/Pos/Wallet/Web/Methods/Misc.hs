@@ -25,6 +25,7 @@ module Pos.Wallet.Web.Methods.Misc
        , convertCIdTOAddrs
        , convertCIdTOAddr
        , AddrCIdHashes(AddrCIdHashes)
+       , PendingTxsSummary (..)
        ) where
 
 import           Universum
@@ -34,23 +35,29 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
 import           Mockable (MonadMockable)
+import           Serokell.Util.Text (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, SoftwareVersion (..))
+import           Pos.Core (Address, SlotId, SoftwareVersion (..))
+import           Pos.Crypto (hashHexF)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util (maybeThrow, lensOf, HasLens)
+import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util.Servant (HasTruncateLogPolicy (..))
+
+import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
                                         connectedPeers, localChainDifficulty,
                                         networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CUpdateInfo (..),
-                                             SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CPtxCondition,
+                                             CUpdateInfo (..), SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
                                        getWalletStorage, removeNextUpdate, resetFailedPtxs,
@@ -207,3 +214,34 @@ convertCIdTOAddrs cids = do
        in (hm', map result lookups)
 
     mapM (either (throwM . DecodeError) pure) maddrs
+
+----------------------------------------------------------------------------
+-- Print pending transactions info
+----------------------------------------------------------------------------
+
+data PendingTxsSummary = PendingTxsSummary
+    { ptiSlot    :: !SlotId
+    , ptiCond    :: !CPtxCondition
+    , ptiInputs  :: !(NonEmpty TxIn)
+    , ptiOutputs :: !(NonEmpty TxOut)
+    , ptiTxId    :: !TxId
+    } deriving (Eq, Show, Generic)
+
+deriveJSON defaultOptions ''PendingTxsSummary
+
+instance Buildable PendingTxsSummary where
+    build PendingTxsSummary{..} =
+        bprint (  "  slotId: "%build%
+                "\n  status: "%build%
+                "\n  inputs: "%listJson%
+                "\n  outputs: "%listJson%
+                "\n  id: "%hashHexF)
+            ptiSlot
+            ptiCond
+            ptiInputs
+            ptiOutputs
+            ptiTxId
+
+instance HasTruncateLogPolicy PendingTxsSummary where
+    -- called rarely, and we are very interested in the output
+    truncateLogPolicy = identity

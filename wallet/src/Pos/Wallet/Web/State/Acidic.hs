@@ -16,6 +16,7 @@ module Pos.Wallet.Web.State.Acidic
        , DoesAccountExist (..)
        , GetAccountIds (..)
        , GetAccountMeta (..)
+       , GetAccountAddrMaps (..)
        , GetWalletMeta (..)
        , GetWalletMetaIncludeUnready (..)
        , GetWalletPassLU (..)
@@ -124,6 +125,7 @@ makeAcidic ''WalletStorage
     , 'WS.doesAccountExist
     , 'WS.getAccountIds
     , 'WS.getAccountMeta
+    , 'WS.getAccountAddrMaps
     , 'WS.getWalletMeta
     , 'WS.getWalletMetaIncludeUnready
     , 'WS.getWalletPassLU

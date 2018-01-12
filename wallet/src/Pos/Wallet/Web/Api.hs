@@ -35,7 +35,6 @@ module Pos.Wallet.Web.Api
        , swaggerWalletApi
        ) where
 
-
 import           Universum
 
 import           Control.Exception.Safe (try)
@@ -60,7 +59,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              NewBatchPayment, ScrollLimit, ScrollOffset,
                                              SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | API result modification mode used here.
 data WalletVerbTag
@@ -366,6 +365,12 @@ data WTxsApiRecord route = WTxsApiRecord
     :> QueryParam "skip" ScrollOffset
     :> QueryParam "limit" ScrollLimit
     :> WRes Get ([CTx], Word)
+
+  , _pendingSummary :: route
+    :- "pending"
+    :> "summary"
+    :> Summary "Get the pending tx summaries."
+    :> WRes Get [PendingTxsSummary]
   }
   deriving (Generic)
 
@@ -517,6 +522,3 @@ data WInfoApiRecord route = WInfoApiRecord
     :> WRes Get ClientInfo
   }
   deriving (Generic)
-
-
-

@@ -89,9 +89,9 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
-import           Pos.Wallet.Web.ClientTypes (AccountId, cadId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes, MonadConvertToAddr, MonadWalletLogic,
-                                         newAddress)
+import           Pos.Wallet.Web.ClientTypes (AccountId, cwamId)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
+import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,
@@ -337,8 +337,8 @@ getNewAddressWebWallet
     :: MonadWalletLogic ctx m
     => (AccountId, PassPhrase) -> m Address
 getNewAddressWebWallet (accId, passphrase) = do
-    clientAddress <- newAddress RandomSeed passphrase accId
-    decodeCTypeOrFail (cadId clientAddress)
+    cAddrMeta <- newAddress_ RandomSeed passphrase accId
+    decodeCTypeOrFail (cwamId cAddrMeta)
 
 instance (HasConfigurations, HasCompileInfo)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where

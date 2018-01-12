@@ -81,7 +81,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
+    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -91,6 +91,10 @@ packages:
     commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
   extra-dep: true
 
+- location:
+    git: https://github.com/avieth/cryptonite
+    commit: 2b68d1e9cfd23d4c00ca35a600ebbcfc9891101b
+  extra-dep: true
 # Required for explorer
 - location:
     git: https://github.com/serokell/engine.io.git
@@ -189,6 +193,9 @@ extra-deps:
 - unliftio-core-0.1.1.0
 - http-conduit-2.3.0
 - simple-sendfile-0.2.27
+- basement-0.0.5
+- foundation-0.0.18
+- memory-0.14.12
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

@@ -4,12 +4,13 @@ module Pos.Slotting.Configuration
        , ntpResponseTimeout
        ) where
 
-import           Data.Time.Units (Microsecond)
-import           Serokell.Util (mcs)
 import           Universum
+
+import           Data.Time.Units (Microsecond)
 
 import           Pos.Infra.Configuration (HasInfraConfiguration, ccNtpMaxError, ccNtpPollDelay,
                                           ccNtpResponseTimeout, infraConfiguration)
+import           Pos.Util.Util (mcs)
 
 ----------------------------------------------------------------------------
 -- NTP

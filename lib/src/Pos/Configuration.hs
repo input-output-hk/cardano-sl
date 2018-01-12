@@ -25,7 +25,8 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (ms)
+
+import           Pos.Util.Util (ms)
 
 type HasNodeConfiguration = Given NodeConfiguration
 

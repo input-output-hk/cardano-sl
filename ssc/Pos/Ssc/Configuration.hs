@@ -16,10 +16,10 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
+import           Data.Time.Units (Microsecond)
 import           Serokell.Aeson.Options (defaultOptions)
 
-import           Data.Time.Units (Microsecond)
-import           Serokell.Util (sec)
+import           Pos.Util.Util (sec)
 
 type HasSscConfiguration = Given SscConfiguration
 

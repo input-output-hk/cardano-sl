@@ -19,6 +19,7 @@ import           Pos.Util.QuickCheck.Property ((.=.))
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary, Property)
+import           Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = describe "Util" $ do

@@ -4,8 +4,7 @@ module Test.Pos.Ssc.SeedSpec
        ( spec
        ) where
 
-import           Universum
-import           Unsafe ()
+import           Universum hiding (keys)
 
 import           Control.Lens (each, traverseOf)
 import           Crypto.Random (MonadRandom)

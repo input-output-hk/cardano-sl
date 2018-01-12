@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
-import           Serokell.Util (enumerate, listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
@@ -53,7 +53,7 @@ import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReport
 import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
                                currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util (mconcatPair)
+import           Pos.Util (mconcatPair, sec)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.JsonLog (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)

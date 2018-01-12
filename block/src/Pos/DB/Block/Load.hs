@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
+
 -- | Loading sequence of blunds.
 
 module Pos.DB.Block.Load
@@ -111,6 +113,7 @@ loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
+-- TODO: really strange warning here
 loadBlocksWhile
     :: MonadBlockDBRead m
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Block)

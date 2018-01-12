@@ -2,8 +2,8 @@
 
 module Pos.Binary.Core.Address (encodeAddr, encodeAddrCRC32) where
 
-import           Universum
-import           Unsafe (unsafeFromJust)
+import           Universum hiding (id)
+import qualified Universum.Unsafe as Unsafe (fromJust)
 
 import           Codec.CBOR.Encoding (Encoding)
 import           Control.Exception.Safe (Exception (displayException))
@@ -13,8 +13,7 @@ import           Data.Word (Word8)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
                                    decodeUnknownCborDataItem, deserialize, encodeCrcProtected,
-                                   encodeListLen, encodeUnknownCborDataItem, enforceSize,
-                                   serialize)
+                                   encodeListLen, encodeUnknownCborDataItem, enforceSize, serialize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
@@ -136,10 +135,10 @@ instance Bi (Attributes AddrAttributes) where
         derivationPathListWithIndices =
             case derivationPath of
                 Nothing -> []
-                -- 'unsafeFromJust' is safe, because 'case' ensures
+                -- 'Unsafe.fromJust' is safe, because 'case' ensures
                 -- that derivation path is 'Just'.
                 Just _ ->
-                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
+                    [(1, serialize . Unsafe.fromJust . aaPkDerivationPath)]
 
     decode = decodeAttributes initValue go
       where

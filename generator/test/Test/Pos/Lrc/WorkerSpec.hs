@@ -8,7 +8,7 @@ module Test.Pos.Lrc.WorkerSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (try)
 import           Control.Lens (At (at), Index, _Right)

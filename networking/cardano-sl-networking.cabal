@@ -82,6 +82,7 @@ Library
                       , network-transport
                       , network-transport-tcp
                       , mtl >= 2.2.1
+                      , o-clock
                       , QuickCheck
                       , random
                       , resourcet

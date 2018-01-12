@@ -12,8 +12,8 @@ import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
-import           Pos.Communication (ActionSpec (..))
 import qualified Pos.Client.CLI as CLI
+import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
@@ -31,14 +31,14 @@ import           Pos.Wallet.Web.State (flushWalletStorage)
 import           Servant.Swagger (HasSwagger)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
-import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.API (publicAPI, walletAPI)
+import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, isDebugMode,
-                                            walletDbPath, walletFlushDb, walletRebuildDb)
+                                            getWalletNodeOptions, isDebugMode, walletDbPath,
+                                            walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 
 -- | Default logger name when one is not provided on the command line
@@ -73,9 +73,9 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
-    runNodeWithInit init nr =
+    runNodeWithInit initial nr =
         let (ActionSpec f, outs) = runNode nr plugins
-         in (ActionSpec $ \s -> init >> f s, outs)
+        in (ActionSpec $ \s -> initial >> f s, outs)
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -109,9 +109,9 @@ actionWithNewWallet sscParams nodeParams params =
     mainAction w = runNodeWithInit w $
         liftIO $ Kernel.init w
 
-    runNodeWithInit w init nr =
+    runNodeWithInit w initial nr =
         let (ActionSpec f, outs) = runNode nr (plugins w)
-         in (ActionSpec $ \s -> init >> f s, outs)
+         in (ActionSpec $ \s -> initial >> f s, outs)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
@@ -176,13 +176,13 @@ generateSwaggerDocumentation :: ( MonadIO m
                              -> m ()
 generateSwaggerDocumentation api = liftIO $ do
     BL8.writeFile "wallet-new/spec/swagger.json" (encodePretty $ Swagger.api api)
-    putText "Swagger API written on disk."
+    putTextLn "Swagger API written on disk."
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   cfg <- getWalletNodeOptions
-  putText "Wallet is starting..."
+  putTextLn "Wallet is starting..."
   let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)
   loggerBracket loggingParams . runProduction $ do
     logInfo "[Attention] Software is built with the wallet backend"

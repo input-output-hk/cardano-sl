@@ -49,7 +49,7 @@ dbSizes root = do
 -- | Analyse the blockchain, printing useful statistics.
 analyseBlockchain :: HasConfiguration => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
-    if incremental cli then do putText (renderHeader cli)
+    if incremental cli then do putTextLn (renderHeader cli)
                                analyseBlockchainEagerly cli tip
                        else analyseBlockchainLazily cli
 
@@ -67,13 +67,13 @@ fetchUndo = getUndo . headerHash
 analyseBlockchainLazily :: HasConfiguration => CLIOptions -> BlockchainInspector ()
 analyseBlockchainLazily cli = do
     allBlocks <- map (bimap identity Just) . getNewestFirst <$> DB.loadBlundsFromTipWhile (const True)
-    putText (renderBlocks cli allBlocks)
+    putTextLn (renderBlocks cli allBlocks)
 
 -- | Analyse the blockchain eagerly, rendering a block at time, without loading the whole
 -- blockchain into memory.
 analyseBlockchainEagerly :: HasConfiguration => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainEagerly cli currentTip = do
-    let processBlock block mbUndo = do putText (renderBlock cli (block, mbUndo))
+    let processBlock block mbUndo = do putTextLn (renderBlock cli (block, mbUndo))
                                        analyseBlockchainEagerly cli (prevBlock block)
     nextBlock <- fetchBlock currentTip
     case nextBlock of
@@ -92,7 +92,7 @@ action :: CLIOptions -> Production ()
 action cli@CLIOptions{..} = withConfigurations conf $ do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
-    liftIO $ putText $ render uom printMode sizes
+    putTextLn $ render uom printMode sizes
 
     -- Now open the DB and inspect it, generating the second report
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db ->

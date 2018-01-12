@@ -18,4 +18,4 @@ data TxExtra = TxExtra
     , teReceivedTime    :: !(Maybe Timestamp)
     -- non-strict on purpose, see comment in `processTxDo` in Pos.Explorer.Txp.Local
     , teInputOutputs    :: TxUndo
-    } deriving (Show, Generic, Eq)
+    } deriving (Show, Generic, Eq, Ord)

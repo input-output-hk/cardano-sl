@@ -55,7 +55,7 @@ module Pos.Core.Common.Address
        , unsafeAddressHash
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Crypto.Hash (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash as CryptoHash

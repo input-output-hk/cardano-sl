@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 

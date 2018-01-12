@@ -179,12 +179,6 @@ if [[ $ram == true ]];
     fi
 fi
 
-# prettify output of stack build
-xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
-# more stuff can added to `xperl', e. g. "$xperl_pretty ; $xperl_workaround"
-xperl="$xperl_pretty"
-xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
-
 function cleanPackage () { echo "Cleaning $1"; stack clean $1 ; };
 if [[ $clean == true ]]; then
   for prj in $projects; do
@@ -235,17 +229,13 @@ for prj in $to_build; do
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args $prj"
   echo -e "$sbuild\n"
 
-  eval $sbuild 2>&1                         \
-    | perl -pe "$xperl"                     \
-    | { grep -E --color "$xgrep" || true; }
+  eval $sbuild 2>&1
 done
 
 if [[ $to_build == "" ]]; then
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args"
   echo -e "$sbuild\n"
-  eval $sbuild 2>&1                         \
-    | perl -pe "$xperl"                     \
-    | { grep -E --color "$xgrep" || true; }
+  eval $sbuild 2>&1
 fi
 
 if [[ $test == true ]]; then

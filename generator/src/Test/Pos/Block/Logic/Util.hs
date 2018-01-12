@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
+
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Utilities for block logic testing.
@@ -15,7 +17,7 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
+import qualified Universum.Unsafe as Unsafe (head)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (Default (def))
@@ -106,7 +108,7 @@ bpGenBlock
        )
     => EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
+bpGenBlock = fmap (Unsafe.head . toList) ... bpGenBlocks (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets

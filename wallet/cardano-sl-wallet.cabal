@@ -140,6 +140,7 @@ library
                       , memory
                       , monad-control
                       , mtl
+                      , o-clock
                       , quickcheck-instances
                       , random
                       , reflection
@@ -265,11 +266,6 @@ test-suite cardano-wallet-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

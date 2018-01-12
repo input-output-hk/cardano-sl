@@ -14,10 +14,10 @@ import           Universum
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Lens ((.=))
 import           Data.Default (Default (def))
-import           Data.Time.Units (Microsecond, Second)
-import           Serokell.Util (threadDelay)
+import           Data.Ratio ((%))
 import           Servant.Server (Handler, runHandler)
 import           System.Wlog (WithLogger, logDebug)
+import           Time (Second, Time (..), sec, threadDelay)
 
 import           Pos.DB (MonadGState (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
@@ -47,11 +47,11 @@ launchNotifier nat =
         , updateNotifier
         ]
   where
-    cooldownPeriod :: Second
+    cooldownPeriod :: Time Second
     cooldownPeriod = 5
 
-    difficultyNotifyPeriod :: Microsecond
-    difficultyNotifyPeriod = 500000  -- 0.5 sec
+    difficultyNotifyPeriod :: Time Second
+    difficultyNotifyPeriod = sec (1 % 2)
 
     -- networkResendPeriod = 10         -- in delay periods
     restartOnError action = catchAny action $ const $ do

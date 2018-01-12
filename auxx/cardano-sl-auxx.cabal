@@ -127,7 +127,8 @@ library
 
 executable cardano-auxx
   main-is:             Main.hs
-  build-depends:       cardano-sl
+  build-depends:       base
+                     , cardano-sl
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
@@ -147,11 +148,6 @@ executable cardano-auxx
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -209,11 +205,6 @@ test-suite cardano-auxx-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

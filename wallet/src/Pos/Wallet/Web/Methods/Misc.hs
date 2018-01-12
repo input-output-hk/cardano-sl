@@ -33,7 +33,7 @@ module Pos.Wallet.Web.Methods.Misc
        , cancelOneApplyingPtx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
@@ -43,7 +43,7 @@ import qualified Data.Text.Buildable
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
 
@@ -56,7 +56,7 @@ import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util (HasLens, lensOf, maybeThrow, sec)
 import           Pos.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()

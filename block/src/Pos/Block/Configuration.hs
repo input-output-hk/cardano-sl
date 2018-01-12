@@ -30,9 +30,9 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (sec)
 
 import           Pos.Aeson.Core ()
+import           Pos.Util.Util (sec)
 
 type HasBlockConfiguration = Given BlockConfiguration
 

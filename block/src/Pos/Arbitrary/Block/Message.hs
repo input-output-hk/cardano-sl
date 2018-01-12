@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
 
 module Pos.Arbitrary.Block.Message
        (

@@ -16,7 +16,7 @@ module Pos.Txp.Toil.Class
        , MonadTxPool (..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, (.=))
 import           Control.Monad.Trans.Class (MonadTrans)

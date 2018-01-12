@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -29,14 +30,15 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Default (Default (..))
 import           Data.List (sortOn, (!!))
 import           Data.Maybe (catMaybes, isNothing)
-import           Data.Time.Units (Microsecond, Second, toMicroseconds)
+import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
+import           Serokell.Util.Concurrent (modifyTVarS)
 import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, logWarning,
                               modifyLoggerName)
+import           Time (Second, mcs, threadDelay)
 
 import           Mockable.Class (Mockable)
 import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, forConcurrently,
@@ -156,7 +158,7 @@ startSend addrs cli = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
 
-    _ <- concurrently (threadDelay poll) $ do
+    _ <- concurrently (threadDelay $ mcs $ fromIntegral poll) $ do
         logDebug "Sending requests"
         liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
         let sendRequests = forConcurrently addrs (flip doSend cli)
@@ -182,7 +184,7 @@ mkSockets settings = do
         (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
         (_, _)                   -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
-            liftIO $ threadDelay (5 :: Second)
+            threadDelay @Second 5
             mkSockets settings
   where
     logging (_, addrInfo) = logInfo $
@@ -197,7 +199,7 @@ mkSockets settings = do
         logWarning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay @Second 5
         doMkSockets
 
 handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
@@ -242,7 +244,7 @@ startReceive cli = do
         logDebug $ sformat ("doReceive failed on socket"%shown%
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay @Second 5
         serveraddrs <- liftIO udpLocalAddresses
         newSockMB <- liftIO $
             if isIPv4 then

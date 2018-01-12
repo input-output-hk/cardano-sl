@@ -10,12 +10,12 @@ import           Data.Acid (createArchive, createCheckpoint)
 import           Data.Time.Units (TimeUnit)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.AcidState (ExtendedState (..), extendedStateToAcid)
-import           Serokell.Util (sec)
+import           Serokell.AcidState.ExtendedState (ExtendedState (..), extendedStateToAcid)
 import           System.Directory (getModificationTime, listDirectory, removeFile)
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logDebug, logError)
 
+import           Pos.Util.Util (sec)
 import           Pos.Wallet.Web.State.State (MonadWalletDBAccess, getWalletWebState)
 
 type MonadAcidCleanup ctx m =
@@ -25,7 +25,6 @@ type MonadAcidCleanup ctx m =
     , MonadWalletDBAccess ctx m
     , Mockable Delay m
     )
-
 
 -- | This worker does acid cleanup action every (passed)
 -- interval. Action itself consists of two steps:

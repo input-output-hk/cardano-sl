@@ -26,7 +26,7 @@ module Lang.Lexer
        , detokenize
        ) where
 
-import           Universum
+import           Universum hiding (try)
 
 import qualified Control.Applicative.Combinators.NonEmpty as NonEmpty
 import           Control.Lens (makePrisms)
@@ -201,9 +201,12 @@ pPunct = choice
     ] <?> "punct"
 
 pString :: Lexer String
-pString =
-    char '\"' *>
-    manyTill (charLiteral <|> anyChar) (char '\"')
+pString = do
+    () <$ char '\"'
+    ss <- manyTill pC (char '\"')
+    pure (concat ss)
+  where
+    pC = (one <$> charLiteral) <|> ("" <$ string "\\&") <|> (one <$> anyChar)
 
 pSomeAlphaNum :: Lexer Text
 pSomeAlphaNum = takeWhile1P (Just "alphanumeric") isAlphaNum

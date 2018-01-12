@@ -38,8 +38,8 @@ module Pos.Wallet.Web.Tracking.Sync
        , evalChange
        ) where
 
-import           Universum
-import           Unsafe (unsafeLast)
+import           Universum hiding (id)
+import qualified Universum.Unsafe as Unsafe (last)
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
@@ -53,9 +53,9 @@ import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, mo
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
-                           HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
-                           headerSlotL, timestampToPosix)
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..), HeaderHash,
+                           Timestamp, blkSecurityParam, genesisHash, headerHash, headerSlotL,
+                           timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
@@ -184,7 +184,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                bh <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                bh <- Unsafe.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)
@@ -428,7 +428,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.insertIntoHistoryCache wid addedHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
-    forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
+    forM_ (DL.toList camAddedPtxCandidates) $ \(txid, ptxBlkInfo) ->
         WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
 
@@ -444,7 +444,7 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.updateWalletBalancesAndUtxo camUtxo
-    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
+    forM_ (DL.toList camDeletedPtxCandidates) $ \(txid, poolInfo) -> do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)

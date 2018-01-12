@@ -66,6 +66,13 @@ module Pos.Util.Util
 
        , tMeasureLog
        , tMeasureIO
+
+       -- * Time units
+       , mcs
+       , ms
+       , sec
+       , minute
+       , hour
        ) where
 
 import           Universum
@@ -87,7 +94,7 @@ import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import           Data.Time.Units (Microsecond, toMicroseconds)
+import           Data.Time.Units (Microsecond, TimeUnit (..))
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
@@ -395,10 +402,10 @@ sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
 tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a
 tMeasureLog = tMeasure logDebug
 
--- | 'tMeasure' with 'putText'. For places you don't have
+-- | 'tMeasure' with 'putTextLn'. For places you don't have
 -- 'WithLogger' constraint.
 tMeasureIO :: (MonadIO m) => Text -> m a -> m a
-tMeasureIO = tMeasure putText
+tMeasureIO = tMeasure putTextLn
 
 -- | Takes the first time sample, executes action (forcing its
 -- result), takes the second time sample, logs it.
@@ -413,3 +420,11 @@ tMeasure logAction label action = do
     let d2 = d0 `mod` 10
     logAction $ "tMeasure " <> label <> ": " <> show d1 <> "." <> show d2 <> "ms"
     pure x
+
+-- | Converts a specified time to 'Microsecond'.
+mcs, ms, sec, minute, hour :: Int -> Microsecond
+mcs    = fromMicroseconds . fromIntegral
+ms     = fromMicroseconds . fromIntegral . (*) 1000
+sec    = fromMicroseconds . fromIntegral . (*) 1000000
+minute = fromMicroseconds . fromIntegral . (*) 60000000
+hour   = fromMicroseconds . fromIntegral . (*) 3600000000

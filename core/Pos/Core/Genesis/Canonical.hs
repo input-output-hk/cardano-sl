@@ -7,7 +7,6 @@ module Pos.Core.Genesis.Canonical
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
@@ -62,8 +61,8 @@ instance Buildable SchemaError where
             Just actual -> " but got " <> Builder.fromText actual
         ]
 
-instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
-    expected expec actual = throwError SchemaError
+instance ReportSchemaErrors (Either SchemaError) where
+    expected expec actual = Left $ SchemaError
         { seExpected = fromString expec
         , seActual = fmap fromString actual
         }

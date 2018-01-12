@@ -25,7 +25,7 @@ import           Data.Default (def)
 import           Data.Function (on)
 import           Data.List (groupBy)
 import qualified Data.List.NonEmpty as NE
-import           Data.Map (fromList, fromListWith, keys, unions)
+import           Data.Map (fromList, fromListWith, unions)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
                                   forAll, generate, property, suchThat)
@@ -382,4 +382,3 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
 -- | TODO: Remove it as soon as ^ is exposed
 secretKeyToAddress :: SecretKey -> Address
 secretKeyToAddress = makePubKeyAddressBoot . toPublic
-

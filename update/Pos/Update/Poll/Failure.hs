@@ -5,7 +5,7 @@ module Pos.Update.Poll.Failure
        , reportUnexpectedError
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
@@ -112,12 +112,12 @@ instance Buildable PollVerFailure where
                 " beyond what is allowed"%
                 " (expected max. "%memory%", found "%memory%")")
         upId maxPossible found
-    build (PollBootstrapEraInvalidChange last adopted proposed upId) =
+    build (PollBootstrapEraInvalidChange last' adopted proposed upId) =
         bprint ("proposal "%build%" tried to change the end of the bootstrap"%
                 " era to epoch"%build%", but the bootstrap era has ended with"%
                 " unlock stakes epoch "%build%", and now the epoch is "%
                 build%".")
-        upId proposed adopted last
+        upId proposed adopted last'
     build (PollProposalAlreadyActive upId) =
         bprint ("proposal "%build%" was already proposed") upId
     build (PollNotFoundScriptVersion pv) =

@@ -85,7 +85,7 @@ slotFromTimestamp approxCurTime = do
 
               -- Get current index or return @Nothing@ if the indices list is empty.
               let mCurrentEpochIndex :: Maybe EpochIndex
-                  mCurrentEpochIndex = head indices
+                  mCurrentEpochIndex = safeHead indices
               -- Try to find a slot.
               let mFoundSlot = mCurrentEpochIndex >>= findSlot systemStart slottingData
 
@@ -93,7 +93,7 @@ slotFromTimestamp approxCurTime = do
                 -- If you found a slot, then return it
                 Just foundSlot -> Just foundSlot
                 -- If no slot is found, iterate with the rest of the list
-                Nothing        -> iterateIndicesUntilJust $ tailSafe indices
+                Nothing        -> iterateIndicesUntilJust $ drop 1 indices
 
 
         -- Iterate the indices recursively with the reverse indices, starting

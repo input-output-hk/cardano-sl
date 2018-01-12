@@ -67,6 +67,7 @@ library
                       , memory
                       , resourcet
                       , rocksdb-haskell-ng
+                      , safe
                       , safe-exceptions
                       , serokell-util
                       , servant-generic
@@ -146,16 +147,11 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
   other-modules:       ExplorerNodeOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core
@@ -197,16 +193,12 @@ executable cardano-explorer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
 executable cardano-explorer-hs2purs
   hs-source-dirs:      src/purescript
   main-is:             Main.hs
   other-modules:       PSTypes
                        PSOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , purescript-bridge
@@ -241,14 +233,10 @@ executable cardano-explorer-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       aeson
                      , base
                      , bytestring
@@ -276,15 +264,10 @@ executable cardano-explorer-swagger
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
 executable cardano-explorer-mock
   hs-source-dirs:      src/mock
   main-is:             Main.hs
-  other-modules:
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , optparse-applicative
@@ -317,11 +300,6 @@ executable cardano-explorer-mock
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
 test-suite cardano-explorer-test
   main-is:             Test.hs
@@ -368,11 +346,6 @@ test-suite cardano-explorer-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -423,11 +396,6 @@ benchmark cardano-explorer-bench
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

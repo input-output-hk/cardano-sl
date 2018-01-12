@@ -9,7 +9,7 @@ module Pos.Txp.Toil.Trans
        , evalToilTEmpty
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, to, (%=), (+=), (.=))
 import           Data.Default (Default (def))

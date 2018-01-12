@@ -3,13 +3,13 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
+import qualified Universum.Unsafe as Unsafe (fromJust)
 
 import           Control.Exception.Safe (handle)
 import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, runProduction)
 import           JsonLog (jsonLog)
+import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
@@ -17,17 +17,17 @@ import           System.Wlog (LoggerName, logInfo)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError)
 import           Pos.Configuration (networkConnectionTimeout)
+import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
+                               bracketNodeResources, elimRealMode, loggerBracket, lpConsoleLog,
+                               runNode, withConfigurations)
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
-                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               elimRealMode, withConfigurations)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
@@ -36,8 +36,8 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode)
@@ -89,7 +89,9 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
     let runWithoutNode = rawExec Nothing opts Nothing command
-    printAction <- return $ either printAction (const putText) command
+
+    -- TODO: something strange is going on here...
+    printAction <- return $ either printAction (const putTextLn) command
 
     let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
         configToDict = return (Just Dict)
@@ -120,7 +122,7 @@ action opts@AuxxOptions {..} command = do
                           { acRealModeContext = realModeContext
                           , acTempDbUsed = tempDbUsed }
                   lift $ runReaderT auxxAction auxxContext
-          let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+          let vssSK = Unsafe.fromJust $ npUserSecret nodeParams ^. usVss
           let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $

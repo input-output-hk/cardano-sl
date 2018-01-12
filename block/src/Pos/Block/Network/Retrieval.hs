@@ -16,7 +16,6 @@ import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -35,7 +34,7 @@ import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
-import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Util (HasLens (..), sec)
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
@@ -292,7 +291,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

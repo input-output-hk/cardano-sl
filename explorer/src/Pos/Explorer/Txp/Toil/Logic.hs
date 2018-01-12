@@ -11,7 +11,7 @@ module Pos.Explorer.Txp.Toil.Logic
        , eProcessTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict as HM

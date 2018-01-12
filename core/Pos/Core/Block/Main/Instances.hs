@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
+
 {-# LANGUAGE TypeOperators #-}
 
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
@@ -34,6 +36,7 @@ import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 
 
+-- TODO: this constraint emits warning but doesn't compile without
 instance Bi BlockHeader => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint

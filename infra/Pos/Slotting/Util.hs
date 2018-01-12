@@ -29,7 +29,6 @@ import           Universum
 import           Data.Time.Units (Millisecond)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
-import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarning,
                               modifyLoggerName)
 
@@ -45,7 +44,7 @@ import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochSlott
                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, computeSlotStart,
                                      lookupEpochSlottingData)
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Util (maybeThrow, sec)
 
 
 -- | Get flat id of current slot based on MonadSlots.

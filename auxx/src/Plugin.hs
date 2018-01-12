@@ -18,7 +18,6 @@ import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
@@ -27,6 +26,7 @@ import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Util (sec)
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           AuxxOptions (AuxxOptions (..))
@@ -92,7 +92,7 @@ runWalletCmd mHasAuxxMode mDiffusion line = do
     liftIO $ exitImmediately ExitSuccess
 #endif
   where
-    printAction = putText
+    printAction = putTextLn
 
 runCmd ::
        ( HasCompileInfo

@@ -19,9 +19,9 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -33,10 +33,10 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 notifierPlugin, runWRealMode, syncWalletsWithGState,
-                                 walletServeWebFull, walletServerOuts, AddrCIdHashes (..),
-                                 startPendingTxsResubmitter)
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
+                                 startPendingTxsResubmitter, syncWalletsWithGState,
+                                 walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
 import           Pos.Web (serveWeb)
@@ -81,9 +81,9 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
             flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
-    runNodeWithInit init nr =
+    runNodeWithInit initial nr =
         let (ActionSpec f, outs) = runNode nr allPlugins
-         in (ActionSpec $ \s -> init >> f s, outs)
+        in (ActionSpec $ \s -> initial >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do

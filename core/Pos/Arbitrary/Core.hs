@@ -17,7 +17,6 @@ module Pos.Arbitrary.Core
        , UnreasonableEoS (..)
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Data.ByteString as BS (pack)
@@ -32,8 +31,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Arbitrary.Crypto ()
-import           Pos.Binary.Core ()
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
 import qualified Pos.Core.Common.Fee as Fee
@@ -49,7 +48,7 @@ import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Merkle (mkMerkleTree, MerkleTree)
+import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
 

@@ -7,5 +7,5 @@ import           Test.Pos.Configuration (defaultTestConf)
 
 main :: IO ()
 main = do
-    putText $ "default configuration: " <> show defaultTestConf
+    putTextLn $ "default configuration: " <> show defaultTestConf
     hspec spec

@@ -66,5 +66,5 @@ main :: IO ()
 main = do
     AddrConvertOptions{..} <- getAddrConvertOptions
     case address of
-        Just addr -> convertAddr addr >>= putText
-        Nothing   -> forever (getLine >>= convertAddr >>= putText)
+        Just addr -> convertAddr addr >>= putTextLn
+        Nothing   -> forever (getLine >>= convertAddr >>= putTextLn)

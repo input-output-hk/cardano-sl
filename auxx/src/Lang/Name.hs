@@ -15,6 +15,7 @@ import           Data.List.Split (splitWhen)
 import qualified Data.Text.Buildable as Buildable
 import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
 import           Test.QuickCheck.Gen (suchThat)
+import           Test.QuickCheck.Instances ()
 
 -- | Invariant: @isAlpha . getLetter = const True@
 newtype Letter = Letter { getLetter :: Char }

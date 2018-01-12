@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
+
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Arbitrary.Block
@@ -239,11 +241,11 @@ recursiveHeaderGen genesis
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader (safeHead blockchain) siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
           recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
-          curHeader <- genMainHeader (head blockchain)
+          curHeader <- genMainHeader (safeHead blockchain)
           recursiveHeaderGen True leaders rest (curHeader : blockchain)
   where
     genMainHeader prevHeader = do

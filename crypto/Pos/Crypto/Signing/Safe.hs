@@ -27,7 +27,7 @@ import           Data.Coerce (coerce)
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
-import           Pos.Crypto.Hashing (Hash, hash)
+import           Pos.Crypto.Hashing (hash)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
                                              SecretKey (..), Signature (..), sign, toPublic)
@@ -37,7 +37,7 @@ import           Pos.Crypto.Signing.Types.Safe
 -- | Regenerates secret key with new passphrase.
 -- Note: This operation keeps corresponding public key and derived (child) keys unchanged.
 changeEncPassphrase
-    :: (Bi PassPhrase, MonadRandom m)
+    :: (MonadRandom m)
     => PassPhrase
     -> PassPhrase
     -> EncryptedSecretKey
@@ -75,15 +75,14 @@ safeCreateKeypairFromSeed seed (PassPhrase pp) =
 -- "Pos.Crypto.Random" because the OpenSSL generator is probably safer than
 -- the default IO generator.
 safeKeyGen
-    :: (MonadRandom m, Bi PassPhrase, Bi (Hash ByteString))
+    :: (MonadRandom m)
     => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = do
     seed <- getRandomBytes 32
     pure $ safeDeterministicKeyGen seed pp
 
 safeDeterministicKeyGen
-    :: (Bi PassPhrase, Bi (Hash ByteString))
-    => BS.ByteString
+    :: BS.ByteString
     -> PassPhrase
     -> (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
@@ -104,7 +103,7 @@ safeToPublic (FakeSigner sk)   = toPublic sk
 -- we can manually cleanup all IO buffers we use to store passphrase
 -- (when we'll actually use them)
 withSafeSigners
-    :: (Monad m, Bi PassPhrase, Traversable t)
+    :: (Monad m, Traversable t)
     => t EncryptedSecretKey
     -> m PassPhrase
     -> (t SafeSigner -> m a) -> m a
@@ -114,7 +113,7 @@ withSafeSigners sks ppGetter action = do
     action mss
 
 withSafeSigner
-    :: (Monad m, Bi PassPhrase)
+    :: (Monad m)
     => EncryptedSecretKey
     -> m PassPhrase
     -> (Maybe SafeSigner -> m a)
@@ -126,7 +125,7 @@ withSafeSigner sk ppGetter action = do
 
 -- This function is like @withSafeSigner@ but doesn't check @checkPassMatches@
 withSafeSignerUnsafe
-    :: (Monad m, Bi PassPhrase)
+    :: (Monad m)
     => EncryptedSecretKey
     -> m PassPhrase
     -> (SafeSigner -> m a)

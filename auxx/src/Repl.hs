@@ -41,7 +41,7 @@ import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
 
 -- | An action used to print messages to the terminal. We can't hardcode
--- 'putText' because Haskeline defines its own printing method.
+-- 'putTextLn' because Haskeline defines its own printing method.
 type PrintAction m = Text -> m ()
 
 -- | The resurt of executing a command. In case there are no exceptions thrown,

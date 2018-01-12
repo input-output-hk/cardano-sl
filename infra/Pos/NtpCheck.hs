@@ -15,12 +15,11 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, withAsync)
 import           NTP.Client (NtpClientSettings (..), NtpMonad, spawnNtpClient)
-import           Serokell.Util (sec)
 
 import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
 import qualified Pos.Infra.Configuration as Infra
-import           Pos.Util.Util (median)
+import           Pos.Util.Util (median, sec)
 
 type NtpCheckMonad m =
     ( NtpMonad m

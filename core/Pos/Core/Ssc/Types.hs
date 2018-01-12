@@ -38,7 +38,7 @@ module Pos.Core.Ssc.Types
        , SscProof (..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (makeLensesFor, makeWrapped)
 import           Data.Hashable (Hashable (..))
@@ -90,9 +90,7 @@ type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Generic, Semigroup, Monoid, Show, Eq, ToList, NFData)
-
-type instance Element CommitmentsMap = SignedCommitment
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, NFData, Container)
 
 -- | Safe constructor of 'CommitmentsMap'.
 mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap
@@ -211,10 +209,8 @@ instance Hashable VssCertificate where
 --   * stakeholder ids correspond to 'vcSigningKey's of associated certs
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
-    { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, ToList, Container)
-
-type instance Element VssCertificatesMap = VssCertificate
+    { getVssCertificatesMap :: HashMap StakeholderId VssCertificate
+    } deriving (Eq, Show, Generic, NFData, Container)
 
 makeWrapped ''VssCertificatesMap
 

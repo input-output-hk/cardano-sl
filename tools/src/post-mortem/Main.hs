@@ -1,8 +1,8 @@
 -- | Post-mortem tool main.
 
 import           Universum
+import qualified Universum.Unsafe as Unsafe (last)
 
-import           Data.List (last)
 import qualified Data.Map.Strict as M
 import           System.FilePath
 import           System.IO (hPutStrLn)
@@ -119,4 +119,4 @@ getName template name ext =
     in  dir </> base' <.> ext
 
 extractName :: FilePath -> String
-extractName = last . splitDirectories
+extractName = Unsafe.last . splitDirectories

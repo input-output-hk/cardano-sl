@@ -26,7 +26,6 @@ import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 
@@ -43,7 +42,7 @@ import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, f
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Util (maybeThrow, ms, sec)
 
 import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 

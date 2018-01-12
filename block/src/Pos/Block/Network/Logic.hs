@@ -31,6 +31,7 @@ import           Ether.Internal (lensOf)
 import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
+import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
@@ -61,6 +62,7 @@ import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionT
 import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker (lrcSingleShot)
 import           Pos.Recovery.Info (recoveryInProgress)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
 import           Pos.Util (_neHead, _neLast)
@@ -561,6 +563,11 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     reportRollback = do
         let rollbackDepth = length toRollback
         let isCritical = rollbackDepth >= criticalForkThreshold
+
+        -- Commit rollback value to EKG
+        whenJustM (view misbehaviorMetrics) $ liftIO .
+            flip Metrics.set (fromIntegral rollbackDepth) . _mmRollbacks
+
         -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
         reportMisbehaviour isCritical $
             sformat reportF nodeId toRollbackHashes toApplyHashes

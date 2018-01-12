@@ -22,6 +22,7 @@ import qualified Data.HashSet as HS
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
+import qualified System.Metrics.Counter as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
@@ -43,6 +44,7 @@ import           Pos.Lrc.Fts (followTheSatoshiM)
 import           Pos.Lrc.Logic (findAllRichmenMaybe)
 import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Reporting (reportMisbehaviour)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
 import           Pos.Ssc.Message (SscMessageConstraints)
@@ -152,7 +154,9 @@ lrcDo epoch consumers = do
             -- Critical error means that the system is in dangerous state.
             -- For now let's consider all errors critical, maybe we'll revise it later.
             -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
-            unless (noReportNoSecretsForEpoch1 && epoch == 1) $
+            unless (noReportNoSecretsForEpoch1 && epoch == 1) $ do
+                whenJustM (view misbehaviorMetrics) $ liftIO .
+                    Metrics.inc . _mmSscFailures
                 reportMisbehaviour isCritical $ sformat
                     ("SSC couldn't compute seed: "%build%" for epoch "%build%
                      ", going to reuse seed for previous epoch")

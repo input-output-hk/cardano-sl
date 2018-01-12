@@ -17,6 +17,7 @@ import           Formatting (build, int, ords, sformat, shown, (%))
 import           Mockable (currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
+import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
@@ -43,6 +44,7 @@ import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
@@ -434,6 +436,8 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
                         atomically $ do
                             !x <- succ <$> readTVar counter
                             x <$ writeTVar counter x
+                    whenJustM (view misbehaviorMetrics) $ liftIO .
+                        flip Metrics.set (fromIntegral newCounterValue) . _mmIgnoredCommitments
                     when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
     -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected:
     -- our commitments don't get included into blockchain

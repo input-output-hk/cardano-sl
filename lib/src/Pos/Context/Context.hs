@@ -39,7 +39,8 @@ import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
-                                         HasReportingContext (..), ReportingContext (..))
+                                         HasReportingContext (..), MisbehaviorMetrics (..),
+                                         ReportingContext (..), rcMisbehaviorMetrics)
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting (HasSlottingVar (..), SlottingContextSum)
 import           Pos.Slotting.Types (SlottingData)
@@ -115,6 +116,7 @@ data NodeContext = NodeContext
     -- ^ Timer for delaying sending keep-alive like packets to relay nodes until
     -- a specific duration after the last time a block was received has passed.
     , ncSubscriptionKeepAliveTimer :: !Timer
+    , ncMisbehaviorMetrics :: Maybe MisbehaviorMetrics
     }
 
 makeLensesWith postfixLFields ''NodeContext
@@ -202,9 +204,11 @@ instance HasReportingContext NodeContext where
             ReportingContext
                 (nc ^. reportServers)
                 (nc ^. loggerConfig)
+                (nc ^. ncMisbehaviorMetrics_L)
         setter rc =
             set reportServers (rc ^. reportServers) .
-            set loggerConfig  (rc ^. loggerConfig)
+            set loggerConfig  (rc ^. loggerConfig) .
+            set ncMisbehaviorMetrics_L (rc ^. rcMisbehaviorMetrics)
 
 instance HasLens (NetworkConfig KademliaDHTInstance) NodeContext (NetworkConfig KademliaDHTInstance) where
     lensOf = ncNetworkConfig_L

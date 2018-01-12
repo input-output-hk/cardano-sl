@@ -83,6 +83,7 @@ library
                      , cryptonite
                      , data-default
                      , ether
+                     , ekg-core
                      , exceptions
                      , safe-exceptions
                      , formatting

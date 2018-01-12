@@ -34,83 +34,6 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 
-- location:
-    git: https://github.com/well-typed/cborg
-    # Has support for canonical cbor
-    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
-  subdirs:
-  - cborg
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/time-units.git
-    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/kademlia.git
-    commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/plutus-prototype
-    commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
-  extra-dep: true
-- location:
-    git: https://github.com/thoughtpolice/hs-ed25519
-    # We're waiting on next release
-    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 7b28613c9c3535193991712ff5a4a36a9f165570 # master v0.4.0
-  extra-dep: true
-# These three are needed for cardano-sl-networking
-- location:
-    git: https://github.com/serokell/network-transport-tcp
-    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/network-transport
-    commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
-  extra-dep: true
-- location:
-      git: https://github.com/avieth/network-transport-inmemory
-      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-crypto
-    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
-  extra-dep: true
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
-- location:
-    git: https://github.com/serokell/swagger2
-    commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
-  extra-dep: true
-
-# Required for explorer
-- location:
-    git: https://github.com/serokell/engine.io.git
-    commit: a594e402fd450f11ad60d09ddbd93db500000632
-  extra-dep: true
-  subdirs:
-    - socket-io
-    - engine-io
-    - engine-io-wai
-
-# Version of "dns" with proper Windows & Unix multiple-nameservers support
-- location:
-    git: https://github.com/kazu-yamamoto/dns.git
-    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
-  extra-dep: true
-
-- location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
-  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -154,6 +77,64 @@ extra-deps:
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
 - servant-generic-0.1.0.1
+
+# GitHub dependencies
+## Serokell fork of time-units; don't show microseconds in unicode
+- git: https://github.com/serokell/time-units.git
+  commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+## cborg
+- git: https://github.com/well-typed/cborg
+  # Has support for canonical cbor
+  commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+  subdirs:
+  - cborg
+# acid-state (required for Pos.Wallet.Web)
+- git: https://github.com/serokell/acid-state.git
+  commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+## kademlia; P2P discovery
+- git: https://github.com/serokell/kademlia.git
+  commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
+## plutus; smart-contracts language
+- git: https://github.com/input-output-hk/plutus-prototype
+  commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
+## ed25519
+- git: https://github.com/thoughtpolice/hs-ed25519
+  # We're waiting on next release
+  commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
+## logging report server
+- git: https://github.com/input-output-hk/cardano-report-server.git
+  commit: 7b28613c9c3535193991712ff5a4a36a9f165570 # master v0.4.0
+
+# These three are needed for cardano-sl-networking
+- git: https://github.com/serokell/network-transport-tcp
+  commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
+- git: https://github.com/serokell/network-transport
+  commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+- git: https://github.com/avieth/network-transport-inmemory
+  commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+- git: https://github.com/input-output-hk/cardano-crypto
+  commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
+
+# We're using forked version of 'swagger2' package because of bug in haddock package.
+# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
+# be fixed, we'll back to Hackage-version.
+- git: https://github.com/serokell/swagger2
+  commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
+
+# Required for explorer
+- git: https://github.com/serokell/engine.io.git
+  commit: a594e402fd450f11ad60d09ddbd93db500000632
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
+# Version of "dns" with proper Windows & Unix multiple-nameservers support
+- git: https://github.com/kazu-yamamoto/dns.git
+  commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
+
+- git: https://github.com/well-typed/canonical-json.git
+  commit: 2d261bb971bada1893753b503452d9e6e217bc4a
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

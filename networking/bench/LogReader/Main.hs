@@ -1,10 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative (empty, (<|>))
-import           Control.Exception (Exception)
 import           Control.Lens (at, (%=), (^.), _2, _Just)
 import           Control.Monad (forM_)
-import           Control.Monad.Catch (handle)
 import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)
 import           Control.Monad.Trans (lift, liftIO)
 import           Control.Monad.Trans.Resource (runResourceT)

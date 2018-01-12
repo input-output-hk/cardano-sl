@@ -22,7 +22,7 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))
-import           Mockable (Async, Bracket, Delay, Mockable, delay, race, withAsyncWithUnmask)
+import           Mockable (Async, Delay, Mockable, delay, race, withAsyncWithUnmask)
 import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
@@ -40,7 +40,7 @@ data WaitingDelta
 
 -- | Constraint for something that can be logged in parallel with other action.
 type CanLogInParallel m =
-    (Mockable Delay m, Mockable Async m, Mockable Bracket m, WithLogger m, MonadIO m)
+    (Mockable Delay m, Mockable Async m, MonadMask m, WithLogger m, MonadIO m)
 
 
 -- | Run action and print warning if it takes more time than expected.

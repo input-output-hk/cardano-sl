@@ -3,6 +3,7 @@
 module Pos.Core.Block.Union.Types
        ( BlockHeader
        , Block
+       , ComponentBlock (..)
 
        , blockHeaderHash
 
@@ -15,10 +16,11 @@ import           Universum
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Crypto (unsafeHash)
-
 -- Re-exports
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
+import           Pos.Core.Class (IsGenesisHeader, IsMainHeader (..))
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock
@@ -29,6 +31,13 @@ type BlockHeader = Either GenesisBlockHeader MainBlockHeader
 
 -- | Block.
 type Block = Either GenesisBlock MainBlock
+
+-- | Representation of 'Block' passed to a component.
+data ComponentBlock payload =
+    ComponentBlockGenesis (Some IsGenesisHeader)
+    | ComponentBlockMain
+       { bcmHeader  :: !(Some IsMainHeader)
+       , bcmPayload :: !payload }
 
 -- | This function is required because type inference fails in attempts to
 -- hash only @Right@ or @Left@.

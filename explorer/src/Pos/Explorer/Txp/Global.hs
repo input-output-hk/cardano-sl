@@ -8,8 +8,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (HasConfiguration, HeaderHash, SlotId (..), epochIndexL, headerHash,
-                           headerSlotL)
+import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash, SlotId (..),
+                           epochIndexL, headerHash, headerSlotL)
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.Slotting (MonadSlots, getSlotStart)
@@ -65,16 +65,16 @@ applyBlund txpBlund = do
     -- use e. g. SlotId epoch minBound. If it's Right, you can use headerSlotL lens.
     --
     -- type TxpBlund = (TxpBlock, TxpUndo)
-    -- type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
+    -- type TxpBlock = ComponentBlock TxPayload
 
     let txpBlock = txpBlund ^. _1
     let slotId   = case txpBlock of
-            Left genesisBlock -> SlotId
+            ComponentBlockGenesis genesisBlock -> SlotId
                                   { siEpoch = genesisBlock ^. epochIndexL
                                   , siSlot  = minBound
                                   -- ^ Genesis block doesn't have a slot, set to minBound
                                   }
-            Right mainBlock   -> mainBlock ^. _1 . headerSlotL
+            ComponentBlockMain mainHeader _  -> mainHeader ^. headerSlotL
 
     -- Get the timestamp from that information.
     mTxTimestamp <- getSlotStart slotId
@@ -91,4 +91,4 @@ rollbackBlocks blunds =
 -- Zip block's TxAuxes and also add block hash
 blundToAuxNUndoWHash :: TxpBlund -> ([(TxAux, TxUndo)], HeaderHash)
 blundToAuxNUndoWHash blund@(blk, _) =
-    (blundToAuxNUndo blund, either headerHash (headerHash . fst) blk)
+    (blundToAuxNUndo blund, headerHash blk)

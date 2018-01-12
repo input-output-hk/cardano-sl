@@ -34,7 +34,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (int, sformat, shown, stext, (%))
-import           Mockable (Catch, CurrentTime, Delay, Fork, Mockables, Throw, currentTime, delay)
+import           Mockable (CurrentTime, Delay, Fork, Mockable, Mockables, currentTime, delay)
 import           NTP.Client (NtpClientSettings (..), ntpSingleShot, startNtpClient)
 import           NTP.Example ()
 import           Serokell.Util (sec)
@@ -62,11 +62,7 @@ type NtpMonad m =
     ( MonadIO m
     , MonadBaseControl IO m
     , WithLogger m
-    , Mockables m
-        [ Fork
-        , Throw
-        , Catch
-        ]
+    , Mockable Fork m
     , MonadMask m
     )
 

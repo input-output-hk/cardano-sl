@@ -7,7 +7,6 @@ module Pos.GState.GState
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Core (GenesisData (..), HasConfiguration, HeaderHash, genesisData)

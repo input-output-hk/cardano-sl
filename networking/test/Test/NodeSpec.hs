@@ -13,6 +13,7 @@ module Test.NodeSpec
 
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
+import           Control.Exception.Safe (catch)
 import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, when)
 import           Control.Monad.IO.Class (liftIO)
@@ -30,7 +31,6 @@ import           Test.QuickCheck (Property, ioProperty)
 import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Mockable.Concurrent (wait, withAsync)
-import           Mockable.Exception (catch)
 import           Mockable.Production (Production, runProduction)
 import           Mockable.SharedExclusive (newSharedExclusive, putSharedExclusive,
                                            readSharedExclusive, takeSharedExclusive)

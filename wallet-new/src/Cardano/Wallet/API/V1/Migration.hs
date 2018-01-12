@@ -25,7 +25,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Common as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import qualified Control.Monad.Catch as Catch
+import qualified Control.Exception.Safe as E
 import           Mockable (runProduction)
 import           Servant
 
@@ -49,22 +49,22 @@ v1MonadNat = lowerV1Monad
 -- | Converts our domain-specific monad into a standard Servant `Handler`.
 lowerV1Monad :: V1Context -> MonadV1 a -> Handler a
 lowerV1Monad ctx handler =
-    liftIO (hoistHandler handler) `Catch.catches` excHandlers
+    liftIO (hoistHandler handler) `E.catches` excHandlers
   where
 
     hoistHandler :: forall a . MonadV1 a -> IO a
     hoistHandler = runProduction . flip runReaderT ctx
 
-    excHandlers = [Catch.Handler throwError]
+    excHandlers = [E.Handler throwError]
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 
 -- | "Run" the migration.
-migrate :: ( Catch.MonadThrow m, Migrate from to ) => from -> m to
+migrate :: ( E.MonadThrow m, Migrate from to ) => from -> m to
 migrate from = case eitherMigrate from of
-    Left e   -> Catch.throwM e
+    Left e   -> E.throwM e
     Right to -> pure to
 
 --

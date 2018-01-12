@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
@@ -102,7 +102,7 @@ getHistory cWalId accIds mAddrId = do
 
           Just addr
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
-            | otherwise                -> throw errorBadAddress
+            | otherwise                -> impureThrow errorBadAddress
 
     res <- first filterFn <$> getFullWalletHistory cWalId
     logDebug "getHistory: filtered transactions"

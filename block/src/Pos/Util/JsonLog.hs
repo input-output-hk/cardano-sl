@@ -32,7 +32,7 @@ import           Formatting (sformat)
 import           JsonLog.CanJsonLog (CanJsonLog)
 import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
-import           Mockable (Catch, Mockable, realTime)
+import           Mockable (realTime)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
@@ -161,7 +161,7 @@ class HasJsonLogConfig ctx where
     jsonLogConfig :: Lens' ctx JsonLogConfig
 
 jsonLogDefault
-    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, Mockable Catch m,
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadCatch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do

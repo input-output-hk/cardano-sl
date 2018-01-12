@@ -14,8 +14,8 @@ module Pos.Block.Logic.VAR
 
 import           Universum
 
+import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (_Wrapped)
-import           Control.Monad.Catch (bracketOnError)
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
                                        withExceptT)
 import qualified Data.List.NonEmpty as NE

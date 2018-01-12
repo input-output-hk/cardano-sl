@@ -19,7 +19,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLensesWith)
-import           Control.Monad.Catch (MonadMask)
 import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Crypto.Random (MonadRandom)

@@ -37,8 +37,8 @@ module Pos.Wallet.Web.Api
 
 import           Universum
 
+import           Control.Exception.Safe (try)
 import           Control.Lens (from)
-import           Control.Monad.Catch (try)
 import           Data.Reflection (Reifies (..))
 import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get, JSON, Post, Put,
                               QueryParam, ReqBody, Summary, Verb)

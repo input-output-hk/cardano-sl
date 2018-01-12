@@ -41,8 +41,8 @@ module Pos.Wallet.Web.Tracking.Sync
 import           Universum
 import           Unsafe (unsafeLast)
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
-import           Control.Monad.Catch (handleAll)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -156,7 +156,7 @@ syncWalletsWithGState
     , HasConfiguration
     )
     => [EncryptedSecretKey] -> m ()
-syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
+syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) $ do
     let wAddr = encToCId encSK
     WS.getWalletSyncTip wAddr >>= \case
         Nothing                -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr

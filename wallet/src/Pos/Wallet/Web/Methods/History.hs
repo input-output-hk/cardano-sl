@@ -13,13 +13,13 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Formatting (build, sformat, stext, (%))
-import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, logWarning)
+import           Serokell.Util (listJson, listJsonIndent)
+import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, timestampToPosix)
@@ -37,8 +37,8 @@ import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplyi
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, MonadWalletDBRead,
                                        addOnlyNewTxMetas, getHistoryCache, getPendingTx, getTxMeta,
                                        getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrs, getWalletAddrsSet)
+import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
+                                      getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))
 
 
@@ -52,7 +52,10 @@ getFullWalletHistory
     :: MonadWalletHistory ctx m
     => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
-    addrs <- getWalletAddrs Ever cWalId >>= convertCIdTOAddrs
+    logDebug "getFullWalletHistory: start"
+
+    cAddrs <- getWalletAddrs Ever cWalId
+    addrs <- convertCIdTOAddrs cAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs
 
@@ -64,15 +67,18 @@ getFullWalletHistory cWalId = do
                 cWalId
             pure mempty
 
+    logDebug "getFullWalletHistory: fetched addresses and block/local histories"
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
-    _ <- logTxHistory "Block" blockHistory
-    _ <- logTxHistory "Mempool" localHistory
+    logTxHistory "Mempool" localHistory
 
     fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    walAddrs    <- getWalletAddrsSet Ever cWalId
-    diff        <- getCurChainDifficulty
-    cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
+    walAddrsDetector <- getWalletAddrsDetector Ever cWalId
+    diff <- getCurChainDifficulty
+    logDebug "getFullWalletHistory: fetched full history"
+
+    !cHistory <- forM fullHistory (constructCTx cWalId walAddrsDetector diff)
+    logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
@@ -96,9 +102,11 @@ getHistory cWalId accIds mAddrId = do
 
           Just addr
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
-            | otherwise                -> throw errorBadAddress
+            | otherwise                -> impureThrow errorBadAddress
 
-    first filterFn <$> getFullWalletHistory cWalId
+    res <- first filterFn <$> getFullWalletHistory cWalId
+    logDebug "getHistory: filtered transactions"
+    return res
   where
     filterByAddrs :: S.Set (CId Addr)
                   -> Map TxId (CTx, POSIXTime)
@@ -129,7 +137,11 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
     (unsortedThs, n) <- getHistory cWalId accIds mAddrId
-    let sortedTxh = sortByTime (Map.elems unsortedThs)
+
+    let !sortedTxh = forceList $ sortByTime (Map.elems unsortedThs)
+    logDebug "getHistoryLimited: sorted transactions"
+
+    logCTxs "Total last 20" $ take 20 sortedTxh
     pure (applySkipLimit sortedTxh, n)
   where
     sortByTime :: [(CTx, POSIXTime)] -> [CTx]
@@ -137,6 +149,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         -- TODO: if we use a (lazy) heap sort here, we can get the
         -- first n values of the m sorted elements in O(m + n log m)
         map fst $ sortWith (Down . snd) thsWTime
+    forceList l = length l `seq` l
     applySkipLimit = take limit . drop skip
     limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
     skip = (fromIntegral $ fromMaybe defaultSkip mSkip)
@@ -175,17 +188,17 @@ addHistoryTxsMeta cWalId historyEntries = do
 constructCTx
     :: (MonadThrow m, MonadWalletDBRead ctx m)
     => CId Wal
-    -> Set (CId Addr)
+    -> (CId Addr -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
+constructCTx cWalId addrBelongsToWallet diff wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
             pure =<< getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
-        mkCTx diff wtx meta ptxCond walAddrsSet
+        mkCTx diff wtx meta ptxCond addrBelongsToWallet
 
 getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
@@ -207,6 +220,8 @@ addPtxHistory wid currentHistory = do
     let candidatesList = txHistoryListToMap (mapMaybe ptxPoolInfo conditions)
     return $ Map.union currentHistory candidatesList
 
+-- FIXME: use @listChunkedJson k@ with appropriate @k@s, once available,
+-- in these 2 functions
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
     => Text -> t -> m ()
@@ -215,3 +230,11 @@ logTxHistory desc = do
         . sformat (stext%" transactions history: "%listJson) desc
         . map _thTxId
         . toList
+
+logCTxs
+    :: (Container t, Element t ~ CTx, WithLogger m)
+    => Text -> t -> m ()
+logCTxs desc =
+    logInfo .
+    sformat (stext%" transactions history: "%listJsonIndent 4) desc .
+    map ctId . toList

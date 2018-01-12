@@ -13,7 +13,7 @@ module Pos.Explorer.Web.Api
 
 import           Universum
 
-import           Control.Monad.Catch (try)
+import           Control.Exception.Safe (try)
 import           Data.Proxy (Proxy (Proxy))
 import           Servant.API ((:>), Capture, Get, JSON, QueryParam, Summary)
 import           Servant.Generic ((:-), AsApi, ToServant)

@@ -51,7 +51,7 @@ let
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
+      cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
       cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
@@ -93,8 +93,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "8d70f7e632fe7c665ce0a5432515b918e88fe76c";
-      sha256 = "1ippcbki5hgsanh2xi6wzgwbpqcl6iq81wqvfz91j0rldyh7kbl8";
+      rev = "3b1807dc5011704ae6a045e612a679c6fbf9ceb3";
+      sha256 = "0p545wbfrg569hspcdpw9v6zd9ngifdj2wsvxpxsdypw124j3jdl";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {

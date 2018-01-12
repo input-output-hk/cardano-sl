@@ -11,8 +11,9 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.Except (runExcept)
+import qualified Data.Map as M
 import           Servant.Server (err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 
@@ -21,7 +22,7 @@ import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx)
-import           Pos.Client.Txp.Util (InputSelectionPolicy, computeTxFee, runTxCreator)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Coin, TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Core.Txp (_txOutputs)
@@ -41,12 +42,13 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
 import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
-import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs, rewrapTxError,
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs,
+                                             getPendingAddresses, rewrapTxError,
                                              submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever, Existing), MonadWalletDBRead)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrsSet)
+                                      getWalletAccountIds, getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletTxFull ctx m
@@ -92,10 +94,11 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
+    pendingAddrs <- getPendingAddresses policy
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -164,22 +167,23 @@ sendMoney passphrase moneySource dstDistr policy = do
 
     logDebug "sendMoney: processed addrs"
 
-    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
-    let getSinger addr = runIdentity $ do
+    let getSigner addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
-                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+                            (M.lookup addr metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
-              Left err -> throw err
+              Left err -> impureThrow err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
+    pendingAddrs <- getPendingAddresses policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -195,6 +199,8 @@ sendMoney passphrase moneySource dstDistr policy = do
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
     _ <- addHistoryTxMeta srcWallet th
-    srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
-    fst <$> constructCTx srcWallet srcWalletAddrs diff th
+    srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
+
+    logDebug "sendMoney: constructing response"
+    fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th

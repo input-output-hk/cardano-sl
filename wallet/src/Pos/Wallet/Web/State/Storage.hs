@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , CurrentAndRemoved (..)
        , WalletBalances
        , WalBalancesAndUtxo
        , WalletTip (..)
@@ -23,6 +24,7 @@ module Pos.Wallet.Web.State.Storage
        , doesAccountExist
        , getAccountIds
        , getAccountMeta
+       , getAccountAddrMaps
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
@@ -262,6 +264,12 @@ customAddressL :: CustomAddressType -> Lens' WalletStorage CustomAddresses
 customAddressL UsedAddr   = wsUsedAddresses
 customAddressL ChangeAddr = wsChangeAddresses
 
+-- | Keeps existing and pseudo-removed entries, e.g. addresses.
+data CurrentAndRemoved a = CurrentAndRemoved
+    { getCurrent :: a
+    , getRemoved :: a
+    }
+
 -- | Get user profile metadata.
 getProfile :: Query CProfile
 getProfile = view wsProfile
@@ -277,6 +285,14 @@ getAccountIds = HM.keys <$> view wsAccountInfos
 -- | Get account meta info by given account ID.
 getAccountMeta :: AccountId -> Query (Maybe CAccountMeta)
 getAccountMeta accId = preview (wsAccountInfos . ix accId . aiMeta)
+
+getAccountAddrMaps :: AccountId -> Query (CurrentAndRemoved CAddresses)
+getAccountAddrMaps accId = do
+    getCurrent <- getMap aiAddresses
+    getRemoved <- getMap aiRemovedAddresses
+    return CurrentAndRemoved{..}
+  where
+    getMap aiLens = fmap (fromMaybe mempty) $ preview $ wsAccountInfos . ix accId . aiLens
 
 -- | Get wallet meta info considering sync status of wallet.
 getWalletMetaIncludeUnready ::
@@ -649,6 +665,7 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
+deriveSafeCopySimple 0 'base ''CurrentAndRemoved
 deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming

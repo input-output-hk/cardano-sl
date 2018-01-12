@@ -23,8 +23,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
-import           Mockable (Mockable, SharedAtomic, SharedAtomicT, bracket, concurrently,
-                           currentTime, delay, forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
+                           forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Random (randomRIO)
@@ -95,7 +95,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
-    Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
+    bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
         liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show genesisSlotDuration
                                                    , "sendMode=" <> show sendMode
@@ -147,7 +147,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
                           utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
-                          etx <- createTx utxo (fakeSigner key) txOuts (toPublic key)
+                          etx <- createTx mempty utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left err -> do
                                   addTxFailed tpsMVar
@@ -198,7 +198,7 @@ send sendActions idx outputs = do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx getSigner def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        (txAux,_) <- lift $ prepareMTx getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)

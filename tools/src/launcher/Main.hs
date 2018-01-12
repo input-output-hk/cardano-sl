@@ -18,7 +18,6 @@ import           Universum
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (tryAny)
 import           Control.Lens (makeLensesWith)
 import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
@@ -57,7 +56,7 @@ import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception (handle, mask_, throwIO)
+import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
@@ -701,7 +700,7 @@ halt a = do
     m <- poll a
     case m of
         Nothing          -> cancel a
-        Just (Left  msg) -> throwIO msg
+        Just (Left  msg) -> throwM msg
         Just (Right _)   -> return ()
 
 ignoreSIGPIPE :: IO () -> IO ()
@@ -710,7 +709,7 @@ ignoreSIGPIPE = handle (\ex -> case ex of
         { ioe_type = ResourceVanished
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
-    _ -> throwIO ex )
+    _ -> throwM ex )
 
 ----------------------------------------------------------------------------
 -- SIGKILL

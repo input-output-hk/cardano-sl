@@ -1,22 +1,30 @@
 -- | Pending tx utils which db depends on
 
 module Pos.Wallet.Web.Pending.Util
-    ( mkPtxSubmitTiming
-    , incPtxSubmitTimingPure
+    ( incPtxSubmitTimingPure
+    , mkPtxSubmitTiming
     , ptxMarkAcknowledgedPure
     , resetFailedPtx
+    , sortPtxsChrono
+    , allPendingAddresses
+    , nonConfirmedTransactions
     ) where
 
 import           Universum
 
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
+import qualified Data.Set as Set
 
+import           Pos.Client.Txp.Util (PendingAddresses (..))
+import           Pos.Core.Common (Address)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
+import           Pos.Crypto (WithHash (..))
+import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
+import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
                                                ptxPeerAck, ptxSubmitTiming)
-
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming creationSlot =
@@ -24,8 +32,15 @@ mkPtxSubmitTiming creationSlot =
     { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
     , _pstNextDelay = 1
     }
+    where
+      initialSubmitDelay = 3 :: FlatSlotId
+
+-- | Sort pending transactions as close as possible to chronological order.
+sortPtxsChrono :: [PendingTx] -> OldestFirst [] PendingTx
+sortPtxsChrono = OldestFirst . sortWith _ptxCreationSlot . tryTopsort
   where
-    initialSubmitDelay = 3 :: FlatSlotId
+    tryTopsort txs = fromMaybe txs $ topsortTxs wHash txs
+    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 incPtxSubmitTimingPure
     :: HasConfiguration
@@ -51,3 +66,27 @@ resetFailedPtx curSlot ptx@PendingTx{..}
               , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
               }
     | otherwise = ptx
+
+-- | Returns the full list of "pending addresses", which are @output@ addresses
+-- associated to transactions not yet persisted in the blockchain.
+allPendingAddresses :: [PendingTx] -> PendingAddresses
+allPendingAddresses =
+    PendingAddresses . Set.unions . map grabTxOutputs . nonConfirmedTransactions
+  where
+    grabTxOutputs :: PendingTx -> Set.Set Address
+    grabTxOutputs PendingTx{..} =
+        let (TxAux tx _) = _ptxTxAux
+            (UnsafeTx _ outputs _) = tx
+            in Set.fromList $ map (\(TxOut a _) -> a) (toList outputs)
+
+-- | Filters the input '[PendingTx]' to choose only the ones which are not
+-- yet persisted in the blockchain.
+nonConfirmedTransactions :: [PendingTx] -> [PendingTx]
+nonConfirmedTransactions = filter isPending
+  where
+    -- | Is this 'PendingTx' really pending?
+    isPending :: PendingTx -> Bool
+    isPending PendingTx{..} = case _ptxCond of
+        PtxInNewestBlocks _ -> False
+        PtxPersisted        -> False
+        _                   -> True

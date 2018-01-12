@@ -30,7 +30,7 @@ import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsSet)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsDetector)
 
 redeemAda
     :: MonadWalletTxFull ctx m
@@ -102,6 +102,6 @@ redeemAdaInternal passphrase cAccId seedBs = do
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
     _ <- addHistoryTxMeta cWalId th
-    cWalAddrs <- getWalletAddrsSet Ever cWalId
+    cWalAddrsDetector <- getWalletAddrsDetector Ever cWalId
     diff <- getCurChainDifficulty
-    fst <$> constructCTx cWalId cWalAddrs diff th
+    fst <$> constructCTx cWalId cWalAddrsDetector diff th

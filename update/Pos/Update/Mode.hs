@@ -7,7 +7,6 @@ module Pos.Update.Mode
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
 import           Data.Tagged (Tagged)
 import           Ether.Internal (HasLens (..))
 import           Mockable (MonadMockable)

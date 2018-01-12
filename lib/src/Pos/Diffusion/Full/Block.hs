@@ -1,6 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Diffusion.Full.Block
     ( getBlocks
@@ -13,9 +13,9 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
+import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
@@ -23,39 +23,39 @@ import qualified Data.Text.Buildable as B
 -- TODO hopefully we can get rid of this import. It's needed for the
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
-import           Formatting (build, sformat, (%), shown, bprint, stext, int, builder)
-import           Mockable (throw)
+import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Network (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                    MsgHeaders (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
-                                             waitForConversations, OutSpecs, ListenerSpec,
-                                             MkListeners (..), constantListeners)
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core (HeaderHash, headerHash, prevBlockL, headerHashG)
+                                             EnqueueMsg, ListenerSpec, MkListeners (..),
+                                             MsgType (..), NodeId, Origin (..), OutSpecs,
+                                             constantListeners, waitForConversations)
+import           Pos.Core (HeaderHash, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (shortHashF)
-import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
+import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Logic.Types (Logic (..), GetBlockHeadersError (..), GetTipError (..))
+import           Pos.Logic.Types (GetBlockHeadersError (..), GetTipError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 -- NB: the logic-layer security policy is actually available here in the
 -- diffusion layer by way of the WorkMode constraint.
-import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
-                                      AttackTarget (..), SecurityParams (..))
+import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
+                                      SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE)
-import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
+import           Pos.Util.Chrono (NE, NewestFirst (..), _NewestFirst)
+import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -346,7 +346,7 @@ requestTip enqueue k = enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> p
         received <- recvLimited conv
         case received of
             Just headers -> handleTip nodeId headers
-            Nothing -> throwM $ DialogUnexpected "peer didnt' respond with tips"
+            Nothing      -> throwM $ DialogUnexpected "peer didnt' respond with tips"
   where
     handleTip nodeId (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
@@ -383,7 +383,7 @@ announceBlock logic enqueue header =  do
             throwOnIgnored nId =
                 whenJust (nodeIdToAddress nId) $ \addr ->
                     when (shouldIgnoreAddress addr) $
-                        throw AttackNoBlocksTriggered
+                        throwM AttackNoBlocksTriggered
         -- TODO the when condition is not necessary, as it's a part of the
         -- conjunction in shouldIgnoreAddress
         when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
@@ -421,7 +421,7 @@ handleHeadersCommunication logic conv = do
                     headers <- getBlockHeaders logic (c1:|cxs) mghTo
                     case headers of
                         Left (GetBlockHeadersError txt) -> pure (Left txt)
-                        Right hs -> pure (Right hs)
+                        Right hs                        -> pure (Right hs)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
@@ -430,12 +430,12 @@ handleHeadersCommunication logic conv = do
     getLastMainHeader = do
         etip :: Either GetTipError Block <- getTip logic
         case etip of
-            Left err@(GetTipError _) -> throw err
+            Left err@(GetTipError _) -> throwM err
             Right tip -> let tipHeader = tip ^. blockHeader in case tip of
                 Left _  -> do
                     bheader <- getBlockHeader logic (tip ^. prevBlockL)
                     case bheader of
-                        Left err -> throw err
+                        Left err      -> throwM err
                         Right mHeader -> pure $ fromMaybe tipHeader mHeader
                 Right _ -> pure tipHeader
     handleSuccess :: NewestFirst NE BlockHeader -> d ()

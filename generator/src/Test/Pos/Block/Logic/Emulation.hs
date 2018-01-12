@@ -20,10 +20,10 @@ import qualified Control.Monad.Trans.Control as MC
 import qualified Crypto.Random as Rand
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Microsecond)
-import           Mockable (Async, Bracket, Catch, Channel, ChannelT, Concurrently, CurrentTime (..),
-                           Delay (..), Fork, MFunctor' (hoist'), Mockable (..), Production (..),
-                           Promise, SharedAtomic (..), SharedAtomicT, SharedExclusive (..),
-                           SharedExclusiveT, ThreadId, Throw)
+import           Mockable (Async, Channel, ChannelT, Concurrently, CurrentTime (..), Delay (..),
+                           Fork, MFunctor' (hoist'), Mockable (..), Production (..), Promise,
+                           SharedAtomic (..), SharedAtomicT, SharedExclusive (..), SharedExclusiveT,
+                           ThreadId)
 import qualified Mockable.Metrics as Metrics
 import           System.Wlog (CanLog (..))
 
@@ -178,21 +178,6 @@ instance Mockable Async Emulation where
 instance Mockable Concurrently Emulation where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Concurrently Emulation t -> Emulation t #-}
-    liftMockable = liftMockableProduction
-
-instance Mockable Throw Emulation where
-    {-# INLINABLE liftMockable #-}
-    {-# SPECIALIZE INLINE liftMockable :: Throw Emulation t -> Emulation t #-}
-    liftMockable = liftMockableProduction
-
-instance Mockable Catch Emulation where
-    {-# INLINABLE liftMockable #-}
-    {-# SPECIALIZE INLINE liftMockable :: Catch Emulation t -> Emulation t #-}
-    liftMockable = liftMockableProduction
-
-instance Mockable Bracket Emulation where
-    {-# INLINABLE liftMockable #-}
-    {-# SPECIALIZE INLINE liftMockable :: Bracket Emulation t -> Emulation t #-}
     liftMockable = liftMockableProduction
 
 type instance ChannelT Emulation = ChannelT Production

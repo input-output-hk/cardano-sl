@@ -60,6 +60,7 @@ library
                      , log-warper
                      , monad-control
                      , random
+                     , safe-exceptions
                      , serokell-util
                      , text
                      , text-format

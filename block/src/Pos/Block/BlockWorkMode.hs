@@ -11,7 +11,7 @@ import           Universum
 
 import           Data.Default (Default)
 import           Ether.Internal (HasLens)
-import           Mockable (Catch, Delay, Fork, Mockables, SharedAtomic, Throw)
+import           Mockable (Delay, Fork, Mockables, SharedAtomic)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
@@ -60,7 +60,7 @@ type BlockWorkMode ctx m =
     ( BlockInstancesConstraint m
 
     , Default (MempoolExt m)
-    , Mockables m [Catch, Delay, Fork, SharedAtomic, Throw]
+    , Mockables m [Delay, Fork, SharedAtomic]
 
     , LrcModeFull ctx m
     , MonadRecoveryInfo m

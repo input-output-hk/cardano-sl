@@ -44,8 +44,8 @@ module Pos.Util.Servant
 
 import           Universum
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Catch (handleAll)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
@@ -539,7 +539,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 (showResponse resp)
     catchErrors st =
         flip catchError (servantErrHandler st) .
-        handleAll (exceptionsHandler st)
+        handleAny (exceptionsHandler st)
     servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase

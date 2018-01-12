@@ -13,7 +13,7 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch as Catch (Handler (..), catches)
+import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Mockable (runProduction)
@@ -115,10 +115,10 @@ convertHandler rctx handler =
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler
-    in liftIO ioAction `Catch.catches` excHandlers
+    in liftIO ioAction `E.catches` excHandlers
   where
     realRunner :: forall t . RealModeE t -> IO t
     realRunner act = runProduction $ Mtl.runReaderT act rctx
 
-    excHandlers = [Catch.Handler catchServant]
+    excHandlers = [E.Handler catchServant]
     catchServant = throwError

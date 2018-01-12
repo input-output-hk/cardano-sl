@@ -9,8 +9,8 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (has)
-import           Control.Monad.Catch (handleAll)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
 import           Mockable (delay, fork)
@@ -23,21 +23,20 @@ import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPe
                                     walletTxCreationDisabled)
 import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Txp (TxAux (..))
-import           Pos.Crypto (WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
-import           Pos.Txp (topsortTxs)
+import           Pos.Util.Chrono (getOldestFirst)
 import           Pos.Util.LogSafe (logDebugS, logInfoS)
 import           Pos.Wallet.Web.Networking (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,
                                                _PtxApplying)
+import           Pos.Wallet.Web.Pending.Util (sortPtxsChrono)
 import           Pos.Wallet.Web.State (MonadWalletDB, PtxMetaUpdate (PtxIncSubmitTiming),
                                        casPtxCondition, getPendingTx, getPendingTxs, ptxUpdateMeta)
 import           Pos.Wallet.Web.Util (getWalletAssuredDepth)
@@ -72,7 +71,7 @@ processPtxInNewestBlocks PendingTx{..} = do
 
 resubmitTx :: MonadPendings ctx m => PendingTx -> m ()
 resubmitTx ptx =
-    handleAll (\_ -> pass) $ do
+    handleAny (\_ -> pass) $ do
         logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
         submitAndSavePtx submissionH ptx
@@ -149,13 +148,8 @@ processPtxsOnSlot
     => SlotId -> m ()
 processPtxsOnSlot curSlot = do
     ptxs <- getPendingTxs
-    let sortedPtxs =
-            flip fromMaybe =<< topsortTxs wHash $
-            ptxs
-
+    let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
     processPtxs curSlot sortedPtxs
-  where
-    wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

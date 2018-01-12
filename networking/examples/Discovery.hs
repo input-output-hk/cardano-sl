@@ -11,6 +11,7 @@
 
 module Main where
 
+import           Control.Exception.Safe (finally)
 import           Control.Monad (forM, forM_, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Binary
@@ -21,7 +22,6 @@ import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Data.Void (Void, absurd)
 import           GHC.Generics (Generic)
 import           Mockable.Concurrent (ThreadId, delay, fork, killThread)
-import           Mockable.Exception (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K

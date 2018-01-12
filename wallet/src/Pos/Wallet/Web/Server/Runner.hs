@@ -16,7 +16,7 @@ module Pos.Wallet.Web.Server.Runner
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Monad.Catch as Catch
+import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Ether.Internal (HasLens (..))
@@ -33,9 +33,8 @@ import           Pos.Launcher.Runner (runRealBasedMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes(..), addInitialRichAccount)
-import           Pos.Wallet.Web.Mode (WalletWebMode,
-                                      WalletWebModeContext (..),
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..), addInitialRichAccount)
+import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
@@ -91,12 +90,12 @@ convertHandler
     -> WalletWebMode a
     -> Handler a
 convertHandler wwmc handler =
-    liftIO (walletRunner handler) `Catch.catches` excHandlers
+    liftIO (walletRunner handler) `E.catches` excHandlers
   where
 
     walletRunner :: forall a . WalletWebMode a -> IO a
     walletRunner act = runProduction $
         Mtl.runReaderT act wwmc
 
-    excHandlers = [Catch.Handler catchServant]
+    excHandlers = [E.Handler catchServant]
     catchServant = throwError

@@ -6,7 +6,7 @@ module Pos.Generator.Block.Error
 
 import           Universum
 
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, stext, (%))
 

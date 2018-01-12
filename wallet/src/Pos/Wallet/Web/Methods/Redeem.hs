@@ -112,4 +112,4 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     addHistoryTx cWalId th
     cWalAddrsDetector <- getWalletAddrsDetector Ever cWalId
     diff <- getCurChainDifficulty
-    fst <$> constructCTx cWalId cWalAddrsDetector diff th
+    constructCTx cWalId cWalAddrsDetector diff th

@@ -330,17 +330,12 @@ getWalletAddresses =
 getAccountWAddresses ::
        AddressLookupMode             -- ^ Determines which addresses to include: existing, deleted or both
     -> AccountId                     -- ^ Account ID.
-    -> Query (Maybe [CWAddressMeta]) -- ^ Returns @Nothing@ if given account ID does not exist.
+    -> Query (Maybe [AddressInfo]) -- ^ Returns @Nothing@ if given account ID does not exist.
 getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
-    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
-    fetch which = do
-        cAddresses <- preview (wsAccountInfos . ix accId . which)
-        -- here `cAddresses` has type `Maybe CAddresses`
-        pure $
-            (map adiCWAddressMeta . sortOn adiSortingKey . map snd . HM.toList)
-            <$> cAddresses
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
+    fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
 
 -- | Check if given address exists.
 doesWAddressExist ::

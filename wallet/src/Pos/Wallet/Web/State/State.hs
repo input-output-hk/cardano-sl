@@ -188,7 +188,7 @@ getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
 getAccountWAddresses
     :: MonadWalletDBRead ctx m
-    => AddressLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
+    => AddressLookupMode -> AccountId -> m (Maybe [AddressInfo])
 getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
 
 doesWAddressExist

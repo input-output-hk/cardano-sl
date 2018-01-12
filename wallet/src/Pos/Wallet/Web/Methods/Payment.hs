@@ -46,7 +46,8 @@ import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutpu
                                              getPendingAddresses, rewrapTxError,
                                              submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever, Existing), MonadWalletDBRead)
+import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever, Existing),
+                                       MonadWalletDBRead)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrsDetector)
 
@@ -112,7 +113,7 @@ getMoneySourceAddresses
     => MoneySource -> m [CWAddressMeta]
 getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses (AccountMoneySource accId) =
-    getAccountAddrsOrThrow Existing accId
+    map adiCWAddressMeta <$> getAccountAddrsOrThrow Existing accId
 getMoneySourceAddresses (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
     concatMapM (getMoneySourceAddresses . AccountMoneySource)

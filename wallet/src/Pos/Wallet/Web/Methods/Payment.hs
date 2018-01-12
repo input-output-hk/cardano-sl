@@ -15,9 +15,9 @@ import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
 import           Data.Time.Units                  (Second)
-import           Mockable                         (concurrently, delay)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
+import           Mockable                         (concurrently, delay)
 import           Servant.Server                   (err405, errReasonPhrase)
 import           System.Wlog                      (logDebug)
 

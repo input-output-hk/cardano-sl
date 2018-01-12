@@ -79,6 +79,8 @@ module Pos.Wallet.Web.State.State
        , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
        , resetFailedPtxs
        , getWalletStorage
        , flushWalletStorage
@@ -347,6 +349,12 @@ ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: MonadWalletDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+
+cancelApplyingPtxs :: MonadWalletDB ctx m => m ()
+cancelApplyingPtxs = updateDisk ... A.CancelApplyingPtxs
+
+cancelSpecificApplyingPtx :: MonadWalletDB ctx m => TxId -> m ()
+cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
 
 resetFailedPtxs :: MonadWalletDB ctx m => SlotId -> m ()
 resetFailedPtxs = updateDisk ... A.ResetFailedPtxs

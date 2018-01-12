@@ -100,13 +100,15 @@ profileHandlers = toServant' A.WProfileApiRecord
 
 txsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WTxsApi m
 txsHandlers = toServant' A.WTxsApiRecord
-    { _newPayment      = M.newPayment
-    , _newPaymentBatch = M.newPaymentBatch
-    , _txFee           = M.getTxFee
-    , _resetFailedPtxs = M.resetAllFailedPtxs
-    , _updateTx        = M.updateTransaction
-    , _getHistory      = M.getHistoryLimited
-    , _pendingSummary  = M.gatherPendingTxsSummary
+    { _newPayment                = M.newPayment
+    , _newPaymentBatch           = M.newPaymentBatch
+    , _txFee                     = M.getTxFee
+    , _resetFailedPtxs           = M.resetAllFailedPtxs
+    , _updateTx                  = M.updateTransaction
+    , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
+    , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
+    , _getHistory                = M.getHistoryLimited
+    , _pendingSummary            = M.gatherPendingTxsSummary
     }
 
 updateHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WUpdateApi m

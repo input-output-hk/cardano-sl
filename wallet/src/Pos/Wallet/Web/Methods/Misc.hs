@@ -26,6 +26,8 @@ module Pos.Wallet.Web.Methods.Misc
        , convertCIdTOAddr
        , AddrCIdHashes(AddrCIdHashes)
        , PendingTxsSummary (..)
+       , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
        ) where
 
 import           Universum
@@ -57,13 +59,15 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, apply
                                         connectedPeers, localChainDifficulty,
                                         networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CPtxCondition,
-                                             CUpdateInfo (..), SyncProgress (..), cIdToAddress)
+                                             CTxId (..), CUpdateInfo (..), SyncProgress (..),
+                                             cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, cancelApplyingPtxs,
+                                       cancelSpecificApplyingPtx, getNextUpdate, getProfile,
                                        getWalletStorage, removeNextUpdate, resetFailedPtxs,
                                        setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -245,3 +249,15 @@ instance Buildable PendingTxsSummary where
 instance HasTruncateLogPolicy PendingTxsSummary where
     -- called rarely, and we are very interested in the output
     truncateLogPolicy = identity
+
+cancelAllApplyingPtxs ::
+       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m) => m NoContent
+cancelAllApplyingPtxs = testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs
+
+cancelOneApplyingPtx ::
+       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m)
+    => CTxId
+    -> m NoContent
+cancelOneApplyingPtx cTxId = testOnlyEndpoint $ NoContent <$ do
+    txId <- decodeCTypeOrFail cTxId
+    cancelSpecificApplyingPtx txId

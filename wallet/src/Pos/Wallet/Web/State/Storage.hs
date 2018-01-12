@@ -76,6 +76,8 @@ module Pos.Wallet.Web.State.Storage
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , resetFailedPtxs
+       , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
        ) where
 
 import           Universum
@@ -106,8 +108,9 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
                                              PassPhraseLU, Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
                                                ptxCond, ptxSubmitTiming, _PtxCreating)
-import           Pos.Wallet.Web.Pending.Util (incPtxSubmitTimingPure, mkPtxSubmitTiming,
-                                              ptxMarkAcknowledgedPure, resetFailedPtx)
+import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
+                                              mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
+                                              resetFailedPtx)
 
 -- | Type alias for indices which are used to maintain order
 -- in which addresses were created.
@@ -611,6 +614,16 @@ ptxUpdateMeta wid txId updType =
                 ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
+
+cancelApplyingPtxs :: Update ()
+cancelApplyingPtxs =
+    wsWalletInfos . traversed .
+    wsPendingTxs . traversed %= cancelApplyingPtx
+
+cancelSpecificApplyingPtx :: TxId -> Update ()
+cancelSpecificApplyingPtx txId =
+    wsWalletInfos . traversed .
+    wsPendingTxs . ix txId %= cancelApplyingPtx
 
 -- | Add transaction to set of pending transactions, if it isn't already there.
 addOnlyNewPendingTx :: PendingTx -> Update ()

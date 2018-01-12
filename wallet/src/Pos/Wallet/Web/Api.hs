@@ -356,6 +356,19 @@ data WTxsApiRecord route = WTxsApiRecord
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post NoContent
 
+  , _cancelApplyingPtxs :: route
+    :- "resubmission"
+    :> "cancel"
+    :> Summary "Cancel all transactions in CPtxApplying condition (unconfirmed)."
+    :> WRes Post NoContent
+
+  , _cancelSpecificApplyingPtx :: route
+    :- "resubmission"
+    :> "cancelsingle"
+    :> Capture "transaction" CTxId
+    :> Summary "Cancel specific transaction in CPtxApplying condition."
+    :> WRes Post NoContent
+
   , _getHistory :: route
     :- "histories"
     :> Summary "Get the history of transactions."

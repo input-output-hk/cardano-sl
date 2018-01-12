@@ -99,6 +99,7 @@ runRealMode
        (HasCompileInfo, WorkMode ctx (RealMode ext))
     => NodeResources ext (RealMode ext)
     -> (ActionSpec (RealMode ext) a, OutSpecs)
+    -> OQ.ConnectionChangeAction (RealMode ext) NodeId
     -> Production a
 runRealMode = runRealBasedMode @ext @ctx identity identity
 
@@ -118,11 +119,13 @@ runRealBasedMode
     -> (forall b. RealMode ext b -> m b)
     -> NodeResources ext m
     -> (ActionSpec m a, OutSpecs)
+    -> OQ.ConnectionChangeAction (RealMode ext) NodeId
     -> Production a
-runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) = giveAdoptedBVData $
-    runRealModeDo (hoistNodeResources unwrap nr) outSpecs $
-    ActionSpec $ \vI sendActions ->
-        unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) onConnChange = giveAdoptedBVData $
+    runRealModeDo (hoistNodeResources unwrap nr) outSpecs
+        (ActionSpec $ \vI sendActions ->
+            unwrap . action vI $ hoistSendActions wrap unwrap sendActions)
+        onConnChange
   where
     giveAdoptedBVData :: ((HasAdoptedBlockVersionData (RealMode ext)) => r) -> r
     giveAdoptedBVData = give (gsAdoptedBVData :: RealMode ext BlockVersionData)
@@ -139,8 +142,9 @@ runRealModeDo
     => NodeResources ext (RealMode ext)
     -> OutSpecs
     -> ActionSpec (RealMode ext) a
+    -> OQ.ConnectionChangeAction (RealMode ext) NodeId
     -> Production a
-runRealModeDo NodeResources {..} outSpecs action = do
+runRealModeDo NodeResources {..} outSpecs action onConnChange = do
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
             jsonLogConfigFromHandle
@@ -157,6 +161,7 @@ runRealModeDo NodeResources {..} outSpecs action = do
                     stopMonitoring
                     oq
                     action
+                    onConnChange
   where
     NodeContext {..} = nrContext
     NetworkConfig {..} = ncNetworkConfig
@@ -228,11 +233,12 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
 oqEnqueue
     :: ( Mockable Throw m, MonadIO m, WithLogger m )
     => OQ m
+    -> OQ.ConnectionChangeAction m NodeId
     -> Msg
     -> (NodeId -> VerInfo -> N.Conversation PackingType m t)
     -> m (Map NodeId (m t))
-oqEnqueue oq msgType k = do
-    itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+oqEnqueue oq onConnChange msgType k = do
+    itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) onConnChange
     let itMap = M.fromList itList
     return ((>>= either throw return) <$> itMap)
 
@@ -242,10 +248,11 @@ oqDequeue
        , WithLogger m
        )
     => OQ m
+    -> OQ.ConnectionChangeAction m NodeId
     -> N.Converse PackingType PeerData m
     -> m (m ())
-oqDequeue oq converse = do
-    it <- async $ OQ.dequeueThread oq (sendMsgFromConverse converse)
+oqDequeue oq onConnChange converse = do
+    it <- async $ OQ.dequeueThread oq (sendMsgFromConverse converse) onConnChange
     return (cancel it)
 
 runServer
@@ -266,10 +273,11 @@ runServer
     -> (t -> m ())
     -> OQ m
     -> ActionSpec m b
+    -> OQ.ConnectionChangeAction m NodeId
     -> m b
-runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq (ActionSpec action) = do
+runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq (ActionSpec action) onConnChange = do
     let enq :: EnqueueMsg m
-        enq = makeEnqueueMsg ourVerInfo (oqEnqueue oq)
+        enq = makeEnqueueMsg ourVerInfo (oqEnqueue oq onConnChange)
         mkL' = mkL enq
         InSpecs ins = inSpecs mkL'
         OutSpecs outs = outSpecs mkL'
@@ -283,11 +291,11 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \__node ->
         NodeAction mkListeners' $ \converse ->
             let sendActions :: SendActions m
-                sendActions = makeSendActions ourVerInfo (oqEnqueue oq) converse
+                sendActions = makeSendActions ourVerInfo (oqEnqueue oq onConnChange) converse
             in  bracket (acquire converse __node) release (const (action ourVerInfo sendActions))
   where
     acquire converse __node = do
-        stopDequeue <- oqDequeue oq converse
+        stopDequeue <- oqDequeue oq onConnChange converse
         other <- withNode __node
         return (stopDequeue, other)
     release (stopDequeue, other) = do

@@ -25,6 +25,8 @@ import           Network.Wai (Application)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo)
 
+import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
+
 import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol (SendActions)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -58,6 +60,7 @@ runWRealMode db conn res spec = do
         (Mtl.withReaderT (\(WalletWebModeContext _ _ _ rmc) -> rmc))
         res
         spec
+        defaultConnectionChangeAction
 
 walletServeWebFull
     :: ( HasConfigurations

@@ -16,6 +16,7 @@ import           Universum
 import           Data.Default              (def)
 import           Data.Tagged               (Tagged)
 
+import           Network.Broadcast.OutboundQueue (ConnectionChangeAction(..))
 import           Pos.Communication         (NodeId, TxMsgContents)
 import           Pos.Core.Block            (Block, BlockHeader)
 import           Pos.Core                  (HeaderHash, StakeholderId,
@@ -92,6 +93,9 @@ data Logic m = Logic
     , recoveryInProgress :: m Bool
 
     , securityParams     :: SecurityParams
+
+      -- action which runs whenever connection status changes
+    , connectionChangeAction :: ConnectionChangeAction m NodeId
     }
 
 -- | First iteration solution to the inv/req/data/mempool system.
@@ -192,6 +196,8 @@ dummyLogicLayer = LogicLayer
         , postSscVssCert     = dummyKeyVal
         , recoveryInProgress = pure False
         , securityParams     = def
+        , connectionChangeAction
+                             = ConnectionChangeAction (const $ pure ())
         }
 
     dummyKeyVal :: Applicative m => KeyVal key val m

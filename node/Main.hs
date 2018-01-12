@@ -15,6 +15,8 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
+import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
+
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
@@ -38,7 +40,7 @@ actionWithoutWallet
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal nodeParams sscParams updateTriggerWorker
+    runNodeReal nodeParams sscParams updateTriggerWorker defaultConnectionChangeAction
 
 action
     :: ( HasConfigurations

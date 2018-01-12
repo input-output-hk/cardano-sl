@@ -220,11 +220,11 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.
             runDiffusionLayer :: forall y . d y -> d y
-            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq currentSlotDuration listeners
+            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq (connectionChangeAction logic) currentSlotDuration listeners
 
             enqueue :: EnqueueMsg d
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
-                itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+                itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) (connectionChangeAction logic)
                 let itMap = M.fromList itList
                 return ((>>= either throw return) <$> itMap)
 
@@ -294,15 +294,16 @@ runDiffusionLayerFull
     => NetworkConfig KademliaParams
     -> VerInfo
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
+    -> OQ.ConnectionChangeAction d NodeId
     -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig ourVerInfo oq slotDuration listeners action =
+runDiffusionLayerFull networkConfig ourVerInfo oq onConnChange slotDuration listeners action =
     bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
         bracketKademlia networkConfig $ \networkConfig' ->
             timeWarpNode transport ourVerInfo listeners $ \_ converse ->
-                withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
+                withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse) onConnChange) $ \_ -> do
                     -- TODO EKG stuff.
                     -- Both logic and diffusion will use EKG so we don't
                     -- set it up here in the diffusion layer, but we do
@@ -317,7 +318,7 @@ runDiffusionLayerFull networkConfig ourVerInfo oq slotDuration listeners action 
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
     oqEnqueue msgType k = do
-        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) onConnChange
         let itMap = M.fromList itList
         return ((>>= either throw return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of

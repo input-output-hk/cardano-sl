@@ -11,7 +11,8 @@ import           Universum
 import           Data.Reflection (give)
 import           Mockable (Production)
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           Pos.Communication.Protocol (NodeId, OutSpecs, WorkerSpec)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Core (HasConfiguration, BlockVersionData (..))
@@ -38,14 +39,16 @@ runNodeReal
     => NodeParams
     -> SscParams
     -> (HasAdoptedBlockVersionData (RealMode EmptyMempoolExt) => ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs))
+    -> OQ.ConnectionChangeAction (RealMode EmptyMempoolExt) NodeId
     -> Production ()
-runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
+runNodeReal np sscnp plugins onConnChange = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
   where
     action :: HasConfiguration => NodeResources EmptyMempoolExt (RealMode EmptyMempoolExt) -> Production ()
     action nr@NodeResources {..} = giveAdoptedBVData $
         runRealMode
             nr
             (runNode nr plugins)
+            onConnChange
 
     -- Fulfill limits here. It's absolutely the wrong place to do it, but this
     -- will go away soon in favour of diffusion/logic split.

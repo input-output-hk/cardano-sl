@@ -16,15 +16,19 @@ module Pos.Merkle
 
 import           Universum
 
+import           Crypto.Hash (byteStringFromDigest)
 import           Data.Bits (Bits (..))
-import           Data.ByteArray (ByteArrayAccess, convert)
+import           Data.ByteArray (ByteArrayAccess)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.ByteString.Builder (Builder, byteString)
+import qualified Data.ByteString.Builder.Extra as Builder
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
-import           Pos.Binary.Class (Bi, Raw, serialize')
-import           Pos.Crypto (Hash, hashRaw)
+import           Pos.Binary.Class (Bi, Raw, serializeBuilder)
+import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot
@@ -69,12 +73,15 @@ instance Foldable MerkleNode where
         MerkleBranch{mLeft, mRight} ->
             foldMap f mLeft `mappend` foldMap f mRight
 
+toLazyByteString :: Builder -> LBS.ByteString
+toLazyByteString = Builder.toLazyByteStringWith (Builder.safeStrategy 1024 4096) mempty
+
 mkLeaf :: Bi a => a -> MerkleNode a
 mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (one 0 <> serialize' a)
+              hashRaw (toLazyByteString ((byteString (one 0)) <> serializeBuilder a))
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a
@@ -83,10 +90,15 @@ mkBranch a b =
     { mLeft  = a
     , mRight = b
     , mRoot  = MerkleRoot $ coerce $
-               hashRaw $ mconcat [ one 1
-                                 , convert (mRoot a)
-                                 , convert (mRoot b) ]
+               hashRaw $ toLazyByteString $ mconcat
+                   [ byteString (one 1)
+                   , merkleRootToBuilder (mRoot a)
+                   , merkleRootToBuilder (mRoot b) ]
+
     }
+  where
+    merkleRootToBuilder :: MerkleRoot a -> Builder
+    merkleRootToBuilder (MerkleRoot (AbstractHash d)) = byteString (byteStringFromDigest d)
 
 -- | Smart constructor for 'MerkleTree'.
 mkMerkleTree :: Bi a => [a] -> MerkleTree a

@@ -6,6 +6,8 @@ module Pos.Binary.Core.Txp
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeListLenCanonical, decodeUnknownCborDataItem,
                                    deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
@@ -27,7 +29,7 @@ instance Bi T.TxIn where
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encodeUnknownCborDataItem bs
+        encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
@@ -72,7 +74,7 @@ instance Bi T.TxInWitness where
         T.UnknownWitnessType tag bs ->
             encodeListLen 2 <>
             encode tag <>
-            encodeUnknownCborDataItem bs
+            encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         len <- decodeListLenCanonical
         tag <- decode @Word8

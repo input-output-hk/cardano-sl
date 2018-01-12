@@ -2,7 +2,9 @@
 
 module Pos.Binary.Class.Primitive
        ( serialize
+       , serializeWith
        , serialize'
+       , serializeBuilder
        -- * Deserialize inside the Decoder monad
        , deserialize
        , deserialize'
@@ -39,9 +41,11 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
+import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
+import qualified Data.ByteString.Builder.Extra as Builder
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
@@ -60,7 +64,19 @@ serialize = CBOR.Write.toLazyByteString . encode
 --
 -- The output is represented as a strict 'BS.ByteString'.
 serialize' :: Bi a => a -> BS.ByteString
-serialize' = BSL.toStrict . serialize
+serialize' = BSL.toStrict . serializeWith 1024 4096
+
+-- | Serialize into a Builder. Useful if you want to throw other ByteStrings
+-- around it.
+serializeBuilder :: Bi a => a -> Builder
+serializeBuilder = CBOR.Write.toBuilder . encode
+
+-- | Serialize using the safe allocation strategy with a given first and
+-- subsequent chunk size.
+serializeWith :: Bi a => Int -> Int -> a -> BSL.ByteString
+serializeWith first next = Builder.toLazyByteStringWith strategy mempty . serializeBuilder
+  where
+    strategy = Builder.safeStrategy first next
 
 -- | Deserialize a Haskell value from the external binary representation
 -- (which must have been made using 'serialize' or related function).
@@ -170,7 +186,7 @@ class AsBinaryClass a where
 
 -- | Compute size of something serializable in bytes.
 biSize :: Bi a => a -> Byte
-biSize = fromIntegral . BS.length . serialize'
+biSize = fromIntegral . BSL.length . serialize
 {-# INLINE biSize #-}
 
 ----------------------------------------------------------------------------
@@ -182,13 +198,13 @@ biSize = fromIntegral . BS.length . serialize'
 -- In CBOR diagnostic notation:
 -- >>> 24(h'DEADBEEF')
 encodeKnownCborDataItem :: Bi a => a -> E.Encoding
-encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize'
+encodeKnownCborDataItem = encodeUnknownCborDataItem . serializeWith 1024 4096
 
 -- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
 -- input object, so that it must be passed as a binary `ByteString` blob.
 -- It's the caller responsibility to ensure the input `ByteString` correspond
 -- indeed to valid, previously-serialised CBOR data.
-encodeUnknownCborDataItem :: ByteString -> E.Encoding
+encodeUnknownCborDataItem :: BSL.ByteString -> E.Encoding
 encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
@@ -225,7 +241,7 @@ encodeCrcProtected :: Bi a => a -> E.Encoding
 encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
-    body = serialize' x
+    body = serializeWith 1024 4096 x
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

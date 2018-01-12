@@ -50,7 +50,7 @@ type HasConfiguration =
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
 canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
   where
-    jsonHash = hashRaw $ BSL.toStrict canonicalJsonBytes
+    jsonHash = hashRaw canonicalJsonBytes
     canonicalJsonBytes = Canonical.renderCanonicalJSON $ runIdentity $ Canonical.toJSON theGenesisData
 
 -- | Encode 'GenesisData' in JSON format in a pretty way. JSON object

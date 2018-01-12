@@ -50,6 +50,7 @@ import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
+
 -- Copied from 'these' library.
 data These a b = This a | That b | These a b
     deriving (Eq, Show, Generic)
@@ -285,6 +286,7 @@ calculateTransCorrections eActions = do
 -- This function returns identitifers of stakeholders who are no
 -- longer rich in the given epoch, but were rich in the previous one.
 getNoLongerRichmen ::
+       forall m ctx.
        ( Monad m
        , MonadIO m
        , MonadDBRead m
@@ -292,13 +294,13 @@ getNoLongerRichmen ::
        , HasLrcContext ctx
        )
     => EpochIndex
-    -> m [StakeholderId]
+    -> m (HashSet StakeholderId)
 getNoLongerRichmen (EpochIndex 0) = pure mempty
 getNoLongerRichmen newEpoch =
-    (\\) <$> getRichmen (newEpoch - 1)
-         <*> getRichmen newEpoch
+    HS.difference <$> getRichmen (newEpoch - 1) <*> getRichmen newEpoch
   where
-    getRichmen epoch = toList <$> getDlgRichmen "getNoLongerRichmen" epoch
+    getRichmen :: EpochIndex -> m RichmenSet
+    getRichmen = getDlgRichmen "getNoLongerRichmen"
 
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
@@ -336,7 +338,7 @@ dlgVerifyBlocks blocks = do
         prevThisEpochPosted <- getAllPostedThisEpoch
         mapM_ delThisEpochPosted prevThisEpochPosted
         noLongerRichmen <- lift $ lift $ getNoLongerRichmen blkEpoch
-        deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
+        deletedPSKs <- catMaybes <$> mapM getPsk (toList noLongerRichmen)
         -- We should delete all certs for people who are not richmen.
         let delFromCede = modPsk . DlgEdgeDel . addressHash . pskIssuerPk
         mapM_ delFromCede deletedPSKs
@@ -389,6 +391,7 @@ dlgVerifyBlocks blocks = do
                     (take 5 $ cyclePoints) -- should be enough
 
         mapM_ (addThisEpochPosted . addressHash) allIssuers
+
         pure $ DlgUndo toRollback mempty
 
 -- | Applies a sequence of definitely valid blocks to memory state and

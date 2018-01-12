@@ -14,6 +14,8 @@ import           Universum
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
+import           Data.Time.Units (Second)
+import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
 import           Servant.Server (err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 
@@ -60,11 +62,16 @@ newPayment
     -> InputSelectionPolicy
     -> m CTx
 newPayment passphrase srcAccount dstAddress coin policy =
-    sendMoney
-        passphrase
-        (AccountMoneySource srcAccount)
-        (one (dstAddress, coin))
-        policy
+    -- This is done for two reasons:
+    -- 1. In order not to overflow relay.
+    -- 2. To let other things (e. g. block processing) happen if
+    -- `newPayment`s are done continuously.
+    notFasterThan (6 :: Second) $
+      sendMoney
+          passphrase
+          (AccountMoneySource srcAccount)
+          (one (dstAddress, coin))
+          policy
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
@@ -73,7 +80,8 @@ newPaymentBatch
     -> m CTx
 newPaymentBatch passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
-    sendMoney
+    notFasterThan (6 :: Second) $
+      sendMoney
         passphrase
         (AccountMoneySource src)
         npbTo
@@ -205,3 +213,11 @@ sendMoney passphrase moneySource dstDistr policy = do
 
     logDebug "sendMoney: constructing response"
     fst <$> constructCTx srcWallet srcWalletAddrsDetector diff th
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+notFasterThan ::
+       (Mockable Concurrently m, Mockable Delay m) => Second -> m a -> m a
+notFasterThan time action = fst <$> concurrently action (delay time)

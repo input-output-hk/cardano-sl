@@ -13,7 +13,7 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
@@ -37,8 +37,8 @@ import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplyi
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, MonadWalletDBRead,
                                        addOnlyNewTxMetas, getHistoryCache, getPendingTx, getTxMeta,
                                        getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrs, getWalletAddrsSet)
+import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
+                                      getWalletAddrsSet)
 import           Servant.API.ContentTypes (NoContent (..))
 
 
@@ -96,7 +96,7 @@ getHistory cWalId accIds mAddrId = do
 
           Just addr
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
-            | otherwise                -> throw errorBadAddress
+            | otherwise                -> impureThrow errorBadAddress
 
     first filterFn <$> getFullWalletHistory cWalId
   where

@@ -5,7 +5,6 @@ module Pos.Util.Future
 
 import           Universum
 
-import           Control.Exception (throwIO)
 import           System.IO.Unsafe (unsafeInterleaveIO)
 
 data FutureError = FutureAlreadyFilled Text
@@ -38,4 +37,4 @@ newInitFuture name = do
     assertSingleAssignment :: Bool -> m' ()
     assertSingleAssignment = \case
         True -> pure ()
-        False -> liftIO $ throwIO (FutureAlreadyFilled name)
+        False -> liftIO $ throwM (FutureAlreadyFilled name)

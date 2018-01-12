@@ -19,7 +19,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLensesWith)
-import           Control.Monad.Catch (MonadMask)
 import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Crypto.Random (MonadRandom)
@@ -91,8 +90,8 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
 import           Pos.Wallet.Web.ClientTypes (AccountId, cadId)
-import           Pos.Wallet.Web.Methods (MonadWalletLogic, MonadConvertToAddr,
-                                         newAddress, AddrCIdHashes)
+import           Pos.Wallet.Web.Methods (AddrCIdHashes, MonadConvertToAddr, MonadWalletLogic,
+                                         newAddress)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,

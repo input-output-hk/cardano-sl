@@ -14,8 +14,8 @@ module Pos.Wallet.Web.Methods.Restore
 
 import           Universum
 
+import qualified Control.Exception.Safe as E
 import           Control.Lens (ix, traversed)
-import qualified Control.Monad.Catch as E
 import           Data.Default (Default (def))
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
@@ -143,7 +143,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 -- For debug purposes
 addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
-    E.handleAll wSetExistsHandler $ do
+    E.handleAny wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $

@@ -67,6 +67,7 @@ library
                       , memory
                       , resourcet
                       , rocksdb-haskell
+                      , safe-exceptions
                       , serokell-util
                       , servant-generic
                       , stm

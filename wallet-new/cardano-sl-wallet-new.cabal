@@ -56,6 +56,7 @@ library
                      , memory
                      , mtl
                      , network-uri
+                     , safe-exceptions
                      , servant
                      , servant-client
                      , servant-server
@@ -250,6 +251,7 @@ test-suite wallet-new-specs
                       , neat-interpolation
                       , quickcheck-instances
                       , memory
+                      , safe-exceptions
                       , serokell-util
                       , servant
                       , servant-quickcheck

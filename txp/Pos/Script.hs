@@ -19,8 +19,9 @@ module Pos.Script
 import           Universum hiding (lift)
 
 import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
-                                    Handler (..), PatternMatchFail (..), SomeException (..),
-                                    catches, displayException, throwIO)
+                                    PatternMatchFail (..))
+import           Control.Exception.Safe (Handler (..), SomeException (..), catches,
+                                         displayException)
 import           Control.Lens (_Left)
 import           Control.Monad.Error.Class (MonadError, throwError)
 import qualified Data.ByteArray as BA
@@ -158,13 +159,13 @@ stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of
 ----------------------------------------------------------------------------
 
 {-# INLINEABLE defaultHandles #-}
-defaultHandles :: [Handler (Either String a)]
+defaultHandles :: [Handler IO (Either String a)]
 defaultHandles =
     [ Handler $ \(x :: ArithException)   -> return (Left (displayException x))
     , Handler $ \(x :: ArrayException)   -> return (Left (displayException x))
     , Handler $ \(x :: ErrorCall)        -> return (Left (displayException x))
     , Handler $ \(x :: PatternMatchFail) -> return (Left (displayException x))
-    , Handler $ \(x :: SomeException)    -> throwIO x ]
+    , Handler $ \(x :: SomeException)    -> throwM x ]
 
 {-# INLINE spoon #-}
 spoon :: NFData a => a -> Either String a

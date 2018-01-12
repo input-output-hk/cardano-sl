@@ -38,7 +38,7 @@ import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
 import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
-import           Control.Exception (throw)
+import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -70,7 +70,7 @@ serialize' = BSL.toStrict . serialize
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
 unsafeDeserialize :: Bi a => BSL.ByteString -> a
-unsafeDeserialize = either throw identity . bimap fst fst . deserializeOrFail
+unsafeDeserialize = either impureThrow identity . bimap fst fst . deserializeOrFail
 
 -- | Strict variant of 'deserialize'.
 unsafeDeserialize' :: Bi a => BS.ByteString -> a

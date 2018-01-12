@@ -37,6 +37,7 @@ library
                      , parsec
                      , process
                      , quickcheck-instances
+                     , safe-exceptions
                      , semigroups
                      , serokell-util
                      , stm

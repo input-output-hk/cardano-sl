@@ -84,6 +84,7 @@ library
                      , data-default
                      , ether
                      , exceptions
+                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens

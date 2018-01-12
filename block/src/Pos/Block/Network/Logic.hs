@@ -23,7 +23,7 @@ module Pos.Block.Network.Logic
 import           Universum
 
 import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B

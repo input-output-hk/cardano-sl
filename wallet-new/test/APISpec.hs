@@ -10,14 +10,13 @@ module APISpec where
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Exception
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
 import           Pos.Communication (SendActions)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes(..))
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletState)
@@ -69,7 +68,7 @@ deleteReqShouldReturn204 = RequestPredicate $ \req mgr ->
          resp <- httpLbs req mgr
          let status = responseStatus resp
          when (statusIsSuccessful status && status /= status204) $
-           throw $ PredicateFailure "deleteReqShouldReturn204" (Just req) resp
+           throwM $ PredicateFailure "deleteReqShouldReturn204" (Just req) resp
          return [resp]
        else return []
 
@@ -84,7 +83,7 @@ putIdempotency = RequestPredicate $ \req mgr ->
          let body1 = responseBody resp1
          let body2 = responseBody resp2
          when (body1 /= body2) $
-           throw $ PredicateFailure "putIdempotency" (Just req) resp1
+           throwM $ PredicateFailure "putIdempotency" (Just req) resp1
          return [resp1, resp2]
        else return []
 
@@ -96,7 +95,7 @@ noEmptyBody = RequestPredicate $ \req mgr -> do
   let body   = responseBody resp
   let status = responseStatus resp
   when (status /= status204 && body == mempty) $
-    throw $ PredicateFailure "noEmptyBody" (Just req) resp
+    throwM $ PredicateFailure "noEmptyBody" (Just req) resp
   return [resp]
 
 -- | All the predicates we want to enforce in our API.

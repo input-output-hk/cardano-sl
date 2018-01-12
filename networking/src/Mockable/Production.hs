@@ -143,7 +143,7 @@ deriving instance Show FailException
 instance Exception.Exception FailException
 
 instance MonadFail Production where
-    fail = Production . Exception.throwIO . FailException
+    fail = Production . Exception.throwM . FailException
 
 instance MonadMask Production where
     mask act = Production $ mask $

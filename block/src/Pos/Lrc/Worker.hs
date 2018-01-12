@@ -12,8 +12,8 @@ module Pos.Lrc.Worker
 
 import           Universum
 
+import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
-import           Control.Monad.Catch (bracketOnError)
 import           Control.Monad.STM (retry)
 import           Data.Coerce (coerce)
 import           Data.Conduit (runConduitRes, (.|))

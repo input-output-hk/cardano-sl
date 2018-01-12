@@ -2756,6 +2756,8 @@ self: {
           pname = "case-insensitive";
           version = "1.2.0.10";
           sha256 = "66321c40fffb35f3a3188ba508753b74aada53fb51c822a9752614b03765306c";
+          revision = "1";
+          editedCabalFile = "153x2i7gw7lyhydlf0924vfxmkk53r65c40104bbha2bhp1vj7fi";
           libraryHaskellDepends = [
             base
             bytestring
@@ -5166,6 +5168,8 @@ self: {
           pname = "lifted-base";
           version = "0.2.3.11";
           sha256 = "8ec47a9fce7cf5913766a5c53e1b2cf254be733fa9d62e6e2f3f24e538005aab";
+          revision = "1";
+          editedCabalFile = "0vrik0j1xv2yp759ffa7jb7q838z4wglnbgsrja97mx0dwsbavnx";
           libraryHaskellDepends = [
             base
             monad-control

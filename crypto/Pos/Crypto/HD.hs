@@ -30,7 +30,7 @@ import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
 import           Universum
 
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull', serialize')
 import           Pos.Crypto.Scrypt (EncryptedPass)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
                                            checkPassMatches)
@@ -135,7 +135,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
               payload
     case unpackCF of
         Left _ -> Nothing
-        Right p -> case decodeFull p of
+        Right p -> case decodeFull' p of
             Left _ -> Nothing
             Right path -> pure path
 

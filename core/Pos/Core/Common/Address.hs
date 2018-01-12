@@ -158,7 +158,7 @@ decodeTextAddress = decodeAddress . encodeUtf8
     decodeAddress bs = do
         let base58Err = "Invalid base58 representation of address"
         dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-        Bi.decodeFull dbs
+        Bi.decodeFull' dbs
 
 ----------------------------------------------------------------------------
 -- Constructors

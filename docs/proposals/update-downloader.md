@@ -25,18 +25,19 @@ Let's assume that our software is called `csl-daedalus` for simplicty,
 because currently only this software uses this feature (automatic
 downloading of updates). There are the following requirements:
 1. If after processing a block an update proposal for `csl-daedalus`
-   becomes **confirmed** and it has an update for our `SystemTag`, we
-   should:
-   * Download the installer corresponding to this update proposal and
-     save it on disk so that it can be launched later. The URL to
-     download the installer is formed from the predefined template and
-     the hash of the installer.
-   * Verify the hash of the downloaded installer.
-   * Notify frontend about it (if previous steps are successful).
-  1.1. If we have already downloaded an update we can ignore all new
-  updates until the donwloaded one is installed (which happens on restart).
-  1.2. [Optional] Ideally we shouldn't ignore all new updates, but
-  instead generate newer update.
+   becomes **confirmed** and it has an update for our `SystemTag`:
+   * We should:
+      1. Download the installer corresponding to this update proposal and
+         save it on disk so that it can be launched later. The URL to
+         download the installer is formed from the predefined template and
+         the hash of the installer.
+      2. Verify the hash of the downloaded installer.
+      3. Notify frontend about it (if previous steps are successful).
+   
+   * If we have already downloaded an update we can ignore all new
+  updates until the downloaded one is installed (which happens on restart).
+   * [Optional] Ideally we shouldn't ignore all new updates, but
+  instead utilize newer update if it's possible. Though this one is questionable.
 2. If we process a lot of blocks and multiple update proposals get
    confirmed, only the last installer should be downloaded.
 3. It should be possible to specify multiple servers and if one fails
@@ -74,6 +75,7 @@ mode.
   know servers from which we can download the update and try them
   one-by-one until we download the installer. When we download it, we
   also check that its hash is the expected one.
+     * NB: Servers are provided via to node via command line
 * In the end we put information about downloaded update into `MVar`
   (`ucDownloadedUpdate`) and thus notify Daedalus.
 

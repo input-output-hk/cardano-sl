@@ -54,6 +54,8 @@ set -o pipefail
 # * Pass --no-nix or do `touch .no-nix` if you want builds without Nix.
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster.
+# * Pass --limit-ram-* if you want to limit memory used during building.
+#   Supported values: --limit-ram-2G, --limit-ram-4G, --limit-ram-6G.
 # * Pass -Werror or do `touch .Werror` if you want to compile with -Werror.
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
@@ -73,6 +75,9 @@ spec_prj=''
 
 no_nix=false
 ram=false
+limit_ram_2G=false
+limit_ram_4G=false
+limit_ram_6G=false
 prodMode=
 wallet=true
 explorer=true
@@ -115,6 +120,12 @@ do
   # --ram = use more RAM
   elif [[ $var == "--ram" ]]; then
     ram=true
+  elif [[ $var == "--limit-ram-2G" ]]; then
+    limit_ram_2G=true
+  elif [[ $var == "--limit-ram-4G" ]]; then
+    limit_ram_4G=true
+  elif [[ $var == "--limit-ram-6G" ]]; then
+    limit_ram_6G=true
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
@@ -253,7 +264,11 @@ fi
 
 if [[ $ram == true ]];
   then ghc_opts="$ghc_opts +RTS -A2G -n4m -RTS"
-  else ghc_opts="$ghc_opts +RTS -A256m -n2m -RTS"
+  else
+    if   [[ $limit_ram_2G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M2G -RTS"
+    elif [[ $limit_ram_4G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M4G -RTS"
+    elif [[ $limit_ram_6G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M6G -RTS"
+    fi
 fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'

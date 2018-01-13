@@ -57,7 +57,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              Wal, addrMetaToAccount, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Misc (MonadConvertToAddr, convertCIdTOAddr)
-import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
+import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
                                        MonadWalletDBRead, WalBalancesAndUtxo, addWAddress,
                                        createAccount, createWallet, doesAccountExist, getAccountIds,
@@ -141,7 +141,9 @@ getAccountMod
     -> AccountId
     -> m CAccount
 getAccountMod balAndUtxo accMod accId = do
-    dbAddrs    <- getAccountAddrsOrThrow Existing accId
+    dbAddrs <-
+        map adiCWAddressMeta . sortOn adiSortingKey <$>
+        getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>

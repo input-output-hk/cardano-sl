@@ -99,7 +99,7 @@ After that, in order to build Cardano SL with wallet capabilities, run the follo
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
-Dependecy version collisions have been encountered on macOS. If you run into something
+Dependency version collisions have been encountered on macOS. If you run into something
 [like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696),
 try running the following command from outside of a `nix-shell`
 
@@ -121,7 +121,7 @@ by yourself (see below).
 ### Install Stack
 
 [Stack](https://docs.haskellstack.org/en/stable/README/) is a cross-platform program
-for developing Haskell projects. 
+for developing Haskell projects.
 
 Recommended way, for all Unix-systems:
 
@@ -151,7 +151,7 @@ On macOS:
 
     $ brew install rocksdb
 
-### Jemalloc Notice 
+### Jemalloc Notice
 
 Please make sure that you have [jemalloc](http://jemalloc.net/) package, version `4.5.0`.
 If you have newer version of it - you will probably get linker errors during building.

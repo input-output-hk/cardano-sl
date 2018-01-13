@@ -34,6 +34,7 @@ module Pos.Util.Util
        , neZipWith3
        , neZipWith4
        , spanSafe
+       , takeLast
 
        -- * Misc
        , mconcatPair
@@ -47,6 +48,7 @@ module Pos.Util.Util
        , (<//>)
        , divRoundUp
        , sleep
+       , buildListBounds
 
        ) where
 
@@ -70,6 +72,7 @@ import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
+import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util.Exceptions ()
@@ -188,6 +191,10 @@ neZipWith4 f (x :| xs) (y :| ys) (i :| is) (z :| zs) = f x y i z :| zipWith4 f x
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
+-- | Takes last N elements of the list
+takeLast :: Int -> NonEmpty a -> [a]
+takeLast n = reverse . NE.take n . NE.reverse
+
 ----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
@@ -267,3 +274,7 @@ median l = NE.sort l NE.!! middle
 -}
 sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
+
+-- | Formats two values as first and last elements of a list
+buildListBounds :: (Buildable a, Buildable b) => F.Format r (a -> b -> r)
+buildListBounds = "[" F.% F.build F.% ".." F.% F.build F.% "]"

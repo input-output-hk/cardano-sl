@@ -22,7 +22,7 @@ import           Ether.Internal (HasLens (..))
 import           Formatting (build, builder, int, sformat, stext, (%))
 import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
@@ -46,7 +46,7 @@ import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Slotting.Util (getCurrentEpochSlotDuration)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
@@ -343,12 +343,13 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
                 logWarning msg
                 throwM $ DialogUnexpected msg
             Right blocks -> do
+                let hashes = getOldestFirst $ map headerHash blocks
                 logDebug $ sformat
-                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
                     (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader)
-                        (blocks ^. _OldestFirst & \x -> NE.head x : [NE.last x]))
+                    (NE.head hashes)
+                    (NE.last hashes)
                 handleBlocks nodeId blocks enqueue
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger

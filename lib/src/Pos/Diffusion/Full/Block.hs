@@ -53,7 +53,7 @@ import           Pos.Network.Types (Bucket)
 -- diffusion layer by way of the WorkMode constraint.
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), _NewestFirst)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
@@ -261,12 +261,13 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                 logWarning msg
                 throwM $ DialogUnexpected msg
             Right blocks -> do
+                let hashes = getNewestFirst $ map (headerHash . view blockHeader) blocks
                 logDebug $ sformat
-                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
                     (blocks ^. _NewestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader)
-                        (blocks ^. _NewestFirst & \x -> NE.head x : [NE.last x]))
+                    (NE.head hashes)
+                    (NE.last hashes)
                 return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are

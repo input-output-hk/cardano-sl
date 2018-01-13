@@ -28,7 +28,7 @@ import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Ether.Internal (lensOf)
-import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
+import           Formatting (Format (), bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
@@ -65,7 +65,7 @@ import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, takeLast, _neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
@@ -457,10 +457,12 @@ handleBlocks
     -> m ()
 handleBlocks nodeId blocks enqueue = do
     logDebug "handleBlocks: processing"
+    let hashes = getOldestFirst $ map headerHash blocks
     inAssertMode $
         logInfo $
-            sformat ("Processing sequence of blocks: " %listJson % "...") $
-                    fmap headerHash (blocks ^. _OldestFirst & \x -> NE.head x : [NE.last x])
+            sformat ("Processing sequence of blocks: " % buildListBounds % "...")
+                (NE.head hashes)
+                (NE.last hashes)
     maybe onNoLca (handleBlocksWithLca nodeId enqueue blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
@@ -493,9 +495,13 @@ applyWithoutRollback
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback enqueue blocks = do
-    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
-        fmap (view blockHeader) (blocks ^. _OldestFirst & \x ->
-            NE.take 3 x ++ (reverse . NE.take 3 . NE.reverse $ x))
+    let headers = getOldestFirst $ map (view blockHeader) blocks
+    let fmtString = "Trying to apply blocks w/o rollback." :: Format r r
+    if length headers <= 6
+    then logInfo $ sformat (fmtString%" "%listJson) headers
+    else logInfo $ sformat (fmtString%" First 3 headers: "%listJson%"\nLast 3 headers: "%listJson)
+        (NE.take 3 headers)
+        (takeLast 3 headers)
     modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
@@ -536,9 +542,13 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback nodeId enqueue toApply lca toRollback = do
-    logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson) $
-        fmap (view blockHeader) (toApply ^. _OldestFirst & \x ->
-            NE.take 3 x ++ (reverse . NE.take 3 . NE.reverse $ x))
+    let headers = getOldestFirst $ map (view blockHeader) toApply
+    let fmtString = "Trying to apply blocks w/ rollback." :: Format r r
+    if length headers <= 6
+    then logInfo $ sformat (fmtString%" "%listJson) headers
+    else logInfo $ sformat (fmtString%" First 3 headers: "%listJson%"\nLast 3 headers: "%listJson)
+        (NE.take 3 headers)
+        (takeLast 3 headers)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca

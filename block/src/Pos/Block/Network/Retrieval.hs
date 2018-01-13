@@ -347,7 +347,8 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
                     ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
                     (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader) blocks)
+                    (map (headerHash . view blockHeader)
+                        (blocks ^. _OldestFirst & \x -> NE.head x : [NE.last x]))
                 handleBlocks nodeId blocks enqueue
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger

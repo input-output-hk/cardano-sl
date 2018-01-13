@@ -265,7 +265,8 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                     ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
                     (blocks ^. _NewestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader) blocks)
+                    (map (headerHash . view blockHeader)
+                        (blocks ^. _NewestFirst & \x -> NE.head x : [NE.last x]))
                 return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are

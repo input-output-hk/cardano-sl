@@ -18,6 +18,7 @@ import           Unsafe (unsafeLast)
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
@@ -223,7 +224,8 @@ classifyHeaders inRecovery headers = do
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify tipHeader = runMaybeT $ do
         lift $ logDebug $
-            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
+            sformat ("Classifying headers: "%listJson) $
+                map (view headerHashG) (headers ^. _NewestFirst & \x -> NE.head x : [NE.last x])
         lca <-
             MaybeT . DB.getHeader =<<
             MaybeT (lcaWithMainChain $ toOldestFirst headers)

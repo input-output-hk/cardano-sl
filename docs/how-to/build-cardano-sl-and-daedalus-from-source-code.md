@@ -98,7 +98,7 @@ After that, in order to build Cardano SL with wallet capabilities, run the follo
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
-Dependecy version collisions have been encountered on macOS. If you run into something
+Dependency version collisions have been encountered on macOS. If you run into something
 [like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696),
 try running the following command from outside of a `nix-shell`
 

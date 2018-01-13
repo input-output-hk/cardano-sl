@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.State
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
+       , S.WalBalancesAndUtxo
        , askWalletDB
        , openState
        , openMemState

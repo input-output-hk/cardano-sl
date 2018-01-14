@@ -1,5 +1,10 @@
 # Contributors Guide
 
+## Discussion
+
+There is a gitter channel that has been created for this project. This is the place to discuss developments at a more conceptual level.
+The parent community can be found [here](https://gitter.im/cardano-dev) and the cardano-sl specific room can be found [here](https://gitter.im/cardano-dev/cardano-sl)
+
 ## Bug Reports
 
 Please [open an issue](https://github.com/input-output-hk/cardano-sl/issues/new)

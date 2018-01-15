@@ -56,6 +56,7 @@ let
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
+      cardano-sl-explorer = addGitRev super.cardano-sl-explorer;
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin
@@ -75,6 +76,7 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+        doHaddock = ! pkgs.lib.elem args.pname [ "bytestring-builder" "fail" "cardano-sl-explorer" ];
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;
@@ -152,7 +154,9 @@ let
     file dockerimage ${rawDockerImage}
     EOF
   '';
+  filter = key: value: (! pkgs.lib.elem key [ "applicative-quoters" "apply-refact" "cabal2nix" "cardano-sl-wallet-new" "ghc-proofs" "ghc-syb-utils" "hfsevents" "yesod-auth-oauth2" ]) && (value ? isHaskellLibrary);
   upstream = {
+    hoogle = pkgs.haskellPackages.hoogleLocal { packages = pkgs.lib.attrValues (pkgs.lib.filterAttrs filter cardanoPkgs); };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";

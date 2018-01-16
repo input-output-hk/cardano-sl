@@ -20,7 +20,6 @@ import           Universum
 
 import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Functor.Identity (Identity (..))
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGet, runPut)
@@ -59,7 +58,7 @@ cborCanonicalRep :: forall a. (Bi a, Show a) => a -> Property
 cborCanonicalRep a = counterexample (show a) . property $ do
     let sa = serialize a
     sa' <- R.serialise <$> perturbCanonicity (R.deserialise sa)
-    pure $ sa == sa' || isLeft (decodeFull @a $ BSL.toStrict sa')
+    pure $ sa == sa' || isLeft (decodeFull @a $ sa')
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =

@@ -36,6 +36,9 @@ module Pos.Core.Txp
        , txpTxs
        , txpWitnesses
 
+       -- * Verification
+       , mkTxPayloadMerkleTree
+
        -- * Undo
        , TxUndo
        , TxpUndo
@@ -252,11 +255,13 @@ instance Buildable TxProof where
 instance NFData TxProof
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
-mkTxProof :: Bi TxInWitness => TxPayload -> TxProof
+-- This will construct a merkle tree, which can be very expensive. Use with
+-- care. Bi constraints arise because we need to hash these things.
+mkTxProof :: (Bi Tx,  Bi TxInWitness) => TxPayload -> TxProof
 mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)
-    , txpRoot = mtRoot _txpTxs
+    , txpRoot = mtRoot (mkMerkleTree _txpTxs)
     , txpWitnessesHash = hash _txpWitnesses
     }
 
@@ -265,7 +270,7 @@ mkTxProof UnsafeTxPayload {..} =
 -- with different number of transactions and witnesses.
 data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
-      _txpTxs       :: !(MerkleTree Tx)
+      _txpTxs       :: ![Tx]
     , -- | Witnesses for each transaction. The length of this field is
       -- checked during deserialisation; we can't put witnesses into the same
       -- Merkle tree with transactions, as the whole point of SegWit is to
@@ -290,7 +295,12 @@ mkTxPayload txws = do
   where
     (txs, _txpWitnesses) =
             unzip . map (liftA2 (,) taTx taWitness) $ txws
-    _txpTxs = mkMerkleTree txs
+    _txpTxs = txs
+
+-- | Construct a merkle tree from the transactions in a 'TxPayload'
+-- Use with care; this can be very expensive.
+mkTxPayloadMerkleTree :: (Bi Tx) => TxPayload -> MerkleTree Tx
+mkTxPayloadMerkleTree UnsafeTxPayload {..} = mkMerkleTree _txpTxs
 
 ----------------------------------------------------------------------------
 -- Undo

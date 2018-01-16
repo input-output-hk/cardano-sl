@@ -1,4 +1,5 @@
--- | Settings used for global transactions data processing.
+-- | Logic for global processing of transactions.
+-- Global transaction is a transaction which has already been added to the blockchain.
 
 module Pos.Txp.Logic.Global
        ( txpGlobalSettings

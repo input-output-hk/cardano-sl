@@ -126,7 +126,7 @@ instance Buildable ToilVerFailure where
         bprint ("we are in bootstrap era, but some addresses have distribution"%
                 " which is not 'BootstrapEraDistr': "%listJson) addresses
     build ToilRepeatedInput =
-        "transaction tries to spent an unspent input more than once"
+        "transaction tries to spend an unspent input more than once"
     build (ToilUnknownInput inpId txIn) =
        bprint ("vtcVerifyAllIsKnown is True, but the input #"%int%" "%build%" is unknown") inpId txIn
 

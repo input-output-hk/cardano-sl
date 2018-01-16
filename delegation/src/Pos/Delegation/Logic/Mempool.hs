@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Heavy PSK processing, in-mem state and
--- mempool-related functions.
+-- | Heavy PSK processing, in-memory state and mempool-related functions.
 
 module Pos.Delegation.Logic.Mempool
        (

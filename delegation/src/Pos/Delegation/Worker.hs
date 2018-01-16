@@ -1,4 +1,4 @@
--- | Workers for delegation logic
+-- | Workers for delegation logic.
 
 module Pos.Delegation.Worker
        ( dlgWorkers

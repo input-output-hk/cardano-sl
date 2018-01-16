@@ -35,9 +35,9 @@ import           Pos.Util.Util ()
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData
     { esdSlotDuration :: !Millisecond
-    -- ^ Slot duration actual for given epoch.
+    -- ^ Slot duration for a specific epoch.
     , esdStartDiff    :: !TimeDiff
-    -- ^ Difference between epoch start and system start time
+    -- ^ Difference between epoch start and system start time.
     } deriving (Eq, Show, Generic)
 
 instance NFData EpochSlottingData

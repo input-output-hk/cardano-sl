@@ -90,9 +90,11 @@ testConnStatus = forAll arbitrary $ \(as :: [Bool]) ->
       let ns :: [NodeId_]
           ns = map nodeId_ $ concat nss
       let expected :: M.Map NodeId_ OutQ.ConnectionStatus
-          expected = M.fromList
-            $ zip ns
-            $ map (\noErr -> if noErr then OutQ.Connected else OutQ.ConnectionBroken) as
+          expected = M.union
+            (M.fromList
+                $ zip ns
+                $ map (\noErr -> if noErr then OutQ.Connected else OutQ.ConnectionBroken) as)
+            (M.fromList $ map ((,OutQ.NotConnected) . nodeId_ . nodeId) (tail allNodes))
 
       checkConnections expected sendingNode
 

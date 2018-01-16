@@ -29,7 +29,7 @@ import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 
-import           Pos.Binary (decodeFull)
+import           Pos.Binary (decodeFull')
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
@@ -210,7 +210,7 @@ sendTxsFromFile
     -> FilePath
     -> m ()
 sendTxsFromFile diffusion txsFile = do
-    liftIO (BS.readFile txsFile) <&> decodeFull >>= \case
+    liftIO (BS.readFile txsFile) <&> decodeFull' >>= \case
         Left err -> throwM (AuxxException err)
         Right txs -> sendTxs txs
   where

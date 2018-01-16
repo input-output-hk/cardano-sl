@@ -28,11 +28,11 @@ import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Ether.Internal (lensOf)
-import           Formatting (Format (), bprint, build, builder, int, sformat, shown, stext, (%))
+import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
+import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Txp ()
@@ -495,13 +495,7 @@ applyWithoutRollback
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback enqueue blocks = do
-    let headers = getOldestFirst $ map (view blockHeader) blocks
-    let fmtString = "Trying to apply blocks w/o rollback." :: Format r r
-    if length headers <= 6
-    then logInfo $ sformat (fmtString%" "%listJson) headers
-    else logInfo $ sformat (fmtString%" First 3 headers: "%listJson%"\nLast 3 headers: "%listJson)
-        (NE.take 3 headers)
-        (takeLast 3 headers)
+    logBounds 6 "Trying to apply blocks w/o rollback." . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
@@ -542,13 +536,7 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback nodeId enqueue toApply lca toRollback = do
-    let headers = getOldestFirst $ map (view blockHeader) toApply
-    let fmtString = "Trying to apply blocks w/ rollback." :: Format r r
-    if length headers <= 6
-    then logInfo $ sformat (fmtString%" "%listJson) headers
-    else logInfo $ sformat (fmtString%" First 3 headers: "%listJson%"\nLast 3 headers: "%listJson)
-        (NE.take 3 headers)
-        (takeLast 3 headers)
+    logBounds 6 "Trying to apply blocks w/ rollback." . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
@@ -633,3 +621,18 @@ blocksRolledBackMsg
     => NonEmpty a -> Text
 blocksRolledBackMsg =
     sformat ("Blocks have been rolled back: "%listJson) . fmap (headerHash @a)
+
+-- | Logs only start and the end of the list according to the maximum size
+logBounds :: (WithLogger m, Buildable a) => Int -> Text -> NonEmpty a -> m ()
+logBounds maxSize fmtString xs = if length xs <= maxSize'
+    then logInfo $ sformat (stext%" "%listJson) fmtString xs
+    else logInfo $ sformat (stext%" First "%int%": "%listJson%"\nLast "%int%": "%listJson)
+        fmtString
+        half
+        (NE.take half xs)
+        remaining
+        (takeLast remaining xs)
+ where
+   maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
+   half = maxSize' `div` 2
+   remaining = maxSize' - half

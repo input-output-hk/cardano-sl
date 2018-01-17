@@ -17,7 +17,6 @@ import           Formatting (Format, format, mapf, text, (%))
 import qualified NeatInterpolation as NI (text)
 import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
                                       info, infoOption, long, metavar, option, progDesc, short)
-import           Options.Applicative.Types (readerAsk)
 import           System.Exit (ExitCode (ExitFailure))
 import           System.FilePath (normalise, takeFileName, (<.>), (</>))
 import qualified System.PosixCompat as PosixCompat
@@ -25,7 +24,7 @@ import           System.Process (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
-import           Pos.Util (directory, ls, withTempDir)
+import           Pos.Util (directory, ls, textOption, withTempDir)
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text
@@ -49,8 +48,6 @@ optionsParser = do
         <> metavar "PATH"
         <> help    "Path to output .tar-file with diff."
     pure UpdateGenOptions{..}
-    where
-      textOption = option (toText <$> readerAsk)
 
 getUpdateGenOptions :: IO UpdateGenOptions
 getUpdateGenOptions = execParser programInfo

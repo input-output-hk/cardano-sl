@@ -15,6 +15,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl (version)
 import           Pos.Aeson.Genesis (fromAvvmPk)
 import           Pos.Core (makeRedeemAddress)
+import           Pos.Util (textOption)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)
@@ -28,8 +29,6 @@ optionsParser = do
         <> help    "Address to convert. It must be in base64(url) format."
         <> metavar "STRING"
     return AddrConvertOptions{..}
-    where
-      textOption = option (toText <$> readerAsk)
 
 getAddrConvertOptions :: IO AddrConvertOptions
 getAddrConvertOptions = execParser programInfo

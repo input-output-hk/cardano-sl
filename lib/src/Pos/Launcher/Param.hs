@@ -49,21 +49,22 @@ data BaseParams = BaseParams
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
-    { npDbPathM        :: !(Maybe FilePath)     -- ^ Path to node's database
-    , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
-    , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
-    , npUserSecret     :: !UserSecret           -- ^ All node secret keys
-    , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
-    , npReportServers  :: ![Text]               -- ^ List of report server URLs
-    , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
-    , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
-    , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
-    , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
-    , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
-    , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
-    , npNetworkConfig  :: !(NetworkConfig KademliaParams)
-    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
+    { npDbPathM            :: !(Maybe FilePath)     -- ^ Path to node's database
+    , npRebuildDb          :: !Bool                 -- ^ @True@ if data-base should be rebuilt
+    , npSecretKey          :: !SecretKey            -- ^ Primary secret key of node
+    , npUserSecret         :: !UserSecret           -- ^ All node secret keys
+    , npBaseParams         :: !BaseParams           -- ^ See 'BaseParams'
+    , npJLFile             :: !(Maybe FilePath)     -- TODO COMMENT
+    , npReportServers      :: ![Text]               -- ^ List of report server URLs
+    , npUpdateParams       :: !UpdateParams         -- ^ Params for update system
+    , npUseNTP             :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
+    , npRoute53Params      :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
+    , npEnableMetrics      :: !Bool                 -- ^ Gather runtime statistics.
+    , npEkgParams          :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
+    , npStatsdParams       :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
+    , npNetworkConfig      :: !(NetworkConfig KademliaParams)
+    , npBehaviorConfig     :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
+    , npBlockStorageMirror :: !(Maybe Text)         -- ^ URL for a mirror that stores epochs in *.cbor.lzma format.
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

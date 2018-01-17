@@ -343,13 +343,11 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
                 logWarning msg
                 throwM $ DialogUnexpected msg
             Right blocks -> do
-                let hashes = getOldestFirst $ map headerHash blocks
                 logDebug $ sformat
                     ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
                     (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (NE.head hashes)
-                    (NE.last hashes)
+                    (getOldestFirst $ map headerHash blocks)
                 handleBlocks nodeId blocks enqueue
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger

@@ -261,13 +261,11 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                 logWarning msg
                 throwM $ DialogUnexpected msg
             Right blocks -> do
-                let hashes = getNewestFirst $ map (headerHash . view blockHeader) blocks
                 logDebug $ sformat
                     ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
                     (blocks ^. _NewestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (NE.head hashes)
-                    (NE.last hashes)
+                    (getNewestFirst $ map headerHash blocks)
                 return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are

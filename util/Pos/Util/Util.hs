@@ -36,6 +36,10 @@ module Pos.Util.Util
        , spanSafe
        , takeLast
 
+       -- * Logging helpers
+       , buildListBounds
+       , multilineBounds
+
        -- * Misc
        , mconcatPair
        , microsecondsToUTC
@@ -48,7 +52,6 @@ module Pos.Util.Util
        , (<//>)
        , divRoundUp
        , sleep
-       , buildListBounds
 
        ) where
 
@@ -75,6 +78,7 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
+import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog (LoggerName, logError, usingLoggerName)
 
@@ -196,6 +200,35 @@ takeLast :: Int -> NonEmpty a -> [a]
 takeLast n = reverse . NE.take n . NE.reverse
 
 ----------------------------------------------------------------------------
+-- Logging helpers
+----------------------------------------------------------------------------
+
+-- | Formats two values as first and last elements of a list
+buildListBounds :: Buildable a => F.Format r (NonEmpty a -> r)
+buildListBounds = F.later formatList
+  where
+    formatList (x:|[]) = F.bprint ("[" F.% F.build F.% "]") x
+    formatList xs = F.bprint ("[" F.% F.build F.% ".." F.% F.build F.% "]")
+        (NE.head xs)
+        (NE.last xs)
+
+-- | Formats only start and the end of the list according to the maximum size
+multilineBounds :: Buildable a => Int -> F.Format r (NonEmpty a -> r)
+multilineBounds maxSize = F.later formatList
+ where
+   formatList xs = if length xs <= maxSize'
+       then F.bprint listJson xs
+       else F.bprint
+          ("First " F.% F.int F.% ": " F.% listJson F.% "\nLast " F.% F.int F.% ": " F.% listJson)
+          half
+          (NE.take half xs)
+          remaining
+          (takeLast remaining xs)
+   maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
+   half = maxSize' `div` 2
+   remaining = maxSize' - half
+
+----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
 
@@ -274,7 +307,3 @@ median l = NE.sort l NE.!! middle
 -}
 sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
-
--- | Formats two values as first and last elements of a list
-buildListBounds :: (Buildable a, Buildable b) => F.Format r (a -> b -> r)
-buildListBounds = "[" F.% F.build F.% ".." F.% F.build F.% "]"

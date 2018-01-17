@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Block verification, application, and rollback.
+-- | Block verification, application, and rollback: processing of SSC-related payload.
+
 module Pos.Ssc.Logic.VAR
        (
          sscVerifyBlocks

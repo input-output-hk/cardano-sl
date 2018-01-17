@@ -1,4 +1,4 @@
--- | Module for safe (zero-memory) signing
+-- | Module for safe (zero-memory) signing.
 
 module Pos.Crypto.Signing.Safe
        ( changeEncPassphrase
@@ -34,8 +34,8 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
--- | Regerates secret key with new passphrase.
--- Note: This operation remains corresponding public key and derived (child) keys unchanged.
+-- | Regenerates secret key with new passphrase.
+-- Note: This operation keeps corresponding public key and derived (child) keys unchanged.
 changeEncPassphrase
     :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase

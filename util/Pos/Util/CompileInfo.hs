@@ -61,7 +61,7 @@ retrieveCompileTimeInfo = do
         lookupEnv "GITREV" >>= maybe retrieveFromGitExecutable pure
     retrieveFromGitExecutable :: IO String
     retrieveFromGitExecutable = do
-        (exitCode,output,_) <-
+        (exitCode, output, _) <-
             readProcessWithExitCode "git" ["rev-parse", "--verify", "--short", "HEAD"] ""
         pure $ case exitCode of
             ExitSuccess -> output

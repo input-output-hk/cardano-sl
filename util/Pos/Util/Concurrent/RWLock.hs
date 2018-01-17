@@ -1,4 +1,4 @@
--- | 'Control.Corcurrenc.ReadWriteLock' reimport, lifted.
+-- | 'Control.Concurrent.ReadWriteLock' reimport, lifted.
 
 module Pos.Util.Concurrent.RWLock
        ( RWLock

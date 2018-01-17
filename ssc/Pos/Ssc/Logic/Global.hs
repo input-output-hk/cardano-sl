@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
+-- | Thin wrapper around `calculateSeed` used in LRC worker.
+
 module Pos.Ssc.Logic.Global
        (
        -- * Seed

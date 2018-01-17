@@ -1,6 +1,7 @@
-{-| An implementation of VSS (wrapping over pvss).
-    For more details see <https://github.com/input-output-hk/pvss-haskell>.
--}
+-- | Wrappers around functions from pvss-haskell which implement a
+-- Verifiable Secret Sharing (VSS) algorithm called Scrape.
+--
+-- For more details see <https://github.com/input-output-hk/pvss-haskell>.
 
 module Pos.Crypto.SecretSharing
        ( -- * Keys and related.

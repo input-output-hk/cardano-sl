@@ -260,6 +260,7 @@ executable cardano-addr-convert
                      , ansi-wl-pprint
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , neat-interpolation
                      , optparse-applicative
                      , text

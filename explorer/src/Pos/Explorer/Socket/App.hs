@@ -48,9 +48,9 @@ import           Pos.Explorer.Socket.Holder (ConnectionsState, ConnectionsVar, a
 import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..), Subscription (..),
                                               finishSession, getBlockTxs, getBlundsFromTo,
                                               getTxInfo, notifyAddrSubscribers,
-                                              notifyBlocksLastPageSubscribers, notifyEpochsLastPageSubscribers,
-                                              notifyTxsSubscribers, startSession,
-                                              subscribeAddr, subscribeBlocksLastPage,
+                                              notifyBlocksLastPageSubscribers,
+                                              notifyEpochsLastPageSubscribers, notifyTxsSubscribers,
+                                              startSession, subscribeAddr, subscribeBlocksLastPage,
                                               subscribeEpochsLastPage, subscribeTxs,
                                               unsubscribeAddr, unsubscribeBlocksLastPage,
                                               unsubscribeEpochsLastPage, unsubscribeTxs)

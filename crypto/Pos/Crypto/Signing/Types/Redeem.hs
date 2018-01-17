@@ -82,8 +82,6 @@ redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey 
 -- | Read the text into a redeeming public key. The key should be in
 -- AVVM format which is base64(url). This function must be inverse of
 -- redeemPkB64UrlF formatter.
---
--- There's also a copy of this function in cardano-addr-convert.
 fromAvvmPk :: (MonadFail m) => Text -> m RedeemPublicKey
 fromAvvmPk addrText = do
     let base64rify = T.replace "-" "+" . T.replace "_" "/"

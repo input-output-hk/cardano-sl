@@ -61,17 +61,35 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
 -- SecretSharing
 ----------------------------------------------------------------------------
 
-#define BiPvss(T, PT) \
-  instance Bi T where {\
-    encode = encodeBinary ;\
-    decode = decodeBinary };\
-  deriving instance Bi PT ;\
+instance Bi Scrape.PublicKey where
+    encode = encodeBinary
+    decode = decodeBinary
 
-BiPvss (Scrape.PublicKey, C.VssPublicKey)
-BiPvss (Scrape.KeyPair, C.VssKeyPair)
-BiPvss (Scrape.Secret, C.Secret)
-BiPvss (Scrape.DecryptedShare, C.DecShare)
-BiPvss (Scrape.EncryptedSi, C.EncShare)
+deriving instance Bi C.VssPublicKey
+
+instance Bi Scrape.KeyPair where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.VssKeyPair
+
+instance Bi Scrape.Secret where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.Secret
+
+instance Bi Scrape.DecryptedShare where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.DecShare
+
+instance Bi Scrape.EncryptedSi where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.EncShare
 
 instance Bi Scrape.ExtraGen where
     encode = encodeBinary

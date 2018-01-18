@@ -40,7 +40,6 @@ import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, 
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)
@@ -54,10 +53,10 @@ import           Pos.Ssc.Configuration (HasSscConfiguration, mdNoCommitmentsEpoc
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.Logic (sscGarbageCollectLocalData, sscProcessCertificate,
                                 sscProcessCommitment, sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..), SscMessageConstraints, SscTag (..))
 import           Pos.Ssc.Mode (SscMode)
-import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import qualified Pos.Ssc.SecretStorage as SS
 import           Pos.Ssc.Shares (getOurShares)
 import           Pos.Ssc.State (getGlobalCerts, getStableCerts, sscGetGlobalState)
@@ -77,9 +76,7 @@ sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
 
 shouldParticipate :: (SscMode ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do
-    richmen <- lrcActionOnEpochReason epoch
-        "couldn't get SSC richmen"
-        getRichmenSsc
+    richmen <- getSscRichmen "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
         atomically . readTVar . scParticipateSsc
     ourId <- getOurStakeholderId
@@ -315,8 +312,7 @@ generateAndSetNewSecret
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
 generateAndSetNewSecret sk SlotId {..} = do
-    richmen <-
-        lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
+    richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
     certs <- getStableCerts siEpoch
     inAssertMode $ do
         let participantIds =

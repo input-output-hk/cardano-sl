@@ -22,7 +22,6 @@ library
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc
-                       Pos.Delegation.RichmenComponent
                        Pos.Delegation.Types
                        Pos.Delegation.Worker
 

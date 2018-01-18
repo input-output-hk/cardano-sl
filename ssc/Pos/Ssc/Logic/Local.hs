@@ -42,10 +42,9 @@ import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Lrc (getSscRichmenFromLrc)
+import           Pos.Ssc.Lrc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
                               sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
-import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
                                execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
@@ -104,7 +103,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipHeader
-    richmenData <- getSscRichmenFromLrc "sscNormalize" tipEpoch
+    richmenData <- getSscRichmen "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
@@ -238,7 +237,7 @@ sscProcessData tag payload =
         bvd <- gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         seed <- Rand.drgNew
-        getRichmenSsc epoch >>= \case
+        tryGetSscRichmen epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
                 gs <- sscRunGlobalQuery ask

@@ -59,13 +59,13 @@ import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborE
 -- The output is represented as a lazy 'BSL.ByteString' and is constructed
 -- incrementally.
 serialize :: Bi a => a -> BSL.ByteString
-serialize = CBOR.Write.toLazyByteString . encode
+serialize = serializeWith 1024 4096
 
 -- | Serialize a Haskell value to an external binary representation.
 --
 -- The output is represented as a strict 'BS.ByteString'.
 serialize' :: Bi a => a -> BS.ByteString
-serialize' = BSL.toStrict . serializeWith 1024 4096
+serialize' = BSL.toStrict . serialize
 
 -- | Serialize into a Builder. Useful if you want to throw other ByteStrings
 -- around it.

@@ -14,13 +14,15 @@ module Test.Pos.Cbor.CborSpec
 
 import           Universum
 
+import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString as BS
 import           Data.Fixed (Nano)
 import           Data.Tagged (Tagged)
 import           Data.Time.Units (Microsecond, Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
-import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, pendingWith, shouldBe)
+import           System.FileLock (FileLock)
+import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -30,6 +32,7 @@ import qualified Codec.CBOR.FlatTerm as CBOR
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Block.Message ()
 import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -42,6 +45,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
+import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
 import qualified Pos.Communication.Relay as R
 import           Pos.Communication.Types.Relay (DataMsg (..))
@@ -50,8 +54,10 @@ import qualified Pos.Core.Block as BT
 import           Pos.Core.Common (ScriptVersion)
 import qualified Pos.Core.Ssc as Ssc
 import qualified Pos.Crypto as Crypto
+import           Pos.Crypto.Hashing (WithHash)
+import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Delegation (DlgPayload)
+import           Pos.Delegation (DlgPayload, DlgUndo)
 import qualified Pos.DHT.Model as DHT
 import           Pos.Merkle (MerkleTree)
 import           Pos.Slotting.Types (SlottingData)
@@ -61,6 +67,7 @@ import qualified Pos.Update as U
 import           Pos.Util (SmallGenerator)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.QuickCheck.Property (expectationError)
+import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
@@ -364,33 +371,11 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
             describe "Lib/core instances" $ do
                 binaryTest @(Attributes X1)
                 binaryTest @(Attributes X2)
+                brokenDisabled $ binaryTest @UserSecret
+                binaryTest @WalletUserSecret
+                binaryTest @EncryptedSecretKey
+                binaryTest @(WithHash ARecord)
 
-                -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
-                it "UserSecret" $ pendingWith "No Eq instance defined"
-                it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-                pendingNoArbitrary "Undo"
-                pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
-                pendingNoArbitrary "DataMsg UpdateVote"
-                pendingNoArbitrary "MsgGetHeaders"
-                pendingNoArbitrary "MsgGetBlocks"
-                pendingNoArbitrary "WithHash"
-                pendingNoArbitrary "Pvss.PublicKey"
-                pendingNoArbitrary "Pvss.KeyPair"
-                pendingNoArbitrary "Pvss.Secret"
-                pendingNoArbitrary "Pvss.DecryptedShare"
-                pendingNoArbitrary "Pvss.EncryptedShare"
-                pendingNoArbitrary "Pvss.Proof"
-                pendingNoArbitrary "Ed25519.PointCompressed"
-                pendingNoArbitrary "Ed25519.Scalar"
-                pendingNoArbitrary "Ed25519.Signature"
-                pendingNoArbitrary "CC.ChainCode"
-                pendingNoArbitrary "CC.XPub"
-                pendingNoArbitrary "CC.XPrv"
-                pendingNoArbitrary "CC.XSignature"
-                pendingNoArbitrary "EdStandard.PublicKey"
-                pendingNoArbitrary "EdStandard.SecretKey"
-                pendingNoArbitrary "EdStandard.Signature"
-                pendingNoArbitrary "EncryptedSecretKey"
             describe "Primitive instances" $ do
                 binaryTest @()
                 binaryTest @Bool
@@ -458,6 +443,9 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
               msgLenLimitedTest @T.VssCertificate
         describe "Block types" $ do
             describe "Bi instances" $ do
+                describe "Undo" $ do
+                    binaryTest @BT.SlogUndo
+                    binaryTest @BT.Undo
                 describe "Block network types" $ do
                     describe "MsgGetHeaders" $
                         binaryTest @BT.MsgGetHeaders
@@ -547,6 +535,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
         describe "Delegation types" $ do
             describe "Bi instances" $ do
                 binaryTest @DlgPayload
+                binaryTest @DlgUndo
             describe "Network" $ do
                 binaryTest @(DataMsg T.ProxySKHeavy)
         describe "Slotting types" $ do
@@ -603,6 +592,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                     binaryTest @T.TxAux
                     binaryTest @T.TxProof
                     binaryTest @(SmallGenerator T.TxPayload)
+                    binaryTest @T.TxpUndo
                 describe "Network" $ do
                     binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
                     binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
@@ -660,5 +650,15 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                     msgLenLimitedTest @(R.DataMsg U.UpdateVote)
                     -- msgLenLimitedTest @U.UpdateProposal
 
-pendingNoArbitrary :: String -> Spec
-pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
+instance {-# OVERLAPPING #-} Arbitrary (Maybe FileLock) where
+    arbitrary = pure Nothing
+
+-- | This instance is unsafe, as it allows a timing attack. But it's OK for
+-- tests.
+instance Eq CC.XPrv where
+    (==) = (==) `on` CC.unXPrv
+
+-- | Mark a test case as broken. The intended use is for tests that are
+-- themselves valid, but the code they're testing turned out to be buggy.
+brokenDisabled :: Monad m => m a -> m ()
+brokenDisabled _ = return ()

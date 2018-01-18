@@ -21,6 +21,8 @@ import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Pure as T
+import           Pos.Block.Slog.Types (SlogUndo)
+import           Pos.Block.Types (Undo (..))
 import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
@@ -402,3 +404,15 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }
         return . HAndP $ (params, header)
+
+------------------------------------------------------------------------
+-- Pos.Block.Slog.Types
+------------------------------------------------------------------------
+
+instance Arbitrary SlogUndo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance HasConfiguration => Arbitrary Undo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

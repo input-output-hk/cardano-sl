@@ -34,6 +34,11 @@ module Pos.Util.Util
        , neZipWith3
        , neZipWith4
        , spanSafe
+       , takeLastNE
+
+       -- * Logging helpers
+       , buildListBounds
+       , multilineBounds
 
        -- * Misc
        , mconcatPair
@@ -70,8 +75,10 @@ import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
+import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
+import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog (LoggerName, logError, usingLoggerName)
 
@@ -187,6 +194,39 @@ neZipWith4 f (x :| xs) (y :| ys) (i :| is) (z :| zs) = f x y i z :| zipWith4 f x
 -- depends on the first element.
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
+
+-- | Takes last N elements of the list
+takeLastNE :: Int -> NonEmpty a -> [a]
+takeLastNE n = reverse . NE.take n . NE.reverse
+
+----------------------------------------------------------------------------
+-- Logging helpers
+----------------------------------------------------------------------------
+
+-- | Formats two values as first and last elements of a list
+buildListBounds :: Buildable a => F.Format r (NonEmpty a -> r)
+buildListBounds = F.later formatList
+  where
+    formatList (x:|[]) = F.bprint ("[" F.% F.build F.% "]") x
+    formatList xs = F.bprint ("[" F.% F.build F.% ".." F.% F.build F.% "]")
+        (NE.head xs)
+        (NE.last xs)
+
+-- | Formats only start and the end of the list according to the maximum size
+multilineBounds :: Buildable a => Int -> F.Format r (NonEmpty a -> r)
+multilineBounds maxSize = F.later formatList
+ where
+   formatList xs = if length xs <= maxSize'
+       then F.bprint listJson xs
+       else F.bprint
+          ("First " F.% F.int F.% ": " F.% listJson F.% "\nLast " F.% F.int F.% ": " F.% listJson)
+          half
+          (NE.take half xs)
+          remaining
+          (takeLastNE remaining xs)
+   maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
+   half = maxSize' `div` 2
+   remaining = maxSize' - half
 
 ----------------------------------------------------------------------------
 -- Misc

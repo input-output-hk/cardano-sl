@@ -65,7 +65,7 @@ import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, multilineBounds, _neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
@@ -457,10 +457,9 @@ handleBlocks
     -> m ()
 handleBlocks nodeId blocks enqueue = do
     logDebug "handleBlocks: processing"
-    inAssertMode $
-        logInfo $
-            sformat ("Processing sequence of blocks: " %listJson % "...") $
-                    fmap headerHash blocks
+    inAssertMode $ logInfo $
+        sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
+            getOldestFirst $ map headerHash blocks
     maybe onNoLca (handleBlocksWithLca nodeId enqueue blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
@@ -493,8 +492,8 @@ applyWithoutRollback
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback enqueue blocks = do
-    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
-        fmap (view blockHeader) blocks
+    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+       . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
@@ -535,8 +534,8 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback nodeId enqueue toApply lca toRollback = do
-    logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
-        (map (view blockHeader) toApply)
+    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+       . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca

@@ -65,7 +65,7 @@ options = hsubparser
 parseOptions :: IO Options
 parseOptions = execParser $ info (options <**> helper)
     (  fullDesc
-    <> progDesc "analyzes the json logs from several directories or focusses on a single transaction"
+    <> progDesc "analyzes the json logs from several directories or focuses on a single transaction"
     <> header "cardano-post-mortem"
     )
 

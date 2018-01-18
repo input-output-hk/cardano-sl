@@ -274,7 +274,7 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
 -- It was deleted because of possible deadlock. This worker may start
 -- doing LRC and try to acquire 'StateLock' while another thread may
 -- hold 'StateLock' for block processing and try to start LRC.  So if
--- you are going to uncomment it at some point, please take it into
+-- you are going to bring it back at some point, please take it into
 -- account.  One way to avoid locking here is to do CSL-360, i. e. use
 -- snapshot instead of locking.
 --

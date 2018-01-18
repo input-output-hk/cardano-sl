@@ -63,6 +63,7 @@ import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFi
 import           Paths_cardano_sl_infra (version)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -72,7 +73,6 @@ import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers 
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Filesystem (withSystemTempFile)
 import           Pos.Util.Util (maybeThrow, (<//>))
-
 
 ----------------------------------------------------------------------------
 -- General purpose/low level
@@ -380,7 +380,7 @@ reportOrLog
     :: forall ctx m . (MonadReporting ctx m)
     => Severity -> Text -> SomeException -> m ()
 reportOrLog severity prefix exc =
-    case tryCast @CardanoFatalError <|> tryCast @ErrorCall of
+    case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
         Nothing  -> logMessage severity $ prefix <> pretty exc
   where

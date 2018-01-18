@@ -30,7 +30,7 @@ import           Mockable (MonadMockable, Production (..), async, cancel, killTh
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
-                       simpleNodeEndPoint)
+                       nodeConnectionTimeouts, simpleNodeEndPoint)
 import qualified Node.Conversation as N (Conversation, Converse, converseWith)
 import           Node.Util.Monitor (registerMetrics)
 import           Pos.System.Metrics.Constants (cardanoNamespace)
@@ -47,7 +47,7 @@ import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), M
                                     VerInfo (..), allListeners, bipPacking, hoistSendActions,
                                     makeEnqueueMsg, makeSendActions)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
+import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeouts)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (BlockVersionData)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
@@ -277,7 +277,10 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
             VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins $ outs <> wouts
         mkListeners' theirVerInfo =
             mkListeners mkL' ourVerInfo theirVerInfo
-        nodeEnv = defaultNodeEnvironment { nodeAckTimeout = conversationEstablishTimeout }
+        nodeEnv = defaultNodeEnvironment
+            { nodeAckTimeout = conversationEstablishTimeout
+            , nodeConnectionTimeouts = networkConnectionTimeouts
+            }
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \__node ->

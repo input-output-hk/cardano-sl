@@ -13,6 +13,7 @@
 {-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Node.Internal (
@@ -57,8 +58,11 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Foldable (foldl', foldlM)
 import           Data.Hashable (Hashable)
 import           Data.Int (Int64)
+import           Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NE
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid
 import           Data.NonEmptySet (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
@@ -111,6 +115,8 @@ data NodeState peerData m = NodeState {
     , _nodeStateClosed             :: !Bool
       -- ^ Indicates whether the Node has been closed and is no longer capable
       --   of establishing or accepting connections (its EndPoint is closed).
+    , _nodeStateTimeouts           :: !(Map NodeId Microsecond)
+      -- ^ Timeouts per EndPoint in microseconds
     }
 
 
@@ -134,6 +140,7 @@ initialNodeState prng = do
             , _nodeStateConnectedTo = Map.empty
             , _nodeStateStatistics = stats
             , _nodeStateClosed = False
+            , _nodeStateTimeouts = Map.empty
             }
     newSharedAtomic nodeState
 
@@ -160,18 +167,21 @@ makeSomeHandler promise = do
     return $ SomeHandler tid promise
 
 data NodeEnvironment (m :: * -> *) = NodeEnvironment {
-      nodeAckTimeout :: !Microsecond
+      nodeAckTimeout         :: !Microsecond
       -- | Maximum transmission unit: how many bytes can be sent in a single
       --   network-transport send. Tune this according to the transport
       --   which backs the time-warp node.
-    , nodeMtu        :: !Word32
+    , nodeMtu                :: !Word32
+    , nodeConnectionTimeouts :: !(NonEmpty Microsecond)
     }
 
 defaultNodeEnvironment :: NodeEnvironment m
 defaultNodeEnvironment = NodeEnvironment {
       -- 30 second timeout waiting for an ACK.
-      nodeAckTimeout = 30000000
-    , nodeMtu        = maxBound
+      nodeAckTimeout         = 30000000
+    , nodeMtu                = maxBound
+      -- 15 second timeout when establishing a connection
+    , nodeConnectionTimeouts = 15000000 NE.:| []
     }
 
 -- | Computation in m of a delay (or no delay).
@@ -1570,6 +1580,9 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
 --   other connections to that peer. Subsequent connections to that peer
 --   will block until the peer-data is sent; it must be the first thing to
 --   arrive when the first lightweight connection to a peer is opened.
+--   In case of 'ConnectTimeout' error, increase the timeout for the target
+--   node, otherwise remove it from the '_nodeStateTimeouts', so next time the
+--   smallest value is used.
 connectToPeer
     :: forall packingType peerData m r .
        ( MonadMask m
@@ -1674,18 +1687,44 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
     establish = bracketWithException startConnecting finishConnecting doConnection
 
+
     doConnection _ = do
+        let connectionTimeouts = nodeConnectionTimeouts nodeEnvironment
+        timeouts <- readSharedAtomic nodeState >>= return . _nodeStateTimeouts
+        -- Timeout for connecting with the 'nid' node
+        let timeout = fromMaybe (NE.head connectionTimeouts) (Map.lookup nid timeouts)
         mconn <- NT.connect nodeEndPoint
                            peer
                            NT.ReliableOrdered
-                           -- TODO give a timeout. Can't rely on it being set at
-                           -- the transport level.
-                           NT.ConnectHints{ connectTimeout = Nothing }
+                           NT.ConnectHints{ connectTimeout = Just (fromIntegral timeout) }
 
         case mconn of
-            -- Throwing the error will induce the bracket resource releaser
-            Left err   -> throwM err
-            Right conn -> return conn
+            -- In case of 'ConnectTimeout' error increase the timeout interavl for
+            -- this node.
+            Left err@(NT.TransportError NT.ConnectTimeout _) -> do
+                modifySharedAtomic nodeState $ \state@NodeState {..} -> do
+                    let timeout = maybe
+                            (NE.head connectionTimeouts)
+                            (next connectionTimeouts)
+                            (Map.lookup nid timeouts) 
+                    let stateTimeouts = Map.alter (const $ Just timeout) nid _nodeStateTimeouts
+                    return (state { _nodeStateTimeouts = stateTimeouts }, ())
+                throwM err
+            Left err   -> do
+                -- Throwing the error will induce the bracket resource releaser
+                throwM err
+            Right conn -> do
+                -- Reset timeout, so the next time we are connecting to this
+                -- node we will use the smallest value.
+                modifySharedAtomic nodeState $ \state@NodeState {..} -> do
+                    let stateTimeouts = Map.delete nid _nodeStateTimeouts
+                    return (state { _nodeStateTimeouts = stateTimeouts }, ())
+                return conn
+
+    -- Get the next value after the given one which must belong to the non empty
+    -- list.  If 'a' is the last element return it.
+    next :: forall a. Ord a => NonEmpty a -> a -> a
+    next as a = last $ take 2 $ NE.filter (>= a) as
 
     -- Update the OutboundConnectionState at this peer to no longer show
     -- this connection as coming up, and fill the shared exclusive if it's

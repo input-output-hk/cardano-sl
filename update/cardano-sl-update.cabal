@@ -34,7 +34,6 @@ library
                        Pos.Update.Download
                        Pos.Update.Lrc
                        Pos.Update.Mode
-                       Pos.Update.RichmenComponent
                        Pos.Update.Worker
 
                        -- Logic

@@ -46,7 +46,6 @@ library
     Pos.Ssc.Shares
     Pos.Ssc.DB
     Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic

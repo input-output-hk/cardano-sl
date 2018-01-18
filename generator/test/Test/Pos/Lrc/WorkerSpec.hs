@@ -152,9 +152,9 @@ lrcCorrectnessProp = do
 
 checkRichmen :: HasConfigurations => BlockProperty ()
 checkRichmen = do
-    checkRichmenStakes =<< getRichmen (lift . Lrc.getRichmenSsc)
-    checkRichmenFull =<< getRichmen (lift . Lrc.getRichmenUS)
-    checkRichmenSet =<< getRichmen (lift . Lrc.getRichmenDlg)
+    checkRichmenStakes =<< getRichmen (lift . Lrc.tryGetSscRichmen)
+    checkRichmenFull =<< getRichmen (lift . Lrc.tryGetUSRichmen)
+    checkRichmenSet =<< getRichmen (lift . Lrc.tryGetDlgRichmen)
   where
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe

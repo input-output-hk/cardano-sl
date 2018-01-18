@@ -11,15 +11,15 @@ module Pos.Lrc.DB.Richmen
        -- * Concrete instances
        -- ** Ssc
        , RCSsc
-       , getRichmenSsc
+       , tryGetSscRichmen
 
        -- ** US
        , RCUs
-       , getRichmenUS
+       , tryGetUSRichmen
 
        -- ** Delegation
        , RCDlg
-       , getRichmenDlg
+       , tryGetDlgRichmen
 
        -- * Exported for tests
        , richmenComponents
@@ -34,15 +34,15 @@ import           Pos.Core (Coin, HasConfiguration, ProxySKHeavy, StakeholderId, 
                            gdHeavyDelegation, genesisData, unGenesisDelegation)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
-import           Pos.Delegation.RichmenComponent (RCDlg, getRichmenDlg)
+import           Pos.Delegation.Lrc (RCDlg, tryGetDlgRichmen)
 import           Pos.Lrc.DB.RichmenBase (getRichmenP, putRichmenP)
 import           Pos.Lrc.Logic (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..), SomeRichmenComponent (..),
                                            someRichmenComponent)
 import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Ssc.RichmenComponent (RCSsc, getRichmenSsc)
+import           Pos.Ssc.Lrc (RCSsc, tryGetSscRichmen)
 import           Pos.Txp.GenesisUtxo (genesisStakes)
-import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
+import           Pos.Update.Lrc (RCUs, tryGetUSRichmen)
 
 ----------------------------------------------------------------------------
 -- Initialization

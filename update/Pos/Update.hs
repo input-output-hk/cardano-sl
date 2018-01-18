@@ -14,7 +14,6 @@ module Pos.Update
        , module Pos.Update.Network
        , module Pos.Update.Params
        , module Pos.Update.Poll
-       , module Pos.Update.RichmenComponent
        , module Pos.Update.Worker
        ) where
 
@@ -32,5 +31,4 @@ import           Pos.Update.Mode
 import           Pos.Update.Network
 import           Pos.Update.Params
 import           Pos.Update.Poll
-import           Pos.Update.RichmenComponent
 import           Pos.Update.Worker

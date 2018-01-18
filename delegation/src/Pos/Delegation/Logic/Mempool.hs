@@ -37,9 +37,9 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.RichmenComponent (getRichmenDlg)
+import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
@@ -147,11 +147,7 @@ processProxySKHeavyInternal psk = do
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
-    richmen <-
-        lrcActionOnEpochReason
-        headEpoch
-        "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
-        getRichmenDlg
+    richmen <- getDlgRichmen "Delegation.Logic#processProxySKHeavy" headEpoch
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let consistent = verifyPsk psk
         iPk = pskIssuerPk psk

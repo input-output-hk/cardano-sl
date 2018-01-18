@@ -34,7 +34,7 @@ module Pos.Util.Util
        , neZipWith3
        , neZipWith4
        , spanSafe
-       , takeLast
+       , takeLastNE
 
        -- * Logging helpers
        , buildListBounds
@@ -196,8 +196,8 @@ spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
 
 -- | Takes last N elements of the list
-takeLast :: Int -> NonEmpty a -> [a]
-takeLast n = reverse . NE.take n . NE.reverse
+takeLastNE :: Int -> NonEmpty a -> [a]
+takeLastNE n = reverse . NE.take n . NE.reverse
 
 ----------------------------------------------------------------------------
 -- Logging helpers
@@ -223,7 +223,7 @@ multilineBounds maxSize = F.later formatList
           half
           (NE.take half xs)
           remaining
-          (takeLast remaining xs)
+          (takeLastNE remaining xs)
    maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
    half = maxSize' `div` 2
    remaining = maxSize' - half

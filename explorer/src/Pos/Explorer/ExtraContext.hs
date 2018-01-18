@@ -30,7 +30,7 @@ import           Pos.Core.Block (Block)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 
-import           Pos.Explorer.DB (Epoch, Page, getPageBlocks, getEpochBlocks, getEpochPages)
+import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages, getPageBlocks)
 
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration, HeaderHash, SlotId (..),
                            SlotLeaders, Timestamp, isRedeemAddress)
@@ -49,8 +49,8 @@ runExtraContextT :: Monad m => ExtraContext -> ExtraContextT m a -> m a
 runExtraContextT = flip Ether.runReaderT
 
 data ExtraContext = ExtraContext
-    { ecAddressCoinPairs     :: GenesisRedeemAddressInfo
-    , ecExplorerMockableMode :: ExplorerMockableMode
+    { ecAddressCoinPairs     :: !GenesisRedeemAddressInfo
+    , ecExplorerMockableMode :: !ExplorerMockableMode
     }
 
 makeExtraCtx :: HasConfiguration => ExtraContext

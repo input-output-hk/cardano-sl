@@ -44,7 +44,7 @@ The deriving of public key can be performed using just a public key of a parent 
 Derivation is done using `deriveHDPublicKey`.
 
 It's not allowed to derive a public key from parent public key for
-indicies which are greater than or equal to 2³¹:
+indices which are greater than or equal to 2³¹:
 for these indicies parent secret key is required.
 This feature is called "hardened derivation":
 

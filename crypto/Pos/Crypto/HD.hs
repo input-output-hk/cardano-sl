@@ -1,5 +1,5 @@
 -- | Hierarchical derivation interface.
--- This module provides basic operations under HD wallets.
+-- This module provides basic operations with HD wallets.
 -- You can read HD wallets overall description in docs/hd.md.
 
 module Pos.Crypto.HD

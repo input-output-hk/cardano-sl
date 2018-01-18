@@ -1,7 +1,20 @@
 -- | Aeson instances for GenesisSpec and related datatypes.
 
 module Pos.Aeson.Genesis
-       ( fromAvvmPk
+       (
+        -- * FromJSONKey RedeemPublicKey
+        -- * FromJSON
+        -- ** GenesisAvvmBalances
+        -- ** GenesisWStakeholders
+        -- ** GenesisNonAvvmBalances
+        -- ** VssCertificatesMap
+        -- ** GenesisVssCertificatesMap
+        -- ** GenesisDelegation
+        -- ** FakeAvvmOptions
+        -- ** TestnetBalanceOptions
+        -- ** GenesisInitializer
+        -- ** ProtocolConstants
+        -- ** GenesisSpec
        ) where
 
 import           Universum

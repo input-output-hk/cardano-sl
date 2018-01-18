@@ -1,4 +1,5 @@
 -- | Signing done with public/private keys.
+
 module Pos.Crypto.Signing.Types.Signing
        (
        -- * Keys

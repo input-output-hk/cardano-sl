@@ -33,8 +33,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Arbitrary.Crypto ()
-import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVarInt (..),
-                                   UnsignedVarInt (..))
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
@@ -573,11 +571,6 @@ instance Arbitrary Second where
 
 deriving instance Arbitrary Types.Timestamp
 deriving instance Arbitrary Types.TimeDiff
-
-deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
-deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
-deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
-deriving instance Arbitrary TinyVarInt
 
 ----------------------------------------------------------------------------
 -- SSC

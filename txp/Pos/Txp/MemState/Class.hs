@@ -9,13 +9,14 @@ module Pos.Txp.MemState.Class
        , TxpHolderTag
        , getUtxoModifier
        , getLocalTxsNUndo
-       , getMemPool
+       , getMemPoolSnapshot
        , getLocalTxs
        , getLocalTxsMap
        , getTxpExtra
        , modifyTxpLocalData
        , setTxpLocalData
        , clearTxpMemPool
+       , MemPoolSnapshot
        ) where
 
 import           Universum
@@ -28,7 +29,7 @@ import           Ether.Internal         (HasLens (..))
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
-import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
+import           Pos.Txp.Toil.Types     (MemPool (..), UndoMap, UtxoModifier)
 
 data TxpHolderTag
 
@@ -38,6 +39,14 @@ type MonadTxpMem ext ctx m
        , HasLens TxpHolderTag ctx (GenericTxpLocalData ext)
        )
 
+-- A 'MemPoolSnapshot' bundles together 3 key piece of information which will otherwise go out of sync
+-- if fetched at separated times, due to the fact they are stored in a separate TVar each.
+data MemPoolSnapshot = MemPoolSnapshot {
+      mpsMemPool      :: MemPool
+    , mpsUndoMap      :: UndoMap
+    , mpsUtxoModifier :: UtxoModifier
+    }
+
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
 askTxpMem = view (lensOf @TxpHolderTag)
 
@@ -46,32 +55,25 @@ getTxpLocalData
     => (GenericTxpLocalData e -> STM.STM a) -> m a
 getTxpLocalData getter = askTxpMem >>= \ld -> atomically (getter ld)
 
-getUtxoModifier
-    :: (MonadTxpMem e ctx m, MonadIO m)
-    => m UtxoModifier
-getUtxoModifier = getTxpLocalData (STM.readTVar . txpUtxoModifier)
+getUtxoModifier :: MemPoolSnapshot -> UtxoModifier
+getUtxoModifier MemPoolSnapshot{..} = mpsUtxoModifier
 
-getLocalTxsMap
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m (HashMap TxId TxAux)
-getLocalTxsMap = _mpLocalTxs <$> getMemPool
+getLocalTxsMap :: MemPoolSnapshot -> HashMap TxId TxAux
+getLocalTxsMap = _mpLocalTxs . mpsMemPool
 
-getLocalTxs
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m [(TxId, TxAux)]
-getLocalTxs = HM.toList <$> getLocalTxsMap
+getLocalTxs :: MemPoolSnapshot -> [(TxId, TxAux)]
+getLocalTxs = HM.toList . getLocalTxsMap
 
-getLocalTxsNUndo
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m ([(TxId, TxAux)], HashMap TxId TxUndo)
-getLocalTxsNUndo =
-    getTxpLocalData $ \TxpLocalData {..} ->
-        (,) <$>
-        (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>
-        STM.readTVar txpUndos
+getLocalTxsNUndo :: MemPoolSnapshot -> ([(TxId, TxAux)], HashMap TxId TxUndo)
+getLocalTxsNUndo MemPoolSnapshot{..} = (HM.toList $ _mpLocalTxs mpsMemPool, mpsUndoMap)
 
-getMemPool :: (MonadIO m, MonadTxpMem e ctx m) => m MemPool
-getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
+-- | Reads the 'MemPoolSnapshot'. This is the only function which we allow to fetch the
+-- 'MemPool' directly. All the other are pure functions which accepts a 'MemPoolSnapshot' as input.
+getMemPoolSnapshot :: (MonadIO m, MonadTxpMem e ctx m) => m MemPoolSnapshot
+getMemPoolSnapshot = getTxpLocalData (\gld -> MemPoolSnapshot <$> STM.readTVar (txpMemPool gld)
+                                                              <*> STM.readTVar (txpUndos gld)
+                                                              <*> STM.readTVar (txpUtxoModifier gld)
+                                     )
 
 getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)

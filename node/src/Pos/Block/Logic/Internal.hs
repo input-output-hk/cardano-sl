@@ -58,7 +58,7 @@ import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormal
                                           sscRollbackBlocks)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.Core            (TxPayload)
-import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.MemState        (MonadTxpMem, getMemPoolSnapshot)
 import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Context      (UpdateContext)
 import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
@@ -135,14 +135,15 @@ normalizeMempool
     :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
     => m ()
 normalizeMempool = do
+    mps <- getMemPoolSnapshot
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
     sscNormalize @ssc
 #ifdef WITH_EXPLORER
-    eTxNormalize
+    eTxNormalize mps
 #else
-    txNormalize
+    txNormalize mps
 #endif
     usNormalize
 

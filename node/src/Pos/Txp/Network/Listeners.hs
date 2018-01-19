@@ -28,9 +28,8 @@ import           Pos.Explorer.Txp.Local    (eTxProcessTransaction)
 #else
 import           Pos.Txp.Logic             (txProcessTransaction)
 #endif
-import           Pos.Txp.MemState          (getMemPool)
+import           Pos.Txp.MemState          (getLocalTxsMap, getMemPoolSnapshot)
 import           Pos.Txp.Network.Types     (TxMsgContents (..))
-import           Pos.Txp.Toil.Types        (MemPool (..))
 import           Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
 import           Pos.Util.TimeWarp         (CanJsonLog (..))
 import           Pos.WorkMode.Class        (WorkMode)
@@ -48,9 +47,9 @@ txInvReqDataParams =
   where
     txContentsToKey = pure . Tagged . hash . taTx . getTxMsgContents
     txHandleInv (Tagged txId) =
-        not . HM.member txId  . _mpLocalTxs <$> getMemPool
+        not . HM.member txId  . getLocalTxsMap <$> getMemPoolSnapshot
     txHandleReq (Tagged txId) =
-        fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+        fmap TxMsgContents . HM.lookup txId . getLocalTxsMap <$> getMemPoolSnapshot
     txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
 txRelays
@@ -58,7 +57,7 @@ txRelays
     => [Relay m]
 txRelays = pure $
     InvReqData (KeyMempool (Proxy :: Proxy TxMsgContents)
-                           (map tag . HM.keys . _mpLocalTxs <$> getMemPool)) $
+                           (map tag . HM.keys . getLocalTxsMap <$> getMemPoolSnapshot)) $
                txInvReqDataParams
   where
     tag = tagWith (Proxy :: Proxy TxMsgContents)
@@ -70,11 +69,12 @@ handleTxDo
     :: WorkMode ssc ctx m
     => TxAux -> m Bool
 handleTxDo txAux = do
+    memPoolSnapshot <- getMemPoolSnapshot
     let txId = hash (taTx txAux)
 #ifdef WITH_EXPLORER
-    res <- eTxProcessTransaction (txId, txAux)
+    res <- eTxProcessTransaction memPoolSnapshot (txId, txAux)
 #else
-    res <- txProcessTransaction (txId, txAux)
+    res <- txProcessTransaction memPoolSnapshot (txId, txAux)
 #endif
     let json me = jsonLog $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId

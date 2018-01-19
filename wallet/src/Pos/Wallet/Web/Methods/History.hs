@@ -25,6 +25,7 @@ import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
+import           Pos.Txp.MemState.Class     (MemPoolSnapshot, getMemPoolSnapshot)
 import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
@@ -45,14 +46,16 @@ import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAc
 
 getFullWalletHistory :: MonadWalletWebMode m
                      => WalletSnapshot
-                     -> CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
-getFullWalletHistory ws cWalId = do
+                     -> MemPoolSnapshot
+                     -> CId Wal
+                     -> m (Map TxId (CTx, POSIXTime), Word)
+getFullWalletHistory ws mps cWalId = do
     logDebug "getFullWalletHistory: start"
 
     cAddrs <- getWalletAddrs ws Ever cWalId
     addrs <- convertCIdTOAddrs cAddrs
 
-    unfilteredLocalHistory <- getLocalHistory addrs
+    unfilteredLocalHistory <- getLocalHistory mps addrs
 
     blockHistory <- case getHistoryCache ws cWalId of
         Just hist -> pure hist
@@ -92,6 +95,7 @@ getHistory
     -> Maybe (CId Addr)
     -> m (Map TxId (CTx, POSIXTime), Word)
 getHistory ws cWalId accIds mAddrId = do
+    mp <- getMemPoolSnapshot
     -- FIXME: searching when only AddrId is provided is not supported yet.
     accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
     let allAccIds = getWalletAccountIds ws cWalId
@@ -108,7 +112,7 @@ getHistory ws cWalId accIds mAddrId = do
             | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
             | otherwise                -> throw errorBadAddress
 
-    res <- first filterFn <$> getFullWalletHistory ws cWalId
+    res <- first filterFn <$> getFullWalletHistory ws mp cWalId
     logDebug "getHistory: filtered transactions"
     return res
   where

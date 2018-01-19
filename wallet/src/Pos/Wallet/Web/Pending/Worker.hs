@@ -27,6 +27,7 @@ import           Pos.Core                          (ChainDifficulty (..), SlotId
 import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
+import           Pos.Txp.MemState.Class            (MemPoolSnapshot, getMemPoolSnapshot)
 import           Pos.Util.LogSafe                  (logInfoS)
 import           Pos.Util.Chrono                   (getOldestFirst)
 import           Pos.Wallet.SscType                (WalletSscType)
@@ -64,12 +65,17 @@ processPtxInNewestBlocks ws PendingTx{..} = do
      longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
          ptxDiff + depth <= tipDiff
 
-resubmitTx :: MonadPendings m => SendActions m -> WalletSnapshot -> PendingTx -> m ()
-resubmitTx SendActions{..} ws ptx =
+resubmitTx :: MonadPendings m
+           => SendActions m
+           -> WalletSnapshot
+           -> MemPoolSnapshot
+           -> PendingTx
+           -> m ()
+resubmitTx SendActions{..} ws mps ptx =
     handleAll (\_ -> pass) $ do
         logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
-        submitAndSavePtx submissionH enqueueMsg ptx
+        submitAndSavePtx mps submissionH enqueueMsg ptx
         updateTiming
   where
     reportNextCheckTime =
@@ -85,12 +91,16 @@ resubmitTx SendActions{..} ws ptx =
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
     :: MonadPendings m
-    => SendActions m -> WalletSnapshot -> [PendingTx] -> m ()
-resubmitPtxsDuringSlot sendActions ws ptxs = do
+    => SendActions m
+    -> WalletSnapshot
+    -> MemPoolSnapshot
+    -> [PendingTx]
+    -> m ()
+resubmitPtxsDuringSlot sendActions ws mps ptxs = do
     interval <- evalSubmitDelay (length ptxs)
     forM_ ptxs $ \ptx -> do
         delay interval
-        fork $ resubmitTx sendActions ws ptx
+        fork $ resubmitTx sendActions ws mps ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -101,8 +111,13 @@ resubmitPtxsDuringSlot sendActions ws ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings m
-    => SendActions m -> WalletSnapshot -> SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit sendActions ws curSlot ptxs = do
+    => SendActions m
+    -> WalletSnapshot
+    -> MemPoolSnapshot
+    -> SlotId
+    -> [PendingTx]
+    -> m ()
+processPtxsToResubmit sendActions ws mps curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take ptxsPerSlotLimit $
@@ -112,7 +127,7 @@ processPtxsToResubmit sendActions ws curSlot ptxs = do
     unless (null toResubmit) $
         logInfo $ "We are going to resubmit some transactions"
     logInfoS $ sformat fmt (map _ptxTxId toResubmit)
-    resubmitPtxsDuringSlot sendActions ws toResubmit
+    resubmitPtxsDuringSlot sendActions ws mps toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
@@ -128,22 +143,28 @@ processPtxsToResubmit sendActions ws curSlot ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings m
-    => SendActions m -> WalletSnapshot -> SlotId -> [PendingTx] -> m ()
-processPtxs sendActions ws curSlot ptxs = do
+    => SendActions m
+    -> WalletSnapshot
+    -> MemPoolSnapshot
+    -> SlotId
+    -> [PendingTx]
+    -> m ()
+processPtxs sendActions ws mps curSlot ptxs = do
     mapM_ (processPtxInNewestBlocks ws) ptxs
 
     if walletTxCreationDisabled
     then logDebug "Transaction resubmission is disabled"
-    else processPtxsToResubmit sendActions ws curSlot ptxs
+    else processPtxsToResubmit sendActions ws mps curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings m
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
-    ws <- getWalletSnapshot
+    ws  <- getWalletSnapshot
+    mps <- getMemPoolSnapshot
     let ptxs = getPendingTxs ws
     let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
-    processPtxs sendActions ws curSlot sortedPtxs
+    processPtxs sendActions ws mps curSlot sortedPtxs
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.

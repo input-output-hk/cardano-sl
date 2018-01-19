@@ -21,6 +21,7 @@ import           Pos.Client.Txp.Util        (InputSelectionPolicy (..),
                                              PendingAddresses (..), isCheckedTxError)
 import           Pos.Core.Types             (Coin)
 import           Pos.Txp                    (TxOut (..), TxOutAux (..))
+import           Pos.Txp.MemState.Class     (MemPoolSnapshot)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
@@ -55,8 +56,9 @@ coinDistrToOutputs distr = do
 -- by the time of resubmission.
 submitAndSaveNewPtx
     :: MonadWalletWebMode m
-    => EnqueueMsg m -> PendingTx -> m ()
-submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
+    => MemPoolSnapshot -> EnqueueMsg m -> PendingTx -> m ()
+submitAndSaveNewPtx mps enqueue pendingTx = do
+    submitAndSavePtx mps ptxFirstSubmissionHandler enqueue pendingTx
 
 -- | With regard to tx creation policy which is going to be used,
 -- get addresses which are refered by some yet unconfirmed transaction outputs.

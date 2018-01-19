@@ -38,7 +38,7 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import qualified Data.Map.Strict              as M (lookup, insert, fromList)
+import qualified Data.Map.Strict              as M (fromList, insert, lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
@@ -75,6 +75,7 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                flattenTxPayload, genesisUtxo, getLocalTxs,
                                                runDBToil, topsortTxs, txOutAddress,
                                                unGenesisUtxo, utxoGet)
+import           Pos.Txp.MemState             (MemPoolSnapshot)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -206,8 +207,8 @@ class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
         :: SscHelpersClass ssc
         => [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
-        :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: (TxId, TxAux) -> m ()
+        :: MemPoolSnapshot -> [Address] -> m (Map TxId TxHistoryEntry)
+    saveTx :: MemPoolSnapshot -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
@@ -216,11 +217,11 @@ class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
-        => [Address] -> m (Map TxId TxHistoryEntry)
-    getLocalHistory = lift . getLocalHistory
+        => MemPoolSnapshot -> [Address] -> m (Map TxId TxHistoryEntry)
+    getLocalHistory m = lift . getLocalHistory m
 
-    default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => (TxId, TxAux) -> m ()
-    saveTx = lift . saveTx
+    default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => MemPoolSnapshot -> (TxId, TxAux) -> m ()
+    saveTx m = lift . saveTx m
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
@@ -271,23 +272,23 @@ getBlockHistoryDefault addrs = do
 
 getLocalHistoryDefault
     :: forall ctx m. TxHistoryEnv ctx m
-    => [Address] -> m (Map TxId TxHistoryEntry)
-getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
+    => MemPoolSnapshot -> [Address] -> m (Map TxId TxHistoryEntry)
+getLocalHistoryDefault mempoolSnapshot addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
             (WithHash taTx txid, taWitness)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
-    ltxs <- lift $ map mapper <$> getLocalTxs
+    let ltxs = map mapper (getLocalTxs mempoolSnapshot)
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ txs
 
-saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
-saveTxDefault txw = do
+saveTxDefault :: TxHistoryEnv ctx m => MemPoolSnapshot -> (TxId, TxAux) -> m ()
+saveTxDefault mps txw = do
 #ifdef WITH_EXPLORER
-    res <- eTxProcessTransaction txw
+    res <- eTxProcessTransaction mps txw
 #else
-    res <- txProcessTransaction txw
+    res <- txProcessTransaction mps txw
 #endif
     eitherToThrow res
 

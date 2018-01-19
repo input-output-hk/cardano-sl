@@ -15,6 +15,8 @@ module Pos.Txp.Toil.Types
        , MemPool (..)
        , mpLocalTxs
        , mpSize
+       -- * Mempool-related helpers
+       , getOutputAddresses
        , TxMap
        , StakesView (..)
        , svStakes
@@ -39,6 +41,8 @@ import           Control.Lens           (makeLenses, makePrisms, makeWrapped)
 import           Data.Default           (Default, def)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.Map               as M (lookup, member, toList)
+import           Data.Set               (Set)
+import qualified Data.Set               as S
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
@@ -46,7 +50,8 @@ import           Serokell.Util.Text     (mapBuilderJson)
 import           Pos.Core               (Address, Coin, GenesisWStakeholders,
                                          StakeholderId, StakesMap, unsafeAddCoin,
                                          unsafeSubCoin)
-import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
+import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, TxIn,
+                                         TxOut (txOutAddress), TxOutAux (..), TxUndo,
                                          txOutStake, _TxOut)
 import qualified Pos.Util.Modifier      as MM
 
@@ -125,6 +130,13 @@ instance Default MemPool where
         { _mpLocalTxs = mempty
         , _mpSize     = 0
         }
+
+-- | Gets all the output addresses from the 'Mempool'
+getOutputAddresses :: MemPool -> Set Address
+getOutputAddresses MemPool{..} = HM.foldl' foldFunction S.empty _mpLocalTxs
+  where
+    foldFunction :: Set Address -> TxAux -> Set Address
+    foldFunction x (TxAux (UnsafeTx _ outputs _) _) = (S.fromList . map txOutAddress . toList $ outputs) `S.union` x
 
 ----------------------------------------------------------------------------
 -- UtxoModifier, UndoMap and AddrCoinsMap

@@ -29,9 +29,10 @@ import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotSta
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
 import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
-                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
-                                         modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MemPoolSnapshot,
+                                         MonadTxpMem, getLocalTxsMap, getTxpExtra,
+                                         getUtxoModifier, modifyTxpLocalData,
+                                         setTxpLocalData)
 import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
                                          ToilT, ToilVerFailure (..), Utxo, runDBToil,
                                          runDBToil, runToilTLocalExtra, utxoGet,
@@ -94,14 +95,14 @@ instance MonadTxExtraRead EProcessTxMode where
 eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, MonadMask m,
         HasLens' ctx StateLock, HasLens' ctx StateLockMetrics)
-    => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransaction itw =
-    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
+    => MemPoolSnapshot -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransaction mps itw =
+    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock mps itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)
-    => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+    => MemPoolSnapshot -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+eTxProcessTransactionNoLock mps itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
@@ -118,8 +119,8 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
-    localUM <- lift getUtxoModifier
     bvd <- gsAdoptedBVData
+    let localUM = getUtxoModifier mps
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
@@ -216,15 +217,15 @@ eTxNormalize ::
        ( ETxpLocalWorkMode ctx m
        , MonadSlots ctx m
        )
-    => m ()
-eTxNormalize = getCurrentSlot >>= \case
+    => MemPoolSnapshot -> m ()
+eTxNormalize memPoolSnapshot = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
         setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
-        localTxs <- getLocalTxsMap
+        let localTxs = getLocalTxsMap memPoolSnapshot
         extra <- getTxpExtra
         let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
         let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras

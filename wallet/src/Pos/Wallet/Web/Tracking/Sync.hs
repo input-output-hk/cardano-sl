@@ -79,7 +79,7 @@ import           Pos.Txp                          (GenesisUtxo (..), Tx (..), Tx
                                                    TxUndo, flattenTxPayload, genesisUtxo,
                                                    toaOut, topsortTxs, txOutAddress,
                                                    utxoToModifier)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
+import           Pos.Txp.MemState.Class           (MemPoolSnapshot, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
@@ -94,8 +94,8 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
-                                                   CustomAddressType (..), WalletTip (..),
-                                                   WalletSnapshot, WebWalletModeDB)
+                                                   CustomAddressType (..), WalletSnapshot,
+                                                   WalletTip (..), WebWalletModeDB)
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    deleteAndInsertIMM, deleteAndInsertMM,
@@ -116,7 +116,6 @@ type BlockLockMode ssc ctx m =
 type WalletTrackingEnv ext ctx m =
      ( BlockLockMode WalletSscType ctx m
      , WebWalletModeDB ctx m
-     , MonadTxpMem ext ctx m
      , WS.MonadWalletWebDB ctx m
      , MonadSlotsData ctx m
      , WithLogger m
@@ -127,14 +126,17 @@ syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState @WalletSscType . one
 
 txMempoolToModifier :: WalletTrackingEnv ext ctx m
-                    => WalletSnapshot -> EncryptedSecretKey -> m CAccModifier
-txMempoolToModifier ws encSK = do
+                    => WalletSnapshot
+                    -> MemPoolSnapshot
+                    -> EncryptedSecretKey
+                    -> m CAccModifier
+txMempoolToModifier ws mempoolSnapshot encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
-        getDiff       = const Nothing  -- no difficulty (mempool txs)
-        getTs         = const Nothing  -- don't give any timestamp
-        getPtxBlkInfo = const Nothing  -- no slot of containing block
-    (txs, undoMap) <- getLocalTxsNUndo
+        getDiff        = const Nothing  -- no difficulty (mempool txs)
+        getTs          = const Nothing  -- don't give any timestamp
+        getPtxBlkInfo  = const Nothing  -- no slot of containing block
+        (txs, undoMap) = getLocalTxsNUndo mempoolSnapshot
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)
@@ -512,16 +514,18 @@ decryptAddress (hdPass, wCId) addr = do
 fixingCachedAccModifier
     :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
     => WalletSnapshot
+    -> MemPoolSnapshot
     -> (CachedCAccModifier -> key -> m a)
     -> key -> m a
-fixingCachedAccModifier ws action key =
-    findKey key >>= txMempoolToModifier ws >>= flip action key
+fixingCachedAccModifier ws mps action key =
+    findKey key >>= txMempoolToModifier ws mps >>= flip action key
 
 fixCachedAccModifierFor
     :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
     => WalletSnapshot
+    -> MemPoolSnapshot
     -> key
     -> (CachedCAccModifier -> m a)
     -> m a
-fixCachedAccModifierFor ws key action =
-    fixingCachedAccModifier ws (const . action) key
+fixCachedAccModifierFor ws mps key action =
+    fixingCachedAccModifier ws mps (const . action) key

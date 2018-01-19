@@ -19,6 +19,7 @@ import           System.Wlog                  (WithLogger, logDebug, logInfo)
 import           Serokell.Util                (hour)
 
 import           Pos.Client.Txp.History       (saveTx, thTimestamp)
+import           Pos.Txp.MemState.Class       (MemPoolSnapshot)
 import           Pos.Communication            (EnqueueMsg, submitTxRaw)
 import           Pos.Util.LogSafe             (logInfoS, logWarningS)
 import           Pos.Configuration            (walletTxCreationDisabled)
@@ -98,8 +99,12 @@ ptxResubmissionHandler PendingTx{..} =
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: MonadWalletWebMode m
-    => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
+    => MemPoolSnapshot
+    -> PtxSubmissionHandlers m
+    -> EnqueueMsg m
+    -> PendingTx
+    -> m ()
+submitAndSavePtx mps PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -115,7 +120,7 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
                       \the 1h time limit was exceeded")
                       _ptxTxId
        | otherwise -> do
-           saveTx (_ptxTxId, _ptxTxAux) `catches` handlers
+           saveTx mps (_ptxTxId, _ptxTxAux) `catches` handlers
            addOnlyNewPendingTx ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack

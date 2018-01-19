@@ -72,7 +72,7 @@ applyBlund txpBlund = do
             ComponentBlockGenesis genesisBlock -> SlotId
                                   { siEpoch = genesisBlock ^. epochIndexL
                                   , siSlot  = minBound
-                                  -- ^ Genesis block doesn't have a slot, set to minBound
+                                  -- Genesis block doesn't have a slot, set to minBound
                                   }
             ComponentBlockMain mainHeader _  -> mainHeader ^. headerSlotL
 

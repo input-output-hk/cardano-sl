@@ -7,6 +7,7 @@ module Pos.Wallet.Web.Methods.Logic
        , getWallets
        , getAccount
        , getAccounts
+       , getAccountsPaginate
 
        , createWalletSafe
        , newAccount
@@ -46,7 +47,7 @@ import           Pos.Wallet.KeyStorage        (addSecretKey, deleteSecretKey,
                                                getSecretKeysPlain)
 import           Pos.Wallet.Web.Account       (AddrGenSeed, genUniqueAccountId,
                                                genUniqueAddress, getAddrIdx, getSKById)
-import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccount (..),
+import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CAccount (..),
                                                CAccountInit (..), CAccountMeta (..),
                                                CAddress (..), CId, CWAddressMeta (..),
                                                CWallet (..), CWalletMeta (..), Wal,
@@ -56,8 +57,7 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode, convertCIdTOA
 import           Pos.Wallet.Web.State         (AddressLookupMode (Existing),
                                                CustomAddressType (ChangeAddr, UsedAddr),
                                                addWAddress, createAccount, createWallet,
-                                               getAccountIds,
-                                               getWalletAddresses,
+                                               getAccountIds, getWalletAddresses,
                                                getWalletMetaIncludeUnready,
                                                getWalletPassLU, isCustomAddress,
                                                removeAccount, removeHistoryCache,
@@ -70,7 +70,7 @@ import           Pos.Wallet.Web.Tracking      (CAccModifier (..), CachedCAccModi
                                                fixCachedAccModifierFor,
                                                fixingCachedAccModifier, sortedInsertions)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                               getWalletAccountIds, getAccountMetaOrThrow)
+                                               getAccountMetaOrThrow, getWalletAccountIds)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -160,6 +160,20 @@ getAccounts
     :: MonadWalletWebMode m
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts = getAccountsIncludeUnready False
+
+getAccountsPaginate
+    :: MonadWalletWebMode m
+    => Maybe (CId Wal) -> Maybe (CId Addr) -> m [CAccount]
+getAccountsPaginate mwid mcid = do
+    accounts <- getAccounts mwid
+    return $ map addressFilter accounts
+  where
+    addressFilter account
+        | Just cid <- mcid =
+            let addressFits caddress = cadId caddress == cid
+            in  account{ caAddresses = filter addressFits (caAddresses account) }
+        | otherwise =
+            account
 
 getWalletIncludeUnready :: MonadWalletWebMode m => Bool -> CId Wal -> m CWallet
 getWalletIncludeUnready includeUnready cAddr = do

@@ -219,6 +219,7 @@ type GetAccount =
 type GetAccounts =
        "accounts"
     :> QueryParam "accountId" (CId Wal)
+    :> QueryParam "addressId" (CId Addr)
     :> WRes Get [CAccount]
 
 type UpdateAccount =

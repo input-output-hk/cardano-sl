@@ -47,7 +47,7 @@ servantHandlers sendActions =
 
      M.getAccount
     :<|>
-     M.getAccounts
+     M.getAccountsPaginate
     :<|>
      M.updateAccount
     :<|>

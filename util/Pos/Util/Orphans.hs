@@ -98,9 +98,16 @@ instance {-# OVERLAPPABLE #-}
          => Rand.MonadRandom (t m) where
     getRandomBytes = lift . Rand.getRandomBytes
 
+-- TODO: use the 'vec' package for traversable N-products
+data Five a = Five a a a a a
+    deriving (Functor, Foldable, Traversable)
+
+five :: a -> Five a
+five a = Five a a a a a
+
 instance Rand.MonadRandom QC.Gen where
     getRandomBytes n = do
-        [a,b,c,d,e] <- replicateM 5 (QC.choose (minBound, maxBound))
+        Five a b c d e <- sequenceA . five $ QC.choose (minBound, maxBound)
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 ----------------------------------------------------------------------------

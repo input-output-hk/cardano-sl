@@ -12,7 +12,7 @@ import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, 
                                VssCertificatesMap (..), validateVssCertificatesMap)
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
-import           Pos.Util (eitherToFail)
+import           Pos.Util (toCborError)
 
 instance HasConfiguration => Bi VssCertData where
     encode VssCertData {..} = mconcat
@@ -30,7 +30,7 @@ instance HasConfiguration => Bi VssCertData where
         enforceSize "VssCertData" 6
         lastKnownEoS <- decode
         certs <-
-            eitherToFail .
+            toCborError .
             validateVssCertificatesMap .
             UnsafeVssCertificatesMap =<< decode
         whenInsMap <- decode

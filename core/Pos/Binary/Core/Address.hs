@@ -5,6 +5,8 @@ module Pos.Binary.Core.Address () where
 import           Universum
 import           Unsafe (unsafeFromJust)
 
+import           Control.Lens (_Left)
+import           Control.Exception.Safe (Exception (displayException))
 import           Codec.CBOR.Encoding (Encoding)
 import qualified Codec.CBOR.Write as CBOR.Write
 import qualified Data.ByteString as BS
@@ -22,7 +24,7 @@ import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (.
                                         AddrStakeDistribution (..), AddrType (..), Address (..),
                                         Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toCborError)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization
@@ -97,7 +99,8 @@ instance Bi AddrStakeDistribution where
             2 ->
                 decode @Word8 >>= \case
                     0 -> SingleKeyDistr <$> decode
-                    1 -> eitherToFail . mkMultiKeyDistr =<< decode
+                    1 -> toCborError . (_Left %~ toText . displayException) .
+                         mkMultiKeyDistr =<< decode
                     tag ->
                         fail $
                         "decode @AddrStakeDistribution: unexpected tag " <>

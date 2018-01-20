@@ -96,6 +96,7 @@ library
                       RecordWildCards
                       ScopedTypeVariables
                       UndecidableInstances
+                      MonadFailDesugaring
 
 executable wallet-new-server
   hs-source-dirs:      server
@@ -180,6 +181,7 @@ executable wallet-new-server
                       RecordWildCards
                       ScopedTypeVariables
                       UndecidableInstances
+                      MonadFailDesugaring
 
 test-suite wallet-new-specs
   ghc-options:      -Wall
@@ -220,6 +222,7 @@ test-suite wallet-new-specs
                       RecordWildCards
                       ScopedTypeVariables
                       UndecidableInstances
+                      MonadFailDesugaring
 
   build-depends:      base
 

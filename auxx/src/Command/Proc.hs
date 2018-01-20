@@ -31,7 +31,7 @@ import           Pos.Update (BlockVersionModifier (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (eitherToThrow)
 
 import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)
@@ -166,7 +166,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
             AddrDistrPart sId coinPortion :| []
               | coinPortion == maxBound ->
                 return $ SingleKeyDistr sId
-            _ -> eitherToFail $
+            _ -> eitherToThrow $
                  mkMultiKeyDistr . Map.fromList $
                  map (\(AddrDistrPart s cp) -> (s, cp)) $
                  toList parts

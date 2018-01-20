@@ -18,7 +18,7 @@ import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProtocolMagic 
                              Signature (..), decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature)
-import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
+import           Pos.Util.Util (toAesonError , parseJSONWithRead)
 
 deriving instance ToJSON ProtocolMagic
 deriving instance FromJSON ProtocolMagic
@@ -31,9 +31,7 @@ instance HashAlgorithm algo => FromJSON (AbstractHash algo a) where
 
 instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
          => FromJSONKey (AbstractHash algo a) where
-    fromJSONKey = FromJSONKeyTextParser parser
-      where
-        parser = eitherToFail . decodeAbstractHash
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . decodeAbstractHash)
 
 instance ToJSONKey (AbstractHash algo a) where
     toJSONKey = toJSONKeyText (sformat hashHexF)

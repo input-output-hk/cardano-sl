@@ -6,6 +6,7 @@ module Pos.Wallet.Aeson.WalletBackup
 
 import           Universum
 
+import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
                              withText, (.:), (.=))
 import qualified Data.HashMap.Strict as HM
@@ -15,7 +16,7 @@ import qualified Serokell.Util.Base64 as B64
 
 import qualified Pos.Binary as Bi
 import           Pos.Crypto (EncryptedSecretKey (..))
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
@@ -52,7 +53,8 @@ checkIfCurrentVersion version
 
 
 instance FromJSON V.Version where
-    parseJSON = withText "Version" $ eitherToFail . V.fromText
+    parseJSON = withText "Version" $
+        toAesonError . over _Left fromString . V.fromText
 
 instance FromJSON AccountMetaBackup where
     parseJSON = withObject "AccountMetaBackup" $ \o -> do
@@ -74,7 +76,7 @@ instance FromJSON IndexedAccountMeta where
 
 instance FromJSON WalletBackup where
     parseJSON = withObject "WalletBackup" $ \o -> do
-        let decodeBase64 x = eitherToFail (B64.decode x) >>= eitherToFail . Bi.decodeFull
+        let decodeBase64 x = toAesonError (B64.decode x) >>= toAesonError . Bi.decodeFull
             collectAccMap = foldlM parseAddAcc HM.empty
             parseAddAcc accMap v = do
                 IndexedAccountMeta idx meta <- parseJSON v

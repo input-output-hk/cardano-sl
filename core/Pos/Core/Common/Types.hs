@@ -9,6 +9,7 @@ module Pos.Core.Common.Types
        , Address' (..)
        , AddrAttributes (..)
        , AddrStakeDistribution (..)
+       , MultiKeyDistrError (..)
        , mkMultiKeyDistr
        , Address (..)
 
@@ -53,6 +54,7 @@ module Pos.Core.Common.Types
 
 import           Universum
 
+import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
@@ -136,20 +138,39 @@ data AddrStakeDistribution
     -- 'SingleKeyDistr' can be used instead (which is smaller).
     deriving (Eq, Ord, Show, Generic, Typeable)
 
+data MultiKeyDistrError
+    = MkdMapIsEmpty
+    | MkdMapIsSingleton
+    | MkdNegativePortion
+    | MkdSumNot1
+    deriving (Show)
+
+instance Buildable MultiKeyDistrError where
+    build = mappend "mkMultiKeyDistr: " . \case
+        MkdMapIsEmpty -> "map is empty"
+        MkdMapIsSingleton -> "map's size is 1, use SingleKeyDistr"
+        MkdNegativePortion -> "all portions must be positive"
+        MkdSumNot1 -> "distributions' sum must be equal to 1"
+
+instance Exception MultiKeyDistrError where
+    displayException = toString . pretty
+
 -- | Safe constructor of multi-key distribution. It checks invariants
 -- of this distribution and returns an error if something is violated.
-mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion -> m AddrStakeDistribution
+mkMultiKeyDistr ::
+       MonadError MultiKeyDistrError m
+    => Map StakeholderId CoinPortion
+    -> m AddrStakeDistribution
 mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
   where
     check = do
-        when (null distrMap) $ throwError "mkMultiKeyDistr: map is empty"
-        when (length distrMap == 1) $
-            throwError "mkMultiKeyDistr: map's size is 1, use SingleKeyDistr"
+        when (null distrMap) $ throwError MkdMapIsEmpty
+        when (length distrMap == 1) $ throwError MkdMapIsSingleton
         unless (all ((> 0) . getCoinPortion) distrMap) $
-            throwError "mkMultiKeyDistr: all portions must be positive"
+            throwError MkdNegativePortion
         let distrSum = sum $ map getCoinPortion distrMap
         unless (distrSum == coinPortionDenominator) $
-            throwError "mkMultiKeyDistr: distributions' sum must be equal to 1"
+            throwError MkdSumNot1
 
 -- | Additional information stored along with address. It's intended
 -- to be put into 'Attributes' data type to make it extensible with

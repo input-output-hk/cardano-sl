@@ -192,6 +192,7 @@ library
                         TemplateHaskell
                         TypeOperators
                         GADTs
+                        MonadFailDesugaring
 
 
   build-tools: cpphs >= 1.19
@@ -245,6 +246,7 @@ executable cardano-node
                         BangPatterns
                         TemplateHaskell
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -293,6 +295,7 @@ executable cardano-wallet-hs2purs
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -335,6 +338,7 @@ executable cardano-swagger
                         NoImplicitPrelude
                         TypeApplications
                         TypeOperators
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -432,6 +436,7 @@ test-suite cardano-wallet-test
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

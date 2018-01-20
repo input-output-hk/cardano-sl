@@ -7564,7 +7564,7 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-util" = callPackage
         ({ mkDerivation, aeson, autoexporter, base, bytestring
-         , cardano-sl-networking, concurrent-extra, containers, cpphs
+         , cardano-sl-networking, cborg, concurrent-extra, containers, cpphs
          , cryptonite, data-default, deepseq, directory, ether, exceptions
          , filepath, formatting, hashable, lens, log-warper, lrucache
          , mmorph, mtl, parsec, process, QuickCheck, quickcheck-instances
@@ -7579,7 +7579,7 @@ inherit (pkgs) mesa;};
            version = "1.0.3";
            src = ./../util;
            libraryHaskellDepends = [
-             aeson autoexporter base bytestring cardano-sl-networking
+             aeson autoexporter base bytestring cardano-sl-networking cborg
              concurrent-extra containers cryptonite data-default deepseq
              directory ether exceptions filepath formatting hashable lens
              log-warper lrucache mmorph mtl parsec process QuickCheck

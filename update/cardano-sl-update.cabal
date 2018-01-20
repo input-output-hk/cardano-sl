@@ -147,6 +147,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

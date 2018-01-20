@@ -79,6 +79,7 @@ module Pos.Wallet.Web.State.Storage
        , removeFromHistoryCache
        , setPtxCondition
        , casPtxCondition
+       , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , resetFailedPtxs
@@ -88,16 +89,18 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                   (at, ix, makeClassy, makeLenses, non', to,
-                                                 toListOf, traversed, (%=), (+=), (.=),
-                                                 (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class      (put)
+import           Control.Lens                   (at, has, ix, makeClassy, makeLenses, non',
+                                                 to, toListOf, traversed, (%=), (+=), (.=),
+                                                 (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Monad.State.Class      (get, put)
+import qualified Control.Monad.State.Lazy       as LS
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as M
 import           Data.SafeCopy                  (Migrate (..), base, deriveSafeCopySimple,
                                                  extension)
 import           Data.Time.Clock.POSIX          (POSIXTime)
+import           Serokell.Util                  (zoom')
 
 import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration         (HasConfiguration)
@@ -115,7 +118,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, 
                                                  PassPhraseLU, Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
                                                  PtxSubmitTiming (..), ptxCond,
-                                                 ptxSubmitTiming)
+                                                 ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Updates (cancelApplyingPtx,
                                                  incPtxSubmitTimingPure,
                                                  mkPtxSubmitTiming,
@@ -494,14 +497,29 @@ setPtxCondition :: CId Wal -> TxId -> PtxCondition -> Update ()
 setPtxCondition wid txId cond =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond .= cond
 
+-- | Conditional modifier.
+-- Returns 'True' if pending transaction existed and modification was applied.
+checkAndSmthPtx
+    :: CId Wal
+    -> TxId
+    -> (Maybe PtxCondition -> Bool)
+    -> LS.State (Maybe PendingTx) ()
+    -> Update Bool
+checkAndSmthPtx wid txId whetherModify modifier =
+    fmap getAny $ zoom' (wsWalletInfos . ix wid . wsPendingTxs . at txId) $ do
+        matches <- whetherModify . fmap _ptxCond <$> get
+        when matches modifier
+        return (Any matches)
+
 -- | Compare-and-set version of 'setPtxCondition'.
--- Returns 'True' if transaction existed and modification was applied.
 casPtxCondition :: CId Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
-casPtxCondition wid txId expectedCond newCond = do
-    oldCond <- preuse $ wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond
-    let success = oldCond == Just expectedCond
-    when success $ setPtxCondition wid txId newCond
-    return success
+casPtxCondition wid txId expectedCond newCond =
+    checkAndSmthPtx wid txId (== Just expectedCond) (_Just . ptxCond .= newCond)
+
+-- | Removes pending transaction, if its status is 'PtxCreating'.
+removeOnlyCreatingPtx :: CId Wal -> TxId -> Update Bool
+removeOnlyCreatingPtx wid txId =
+    checkAndSmthPtx wid txId (has (_Just . _PtxCreating)) (put Nothing)
 
 data PtxMetaUpdate
     = PtxIncSubmitTiming

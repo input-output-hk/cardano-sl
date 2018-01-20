@@ -74,6 +74,7 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 
 ptxCondToCPtxCond :: Maybe PtxCondition -> CPtxCondition
 ptxCondToCPtxCond = maybe CPtxNotTracked $ \case
+    PtxCreating{}       -> CPtxCreating
     PtxApplying{}       -> CPtxApplying
     PtxInNewestBlocks{} -> CPtxInBlocks
     PtxPersisted{}      -> CPtxInBlocks

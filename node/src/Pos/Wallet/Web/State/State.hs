@@ -79,6 +79,7 @@ module Pos.Wallet.Web.State.State
        , setWalletUtxo
        , setPtxCondition
        , casPtxCondition
+       , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , resetFailedPtxs
@@ -343,6 +344,11 @@ casPtxCondition
     :: WebWalletModeDB ctx m
     => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
 casPtxCondition = updateDisk ... A.CasPtxCondition
+
+removeOnlyCreatingPtx
+    :: WebWalletModeDB ctx m
+    => CId Wal -> TxId -> m Bool
+removeOnlyCreatingPtx = updateDisk ... A.RemoveOnlyCreatingPtx
 
 ptxUpdateMeta
     :: WebWalletModeDB ctx m

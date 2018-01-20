@@ -18,7 +18,6 @@ library
 
   other-modules:
                        Pos.Binary.Class.Core
-                       Pos.Binary.Class.Numbers
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
 

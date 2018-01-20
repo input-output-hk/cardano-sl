@@ -26,7 +26,6 @@ module Pos.Core.Update.Types
        , UpdateData (..)
        , UpdateProposalToSign (..)
        , SystemTag (getSystemTag)
-       , currentSystemTag
        , mkSystemTag
        , systemTagMaxLength
 
@@ -51,11 +50,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Units (Millisecond)
-import           Distribution.System (Arch (..), OS (..), buildArch, buildOS)
-import           Distribution.Text   (display)
 import           Formatting (Format, bprint, build, builder, int, later, shown, stext, (%))
 import           Instances.TH.Lift ()
-import           Language.Haskell.TH        (runQ)
 import           Language.Haskell.TH.Syntax (Lift)
 import qualified Prelude
 import           Serokell.AcidState ()
@@ -299,23 +295,6 @@ mkSystemTag tag | T.length tag > systemTagMaxLength
                     = fail "SystemTag: not ascii string passed"
                 | otherwise
                     = pure $ SystemTag tag
-
--- | @SystemTag@ corresponding to the operating system/architecture pair the program was
--- compiled in.
--- The @Distribution.System@ module from @Cabal@ was used
--- (https://hackage.haskell.org/package/Cabal-2.0.1.1/docs/Distribution-System.html)
-currentSystemTag :: SystemTag
-currentSystemTag =
-    let f sys = case sys of
-            Windows -> "win"
-            OSX     -> "macos"
-            Linux   -> "linux"
-            _       -> display sys
-        g archt = case archt of
-            I386    -> "32"
-            X86_64  -> "64"
-            _       -> display archt
-    in $(runQ [| SystemTag (toText (f buildOS ++ g buildArch)) |])
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal

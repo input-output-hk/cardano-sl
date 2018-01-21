@@ -117,7 +117,7 @@ type WalletTrackingEnv ext ctx m =
      ( BlockLockMode WalletSscType ctx m
      , WebWalletModeDB ctx m
      , MonadTxpMem ext ctx m
-     , WS.MonadWalletWebDB ctx m
+     , WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
      , WithLogger m
      , HasConfiguration

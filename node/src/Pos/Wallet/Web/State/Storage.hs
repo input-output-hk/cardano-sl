@@ -80,6 +80,8 @@ module Pos.Wallet.Web.State.Storage
        , setPtxCondition
        , casPtxCondition
        , ptxUpdateMeta
+       , removePtx
+       , removeCanceledPtxs
        , addOnlyNewPendingTx
        , resetFailedPtxs
        , cancelApplyingPtxs
@@ -88,9 +90,9 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                   (at, ix, makeClassy, makeLenses, non', to,
-                                                 toListOf, traversed, (%=), (+=), (.=),
-                                                 (<<.=), (?=), _Empty, _head)
+import           Control.Lens                   (at, has, ix, makeClassy, makeLenses,
+                                                 non', to, toListOf, traversed, (%=),
+                                                 (+=), (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
@@ -115,7 +117,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, 
                                                  PassPhraseLU, Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
                                                  PtxSubmitTiming (..), ptxCond,
-                                                 ptxSubmitTiming)
+                                                 ptxSubmitTiming, _PtxWontApply)
 import           Pos.Wallet.Web.Pending.Updates (cancelApplyingPtx,
                                                  incPtxSubmitTimingPure,
                                                  mkPtxSubmitTiming,
@@ -534,6 +536,16 @@ cancelSpecificApplyingPtx :: TxId -> Update ()
 cancelSpecificApplyingPtx txId =
     wsWalletInfos . traversed .
     wsPendingTxs . ix txId %= cancelApplyingPtx
+
+removePtx :: TxId -> Update ()
+removePtx txId =
+    wsWalletInfos . traversed . wsPendingTxs . at txId .= Nothing
+
+removeCanceledPtxs :: Update ()
+removeCanceledPtxs =
+    wsWalletInfos . traversed . wsPendingTxs %= HM.filter (not . isCanceled)
+  where
+    isCanceled = has (ptxCond . _PtxWontApply)
 
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =

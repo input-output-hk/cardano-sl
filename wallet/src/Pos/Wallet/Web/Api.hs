@@ -46,6 +46,8 @@ module Pos.Wallet.Web.Api
        , CancelApplyingPtxs
        , CancelSpecificApplyingPtx
        , ReevaluateUncertainPtxs
+       , DeletePtx
+       , DeleteCanceledPtxs
        , UpdateTx
        , GetHistory
        , GetPendingTxsSummary
@@ -332,6 +334,19 @@ type ReevaluateUncertainPtxs =
     :> "reevaluate"
     :> WRes Post ()
 
+type DeletePtx =
+       "txs"
+    :> "pending"
+    :> "any"
+    :> CCapture "transaction" CTxId
+    :> WRes Delete ()
+
+type DeleteCanceledPtxs =
+       "txs"
+    :> "pending"
+    :> "canceled"
+    :> WRes Delete ()
+
 type GetHistory =
        "txs"
     :> "histories"
@@ -510,6 +525,10 @@ type WalletApi = ApiPrefix :> (
      CancelSpecificApplyingPtx
     :<|>
      ReevaluateUncertainPtxs
+    :<|>
+     DeletePtx
+    :<|>
+     DeleteCanceledPtxs
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx

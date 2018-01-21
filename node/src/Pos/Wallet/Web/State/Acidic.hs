@@ -74,6 +74,8 @@ module Pos.Wallet.Web.State.Acidic
        , ResetFailedPtxs (..)
        , CancelApplyingPtxs (..)
        , CancelSpecificApplyingPtx (..)
+       , RemovePtx (..)
+       , RemoveCanceledPtxs (..)
        , GetWalletStorage (..)
        , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
@@ -184,6 +186,8 @@ makeAcidic ''WalletStorage
     , 'WS.resetFailedPtxs
     , 'WS.cancelApplyingPtxs
     , 'WS.cancelSpecificApplyingPtx
+    , 'WS.removePtx
+    , 'WS.removeCanceledPtxs
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     ]

@@ -25,6 +25,8 @@ module Pos.Wallet.Web.Methods.Misc
        , cancelAllApplyingPtxs
        , cancelOneApplyingPtx
        , reevaluateAllUncertainPtxs
+       , deletePtx
+       , deleteCanceledPtxs
        ) where
 
 import           Universum
@@ -40,9 +42,9 @@ import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Core                     (SlotId, SoftwareVersion (..),
                                                decodeTextAddress)
-import           Pos.Crypto                   (hashHexF, hash)
+import           Pos.Crypto                   (hash, hashHexF)
 import           Pos.Slotting                 (getCurrentSlotBlocking)
-import           Pos.Txp                      (Tx (..), TxAux (..), TxIn, TxOut, TxId)
+import           Pos.Txp                      (Tx (..), TxAux (..), TxId, TxIn, TxOut)
 import           Pos.Update.Configuration     (curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.Servant             (HasTruncateLogPolicy (..), encodeCType)
@@ -63,8 +65,9 @@ import           Pos.Wallet.Web.State         (cancelApplyingPtxs,
                                                cancelSpecificApplyingPtx, getNextUpdate,
                                                getPendingTxs, getProfile,
                                                getWalletStorage, reevaluateUncertainPtxs,
-                                               removeNextUpdate,
-                                               resetFailedPtxs, setProfile, testReset)
+                                               removeCanceledPtxs, removeNextUpdate,
+                                               removePtx, resetFailedPtxs, setProfile,
+                                               testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
@@ -223,3 +226,9 @@ cancelOneApplyingPtx cTxId = do
 
 reevaluateAllUncertainPtxs :: MonadWalletWebMode m => m ()
 reevaluateAllUncertainPtxs = testOnlyEndpoint reevaluateUncertainPtxs
+
+deleteCanceledPtxs :: MonadWalletWebMode m => m ()
+deleteCanceledPtxs = testOnlyEndpoint removeCanceledPtxs
+
+deletePtx :: MonadWalletWebMode m => TxId -> m ()
+deletePtx = removePtx

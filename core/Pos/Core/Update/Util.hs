@@ -3,8 +3,11 @@
 module Pos.Core.Update.Util
        (
          -- * Checkers/validators.
-         checkUpdateProposal
+         checkUpdatePayload
+       , checkUpdateProposal
        , checkUpdateVote
+       , checkBlockVersionModifier
+       , checkSoftforkRule
 
        , mkUpdateProposalWSign
        , mkVoteId
@@ -30,12 +33,42 @@ import           Instances.TH.Lift ()
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule,
+import           Pos.Core.Common.Types (checkCoinPortion)
+import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
-                                        UpdatePayload, UpdateProof, UpdateProposal (..),
+                                        UpdatePayload (..), UpdateProof, UpdateProposal (..),
                                         UpdateProposalToSign (..), UpdateVote (..), VoteId)
 import           Pos.Crypto (PublicKey, SafeSigner, SignTag (SignUSProposal, SignUSVote),
                              Signature, checkSig, hash, safeSign, safeToPublic)
+
+checkUpdatePayload
+    :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
+    => UpdatePayload
+    -> m UpdatePayload
+checkUpdatePayload it = do
+    _ <- forM (upProposal it) checkUpdateProposal
+    _ <- forM (upVotes it) checkUpdateVote
+    pure it
+
+checkBlockVersionModifier
+    :: (MonadError Text m)
+    => BlockVersionModifier
+    -> m ()
+checkBlockVersionModifier BlockVersionModifier {..} = do
+    whenJust bvmMpcThd checkCoinPortion
+    whenJust bvmHeavyDelThd checkCoinPortion
+    whenJust bvmUpdateVoteThd checkCoinPortion
+    whenJust bvmUpdateProposalThd checkCoinPortion
+    whenJust bvmSoftforkRule checkSoftforkRule
+
+checkSoftforkRule
+    :: (MonadError Text m)
+    => SoftforkRule
+    -> m ()
+checkSoftforkRule SoftforkRule {..} = do
+    checkCoinPortion srInitThd
+    checkCoinPortion srMinThd
+    checkCoinPortion srThdDecrement
 
 -- | 'SoftforkRule' formatter which restricts type.
 softforkRuleF :: Format r (SoftforkRule -> r)
@@ -55,6 +88,9 @@ checkUpdateProposal
     => UpdateProposal
     -> m UpdateProposal
 checkUpdateProposal it = do
+    checkBlockVersionModifier (upBlockVersionMod it)
+    checkSoftwareVersion (upSoftwareVersion it)
+    forM_ (HM.keys (upData it)) checkSystemTag
     let toSign = UpdateProposalToSign
             (upBlockVersion it)
             (upBlockVersionMod it)

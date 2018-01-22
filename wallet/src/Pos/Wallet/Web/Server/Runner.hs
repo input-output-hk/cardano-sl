@@ -37,13 +37,13 @@ import           Pos.Wallet.Web.Mode            (AddrCIdHashes (..), WalletWebMo
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl,
                                                  walletServer)
 import           Pos.Wallet.Web.Sockets         (ConnectionsVar)
-import           Pos.Wallet.Web.State           (WalletState)
+import           Pos.Wallet.Web.State           (WalletDB)
 import           Pos.Web                        (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
     :: HasConfigurations
-    => WalletState
+    => WalletDB
     -> ConnectionsVar
     -> NodeResources WalletSscType WalletWebMode
     -> (ActionSpec WalletWebMode a, OutSpecs)

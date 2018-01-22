@@ -28,8 +28,8 @@ Examples:
 
 There are several ways to notice that rollback occurred:
 1. Messages like these:
-  * > Blocks to rollback [62955975]
-  * > Blocks have been rolled back: [62955975]
+  * > Blocks to rollback [a295e975]
+  * > Blocks have been rolled back: [a295e975]
   * > Trying to apply blocks w/ rollback:
 2. When rollback happens, node reports it to reporting server. If
    rollback is deep (determined by a constant from configuration),

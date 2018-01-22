@@ -10,7 +10,7 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toCborError)
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -36,7 +36,7 @@ instance ( Typeable b
         bodyProof <- decode
         consensus <- decode
         extra     <- decode
-        eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra
+        toCborError $ T.recreateGenericHeader prevBlock bodyProof consensus extra
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -58,4 +58,4 @@ instance ( Typeable b
         header <- decode
         body   <- decode
         extra  <- decode
-        eitherToFail $ T.recreateGenericBlock header body extra
+        toCborError $ T.recreateGenericBlock header body extra

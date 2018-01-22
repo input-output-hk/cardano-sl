@@ -45,6 +45,7 @@ library
                      , base
                      , bytestring
                      , cardano-sl-networking
+                     , cborg
                      , containers
                      , concurrent-extra
                      , cryptonite
@@ -89,6 +90,9 @@ library
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
+                       DeriveFunctor
+                       DeriveFoldable
+                       DeriveTraversable
                        GeneralizedNewtypeDeriving
                        StandaloneDeriving
                        FlexibleContexts
@@ -109,6 +113,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

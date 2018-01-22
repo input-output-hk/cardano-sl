@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
                               productionB)
-import           Text.Parsec (try)
+import           Text.Parsec (try, parserFail)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
@@ -26,7 +26,6 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                                          prettyGenesisJson)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
-import           Pos.Util (eitherToFail)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.TimeWarp (addrParser)
 
@@ -42,7 +41,8 @@ attackTypeParser = P.string "No" >>
 stakeholderIdParser :: P.Parser StakeholderId
 stakeholderIdParser = do
     token <- some P.alphaNum
-    eitherToFail $ decodeAbstractHash (toText token)
+    either (parserFail . toString) return $
+        decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser =

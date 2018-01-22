@@ -59,7 +59,7 @@ recreateGenesisDelegation pskMap = do
 -- calling funciton.
 convertNonAvvmDataToBalances
     :: forall m .
-       ( MonadFail m, Bi Address )
+       ( MonadError Text m, Bi Address )
     => HashMap Text Integer
     -> m GenesisNonAvvmBalances
 convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
@@ -67,6 +67,6 @@ convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
     balances' :: m (HashMap Address Coin)
     balances' = HM.fromListWith unsafeAddCoin <$> traverse convert (HM.toList balances)
     convert :: (Text, Integer) -> m (Address, Coin)
-    convert (txt, i) = case decodeTextAddress txt of
-        Left err   -> fail (toString err)
-        Right addr -> return (addr, unsafeIntegerToCoin i)
+    convert (txt, i) = do
+        addr <- either throwError pure $ decodeTextAddress txt
+        return (addr, unsafeIntegerToCoin i)

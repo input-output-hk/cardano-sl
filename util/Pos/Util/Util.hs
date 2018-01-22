@@ -5,10 +5,11 @@ module Pos.Util.Util
        (
        -- * Exceptions/errors
          maybeThrow
-       , eitherToFail
        , eitherToThrow
        , leftToPanic
        , logException
+       , toAesonError
+       , toCborError
 
        -- * Ether
        , ether
@@ -57,6 +58,7 @@ module Pos.Util.Util
 
 import           Universum
 
+import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
@@ -89,10 +91,6 @@ import           System.Wlog (LoggerName, logError, usingLoggerName)
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
--- | Fail or return result depending on what is stored in 'Either'.
-eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
-eitherToFail = either (fail . toString) pure
-
 -- | Throw exception or return result depending on what is stored in 'Either'
 eitherToThrow
     :: (MonadThrow m, Exception e)
@@ -111,6 +109,22 @@ logException name = E.handleAsync (\e -> handler e >> E.throw e)
   where
     handler :: E.SomeException -> IO ()
     handler = usingLoggerName name . logError . pretty
+
+-- | This unexported helper is used to define conversions to 'MonadFail'
+-- forced on us by external APIs. I also used underscores in its name, so don't
+-- you think about exporting it -- define a specialized helper instead.
+external_api_fail :: MonadFail m => Either Text a -> m a
+external_api_fail = either (fail . toString) return
+
+-- | Convert an 'Either'-encoded failure to an 'aeson' parser failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toAesonError :: Either Text a -> A.Parser a
+toAesonError = external_api_fail
+
+-- | Convert an 'Either'-encoded failure to a 'cborg' decoder failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toCborError :: Either Text a -> CBOR.Decoder s a
+toCborError = external_api_fail
 
 ----------------------------------------------------------------------------
 -- Ether
@@ -170,7 +184,7 @@ minMaxOf l = view _MinMax . foldMapOf l mkMinMax
 -- | Parse a value represented as a 'show'-ed string in JSON.
 parseJSONWithRead :: Read a => A.Value -> A.Parser a
 parseJSONWithRead =
-    either (fail . toString) pure . readEither @String <=<
+    toAesonError . readEither @String <=<
     parseJSON
 
 ----------------------------------------------------------------------------

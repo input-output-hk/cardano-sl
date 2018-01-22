@@ -11,7 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
-import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow)
+import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow, Exception, throwM)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function
@@ -58,6 +58,7 @@ newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
            , Applicative
            , Monad
            , MonadIO
+           , MonadThrow
            , CanLog
            , HasLoggerName
            )
@@ -233,11 +234,17 @@ simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
 data Sync = Synchronous | Asynchronous
 
+data SendFailed = SendFailedAddToPool
+    deriving (Show)
+
+instance Exception SendFailed
+
 -- | Send a message from the specified node
 send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
 send sync from msgType msgId = do
     logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
-    True <- addToMsgPool (nodeMsgPool from) msgData
+    added <- addToMsgPool (nodeMsgPool from) msgData
+    unless added $ throwM SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj
   where
     msgData = MsgData (nodeId from) msgType msgId

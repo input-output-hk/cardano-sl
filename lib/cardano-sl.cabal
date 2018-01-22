@@ -263,6 +263,7 @@ library
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -405,6 +406,7 @@ test-suite cardano-test
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -465,6 +467,7 @@ benchmark cardano-bench-criterion
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

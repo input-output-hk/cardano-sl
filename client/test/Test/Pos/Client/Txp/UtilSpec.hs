@@ -316,8 +316,7 @@ getSignerFromList (HM.fromList . map swap . toList -> hm) =
 
 makeManyUtxoTo1Params :: InputSelectionPolicy -> Int -> Integer -> Integer -> Gen CreateMTxParams
 makeManyUtxoTo1Params inputSelectionPolicy numFrom amountEachFrom amountTo = do
-    [skFrom, skTo] <- nonrepeating 2
-
+    ~[skFrom, skTo] <- nonrepeating 2
     let txOutAuxInput  = generateTxOutAux amountEachFrom skFrom
         txOutAuxOutput = generateTxOutAux amountTo skTo
         cmpInputSelectionPolicy = inputSelectionPolicy

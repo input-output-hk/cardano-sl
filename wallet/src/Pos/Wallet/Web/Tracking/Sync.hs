@@ -93,9 +93,10 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
                                                    encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
+import           Pos.Wallet.Web.State.Acidic      as A
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
-                                                   CustomAddressType (..), WalletTip (..),
-                                                   WalletSnapshot, WebWalletModeDB)
+                                                   CustomAddressType (..), WalletSnapshot,
+                                                   WalletTip (..), WalletDbReader, WalletDbWriter)
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    deleteAndInsertIMM, deleteAndInsertMM,
@@ -115,7 +116,6 @@ type BlockLockMode ssc ctx m =
 
 type WalletTrackingEnv ext ctx m =
      ( BlockLockMode WalletSscType ctx m
-     , WebWalletModeDB ctx m
      , MonadTxpMem ext ctx m
      , WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
@@ -158,7 +158,7 @@ txMempoolToModifier ws encSK = do
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
     :: forall ssc ctx m.
-    ( WebWalletModeDB ctx m
+    ( WalletDbReader ctx m
     , BlockLockMode ssc ctx m
     , MonadSlotsData ctx m
     , HasConfiguration
@@ -214,7 +214,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
 -- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
     :: forall ssc ctx m .
-    ( WebWalletModeDB ctx m
+    ( WalletDbReader ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m
     , MonadSlotsData ctx m
@@ -425,7 +425,10 @@ selectOwnTxInsAndOuts encInfo (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs
     (ownInputs, map (first toTxInOut) ownOutputs, th)
 
 applyModifierToWallet
-    :: WebWalletModeDB ctx m
+    :: ( WalletDbReader ctx m
+       , WalletDbWriter A.UpdateWalletBalancesAndUtxo m
+       , HasConfiguration
+       )
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -449,7 +452,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.setWalletSyncTip wid newTip
 
 rollbackModifierFromWallet
-    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
+    :: (WalletDbReader ctx m, MonadSlots ctx m, HasConfiguration)
     => CId Wal
     -> HeaderHash
     -> CAccModifier

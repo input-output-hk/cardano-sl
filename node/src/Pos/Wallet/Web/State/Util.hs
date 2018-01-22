@@ -17,7 +17,7 @@ import           System.Directory           (getModificationTime, listDirectory,
 import           System.FilePath            ((</>))
 import           System.Wlog                (WithLogger, logDebug, logError)
 
-import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletState)
+import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB)
 
 type MonadAcidCleanup ctx m =
     ( MonadIO m
@@ -43,7 +43,7 @@ cleanupAcidStatePeriodically interval = perform
 
     cleanupAction = forever $ do
         logDebug "Starting cleanup"
-        est <- askWalletState
+        est <- askWalletDB
         let st = extendedStateToAcid est
 
         -- checkpoint/archive

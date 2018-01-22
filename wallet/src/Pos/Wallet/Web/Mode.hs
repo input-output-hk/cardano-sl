@@ -84,7 +84,7 @@ import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes     (Addr, CHash, CId (..), cIdToAddress)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
-import           Pos.Wallet.Web.State.State     (WalletState)
+import           Pos.Wallet.Web.State.State     (WalletDB)
 import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
                                                  onRollbackTracking)
 import           Pos.WorkMode                   (RealModeContext (..))
@@ -93,7 +93,7 @@ import           Pos.WorkMode                   (RealModeContext (..))
 
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState     :: !WalletState
+    { wwmcWalletState     :: !WalletDB
     , wwmcConnectionsVar  :: !ConnectionsVar
     , wwmcHashes          :: !AddrCIdHashes
     , wwmcRealModeContext :: !(RealModeContext WalletSscType)
@@ -157,7 +157,7 @@ instance HasSlottingVar WalletWebModeContext where
     slottingTimestamp = wwmcRealModeContext_L . slottingTimestamp
     slottingVar = wwmcRealModeContext_L . slottingVar
 
-instance HasLens WalletState WalletWebModeContext WalletState where
+instance HasLens WalletDB WalletWebModeContext WalletDB where
     lensOf = wwmcWalletState_L
 
 instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where

@@ -28,7 +28,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Update ()
-import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..), UpdateProposal (..))
+import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
+                                  UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.Exception (reportFatalError)
 import           Pos.Reporting (reportOrLogW)

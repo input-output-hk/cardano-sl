@@ -10,11 +10,17 @@ module Pos.Core.Update.Util
 
        -- * Formatters
        , softforkRuleF
+
+       -- * System tag helpers
+       , archHelper
+       , osHelper
        ) where
 
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
+import           Distribution.System (Arch (..), OS (..))
+import           Distribution.Text   (display)
 import           Formatting (Format, build)
 import           Instances.TH.Lift ()
 
@@ -90,3 +96,20 @@ mkUpdateProof
     :: Bi UpdatePayload
     => UpdatePayload -> UpdateProof
 mkUpdateProof = hash
+
+-- | Helper to turn an @OS@ into a @String@ compatible with the @systemTag@ previously
+-- used in 'configuration.yaml'.
+osHelper :: OS -> String
+osHelper sys = case sys of
+    Windows -> "win"
+    OSX     -> "macos"
+    Linux   -> "linux"
+    _       -> display sys
+
+-- | Helper to turn an @Arch@ into a @String@ compatible with the @systemTag@ previously
+-- used in 'configuration.yaml'.
+archHelper :: Arch -> String
+archHelper archt = case archt of
+    I386    -> "32"
+    X86_64  -> "64"
+    _       -> display archt

@@ -11,8 +11,8 @@ environment:
     WORK_DIR: "c:\\w"
     CACHE_S3_VERSION: v0.1.1
     AWS_REGION: us-west-1
-    S3_BUCKET: appveyor-ci-cache              
-    AWS_ACCESS_KEY_ID: 
+    S3_BUCKET: appveyor-ci-cache
+    AWS_ACCESS_KEY_ID:
       secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
     AWS_SECRET_ACCESS_KEY:
       secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
@@ -61,7 +61,7 @@ test_script:
   - cd "%WORK_DIR%"
   - stack --verbosity warn setup --no-reinstall > nul
   # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed
-  - scripts\ci\appveyor-retry call stack --verbosity warn install happy cpphs
+  - stack --verbosity warn install happy cpphs
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
@@ -76,7 +76,7 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
+  - stack install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
       -j 2
       --no-terminal
       --local-bin-path %WORK_DIR%

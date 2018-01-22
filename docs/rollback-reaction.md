@@ -35,7 +35,7 @@ There are several ways to notice that rollback occurred:
    rollback is deep (determined by a constant from configuration),
    misbehaviour is classified as critical.
 3. In CSL-2014 we want to add EKG metrics for each misbehaviour, in
-   particular for rollbacks.
+   particular for rollbacks (PR https://github.com/input-output-hk/cardano-sl/pull/2314 was merged).
 
 ## How to classify rollback
 
@@ -83,7 +83,7 @@ about them, because:
    reverted. Note, however, that rollback may happen only for one
    node, and in this case it won't be misbehaviiur visible to
    exchanges or end users.
-2. As a precaution we should also inspect not deep rollbacks, because
+2. As a precaution we should also inspect into deep rollbacks, because
    they _might_ indicate a problem.
 
 You should [classify rollback](#how-to-classify-rollback): how deep

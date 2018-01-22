@@ -147,6 +147,18 @@ queryValue ws q = runReader q ws
 updateDisk :: WalletDbWriter event m => event -> WalletDB -> m (EventResult event)
 updateDisk evt db = A.update db evt
 
+updateDisk' :: forall m event. WalletDbWriter event m
+            => event
+            -> WalletDB
+            -> m (EventResult event, WalletSnapshot)
+updateDisk' evt db = do
+    result       <- A.update db evt
+    newSnapshot  <- readUpdatedDb
+    pure (result, newSnapshot)
+    where
+      readUpdatedDb :: m WalletSnapshot
+      readUpdatedDb = A.query db A.GetWalletStorage
+
 -- | All queries work by doing a /single/ read of the DB state and then
 -- by using pure functions to extract the relevant information. A single read
 -- guarantees that we see a self-consistent snapshot of the wallet state.
@@ -255,9 +267,9 @@ getWalletBalancesAndUtxo ws = queryValue ws S.getWalletBalancesAndUtxo
 createAccount :: ( WalletDbReader ctx m
                  , WalletDbWriter A.CreateAccount m
                  )
-              => AccountId -> CAccountMeta -> m ()
+              => AccountId -> CAccountMeta -> m ((), WalletSnapshot)
 createAccount accId accMeta =
-    askWalletDB >>= updateDisk (A.CreateAccount accId accMeta)
+    askWalletDB >>= updateDisk' (A.CreateAccount accId accMeta)
 
 createWallet :: ( WalletDbReader ctx m
                 , WalletDbWriter A.CreateWallet m

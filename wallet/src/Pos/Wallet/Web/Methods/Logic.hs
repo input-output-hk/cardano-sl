@@ -217,12 +217,12 @@ newAddress_ ws addGenSeed passphrase accId = do
 
 newAddress
     :: MonadWalletWebMode m
-    => AddrGenSeed
+    => WalletSnapshot
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
-    ws <- getWalletSnapshot
+newAddress ws addGenSeed passphrase accId = do
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
     fixCachedAccModifierFor ws accId $ \accMod -> do
         getWAddress ws accMod cwAddrMeta
@@ -237,14 +237,12 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
         _ <- getWalletIncludeUnready ws includeUnready caInitWId
 
         cAddr <- genUniqueAccountId ws addGenSeed caInitWId
-        createAccount cAddr caInitMeta
-        -- NOTE(adinapoli): 'newAddres' re-reads the DB here.
-        () <$ newAddress addGenSeed passphrase cAddr
+        ((), ws') <- createAccount cAddr caInitMeta
+        () <$ newAddress ws' addGenSeed passphrase cAddr
 
         -- NOTE(adinapoli): Is it correct doing the new read within a
         -- 'fixCachedAccModifierFor' block?
         -- Re-read DB after the update.
-        ws' <- getWalletSnapshot
         getAccountMod ws' accMod cAddr
 
 newAccount

@@ -20,7 +20,10 @@ import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHe
 import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Delegation (checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
+import           Pos.Core.Txp (checkTxPayload)
+import           Pos.Core.Update (checkUpdatePayload)
 import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
                              proxyVerify)
 import           Pos.Delegation.Helpers (dlgVerifyPayload)
@@ -34,11 +37,20 @@ instance ( Bi BlockHeader
          BlockchainHelpers MainBlockchain where
     verifyBBlockHeader = verifyMainBlockHeader
     verifyBBlock block@UnsafeGenericBlock {..} = do
+
+        _ <- checkTxPayload (_mbTxPayload _gbBody)
+
         either (throwError . pretty) pure $
             verifySscPayload
                 (Right (Some _gbHeader))
                 (_mbSscPayload _gbBody)
+
+        -- FIXME roll these into one
+        _ <- checkDlgPayload (_mbDlgPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
+
+        _ <- checkUpdatePayload (_mbUpdatePayload _gbBody)
+
         unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $
             throwError "Hash of extra body data is not equal to its representation in the header."
 

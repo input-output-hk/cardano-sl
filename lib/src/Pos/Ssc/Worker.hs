@@ -38,7 +38,6 @@ import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, 
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Diffusion.Types (Diffusion (..))
-import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)

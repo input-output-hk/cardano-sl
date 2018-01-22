@@ -10,6 +10,7 @@ import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunctio
                              ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (sformat)
@@ -75,10 +76,10 @@ instance FromJSON Script where
         pure $ Script {..}
 
 instance FromJSON UnparsedFields where
-    parseJSON v = UnparsedFields . Map.map getJsonByteString <$> parseJSON v
+    parseJSON v = UnparsedFields . Map.map (LBS.fromStrict . getJsonByteString) <$> parseJSON v
 
 instance ToJSON UnparsedFields where
-    toJSON (UnparsedFields fields) = toJSON (Map.map JsonByteString fields)
+    toJSON (UnparsedFields fields) = toJSON (Map.map (JsonByteString . LBS.toStrict) fields)
 
 deriveJSON defaultOptions ''Attributes
 

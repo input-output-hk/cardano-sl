@@ -8,14 +8,13 @@ import           Unsafe (unsafeFromJust)
 import           Codec.CBOR.Encoding (Encoding)
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word8)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
-                                   decodeUnknownCborDataItem, deserialize', encodeCrcProtected,
+                                   decodeUnknownCborDataItem, deserialize, encodeCrcProtected,
                                    encodeListLen, encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
+                                   serialize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
@@ -127,20 +126,20 @@ instance Bi (Attributes AddrAttributes) where
     encode attrs@(Attributes {attrData = AddrAttributes derivationPath stakeDistr}) =
         encodeAttributes listWithIndices attrs
       where
-        listWithIndices :: [(Word8, AddrAttributes -> BS.ByteString)]
+        listWithIndices :: [(Word8, AddrAttributes -> LBS.ByteString)]
         listWithIndices =
             stakeDistributionListWithIndices <> derivationPathListWithIndices
         stakeDistributionListWithIndices =
             case stakeDistr of
                 BootstrapEraDistr -> []
-                _                 -> [(0, serialize' . aaStakeDistribution)]
+                _                 -> [(0, serialize . aaStakeDistribution)]
         derivationPathListWithIndices =
             case derivationPath of
                 Nothing -> []
                 -- 'unsafeFromJust' is safe, because 'case' ensures
                 -- that derivation path is 'Just'.
                 Just _ ->
-                    [(1, serialize' . unsafeFromJust . aaPkDerivationPath)]
+                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
 
     decode = decodeAttributes initValue go
       where
@@ -151,8 +150,8 @@ instance Bi (Attributes AddrAttributes) where
             }
         go n v acc =
             case n of
-                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize' v
-                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize' v
+                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize v
+                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize v
                 _ -> pure Nothing
 
 -- We don't need a special encoding for 'Address'', GND is what we want.
@@ -185,10 +184,7 @@ encodeAddr Address {..} =
 encodeAddrCRC32 :: Address -> Encoding
 encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
 
--- Note: we are using 'Buildable' constraint here, which in turn
--- relies on 'Bi', but it uses only encoding, while 'Buildable' is
--- used here only in decoding.
-instance Buildable Address => Bi Address where
+instance Bi Address where
     encode Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
     decode = do
         (addrRoot, addrAttributes, addrType) <- decodeCrcProtected

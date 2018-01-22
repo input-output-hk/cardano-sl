@@ -55,7 +55,7 @@ instance Buildable SyncStatus where
                     sslbCurrentSlot
             SSInFuture {..} ->
                 bprint
-                    ("we invented time machine, our tip's slot is: " %slotIdF %
+                    ("we invented a time machine, our tip's slot is: " %slotIdF %
                      " and it's greater than current slot: " %slotIdF)
                     sslbTipSlot
                     sslbCurrentSlot

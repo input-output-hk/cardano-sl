@@ -18,7 +18,6 @@ module Pos.Block.Logic.Internal
        , rollbackBlocksUnsafe
        , BypassSecurityCheck(..)
 
-         -- * Garbage
        , toUpdateBlock
        , toTxpBlock
        , toSscBlock
@@ -37,10 +36,10 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
-                           gbHeader, headerHash)
-import           Pos.Core.Block (Block, Body, GenesisBlock, MainBlock, MainBlockchain, mbDlgPayload,
-                                 mbSscPayload, mbTxPayload, mbUpdatePayload)
+import           Pos.Core (ComponentBlock (..), HasConfiguration, IsGenesisHeader, epochIndexL,
+                           gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload,
+                           mainBlockTxPayload, mainBlockUpdatePayload)
+import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -56,8 +55,9 @@ import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Types (SscBlock)
 import           Pos.Txp.MemState (MonadTxpLocal (..))
 import           Pos.Txp.Settings (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update (UpdateBlock)
 import           Pos.Update.Context (UpdateContext)
-import           Pos.Update.Logic (UpdateBlock, usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (HasLens', Some (..), spanSafe)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -225,35 +225,32 @@ rollbackBlocksUnsafe bsc scb toRollback = do
     dlgNormalizeOnRollback
     sanityCheckDB
 
-----------------------------------------------------------------------------
--- Garbage
-----------------------------------------------------------------------------
 
--- [CSL-1156] Need something more elegant.
+toComponentBlock :: HasConfiguration => (MainBlock -> payload) -> Block -> ComponentBlock payload
+toComponentBlock fnc block = case block of
+    Left genBlock   -> ComponentBlockGenesis (convertGenesis genBlock)
+    Right mainBlock -> ComponentBlockMain (Some $ mainBlock ^. gbHeader) (fnc mainBlock)
+
 toTxpBlock
     :: HasConfiguration
     => Block -> TxpBlock
-toTxpBlock = bimap convertGenesis (convertMain mbTxPayload)
+toTxpBlock = toComponentBlock (view mainBlockTxPayload)
 
--- [CSL-1156] Yes, definitely need something more elegant.
+toUpdateBlock
+    :: HasConfiguration
+    => Block -> UpdateBlock
+toUpdateBlock = toComponentBlock (view mainBlockUpdatePayload)
+
 toTxpBlund
     :: HasConfiguration
     => Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
--- [CSL-1156] Sure, totally need something more elegant.
-toUpdateBlock
-    :: HasConfiguration
-    => Block -> UpdateBlock
-toUpdateBlock = bimap convertGenesis (convertMain mbUpdatePayload)
-
--- [CSL-1156] Totally need something more elegant.
 toSscBlock
     :: HasConfiguration
     => Block -> SscBlock
-toSscBlock = bimap convertGenesis (convertMain mbSscPayload)
+toSscBlock = toComponentBlock (view mainBlockSscPayload)
 
--- [CSL-1156] Absolutely need something more elegant.
 toDlgBlund
     :: HasConfiguration
     => Blund -> DlgBlund
@@ -262,14 +259,7 @@ toDlgBlund = bimap toDlgBlock undoDlg
     toDlgBlock
         :: HasConfiguration
         => Block -> DlgBlock
-    toDlgBlock = bimap convertGenesis (convertMain mbDlgPayload)
+    toDlgBlock = toComponentBlock (view mainBlockDlgPayload)
 
 convertGenesis :: HasConfiguration => GenesisBlock -> Some IsGenesisHeader
 convertGenesis = Some . view gbHeader
-
-convertMain
-    :: HasConfiguration
-    => Lens' (Body MainBlockchain) a
-    -> MainBlock
-    -> (Some IsMainHeader, a)
-convertMain payload blk = (Some $ blk ^. gbHeader, blk ^. gbBody . payload)

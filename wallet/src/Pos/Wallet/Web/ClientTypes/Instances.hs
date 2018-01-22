@@ -18,7 +18,7 @@ import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupI
 
 import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin, unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
-import           Pos.Crypto (PassPhrase, hashHexF, passphraseLength)
+import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
                                    ToCType (..), WithTruncatedLog (..))
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..), CAccountId (..),
@@ -99,6 +99,8 @@ type instance OriginType CTxId = TxId
 instance ToCType CTxId where
     encodeCType = mkCTxId . sformat hashHexF
 
+instance FromCType CTxId where
+    decodeCType (CTxId (CHash h)) = decodeHash h
 
 type instance OriginType CPtxCondition = Maybe PtxCondition
 

@@ -16,7 +16,6 @@ import           Universum
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (tryAny)
 import           Control.Lens (makeLensesWith)
 import qualified Data.ByteString.Lazy as BS.L
 import           Data.List (isSuffixOf)
@@ -51,7 +50,7 @@ import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception (handle, mask_, throwIO)
+import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
@@ -98,7 +97,23 @@ data LauncherOptions = LO
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
 
+-- | Executable can be node, wallet or updater
 data Executable = EWallet | ENode | EUpdater
+
+-- | This datatype holds values for either node or wallet
+--   Node/wallet path, args, log path
+data NodeData = NodeData
+    { ndPath    :: !FilePath
+    , ndArgs    :: ![Text]
+    , ndLogPath :: Maybe FilePath }
+
+-- | Updater path, args, windows runner path, archive path
+data UpdaterData = UpdaterData
+    { udPath        :: !FilePath
+    , udArgs        :: ![Text]
+    , udWindowsPath :: Maybe FilePath
+    , udArchivePath :: Maybe FilePath
+    }
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
@@ -281,11 +296,9 @@ main =
                 serverScenario
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
-                    (loNodePath, realNodeArgs, loNodeLogPath)
-                    ( loUpdaterPath
-                    , loUpdaterArgs
-                    , loUpdateWindowsRunner
-                    , loUpdateArchive)
+                    (NodeData loNodePath realNodeArgs loNodeLogPath)
+                    (UpdaterData
+                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loReportServer
             Just wpath -> do
                 logNotice "LAUNCHER STARTED"
@@ -293,12 +306,10 @@ main =
                 clientScenario
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
-                    (loNodePath, realNodeArgs, loNodeLogPath)
-                    (wpath, loWalletArgs, loWalletLogPath)
-                    ( loUpdaterPath
-                    , loUpdaterArgs
-                    , loUpdateWindowsRunner
-                    , loUpdateArchive)
+                    (NodeData loNodePath realNodeArgs loNodeLogPath)
+                    (NodeData wpath loWalletArgs loWalletLogPath)
+                    (UpdaterData
+                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
@@ -339,11 +350,10 @@ main =
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
     :: NodeDbPath
-    -> Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
-    -- ^ Updater, args, updater runner, the update .tar
-    -> Maybe String                        -- ^ Report server
+    -> Maybe FilePath     -- ^ Logger config
+    -> NodeData           -- ^ Node, args, log path
+    -> UpdaterData        -- ^ Updater, args, updater runner, archive path
+    -> Maybe String       -- ^ Report server
     -> M ()
 serverScenario ndbp logConf node updater report = do
     runUpdater ndbp updater
@@ -366,21 +376,19 @@ serverScenario ndbp logConf node updater report = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
     :: NodeDbPath
-    -> Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text], Maybe FilePath)
-    -- ^ Wallet, args, wallet log path
-    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
-    -- ^ Updater, args, updater runner, the update .tar
-    -> Int                                 -- ^ Node timeout, in seconds
-    -> Maybe String                        -- ^ Report server
-    -> Bool                                -- ^ Wallet logging
+    -> Maybe FilePath    -- ^ Logger config
+    -> NodeData          -- ^ Node, args, wallet log path
+    -> NodeData          -- ^ Wallet, args, wallet log path
+    -> UpdaterData       -- ^ Updater, args, updater runner, archive path
+    -> Int               -- ^ Node timeout, in seconds
+    -> Maybe String      -- ^ Report server
+    -> Bool              -- ^ Wallet logging
     -> M ()
 clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = do
     runUpdater ndbp updater
-    let doesWalletLogToConsole = isNothing (wallet^._3) && walletLog
+    let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
-    walletAsync <- async (runWallet walletLog wallet (node^._3))
+    walletAsync <- async (runWallet walletLog wallet (ndLogPath node))
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     if | someAsync == nodeAsync -> do
@@ -428,8 +436,12 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: NodeDbPath -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
-runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
+runUpdater :: NodeDbPath -> UpdaterData -> M ()
+runUpdater ndbp ud = do
+    let path = udPath ud
+        args = udArgs ud
+        runnerPath = udWindowsPath ud
+        mUpdateArchivePath = udArchivePath ud
     whenM (liftIO (doesFileExist path)) $ do
         logNotice "Running the updater"
         let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
@@ -483,16 +495,19 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text], Maybe FilePath)
+    :: NodeData
     -> Bool -- Wallet logging
     -> M (ProcessHandle, Async ExitCode)
-spawnNode (path, args, mbLogPath) doesWalletLogToConsole = do
+spawnNode nd doesWalletLogToConsole = do
+    let path = ndPath nd
+        args = ndArgs nd
+        mLogPath = ndLogPath nd
     logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later in `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    cr <- liftIO $ case mbLogPath of
+    cr <- liftIO $ case mLogPath of
         Just lp -> do
             createLogFileProc path args lp
             -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
@@ -516,16 +531,19 @@ spawnNode (path, args, mbLogPath) doesWalletLogToConsole = do
             return (ph, asc)
 
 runWallet
-    :: Bool                               -- ^ wallet logging
-    -> (FilePath, [Text], Maybe FilePath) -- ^ Wallet, its args, wallet log file
-    -> Maybe FilePath                     -- ^ Node log file
+    :: Bool              -- ^ wallet logging
+    -> NodeData          -- ^ Wallet, its args, wallet log file
+    -> Maybe FilePath    -- ^ Node log file
     -> M ExitCode
-runWallet shouldLog (path, args, mLogPath) nLogPath = do
+runWallet shouldLog nd nLogPath = do
+    let wpath = ndPath nd
+        wargs = ndArgs nd
+        mWLogPath = ndLogPath nd
     logNotice "Starting the wallet"
     phvar <- newEmptyMVar
-    liftIO $ case mLogPath of
+    liftIO $ case mWLogPath of
         Just lp -> do
-            cr <- createLogFileProc path args lp
+            cr <- createLogFileProc wpath wargs lp
             system' phvar cr mempty EWallet
         Nothing ->
            -- if nLog is Nothing and shouldLog is True
@@ -533,7 +551,7 @@ runWallet shouldLog (path, args, mLogPath) nLogPath = do
            let cr = if shouldLog && isNothing nLogPath then
                         Process.CreatePipe
                     else Process.Inherit
-           in system' phvar (createProc cr path args) mempty EWallet
+           in system' phvar (createProc cr wpath wargs) mempty EWallet
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess
 createLogFileProc path args lp = do
@@ -654,7 +672,7 @@ halt a = do
     m <- poll a
     case m of
         Nothing          -> cancel a
-        Just (Left  msg) -> throwIO msg
+        Just (Left  msg) -> throwM msg
         Just (Right _)   -> return ()
 
 ignoreSIGPIPE :: IO () -> IO ()
@@ -663,7 +681,7 @@ ignoreSIGPIPE = handle (\ex -> case ex of
         { ioe_type = ResourceVanished
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
-    _ -> throwIO ex )
+    _ -> throwM ex )
 
 ----------------------------------------------------------------------------
 -- SIGKILL

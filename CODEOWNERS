@@ -18,7 +18,6 @@ explorer/test/                        @ksaric
 
 # CI, Nix
 *.nix                           @domenkozar
-.travis.yml                     @domenkozar
 appveyor.yml                    @domenkozar
 nixpkgs-src.json                @domenkozar
 pkgs/generate.sh                @domenkozar

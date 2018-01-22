@@ -21,10 +21,8 @@ library
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
-                       Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
-                       Pos.Util.Concurrent.RWVar
 
                        Pos.Util.Filesystem
                        Pos.Util.Future

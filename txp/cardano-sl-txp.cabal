@@ -98,6 +98,7 @@ library
                      , plutus-prototype
                      , resourcet
                      , rocksdb-haskell >= 1.0.0
+                     , safe-exceptions
                      , serokell-util
                      , stm
                      , tagged

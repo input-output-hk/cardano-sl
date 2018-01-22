@@ -1,4 +1,4 @@
--- | Txp settings which let customize Txp behavior.
+-- | Txp settings which allow customiization of Txp behavior.
 
 module Pos.Txp.Settings
        ( module Pos.Txp.Settings.Global

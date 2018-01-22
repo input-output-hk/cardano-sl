@@ -16,8 +16,10 @@ module Pos.Configuration
        , propagationQueueSize
        , defaultPeers
 
-       -- * Transaction resubmition constants
+       -- * Wallet constants
        , pendingTxResubmitionPeriod
+       , walletProductionApi
+       , walletTxCreationDisabled
        ) where
 
 import           Universum
@@ -59,6 +61,11 @@ data NodeConfiguration = NodeConfiguration
       -- ^ InvMsg propagation queue capacity
     , ccPendingTxResubmissionPeriod  :: !Int
       -- ^ Minimal delay between pending transactions resubmission
+    , ccWalletProductionApi          :: !Bool
+      -- ^ Whether hazard wallet endpoint should be disabled
+    , ccWalletTxCreationDisabled     :: !Bool
+      -- ^ Disallow transaction creation or re-submission of
+      -- pending transactions by the wallet
     } deriving (Show, Generic)
 
 instance FromJSON NodeConfiguration where
@@ -97,8 +104,18 @@ defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
 
 
 ----------------------------------------------------------------------------
--- Transactions resubmition
+-- Wallet parameters
 ----------------------------------------------------------------------------
 
 pendingTxResubmitionPeriod :: HasNodeConfiguration => Second
 pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ nodeConfiguration
+
+-- | If 'True', some dangerous endpoints, like one which resets wallet state,
+-- should throw exception if used.
+walletProductionApi :: HasNodeConfiguration => Bool
+walletProductionApi = ccWalletProductionApi $ nodeConfiguration
+
+-- | If 'True', wallet should *not* create new transactions or re-submit
+-- existing pending transactions.
+walletTxCreationDisabled :: HasNodeConfiguration => Bool
+walletTxCreationDisabled = ccWalletTxCreationDisabled $ nodeConfiguration

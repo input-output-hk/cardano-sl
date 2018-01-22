@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Wrapper for modifier pattern which is used intensively in code
+-- | Wrapper for the modifier pattern which is used throughout the code.
 
 module Pos.Util.Modifier
        ( MapModifier

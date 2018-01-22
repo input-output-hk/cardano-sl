@@ -10,17 +10,19 @@ import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to, _Wrapped)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM (retry)
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
+import           Data.Time.Units (toMicroseconds)
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, builder, int, sformat, stext, (%))
-import           Mockable (delay, handleAll)
+import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
@@ -43,10 +45,11 @@ import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, isMoreDi
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Slotting.Util (getCurrentEpochSlotDuration)
+import           Pos.Util (buildListBounds, _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
-import           Pos.Util.Timer (Timer, startTimer)
+import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 
 retrievalWorker
     :: forall ctx m.
@@ -77,7 +80,7 @@ retrievalWorkerImpl
        (BlockWorkMode ctx m)
     => Timer -> SendActions m -> m ()
 retrievalWorkerImpl keepAliveTimer SendActions {..} =
-    handleAll mainLoopE $ do
+    handleAny mainLoopE $ do
         logInfo "Starting retrievalWorker loop"
         mainLoop
   where
@@ -85,29 +88,34 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
-        -- Reading the queue is a priority, because it sets recovery
-        -- variable in case header is alternative. So if the queue
-        -- contains lots of headers after a long delay, we'll first
-        -- iterate over them and set recovery variable to a latest
-        -- one, and only then we'll do recovery.
+        -- Reading the queue is a priority, because it sets the recovery
+        -- variable in case the header is classified as alternative. So if the
+        -- queue contains lots of headers after a long delay, we'll first
+        -- iterate over them and set recovery variable to the latest one, and
+        -- only then we'll do recovery.
         thingToDoNext <- atomically $ do
             mbQueuedHeadersChunk <- tryReadTBQueue queue
             mbRecHeader <- tryReadTMVar recHeaderVar
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                -- Dispatch task.
+                -- Dispatch the task
                 (Just (nodeId, task), _) ->
                     pure (handleBlockRetrieval nodeId task)
-                -- No tasks & recovery header is there ⇒ do recovery.
+                -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
+        -- Restart the timer for sending keep-alive like packets to node(s)
+        -- we're subscribed to as when we keep receiving blocks from them it
+        -- means the connection is sound.
+        slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
+        setTimerDuration keepAliveTimer $ 3 * slotDuration
         startTimer keepAliveTimer
         thingToDoNext
         mainLoop
     mainLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         reportOrLogE "retrievalWorker mainLoopE: error caught " e
-        delay $ sec 1
+        delay (sec 1)
         mainLoop
 
     -----------------
@@ -124,7 +132,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
             nodeId
             brtHeader
 
-    -- When we have continuation, we just try to get and apply it.
+    -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do
         let hHash = headerHash header
         logDebug $ "handleContinues: " <> pretty hHash
@@ -135,9 +143,9 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
 
-    -- When we have alternative header, we should check whether it's
-    -- really recovery mode (server side should send us headers as a
-    -- proof) and then enter recovery mode.
+    -- When we have an alternative header, we should check whether it's actually
+    -- recovery mode (server side should send us headers as a proof) and then
+    -- enter recovery mode.
     handleAlternative nodeId header = do
         logDebug $ "handleAlternative: " <> pretty (headerHash header)
         classifyNewHeader header >>= \case
@@ -155,7 +163,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
     -----------------
 
     handleRecoveryWithHandler nodeId header =
-        handleAll (handleRecoveryE nodeId header) $
+        handleAny (handleRecoveryE nodeId header) $
         handleRecovery nodeId header
 
     -- We immediately drop recovery mode/header and request tips
@@ -168,8 +176,8 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat enqueueMsg nodeId
 
-    -- Recovery handling. We assume that header in recovery var makes
-    -- sense and just query headers/blocks.
+    -- Recovery handling. We assume that header in the recovery variable is
+    -- appropriate and just query headers/blocks.
     handleRecovery nodeId header = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers and blocks"
@@ -280,7 +288,7 @@ dropRecoveryHeader nodeId = do
                    maybe "noth" show realPeer <> " vs " <> show nodeId
     pure kicked
 
--- | Drops recovery header and, if it was successful, queries tips.
+-- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
     :: (BlockWorkMode ctx m)
     => EnqueueMsg m -> NodeId -> m ()
@@ -291,7 +299,7 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
         delay $ sec 2
-        handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
+        handleAny handleRecoveryTriggerE $ triggerRecovery enqueue
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
@@ -336,10 +344,10 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
                 throwM $ DialogUnexpected msg
             Right blocks -> do
                 logDebug $ sformat
-                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+                    ("Retrieved "%int%" blocks of total size "%builder%": "%buildListBounds)
                     (blocks ^. _OldestFirst . to NE.length)
                     (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader) blocks)
+                    (getOldestFirst $ map headerHash blocks)
                 handleBlocks nodeId blocks enqueue
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger

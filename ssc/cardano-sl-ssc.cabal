@@ -46,7 +46,6 @@ library
     Pos.Ssc.Shares
     Pos.Ssc.DB
     Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -83,7 +82,9 @@ library
                      , cryptonite
                      , data-default
                      , ether
+                     , ekg-core
                      , exceptions
+                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens

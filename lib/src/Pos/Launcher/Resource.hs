@@ -20,13 +20,14 @@ module Pos.Launcher.Resource
        ) where
 
 import           Nub (ordNub)
-import           Universum hiding (bracket)
+import           Universum
 
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Default (Default)
 import qualified Data.Time as Time
+import           Data.Time.Units (toMicroseconds)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Bracket, Catch, Mockable, Production (..), Throw, bracket, throw)
+import           Mockable (Production (..))
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport, hoistTransport)
@@ -43,7 +44,8 @@ import           Pos.Block.Slog (mkSlogContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
+import           Pos.Core (HasConfiguration, Timestamp, bvdSlotDuration, gdBlockVersionData,
+                           gdStartTime, genesisData)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
@@ -54,6 +56,7 @@ import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..))
+import           Pos.Reporting.MemState (initializeMisbehaviorMetrics)
 import           Pos.Shutdown.Types (ShutdownContext (..))
 import           Pos.Slotting (SlottingContextSum (..), mkNtpSlottingVar, mkSimpleSlottingVar)
 import           Pos.Slotting.Types (SlottingData)
@@ -157,7 +160,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp txpSettin
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings
+        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
         dlgVar <- mkDelegationVar
         sscState <- mkSscState
@@ -256,8 +259,9 @@ allocateNodeContext
       (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration)
     => AllocateNodeContextData ext
     -> TxpGlobalSettings
+    -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext ancd txpSettings = do
+allocateNodeContext ancd txpSettings ekgStore = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -288,7 +292,11 @@ allocateNodeContext ancd txpSettings = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
+    let slotDuration :: Integer
+        slotDuration = toMicroseconds . bvdSlotDuration $ gdBlockVersionData genesisData
+    ncSubscriptionKeepAliveTimer <- newTimer $ 3 * fromIntegral slotDuration
+    mm <- initializeMisbehaviorMetrics ekgStore
+
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
@@ -297,6 +305,7 @@ allocateNodeContext ancd txpSettings = do
             , ncNodeParams = np
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig
+            , ncMisbehaviorMetrics = Just mm
             , ..
             }
     return ctx
@@ -314,7 +323,7 @@ mkSlottingVar = newTVarIO =<< GState.getSlottingData
 ----------------------------------------------------------------------------
 
 createKademliaInstance ::
-       (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
+       (HasNodeConfiguration, MonadIO m, MonadCatch m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
@@ -326,7 +335,7 @@ createKademliaInstance kp defaultPort =
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
-    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
@@ -337,7 +346,7 @@ bracketKademliaInstance kp defaultPort action =
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
 bracketKademlia
-    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
     => NetworkConfig KademliaParams
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a
@@ -378,7 +387,7 @@ instance Exception MissingKademliaParams
 ----------------------------------------------------------------------------
 
 createTransportTCP
-    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, Mockable Throw m)
+    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, MonadThrow m)
     => TCP.TCPAddr
     -> m (Transport n, m ())
 createTransportTCP addrInfo = do
@@ -401,12 +410,12 @@ createTransportTCP addrInfo = do
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
-            throw e
+            throwM e
         Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
 
 -- | RAII for 'Transport'.
 bracketTransport
-    :: (HasNodeConfiguration, MonadIO m, MonadIO n, Mockable Throw m, Mockable Bracket m, WithLogger m)
+    :: (HasNodeConfiguration, MonadIO m, MonadIO n, MonadMask m, WithLogger m)
     => TCP.TCPAddr
     -> (Transport n -> m a)
     -> m a

@@ -69,7 +69,7 @@ packages:
 # These three are needed for cardano-sl-networking
 - location:
     git: https://github.com/serokell/network-transport-tcp
-    commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
+    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport

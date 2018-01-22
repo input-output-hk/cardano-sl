@@ -25,10 +25,7 @@ wdb-*/
 *.key.lock
 keys
 !secrets/*.key
-
-# TLS certificates
-server.crt
-ca.crt
+!scripts/tls-files/server.key
 
 # Node runtime data
 logs

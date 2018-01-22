@@ -15,10 +15,9 @@ import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
 
-import           Pos.Core (ApplicationName, BlockVersion, HasConfiguration, NumSoftwareVersion,
-                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
-                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
-import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
+import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasConfiguration,
+                           NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash,
+                           blockVersionL, epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
@@ -37,15 +36,12 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, Mon
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
--- Stripped block type
+-- UpdateBlock
 ----------------------------------------------------------------------------
 
--- TODO: I don't like that 'Some' is used here
--- —@neongreen
-type UpdateBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, UpdatePayload)
+type UpdateBlock = ComponentBlock UpdatePayload
 
 ----------------------------------------------------------------------------
 -- Constraints
@@ -163,9 +159,9 @@ usVerifyBlocks verifyAllIsKnown blocks =
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)
     => Bool -> UpdateBlock -> m USUndo
-verifyBlock _ (Left genBlk) =
+verifyBlock _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
-verifyBlock verifyAllIsKnown (Right (header, payload)) =
+verifyBlock verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
             verifyAllIsKnown

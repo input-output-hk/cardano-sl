@@ -11,6 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
+import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function
@@ -37,8 +38,9 @@ newtype Dequeue a = Dequeue { unDequeue :: M.Production a }
            , Applicative
            , Monad
            , MonadIO
-           , M.Mockable M.Bracket
-           , M.Mockable M.Catch
+           , MonadThrow
+           , MonadCatch
+           , MonadMask
            , CanLog
            , HasLoggerName
            )

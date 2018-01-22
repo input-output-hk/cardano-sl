@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Type class necessary for Transaction processing (Txp)
+-- | Type class necessary for transaction processing (Txp)
 -- and some useful getters and setters.
 
 module Pos.Txp.MemState.Class

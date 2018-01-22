@@ -18,7 +18,7 @@ module Pos.Launcher.Runner
        , initQueue
        ) where
 
-import           Universum hiding (bracket)
+import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
@@ -26,8 +26,7 @@ import           Data.Default (Default)
 import qualified Data.Map as M
 import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
-import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
-                           killThread, throw)
+import           Mockable (MonadMockable, Production (..), async, cancel, killThread)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
@@ -54,11 +53,11 @@ import           Pos.Core (BlockVersionData)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB (gsAdoptedBVData)
+import           Pos.Diffusion.Types (Diffusion, DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
-import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion)
-import           Pos.Logic.Types (LogicLayer (..), Logic)
+import           Pos.Logic.Types (Logic, LogicLayer (..))
 import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
                                     topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
@@ -67,7 +66,8 @@ import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.Web.Server (serveImpl, route53HealthCheckApplication)
+import           Pos.Util.Util (eitherToThrow)
+import           Pos.Web.Server (route53HealthCheckApplication, serveImpl)
 import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
                                WorkMode)
 
@@ -231,7 +231,7 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
     N.converseWith converse nodeId (k nodeId)
 
 oqEnqueue
-    :: ( Mockable Throw m, MonadIO m, WithLogger m )
+    :: ( MonadThrow m, MonadIO m, WithLogger m )
     => OQ m
     -> OQ.ConnectionChangeAction m NodeId
     -> Msg
@@ -240,7 +240,7 @@ oqEnqueue
 oqEnqueue oq onConnChange msgType k = do
     itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) onConnChange
     let itMap = M.fromList itList
-    return ((>>= either throw return) <$> itMap)
+    return ((>>= eitherToThrow) <$> itMap)
 
 oqDequeue
     :: ( MonadIO m

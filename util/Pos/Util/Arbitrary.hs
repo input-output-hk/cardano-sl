@@ -26,8 +26,8 @@ import           Test.QuickCheck.Random (mkQCGen)
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
   where
-    -- This function is “Golden function of testing”. It is perfect
-    -- for making tested values small. There was a profound research
+    -- This function is the Golden Function of Testing. It is perfect
+    -- for making tested values small. There was profound research
     -- in this area. `f 4` is 3, yes.
     f 0 = 0
     f 1 = 1

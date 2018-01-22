@@ -16,7 +16,7 @@ import           System.Posix.Process (exitImmediately)
 #endif
 import           Data.Constraint (Dict (..))
 import           Formatting (float, int, sformat, stext, (%))
-import           Mockable (Catch, Delay, Mockable, delay)
+import           Mockable (Delay, Mockable, delay)
 import           Node.Conversation (ConversationActions (..))
 import           Node.Message.Class (Message (..))
 import           Serokell.Util (sec)
@@ -61,8 +61,7 @@ auxxPlugin auxxOptions repl = worker' runCmdOuts $ \sendActions ->
 rawExec ::
        ( HasCompileInfo
        , MonadIO m
-       , Mockable Catch m
-       , MonadThrow m
+       , MonadCatch m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
@@ -82,8 +81,7 @@ rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
 runWalletCmd ::
        ( HasCompileInfo
        , MonadIO m
-       , Mockable Catch m
-       , MonadThrow m
+       , MonadCatch m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
@@ -107,8 +105,7 @@ runWalletCmd mHasAuxxMode mSendActions line = do
 runCmd ::
        ( HasCompileInfo
        , MonadIO m
-       , Mockable Catch m
-       , MonadThrow m
+       , MonadCatch m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
@@ -200,4 +197,5 @@ addLogging SendActions{..} = SendActions{
                      Nothing  -> sformat ("Auxx received end of input")
                      Just rcv -> sformat ("Auxx received " % stext) (formatMessage rcv)
                  return mRcv
+      , sendRaw = sendRaw
       }

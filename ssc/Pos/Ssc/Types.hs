@@ -41,15 +41,13 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)
 import           Universum
 
-import           Pos.Core (EpochIndex, HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                           HasHeaderHash (..), IsGenesisHeader, IsMainHeader)
+import           Pos.Core (ComponentBlock (..), EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening, OpeningsMap, SharesMap,
                                SignedCommitment, SscPayload)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Ssc.Toss.Types (TossModifier)
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
@@ -188,17 +186,4 @@ data SscState =
 -- SscBlock
 ----------------------------------------------------------------------------
 
--- [CSL-1156] Find a better way for this
-type SscBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, SscPayload)
-
-instance HasDifficulty (Some IsMainHeader, SscPayload) where
-    difficultyL = _1 . difficultyL
-instance HasEpochIndex (Some IsMainHeader, SscPayload) where
-    epochIndexL = _1 . epochIndexL
-instance HasHeaderHash (Some IsMainHeader, SscPayload) where
-    headerHash     = headerHash . fst
-instance HasEpochOrSlot (Some IsMainHeader, SscPayload) where
-    getEpochOrSlot = getEpochOrSlot . fst
-
-instance HasHeaderHash SscBlock where
-    headerHash     = either headerHash headerHash
+type SscBlock = ComponentBlock SscPayload

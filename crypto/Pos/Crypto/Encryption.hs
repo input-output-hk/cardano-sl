@@ -1,6 +1,9 @@
 {-# LANGUAGE RankNTypes #-}
+
 -- | Wrapper over AES. `encode` and `decode` use AES256 CTR mode with
 -- IV = 0.
+-- Decryption functions are used in wallet. Encryption is not used anywhere.
+
 module Pos.Crypto.Encryption
        ( AesKey
        , deriveAesKey
@@ -18,14 +21,6 @@ import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.ByteArray (convert)
 import qualified Data.Text.Encoding as TE
 
-
-----------------------------------------------------------------------------
--- Hashing
-----------------------------------------------------------------------------
-
-blake2b :: ByteString -> ByteString
-blake2b = convert @(Digest Blake2b_256) . hash
-
 ----------------------------------------------------------------------------
 -- AES
 ----------------------------------------------------------------------------
@@ -40,6 +35,9 @@ deriveAesKey = deriveAesKeyBS . TE.encodeUtf8
 
 deriveAesKeyBS :: ByteString -> AesKey
 deriveAesKeyBS = AesKey . blake2b
+  where
+    blake2b :: ByteString -> ByteString
+    blake2b = convert @(Digest Blake2b_256) . hash
 
 aesEncrypt :: ByteString -> AesKey -> Either CryptoError ByteString
 aesEncrypt input (fromAESKey -> sk) = ctrCombine <$> init <*> pure nullIV <*> pure input

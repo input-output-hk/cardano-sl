@@ -1,4 +1,4 @@
--- | Secure random utilities for cryptographic part.
+-- | Secure generation of random numbers and bytestrings.
 
 module Pos.Crypto.Random
        ( SecureRandom(..)

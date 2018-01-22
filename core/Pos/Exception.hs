@@ -12,7 +12,7 @@ module Pos.Exception
        , assertionFailed
        ) where
 
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.Text.Buildable
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))

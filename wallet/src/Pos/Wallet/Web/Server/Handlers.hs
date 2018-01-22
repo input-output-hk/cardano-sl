@@ -17,12 +17,12 @@ import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
+
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
 import qualified Pos.Wallet.Web.Api as A
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 
 ----------------------------------------------------------------------------
 -- The wallet API with Swagger
@@ -55,6 +55,7 @@ servantHandlers = toServant' A.WalletApiRecord
     , _settings    = settingsHandlers
     , _backup      = backupHandlers
     , _info        = infoHandlers
+    , _system      = systemHandlers
     }
 
 -- branches of the API
@@ -79,7 +80,7 @@ walletsHandlers = toServant' A.WWalletsApiRecord
 
 accountsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WAccountsApi m
 accountsHandlers = toServant' A.WAccountsApiRecord
-    { _getAccount    = fixingCachedAccModifier M.getAccount
+    { _getAccount    = M.getAccount
     , _getAccounts   = M.getAccounts
     , _updateAccount = M.updateAccount
     , _newAccount    = M.newAccount RandomSeed
@@ -100,12 +101,15 @@ profileHandlers = toServant' A.WProfileApiRecord
 
 txsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WTxsApi m
 txsHandlers = toServant' A.WTxsApiRecord
-    { _newPayment      = M.newPayment
-    , _newPaymentBatch = M.newPaymentBatch
-    , _txFee           = M.getTxFee
-    , _resetFailedPtxs = M.resetAllFailedPtxs
-    , _updateTx        = M.updateTransaction
-    , _getHistory      = M.getHistoryLimited
+    { _newPayment                = M.newPayment
+    , _newPaymentBatch           = M.newPaymentBatch
+    , _txFee                     = M.getTxFee
+    , _resetFailedPtxs           = M.resetAllFailedPtxs
+    , _updateTx                  = M.updateTransaction
+    , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
+    , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
+    , _getHistory                = M.getHistoryLimited
+    , _pendingSummary            = M.gatherPendingTxsSummary
     }
 
 updateHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WUpdateApi m
@@ -143,6 +147,11 @@ backupHandlers = toServant' A.WBackupApiRecord
 infoHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WInfoApi m
 infoHandlers = toServant' A.WInfoApiRecord
     { _getClientInfo = M.getClientInfo
+    }
+
+systemHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WSystemApi m
+systemHandlers = toServant' A.WSystemApiRecord
+    { _requestShutdown = M.requestShutdown
     }
 
 ----------------------------------------------------------------------------

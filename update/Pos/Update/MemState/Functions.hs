@@ -7,7 +7,6 @@ module Pos.Update.MemState.Functions
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
@@ -24,6 +23,7 @@ type UpdateVotes = HashMap PublicKey UpdateVote
 
 -- | Use a lock to perform operation on in-memory state of update system.
 --
+-- TODO(thatguy): the following comment needs to be updated.
 -- Currently we are using a single lock for everything, so this
 -- function is just an alias for 'withStateLock'.
 withUSLock

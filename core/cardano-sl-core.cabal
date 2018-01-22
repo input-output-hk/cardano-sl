@@ -165,6 +165,7 @@ library
                      , quickcheck-instances
                      , random
                      , reflection
+                     , safe-exceptions
                      , scrypt >= 0.5
                      , serokell-util
                      , tagged

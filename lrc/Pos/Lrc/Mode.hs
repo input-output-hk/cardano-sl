@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
--- | Set of constraints used by LRC.
+-- | Constraints for LRC; a restricted version of `WorkMode`.
 
 module Pos.Lrc.Mode
        ( LrcMode
@@ -8,7 +8,7 @@ module Pos.Lrc.Mode
 
 import           Universum
 
-import           Mockable (Async, Bracket, Concurrently, Delay, Mockables)
+import           Mockable (Async, Concurrently, Delay, Mockables)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (HasConfiguration)
@@ -22,8 +22,7 @@ type LrcMode ctx m
        , MonadGState m
        , MonadDB m
        , MonadIO m
-       , Mockables m [Async, Bracket, Concurrently, Delay]
-                     -- ^ alphabet for the youngest haskellers
+       , Mockables m [Async, Concurrently, Delay]
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasConfiguration

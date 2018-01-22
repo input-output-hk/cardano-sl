@@ -76,7 +76,7 @@ lrcActionOnEpoch
 lrcActionOnEpoch epoch =
     lrcActionOnEpochReason
         epoch
-        "action on lrcCallOnEpoch couldn't be performed properly"
+        "action on lrcActionOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
     :: (MonadIO m, MonadReader ctx m, HasLrcContext ctx, MonadThrow m)

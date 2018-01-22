@@ -71,8 +71,8 @@ data Topology =
   deriving (Show)
 
 -- | All statically known peers in the newtork
-data AllStaticallyKnownPeers = AllStaticallyKnownPeers
-    { allStaticallyKnownPeers :: !(Map NodeName NodeMetadata)
+newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
+    { allStaticallyKnownPeers :: Map NodeName NodeMetadata
     } deriving (Show)
 
 newtype NodeRegion = NodeRegion Text

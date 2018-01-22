@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
+-- | Thin wrapper around `calculateSeed` used in LRC worker.
+
 module Pos.Ssc.Logic.Global
        (
        -- * Seed
@@ -15,7 +17,7 @@ import           Pos.DB (MonadDBRead)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Error (SscSeedError)
-import           Pos.Ssc.Lrc (getSscRichmenFromLrc)
+import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
 import           Pos.Ssc.Seed (calculateSeed)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings, sgsShares, sgsVssCertificates)
@@ -41,7 +43,7 @@ sscCalculateSeed epoch = do
     -- were using richmen for N-th epoch for everything – so, when we are
     -- calculating the seed for N+1-th epoch, we should still use data from
     -- N-th epoch.
-    richmen <- getSscRichmenFromLrc "sscCalculateSeed" (epoch - 1)
+    richmen <- getSscRichmen "sscCalculateSeed" (epoch - 1)
     sscRunGlobalQuery $ sscCalculateSeedQ richmen
 
 sscCalculateSeedQ

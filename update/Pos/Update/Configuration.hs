@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
+-- | Propagation of runtime configuration.
+
 module Pos.Update.Configuration
        ( UpdateConfiguration(..)
        , HasUpdateConfiguration

@@ -23,7 +23,7 @@ module Pos.Block.Network.Logic
 import           Universum
 
 import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
@@ -31,6 +31,7 @@ import           Ether.Internal (lensOf)
 import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
+import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
@@ -61,9 +62,10 @@ import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionT
 import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker (lrcSingleShot)
 import           Pos.Recovery.Info (recoveryInProgress)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, multilineBounds, _neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
@@ -395,7 +397,7 @@ addHeaderToBlockRequestQueue
        (BlockWorkMode ctx m)
     => NodeId
     -> BlockHeader
-    -> Bool -- ^ Was classified as chain continuation
+    -> Bool -- ^ Was the block classified as chain continuation?
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     let hHash = headerHash header
@@ -455,10 +457,9 @@ handleBlocks
     -> m ()
 handleBlocks nodeId blocks enqueue = do
     logDebug "handleBlocks: processing"
-    inAssertMode $
-        logInfo $
-            sformat ("Processing sequence of blocks: " %listJson % "...") $
-                    fmap headerHash blocks
+    inAssertMode $ logInfo $
+        sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
+            getOldestFirst $ map headerHash blocks
     maybe onNoLca (handleBlocksWithLca nodeId enqueue blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
@@ -491,8 +492,8 @@ applyWithoutRollback
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback enqueue blocks = do
-    logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
-        fmap (view blockHeader) blocks
+    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+       . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
@@ -533,8 +534,8 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback nodeId enqueue toApply lca toRollback = do
-    logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
-        (map (view blockHeader) toApply)
+    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+       . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
@@ -561,6 +562,11 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
     reportRollback = do
         let rollbackDepth = length toRollback
         let isCritical = rollbackDepth >= criticalForkThreshold
+
+        -- Commit rollback value to EKG
+        whenJustM (view misbehaviorMetrics) $ liftIO .
+            flip Metrics.set (fromIntegral rollbackDepth) . _mmRollbacks
+
         -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
         reportMisbehaviour isCritical $
             sformat reportF nodeId toRollbackHashes toApplyHashes

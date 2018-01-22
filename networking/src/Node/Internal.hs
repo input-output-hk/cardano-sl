@@ -45,8 +45,10 @@ module Node.Internal (
     Timeout(..)
   ) where
 
-import           Control.Exception hiding (bracket, catch, finally, throw)
+import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow,
+                                         SomeException, bracket, catch, finally, throwM)
 import           Control.Monad (forM, forM_, when)
+import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Fix (MonadFix)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -67,14 +69,12 @@ import qualified Data.NonEmptySet as NESet
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Time.Units (Microsecond)
-import           Data.Typeable
 import           Formatting (sformat, shown, (%))
 import           GHC.Generics (Generic)
 import qualified Mockable.Channel as Channel
 import           Mockable.Class
 import           Mockable.Concurrent
 import           Mockable.CurrentTime (CurrentTime, currentTime)
-import           Mockable.Exception
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
@@ -122,7 +122,7 @@ data NodeState peerData m = NodeState {
 
 -- | An exception which is thrown when something times out.
 data Timeout = Timeout
-  deriving (Show, Typeable)
+  deriving (Show)
 
 instance Exception Timeout
 
@@ -242,7 +242,7 @@ deriving instance Binary Nonce
 data NodeException =
        ProtocolError String
      | InternalError String
-  deriving (Show, Typeable)
+  deriving (Show)
 
 instance Exception NodeException
 
@@ -255,7 +255,7 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 -- | Do multiple sends on a 'ChannelOut'.
 writeMany
     :: forall m .
-       ( Monad m, Mockable Throw m )
+       ( Monad m, MonadThrow m )
     => Word32 -- ^ Split into chunks of at most this size in bytes. 0 means no split.
     -> ChannelOut m
     -> LBS.ByteString
@@ -263,7 +263,7 @@ writeMany
 writeMany mtu (ChannelOut conn) bss = mapM_ sendUnit units
   where
     sendUnit :: [BS.ByteString] -> m ()
-    sendUnit unit = NT.send conn unit >>= either throw pure
+    sendUnit unit = NT.send conn unit >>= either throwM pure
     units :: [[BS.ByteString]]
     units = fmap LBS.toChunks (chop bss)
     chop :: LBS.ByteString -> [LBS.ByteString]
@@ -626,7 +626,7 @@ manualNodeEndPoint ep = NodeEndPoint {
 startNode
     :: forall packingType peerData m .
        ( Mockable SharedAtomic m, Mockable Channel.Channel m
-       , Mockable Bracket m, Mockable Throw m, Mockable Catch m
+       , MonadMask m
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
@@ -656,7 +656,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
         ; let receiveDelay = mkReceiveDelay node
               connectDelay = mkConnectDelay node
         ; node <- case mEndPoint of
-              Left err -> throw err
+              Left err -> throwM err
               Right endPoint -> do
                   sharedState <- initialNodeState prng
                   -- TODO this thread should get exceptions from the dispatcher thread.
@@ -683,13 +683,13 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode
-    :: ( WithLogger m, Mockable Throw m, Mockable Async m, Mockable SharedAtomic m )
+    :: ( WithLogger m, MonadThrow m, Mockable Async m, Mockable SharedAtomic m )
     => Node packingType peerData m
     -> m ()
 stopNode Node {..} = do
     modifySharedAtomic nodeState $ \nodeState ->
         if _nodeStateClosed nodeState
-        then throw $ userError "stopNode : already stopped"
+        then throwM $ userError "stopNode : already stopped"
         else pure (nodeState { _nodeStateClosed = True }, ())
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
@@ -769,7 +769,7 @@ waitForRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
        , Mockable Async m
-       , Mockable Catch m
+       , MonadCatch m
        , WithLogger m
        , Show (ThreadId m)
        )
@@ -800,8 +800,8 @@ waitForRunningHandlers node = do
 nodeDispatcher
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
-       , Ord (ThreadId m), Mockable Bracket m, Mockable SharedExclusive m
-       , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
+       , Ord (ThreadId m), MonadMask m, Mockable SharedExclusive m
+       , Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , Serializable packingType peerData
@@ -852,11 +852,11 @@ nodeDispatcher node handlerInOut =
 
           -- End point failure is unrecoverable.
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventEndPointFailed) reason) ->
-              throw (InternalError $ "EndPoint failed: " ++ reason)
+              throwM (InternalError $ "EndPoint failed: " ++ reason)
 
           -- Transport failure is unrecoverable.
           NT.ErrorEvent (NT.TransportError (NT.EventErrorCode NT.EventTransportFailed) reason) ->
-              throw (InternalError $ "Transport failed " ++ reason)
+              throwM (InternalError $ "Transport failed " ++ reason)
 
     -- EndPointClosed is the final event that we will receive. There may be
     -- connections which remain open! ConnectionClosed events may be
@@ -897,7 +897,7 @@ nodeDispatcher node handlerInOut =
         withSharedAtomic nstate $ \nodeState ->
             if _nodeStateClosed nodeState
             then pure ()
-            else throw (InternalError "EndPoint prematurely closed")
+            else throwM (InternalError "EndPoint prematurely closed")
 
     connectionOpened
         :: DispatcherState peerData m
@@ -1039,10 +1039,10 @@ nodeDispatcher node handlerInOut =
             -- We're waiting for peer data on this connection, but we don't
             -- have an entry for the peer. That's an internal error.
             Nothing -> do
-                throw $ InternalError "node dispatcher inconsistent state (waiting for peer data)"
+                throwM $ InternalError "node dispatcher inconsistent state (waiting for peer data)"
 
             Just (GotPeerData _ _) -> do
-                throw $ InternalError "node dispatcher inconsistent state (already got peer data)"
+                throwM $ InternalError "node dispatcher inconsistent state (already got peer data)"
 
         -- Waiting for a handshake. Try to get a control header and then
         -- move on.
@@ -1074,7 +1074,7 @@ nodeDispatcher node handlerInOut =
                               respondAndHandle conn = do
                                   outcome <- NT.send conn [controlHeaderBidirectionalAck nonce]
                                   case outcome of
-                                      Left err -> throw err
+                                      Left err -> throwM err
                                       Right () -> do
                                           handlerInOut peerData (NodeId peer) (ChannelIn channel) (ChannelOut conn)
                           -- Resource releaser for bracketWithException.
@@ -1282,7 +1282,7 @@ nodeDispatcher node handlerInOut =
 --   connections, and also for actions which use outbound connections.
 spawnHandler
     :: forall peerData m t .
-       ( Mockable SharedAtomic m, Mockable Throw m, Mockable Catch m
+       ( Mockable SharedAtomic m, MonadCatch m
        , Mockable Async m, Ord (ThreadId m)
        , Mockable Metrics.Metrics m, Mockable CurrentTime m
        , WithLogger m
@@ -1334,7 +1334,7 @@ spawnHandler stateVar provenance action =
     exceptional :: SomeHandler m -> Microsecond -> SharedAtomicT m Int -> SomeException -> m t
     exceptional someHandler startTime totalBytesVar e = do
         signalFinished someHandler startTime totalBytesVar (Just e)
-        throw e
+        throwM e
 
     signalFinished :: SomeHandler m -> Microsecond -> SharedAtomicT m Int -> Maybe SomeException -> m ()
     signalFinished someHandler startTime totalBytesVar outcome = do
@@ -1394,10 +1394,10 @@ fixedSizeBuilder n =
 --   give an ACK before the specified timeout ('nodeAckTimeout').
 withInOutChannel
     :: forall packingType peerData m a .
-       ( Mockable Bracket m, Mockable Async m, Ord (ThreadId m)
-       , Mockable SharedAtomic m, Mockable Throw m
+       ( MonadMask m, Mockable Async m, Ord (ThreadId m)
+       , Mockable SharedAtomic m
        , Mockable SharedExclusive m
-       , Mockable Catch m, Mockable Channel.Channel m
+       , Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , MonadFix m, WithLogger m
@@ -1439,7 +1439,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
                       -- This isn't so unlikely in the case of self-connections.
                       outcome <- NT.send conn [controlHeaderBidirectionalSyn nonce]
                       case outcome of
-                          Left err -> throw err
+                          Left err -> throwM err
                           Right _ -> do
                               peerData <- readSharedExclusive peerDataVar
                               action peerData channel (ChannelOut conn)
@@ -1478,8 +1478,7 @@ data PeerDataTransmission m =
 disconnectFromPeer
     :: ( Mockable SharedExclusive m
        , Mockable SharedAtomic m
-       , Mockable Bracket m
-       , Mockable Throw m
+       , MonadMask m
        )
     => Node packingType peerData m
     -> NodeId
@@ -1518,7 +1517,7 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
                     | otherwise -> do
                           return $ Just (AllGoingDown (GoingDown (n - 1) excl))
 
-                _ -> throw (InternalError "finishClosing : impossible")
+                _ -> throwM (InternalError "finishClosing : impossible")
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.update (const choice) peer map
@@ -1557,11 +1556,11 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
                     , Just (ComingUp !_m excl) <- comingUp ->
                           return . Left $ excl
 
-                    | otherwise -> throw (InternalError "startClosing : impossible")
+                    | otherwise -> throwM (InternalError "startClosing : impossible")
 
-                Nothing -> throw (InternalError "startClosing : impossible")
-                Just (AllGoingDown _) -> throw (InternalError "startClosing : impossible")
-                Just (AllComingUp _) -> throw (InternalError "startClosing : impossible")
+                Nothing -> throwM (InternalError "startClosing : impossible")
+                Just (AllGoingDown _) -> throwM (InternalError "startClosing : impossible")
+                Just (AllComingUp _) -> throwM (InternalError "startClosing : impossible")
 
             case choice of
                 Left excl -> return (nodeState, Left excl)
@@ -1586,8 +1585,7 @@ disconnectFromPeer Node{nodeState} (NodeId peer) conn =
 --   smallest value is used.
 connectToPeer
     :: forall packingType peerData m r .
-       ( Mockable Throw m
-       , Mockable Bracket m
+       ( MonadMask m
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
        , Serializable packingType peerData
@@ -1642,10 +1640,10 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                     | PeerDataTransmitted <- transmission ->
                           return (it, Nothing)
 
-                    | otherwise -> throw (InternalError "impossible")
+                    | otherwise -> throwM (InternalError "impossible")
                 _ -> do
                     logError "getPeerDataResponsibility: unexpected peer state"
-                    throw $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
+                    throwM $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
@@ -1680,7 +1678,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                     | False <- responsibility -> return it
                 _ -> do
                     logError "dischargePeerDataResponsibility: unexpected peer state"
-                    throw $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
+                    throwM $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.insert peer ocs map
@@ -1711,10 +1709,10 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                             (Map.lookup nid timeouts) 
                     let stateTimeouts = Map.alter (const $ Just timeout) nid _nodeStateTimeouts
                     return (state { _nodeStateTimeouts = stateTimeouts }, ())
-                throw err
+                throwM err
             Left err   -> do
                 -- Throwing the error will induce the bracket resource releaser
-                throw err
+                throwM err
             Right conn -> do
                 -- Reset timeout, so the next time we are connecting to this
                 -- node we will use the smallest value.
@@ -1733,7 +1731,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
     -- the first to come up.
     finishConnecting _ (merr :: Maybe SomeException) = do
         modifySharedAtomic nodeState $ \nodeState -> do
-            when (_nodeStateClosed nodeState) (throw $ InternalError "connectToPeer : node closed while establishing connection!")
+            when (_nodeStateClosed nodeState) (throwM $ InternalError "connectToPeer : node closed while establishing connection!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 
@@ -1766,7 +1764,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                                   Just _  -> established
                           return . Just $ Stable comingUp' established' goingDown transmission
 
-                _ -> throw (InternalError "finishConnecting : impossible")
+                _ -> throwM (InternalError "finishConnecting : impossible")
 
             let nodeState' = nodeState {
                       _nodeStateConnectedTo = Map.update (const choice) peer map
@@ -1778,7 +1776,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
     -- as going up.
     startConnecting = do
         canOpen <- modifySharedAtomic nodeState $ \nodeState -> do
-            when (_nodeStateClosed nodeState) (throw $ userError "connectToPeer : you're doing it wrong! Our node is closed!")
+            when (_nodeStateClosed nodeState) (throwM $ userError "connectToPeer : you're doing it wrong! Our node is closed!")
             let map = _nodeStateConnectedTo nodeState
             choice <- case Map.lookup peer map of
 
@@ -1817,3 +1815,22 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
                 readSharedExclusive excl
                 startConnecting
             Right () -> return ()
+
+-- FIXME: Remove this once https://github.com/fpco/safe-exceptions/pull/28 is merged.
+bracketWithException
+    :: ( MonadMask m, Exception e )
+    => m r
+    -> (r -> Maybe e -> m b)
+    -> (r -> m c)
+    -> m c
+bracketWithException before after thing = UnsafeExc.mask $ \restore -> do
+    x <- before
+    res1 <- UnsafeExc.try $ restore (thing x)
+    case res1 of
+        Left (e1 :: SomeException) -> do
+            _ :: Either SomeException b <-
+                UnsafeExc.try $ UnsafeExc.uninterruptibleMask_ $ after x (UnsafeExc.fromException e1)
+            UnsafeExc.throwM e1
+        Right y -> do
+            _ <- UnsafeExc.uninterruptibleMask_ $ after x Nothing
+            return y

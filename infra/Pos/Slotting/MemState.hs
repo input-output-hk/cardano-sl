@@ -54,7 +54,7 @@ type MonadSlotsData ctx m =
     )
 
 -- TODO(ks): We might need a functions similar to `withSlottingDataAtomM` that
--- executes an STM action (function) and return the result in @IO@ monad.
+-- executes an STM action (function) and returns the result in @IO@ monad.
 -- We might need that once we have some more complicated functions that require
 -- @SlottingVar@ as a concurrency primitive.
 

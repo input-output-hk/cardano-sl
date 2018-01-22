@@ -128,7 +128,7 @@ property will cause it to fail.
 putDelCommitment :: HasConfiguration => SignedCommitment -> TossTestInfo -> Property
 putDelCommitment sc =
     let actionPrefixGen = arbitrary `suchThat` (\case
-            PutCommitment sc' -> sc /= sc'
+            PutCommitment sc' -> sc ^. _1 /= sc'^. _1
             _                 -> True)
     in ([PutCommitment sc, DelCommitment $ addressHash $ sc ^. _1] ==^ []) actionPrefixGen
 

@@ -87,38 +87,38 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                   (at, ix, makeClassy, makeLenses, non', to,
-                                                 toListOf, traversed, (%=), (+=), (.=),
-                                                 (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class      (put)
-import           Data.Default                   (Default, def)
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.Map                       as M
-import           Data.SafeCopy                  (Migrate (..), base, deriveSafeCopySimple,
-                                                 extension)
-import           Data.Time.Clock.POSIX          (POSIXTime)
+import           Control.Lens                    (at, ix, makeClassy, makeLenses, non', to,
+                                                  toListOf, traversed, (%=), (+=), (.=),
+                                                  (<<.=), (?=), _Empty, _head)
+import           Control.Monad.State.Class       (put)
+import           Data.Default                    (Default, def)
+import qualified Data.HashMap.Strict             as HM
+import qualified Data.Map                        as M
+import           Data.SafeCopy                   (Migrate (..), base, deriveSafeCopySimple,
+                                                  extension)
+import           Data.Time.Clock.POSIX           (POSIXTime)
 
-import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core.Configuration         (HasConfiguration)
-import           Pos.Core.Types                 (SlotId, Timestamp)
-import           Pos.Txp                        (AddrCoinMap, TxAux, TxId, Utxo,
-                                                 UtxoModifier, applyUtxoModToAddrCoinMap,
-                                                 utxoToAddressCoinMap)
-import           Pos.Types                      (HeaderHash)
-import           Pos.Util.BackupPhrase          (BackupPhrase)
-import qualified Pos.Util.Modifier              as MM
-import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
-                                                 CHash, CId, CProfile, CTxId, CTxMeta,
-                                                 CUpdateInfo, CWAddressMeta (..),
-                                                 CWalletAssurance, CWalletMeta,
-                                                 PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
-                                                 PtxSubmitTiming (..), ptxCond,
-                                                 ptxSubmitTiming)
-import           Pos.Wallet.Web.Pending.Updates (cancelApplyingPtx,
-                                                 incPtxSubmitTimingPure,
-                                                 mkPtxSubmitTiming,
-                                                 ptxMarkAcknowledgedPure)
+import           Pos.Client.Txp.History          (TxHistoryEntry, txHistoryListToMap)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Core.Types                  (SlotId, Timestamp)
+import           Pos.Txp                         (AddrCoinMap, TxAux, TxId, Utxo,
+                                                  UtxoModifier, applyUtxoModToAddrCoinMap,
+                                                  utxoToAddressCoinMap)
+import           Pos.Types                       (HeaderHash)
+import           Pos.Util.BackupPhrase           (BackupPhrase)
+import qualified Pos.Util.Modifier               as MM
+import           Pos.Wallet.Web.ClientTypes      (AccountId, Addr, CAccountMeta, CCoin,
+                                                  CHash, CId, CProfile, CTxId, CTxMeta,
+                                                  CUpdateInfo, CWAddressMeta (..),
+                                                  CWalletAssurance, CWalletMeta,
+                                                  PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types    (PendingTx (..), PtxCondition,
+                                                  PtxSubmitTiming (..), ptxCond,
+                                                  ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Updates  (cancelApplyingPtx,
+                                                  incPtxSubmitTimingPure,
+                                                  mkPtxSubmitTiming,
+                                                  ptxMarkAcknowledgedPure)
 
 type AddressSortingKey = Int
 
@@ -194,7 +194,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
+type Update a = forall m. (MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -495,7 +495,7 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged
 
 -- | For simple atomic updates of meta info
-ptxUpdateMeta :: CId Wal -> TxId -> PtxMetaUpdate -> Update ()
+ptxUpdateMeta :: HasProtocolConstants => CId Wal -> TxId -> PtxMetaUpdate -> Update ()
 ptxUpdateMeta wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of

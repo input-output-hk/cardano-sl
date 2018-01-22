@@ -91,9 +91,8 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     -- new redemption wallet
     _ <- L.getAccount accId
 
-    dstAddr <- decodeCTypeOrFail . cadId =<<
-               L.newAddress RandomSeed passphrase accId
-    ws <- getWalletSnapshot
+    ws  <- getWalletSnapshot
+    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress ws RandomSeed passphrase accId
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
                 prepareRedemptionTx (getOwnUtxos ws) redeemSK dstAddr

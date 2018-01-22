@@ -27,8 +27,6 @@ module Pos.Wallet.Web.Tracking.Sync
        , syncWalletOnImport
        , txMempoolToModifier
 
-       , fixingCachedAccModifier
-       , fixCachedAccModifierFor
        ) where
 
 import           Universum
@@ -87,7 +85,6 @@ import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.SscType               (WalletSscType)
-import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
                                                    CWAddressMeta (..), Wal, addressToCId,
                                                    encToCId, isTxLocalAddress)
@@ -98,7 +95,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (..),
                                                    CustomAddressType (..), WalletSnapshot,
                                                    WalletTip (..), WalletDbReader, WalletDbWriter)
 import qualified Pos.Wallet.Web.State             as WS
-import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
+import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..),
                                                    deleteAndInsertIMM, deleteAndInsertMM,
                                                    deleteAndInsertVM, indexedDeletions,
                                                    sortedInsertions)
@@ -505,26 +502,3 @@ decryptAddress (hdPass, wCId) addr = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
-
-----------------------------------------------------------------------------
--- Cached modifier
-----------------------------------------------------------------------------
-
--- | Evaluates `txMempoolToModifier` and provides result as a parameter
--- to given function.
-fixingCachedAccModifier
-    :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
-    => WalletSnapshot
-    -> (CachedCAccModifier -> key -> m a)
-    -> key -> m a
-fixingCachedAccModifier ws action key =
-    findKey key >>= txMempoolToModifier ws >>= flip action key
-
-fixCachedAccModifierFor
-    :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
-    => WalletSnapshot
-    -> key
-    -> (CachedCAccModifier -> m a)
-    -> m a
-fixCachedAccModifierFor ws key action =
-    fixingCachedAccModifier ws (const . action) key

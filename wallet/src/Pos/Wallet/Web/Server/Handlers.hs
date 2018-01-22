@@ -8,15 +8,16 @@ module Pos.Wallet.Web.Server.Handlers
 
 import           Universum
 
-import           Pos.Communication        (SendActions (..))
-import           Pos.Update.Configuration (curSoftwareVersion)
-import           Pos.Wallet.WalletMode    (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account   (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api       (WalletApi)
-import qualified Pos.Wallet.Web.Methods   as M
-import           Pos.Wallet.Web.Mode      (MonadWalletWebMode)
-import           Servant.API              ((:<|>) ((:<|>)))
-import           Servant.Server           (ServerT)
+import           Pos.Communication          (SendActions (..))
+import           Pos.Update.Configuration   (curSoftwareVersion)
+import           Pos.Wallet.WalletMode      (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account     (GenSeed (RandomSeed))
+import           Pos.Wallet.Web.Api         (WalletApi)
+import qualified Pos.Wallet.Web.Methods     as M
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.State.State (getWalletSnapshot)
+import           Servant.API                ((:<|>) ((:<|>)))
+import           Servant.Server             (ServerT)
 
 servantHandlers
     :: MonadWalletWebMode m
@@ -44,7 +45,6 @@ servantHandlers sendActions =
     :<|>
      M.changeWalletPassphrase
     :<|>
-
      M.getAccount
     :<|>
      M.getAccounts
@@ -54,19 +54,17 @@ servantHandlers sendActions =
      M.newAccount RandomSeed
     :<|>
      M.deleteAccount
+    :<|> (\passPhrase accId -> do
+             ws <- getWalletSnapshot
+             M.newAddress ws RandomSeed passPhrase accId
+         )
     :<|>
-
-     M.newAddress RandomSeed
-    :<|>
-
      M.isValidAddress
     :<|>
-
      M.getUserProfile
     :<|>
      M.updateUserProfile
     :<|>
-
      M.newPayment sendActions
     :<|>
      M.newPaymentBatch sendActions

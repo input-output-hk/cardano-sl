@@ -41,7 +41,7 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey,
                                              getSecretKeysPlain)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
+import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId, findKey,
                                              genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
@@ -64,8 +64,7 @@ import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU)
 import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
-                                              fixCachedAccModifierFor,
-                                              fixingCachedAccModifier, sortedInsertions)
+                                              txMempoolToModifier, sortedInsertions)
 import           Pos.Wallet.Web.Util         (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                               getWalletAccountIds, getAccountMetaOrThrow)
 
@@ -139,7 +138,8 @@ getAccountMod ws accMod accId = do
 getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
     ws <- getWalletSnapshot
-    fixingCachedAccModifier ws (getAccountMod ws) accId
+    accMod <- txMempoolToModifier ws =<< findKey accId
+    getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
     :: MonadWalletWebMode m
@@ -152,9 +152,9 @@ getAccountsIncludeUnready ws includeUnready mCAddr = do
     let accIds = maybe (getAccountIds ws) (getWalletAccountIds ws) mCAddr
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
-    concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
-         fixCachedAccModifierFor ws wid $ \accMod ->
-             mapM (getAccountMod ws accMod) walAccIds
+    concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
+      accMod <- txMempoolToModifier ws =<< findKey wid
+      mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
         -- TODO No WALLET with id ...
@@ -217,35 +217,37 @@ newAddress_ ws addGenSeed passphrase accId = do
 
 newAddress
     :: MonadWalletWebMode m
-    => AddrGenSeed
+    => WalletSnapshot
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
-    ws <- getWalletSnapshot
+newAddress ws addGenSeed passphrase accId = do
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    fixCachedAccModifierFor ws accId $ \accMod -> do
-        getWAddress ws accMod cwAddrMeta
+    accMod <- txMempoolToModifier ws =<< findKey accId
+    getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
     ws <- getWalletSnapshot
-    fixCachedAccModifierFor ws caInitWId $ \accMod -> do
-        -- check wallet exists
-        _ <- getWalletIncludeUnready ws includeUnready caInitWId
+    -- TODO nclarke We read the mempool at this point to be consistent with the previous
+    -- behaviour, but we may want to consider whether we should read it _after_ the
+    -- account is created, since it's not used until we call 'getAccountMod'
+    accMod <- txMempoolToModifier ws =<< findKey caInitWId
+    -- check wallet exists
+    _ <- getWalletIncludeUnready ws includeUnready caInitWId
 
-        cAddr <- genUniqueAccountId ws addGenSeed caInitWId
-        createAccount cAddr caInitMeta
-        -- NOTE(adinapoli): 'newAddres' re-reads the DB here.
-        () <$ newAddress addGenSeed passphrase cAddr
+    cAddr <- genUniqueAccountId ws addGenSeed caInitWId
+    -- XXX Transaction
+    () <- createAccount cAddr caInitMeta
+    ws' <- getWalletSnapshot
+    () <$ newAddress ws' addGenSeed passphrase cAddr
+    ws'' <- getWalletSnapshot
 
-        -- NOTE(adinapoli): Is it correct doing the new read within a
-        -- 'fixCachedAccModifierFor' block?
-        -- Re-read DB after the update.
-        ws' <- getWalletSnapshot
-        getAccountMod ws' accMod cAddr
+    -- Re-read DB after the update.
+    getAccountMod ws'' accMod cAddr
 
 newAccount
     :: MonadWalletWebMode m

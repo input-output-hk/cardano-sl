@@ -22,7 +22,8 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  GenesisBlockchain, GenesisExtraBodyData (..),
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
                                  MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainToSign (..), mkGenericHeader, recreateGenericBlock)
+                                 MainToSign (..), mkGenericHeader, GenericBlock (..),
+                                 checkGenericHeader, checkGenericBlock)
 import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
@@ -39,6 +40,14 @@ import           Pos.Util.Util (leftToPanic)
 -- Main smart constructors
 ----------------------------------------------------------------------------
 
+-- FIXME these currently do validation but they shouldn't.
+-- They're complex enough without the validation, it wouuld be useful to
+-- have the two notions separate: I can get a "smart constructed" main
+-- or genesis block, without validating it.
+--
+-- Also would like to raise the question: what is the programmer to do if
+-- 'mkMainHeader' fails because it's invalid?
+
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
     :: HasConfiguration
@@ -50,10 +59,6 @@ mkMainHeader
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
-    -- here we know that header creation can't fail, because the only invariant
-    -- which we check in 'verifyBBlockHeader' is signature correctness, which
-    -- is enforced in this function
-    leftToPanic "mkMainHeader: " $
     mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
@@ -85,7 +90,7 @@ mkMainBlock
     -> Body MainBlockchain
     -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
-    recreateGenericBlock
+    checkGenericBlock $ UnsafeGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB
@@ -126,12 +131,12 @@ mkGenesisHeader
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail
-    leftToPanic "mkGenesisHeader: " $
-    mkGenericHeader
-        prevHeader
-        body
-        consensus
-        (GenesisExtraHeaderData $ mkAttributes ())
+    leftToPanic "mkGenesisHeader: " $ checkGenericHeader $
+        mkGenericHeader
+            prevHeader
+            body
+            consensus
+            (GenesisExtraHeaderData $ mkAttributes ())
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -145,7 +150,7 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
-    leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
+    leftToPanic "mkGenesisBlock: " $ checkGenericBlock $ UnsafeGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders

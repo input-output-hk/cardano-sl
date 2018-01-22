@@ -12,9 +12,9 @@ module Pos.Core.Block.Blockchain
 
        -- * Smart constructors
        , mkGenericHeader
-       , recreateGenericHeader
+       , checkGenericHeader
        , mkGenericBlock
-       , recreateGenericBlock
+       , checkGenericBlock
 
        -- * Lenses
        -- ** Header
@@ -181,48 +181,42 @@ deriving instance
 
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
-    :: forall b m.
+    :: forall b .
        ( HasHeaderHash (BBlockHeader b)
        , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
-       , MonadError Text m
        , HasGenesisHash
        )
     => Maybe (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
-    -> m (GenericBlockHeader b)
+    -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
-    recreateGenericHeader h proof (consensus h proof) extra
+    UnsafeGenericBlockHeader h proof (consensus h proof) extra
   where
     h :: HeaderHash
     h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
--- | Smart constructor for 'GenericBlockHeader' which allows to recreate it.
-recreateGenericHeader
+-- | Check a 'GenericBlockHeader' for validity by using 'veryifyBBlockHeader'
+-- from the 'BlockchainHelpers' class.
+checkGenericHeader
     :: forall b m.
        ( BlockchainHelpers b
        , MonadError Text m
        )
-    => BHeaderHash b
-    -> BodyProof b
-    -> ConsensusData b
-    -> ExtraHeaderData b
+    => GenericBlockHeader b
     -> m (GenericBlockHeader b)
-recreateGenericHeader _gbhPrevBlock _gbhBodyProof _gbhConsensus _gbhExtra =
-    res <$ verifyBBlockHeader res
-  where
-    res = UnsafeGenericBlockHeader {..}
+checkGenericHeader it =
+    it <$ verifyBBlockHeader it
 
 -- | Smart constructor for 'GenericBlock'.
 mkGenericBlock
-    :: forall b m.
+    :: forall b .
        ( HasHeaderHash (BBlockHeader b)
        , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
-       , MonadError Text m
        , HasGenesisHash
        )
     => Maybe (BBlockHeader b)
@@ -230,25 +224,27 @@ mkGenericBlock
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
-    -> m (GenericBlock b)
-mkGenericBlock prevHeader body consensus extraH extra = do
-    header <- mkGenericHeader prevHeader body consensus extraH
-    recreateGenericBlock header body extra
+    -> GenericBlock b
+mkGenericBlock prevHeader body consensus extraH extra =
+    UnsafeGenericBlock header body extra
+  where
+    header = mkGenericHeader prevHeader body consensus extraH
 
--- | Smart constructor for 'GenericBlock' which allows to recreate it.
-recreateGenericBlock
+-- | Check a 'GenericBlock' for validity by checking the body proof of its
+-- header. Everything else is according to 'verifyBBlock'.
+-- The header (contained in the 'GenericBlock') is also checked for validy,
+-- even though you can do that separtaely with 'checkGenericHeader'.
+checkGenericBlock
     :: forall b m.
        ( BlockchainHelpers b
        , MonadError Text m
        )
-    => (GenericBlockHeader b)
-    -> Body b
-    -> ExtraBodyData b
+    => GenericBlock b
     -> m (GenericBlock b)
-recreateGenericBlock _gbHeader _gbBody _gbExtra = do
-    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
-    let res = UnsafeGenericBlock {..}
-    res <$ verifyBBlock res
+checkGenericBlock it = do
+    checkGenericHeader (_gbHeader it)
+    checkBodyProof (_gbBody it) (_gbhBodyProof (_gbHeader it))
+    it <$ verifyBBlock it
 
 ----------------------------------------------------------------------------
 -- Lenses

@@ -2,13 +2,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Wallet.Web.State.State
-       ( WalletState
-       , MonadWalletWebDB
+       ( WalletDB
+       , WalletDbReader
+       , WalletDbWriter
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
-       , getWalletWebState
-       , WebWalletModeDB
+       , askWalletDB
        , openState
        , openMemState
        , closeState
@@ -92,11 +92,9 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
                                                UpdateEvent)
 import qualified Data.Map                     as Map
 import           Ether.Internal               (HasLens (..))
-import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
@@ -105,7 +103,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CI
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
                                                Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
+import           Pos.Wallet.Web.State.Acidic  (WalletDB, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import qualified Pos.Wallet.Web.State.Storage as S
@@ -114,47 +112,63 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMo
                                                PtxMetaUpdate (..), WalletBalances,
                                                WalletStorage, WalletTip (..))
 
--- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB ctx m =
+-- | The 'WalletDbReader' constraint encapsulates the set of effects which
+-- are able to read the 'WalletDB'.
+type WalletDbReader ctx m =
     ( MonadReader ctx m
-    , HasLens WalletState ctx WalletState
+    , HasLens WalletDB ctx WalletDB
     )
 
-getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
-getWalletWebState = view (lensOf @WalletState)
+-- | Reads the 'WalletDB'.
+askWalletDB :: WalletDbReader ctx m => m WalletDB
+askWalletDB = view (lensOf @WalletDB)
 
--- | Constraint for working with web wallet DB
-type WebWalletModeDB ctx m =
-    ( MonadWalletWebDB ctx m
-    , MonadIO m
-    , MonadMockable m
-    , HasConfiguration
+-- | The 'WalletDbWriter' constraint encapsulate the fact we can write an updated
+-- copy of the 'WalletStorage', but that we cannot read it back, if not as part
+-- of an atomic update API.
+type WalletDbWriter event m =
+    ( MonadIO m
+    , EventState event ~ WalletStorage
+    , UpdateEvent event
     )
 
 type WalletSnapshot = WalletStorage
 
 queryDisk
     :: (EventState event ~ WalletStorage, QueryEvent event,
-        MonadWalletWebDB ctx m, MonadIO m)
+        WalletDbReader ctx m, MonadIO m)
     => event -> m (EventResult event)
-queryDisk e = getWalletWebState >>= flip A.query e
+queryDisk e = askWalletDB >>= flip A.query e
 
 queryValue
     :: WalletStorage -> S.Query a -> a
 queryValue ws q = runReader q ws
 
-updateDisk
-    :: (EventState event ~ WalletStorage, UpdateEvent event,
-        MonadWalletWebDB ctx m, MonadIO m)
-    => event -> m (EventResult event)
-updateDisk e = getWalletWebState >>= flip A.update e
+updateDisk :: WalletDbWriter event m => event -> WalletDB -> m (EventResult event)
+updateDisk evt db = A.update db evt
+
+updateDisk' :: forall m event. WalletDbWriter event m
+            => event
+            -> WalletDB
+            -> m (EventResult event, WalletSnapshot)
+updateDisk' evt db = do
+    result       <- A.update db evt
+    newSnapshot  <- readUpdatedDb
+    pure (result, newSnapshot)
+    where
+      readUpdatedDb :: m WalletSnapshot
+      readUpdatedDb = A.query db A.GetWalletStorage
 
 -- | All queries work by doing a /single/ read of the DB state and then
 -- by using pure functions to extract the relevant information. A single read
 -- guarantees that we see a self-consistent snapshot of the wallet state.
 --
-getWalletSnapshot :: WebWalletModeDB ctx m => m WalletSnapshot
+getWalletSnapshot :: (WalletDbReader ctx m, MonadIO m) => m WalletSnapshot
 getWalletSnapshot = queryDisk A.GetWalletStorage
+
+--
+-- Pure functions (Queries)
+--
 
 doesAccountExist :: WalletSnapshot -> AccountId -> Bool
 doesAccountExist ws accid = queryValue ws (S.doesAccountExist accid)
@@ -239,137 +253,231 @@ getWalletPendingTxs ws wid = queryValue ws (S.getWalletPendingTxs wid)
 getPendingTx :: WalletSnapshot -> CId Wal -> TxId -> Maybe PendingTx
 getPendingTx ws wid txid = queryValue ws (S.getPendingTx wid txid)
 
-createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
-createAccount accId = updateDisk . A.CreateAccount accId
-
-createWallet :: WebWalletModeDB ctx m => CId Wal -> CWalletMeta -> Bool -> PassPhraseLU -> m ()
-createWallet cWalId cwMeta isReady = updateDisk . A.CreateWallet cWalId cwMeta isReady
-
-addWAddress :: WebWalletModeDB ctx m => CWAddressMeta -> m ()
-addWAddress addr = updateDisk $ A.AddWAddress addr
-
-addCustomAddress :: WebWalletModeDB ctx m => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-addCustomAddress = updateDisk ... A.AddCustomAddress
-
-addRemovedAccount :: WebWalletModeDB ctx m => CWAddressMeta -> m ()
-addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
-
-setAccountMeta :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
-setAccountMeta accId = updateDisk . A.SetAccountMeta accId
-
-setWalletMeta :: WebWalletModeDB ctx m => CId Wal -> CWalletMeta -> m ()
-setWalletMeta cWalId = updateDisk . A.SetWalletMeta cWalId
-
-setWalletReady :: WebWalletModeDB ctx m => CId Wal -> Bool -> m ()
-setWalletReady cWalId = updateDisk . A.SetWalletReady cWalId
-
-setWalletPassLU :: WebWalletModeDB ctx m => CId Wal -> PassPhraseLU -> m ()
-setWalletPassLU cWalId = updateDisk . A.SetWalletPassLU cWalId
-
-setWalletSyncTip :: WebWalletModeDB ctx m => CId Wal -> HeaderHash -> m ()
-setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
-
-setProfile :: WebWalletModeDB ctx m => CProfile -> m ()
-setProfile = updateDisk . A.SetProfile
-
-setWalletTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
-
-addOnlyNewTxMetas :: WebWalletModeDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
-addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)
-    where
-      cTxMetaList = [ (encodeCType txId, cTxMeta) | (txId, cTxMeta) <- Map.toList cTxMetas ]
-
-setWalletTxHistory :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
-setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
-
 getWalletUtxo :: WalletSnapshot -> Utxo
 getWalletUtxo ws = queryValue ws S.getWalletUtxo
 
 getWalletBalancesAndUtxo :: WalletSnapshot -> (WalletBalances, Utxo)
 getWalletBalancesAndUtxo ws = queryValue ws S.getWalletBalancesAndUtxo
 
-updateWalletBalancesAndUtxo :: WebWalletModeDB ctx m => UtxoModifier -> m ()
-updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
 
-setWalletUtxo :: WebWalletModeDB ctx m => Utxo -> m ()
-setWalletUtxo = updateDisk . A.SetWalletUtxo
+--
+-- Effectful function (Updates)
+--
 
-addOnlyNewTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
+createAccount :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.CreateAccount m
+                 )
+              => AccountId -> CAccountMeta -> m ((), WalletSnapshot)
+createAccount accId accMeta =
+    askWalletDB >>= updateDisk' (A.CreateAccount accId accMeta)
 
-removeWallet :: WebWalletModeDB ctx m => CId Wal -> m ()
-removeWallet = updateDisk . A.RemoveWallet
+createWallet :: ( WalletDbReader ctx m
+                , WalletDbWriter A.CreateWallet m
+                ) => CId Wal -> CWalletMeta -> Bool -> PassPhraseLU -> m ()
+createWallet cWalId cwMeta isReady lastUpdate =
+    askWalletDB >>= updateDisk (A.CreateWallet cWalId cwMeta isReady lastUpdate)
 
-removeTxMetas :: WebWalletModeDB ctx m => CId Wal -> m ()
-removeTxMetas = updateDisk . A.RemoveTxMetas
+addWAddress :: ( WalletDbReader ctx m
+               , WalletDbWriter A.AddWAddress m
+               ) => CWAddressMeta -> m ()
+addWAddress addr = askWalletDB >>= updateDisk (A.AddWAddress addr)
 
-removeWalletTxMetas :: WebWalletModeDB ctx m => CId Wal -> [CTxId] -> m ()
-removeWalletTxMetas = updateDisk ... A.RemoveWalletTxMetas
+addCustomAddress :: ( WalletDbReader ctx m
+                    , WalletDbWriter A.AddCustomAddress m
+                    ) => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
+addCustomAddress customAddrType addrAndHash =
+    askWalletDB >>= updateDisk (A.AddCustomAddress customAddrType addrAndHash)
 
-removeHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m ()
-removeHistoryCache = updateDisk . A.RemoveHistoryCache
+addRemovedAccount :: ( WalletDbReader ctx m
+                     , WalletDbWriter A.AddRemovedAccount m
+                     ) => CWAddressMeta -> m ()
+addRemovedAccount addrMeta =
+    askWalletDB >>= updateDisk (A.AddRemovedAccount addrMeta)
 
-removeAccount :: WebWalletModeDB ctx m => AccountId -> m ()
-removeAccount = updateDisk . A.RemoveAccount
+setAccountMeta :: ( WalletDbReader ctx m
+                  , WalletDbWriter A.SetAccountMeta m
+                  ) => AccountId -> CAccountMeta -> m ()
+setAccountMeta accId accMeta =
+    askWalletDB >>= updateDisk (A.SetAccountMeta accId accMeta)
 
-removeWAddress :: WebWalletModeDB ctx m => CWAddressMeta -> m ()
-removeWAddress = updateDisk . A.RemoveWAddress
+setWalletMeta :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.SetWalletMeta m
+                 ) => CId Wal -> CWalletMeta -> m ()
+setWalletMeta cWalId walletMeta =
+    askWalletDB >>= updateDisk (A.SetWalletMeta cWalId walletMeta)
 
-totallyRemoveWAddress :: WebWalletModeDB ctx m => CWAddressMeta -> m ()
-totallyRemoveWAddress = updateDisk . A.TotallyRemoveWAddress
+setWalletReady :: ( WalletDbReader ctx m
+                  , WalletDbWriter A.SetWalletReady m
+                  ) => CId Wal -> Bool -> m ()
+setWalletReady cWalId isReady =
+    askWalletDB >>= updateDisk (A.SetWalletReady cWalId isReady)
+
+setWalletPassLU :: ( WalletDbReader ctx m
+                   , WalletDbWriter A.SetWalletPassLU m
+                   ) => CId Wal -> PassPhraseLU -> m ()
+setWalletPassLU cWalId lastUpdate =
+    askWalletDB >>= updateDisk (A.SetWalletPassLU cWalId lastUpdate)
+
+setWalletSyncTip :: ( WalletDbReader ctx m
+                    , WalletDbWriter A.SetWalletSyncTip m
+                    ) => CId Wal -> HeaderHash -> m ()
+setWalletSyncTip cWalId headerHash =
+    askWalletDB >>= updateDisk (A.SetWalletSyncTip cWalId headerHash)
+
+setProfile :: ( WalletDbReader ctx m
+              , WalletDbWriter A.SetProfile m
+              ) => CProfile -> m ()
+setProfile cProfile = askWalletDB >>= updateDisk (A.SetProfile cProfile)
+
+setWalletTxMeta :: ( WalletDbReader ctx m
+                   , WalletDbWriter A.SetWalletTxMeta m
+                   ) => CId Wal -> CTxId -> CTxMeta -> m ()
+setWalletTxMeta cWalId cTxId cTxMeta =
+    askWalletDB >>= updateDisk (A.SetWalletTxMeta cWalId cTxId cTxMeta)
+
+addOnlyNewTxMetas :: ( WalletDbReader ctx m
+                     , WalletDbWriter A.AddOnlyNewTxMetas m
+                     ) => CId Wal -> Map TxId CTxMeta -> m ()
+addOnlyNewTxMetas cWalId cTxMetas =
+    askWalletDB >>= updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)
+    where
+      cTxMetaList = [ (encodeCType txId, cTxMeta) | (txId, cTxMeta) <- Map.toList cTxMetas ]
+
+setWalletTxHistory :: ( WalletDbReader ctx m
+                      , WalletDbWriter A.SetWalletTxHistory m
+                      ) => CId Wal -> [(CTxId, CTxMeta)] -> m ()
+setWalletTxHistory cWalId idsAndMetas =
+    askWalletDB >>= updateDisk (A.SetWalletTxHistory cWalId idsAndMetas)
+
+updateWalletBalancesAndUtxo :: ( WalletDbReader ctx m
+                               , WalletDbWriter A.UpdateWalletBalancesAndUtxo m
+                               ) => UtxoModifier -> m ()
+updateWalletBalancesAndUtxo utxoModifier =
+    askWalletDB >>= updateDisk (A.UpdateWalletBalancesAndUtxo utxoModifier)
+
+setWalletUtxo :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.SetWalletUtxo m
+                 ) => Utxo -> m ()
+setWalletUtxo utxo = askWalletDB >>= updateDisk (A.SetWalletUtxo utxo)
+
+addOnlyNewTxMeta :: ( WalletDbReader ctx m
+                    , WalletDbWriter A.AddOnlyNewTxMeta m
+                    ) => CId Wal -> CTxId -> CTxMeta -> m ()
+addOnlyNewTxMeta walletId txId txMeta =
+    askWalletDB >>= updateDisk (A.AddOnlyNewTxMeta walletId txId txMeta)
+
+removeWallet :: ( WalletDbReader ctx m
+                , WalletDbWriter A.RemoveWallet m
+                ) => CId Wal -> m ()
+removeWallet walletId = askWalletDB >>= updateDisk (A.RemoveWallet walletId)
+
+removeTxMetas :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.RemoveTxMetas m
+                 ) => CId Wal -> m ()
+removeTxMetas walletId = askWalletDB >>= updateDisk (A.RemoveTxMetas walletId)
+
+removeWalletTxMetas :: ( WalletDbReader ctx m
+                       , WalletDbWriter A.RemoveWalletTxMetas m)
+                    => CId Wal -> [CTxId] -> m ()
+removeWalletTxMetas walletId txIds =
+    askWalletDB >>= updateDisk (A.RemoveWalletTxMetas walletId txIds)
+
+removeHistoryCache :: ( WalletDbReader ctx m
+                      , WalletDbWriter A.RemoveHistoryCache m
+                      ) => CId Wal -> m ()
+removeHistoryCache walletId = askWalletDB >>= updateDisk (A.RemoveHistoryCache walletId)
+
+removeAccount :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.RemoveAccount m
+                 ) => AccountId -> m ()
+removeAccount accountId = askWalletDB >>= updateDisk (A.RemoveAccount accountId)
+
+removeWAddress :: ( WalletDbReader ctx m
+                  , WalletDbWriter A.RemoveWAddress m
+                  ) => CWAddressMeta -> m ()
+removeWAddress addrMeta = askWalletDB >>= updateDisk (A.RemoveWAddress addrMeta)
+
+totallyRemoveWAddress :: ( WalletDbReader ctx m
+                         , WalletDbWriter A.TotallyRemoveWAddress m
+                         ) => CWAddressMeta -> m ()
+totallyRemoveWAddress addrMeta =
+    askWalletDB >>= updateDisk (A.TotallyRemoveWAddress addrMeta)
 
 removeCustomAddress
-    :: WebWalletModeDB ctx m
-    => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-removeCustomAddress = updateDisk ... A.RemoveCustomAddress
+    :: ( WalletDbReader ctx m
+       , WalletDbWriter A.RemoveCustomAddress m
+       ) => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
+removeCustomAddress customAddrType aIdAndHeaderHash =
+    askWalletDB >>= updateDisk (A.RemoveCustomAddress customAddrType aIdAndHeaderHash)
 
-addUpdate :: WebWalletModeDB ctx m => CUpdateInfo -> m ()
-addUpdate = updateDisk . A.AddUpdate
+addUpdate :: ( WalletDbReader ctx m
+             , WalletDbWriter A.AddUpdate m
+             ) => CUpdateInfo -> m ()
+addUpdate updateInfo =
+    askWalletDB >>= updateDisk (A.AddUpdate updateInfo)
 
-removeNextUpdate :: WebWalletModeDB ctx m => m ()
-removeNextUpdate = updateDisk A.RemoveNextUpdate
+removeNextUpdate :: ( WalletDbReader ctx m
+                    , WalletDbWriter A.RemoveNextUpdate m
+                    ) => m ()
+removeNextUpdate = askWalletDB >>= updateDisk A.RemoveNextUpdate
 
-testReset :: WebWalletModeDB ctx m => m ()
-testReset = updateDisk A.TestReset
+testReset :: ( WalletDbReader ctx m
+             , WalletDbWriter A.TestReset m
+             ) => m ()
+testReset = askWalletDB >>= updateDisk A.TestReset
 
-insertIntoHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
+insertIntoHistoryCache :: ( WalletDbReader ctx m
+                          , WalletDbWriter A.InsertIntoHistoryCache m
+                          ) => CId Wal -> Map TxId TxHistoryEntry -> m ()
 insertIntoHistoryCache cWalId cTxs
   | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
+  | otherwise     = askWalletDB >>= updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
 
-removeFromHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId a -> m ()
+removeFromHistoryCache :: ( WalletDbReader ctx m
+                          , WalletDbWriter A.RemoveFromHistoryCache m
+                          ) => CId Wal -> Map TxId a -> m ()
 removeFromHistoryCache cWalId cTxs
   | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
+  | otherwise     = askWalletDB >>= updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
   where
     cTxs' :: Map TxId ()
     cTxs' = Map.map (const ()) cTxs
 
-setPtxCondition
-    :: WebWalletModeDB ctx m
-    => CId Wal -> TxId -> PtxCondition -> m ()
-setPtxCondition = updateDisk ... A.SetPtxCondition
+setPtxCondition :: ( WalletDbReader ctx m
+                   , WalletDbWriter A.SetPtxCondition m
+                   ) => CId Wal -> TxId -> PtxCondition -> m ()
+setPtxCondition walletId txId condition =
+    askWalletDB >>= updateDisk (A.SetPtxCondition walletId txId condition)
 
-casPtxCondition
-    :: WebWalletModeDB ctx m
-    => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
-casPtxCondition = updateDisk ... A.CasPtxCondition
+casPtxCondition :: ( WalletDbReader ctx m
+                   , WalletDbWriter A.CasPtxCondition m
+                   ) => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
+casPtxCondition walletId txId old new =
+    askWalletDB >>= updateDisk (A.CasPtxCondition walletId txId old new)
 
-ptxUpdateMeta
-    :: WebWalletModeDB ctx m
-    => CId Wal -> TxId -> PtxMetaUpdate -> m ()
-ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
+ptxUpdateMeta :: ( WalletDbReader ctx m
+                 , WalletDbWriter A.PtxUpdateMeta m
+                 ) => CId Wal -> TxId -> PtxMetaUpdate -> m ()
+ptxUpdateMeta walletId txId metaUpdate =
+    askWalletDB >>= updateDisk (A.PtxUpdateMeta walletId txId metaUpdate)
 
-addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
-addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+addOnlyNewPendingTx :: ( WalletDbReader ctx m
+                       , WalletDbWriter A.AddOnlyNewPendingTx m
+                       ) => PendingTx -> m ()
+addOnlyNewPendingTx pendingTx = askWalletDB >>= updateDisk (A.AddOnlyNewPendingTx pendingTx)
 
-cancelApplyingPtxs :: WebWalletModeDB ctx m => m ()
-cancelApplyingPtxs = updateDisk ... A.CancelApplyingPtxs
+cancelApplyingPtxs :: ( WalletDbReader ctx m
+                      , WalletDbWriter A.CancelApplyingPtxs m
+                      ) => m ()
+cancelApplyingPtxs = askWalletDB >>= updateDisk A.CancelApplyingPtxs
 
-cancelSpecificApplyingPtx :: WebWalletModeDB ctx m => TxId -> m ()
-cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
+cancelSpecificApplyingPtx :: ( WalletDbReader ctx m
+                             , WalletDbWriter A.CancelSpecificApplyingPtx m
+                             ) => TxId -> m ()
+cancelSpecificApplyingPtx txid = askWalletDB >>= updateDisk (A.CancelSpecificApplyingPtx txid)
 
-flushWalletStorage :: WebWalletModeDB ctx m => m ()
-flushWalletStorage = updateDisk A.FlushWalletStorage
+flushWalletStorage :: ( WalletDbReader ctx m
+                      , WalletDbWriter A.FlushWalletStorage m
+                      ) => m ()
+flushWalletStorage = askWalletDB >>= updateDisk A.FlushWalletStorage
 

@@ -18,6 +18,8 @@ import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, sformat, (%))
 import           System.Wlog                      (HasLoggerName (modifyLoggerName),
                                                    WithLogger)
+import           Mockable                         (Async, Mockable, Delay)
+
 
 import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (BlockHeader, blockHeader,
@@ -42,7 +44,7 @@ import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningW
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
-import           Pos.Wallet.Web.State             (WalletSnapshot, WebWalletModeDB)
+import           Pos.Wallet.Web.State             (WalletDbReader, WalletSnapshot)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
                                                    rollbackModifierFromWallet,
@@ -70,8 +72,10 @@ walletGuard ws curTip wAddr action = case WS.getWalletSyncTip ws wAddr of
 onApplyTracking
     :: forall ssc ctx m .
     ( SscHelpersClass ssc
+    , WalletDbReader ctx m
+    , Mockable Delay m
+    , Mockable Async m
     , AccountMode ctx m
-    , WebWalletModeDB ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
@@ -115,7 +119,9 @@ onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
 onRollbackTracking
     :: forall ssc ctx m .
     ( AccountMode ctx m
-    , WebWalletModeDB ctx m
+    , WalletDbReader ctx m
+    , Mockable Delay m
+    , Mockable Async m
     , MonadDBRead m
     , MonadSlots ctx m
     , SscHelpersClass ssc

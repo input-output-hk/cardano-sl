@@ -130,7 +130,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex
-        L.newAddress (DeterminedSeed accountIndex) passphrase accId
+        ws <- getWalletSnapshot
+        L.newAddress ws (DeterminedSeed accountIndex) passphrase accId
 
     -- `syncWalletOnImport` automatically marks a wallet as "ready".
     void $ syncWalletOnImport key

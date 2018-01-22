@@ -19,7 +19,7 @@ import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Arbitrary.Txp ()
 import           Pos.Core (mkCoin)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), mkTx)
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
@@ -27,9 +27,9 @@ import           Pos.Util (sublistN, _neHead)
 
 spec :: Spec
 spec = describe "Txp.Core" $ do
-    describe "mkTx" $ do
-        prop description_mkTxGood mkTxGood
-        prop description_mkTxBad mkTxBad
+    describe "checkTx" $ do
+        prop description_checkTxGood checkTxGood
+        prop description_checkTxBad checkTxBad
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
@@ -47,17 +47,17 @@ spec = describe "Txp.Core" $ do
         prop "does correct topsort on bamboo" $ testTopsort True
         prop "does correct topsort on arbitrary acyclic graph" $ testTopsort False
   where
-    description_mkTxGood =
+    description_checkTxGood =
         "creates Tx if arguments are taken from valid Tx"
-    description_mkTxBad =
+    description_checkTxBad =
         "doesn't create Tx with non-positive coins in outputs"
 
-mkTxGood :: Tx -> Bool
-mkTxGood UnsafeTx{..} = isRight $ mkTx _txInputs _txOutputs _txAttributes
+checkTxGood :: Tx -> Bool
+checkTxGood = isJust . checkTx
 
-mkTxBad :: Tx -> Bool
-mkTxBad UnsafeTx {..} =
-    all (\outs -> isLeft $ mkTx _txInputs outs _txAttributes) badOutputs
+checkTxBad :: Tx -> Bool
+checkTxBad UnsafeTx {..} =
+    all (\outs -> isNothing $ checkTx (UnsafeTx _txInputs outs _txAttributes)) badOutputs
   where
     invalidateOut :: TxOut -> TxOut
     invalidateOut out = out {txOutValue = mkCoin 0}
@@ -136,6 +136,6 @@ txGen size = do
     inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo h 0) <$> arbitrary)
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
-    case mkTx inputs outputs (mkAttributes ()) of
+    case checkTx (UnsafeTx inputs outputs (mkAttributes ())) of
         Left e   -> error $ "txGen: something went wrong: " <> e
         Right tx -> pure tx

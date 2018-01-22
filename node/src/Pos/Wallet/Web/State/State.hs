@@ -4,10 +4,10 @@
 module Pos.Wallet.Web.State.State
        ( WalletState
        , WalletDbReader
+       , WalletDbWriter
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
-       , WebWalletModeDB
        , askWalletState
        , openState
        , openMemState
@@ -92,11 +92,9 @@ import           Data.Acid                    (EventResult, EventState, QueryEve
                                                UpdateEvent)
 import qualified Data.Map                     as Map
 import           Ether.Internal               (HasLens (..))
-import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
@@ -114,28 +112,24 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMo
                                                PtxMetaUpdate (..), WalletBalances,
                                                WalletStorage, WalletTip (..))
 
--- | The 'WalletDbReader' constraints encapsulate the set of effects which
--- are able to read (in-memory, in a pure way) and yield the 'WalletState'.
+-- | The 'WalletDbReader' constraint encapsulates the set of effects which
+-- are able to read the 'WalletState'.
 type WalletDbReader ctx m =
     ( MonadReader ctx m
     , HasLens WalletState ctx WalletState
     )
 
+-- | Reads the 'WalletState'.
 askWalletState :: WalletDbReader ctx m => m WalletState
 askWalletState = view (lensOf @WalletState)
 
+-- | The 'WalletDbWriter' constraint encapsulate the fact we can write an updated
+-- copy of the 'WalletStorage', but that we cannot read it back, if not as part
+-- of an atomic update API.
 type WalletDbWriter event m =
     ( MonadIO m
     , EventState event ~ WalletStorage
     , UpdateEvent event
-    )
-
--- | Constraint for working with web wallet DB
-type WebWalletModeDB ctx m =
-    ( WalletDbReader ctx m
-    , MonadIO m
-    , MonadMockable m
-    , HasConfiguration
     )
 
 type WalletSnapshot = WalletStorage
@@ -157,7 +151,7 @@ updateDisk evt db = A.update db evt
 -- by using pure functions to extract the relevant information. A single read
 -- guarantees that we see a self-consistent snapshot of the wallet state.
 --
-getWalletSnapshot :: WebWalletModeDB ctx m => m WalletSnapshot
+getWalletSnapshot :: (WalletDbReader ctx m, MonadIO m) => m WalletSnapshot
 getWalletSnapshot = queryDisk A.GetWalletStorage
 
 --

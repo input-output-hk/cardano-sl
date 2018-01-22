@@ -20,6 +20,7 @@ module Pos.Core.Update.Util
 
 import           Universum
 
+import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
@@ -41,16 +42,16 @@ softforkRuleF :: Format r (SoftforkRule -> r)
 softforkRuleF = build
 
 checkUpdateVote
-    :: (HasConfiguration, MonadFail m)
+    :: (HasConfiguration, MonadError Text m)
     => UpdateVote
     -> m UpdateVote
 checkUpdateVote it =
-    it <$ unless sigValid (fail "UpdateVote: invalid signature")
+    it <$ unless sigValid (throwError "UpdateVote: invalid signature")
   where
     sigValid = checkSig SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
 
 checkUpdateProposal
-    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
     => UpdateProposal
     -> m UpdateProposal
 checkUpdateProposal it = do
@@ -61,7 +62,7 @@ checkUpdateProposal it = do
             (upData it)
             (upAttributes it)
     it <$ unless (checkSig SignUSProposal (upFrom it) toSign (upSignature it))
-        (fail $ "UpdateProposal: invalid signature")
+        (throwError "UpdateProposal: invalid signature")
 
 mkUpdateProposalWSign
     :: (HasConfiguration, Bi UpdateProposalToSign)

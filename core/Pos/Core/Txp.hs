@@ -47,6 +47,7 @@ module Pos.Core.Txp
 
 import           Universum
 
+import           Control.Monad.Error (MonadError(throwError))
 import           Control.Lens (makeLenses, makePrisms)
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
@@ -225,13 +226,13 @@ instance Bi Tx => Buildable TxAux where
 -- | Create valid Tx or fail.
 -- Verify inputs and outputs are non empty; have enough coins.
 checkTx
-    :: MonadFail m
+    :: MonadError Text m
     => Tx
     -> m Tx
 checkTx it =
     case verRes of
         VerSuccess -> pure it
-        failure    -> fail $ formatToString verResSingleF failure
+        failure    -> throwError $ sformat verResSingleF failure
   where
     verRes =
         verifyGeneric $

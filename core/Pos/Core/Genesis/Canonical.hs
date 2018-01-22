@@ -382,7 +382,7 @@ instance ReportSchemaErrors m => FromJSON m Coin where
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
     fromJSON val = do
         number <- fromJSON val
-        wrapConstructor $ mkCoinPortion number
+        wrapConstructor @Text $ mkCoinPortion number
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =

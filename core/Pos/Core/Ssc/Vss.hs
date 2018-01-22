@@ -77,7 +77,9 @@ toCertPair vc = (getCertId vc, vc)
 
 -- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
 -- with duplicate signing keys or with duplicate 'vcVssKey's.
-mkVssCertificatesMap :: [VssCertificate] -> Either Text VssCertificatesMap
+mkVssCertificatesMap
+    :: MonadError Text m
+    => [VssCertificate] -> m VssCertificatesMap
 mkVssCertificatesMap certs = do
     pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
 

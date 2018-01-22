@@ -300,10 +300,13 @@ maxCoinVal = 45000000000000000
 
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
-mkCoin c
-    | c <= maxCoinVal = Coin c
-    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
-{-# INLINE mkCoin #-}
+mkCoin = Coin
+
+checkCoin :: MonadError Text m => Coin -> m ()
+checkCoin (Coin c)
+    | c <= maxCoinVal = pure ()
+    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
+{-# INLINE checkCoin #-}
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -339,14 +342,17 @@ instance Bounded CoinPortion where
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
-mkCoinPortion :: Word64 -> Either Text CoinPortion
+mkCoinPortion
+    :: MonadError Text m
+    => Word64 -> m CoinPortion
 mkCoinPortion x
-    | x <= coinPortionDenominator = Right $ CoinPortion x
-    | otherwise = Left err
+    | x <= coinPortionDenominator = pure $ CoinPortion x
+    | otherwise = throwError err
   where
-    err = sformat
-        ("mkCoinPortion: value is greater than coinPortionDenominator: "
-        %int) x
+    err =
+        sformat
+            ("mkCoinPortion: value is greater than coinPortionDenominator: "
+            %int) x
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in
 -- [0..1]. Internally 'CoinPortion' stores 'Word64' which is divided by

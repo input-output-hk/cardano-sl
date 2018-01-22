@@ -118,7 +118,7 @@ dev: &dev
 
   node: &dev_node
     defaultPeers: []
-    networkConnectionTimeouts: [15000, 300000, 60000, 120000] #ms
+    networkConnectionTimeouts: [15000, 30000, 60000, 120000] #ms
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100
@@ -311,7 +311,7 @@ mainnet_base: &mainnet_base
 
   node: &mainnet_base_node
     defaultPeers: []
-    networkConnectionTimeouts: [15000, 300000, 60000, 120000]
+    networkConnectionTimeouts: [15000, 30000, 60000, 120000]
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100

@@ -50,7 +50,7 @@ data NodeConfiguration = NodeConfiguration
       -- ^ List of default peers
     , ccNetworkConnectionTimeouts    :: !(NonEmpty Int)
       -- ^ Network connection timeouts in milliseconds.  It must be an
-      -- increasing sequence.  If a timeout will happen to be to small the next
+      -- increasing sequence.  If a timeout will happen to be too small the next
       -- one will be used.
     , ccConversationEstablishTimeout :: !Int
       -- ^ Conversation acknowledgement timeout in milliseconds.

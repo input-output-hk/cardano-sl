@@ -487,11 +487,6 @@ addOnlyNewTxMeta cWalId cTxId cTxMeta =
     -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
     wsTxHistory . at cWalId . non' _Empty . at cTxId %= Just . fromMaybe cTxMeta
 
--- | Sets meta data only for transactions for which some meta data is already present.
-setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
-setWalletTxMeta cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId %= ($> cTxMeta)
-
 -- | Delete all transactions' metadata for given wallet.
 removeTxMetas :: CId Wal -> Update ()
 removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing

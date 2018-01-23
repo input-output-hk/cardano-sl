@@ -47,7 +47,7 @@ let
         ];
       });
 
-      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld

@@ -354,7 +354,8 @@ executable cardano-swagger
 benchmark cardano-sl-wallet-bench
   hs-source-dirs:      bench
   main-is:             Main.hs
-  other-modules:       Bench.Pos.Wallet.Run
+  other-modules:       Bench.Pos.Wallet.Config
+                       Bench.Pos.Wallet.Run
                        Bench.Pos.Wallet.Types
 
                        Client.Pos.Wallet.Web.Endpoint
@@ -368,6 +369,7 @@ benchmark cardano-sl-wallet-bench
   type:                exitcode-stdio-1.0
   build-depends:       async
                      , base
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-wallet
@@ -382,6 +384,7 @@ benchmark cardano-sl-wallet-bench
                      , statistics
                      , text-format
                      , universum >= 0.1.11
+                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

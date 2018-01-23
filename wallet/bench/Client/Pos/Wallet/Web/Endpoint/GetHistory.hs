@@ -1,4 +1,4 @@
--- | .
+-- | TODO: real values for the client function.
 
 module Client.Pos.Wallet.Web.Endpoint.GetHistory
     ( getHistoryIO
@@ -6,14 +6,22 @@ module Client.Pos.Wallet.Web.Endpoint.GetHistory
 
 import           Universum
 
---import           Client.Pos.Wallet.Web.Api  (newPayment)
---import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
+import           Client.Pos.Wallet.Web.Api  (getHistory)
+import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
 
---import           Pos.Core.Types             (Coin (..))
---import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
---                                             CId (..), CHash (..), CPassPhrase,
---                                             CTx)
+-- import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
+--                                              CId (..), CHash (..)) -- , CPassPhrase, CTx)
 
--- |
+-- | Run 'GetHistory' client. As a result we get
+-- a list of transactions and size of full history.
 getHistoryIO :: IO ()
-getHistoryIO = return ()
+getHistoryIO =
+    let wallet    = Nothing -- Maybe (CId Wal)
+        accountId = Nothing -- Maybe CAccountId
+        address   = Nothing -- Maybe (CId Addr)
+        offset    = Nothing -- Maybe ScrollOffset
+        limit     = Nothing -- Maybe ScrollLimit
+    in
+    runEndpointClient (getHistory wallet accountId address offset limit) >>= \case
+        Left problem -> putText $ "Cannot get a history: " <> problem
+        Right (transactions, _) -> print transactions -- :: ([CTx], Word)

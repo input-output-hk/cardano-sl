@@ -1,4 +1,4 @@
--- | .
+-- | Run 'GetWallets' client.
 
 module Client.Pos.Wallet.Web.Endpoint.GetWallets
     ( getWalletsIO
@@ -6,14 +6,26 @@ module Client.Pos.Wallet.Web.Endpoint.GetWallets
 
 import           Universum
 
---import           Client.Pos.Wallet.Web.Api  (newPayment)
---import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
+import           Client.Pos.Wallet.Web.Api (getWallets)
+import           Client.Pos.Wallet.Web.Run (runEndpointClient)
 
---import           Pos.Core.Types             (Coin (..))
---import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
---                                             CId (..), CHash (..), CPassPhrase,
---                                             CTx)
+-- import           Pos.Wallet.Web.ClientTypes (CWallet (..))
 
--- |
+-- | Run 'GetWallets' client. As a result we get a list of wallets.
 getWalletsIO :: IO ()
-getWalletsIO = return ()
+getWalletsIO =
+    runEndpointClient getWallets >>= \case
+        Left problem  -> putText $ "Cannot obtain wallets information: " <> problem
+        Right wallets -> print wallets     -- :: [CWallet]
+
+{-
+-- | Client Wallet (CW)
+data CWallet = CWallet
+    { cwId             :: !(CId Wal)
+    , cwMeta           :: !CWalletMeta
+    , cwAccountsNumber :: !Int
+    , cwAmount         :: !CCoin
+    , cwHasPassphrase  :: !Bool
+    , cwPassphraseLU   :: !PassPhraseLU  -- last update time
+    } deriving (Eq, Show, Generic)
+-}

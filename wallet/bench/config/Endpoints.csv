@@ -1,0 +1,4 @@
+BenchName,BenchDuration,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile
+GetHistoryBench,5.0,0.5,2.5,/tmp/GetHistoryBenchReport.csv
+GetWalletsBench,5.5,0.2,2.1,/tmp/GetWalletsBenchReport.csv
+NewPaymentBench,5.5,0.4,3.3,/tmp/NewPaymentBenchReport.csv

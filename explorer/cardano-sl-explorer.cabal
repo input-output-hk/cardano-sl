@@ -66,7 +66,7 @@ library
                       , log-warper
                       , memory
                       , resourcet
-                      , rocksdb-haskell
+                      , rocksdb-haskell-ng
                       , safe-exceptions
                       , serokell-util
                       , servant-generic

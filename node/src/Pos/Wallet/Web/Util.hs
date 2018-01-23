@@ -36,7 +36,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode(..), AddressInfo 
                                              CurrentAndRemoved (getCurrent, getRemoved),
                                              WalletSnapshot,
                                              getAccountAddrMaps, getAccountIds,
-                                             getAccountWAddresses, getWalletMeta,
+                                             getAccountWAddresses, getWAddresses, getWalletMeta,
                                              getAccountMeta)
 
 getAccountMetaOrThrow :: MonadThrow m => WalletSnapshot -> AccountId -> m CAccountMeta
@@ -60,17 +60,15 @@ getAccountAddrsOrThrow ws mode accId = maybeThrow noWallet (getAccountWAddresses
         sformat ("No account with id "%build%" found") accId
 
 getWalletAddrMetas
-    :: MonadThrow m
-    => WalletSnapshot
+    :: WalletSnapshot
     -> AddressLookupMode
     -> CId Wal
-    -> m [CWAddressMeta]
-getWalletAddrMetas ws lookupMode cWalId = do
-    let accountIds = getWalletAccountIds ws cWalId
-    map adiCWAddressMeta <$> concatMapM (getAccountAddrsOrThrow ws lookupMode) accountIds
+    -> [CWAddressMeta]
+getWalletAddrMetas ws lookupMode cWalId =
+  map adiCWAddressMeta $ getWAddresses ws lookupMode cWalId
 
-getWalletAddrs :: MonadThrow m => WalletSnapshot -> AddressLookupMode -> CId Wal -> m [CId Addr]
-getWalletAddrs ws mode wid = fmap cwamId <$> getWalletAddrMetas ws mode wid
+getWalletAddrs :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [CId Addr]
+getWalletAddrs ws mode wid = cwamId <$> getWalletAddrMetas ws mode wid
 
 getWalletAddrsDetector :: WalletSnapshot -> AddressLookupMode -> CId Wal -> (CId Addr -> Bool)
 getWalletAddrsDetector ws lookupMode cWalId = do

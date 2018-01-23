@@ -49,7 +49,7 @@ getFullWalletHistory :: MonadWalletWebMode m
 getFullWalletHistory ws cWalId = do
     logDebug "getFullWalletHistory: start"
 
-    cAddrs <- getWalletAddrs ws Ever cWalId
+    let cAddrs = getWalletAddrs ws Ever cWalId
     addrs <- convertCIdTOAddrs cAddrs
 
     unfilteredLocalHistory <- getLocalHistory addrs

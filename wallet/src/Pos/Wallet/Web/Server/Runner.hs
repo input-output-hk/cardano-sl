@@ -73,7 +73,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
   where
     action :: WalletWebMode Application
     action = do
-        logInfo "DAEDALUS has STARTED!"
+        logInfo "Wallet Web API has STARTED!"
         saVar <- asks wwmcSendActions
         atomically $ STM.putTMVar saVar sendActions
         when debug $ addInitialRichAccount 0

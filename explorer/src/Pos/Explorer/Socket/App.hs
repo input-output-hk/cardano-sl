@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Server launcher
+-- | Server launcher.
 
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
@@ -29,7 +29,7 @@ import           Network.SocketIO (RoutingTable, Socket, appendDisconnectHandler
                                    socketId)
 import           Network.Wai (Application, Middleware, Request, Response, pathInfo, responseLBS)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setPort)
-import           Network.Wai.Middleware.Cors (CorsResourcePolicy, cors, corsOrigins,
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors, corsOrigins,
                                               simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
@@ -132,14 +132,17 @@ notifierServer notifierSettings connVar = do
       where
         addCORSHeader :: Request -> Maybe CorsResourcePolicy
         addCORSHeader _ = Just $ simpleCorsResourcePolicy
-                                    -- HTTP origins that are allowed in CORS requests.
-                                    -- Add more resources to the following list if needed.
-                                    { corsOrigins = Just ([ "https://cardanoexplorer.com"
-                                                          , "https://explorer.iohkdev.io"
-                                                          , "http://cardano-explorer.cardano-mainnet.iohk.io"
-                                                          , "http://localhost:3100"
-                                                          ], True)
+                                    { corsOrigins = Just (origins, True)
                                     }
+        -- HTTP origins that are allowed in CORS requests.
+        -- Add more resources to the following list if needed.
+        origins :: [Origin]
+        origins =
+            [ "https://cardanoexplorer.com"
+            , "https://explorer.iohkdev.io"
+            , "http://cardano-explorer.cardano-mainnet.iohk.io"
+            , "http://localhost:3100"
+            ]
 
     app :: WaiMonad () -> Application
     app sHandle req respond

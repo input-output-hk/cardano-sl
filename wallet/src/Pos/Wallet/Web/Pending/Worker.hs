@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pending transactions resubmition logic.
+-- | Pending transactions resubmission logic.
 
 module Pos.Wallet.Web.Pending.Worker
     ( startPendingTxsResubmitter

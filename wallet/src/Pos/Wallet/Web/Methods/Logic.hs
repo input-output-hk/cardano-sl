@@ -244,9 +244,10 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
     () <- createAccount cAddr caInitMeta
     ws' <- getWalletSnapshot
     () <$ newAddress ws' addGenSeed passphrase cAddr
+    ws'' <- getWalletSnapshot
 
     -- Re-read DB after the update.
-    getAccountMod ws' accMod cAddr
+    getAccountMod ws'' accMod cAddr
 
 newAccount
     :: MonadWalletWebMode m

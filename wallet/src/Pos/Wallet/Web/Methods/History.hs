@@ -76,11 +76,12 @@ getFullWalletHistory ws cWalId = do
     -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
+    -- XXX Transaction
     addHistoryTxs cWalId localHistory
     logDebug "getFullWalletHistory: invoked addHistoryTxs"
-    --TODO: does addHistoryTxs change the db such that we need to re-read for constructCTx?
+    ws' <- getWalletSnapshot
 
-    !cHistory <- forM fullHistory (constructCTx ws cWalId walAddrsDetector diff)
+    !cHistory <- forM fullHistory (constructCTx ws' cWalId walAddrsDetector diff)
     logDebug "getFullWalletHistory: formed cTxs"
     pure (cHistory, fromIntegral $ Map.size cHistory)
 

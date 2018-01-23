@@ -84,7 +84,7 @@ extra-deps:
   commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
 ## plutus; smart-contracts language
 - git: https://github.com/input-output-hk/plutus-prototype
-  commit: c8ea123947fb62e4e02ca46f0eaadc5b47da3605 # from chshersh/csl2125-ghc-8.2.2 branch
+  commit: b35148f0097bf5b4ddd75c323ae896a568cd1122 # tip of csl-update-2
 ## ed25519
 - git: https://github.com/thoughtpolice/hs-ed25519
   # We're waiting on next release

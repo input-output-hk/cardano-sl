@@ -27,6 +27,7 @@ module Pos.Wallet.Web.State.State
        , getAccountMeta
        , getAccountAddrMaps
        , getAccountWAddresses
+       , getWAddresses
        , getWalletMetas
        , getWalletMeta
        , getWalletMetaIncludeUnready
@@ -197,6 +198,10 @@ getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
 getAccountWAddresses ws mode wid =
     queryValue ws (S.getAccountWAddresses mode wid)
+
+-- | Get the 'AddressInfo' corresponding to all accounts in this wallet.
+getWAddresses :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [AddressInfo]
+getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 
 doesWAddressExist
     :: WalletSnapshot -> AddressLookupMode -> CWAddressMeta -> Bool

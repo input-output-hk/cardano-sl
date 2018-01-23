@@ -105,7 +105,7 @@ onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        allAddresses <- getWalletAddrMetas ws WS.Ever wAddr
+        let allAddresses = getWalletAddrMetas ws WS.Ever wAddr
         encSK <- getSKById wAddr
         let mapModifier =
                 trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
@@ -150,7 +150,7 @@ onRollbackTracking blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet ws curTip newTip txs wid = walletGuard ws curTip wid $ do
-        allAddresses <- getWalletAddrMetas ws WS.Ever wid
+        let allAddresses = getWalletAddrMetas ws WS.Ever wid
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
 

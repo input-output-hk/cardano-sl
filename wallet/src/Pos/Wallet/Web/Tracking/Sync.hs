@@ -141,7 +141,7 @@ txMempoolToModifier ws encSK = do
             throwM $ InternalError errMsg
 
     tipH <- DB.getTipHeader @WalletSscType
-    allAddresses <- getWalletAddrMetas ws Ever wId
+    let allAddresses = getWalletAddrMetas ws Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
@@ -253,7 +253,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         computeAccModifier :: WalletSnapshot -> BlockHeader ssc -> m CAccModifier
         computeAccModifier ws wHeader = do
-            allAddresses <- getWalletAddrMetas ws Ever wAddr
+            let allAddresses = getWalletAddrMetas ws Ever wAddr
             logInfoS $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH

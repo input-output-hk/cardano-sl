@@ -399,4 +399,3 @@ finishPrepare badProposals proposals votes = do
         let id = uvProposalId vote
         proposalIsPresent <- isJust <$> getProposal id
         pure $ not (HS.member id badProposals) && proposalIsPresent
-

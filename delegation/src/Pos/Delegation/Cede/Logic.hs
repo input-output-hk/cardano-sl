@@ -108,11 +108,9 @@ dlgReachesIssuance i d psk = reach i
     -- equals to the passed one.
     reach curUser = getPsk (addressHash curUser) >>= \case
         Nothing   -> pure False
-        Just psk' -> let delegate = pskDelegatePk psk'
-                     in  if delegate == d
-                             then pure $ psk' == psk
-                             else reach (pskDelegatePk psk')
-
+        Just psk'
+            | pskDelegatePk psk' == d -> pure $ psk' == psk
+            | otherwise               -> reach (pskDelegatePk psk')
 
 -- | Verifies a header from delegation perspective (signature checks).
 dlgVerifyHeader ::

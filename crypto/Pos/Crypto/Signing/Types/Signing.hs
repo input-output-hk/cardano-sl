@@ -142,7 +142,8 @@ instance B.Buildable (ProxyCert w) where
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
 --
--- The invariant is that the certificate is valid.
+-- The invariant is that the certificate is valid (as checked by
+-- 'validateProxySecretKey').
 data ProxySecretKey w = UnsafeProxySecretKey
     { pskOmega      :: w
     , pskIssuerPk   :: PublicKey

@@ -107,7 +107,6 @@ modifyDlgMemPool f = do
 data PskHeavyVerdict
     = PHExists       -- ^ If we have exactly the same cert in psk mempool
     | PHInvalid Text -- ^ Can't accept PSK though it's most probably user's error
-    | PHBroken       -- ^ Broken (signature, most probably attack, we can ban for this)
     | PHCached       -- ^ Message is cached
     | PHTipMismatch  -- ^ Verdict can't be made at the moment, mempool tip is different from db one
     | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data

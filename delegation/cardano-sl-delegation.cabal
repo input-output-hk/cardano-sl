@@ -62,8 +62,8 @@ library
                      , mtl
                      , reflection
                      , resourcet
-                     , rocksdb-haskell
                      , safe-exceptions
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , text-format
                      , time

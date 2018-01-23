@@ -97,7 +97,7 @@ library
                      , neat-interpolation
                      , plutus-prototype
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
                      , stm

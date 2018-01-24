@@ -3,9 +3,9 @@
 -- | Everything related to wallet creation
 
 module Pos.Wallet.Web.Methods.Restore
-       ( newWallet
+       ( newWalletHandler
        , importWallet
-       , restoreWallet
+       , restoreWalletHandler
        , addInitialRichAccount
 
        -- For testing
@@ -45,10 +45,10 @@ import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
-newWalletFromBackupPhrase
+newWallet
     :: L.MonadWalletLogic ctx m
     => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
-newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
+newWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase cwBackupPhrase
@@ -63,21 +63,26 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     return (skey, cAddr)
 
-newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-newWallet passphrase cwInit = do
+newWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
+newWalletHandler passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
-    (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
+    (_, wId) <- newWallet passphrase cwInit True
     removeHistoryCache wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
-restoreWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-restoreWallet passphrase cwInit = do
+{- | Restores a wallet from a seed. The process is conceptually divided into
+-- two parts:
+-- 1. Recover this wallet balance from the global Utxo (fast, and synchronous);
+-- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
+-}
+restoreWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
+restoreWalletHandler passphrase cwInit = do
     -- Restoring a wallet may take a long time.
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
-    (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit False
+    (sk, wId) <- newWallet passphrase cwInit False
     -- `syncWalletOnImport` automatically marks a wallet as "ready".
     syncWalletOnImport sk
     L.getWallet wId

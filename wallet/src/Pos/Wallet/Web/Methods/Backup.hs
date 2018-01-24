@@ -46,7 +46,11 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
-            -- XXX Transaction
+            -- My current thinking is that we don't want a transaction here. If we're restoring
+            -- from a backup, we can hopefully assume that nothing else is happening. And even if
+            -- is is, it's hard to see that it would interfere with account creation. Further, if
+            -- the bacup is large, there may be a large number of accounts, so forcing atomicity
+            -- may not be what we want.
             db <- askWalletDB
             for_ accList $ \(idx, meta) -> do
                 let aIdx = fromInteger $ fromIntegral idx

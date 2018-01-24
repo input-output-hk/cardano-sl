@@ -76,7 +76,6 @@ getFullWalletHistory ws cWalId = do
     -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
-    -- XXX Transaction
     addHistoryTxs cWalId localHistory
     logDebug "getFullWalletHistory: invoked addHistoryTxs"
     ws' <- askWalletSnapshot

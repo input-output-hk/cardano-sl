@@ -15,7 +15,7 @@ import           Data.Reflection (give)
 import           Pos.Core (Block, BlockHeader (..), BlockVersion (..), BlockVersionData (..),
                            ExtraBodyData, ExtraHeaderData, GenericBlock (..),
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..), mkApplicationName,
+                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
                            unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
@@ -254,7 +254,7 @@ softwareVersion = SoftwareVersion
     , svNumber  = 0
     }
   where
-    Right appName = mkApplicationName (mempty :: Text)
+    appName = ApplicationName (mempty :: Text)
 
 blockHeaderAttributes :: BlockHeaderAttributes
 blockHeaderAttributes = Attributes

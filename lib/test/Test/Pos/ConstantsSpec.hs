@@ -8,7 +8,6 @@ import           Universum
 
 import           Pos.Core                 (SystemTag (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourSystemTag)
-import qualified Pos.Update.Constants     as C
 
 import           Test.Hspec               (Expectation, Spec, describe, it, shouldSatisfy)
 import           Test.Pos.Configuration   (withDefUpdateConfiguration)
@@ -29,7 +28,3 @@ spec :: Spec
 spec = withDefUpdateConfiguration $ describe "Constants" $ do
     describe "Configuration constants" $ do
         it "currentSystemTag" $ systemTagCheck
-    describe "UpdateConstants" $ do
-        it "genesisAppNames" $ do
-            for_ C.genesisAppNames $ \(_, name) ->
-                name `shouldSatisfy` isRight

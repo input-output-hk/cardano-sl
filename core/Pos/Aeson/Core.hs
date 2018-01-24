@@ -29,7 +29,7 @@ import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotC
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
-                                        SoftforkRule, SoftwareVersion (..), mkApplicationName)
+                                        SoftforkRule, SoftwareVersion (..))
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (toAesonError)
 
@@ -104,11 +104,9 @@ instance ToJSON Address where
 deriveJSON defaultOptions ''BlockCount
 
 instance FromJSON ApplicationName where
-    -- mkApplicationName will validate the text to be an appropriate app name
-    --
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = parseJSON v >>= toAesonError . mkApplicationName
+    parseJSON v = ApplicationName <$> parseJSON v
 
 deriveToJSON defaultOptions ''ApplicationName
 

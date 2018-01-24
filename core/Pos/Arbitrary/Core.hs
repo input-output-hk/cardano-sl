@@ -435,8 +435,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
-        either (error . mappend "arbitrary @ApplicationName failed: ") identity .
-        U.mkApplicationName .
+        U.ApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
       where

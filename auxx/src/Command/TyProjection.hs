@@ -35,12 +35,12 @@ import           Data.Time.Units (TimeUnit, convertUnit)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util (sec)
 
-import           Pos.Core (AddrStakeDistribution (..), Address, ApplicationName, BlockVersion, Coin,
+import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin,
                            CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
-                           mkApplicationName, mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
+                           mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
-import           Pos.Update (BlockVersionModifier (..), SystemTag (..), mkSystemTag)
+import           Pos.Update (BlockVersionModifier (..), ApplicationName (..), SystemTag (..))
 
 import           Lang.Argument (TyProjection (..), TypeName (..))
 import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..),
@@ -149,13 +149,10 @@ tyProposeUpdateSystem :: TyProjection ProposeUpdateSystem
 tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValueProposeUpdateSystem)
 
 tySystemTag :: TyProjection SystemTag
-tySystemTag = TyProjection "SystemTag" (mkSystemTag' <=< preview _ValueString)
+tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (SystemTag . fromString) (preview _ValueString))
 
 tyApplicationName :: TyProjection ApplicationName
-tyApplicationName = TyProjection "ApplicationName" ((either (\(_::Text) -> Nothing) Just . mkApplicationName . fromString) <=< preview _ValueString)
-
-mkSystemTag' :: String -> Maybe SystemTag
-mkSystemTag' = either (\(_::Text) -> Nothing) Just . mkSystemTag . fromString
+tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationName . fromString) (preview _ValueString))
 
 tyString :: TyProjection String
 tyString = TyProjection "String" (preview _ValueString)

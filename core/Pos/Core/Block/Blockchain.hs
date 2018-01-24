@@ -183,9 +183,9 @@ deriving instance
 mkGenericHeader
     :: forall b .
        ( HasHeaderHash (BBlockHeader b)
-       , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
        , HasGenesisHash
+       , Blockchain b
        )
     => Maybe (BBlockHeader b)
     -> Body b
@@ -215,9 +215,9 @@ checkGenericHeader it =
 mkGenericBlock
     :: forall b .
        ( HasHeaderHash (BBlockHeader b)
-       , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
        , HasGenesisHash
+       , Blockchain b
        )
     => Maybe (BBlockHeader b)
     -> Body b

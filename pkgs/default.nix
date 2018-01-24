@@ -6915,11 +6915,12 @@ inherit (pkgs) mesa;};
          , lrucache, memory, mmorph, monad-control, MonadRandom, mtl
          , neat-interpolation, network-transport, network-transport-tcp
          , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
-         , random, reflection, resourcet, rocksdb-haskell, safe-exceptions
-         , safecopy, serokell-util, servant, servant-server, servant-swagger
-         , stdenv, stm, systemd, tagged, template-haskell, text, text-format
-         , time, time-units, transformers, transformers-base, universum
-         , unix, unordered-containers, vector, wai, warp, warp-tls, yaml
+         , random, reflection, resourcet, rocksdb-haskell-ng
+         , safe-exceptions, safecopy, serokell-util, servant, servant-server
+         , servant-swagger, stdenv, stm, systemd, tagged, template-haskell
+         , text, text-format, time, time-units, transformers
+         , transformers-base, universum, unix, unordered-containers, vector
+         , wai, warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6938,7 +6939,7 @@ inherit (pkgs) mesa;};
              log-warper lrucache memory mmorph monad-control MonadRandom mtl
              neat-interpolation network-transport network-transport-tcp
              optparse-applicative parsec plutus-prototype pvss QuickCheck random
-             reflection resourcet rocksdb-haskell safe-exceptions safecopy
+             reflection resourcet rocksdb-haskell-ng safe-exceptions safecopy
              serokell-util servant servant-server servant-swagger stm systemd
              tagged template-haskell text text-format time time-units
              transformers transformers-base universum unix unordered-containers
@@ -7042,9 +7043,10 @@ inherit (pkgs) mesa;};
          , cardano-sl-update, cardano-sl-util, cborg, conduit, containers
          , cpphs, cryptonite, data-default, directory, ekg-core, ether
          , exceptions, filepath, formatting, generic-arbitrary, lens
-         , log-warper, mtl, QuickCheck, random, reflection, rocksdb-haskell
-         , safe-exceptions, serokell-util, stdenv, stm, text, text-format
-         , time-units, transformers, universum, unordered-containers
+         , log-warper, mtl, QuickCheck, random, reflection
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv, stm
+         , text, text-format, time-units, transformers, universum
+         , unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-block";
@@ -7057,7 +7059,7 @@ inherit (pkgs) mesa;};
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
              cborg conduit containers cryptonite data-default directory ekg-core
              ether exceptions filepath formatting generic-arbitrary lens
-             log-warper mtl QuickCheck random reflection rocksdb-haskell
+             log-warper mtl QuickCheck random reflection rocksdb-haskell-ng
              safe-exceptions serokell-util stm text text-format time-units
              transformers universum unordered-containers
            ];
@@ -7166,7 +7168,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-util
          , concurrent-extra, conduit, containers, cpphs, data-default
          , directory, ether, filepath, formatting, lens, memory, mmorph
-         , monad-control, mtl, resourcet, rocksdb-haskell, serokell-util
+         , monad-control, mtl, resourcet, rocksdb-haskell-ng, serokell-util
          , stdenv, text-format, transformers, universum
          }:
          mkDerivation {
@@ -7177,7 +7179,7 @@ inherit (pkgs) mesa;};
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-util concurrent-extra conduit containers data-default
              directory ether filepath formatting lens memory mmorph
-             monad-control mtl resourcet rocksdb-haskell serokell-util
+             monad-control mtl resourcet rocksdb-haskell-ng serokell-util
              text-format transformers universum
            ];
            libraryToolDepends = [ cpphs ];
@@ -7191,7 +7193,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-lrc, cardano-sl-networking, cardano-sl-util, conduit
          , cpphs, ether, formatting, generic-arbitrary, lens, log-warper
          , lrucache, mmorph, mtl, QuickCheck, reflection, resourcet
-         , rocksdb-haskell, safe-exceptions, serokell-util, stdenv
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv
          , text-format, time, transformers, universum, unordered-containers
          }:
          mkDerivation {
@@ -7203,7 +7205,7 @@ inherit (pkgs) mesa;};
              cardano-sl-db cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-util conduit ether formatting generic-arbitrary lens
              log-warper lrucache mmorph mtl QuickCheck reflection resourcet
-             rocksdb-haskell safe-exceptions serokell-util text-format time
+             rocksdb-haskell-ng safe-exceptions serokell-util text-format time
              transformers universum unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
@@ -7222,7 +7224,7 @@ inherit (pkgs) mesa;};
          , exceptions, formatting, generic-arbitrary, hspec, http-types
          , lens, log-warper, memory, MonadRandom, mtl, optparse-applicative
          , optparse-simple, purescript-bridge, QuickCheck, resourcet
-         , rocksdb-haskell, safe-exceptions, serokell-util, servant
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, servant
          , servant-generic, servant-multipart, servant-server
          , servant-swagger, socket-io, stdenv, stm, swagger2, text
          , text-format, time, time-units, transformers, universum
@@ -7242,7 +7244,7 @@ inherit (pkgs) mesa;};
              cardano-sl-update cardano-sl-util conduit containers data-default
              engine-io engine-io-wai ether exceptions formatting
              generic-arbitrary http-types lens log-warper memory mtl QuickCheck
-             resourcet rocksdb-haskell safe-exceptions serokell-util servant
+             resourcet rocksdb-haskell-ng safe-exceptions serokell-util servant
              servant-generic servant-server socket-io stm text text-format time
              time-units transformers universum unordered-containers vector wai
              wai-cors wai-extra warp
@@ -7348,7 +7350,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-networking, cardano-sl-util, conduit, cpphs, ether
          , formatting, generic-arbitrary, lens, log-warper, QuickCheck
-         , reflection, rocksdb-haskell, stdenv, text-format, universum
+         , reflection, rocksdb-haskell-ng, stdenv, text-format, universum
          , unordered-containers
          }:
          mkDerivation {
@@ -7359,7 +7361,7 @@ inherit (pkgs) mesa;};
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-networking cardano-sl-util conduit ether
              formatting generic-arbitrary lens log-warper QuickCheck reflection
-             rocksdb-haskell text-format universum unordered-containers
+             rocksdb-haskell-ng text-format universum unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7434,7 +7436,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-util, containers, cpphs, cryptonite, data-default
          , ekg-core, ether, exceptions, formatting, generic-arbitrary, lens
          , log-warper, memory, mmorph, mono-traversable, mtl, parsec
-         , QuickCheck, reflection, rocksdb-haskell, safe-exceptions
+         , QuickCheck, reflection, rocksdb-haskell-ng, safe-exceptions
          , serokell-util, stdenv, stm, tagged, text, text-format, time-units
          , transformers, universum, unordered-containers
          }:
@@ -7448,9 +7450,9 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-util containers cryptonite
              data-default ekg-core ether exceptions formatting generic-arbitrary
              lens log-warper memory mmorph mono-traversable mtl parsec
-             QuickCheck reflection rocksdb-haskell safe-exceptions serokell-util
-             stm tagged text text-format time-units transformers universum
-             unordered-containers
+             QuickCheck reflection rocksdb-haskell-ng safe-exceptions
+             serokell-util stm tagged text text-format time-units transformers
+             universum unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7507,7 +7509,7 @@ inherit (pkgs) mesa;};
          , containers, cpphs, data-default, ekg-core, ether, exceptions, fmt
          , formatting, generic-arbitrary, hashable, lens, log-warper, memory
          , mmorph, mtl, neat-interpolation, plutus-prototype, QuickCheck
-         , resourcet, rocksdb-haskell, safe-exceptions, serokell-util
+         , resourcet, rocksdb-haskell-ng, safe-exceptions, serokell-util
          , stdenv, stm, tagged, template-haskell, text, text-format
          , transformers, universum, unordered-containers, vector
          }:
@@ -7522,7 +7524,7 @@ inherit (pkgs) mesa;};
              data-default ekg-core ether exceptions fmt formatting
              generic-arbitrary hashable lens log-warper memory mmorph mtl
              neat-interpolation plutus-prototype QuickCheck resourcet
-             rocksdb-haskell safe-exceptions serokell-util stm tagged
+             rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
              template-haskell text text-format transformers universum
              unordered-containers vector
            ];
@@ -7539,7 +7541,7 @@ inherit (pkgs) mesa;};
          , directory, ether, exceptions, formatting, generic-arbitrary
          , hashable, http-client, http-client-tls, http-conduit, lens
          , log-warper, memory, mtl, QuickCheck, reflection, resourcet
-         , rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv, stm
          , tagged, template-haskell, text, text-format, time-units
          , transformers, universum, unordered-containers
          }:
@@ -7554,7 +7556,7 @@ inherit (pkgs) mesa;};
              data-default directory ether exceptions formatting
              generic-arbitrary hashable http-client http-client-tls http-conduit
              lens log-warper memory mtl QuickCheck reflection resourcet
-             rocksdb-haskell safe-exceptions serokell-util stm tagged
+             rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
              template-haskell text text-format time-units transformers universum
              unordered-containers
            ];
@@ -32897,22 +32899,22 @@ inherit (pkgs) which;};
            description = "RNG within an MVar for convenient concurrent use";
            license = stdenv.lib.licenses.bsd3;
          }) {};
-      "rocksdb-haskell" = callPackage
-        ({ mkDerivation, base, binary, bytestring, data-default, filepath
-         , resourcet, rocksdb, stdenv, transformers
+      "rocksdb-haskell-ng" = callPackage
+        ({ mkDerivation, base, bytestring, directory, fetchgit, rocksdb
+         , stdenv
          }:
          mkDerivation {
-           pname = "rocksdb-haskell";
-           version = "1.0.0";
-           sha256 = "eddbc713b2203787c2218c40989bf244b216105ac528e9738204aaca15bf5165";
-           libraryHaskellDepends = [
-             base binary bytestring data-default filepath resourcet transformers
-           ];
+           pname = "rocksdb-haskell-ng";
+           version = "0.0.0";
+           src = fetchgit {
+             url = "https://github.com/input-output-hk/rocksdb-haskell-ng.git";
+             sha256 = "0mdcaznwiry98bvvg51lm0khra8c8g6xxwzxjj9c2sk1wh4cj3y7";
+             rev = "100f24a8aa628bca57836f98f6b0c56406e59897";
+           };
+           libraryHaskellDepends = [ base bytestring directory ];
            librarySystemDepends = [ rocksdb ];
            doHaddock = false;
            doCheck = false;
-           homepage = "http://github.com/serokell/rocksdb-haskell";
-           description = "Haskell bindings to RocksDB";
            license = stdenv.lib.licenses.bsd3;
          }) {inherit (pkgs) rocksdb;};
       "rose-trees" = callPackage

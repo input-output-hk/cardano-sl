@@ -15,8 +15,6 @@ nodeArgs:
   - "/tmp/topology.yaml"
   - "--logs-prefix"
   - "logs/test"
-  - "--db-path"
-  - "db-mainnet-staging"
   - "--wallet-db-path"
   - "wdb-mainnet-staging"
   - "--keyfile"

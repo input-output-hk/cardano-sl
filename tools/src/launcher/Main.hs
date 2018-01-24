@@ -302,7 +302,7 @@ main =
   do
     LO {..} <- getLauncherOptions
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
-    let realNodeArgs = addConfigurationOptions loConfiguration $
+    let realNodeArgs = propagateOptions loNodeDbPath loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -343,19 +343,22 @@ main =
                     loReportServer
                     loWalletLogging
   where
-    -- We propagate configuration options to the node executable,
-    -- because we almost certainly want to use the same configuration
-    -- and don't want to pass the same options twice.  However, if
-    -- user passes these options to the node explicitly, then we leave
-    -- their choice. It doesn't cover all cases
+    -- We propagate some options to the node executable, because
+    -- we almost certainly want to use the same configuration and
+    -- don't want to pass the same options twice.  However, if the
+    -- user passes these options to the node explicitly, then we
+    -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
-    addConfigurationOptions (ConfigurationOptions path key systemStart seed) =
+    propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
+        addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed
 
+    addNodeDbPath nodeDbPath =
+        maybeAddOption "--db-path" (toText nodeDbPath)
     addConfFileOption filePath =
         maybeAddOption "--configuration-file" (toText filePath)
     addConfKeyOption key = maybeAddOption "--configuration-key" key

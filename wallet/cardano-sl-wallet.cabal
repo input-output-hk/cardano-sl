@@ -379,6 +379,7 @@ benchmark cardano-sl-wallet-bench
                      , http-client
                      , lens
                      , random
+                     , QuickCheck
                      , servant
                      , servant-client
                      , statistics

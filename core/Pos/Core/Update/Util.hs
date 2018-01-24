@@ -38,8 +38,8 @@ import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
                                         UpdatePayload (..), UpdateProof, UpdateProposal (..),
                                         UpdateProposalToSign (..), UpdateVote (..), VoteId)
-import           Pos.Crypto (PublicKey, SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             Signature, checkSig, hash, safeSign, safeToPublic)
+import           Pos.Crypto (SafeSigner, SignTag (SignUSProposal, SignUSVote),
+                             checkSig, hash, safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)

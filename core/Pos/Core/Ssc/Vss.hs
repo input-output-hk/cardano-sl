@@ -36,8 +36,8 @@ import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
-                             Signature, VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Crypto (HasCryptoConfiguration, SecretKey, SignTag (SignVssCert),
+                             VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.

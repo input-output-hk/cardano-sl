@@ -47,7 +47,7 @@ module Pos.Core.Txp
 
 import           Universum
 
-import           Control.Monad.Error (MonadError(throwError))
+import           Control.Monad.Except (MonadError(throwError))
 import           Control.Lens (makeLenses, makePrisms)
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable

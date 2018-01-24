@@ -242,8 +242,8 @@ checkGenericBlock
     => GenericBlock b
     -> m (GenericBlock b)
 checkGenericBlock it = do
-    checkGenericHeader (_gbHeader it)
-    checkBodyProof (_gbBody it) (_gbhBodyProof (_gbHeader it))
+    _ <- checkGenericHeader (_gbHeader it)
+    _ <- checkBodyProof (_gbBody it) (_gbhBodyProof (_gbHeader it))
     it <$ verifyBBlock it
 
 ----------------------------------------------------------------------------

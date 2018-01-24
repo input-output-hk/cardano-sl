@@ -80,6 +80,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
                       , Plugins.walletBackend wArgs
                       , Plugins.acidCleanupWorker wArgs
                       , Plugins.resubmitterPlugin
+                      , Plugins.notifierPlugin
                       ]
 
 -- | Runs an edge node plus its wallet backend API.

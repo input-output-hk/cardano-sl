@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Runner
        , runWRealMode
        , walletWebModeContext
        , convertHandler
+       , notifierPlugin
        ) where
 
 import           Universum
@@ -37,7 +38,7 @@ import           Pos.Wallet.Web.Methods (AddrCIdHashes (..), addInitialRichAccou
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
-import           Pos.Wallet.Web.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletState)
 import           Pos.Web (TlsParams)
 
@@ -99,3 +100,8 @@ convertHandler wwmc handler =
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
+
+notifierPlugin :: (HasConfigurations, HasCompileInfo) => WalletWebMode ()
+notifierPlugin = do
+    wwmc <- walletWebModeContext
+    launchNotifier (convertHandler wwmc)

@@ -48,6 +48,10 @@ let
         };
       });
 
+<<<<<<< HEAD
+=======
+      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
+>>>>>>> 797dfa470... [CSL-2185] Add dbgen to tools. (#2296)
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;

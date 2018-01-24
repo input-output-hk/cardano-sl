@@ -3,11 +3,10 @@ module Pos.Binary.Core.Common () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Common.Types (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Core.Common.Types (Coin (..), unsafeGetCoin)
 import qualified Pos.Core.Common.Types as T
 import qualified Pos.Data.Attributes as A
 import           Pos.Util.Orphans ()
-import           Pos.Util.Util (toCborError)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -55,11 +54,4 @@ deriveSimpleBi ''T.ChainDifficulty [
 
 instance Bi Coin where
     encode = encode . unsafeGetCoin
-    decode =
-        decode >>= toCborError . \case
-            number
-                | number > unsafeGetCoin maxBound ->
-                    Left $
-                    "decode@Coin: number is greater than limit: " <>
-                    show number
-                | otherwise -> Right (mkCoin number)
+    decode = Coin <$> decode

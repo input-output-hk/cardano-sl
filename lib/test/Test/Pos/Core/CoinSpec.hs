@@ -7,7 +7,7 @@ module Test.Pos.Core.CoinSpec
 import           Universum
 
 
-import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it, shouldBe)
+import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 
@@ -24,7 +24,7 @@ spec = describe "Coin properties" $ do
             prop convertingCoinDesc coinToIntegralToCoin
             prop convertingWordDesc wordToCoinToWord
             prop convertingCoinIntegerDesc coinToIntegerToCoin
-            prop overflowInMkCoinErrorDesc overflowInMkCoinError
+            prop overflowInCheckCoinErrorDesc overflowInCheckCoinError
             prop convertingIntegerDesc integerToCoinToInteger
         describe "unsafeAddcoin" $ do
             prop unsafeAddCoinDesc overflowInSumCausesError
@@ -44,8 +44,6 @@ spec = describe "Coin properties" $ do
         prop appliedPortionDownDesc appliedCoinPortionDown
         prop appliedPortionUpDesc appliedCoinPortionUp
         prop unsafeCoinPortionDesc overOrUnderflowDoubleCausesError
-        prop wordToPortionToWordDesc wordToPortionToWord
-        prop portionToWordToPortionDesc portionToWordToPortion
 
   where
     unsafeIntegerCoinDesc = "Converting an integer that is larger than 'maxCoinVal' into\
@@ -54,7 +52,7 @@ spec = describe "Coin properties" $ do
     \ changes nothing"
     convertingWordDesc = "Converting a 64-bit word into a coin and this coin to a 64-bit\
     \ word changes nothing"
-    overflowInMkCoinErrorDesc = "Pass to mkCoin more than maxCoinVal coins, mkCoin must call error"
+    overflowInCheckCoinErrorDesc = "Pass to mkCoin more than maxCoinVal coins, mkCoin must call error"
     convertingCoinIntegerDesc = "Converting a coin into an integer and this integer to a\
     \ coin changes nothing"
     convertingIntegerDesc = "Converting a nonnegative integer into a coin and this coin\
@@ -81,10 +79,6 @@ spec = describe "Coin properties" $ do
     \ 'applyCoinPortionUp' and via 'ceiling' is the same"
     unsafeCoinPortionDesc = "Converting a double outside the interval [0, 1] into a\
     \ 'CoinPortion' will raise a fatal exception"
-    wordToPortionToWordDesc = "Converting a valid 64-bit word into a coin portion and\
-    \ this portion into a word changes nothing"
-    portionToWordToPortionDesc = "Converting a coin portion into a 64-bit word and this\
-    \ word into a portion changes nothing"
 
 ------------------------------------------------------------------------------------------
 -- Coin
@@ -139,9 +133,8 @@ coinToIntegralToCoin = C.mkCoin . C.unsafeGetCoin .=. identity
 wordToCoinToWord :: Word64 -> Property
 wordToCoinToWord c = c > C.maxCoinVal .||. C.unsafeGetCoin (C.mkCoin c) === c
 
-overflowInMkCoinError :: Expectation
-overflowInMkCoinError =
-    shouldThrowException C.mkCoin anyErrorCall (C.maxCoinVal + 1)
+overflowInCheckCoinError :: Expectation
+overflowInCheckCoinError = shouldSatisfy (C.checkCoin (C.Coin (C.maxCoinVal + 1)) :: Either Text ()) isLeft
 
 coinToIntegerToCoin :: C.Coin -> Property
 coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity
@@ -164,13 +157,6 @@ overOrUnderflowDoubleCausesError =
 coinPortionToDoubleToPortion :: C.CoinPortion -> Property
 coinPortionToDoubleToPortion =
     C.unsafeCoinPortionFromDouble . C.coinPortionToDouble .=. identity
-
-wordToPortionToWord :: C.SafeWord -> Property
-wordToPortionToWord (C.getSafeWord -> w) =
-    (C.getCoinPortion <$> C.mkCoinPortion w) === (Right w)
-
-portionToWordToPortion :: C.CoinPortion -> Property
-portionToWordToPortion = C.mkCoinPortion . C.getCoinPortion >=. (pure @(Either Text))
 
 appliedCoinPortionDown :: (C.CoinPortion, C.Coin) -> Property
 appliedCoinPortionDown =

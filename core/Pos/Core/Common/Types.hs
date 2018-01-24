@@ -33,13 +33,14 @@ module Pos.Core.Common.Types
        , slotLeadersF
 
        -- * Coin
-       , Coin
+       , Coin (..)
        , CoinPortion (..)
+       , mkCoin
+       , checkCoin
        , coinF
        , unsafeGetCoin
-       , mkCoin
        , coinPortionDenominator
-       , mkCoinPortion
+       , checkCoinPortion
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
@@ -298,7 +299,9 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- | Make Coin from Word64.
+-- | Just use the 'Coin' constructor. This is legacy but still used. Formerly
+-- it would fail with 'error' if the 'Word64' exceeds 'maxCoinVal', but now you
+-- have to 'checkCoin' if you care about that.
 mkCoin :: Word64 -> Coin
 mkCoin = Coin
 
@@ -306,7 +309,6 @@ checkCoin :: MonadError Text m => Coin -> m ()
 checkCoin (Coin c)
     | c <= maxCoinVal = pure ()
     | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
-{-# INLINE checkCoin #-}
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -342,16 +344,16 @@ instance Bounded CoinPortion where
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
-mkCoinPortion
+checkCoinPortion
     :: MonadError Text m
-    => Word64 -> m CoinPortion
-mkCoinPortion x
-    | x <= coinPortionDenominator = pure $ CoinPortion x
+    => CoinPortion -> m ()
+checkCoinPortion (CoinPortion x)
+    | x <= coinPortionDenominator = pure ()
     | otherwise = throwError err
   where
     err =
         sformat
-            ("mkCoinPortion: value is greater than coinPortionDenominator: "
+            ("CoinPortion: value is greater than coinPortionDenominator: "
             %int) x
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in

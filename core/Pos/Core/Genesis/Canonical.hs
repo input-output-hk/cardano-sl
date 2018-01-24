@@ -27,10 +27,9 @@ import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, 
 
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core.Address ()
-import           Pos.Core.Common (Address, Coeff (..), Coin, CoinPortion, SharedSeed (..),
+import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (..), SharedSeed (..),
                                   StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
-                                  decodeTextAddress, getCoinPortion, mkCoin, mkCoinPortion,
-                                  unsafeGetCoin)
+                                  decodeTextAddress, getCoinPortion, unsafeGetCoin)
 import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
@@ -374,15 +373,13 @@ instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
 
--- A bit unsafe because 'mkCoin' is partial, but it is read only on
--- start, so 'error' should be ok.
 instance ReportSchemaErrors m => FromJSON m Coin where
-    fromJSON = fmap mkCoin . fromJSON
+    fromJSON = fmap Coin . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
     fromJSON val = do
         number <- fromJSON val
-        wrapConstructor @Text $ mkCoinPortion number
+        pure $ CoinPortion number
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =

@@ -14,7 +14,6 @@ module Pos.Arbitrary.Core
        , SafeCoinPairMul (..)
        , SafeCoinPairSum (..)
        , SafeCoinPairSub (..)
-       , SafeWord (..)
        , UnreasonableEoS (..)
        ) where
 
@@ -218,20 +217,18 @@ instance Arbitrary Types.AddrStakeDistribution where
             let limit =
                     foldl' (-) Types.coinPortionDenominator $
                     map Types.getCoinPortion res
-            let unsafeMkCoinPortion =
-                    leftToPanic @Text "genPortions" . Types.mkCoinPortion
             case (n, limit) of
                 -- Limit is exhausted, can't create more.
                 (_, 0) -> return res
                 -- The last portion, we must ensure the sum is correct.
-                (1, _) -> return (unsafeMkCoinPortion limit : res)
+                (1, _) -> return (Types.CoinPortion limit : res)
                 -- We intentionally don't generate 'limit', because we
                 -- want to generate at least 2 portions.  However, if
                 -- 'limit' is 1, we will generate 1, because we must
                 -- have already generated one portion.
                 _ -> do
                     portion <-
-                        unsafeMkCoinPortion <$> choose (1, max 1 (limit - 1))
+                        Types.CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
@@ -418,16 +415,6 @@ newtype DoubleInZeroToOneRange = DoubleInRange
 
 instance Arbitrary DoubleInZeroToOneRange where
     arbitrary = DoubleInRange <$> choose (0, 1)
-
--- | A wrapper over 'Word64'. Its 'Arbitrary' instance guarantees the 'Word64'
--- inside can always be safely converted into 'CoinPortion'. Used in tests to ensure
--- converting a valid 'Word64' to/from 'CoinPortion' works properly.
-newtype SafeWord = SafeWord
-    { getSafeWord :: Word64
-    } deriving (Show, Eq)
-
-instance Arbitrary SafeWord where
-    arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
 
 instance Arbitrary Types.SharedSeed where
     arbitrary = do

@@ -1,4 +1,4 @@
--- | TODO: real values for the client function.
+-- | Function for running a client, for @NewPayment@.
 
 module Client.Pos.Wallet.Web.Endpoint.NewPayment
     ( newPaymentIO
@@ -9,33 +9,25 @@ import           Universum
 import           Client.Pos.Wallet.Web.Api  (newPayment)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
 
+import           Pos.Client.Txp.Util        (InputSelectionPolicy (..))
 import           Pos.Core.Types             (mkCoin)
 import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
-                                             CId (..), CHash (..)) -- , CPassPhrase, CTx)
+                                             CId (..), CHash (..), CPassPhrase (..))
 
--- | Run 'NewPayment' client. As a result we get a newly created transaction.
+-- | Run 'NewPayment' client. As a result
+-- we will get a newly created transaction.
 newPaymentIO :: IO ()
 newPaymentIO =
-    let passPhrase = Nothing        -- :: Maybe CPassPhrase
-        accountId  = CAccountId ""  -- :: CAccountId
-        address    = CId (CHash "") -- :: CId Addr
-        coin       = mkCoin 100     -- :: Coin
-        policy     = Nothing        -- :: Maybe InputSelectionPolicy
+    let passPhrase = CPassPhrase ""
+        accountId  = CAccountId ""
+        address    = CId (CHash "")
+        coin       = mkCoin 100
+        policy     = OptimizeForSecurity
     in
-    runEndpointClient (newPayment passPhrase accountId address coin policy) >>= \case
+    runEndpointClient (newPayment (Just passPhrase)
+                                  accountId
+                                  address
+                                  coin
+                                  (Just policy)) >>= \case
         Left problem -> putText $ "Cannot create new payment: " <> problem
         Right newTx  -> print newTx -- :: CTx
-
-{-
-data CTx = CTx
-    { ctId            :: CTxId
-    , ctAmount        :: CCoin
-    , ctConfirmations :: Word
-    , ctMeta          :: CTxMeta
-    , ctInputs        :: [(CId Addr, CCoin)]
-    , ctOutputs       :: [(CId Addr, CCoin)]
-    , ctIsLocal       :: Bool
-    , ctIsOutgoing    :: Bool
-    , ctCondition     :: CPtxCondition
-    } deriving (Show, Generic, Typeable)
--}

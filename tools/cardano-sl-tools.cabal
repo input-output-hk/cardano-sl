@@ -22,6 +22,86 @@ Flag for-installer
   description: Build a reduced set of components (only what is needed for the
                installer)
 
+executable dbgen
+  hs-source-dirs:      src/dbgen
+  main-is:             Main.hs
+  other-modules:       CLI
+                     , Lib
+                     , Rendering
+                     , Stats
+                     , Types
+                     , QueryMethods
+  if !flag(for-installer)
+   build-depends:      base >= 4.7 && < 5
+                     , acid-state
+                     , ansi-terminal
+                     , unordered-containers
+                     , containers
+                     , serokell-util
+                     , dhall
+                     , text
+                     , time
+                     , QuickCheck
+                     , bytestring
+                     , string-conv
+                     , mtl
+                     , lens
+                     , optparse-generic
+                     , optparse-applicative
+                     , haskoin-core
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-ssc
+                     , cardano-sl-infra
+                     , cardano-sl-wallet
+                     , optparse-generic
+                     , optparse-applicative
+                     , node-sketch
+                     , mtl
+                     , log-warper
+                     , data-default
+                     , lens
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(for-installer)
+    buildable: False
+
 executable cardano-analyzer
   hs-source-dirs:      src/analyzer
   main-is:             Main.hs

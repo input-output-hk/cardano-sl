@@ -79,7 +79,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
    - `cardano-explorer`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools-static`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
--  `cardano-sl-wallet`:
+-  `cardano-sl-wallet-static`:
    - `cardano-node`, `cardano-swagger`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a

@@ -121,6 +121,15 @@ extra-deps:
 - ekg-statsd-0.2.2.0
 # https://github.com/fpco/lts-haskell/issues/70
 - fgl-5.5.3.1
+# dbgen deps
+- aeson-1.0.2.1
+- dhall-1.8.2
+- haskoin-core-0.4.2
+- murmur3-1.0.3
+- pbkdf-1.1.1.1
+- secp256k1-0.4.8
+- vector-0.11.0.0
+- primitive-0.6.1.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

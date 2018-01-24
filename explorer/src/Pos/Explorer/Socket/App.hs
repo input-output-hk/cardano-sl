@@ -22,6 +22,7 @@ import           Data.Time.Units (Millisecond)
 import           Ether.TaggedTrans ()
 import           Formatting (int, sformat, (%))
 import qualified GHC.Exts as Exts
+import           Mockable (withAsync)
 import           Network.EngineIO (SocketId)
 import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
 import           Network.HTTP.Types.Status (status404)
@@ -54,8 +55,7 @@ import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..)
                                               subscribeEpochsLastPage, subscribeTxs,
                                               unsubscribeAddr, unsubscribeBlocksLastPage,
                                               unsubscribeEpochsLastPage, unsubscribeTxs)
-import           Pos.Explorer.Socket.Util (emitJSON, forkAccompanion, on, on_, regroupBySnd,
-                                           runPeriodicallyUnless)
+import           Pos.Explorer.Socket.Util (emitJSON, on, on_, regroupBySnd, runPeriodically)
 import           Pos.Explorer.Web.ClientTypes (cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server (getMempoolTxs)
 
@@ -160,10 +160,10 @@ notifierServer notifierSettings connVar = do
 periodicPollChanges
     :: forall ctx m.
        (ExplorerMode ctx m)
-    => ConnectionsVar -> m Bool -> m ()
-periodicPollChanges connVar closed =
+    => ConnectionsVar -> m ()
+periodicPollChanges connVar =
     -- Runs every 5 seconds.
-    runPeriodicallyUnless (5000 :: Millisecond) closed (Nothing, mempty) $ do
+    runPeriodically (5000 :: Millisecond) (Nothing, mempty) $ do
         curBlock   <- DB.getTip
         mempoolTxs <- lift $ S.fromList <$> getMempoolTxs @ctx
 
@@ -220,5 +220,5 @@ notifierApp
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    forkAccompanion (periodicPollChanges connVar)
-                    (notifierServer settings connVar)
+    withAsync (periodicPollChanges connVar)
+              (\_async -> notifierServer settings connVar)

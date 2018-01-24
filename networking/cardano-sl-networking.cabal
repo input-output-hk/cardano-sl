@@ -218,6 +218,7 @@ executable bench-log-reader
                      , mtl
                      , optparse-simple
                      , resourcet
+                     , safe-exceptions
                      , text
                      , text-format
   hs-source-dirs:      bench/LogReader

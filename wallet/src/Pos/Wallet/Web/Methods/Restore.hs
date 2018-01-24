@@ -24,8 +24,12 @@ import           System.Wlog (logDebug)
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
+import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.DB (MonadDBRead)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
+import           Pos.Txp (utxoToModifier)
+import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
                                       mkGenesisWalletUserSecret, readUserSecret, usWallet,
@@ -36,8 +40,10 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), 
                                              CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.State (createAccount, removeHistoryCache, setWalletSyncTip)
+import           Pos.Wallet.Web.State (MonadWalletDB, createAccount, removeHistoryCache,
+                                       setWalletSyncTip, updateWalletBalancesAndUtxo)
 import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
+import           Pos.Wallet.Web.Tracking.Decrypt (decryptAddress, eskToWalletDecrCredentials)
 
 
 -- | Which index to use to create initial account and address on new wallet
@@ -80,12 +86,25 @@ newWalletHandler passphrase cwInit = do
 -}
 restoreWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 restoreWalletHandler passphrase cwInit = do
-    -- Restoring a wallet may take a long time.
-    -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
-    (sk, wId) <- newWallet passphrase cwInit False
-    -- `syncWalletOnImport` automatically marks a wallet as "ready".
-    syncWalletOnImport sk
+    (sk, wId) <- newWallet passphrase cwInit True -- TODO(adinapoli) readyness must be changed into richer type.
+    restoredWallet <- restoreWalletBalance sk wId
+    -- TODO(adinapoli) Kick-off the TxHistory rebuilding.
+    return restoredWallet
+
+-- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
+-- each unspent output address. If we get a match, it means it belongs to us.
+restoreWalletBalance :: ( L.MonadWalletLogicRead ctx m
+                        , MonadWalletDB ctx m
+                        , MonadDBRead m
+                        ) => EncryptedSecretKey -> CId Wal -> m CWallet
+restoreWalletBalance sk wId = do
+    utxo <- filterUtxo walletUtxo
+    updateWalletBalancesAndUtxo (utxoToModifier utxo)
     L.getWallet wId
+    where
+      walletUtxo :: (TxIn, TxOutAux) -> Bool
+      walletUtxo (_, TxOutAux (TxOut addr _)) =
+          isJust (decryptAddress (eskToWalletDecrCredentials sk) addr)
 
 importWallet
     :: L.MonadWalletLogic ctx m

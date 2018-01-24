@@ -41,8 +41,8 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
                                                mkGenesisWalletUserSecret, wusAccounts,
                                                wusWalletName)
-import           Pos.Wallet.Web.State         (getWalletSnapshot, createAccount, removeHistoryCache,
-                                               setWalletSyncTip)
+import           Pos.Wallet.Web.State         (askWalletDB, askWalletSnapshot, createAccount,
+                                               removeHistoryCache, setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 
@@ -71,12 +71,14 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
 newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
+    -- XXX Transaction
+    db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
-    removeHistoryCache wId
+    removeHistoryCache db wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
+    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
     L.getWallet wId
 
 restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
@@ -121,16 +123,18 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
     importedWallet <- L.createWalletSafe wid wMeta False
 
+    -- XXX Transaction
+    db <- askWalletDB
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
             seedGen = DeterminedSeed walletIndex
-        ws <- getWalletSnapshot
+        ws <- askWalletSnapshot
         cAddr <- genUniqueAccountId ws seedGen wid
-        createAccount cAddr accMeta
+        createAccount db cAddr accMeta
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex
-        ws <- getWalletSnapshot
+        ws <- askWalletSnapshot
         L.newAddress ws (DeterminedSeed accountIndex) passphrase accId
 
     -- `syncWalletOnImport` automatically marks a wallet as "ready".

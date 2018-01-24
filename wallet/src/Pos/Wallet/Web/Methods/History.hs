@@ -35,7 +35,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
-import           Pos.Wallet.Web.State       (WalletSnapshot, getWalletSnapshot,
+import           Pos.Wallet.Web.State       (WalletSnapshot, askWalletDB, askWalletSnapshot,
                                              AddressLookupMode (Ever), AddressInfo (..),
                                              addOnlyNewTxMetas, getHistoryCache,
                                              getPendingTx, getTxMeta, getWalletPendingTxs,
@@ -79,7 +79,7 @@ getFullWalletHistory ws cWalId = do
     -- XXX Transaction
     addHistoryTxs cWalId localHistory
     logDebug "getFullWalletHistory: invoked addHistoryTxs"
-    ws' <- getWalletSnapshot
+    ws' <- askWalletSnapshot
 
     !cHistory <- forM fullHistory (constructCTx ws' cWalId walAddrsDetector diff)
     logDebug "getFullWalletHistory: formed cTxs"
@@ -134,7 +134,7 @@ getHistoryLimited
     -> Maybe ScrollLimit
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     (cWalId, accIds) <- case (mCWalId, mAccId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth
@@ -182,7 +182,8 @@ addHistoryTxs
     -> m ()
 addHistoryTxs cWalId historyEntries = do
     metas <- mapM toMeta historyEntries
-    addOnlyNewTxMetas cWalId metas
+    db <- askWalletDB
+    addOnlyNewTxMetas db cWalId metas
   where
     toMeta THEntry {..} = CTxMeta <$> case _thTimestamp of
         Nothing -> liftIO getPOSIXTime
@@ -209,7 +210,8 @@ getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficul
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
-    setWalletTxMeta (aiWId accId) txId txMeta
+    db <- askWalletDB
+    setWalletTxMeta db (aiWId accId) txId txMeta
 
 addRecentPtxHistory
     :: MonadWalletWebMode m

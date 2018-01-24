@@ -36,7 +36,7 @@ import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
 import           Pos.Wallet.Web.Pending.Util       (sortPtxsChrono, usingPtxCoords)
-import           Pos.Wallet.Web.State              (WalletSnapshot, getWalletSnapshot,
+import           Pos.Wallet.Web.State              (WalletSnapshot, askWalletDB, askWalletSnapshot,
                                                     PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
@@ -57,7 +57,8 @@ processPtxInNewestBlocks ws PendingTx{..} = do
     if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth ptxDiff tipDiff -> do
-             void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
+             db <- askWalletDB
+             void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond PtxPersisted
              logInfoS $ sformat ("Transaction "%build%" got persistent") _ptxTxId
        | otherwise -> pass
   where
@@ -78,7 +79,8 @@ resubmitTx SendActions{..} ws ptx =
                 %build) (_ptxTxId ptx)
 
     updateTiming = do
-        usingPtxCoords ptxUpdateMeta ptx PtxIncSubmitTiming
+        db <- askWalletDB
+        usingPtxCoords (ptxUpdateMeta db) ptx PtxIncSubmitTiming
         let nextCheck = view ptxNextSubmitSlot <$> usingPtxCoords (getPendingTx ws) ptx
         whenJust nextCheck reportNextCheckTime
 
@@ -140,7 +142,7 @@ processPtxsOnSlot
     :: MonadPendings m
     => SendActions m -> SlotId -> m ()
 processPtxsOnSlot sendActions curSlot = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     let ptxs = getPendingTxs ws
     let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
     processPtxs sendActions ws curSlot sortedPtxs

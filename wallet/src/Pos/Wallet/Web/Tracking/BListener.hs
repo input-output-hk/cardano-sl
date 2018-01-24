@@ -83,7 +83,7 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
-    ws <- WS.getWalletSnapshot
+    ws <- WS.askWalletSnapshot
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
@@ -130,7 +130,7 @@ onRollbackTracking
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = setLogger . reportTimeouts "rollback" $ do
-    ws <- WS.getWalletSnapshot
+    ws <- WS.askWalletSnapshot
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL

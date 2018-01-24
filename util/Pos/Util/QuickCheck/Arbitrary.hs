@@ -1,6 +1,6 @@
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
-module Pos.Util.Arbitrary
+module Pos.Util.QuickCheck.Arbitrary
        ( Nonrepeating (..)
        , ArbitraryUnsafe (..)
        , SmallGenerator (..)
@@ -12,6 +12,7 @@ module Pos.Util.Arbitrary
        ) where
 
 import           Universum
+import           Data.Tagged (Tagged (..))
 
 import           Data.ByteString (pack)
 import qualified Data.ByteString.Lazy as BL (ByteString, pack)
@@ -73,6 +74,9 @@ arbitrarySizedSL n = BL.pack <$> vector n
 -- | Get something out of a quickcheck 'Gen' without having to do IO
 runGen :: Gen a -> a
 runGen g = unGen g (mkQCGen 31415926) 30
+
+instance Arbitrary a => Arbitrary (Tagged s a) where
+    arbitrary = Tagged <$> arbitrary
 
 {-| ArbitraryUnsafe class
     ~~~~~~~~~~~~~~~~~~~~~~~~

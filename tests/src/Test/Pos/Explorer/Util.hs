@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Explorer.TestUtil
+module Test.Pos.Explorer.Util
     ( BlockNumber
     , SlotsPerEpoch
     , generateValidExplorerMockableMode
@@ -22,35 +22,36 @@ import           Universum
 
 import           Control.Lens (at)
 import           Data.Default (def)
-import           Data.List (groupBy)
-import           Data.Map (fromList, fromListWith, unions, keys)
 import           Data.Function (on)
+import           Data.List (groupBy)
 import qualified Data.List.NonEmpty as NE
+import           Data.Map (fromList, fromListWith, keys, unions)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
-import           Test.QuickCheck (Arbitrary (..), Property, Testable, Gen, counterexample, forAll,
-                                  generate, choose, suchThat, property)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
+                                  forAll, generate, property, suchThat)
 
 import           Pos.Arbitrary.Block ()
 import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
-import           Pos.Block.Types (Blund, Undo (..), SlogUndo (..))
+import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
-                           LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId, HeaderHash,
-                           difficultyL, headerHash, makePubKeyAddressBoot)
+import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..),
+                           HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
+                           SlotLeaders, StakeholderId, difficultyL, headerHash)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey,toPublic)
+import           Pos.Crypto (SecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.UserSecret (secretKeyToAddress)
 import           Test.Pos.Util (withDefConfigurations)
 
-import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
-import           Pos.Explorer.DB (Epoch, Page, EpochPagedBlocksKey, convertToPagedMap)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
+import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, convertToPagedMap)
+import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
 
 
 ----------------------------------------------------------------
@@ -374,11 +375,3 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
       where
         generatedSecretKey :: IO SecretKey
         generatedSecretKey = generate arbitrary
-
-
--- | Factory to create an `Address`
--- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
--- | TODO: Remove it as soon as ^ is exposed
-secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot . toPublic
-

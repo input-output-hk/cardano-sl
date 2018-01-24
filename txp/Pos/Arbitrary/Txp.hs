@@ -29,7 +29,7 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
 import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types

@@ -30,6 +30,7 @@ packages:
 - auxx
 - explorer
 - node
+- tests
 - tools
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
@@ -178,3 +179,4 @@ ghc-options:
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
+  cardano-sl-tests:      -Werror

@@ -75,11 +75,11 @@ import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.GState as GS
 import qualified Pos.Lrc as Lrc (getLeader)
 import           Pos.Merkle (getMerkleRoot, mtRoot)
+import           Pos.Util.UserSecret (secretKeyToAddress)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
-import           Pos.Explorer.TestUtil (secretKeyToAddress)
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------

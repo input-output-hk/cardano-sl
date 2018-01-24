@@ -16,6 +16,9 @@ library
   exposed-modules:
                        Pos.Binary.Class
 
+                       Test.Pos.Cbor.Canonicity
+                       Test.Pos.Cbor.RefImpl
+
   other-modules:
                        Pos.Binary.Class.Core
                        Pos.Binary.Class.Numbers
@@ -31,6 +34,7 @@ library
                      , containers
                      , digest
                      , formatting
+                     , half
                      , hashable
                      , lens
                      , mtl

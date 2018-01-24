@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Explorer.ExplorerMode
+                        Pos.Explorer.BListener
 
                         Pos.Explorer.Core
                         Pos.Explorer.DB
@@ -34,8 +35,6 @@ library
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
 
-                        Pos.Explorer.TestUtil
-
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
 
@@ -49,7 +48,6 @@ library
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.BListener
 
   build-depends:        QuickCheck
                       , aeson
@@ -145,9 +143,9 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
 
   -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
+--  if os(linux)
+--    ghc-options:       -optl-fuse-ld=gold
+--    ld-options:        -fuse-ld=gold
 
 
 executable cardano-explorer

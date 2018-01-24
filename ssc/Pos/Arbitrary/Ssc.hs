@@ -32,7 +32,7 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
-import           Pos.Util.Arbitrary (Nonrepeating (..), makeSmall, sublistN)
+import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), makeSmall, sublistN)
 
 ----------------------------------------------------------------------------
 -- Types

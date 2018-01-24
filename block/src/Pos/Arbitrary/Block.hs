@@ -28,7 +28,7 @@ import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 import           Pos.Util.Util (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot

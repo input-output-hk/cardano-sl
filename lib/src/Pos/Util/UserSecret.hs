@@ -31,6 +31,7 @@ module Pos.Util.UserSecret
        , takeUserSecret
        , writeUserSecret
        , writeUserSecretRelease
+       , secretKeyToAddress
 
        , UserSecretDecodingError (..)
        , ensureModeIs600
@@ -57,9 +58,9 @@ import           System.Wlog (WithLogger)
 import           Pos.Binary.Class (Bi (..), decodeFull, encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Crypto ()
-import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
-                           wAddressGenesisIndex)
-import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+import           Pos.Core (Address, accountGenesisIndex, addressF, makePubKeyAddressBoot,
+                           makeRootPubKeyAddress, wAddressGenesisIndex)
+import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic, toPublic)
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
@@ -305,3 +306,7 @@ writeRaw u = do
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a
 takeReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const
+
+-- | Factory to create an `Address`
+secretKeyToAddress :: SecretKey -> Address
+secretKeyToAddress = makePubKeyAddressBoot . toPublic

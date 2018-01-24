@@ -19,12 +19,6 @@ library
                        Pos.Generator.BlockEvent
                        Pos.Generator.BlockEvent.DSL
 
-                       -- Common code for tests
-                       Test.Pos.Block.Logic.Mode
-                       Test.Pos.Block.Logic.Emulation
-                       Test.Pos.Block.Logic.Util
-                       Test.Pos.Block.Logic.Event
-
   other-modules:
                        Pos.Generator.Block.Error
                        Pos.Generator.Block.Logic

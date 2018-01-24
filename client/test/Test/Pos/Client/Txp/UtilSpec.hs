@@ -31,7 +31,8 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                              redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
-import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Pos.Util.UserSecret (secretKeyToAddress)
 import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Util (stopProperty, withDefConfigurations)
 
@@ -390,9 +391,6 @@ generateTxOutAux amount sk =
 generateRedeemTxOutAux :: Integer -> RedeemSecretKey -> TxOutAux
 generateRedeemTxOutAux amount rsk =
     makeTxOutAux amount (makeRedeemAddress $ redeemToPublic rsk)
-
-secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot . toPublic
 
 makeSigner :: SecretKey -> (SafeSigner, Address)
 makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)

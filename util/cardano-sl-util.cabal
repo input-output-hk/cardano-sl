@@ -17,7 +17,6 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.Arbitrary
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
@@ -38,6 +37,8 @@ library
                        Pos.Util.Some
                        Pos.Util.Timer
                        Pos.Util.Util
+                       Pos.Util.QuickCheck.Arbitrary
+                       Pos.Util.QuickCheck.Property
 
   other-modules:
 
@@ -58,6 +59,7 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache

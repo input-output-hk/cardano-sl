@@ -6,18 +6,25 @@
 -- loop logic.
 module Pos.Block.Network.Logic
        (
+         -- * Exceptions
          BlockNetLogicException (..)
+
+         -- * Recovery-related
        , triggerRecovery
        , requestTipOuts
        , requestTip
 
+         -- * Different client-side (retrieval worker) methods
        , handleUnsolicitedHeaders
        , mkHeadersRequest
        , MkHeadersRequestResult(..)
        , requestHeaders
-
        , mkBlocksRequest
        , handleBlocks
+
+         -- * Announcements
+       , announceBlockOuts
+       , announceBlock
        ) where
 
 import           Universum
@@ -42,18 +49,19 @@ import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..
                                   classifyNewHeader, getHeadersOlderExp, lcaWithMainChain,
                                   verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
-import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types (MsgGetBlocks (..), MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs, convH,
-                                             toOutSpecs, waitForConversations)
+                                             EnqueueMsg, Message, MsgType (..), NodeId,
+                                             Origin (OriginSender), OutSpecs, convH, toOutSpecs,
+                                             waitForConversations)
 import           Pos.Core (EpochOrSlot (..), HasConfiguration, HasHeaderHash (..), HeaderHash,
-                           SlotId (..), criticalForkThreshold, crucialSlot, epochIndexL,
-                           epochOrSlotG, gbHeader, headerHashG, isMoreDifficult, prevBlockL)
+                           MainBlockHeader, SlotId (..), criticalForkThreshold, crucialSlot,
+                           epochIndexL, epochOrSlotG, gbHeader, headerHashG, isMoreDifficult,
+                           prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
@@ -64,13 +72,15 @@ import           Pos.Lrc.Worker (lrcSingleShot)
 import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
+import           Pos.Security.Params (AttackType (..), NodeAttackedError (..), SecurityParams (..))
+import           Pos.Security.Util (shouldIgnoreAddress)
 import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
 import           Pos.Util (buildListBounds, multilineBounds, _neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.JsonLog (jlAdoptedBlock)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Util.TimeWarp (CanJsonLog (..), nodeIdToAddress)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -578,11 +588,15 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         NE.dropWhile ((lca /=) . (^. prevBlockL)) $
         getOldestFirst $ toApply
 
+----------------------------------------------------------------------------
+-- Announcements
+----------------------------------------------------------------------------
+
 relayBlock
     :: forall ctx m.
        (BlockWorkMode ctx m)
     => EnqueueMsg m -> Block -> m ()
-relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
+relayBlock _ (Left _) = logDebug "Not relaying Genesis block"
 relayBlock enqueue (Right mainBlk) = do
     recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
@@ -590,6 +604,35 @@ relayBlock enqueue (Right mainBlk) = do
             logDebug $ sformat ("Calling announceBlock for "%shortHashF%".")
                        (mainBlk ^. gbHeader . headerHashG)
             void $ announceBlock enqueue $ mainBlk ^. gbHeader
+
+announceBlockOuts :: (Message MsgGetHeaders, Message MsgHeaders) => OutSpecs
+announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy MsgHeaders)
+                                      (Proxy :: Proxy MsgGetHeaders)
+                               ]
+
+announceBlock
+    :: forall ctx m . BlockWorkMode ctx m
+    => EnqueueMsg m -> MainBlockHeader -> m (Map NodeId (m ()))
+announceBlock enqueue header = do
+    logDebug $ sformat ("Announcing header to others: "%shortHashF)
+               (headerHash header)
+    enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
+  where
+    announceBlockDo :: NodeId -> NonEmpty (Conversation m ())
+    announceBlockDo nodeId = pure $ Conversation $
+      \(cA :: ConversationActions MsgHeaders MsgGetHeaders m) -> do
+        SecurityParams{..} <- view (lensOf @SecurityParams)
+        let throwOnIgnored nId =
+                whenJust (nodeIdToAddress nId) $ \addr ->
+                    whenM (shouldIgnoreAddress addr) $
+                        throwM AttackNoBlocksTriggered
+        when (AttackNoBlocks `elem` spAttackTypes) (throwOnIgnored nodeId)
+        logDebug $
+            sformat
+                ("Announcing block "%shortHashF%" to "%build)
+                (headerHash header)
+                nodeId
+        send cA $ MsgHeaders (one (Right header))
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

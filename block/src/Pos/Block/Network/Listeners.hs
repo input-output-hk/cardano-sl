@@ -18,18 +18,21 @@ import           System.Wlog (logDebug, logWarning)
 import           Pos.Binary.Block.Network (msgBlockPrefix)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (recoveryHeadersMessage)
-import           Pos.Block.Logic (getHeadersRange)
-import           Pos.Block.Network.Announce (handleHeadersCommunication)
+import           Pos.Block.Logic (getHeadersFromManyTo, getHeadersRange)
 import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                           MsgHeaders (..))
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
+import           Pos.Core (Block, BlockHeader, blockHeader, prevBlockL)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
+import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Util.Chrono (NewestFirst (..))
 
 blockListeners
@@ -56,8 +59,40 @@ handleGetHeaders
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
-    logDebug $ "handleGetHeaders: request from " <> show nodeId
-    handleHeadersCommunication conv --(convToSProxy conv)
+    whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
+        logDebug $ sformat ("handleGetHeaders: got request "%build%" from "%build)
+            mgh nodeId
+        ifM recoveryInProgress (onRecovery conv) $ do
+            headers <- case (mghFrom,mghTo) of
+                ([], Nothing) -> Right . one <$> getLastMainHeader
+                ([], Just h)  ->
+                    maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
+                    DB.getHeader h
+                (c1:cxs, _)   ->
+                    first ("getHeadersFromManyTo: " <>) <$>
+                    runExceptT (getHeadersFromManyTo (c1:|cxs) mghTo)
+            either (onNoHeaders conv) (handleSuccess conv) headers
+  where
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    getLastMainHeader :: BlockWorkMode ctx m => m BlockHeader
+    getLastMainHeader = do
+        tip :: Block <- DB.getTipBlock
+        let tipHeader = tip ^. blockHeader
+        case tip of
+            Left _  -> fromMaybe tipHeader <$> DB.getHeader (tip ^. prevBlockL)
+            Right _ -> pure tipHeader
+    handleSuccess conv h = do
+        send conv (MsgHeaders h)
+        logDebug "handleGetHeaders: responded successfully"
+    onNoHeaders conv reason = do
+        let err = "handleGetHeaders: couldn't retrieve headers, reason: " <> reason
+        logWarning err
+        send conv (MsgNoHeaders err)
+    onRecovery conv = do
+        logDebug "handleGetHeaders: not responding, we're in recovery mode"
+        send conv (MsgNoHeaders "server node is in recovery mode")
+
 
 handleGetBlocks
     :: forall pack ctx m.
@@ -65,8 +100,7 @@ handleGetBlocks
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
-    mbMsg <- recvLimited conv
-    whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
+    whenJustM (recvLimited conv) $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
         -- We fail if we're requested to give more than

@@ -56,7 +56,6 @@ library
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Network.Announce
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval

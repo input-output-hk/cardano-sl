@@ -24,8 +24,8 @@ import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply)
-import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
-import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Logic (announceBlock, announceBlockOuts, requestTipOuts,
+                                          triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,

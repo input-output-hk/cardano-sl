@@ -54,6 +54,7 @@ module Pos.Wallet.Web.State.State
        -- * Setters
        , testReset
        , createAccount
+       , createAccountWithAddress
        , createWallet
        , addRemovedAccount
        , addWAddress
@@ -275,6 +276,15 @@ createAccount :: (WalletDbWriter A.CreateAccount m)
               -> m ()
 createAccount db accId accMeta =
     updateDisk (A.CreateAccount accId accMeta) db
+
+createAccountWithAddress :: (WalletDbWriter A.CreateAccountWithAddress m)
+                         => WalletDB
+                         -> AccountId
+                         -> CAccountMeta
+                         -> CWAddressMeta
+                         -> m ()
+createAccountWithAddress db accId accMeta addrMeta =
+    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
 
 createWallet :: (WalletDbWriter A.CreateWallet m)
              => WalletDB

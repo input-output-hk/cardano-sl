@@ -56,6 +56,8 @@ module Pos.Wallet.Web.State.Acidic
        , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
+       -- * Grouped transactions
+       , CreateAccountWithAddress (..)
        ) where
 
 import           Universum
@@ -71,6 +73,7 @@ import           Serokell.AcidState           (ExtendedState, closeExtendedState
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
+import           Pos.Wallet.Web.State.Transactions as WST
 
 type WalletDB = ExtendedState WalletStorage
 
@@ -139,4 +142,5 @@ makeAcidic ''WalletStorage
     , 'WS.cancelSpecificApplyingPtx
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
+    , 'WST.createAccountWithAddress
     ]

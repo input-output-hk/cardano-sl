@@ -139,6 +139,7 @@ library
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.State.Transactions
                         Pos.Wallet.Web.State.Util
                         Pos.Wallet.Web.Secret
                         Pos.Wallet.Web.Util

@@ -293,17 +293,18 @@ signThenVerifyDifferentData t sk a b =
 proxySecretKeyCheckCorrect
     :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
 proxySecretKeyCheckCorrect issuerSk delegateSk w =
-    Crypto.verifyPsk proxySk
+    isRight (Crypto.validateProxySecretKey proxySk)
   where
     proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
 
 proxySecretKeyCheckIncorrect
     :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
-    let Crypto.ProxySecretKey{..} =
+    let Crypto.UnsafeProxySecretKey{..} =
             Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
-        wrongPsk = Crypto.ProxySecretKey { pskIssuerPk = pk2, ..}
-    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.verifyPsk wrongPsk)
+        wrongPsk = Crypto.UnsafeProxySecretKey { Crypto.pskIssuerPk = pk2, ..}
+    (Crypto.toPublic issuerSk /= pk2) ==>
+        isLeft (Crypto.validateProxySecretKey wrongPsk)
 
 proxySignVerify
     :: (HasConfiguration, Bi a, Bi w, Eq w)

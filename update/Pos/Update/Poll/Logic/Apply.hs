@@ -112,8 +112,8 @@ verifyHeader header = do
 resolveVoteStake
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => EpochIndex -> Coin -> UpdateVote -> m Coin
-resolveVoteStake epoch totalStake UpdateVote {..} = do
-    let !id = addressHash uvKey
+resolveVoteStake epoch totalStake vote = do
+    let !id = addressHash (uvKey vote)
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
     let errNotRichman mbStake = PollNotRichman
@@ -245,12 +245,12 @@ verifyAndApplyVoteDo
     -> UndecidedProposalState
     -> UpdateVote
     -> m ()
-verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
+verifyAndApplyVoteDo cd ups vote = do
     let e = siEpoch $ upsSlot ups
     totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
-    voteStake <- resolveVoteStake e totalStake v
+    voteStake <- resolveVoteStake e totalStake vote
     newUPS@UndecidedProposalState {..} <-
-        voteToUProposalState uvKey voteStake uvDecision ups
+        voteToUProposalState (uvKey vote) voteStake (uvDecision vote) ups
     let newPS
             | Just decision <-
                  isDecided

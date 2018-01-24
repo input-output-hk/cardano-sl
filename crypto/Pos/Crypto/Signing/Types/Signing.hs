@@ -141,7 +141,10 @@ instance B.Buildable (ProxyCert w) where
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
-data ProxySecretKey w = ProxySecretKey
+--
+-- The invariant is that the certificate is valid (as checked by
+-- 'validateProxySecretKey').
+data ProxySecretKey w = UnsafeProxySecretKey
     { pskOmega      :: w
     , pskIssuerPk   :: PublicKey
     , pskDelegatePk :: PublicKey
@@ -153,11 +156,11 @@ instance Hashable w => Hashable (ProxySecretKey w)
 
 instance {-# OVERLAPPABLE #-}
          (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
-    build (ProxySecretKey w iPk dPk _) =
+    build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) where
-    build (ProxySecretKey w iPk dPk _) =
+    build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
 -- | Delegate signature made with certificate-based permission. @w@
@@ -185,4 +188,4 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) w
 -- | Checks if delegate and issuer fields of proxy secret key are
 -- equal.
 isSelfSignedPsk :: ProxySecretKey w -> Bool
-isSelfSignedPsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
+isSelfSignedPsk psk = pskIssuerPk psk == pskDelegatePk psk

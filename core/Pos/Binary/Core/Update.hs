@@ -20,7 +20,7 @@ import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import qualified Pos.Core.Update as U
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
                                         SoftwareVersion)
-import           Pos.Crypto (Hash, SignTag (SignUSVote), checkSig)
+import           Pos.Crypto (Hash)
 
 instance Bi U.ApplicationName where
     encode appName = encode (U.getApplicationName appName)
@@ -137,13 +137,13 @@ instance HasConfiguration => Bi U.UpdateVote where
             <> encode (U.uvSignature uv)
     decode = do
         enforceSize "UpdateVote" 4
-        k <- decode
-        p <- decode
-        d <- decode
-        s <- decode
-        let sigValid = checkSig SignUSVote k (p, d) s
-        unless sigValid $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
-        pure $ U.UpdateVote k p d s
+        uvKey        <- decode
+        uvProposalId <- decode
+        uvDecision   <- decode
+        uvSignature  <- decode
+        case U.validateUpdateVote U.UnsafeUpdateVote{..} of
+            Left err -> fail $ toString ("decode@UpdateVote: " <> err)
+            Right uv -> pure uv
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
     Cons 'U.UpdatePayload [

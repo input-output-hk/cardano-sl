@@ -1,5 +1,6 @@
 {-# LANGUAGE PolyKinds  #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Pos.Util.Util
        (
@@ -9,7 +10,15 @@ module Pos.Util.Util
        , leftToPanic
        , logException
        , toAesonError
+       , aesonError
        , toCborError
+       , cborError
+       , toTemplateHaskellError
+       , templateHaskellError
+       , toParsecError
+       , parsecError
+       , toCerealError
+       , cerealError
 
        -- * Ether
        , ether
@@ -58,6 +67,7 @@ module Pos.Util.Util
 
 import           Universum
 
+import qualified Data.Serialize as Cereal
 import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
@@ -80,6 +90,7 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
+import qualified Text.Megaparsec as P
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
 import           System.Wlog (LoggerName, logError, usingLoggerName)
@@ -110,21 +121,55 @@ logException name = E.handleAsync (\e -> handler e >> E.throw e)
     handler :: E.SomeException -> IO ()
     handler = usingLoggerName name . logError . pretty
 
+type f ~> g = forall x. f x -> g x
+
 -- | This unexported helper is used to define conversions to 'MonadFail'
 -- forced on us by external APIs. I also used underscores in its name, so don't
 -- you think about exporting it -- define a specialized helper instead.
-external_api_fail :: MonadFail m => Either Text a -> m a
+--
+-- This must be the only place in our codebase where we allow 'MonadFail'.
+external_api_fail :: MonadFail m => Either Text ~> m
 external_api_fail = either (fail . toString) return
 
 -- | Convert an 'Either'-encoded failure to an 'aeson' parser failure. The
 -- return monad is intentionally specialized because we avoid 'MonadFail'.
-toAesonError :: Either Text a -> A.Parser a
+toAesonError :: Either Text ~> A.Parser
 toAesonError = external_api_fail
+
+aesonError :: Text -> A.Parser a
+aesonError = toAesonError . Left
 
 -- | Convert an 'Either'-encoded failure to a 'cborg' decoder failure. The
 -- return monad is intentionally specialized because we avoid 'MonadFail'.
-toCborError :: Either Text a -> CBOR.Decoder s a
+toCborError :: Either Text ~> CBOR.Decoder s
 toCborError = external_api_fail
+
+cborError :: Text -> CBOR.Decoder s a
+cborError = toCborError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'TH' Q-monad failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toTemplateHaskellError :: Either Text ~> TH.Q
+toTemplateHaskellError = external_api_fail
+
+templateHaskellError :: Text -> TH.Q a
+templateHaskellError = toTemplateHaskellError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'cereal' failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toCerealError :: Either Text ~> Cereal.Get
+toCerealError = external_api_fail
+
+cerealError :: Text -> Cereal.Get a
+cerealError = toCerealError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'megaparsec' failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toParsecError :: P.Stream s => Either Text ~> P.ParsecT e s m
+toParsecError = external_api_fail
+
+parsecError :: P.Stream s => Text -> P.ParsecT e s m a
+parsecError = toParsecError . Left
 
 ----------------------------------------------------------------------------
 -- Ether

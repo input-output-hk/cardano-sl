@@ -156,10 +156,13 @@ tySystemTag :: TyProjection SystemTag
 tySystemTag = TyProjection "SystemTag" (mkSystemTag' <=< preview _ValueString)
 
 tyApplicationName :: TyProjection ApplicationName
-tyApplicationName = TyProjection "ApplicationName" (mkApplicationName . fromString <=< preview _ValueString)
+tyApplicationName = TyProjection "ApplicationName" (mkApplicationName' <=< preview _ValueString)
 
 mkSystemTag' :: String -> Maybe SystemTag
-mkSystemTag' = either (\(_::String) -> Nothing) Just . mkSystemTag . fromString
+mkSystemTag' = rightToMaybe . mkSystemTag . fromString
+
+mkApplicationName' :: String -> Maybe ApplicationName
+mkApplicationName' = rightToMaybe . mkApplicationName . fromString
 
 tyString :: TyProjection String
 tyString = TyProjection "String" (preview _ValueString)

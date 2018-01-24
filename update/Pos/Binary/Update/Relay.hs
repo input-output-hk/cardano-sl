@@ -11,6 +11,7 @@ import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (HasConfiguration)
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- Relay
@@ -22,7 +23,7 @@ instance HasConfiguration =>
     decode = do
         c@(up, votes) <- decode
         let !id = hash up
-        unless (all ((id ==) . U.uvProposalId) votes) $ fail
+        unless (all ((id ==) . U.uvProposalId) votes) $ cborError $
             "decode@DataMsg@Update: vote's uvProposalId must be equal UpId"
         pure $ DataMsg c
 

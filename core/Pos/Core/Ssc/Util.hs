@@ -13,7 +13,7 @@ import           Universum
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Binary.Class (Bi (..), fromBinaryM)
+import           Pos.Binary.Class (Bi (..), fromBinary)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap, Opening, SscPayload (..),
                                      SscProof (..), VssCertificate, VssCertificatesMap (..))
@@ -22,8 +22,8 @@ import           Pos.Crypto (EncShare, VssPublicKey, hash)
 -- | Get commitment shares.
 getCommShares :: Commitment -> Maybe [(VssPublicKey, NonEmpty EncShare)]
 getCommShares =
-    traverseOf (each . _1) fromBinaryM <=<          -- decode keys
-    traverseOf (each . _2 . each) fromBinaryM .     -- decode shares
+    traverseOf (each . _1) (rightToMaybe . fromBinary) <=<      -- decode keys
+    traverseOf (each . _2 . each) (rightToMaybe . fromBinary) . -- decode shares
     HM.toList . commShares
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.

@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative (empty, (<|>))
-import           Control.Exception.Safe (Exception, handle)
+import           Control.Exception.Safe (Exception, handle, throwString)
 import           Control.Lens (at, (%=), (^.), _2, _Just)
 import           Control.Monad (forM_)
 import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)
@@ -107,7 +107,7 @@ printMeasures file measures = runResourceT $
         upd m (ev, ts) = m >>= \m' ->
             case ev `M.lookup` m' of
               Nothing -> return $ M.insert ev ts m'
-              _       -> fail ""
+              _       -> throwString ""
 
     alignColumns = map (\(s, m) -> bprint (right s ' ') m)
                   . zip (7 : 7 : (18 <$ eventsUniverse))

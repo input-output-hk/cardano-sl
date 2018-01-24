@@ -39,7 +39,7 @@ import           Pos.Core.Common (ScriptVersion)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Helpers (binaryTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Util (withDefConfiguration, expectationError)
 
 data User
     = Login { login :: String
@@ -296,7 +296,7 @@ testAgainstFile name x expected =
             expected `shouldBe` actual
       it "deserialise" $ do
             case CBOR.fromFlatTerm decode expected of
-              Left err     -> fail err
+              Left err     -> expectationError (fromString err)
               Right actual -> x `shouldBe` actual
 
 spec :: Spec

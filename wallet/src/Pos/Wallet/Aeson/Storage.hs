@@ -44,7 +44,7 @@ instance ToJSON CTxId => ToJSONKey CTxId where
 accountIdFromText :: Text -> Either Text AccountId
 accountIdFromText t = case T.splitOn "@" t of
     [walId, idx] -> AccountId (CId $ CHash walId) <$> readEither idx
-    _            -> fail $ toString $ "Invalid AccountId " <> t
+    _            -> Left $ "Invalid AccountId " <> t
 
 instance FromJSON AccountId => FromJSONKey AccountId where
     fromJSONKey = FromJSONKeyTextParser (toAesonError . accountIdFromText)

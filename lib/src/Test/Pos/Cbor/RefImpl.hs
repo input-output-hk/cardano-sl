@@ -56,6 +56,9 @@ deserialise bytes =
 
 newtype Decoder a = Decoder { runDecoder :: [Word8] -> Maybe (a, [Word8]) }
 
+decodeErr :: Decoder a
+decodeErr = Decoder (const Nothing)
+
 instance Functor Decoder where
     fmap f (Decoder d) = Decoder $ \x -> (first f) <$> d x
 
@@ -69,9 +72,6 @@ instance Monad Decoder where
     d >>= f  = Decoder (\ws -> case runDecoder d ws of
                                  Nothing       -> Nothing
                                  Just (x, ws') -> runDecoder (f x) ws')
-
-instance MonadFail Decoder where
-    fail _   = Decoder (const Nothing)
 
 getByte :: Decoder Word8
 getByte =
@@ -174,19 +174,19 @@ decodeAdditionalInfo = dec
       | n < 24 = return (AiValue (UIntSmall n))
     dec 24     = do w <- getByte
                     return (AiValue (UInt8 w))
-    dec 25     = do [w1,w0] <- getBytes (2 :: Int)
+    dec 25     = do ~[w1,w0] <- getBytes (2 :: Int)
                     let w = word16FromNet w1 w0
                     return (AiValue (UInt16 w))
-    dec 26     = do [w3,w2,w1,w0] <- getBytes (4 :: Int)
+    dec 26     = do ~[w3,w2,w1,w0] <- getBytes (4 :: Int)
                     let w = word32FromNet w3 w2 w1 w0
                     return (AiValue (UInt32 w))
-    dec 27     = do [w7,w6,w5,w4,w3,w2,w1,w0] <- getBytes (8 :: Int)
+    dec 27     = do ~[w7,w6,w5,w4,w3,w2,w1,w0] <- getBytes (8 :: Int)
                     let w = word64FromNet w7 w6 w5 w4 w3 w2 w1 w0
                     return (AiValue (UInt64 w))
     dec 31     = return AiIndefLen
     dec n
       | n < 31 = return (AiReserved n)
-    dec _      = fail ""
+    dec _      = decodeErr
 
 encodeAdditionalInfo :: AdditionalInformation -> (Word, [Word8])
 encodeAdditionalInfo = enc
@@ -307,7 +307,7 @@ decodeToken :: Decoder Token
 decodeToken = do
     header <- decodeTokenHeader
     extra  <- getBytes (tokenExtraLen header)
-    either fail return (packToken header extra)
+    either (const decodeErr) return (packToken header extra)
 
 tokenExtraLen :: TokenHeader -> Word64
 tokenExtraLen (TokenHeader MajorType2 (AiValue n)) = fromUInt n  -- bytestrings
@@ -551,7 +551,8 @@ decodeTermFrom = \case
     MT2_ByteString _ bs -> return (TBytes bs)
     MT2_ByteStringIndef -> decodeBytess []
 
-    MT3_String _ ws     -> either fail (return . TString) (decodeUTF8 ws)
+    MT3_String _ ws     -> either (const decodeErr) (return . TString) $
+                           decodeUTF8 ws
     MT3_StringIndef     -> decodeStrings []
 
     MT4_ArrayLen len    -> decodeArrayN (fromUInt len)
@@ -570,7 +571,7 @@ decodeTermFrom = \case
     MT7_Float16 f       -> return (TFloat16 f)
     MT7_Float32 f       -> return (TFloat32 f)
     MT7_Float64 f       -> return (TFloat64 f)
-    MT7_Break           -> fail "unexpected"
+    MT7_Break           -> decodeErr
 
 
 decodeBytess :: [[Word8]] -> Decoder Term
@@ -578,15 +579,15 @@ decodeBytess acc =
     decodeToken >>= \case
         MT7_Break           -> return $! TBytess (reverse acc)
         MT2_ByteString _ bs -> decodeBytess (bs : acc)
-        _                   -> fail "unexpected"
+        _                   -> decodeErr
 
 decodeStrings :: [String] -> Decoder Term
 decodeStrings acc =
     decodeToken >>= \case
         MT7_Break        -> return $! TStrings (reverse acc)
-        MT3_String _ ws  -> do cs <- either fail return (decodeUTF8 ws)
+        MT3_String _ ws  -> do cs <- either (const decodeErr) return (decodeUTF8 ws)
                                decodeStrings (cs : acc)
-        _                -> fail "unexpected"
+        _                -> decodeErr
 
 decodeArrayN :: Word64 -> Decoder Term
 decodeArrayN n = TArray <$!> replicateM (fromIntegral n) decodeTerm
@@ -616,11 +617,15 @@ decodeMap acc = do
 decodeTagged :: UInt -> Decoder Term
 decodeTagged tag = case fromUInt tag of
     2 -> do
-        MT2_ByteString _ bs <- decodeToken
+        bs <- decodeToken >>= \case
+            MT2_ByteString _ bs -> return bs
+            _ -> decodeErr
         let !n = integerFromBytes bs
         return $ TBigInt (leadingZeroes bs) n
     3 -> do
-        MT2_ByteString _ bs <- decodeToken
+        bs <- decodeToken >>= \case
+            MT2_ByteString _ bs -> return bs
+            _ -> decodeErr
         let !n = integerFromBytes bs
         return $ TBigInt (leadingZeroes bs) (-1 - n)
     _ -> do

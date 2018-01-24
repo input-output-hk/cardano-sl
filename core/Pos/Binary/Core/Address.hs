@@ -5,10 +5,10 @@ module Pos.Binary.Core.Address () where
 import           Universum
 import           Unsafe (unsafeFromJust)
 
-import           Control.Lens (_Left)
-import           Control.Exception.Safe (Exception (displayException))
 import           Codec.CBOR.Encoding (Encoding)
 import qualified Codec.CBOR.Write as CBOR.Write
+import           Control.Exception.Safe (Exception (displayException))
+import           Control.Lens (_Left)
 import qualified Data.ByteString as BS
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.Word (Word8)
@@ -24,7 +24,7 @@ import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (.
                                         AddrStakeDistribution (..), AddrType (..), Address (..),
                                         Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Util.Util (toCborError)
+import           Pos.Util.Util (cborError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization
@@ -101,13 +101,11 @@ instance Bi AddrStakeDistribution where
                     0 -> SingleKeyDistr <$> decode
                     1 -> toCborError . (_Left %~ toText . displayException) .
                          mkMultiKeyDistr =<< decode
-                    tag ->
-                        fail $
+                    tag -> cborError $
                         "decode @AddrStakeDistribution: unexpected tag " <>
-                        show tag
-            len ->
-                fail $
-                "decode @AddrStakeDistribution: unexpected length " <> show len
+                        pretty tag
+            len -> cborError $
+                "decode @AddrStakeDistribution: unexpected length " <> pretty len
 
 {- NOTE: Address attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

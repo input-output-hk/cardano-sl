@@ -10,7 +10,6 @@ module Pos.Util.Orphans
        -- ** Lift HashMap
        -- ** FromJSON Byte, ToJSON Byte
        -- ** Hashable Byte
-       -- ** MonadFail (Either s), assuming IsString s
        -- ** HasLoggerName (MonadPseudoRandom drg)
 
        -- ** Hashable
@@ -26,16 +25,10 @@ module Pos.Util.Orphans
        -- ** Buildable
        -- *** "Data.Time.Units" types
        -- *** @()@
-
-       -- ** MonadFail
-       -- ** MonadFail ParsecT
-       -- ** MonadFail ResourceT
-       -- ** MonadFail LoggerNameBox
        ) where
 
 import           Universum
 
-import qualified Control.Monad as Monad
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
@@ -60,7 +53,6 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
 import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Monadic (PropertyM (..))
-import           Text.Parsec (ParsecT)
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances
@@ -85,9 +77,6 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
-
-instance IsString s => MonadFail (Either s) where
-    fail = Left . fromString
 
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
     askLoggerName = pure "MonadPseudoRandom"
@@ -244,15 +233,3 @@ type instance Distribution (Ether.TaggedTrans tag t m) = Distribution m
 type instance SharedExclusiveT (Ether.TaggedTrans tag t m) = SharedExclusiveT m
 type instance Gauge (Ether.TaggedTrans tag t m) = Gauge m
 type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
-
-----------------------------------------------------------------------------
--- MonadFail
-----------------------------------------------------------------------------
-
-instance MonadFail (ParsecT s u m) where
-    fail = Monad.fail
-
-deriving instance MonadFail m => MonadFail (LoggerNameBox m)
-
-instance MonadFail m => MonadFail (ResourceT m) where
-    fail = lift . fail

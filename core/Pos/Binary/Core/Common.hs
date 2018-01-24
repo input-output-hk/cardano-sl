@@ -7,6 +7,7 @@ import           Pos.Core.Common.Types (Coin, mkCoin, unsafeGetCoin)
 import qualified Pos.Core.Common.Types as T
 import qualified Pos.Data.Attributes as A
 import           Pos.Util.Orphans ()
+import           Pos.Util.Util (toCborError)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -18,9 +19,7 @@ instance Bi (A.Attributes ()) where
 instance Bi T.CoinPortion where
     encode = encode . T.getCoinPortion
     decode =
-        T.mkCoinPortion <$> (decode @Word64) >>= \case
-            Left err          -> fail err
-            Right coinPortion -> return coinPortion
+        T.mkCoinPortion <$> (decode @Word64) >>= toCborError
 
 instance Bi T.BlockCount where
     encode = encode . T.getBlockCount
@@ -40,7 +39,7 @@ deriveSimpleBi ''T.ChainDifficulty [
 -- due to @instance Bi a => Hash a@.
 instance Bi T.BlockHeaderStub where
     encode = error "somebody tried to binary encode BlockHeaderStub"
-    decode = fail  "somebody tried to binary decode BlockHeaderStub"
+    decode = error "somebody tried to binary decode BlockHeaderStub"
 
 ----------------------------------------------------------------------------
 -- Coin
@@ -64,10 +63,10 @@ instance Bi T.BlockHeaderStub where
 instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode =
-        decode >>= \case
+        decode >>= toCborError . \case
             number
                 | number > unsafeGetCoin maxBound ->
-                    fail $
+                    Left $
                     "decode@Coin: number is greater than limit: " <>
                     show number
-                | otherwise -> pure (mkCoin number)
+                | otherwise -> Right (mkCoin number)

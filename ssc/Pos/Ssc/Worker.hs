@@ -21,7 +21,7 @@ import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinaryM)
+import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Protocol (EnqueueMsg, Message, MsgType (..), Origin (..),
@@ -347,7 +347,7 @@ generateAndSetNewSecret sk SlotId {..} = do
             case multiPSmb of
                 Nothing -> Nothing <$
                     logWarningS (here "Couldn't compute participant's vss")
-                Just multiPS -> case mapM fromBinaryM multiPS of
+                Just multiPS -> case mapM fromBinary multiPS of
                     Left err -> Nothing <$
                         logErrorS (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do

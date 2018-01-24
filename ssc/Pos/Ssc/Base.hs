@@ -45,7 +45,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
-import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinaryM)
+import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinary)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
@@ -174,8 +174,8 @@ intersectCommMapWith f (getCommitmentsMap -> a) (f -> b) =
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
     -- The shares can be deserialized
-    mapM_ fromBinaryM (HM.keys commShares)
-    mapM_ (mapM_ fromBinaryM) (HM.elems commShares)
+    mapM_ (rightToMaybe . fromBinary) (HM.keys commShares)
+    mapM_ (mapM_ (rightToMaybe . fromBinary)) (HM.elems commShares)
     -- The commitment contains shares
     pure $ not (null commShares)
 
@@ -211,7 +211,7 @@ verifySignedCommitment epoch sc@(_, comm, _) = do
 -- #verifySecretProof
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
-    verifySecret thr commProof <$> fromBinaryM secret
+    verifySecret thr commProof <$> (rightToMaybe . fromBinary) secret
   where
     thr = vssThreshold $ sum (HM.map length commShares)
 

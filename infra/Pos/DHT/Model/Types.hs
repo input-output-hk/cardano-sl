@@ -17,7 +17,6 @@ module Pos.DHT.Model.Types
 
 import           Universum
 
-import qualified Control.Monad as Monad (fail)
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable (..))
 import           Data.Text.Buildable (Buildable (..))
@@ -29,7 +28,7 @@ import qualified Prelude
 import qualified Serokell.Util.Base64 as B64
 import qualified Serokell.Util.Parse as P
 import           Serokell.Util.Text (listBuilderJSON)
-import qualified Text.Parsec.Char as P
+import qualified Text.Parsec as P
 import qualified Text.Parsec.Text as P
 
 import           Pos.Crypto.Random (runSecureRandom)
@@ -102,7 +101,7 @@ randomDHTKey = DHTKey . hashAddress <$> liftIO (runSecureRandom genNonce)
 dhtKeyParser :: P.Parser DHTKey
 dhtKeyParser = P.base64Url >>= toDHTKey
   where
-    toDHTKey = either Monad.fail return . bytesToDHTKey
+    toDHTKey = either P.parserFail return . bytesToDHTKey
 
 -- | Parser for 'DHTNode'.
 dhtNodeParser :: P.Parser DHTNode

@@ -29,6 +29,9 @@ module Test.Pos.Util
        , splitIntoChunks
        , expectedOne
 
+       -- * HSpec utils
+       , expectationError
+
        -- * Generators
        , splitWord
        , sumEquals
@@ -41,6 +44,7 @@ import           Test.QuickCheck (Arbitrary (arbitrary), Property, counterexampl
 import           Test.QuickCheck.Gen (Gen, choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
+import qualified Test.Hspec as Hspec (Expectation)
 
 import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
@@ -203,3 +207,6 @@ sumEquals _ 0 = pure []
 sumEquals maxEl restSum = do
     el <- choose (1, min maxEl restSum)
     (el:) <$> sumEquals maxEl (restSum - el)
+
+expectationError :: Text -> Hspec.Expectation
+expectationError = fail . toString

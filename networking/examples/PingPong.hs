@@ -13,6 +13,7 @@
 
 module Main where
 
+import           Control.Exception.Safe (throwM)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Binary (Binary)
 import qualified Data.ByteString as BS
@@ -93,8 +94,10 @@ main :: IO ()
 main = runProduction $ do
 
     let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
-    Right transport_ <- liftIO $
-        TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
+    transport_ <- do
+        transportOrError <- liftIO $
+            TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
+        either throwM return transportOrError
     let transport = concrete transport_
 
     let prng1 = mkStdGen 0

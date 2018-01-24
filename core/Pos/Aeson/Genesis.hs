@@ -19,6 +19,7 @@ module Pos.Aeson.Genesis
 
 import           Universum
 
+import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..))
 import           Data.Aeson.TH (deriveFromJSON)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -39,8 +40,8 @@ import           Pos.Crypto (RedeemPublicKey, fromAvvmPk)
 import           Pos.Util.Util (toAesonError)
 
 instance FromJSONKey RedeemPublicKey where
-    fromJSONKey = FromJSONKeyTextParser fromAvvmPk
-    fromJSONKeyList = FromJSONKeyTextParser (fmap pure . fromAvvmPk)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . over _Left pretty . fromAvvmPk)
+    fromJSONKeyList = FromJSONKeyTextParser (toAesonError . bimap pretty pure . fromAvvmPk)
 
 deriving instance FromJSON GenesisAvvmBalances
 deriving instance FromJSON GenesisWStakeholders

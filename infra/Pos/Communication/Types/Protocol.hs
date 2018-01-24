@@ -67,6 +67,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Update (BlockVersion)
 import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
+import           Pos.Util.Util (toAesonError)
 
 type PackingType = BiP
 type PeerData = VerInfo
@@ -170,9 +171,7 @@ instance FromJSON NodeId where
 fromJSONBS :: (ByteString -> a) -> Value -> Parser a
 fromJSONBS f v = do
     bs <- Text.encodeUtf8 <$> parseJSON v
-    case B64.decode bs of
-        Left err      -> fail err
-        Right decoded -> pure $ f decoded
+    toAesonError . bimap fromString f $ B64.decode bs
 
 instance Buildable PeerId where
     build (PeerId bs) = buildBS bs

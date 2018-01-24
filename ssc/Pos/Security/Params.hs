@@ -7,6 +7,7 @@ module Pos.Security.Params
 
 import           Universum
 
+import           Control.Lens (_Left)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
@@ -16,6 +17,7 @@ import qualified Text.Parsec as Parsec
 import           Pos.Aeson.Crypto ()
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
+import           Pos.Util.Util (toAesonError, aesonError)
 
 -- | Network attack settings (a part of the behavior config).
 --
@@ -52,10 +54,10 @@ data AttackType
     deriving (Eq, Show)
 
 instance A.FromJSON AttackType where
-    parseJSON = A.withText "AttackType" $ \case
-        "NoBlocks"      -> pure AttackNoBlocks
-        "NoCommitments" -> pure AttackNoCommitments
-        other           -> fail $
+    parseJSON = A.withText "AttackType" $ toAesonError . \case
+        "NoBlocks"      -> Right AttackNoBlocks
+        "NoCommitments" -> Right AttackNoCommitments
+        other           -> Left $
             "invalid value " <> show other <>
             ", acceptable values are NoBlocks|NoCommitments"
 
@@ -69,7 +71,7 @@ instance A.FromJSON AttackTarget where
         asum [ NetworkAddressTarget <$>
                  (parseNetworkAddress =<< o A..: "Network")
              , PubKeyAddressTarget  <$> o A..: "PubKey"
-             , fail "expected a key 'Network' or 'PubKey'"
+             , aesonError "expected a key 'Network' or 'PubKey'"
              ]
 
 -- TODO Move to Pos.Security.Types
@@ -85,4 +87,4 @@ instance Exception NodeAttackedError
 
 parseNetworkAddress :: A.Value -> A.Parser NetworkAddress
 parseNetworkAddress = A.withText "NetworkAddress" $ \s ->
-    either (fail . show) pure $ Parsec.parse addrParser "" s
+    toAesonError . over _Left show $ Parsec.parse addrParser "" s

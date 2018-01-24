@@ -33,7 +33,6 @@ module Pos.Core.Update.Types
        , UpdateVote (..)
        , mkUpdateVote
        , mkUpdateVoteSafe
-       , validateUpdateVote
        , VoteId
        , formatVoteShort
        , shortVoteF
@@ -466,19 +465,6 @@ mkUpdateVoteSafe sk uvProposalId uvDecision =
     let uvSignature = safeSign SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = safeToPublic sk
     in  UnsafeUpdateVote{..}
-
--- | Return the vote if it's valid, and throw an error otherwise.
-validateUpdateVote
-    :: (HasCryptoConfiguration, MonadError Text m)
-    => UpdateVote
-    -> m UpdateVote
-validateUpdateVote uv@UnsafeUpdateVote{..} = do
-    let sigValid = checkSig SignUSVote
-                     uvKey
-                     (uvProposalId, uvDecision)
-                     uvSignature
-    unless sigValid $ throwError "an UpdateVote has an invalid signature"
-    pure uv
 
 -- | Format 'UpdateVote' compactly.
 formatVoteShort :: UpdateVote -> Builder

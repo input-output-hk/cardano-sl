@@ -88,6 +88,5 @@ stack exec dbgen -- --nodeDB ../cardano-sl/run/node-db0 --walletDB wallet-db --a
 
 ## To implement
 
-- @Ilya Peresadin - probably we also should add option for `dbgen` which generates ton of history entries (https://input-output-rnd.slack.com/archives/C7DRYGPT8/p1515507443000578)
-
-- @Ilya Peresadin and @George Agapov - add fake utxo entries to local db (https://input-output-rnd.slack.com/archives/C7DRYGPT8/p1515493184000042)
+- https://iohk.myjetbrains.com/youtrack/issue/CSL-2210
+- https://iohk.myjetbrains.com/youtrack/issue/CSL-2208

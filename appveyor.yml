@@ -97,7 +97,11 @@ test_script:
   - copy lib\configuration.yaml daedalus\
   - copy lib\*genesis*.json daedalus\
   - copy cardano-launcher.exe daedalus\
-  - copy cardano-node.exe daedalus
+  - copy cardano-node.exe daedalus\
+  - cd daedalus
+  - Echo %APPVEYOR_BUILD_VERSION% > build-id		
+  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
+  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
 
 after_test:
  - cd "%WORK_DIR%" # Get back to where cache-s3.exe is located

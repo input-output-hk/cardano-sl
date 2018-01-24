@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Methods.Logic
        , getWallet
        , getWallets
        , getAccount
-       , getAccountMod
        , getAccounts
 
        , createWalletSafe

@@ -5,19 +5,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ViewPatterns        #-}
+
 module Lib where
 
-import           Prelude
+import           Universum
+
 import           CLI
 import           Types (UberMonad)
-import           Control.Concurrent
-import           Control.Lens                         (view)
-import           Control.Monad
-import           Control.Monad.IO.Class
+import           Data.Function                        (id)
 import qualified Data.ByteString                      as B
-import           Data.Monoid
 import           Data.String.Conv
-import qualified Data.Text                            as T
 import           Data.Time
 import           Dhall
 import           GHC.Generics                         (Generic)
@@ -81,15 +78,20 @@ timed action = do
     after <- liftIO getCurrentTime
     -- NOTE: Mind the `fromEnum` overflow.
     let diff = fromEnum $ after `diffUTCTime` before
-    liftIO $ putStrLn $ printf "Action took %f seconds." (fromIntegral diff / (1000000000000 :: Double))
+
+    let printString :: String
+        printString = printf "Action took %f seconds." (fromIntegral diff / (1000000000000 :: Double))
+
+    liftIO $ putStrLn printString
     return res
+
 
 fakeSync :: UberMonad ()
 fakeSync = do
     say "Faking StateLock syncing..."
     tip <- getTip
     (StateLock mvar _) <- view (lensOf @StateLock)
-    () <$ liftIO (tryPutMVar mvar tip)
+    () <$ tryPutMVar mvar tip
 
 -- | The main entry point.
 generate :: CLI -> GenSpec -> UberMonad ()
@@ -132,13 +134,12 @@ genWallet :: Integer -> UberMonad CWallet
 genWallet walletNum = do
     entropy   <- randomNumber walletNum
     mnemonic  <- newRandomMnemonic (toEntropy entropy)
-    r         <- newWallet mempty (walletInit mnemonic)
-    return r
+    newWallet mempty (walletInit mnemonic)
   where
     walletInit :: BackupPhrase -> CWalletInit
     walletInit backupPhrase = CWalletInit {
       cwInitMeta      = CWalletMeta
-          { cwName      = toS $ "Wallet #" <> show walletNum
+          { cwName      = "Wallet #" <> show walletNum
           , cwAssurance = CWANormal
           , cwUnit      = 0
         }
@@ -151,7 +152,7 @@ genWallet walletNum = do
 -- they don't clash with each other, we are happy.
 toEntropy :: Integer -> Entropy
 toEntropy x =
-    let packs = B.unpack (toS $ show x)
+    let packs = B.unpack $ show x
         len   = length packs
     in B.pack $ case len < 16 of
       True  -> packs <> replicate (16 - len) 0x0
@@ -161,8 +162,8 @@ toEntropy x =
 -- the BIP-39 words list.
 newRandomMnemonic :: MonadIO m => Entropy -> m BackupPhrase
 newRandomMnemonic entropy = case toMnemonic entropy of
-    Left e  -> error ("Error: " <> e)
-    Right x -> pure (mkBackupPhrase12 (T.words $ toS x))
+    Left e  -> error (fromString $ "Error: " <> e)
+    Right x -> pure (mkBackupPhrase12 (words $ toS x))
 
 -- | Creates a new 'CAccount'.
 genAccount :: CWallet -> Integer -> UberMonad CAccount
@@ -172,7 +173,7 @@ genAccount CWallet{..} accountNum = do
     accountInit :: CAccountInit
     accountInit = CAccountInit {
       caInitMeta = CAccountMeta {
-          caName = toS $ "Account Number #" <> show accountNum
+          caName = "Account Number #" <> show accountNum
           }
       , caInitWId  = cwId
       }

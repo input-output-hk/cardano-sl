@@ -5,18 +5,14 @@
 {-# LANGUAGE TypeApplications    #-}
 module Main where
 
-import           Prelude
+import           Universum
+
 import           CLI
 import           Types
 import           Rendering                   (say, bold)
-import           Control.Lens
-import           Control.Monad.Reader
 import           Serokell.Util               (sec)
-import           Data.Text                   (pack)
 import           Data.Default                (def)
 import           Data.Maybe                  (fromJust, isJust)
-import           Data.IORef                  (newIORef)
-import           GHC.Conc
 import           Lib
 import           Mockable                    (Production, runProduction)
 import           Options.Generic
@@ -37,7 +33,6 @@ import           Pos.Wallet.Web.State.Acidic
 import           Pos.Wallet.Web.State.State  (WalletState)
 import           Pos.WorkMode
 import           Stats                       (showStatsAndExit, showStatsData)
-import           System.IO
 import           System.Wlog.LoggerName
 import           System.Wlog.LoggerNameBox
 
@@ -112,8 +107,8 @@ walletRunner
     -> IO a
 walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
     wwmc <- WalletWebModeContext <$> pure ws
-                                 <*> liftIO (newTVarIO def)
-                                 <*> liftIO (AddrCIdHashes <$> (newIORef mempty))
+                                 <*> newTVarIO def
+                                 <*> (AddrCIdHashes <$> (newIORef mempty))
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 
@@ -132,7 +127,7 @@ newConfig :: CLI -> ConfigurationOptions
 newConfig CLI{..} = defaultConfigurationOptions {
       cfoSystemStart  = Timestamp . sec <$> systemStart
     , cfoFilePath     = configurationPath
-    , cfoKey          = pack configurationProf
+    , cfoKey          = toText configurationProf
     }
 
 -- stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full

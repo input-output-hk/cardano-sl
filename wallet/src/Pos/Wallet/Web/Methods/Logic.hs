@@ -53,12 +53,13 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr)
 import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (Existing), AddressInfo (..),
                                              CustomAddressType (ChangeAddr, UsedAddr),
+                                             askWalletDB,
                                              addWAddress, createAccount, createWallet,
                                              getAccountIds, doesAccountExist,
                                              getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
-                                             getWalletSnapshot,
+                                             askWalletSnapshot, getWalletSnapshot,
                                              isCustomAddress, removeAccount,
                                              removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
@@ -137,7 +138,7 @@ getAccountMod ws accMod accId = do
 
 getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     accMod <- txMempoolToModifier ws =<< findKey accId
     getAccountMod ws accMod accId
 
@@ -165,7 +166,7 @@ getAccounts
     :: MonadWalletWebMode m
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     getAccountsIncludeUnready ws False mCAddr
 
 getWalletIncludeUnready :: MonadWalletWebMode m
@@ -184,12 +185,12 @@ getWalletIncludeUnready ws includeUnready cAddr = do
 
 getWallet :: MonadWalletWebMode m => CId Wal -> m CWallet
 getWallet wid = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     getWalletIncludeUnready ws False wid
 
 getWallets :: MonadWalletWebMode m => m [CWallet]
 getWallets = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     mapM (getWalletIncludeUnready ws False) (getWalletAddresses ws)
 
 ----------------------------------------------------------------------------
@@ -208,8 +209,11 @@ newAddress_ ws addGenSeed passphrase accId = do
     let parentExists = doesAccountExist ws accId
     unless parentExists $ throwM noAccount
 
+    -- XXX Transaction
+    -- Make 'newAddress' generate a unique name internally
     cAccAddr <- genUniqueAddress ws addGenSeed passphrase accId
-    addWAddress cAccAddr
+    db <- askWalletDB
+    addWAddress db cAccAddr
     return cAccAddr
   where
     noAccount =
@@ -231,7 +235,8 @@ newAccountIncludeUnready
     :: MonadWalletWebMode m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
-    ws <- getWalletSnapshot
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
@@ -241,10 +246,10 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
     -- XXX Transaction
-    () <- createAccount cAddr caInitMeta
-    ws' <- getWalletSnapshot
-    () <$ newAddress ws' addGenSeed passphrase cAddr
-    ws'' <- getWalletSnapshot
+    () <- createAccount db cAddr caInitMeta
+    ws' <- askWalletSnapshot
+    _ <- newAddress ws' addGenSeed passphrase cAddr
+    ws'' <- askWalletSnapshot
 
     -- Re-read DB after the update.
     getAccountMod ws'' accMod cAddr
@@ -259,12 +264,13 @@ createWalletSafe
     => CId Wal -> CWalletMeta -> Bool -> m CWallet
 createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
-    ws <- getWalletSnapshot
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
     when wSetExists $
         throwM $ RequestError "Wallet with that mnemonics already exists"
     curTime <- liftIO getPOSIXTime
-    createWallet cid wsMeta isReady curTime
+    createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
     ws' <- getWalletSnapshot db
     getWalletIncludeUnready ws' True cid
@@ -276,15 +282,19 @@ createWalletSafe cid wsMeta isReady = do
 
 deleteWallet :: MonadWalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
+    db <- askWalletDB
+    -- XXX Transaction
     accounts <- getAccounts (Just wid)
-    mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
-    removeWallet wid
-    removeTxMetas wid
-    removeHistoryCache wid
+    mapM_ (removeAccount db <=< decodeCTypeOrFail . caId) accounts
+    removeWallet db wid
+    removeTxMetas db wid
+    removeHistoryCache db wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: MonadWalletWebMode m => AccountId -> m ()
-deleteAccount = removeAccount
+deleteAccount accId = do
+  db <- askWalletDB
+  removeAccount db accId
 
 ----------------------------------------------------------------------------
 -- Modifiers
@@ -292,12 +302,14 @@ deleteAccount = removeAccount
 
 updateWallet :: MonadWalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do
-    setWalletMeta wId wMeta
+    db <- askWalletDB
+    setWalletMeta db wId wMeta
     getWallet wId
 
 updateAccount :: MonadWalletWebMode m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do
-    setAccountMeta accId wMeta
+    db <- askWalletDB
+    setAccountMeta db accId wMeta
     getAccount accId
 
 changeWalletPassphrase
@@ -310,7 +322,8 @@ changeWalletPassphrase wid oldPass newPass = do
         newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
         deleteSK oldPass
         addSecretKey newSK
-        setWalletPassLU wid =<< liftIO getPOSIXTime
+        db <- askWalletDB
+        setWalletPassLU db wid =<< liftIO getPOSIXTime
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do

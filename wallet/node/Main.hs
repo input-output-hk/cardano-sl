@@ -33,8 +33,8 @@ import           Pos.Wallet.SscType   (WalletSscType)
 import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                        getSKById, runWRealMode, syncWalletsWithGState,
                                        walletServeWebFull, walletServerOuts)
-import           Pos.Wallet.Web.State (getWalletSnapshot, cleanupAcidStatePeriodically, flushWalletStorage,
-                                       getWalletAddresses)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
+                                       flushWalletStorage, getWalletAddresses)
 import           Pos.Web              (serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 
@@ -56,7 +56,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     mainAction = runNodeWithInit $ do
         when (walletFlushDb) $ do
             putText "Flushing wallet db..."
-            flushWalletStorage
+            askWalletDB >>= flushWalletStorage
             putText "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
@@ -65,7 +65,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
-        ws  <- getWalletSnapshot
+        ws  <- askWalletSnapshot
         sks <- mapM getSKById (getWalletAddresses ws)
         syncWalletsWithGState @WalletSscType sks
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
@@ -77,7 +77,7 @@ acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMo
 acidCleanupWorker WalletArgs{..} =
     first one $ worker mempty $ const $
     modifyLoggerName (const "acidcleanup") $
-    cleanupAcidStatePeriodically walletAcidInterval
+    (askWalletDB >>= \db -> cleanupAcidStatePeriodically db walletAcidInterval)
 
 walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions -> do

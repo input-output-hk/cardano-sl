@@ -36,7 +36,7 @@ import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (getWalletSnapshot, AddressLookupMode (Ever))
+import           Pos.Wallet.Web.State           (askWalletDB, askWalletSnapshot, AddressLookupMode (Ever))
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsDetector)
 
 
@@ -88,10 +88,11 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
+    db <- askWalletDB
     -- new redemption wallet
     _ <- L.getAccount accId
 
-    ws  <- getWalletSnapshot
+    ws  <- askWalletSnapshot
     dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress ws RandomSeed passphrase accId
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
@@ -109,8 +110,8 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId
-    addHistoryTx cWalId th
-    ws' <- getWalletSnapshot
+    addHistoryTx db cWalId th
+    ws' <- askWalletSnapshot
     let cWalAddrsDetector = getWalletAddrsDetector ws' Ever cWalId
     diff <- getCurChainDifficulty
     fst <$> constructCTx ws' cWalId cWalAddrsDetector diff th

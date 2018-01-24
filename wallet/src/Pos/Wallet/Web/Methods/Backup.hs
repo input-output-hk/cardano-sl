@@ -27,15 +27,15 @@ import           Pos.Wallet.Web.ClientTypes   (CFilePath (..), CId, CWallet, Wal
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (createAccount, getWalletMeta, getWalletSnapshot)
+import           Pos.Wallet.Web.State         ( askWalletDB, getWalletSnapshot, createAccount
+                                              , getWalletMeta, askWalletSnapshot)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
-    ws <- getWalletSnapshot
     let wId = encToCId wbSecretKey
-        wExists = isJust $ getWalletMeta ws wId
 
+    wExists <- isJust . flip getWalletMeta wId <$> askWalletSnapshot
     if wExists
         then do
             throwM $ RequestError "Wallet with id already exists"
@@ -46,11 +46,14 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
+            -- XXX Transaction
+            db <- askWalletDB
             for_ accList $ \(idx, meta) -> do
+                ws <- getWalletSnapshot db
                 let aIdx = fromInteger $ fromIntegral idx
                     seedGen = DeterminedSeed aIdx
                 accId <- genUniqueAccountId ws seedGen wId
-                createAccount accId meta
+                createAccount db accId meta
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
             void $ L.createWalletSafe wId wMeta False
@@ -71,6 +74,6 @@ importWalletJSON (CFilePath (toString -> fp)) = do
 
 exportWalletJSON :: MonadWalletWebMode m => CId Wal -> CFilePath -> m ()
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     wBackup <- TotalBackup <$> getWalletBackup ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup

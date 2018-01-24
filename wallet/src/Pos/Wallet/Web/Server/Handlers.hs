@@ -15,7 +15,7 @@ import           Pos.Wallet.Web.Account     (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api         (WalletApi)
 import qualified Pos.Wallet.Web.Methods     as M
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.State.State (getWalletSnapshot)
+import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Servant.API                ((:<|>) ((:<|>)))
 import           Servant.Server             (ServerT)
 
@@ -55,7 +55,7 @@ servantHandlers sendActions =
     :<|>
      M.deleteAccount
     :<|> (\passPhrase accId -> do
-             ws <- getWalletSnapshot
+             ws <- askWalletSnapshot
              M.newAddress ws RandomSeed passPhrase accId
          )
     :<|>

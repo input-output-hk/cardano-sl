@@ -56,8 +56,8 @@ import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxInBlocks,
                                                sortPtxsChrono)
 import           Pos.Wallet.Web.State         (WalletSnapshot, cancelApplyingPtxs,
                                                cancelSpecificApplyingPtx, getNextUpdate,
-                                               getPendingTxs, getProfile,
-                                               getWalletSnapshot, removeNextUpdate,
+                                               getPendingTxs, getProfile, askWalletDB,
+                                               askWalletSnapshot, removeNextUpdate,
                                                setProfile, testReset)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoint)
 
@@ -67,14 +67,13 @@ import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, testOnlyEndpoi
 ----------------------------------------------------------------------------
 
 getUserProfile :: MonadWalletWebMode m => m CProfile
-getUserProfile = do
-    ws <- getWalletSnapshot
-    return (getProfile ws)
+getUserProfile = getProfile <$> askWalletSnapshot
 
 updateUserProfile :: MonadWalletWebMode m => CProfile -> m CProfile
 updateUserProfile profile = do
-    setProfile profile
-    ws <- getWalletSnapshot --TODO: the update tx should get the relevant info
+    db <- askWalletDB
+    setProfile db profile
+    ws <- askWalletSnapshot --TODO: the update tx should get the relevant info
     return (getProfile ws)
 
 ----------------------------------------------------------------------------
@@ -91,11 +90,11 @@ isValidAddress = pure . isRight . cIdToAddress
 -- | Get last update info
 nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
 nextUpdate = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     updateInfo <- maybeThrow noUpdates (getNextUpdate ws)
     if isUpdateActual (cuiSoftwareVersion updateInfo)
         then pure updateInfo
-        else removeNextUpdate >> nextUpdate
+        else askWalletDB >>= removeNextUpdate >> nextUpdate
         --TODO: this should be a single transaction
   where
     isUpdateActual :: SoftwareVersion -> Bool
@@ -106,11 +105,11 @@ nextUpdate = do
 
 -- | Postpone next update after restart
 postponeUpdate :: MonadWalletWebMode m => m ()
-postponeUpdate = removeNextUpdate
+postponeUpdate = askWalletDB >>= removeNextUpdate
 
 -- | Delete next update info and restart immediately
 applyUpdate :: MonadWalletWebMode m => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
+applyUpdate = askWalletDB >>= removeNextUpdate >> applyLastUpdate
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -128,7 +127,8 @@ syncProgress =
 ----------------------------------------------------------------------------
 
 testResetAll :: MonadWalletWebMode m => m ()
-testResetAll = testOnlyEndpoint $ deleteAllKeys >> testReset
+testResetAll = testOnlyEndpoint $ deleteAllKeys
+               >> (testReset =<< askWalletDB)
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
@@ -151,7 +151,7 @@ instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
 
 dumpState :: MonadWalletWebMode m => m WalletStateSnapshot
-dumpState = WalletStateSnapshot <$> getWalletSnapshot
+dumpState = WalletStateSnapshot <$> askWalletSnapshot
 
 ----------------------------------------------------------------------------
 -- Print pending transactions info
@@ -186,7 +186,7 @@ instance HasTruncateLogPolicy PendingTxsSummary where
 
 gatherPendingTxsSummary :: MonadWalletWebMode m => m [PendingTxsSummary]
 gatherPendingTxsSummary = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     pure $ map mkInfo .
            getNewestFirst . toNewestFirst . sortPtxsChrono .
            filter unconfirmedPtx $ getPendingTxs ws
@@ -203,9 +203,10 @@ gatherPendingTxsSummary = do
             }
 
 cancelAllApplyingPtxs :: MonadWalletWebMode m => m ()
-cancelAllApplyingPtxs = testOnlyEndpoint cancelApplyingPtxs
+cancelAllApplyingPtxs = testOnlyEndpoint $ cancelApplyingPtxs =<< askWalletDB
 
 cancelOneApplyingPtx :: MonadWalletWebMode m => CTxId -> m ()
 cancelOneApplyingPtx cTxId = do
+    db <- askWalletDB
     txId <- decodeCTypeOrFail cTxId
-    testOnlyEndpoint (cancelSpecificApplyingPtx txId)
+    testOnlyEndpoint (cancelSpecificApplyingPtx db txId)

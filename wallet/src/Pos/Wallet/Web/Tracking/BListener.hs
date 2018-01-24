@@ -44,7 +44,7 @@ import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningW
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
-import           Pos.Wallet.Web.State             (WalletDbReader, WalletSnapshot)
+import           Pos.Wallet.Web.State             (WalletDB, WalletDbReader, WalletSnapshot)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
                                                    rollbackModifierFromWallet,
@@ -83,12 +83,13 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
-    ws <- WS.getWalletSnapshot
+    db <- WS.askWalletDB
+    ws <- WS.getWalletSnapshot db
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
     currentTipHH <- GS.getTip
-    mapM_ (catchInSync "apply" $ syncWallet ws currentTipHH newTipH txsWUndo)
+    mapM_ (catchInSync "apply" $ syncWallet db ws currentTipHH newTipH txsWUndo)
           (WS.getWalletAddresses ws)
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
@@ -97,19 +98,20 @@ onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
   where
 
     syncWallet
-        :: WalletSnapshot
+        :: WalletDB
+        -> WalletSnapshot
         -> HeaderHash
         -> BlockHeader ssc
         -> [(TxAux, TxUndo, BlockHeader ssc)]
         -> CId Wal
         -> m ()
-    syncWallet ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
+    syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
         let allAddresses = getWalletAddrMetas ws WS.Ever wAddr
         encSK <- getSKById wAddr
         let mapModifier =
                 trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
-        applyModifierToWallet wAddr (headerHash newTipH) mapModifier
+        applyModifierToWallet db wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
     gbDiff = Just . view difficultyL
@@ -130,12 +132,13 @@ onRollbackTracking
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = setLogger . reportTimeouts "rollback" $ do
-    ws <- WS.getWalletSnapshot
+    db <- WS.askWalletDB
+    ws <- WS.getWalletSnapshot db
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
     currentTipHH <- GS.getTip
-    mapM_ (catchInSync "rollback" $ syncWallet ws currentTipHH newTip txs)
+    mapM_ (catchInSync "rollback" $ syncWallet db ws currentTipHH newTip txs)
           (WS.getWalletAddresses ws)
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
@@ -143,19 +146,20 @@ onRollbackTracking blunds = setLogger . reportTimeouts "rollback" $ do
     pure mempty
   where
     syncWallet
-        :: WalletSnapshot
+        :: WalletDB
+        -> WalletSnapshot
         -> HeaderHash
         -> HeaderHash
         -> [(TxAux, TxUndo, BlockHeader ssc)]
         -> CId Wal
         -> m ()
-    syncWallet ws curTip newTip txs wid = walletGuard ws curTip wid $ do
+    syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
         let allAddresses = getWalletAddrMetas ws WS.Ever wid
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
 
         let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet wid newTip mapModifier
+        rollbackModifierFromWallet db wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL

@@ -60,7 +60,7 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
                                                    convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (WalletSnapshot, getWalletSnapshot,
+import           Pos.Wallet.Web.State             (WalletSnapshot, askWalletDB, askWalletSnapshot,
                                                    AddressLookupMode (Ever, Existing), AddressInfo (..))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
@@ -82,7 +82,7 @@ newPayment sa passphrase srcAccount dstAccount coin policy =
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
-      ws <- getWalletSnapshot
+      ws <- askWalletSnapshot
       sendMoney
           sa
           ws
@@ -100,7 +100,7 @@ newPaymentBatch
 newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
-      ws <- getWalletSnapshot
+      ws <- askWalletSnapshot
       sendMoney
         sa
         ws
@@ -117,7 +117,7 @@ getTxFee
      -> InputSelectionPolicy
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
-    ws <- getWalletSnapshot
+    ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
     utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
@@ -178,7 +178,7 @@ instance
     getNewAddress (accId, passphrase) = do
         -- TODO(adinapoli) This looks like a code smell, can we
         -- remove this typeclass entirely?
-        ws <- getWalletSnapshot
+        ws <- askWalletSnapshot
         cAddrMeta <- L.newAddress_ ws RandomSeed passphrase accId
         decodeCTypeOrFail (cwamId cAddrMeta)
 
@@ -247,7 +247,9 @@ sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
         (toList srcAddrs)
         dstAddrs
 
-    addHistoryTx srcWallet th
+    -- XXX rewrite
+    db <- askWalletDB
+    addHistoryTx db srcWallet th
     diff <- getCurChainDifficulty
     let srcWalletAddrsDetector = getWalletAddrsDetector ws Ever srcWallet
 

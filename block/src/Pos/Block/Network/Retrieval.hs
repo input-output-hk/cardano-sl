@@ -28,11 +28,10 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader)
-import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
-                                          MkHeadersRequestResult (..), handleBlocks,
-                                          mkBlocksRequest, mkHeadersRequest, requestHeaders,
-                                          triggerRecovery)
+                                          MkHeadersRequestResult (..), announceBlockOuts,
+                                          handleBlocks, mkBlocksRequest, mkHeadersRequest,
+                                          requestHeaders, triggerRecovery)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (ProgressHeaderTag, RecoveryHeaderTag)

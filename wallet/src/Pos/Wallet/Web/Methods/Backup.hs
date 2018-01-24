@@ -46,7 +46,6 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
-            -- XXX Transaction
             db <- askWalletDB
             for_ accList $ \(idx, meta) -> do
                 ws <- getWalletSnapshot db

@@ -170,7 +170,7 @@ wordToPortionToWord (C.getSafeWord -> w) =
     (C.getCoinPortion <$> C.mkCoinPortion w) === (Right w)
 
 portionToWordToPortion :: C.CoinPortion -> Property
-portionToWordToPortion = C.mkCoinPortion . C.getCoinPortion >=. Right
+portionToWordToPortion = C.mkCoinPortion . C.getCoinPortion >=. (pure @(Either Text))
 
 appliedCoinPortionDown :: (C.CoinPortion, C.Coin) -> Property
 appliedCoinPortionDown =

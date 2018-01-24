@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Tracking.Decrypt
        , WalletDecrCredentials
        , eskToWalletDecrCredentials
        , selectOwnAddresses
+       , decryptAddress
        ) where
 
 import           Universum

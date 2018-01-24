@@ -246,7 +246,7 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
     -- XXX Transaction
     () <- createAccount db cAddr caInitMeta
     ws' <- askWalletSnapshot
-    () <$ newAddress ws' addGenSeed passphrase cAddr
+    _ <- newAddress ws' addGenSeed passphrase cAddr
     ws'' <- askWalletSnapshot
 
     -- Re-read DB after the update.

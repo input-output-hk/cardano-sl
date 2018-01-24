@@ -45,8 +45,6 @@ import           Pos.DB.Rocks                     (dbDeleteDefault, dbGetDefault
                                                    dbIterSourceDefault, dbPutDefault,
                                                    dbWriteBatchDefault)
 
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault,
-                                                   getOwnUtxosDefault)
 import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getBlockHistoryDefault,
                                                    getLocalHistoryDefault, saveTxDefault)
@@ -262,10 +260,6 @@ instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadB
     localChainDifficulty = localChainDifficultyWebWallet
     connectedPeers = connectedPeersWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
-
-instance HasConfiguration => MonadBalances WalletWebMode where
-    getOwnUtxos = getOwnUtxosDefault
-    getBalance = getBalanceDefault
 
 instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadTxHistory WalletSscType WalletWebMode where
     getBlockHistory = getBlockHistoryDefault @WalletSscType

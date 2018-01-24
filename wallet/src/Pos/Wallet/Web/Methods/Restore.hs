@@ -41,7 +41,7 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
                                                mkGenesisWalletUserSecret, wusAccounts,
                                                wusWalletName)
-import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
+import           Pos.Wallet.Web.State         (getWalletSnapshot, createAccount, removeHistoryCache,
                                                setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
@@ -124,7 +124,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
             seedGen = DeterminedSeed walletIndex
-        cAddr <- genUniqueAccountId seedGen wid
+        ws <- getWalletSnapshot
+        cAddr <- genUniqueAccountId ws seedGen wid
         createAccount cAddr accMeta
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do

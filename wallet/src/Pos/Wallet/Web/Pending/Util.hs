@@ -35,7 +35,7 @@ import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition (..),
                                                  PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Updates (mkPtxSubmitTiming)
-import           Pos.Wallet.Web.State           (getWalletMeta)
+import           Pos.Wallet.Web.State           (WalletSnapshot, getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
 ptxPoolInfo (PtxApplying i)    = Just i
@@ -54,10 +54,11 @@ sortPtxsChrono = OldestFirst . sortWith _ptxCreationSlot . tryTopsort
 
 mkPendingTx
     :: MonadWalletWebMode m
-    => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
-mkPendingTx wid _ptxTxId _ptxTxAux th = do
+    => WalletSnapshot
+    -> CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
+mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
     _ptxCreationSlot <- getCurrentSlotInaccurate
-    CWalletMeta{..} <- maybeThrow noWallet =<< getWalletMeta wid
+    CWalletMeta{..} <- maybeThrow noWallet (getWalletMeta ws wid)
     return PendingTx
         { _ptxCond = PtxApplying th
         , _ptxWallet = wid

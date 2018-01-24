@@ -33,8 +33,8 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 runWRealMode, syncWalletsWithGState, walletServeWebFull,
-                                 walletServerOuts)
+                                 runWRealMode, startPendingTxsResubmitter, syncWalletsWithGState,
+                                 walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
 import           Pos.Web (serveWeb)
@@ -83,10 +83,13 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
         syncWalletsWithGState sks
+    resubmitterPlugins = ([ActionSpec $ \_ _ -> startPendingTxsResubmitter], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     allPlugins = mconcat [ convPlugins (plugins wArgs)
                          , walletProd wArgs
-                         , acidCleanupWorker wArgs ]
+                         , acidCleanupWorker wArgs
+                         , resubmitterPlugins
+                         ]
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =

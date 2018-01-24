@@ -156,8 +156,6 @@ processPtxsOnSlot curSlot = do
 startPendingTxsResubmitter
     :: MonadPendings ctx m
     => m ()
-startPendingTxsResubmitter =
-    void . fork . setLogger $
-    onNewSlot False processPtxsOnSlot
+startPendingTxsResubmitter = setLogger $ onNewSlot False processPtxsOnSlot
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")

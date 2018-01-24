@@ -87,6 +87,7 @@ module Pos.Wallet.Web.State.State
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
        , flushWalletStorage
+       , applyModifierToWallet
        ) where
 
 import           Data.Acid                       (EventResult, EventState, QueryEvent,
@@ -506,3 +507,25 @@ flushWalletStorage :: (MonadIO m)
                    => WalletDB
                    -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
+
+applyModifierToWallet
+  :: MonadIO m
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Wallet addresses to add
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+  -> UtxoModifier
+  -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
+  -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
+  -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+applyModifierToWallet db walId wAddrs custAddrs utxoMod
+                      txMetas historyEntries ptxConditions
+                      syncTip =
+    updateDisk
+      ( A.ApplyModifierToWallet
+          walId wAddrs custAddrs utxoMod
+          txMetas historyEntries ptxConditions syncTip
+      )
+      db

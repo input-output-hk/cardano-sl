@@ -59,6 +59,7 @@ module Pos.Wallet.Web.State.Acidic
        -- * Grouped transactions
        , CreateAccountWithAddress (..)
        , RemoveWallet2 (..)
+       , ApplyModifierToWallet (..)
        ) where
 
 import           Universum
@@ -145,4 +146,5 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletStorage
     , 'WST.createAccountWithAddress
     , 'WST.removeWallet2
+    , 'WST.applyModifierToWallet
     ]

@@ -433,21 +433,24 @@ applyModifierToWallet
 applyModifierToWallet db wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
     -- XXX Transaction
-    mapM_ (WS.addWAddress db) (sortedInsertions camAddresses)
-    mapM_ (WS.addCustomAddress db UsedAddr . fst) (MM.insertions camUsed)
-    mapM_ (WS.addCustomAddress db ChangeAddr . fst) (MM.insertions camChange)
-    WS.updateWalletBalancesAndUtxo db camUtxo
-    let cMetas = M.fromList
-               $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+
+    let cMetas = mapMaybe (\THEntry {..} -> (\mts -> (encodeCType _thTxId
+                                                     , CTxMeta . timestampToPosix $ mts)
+                                            ) <$> _thTimestamp)
                $ DL.toList camAddedHistory
-    WS.addOnlyNewTxMetas db wid cMetas
-    let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
-    WS.insertIntoHistoryCache db wid addedHistory
-    -- resubmitting worker can change ptx in db nonatomically, but
-    -- tracker has priority over the resubmiter, thus do not use CAS here
-    forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
-        WS.setPtxCondition db wid txid (PtxInNewestBlocks ptxBlkInfo)
-    WS.setWalletSyncTip db wid newTip
+
+    WS.applyModifierToWallet
+      db
+      wid
+      (sortedInsertions camAddresses)
+      [ (UsedAddr, fst <$> MM.insertions camUsed)
+      , (ChangeAddr, fst <$> MM.insertions camChange)
+      ]
+      camUtxo
+      cMetas
+      (txHistoryListToMap $ DL.toList camAddedHistory)
+      (DL.toList $ second PtxInNewestBlocks <$> camAddedPtxCandidates)
+      newTip
 
 rollbackModifierFromWallet
     :: ( MonadSlots ctx m

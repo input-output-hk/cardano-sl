@@ -5,6 +5,7 @@
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , HasWalletStorage (..)
        , WalletInfo (..)
        , AccountInfo (..)
        , AddressInfo (..)

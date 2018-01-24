@@ -35,8 +35,6 @@ module Pos.Wallet.Web.State.Acidic
        , AddOnlyNewTxMetas (..)
        , SetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
-       , RemoveWallet (..)
-       , RemoveTxMetas (..)
        , RemoveWalletTxMetas (..)
        , RemoveHistoryCache (..)
        , RemoveAccount (..)
@@ -58,6 +56,7 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateHistoryCache (..)
        -- * Grouped transactions
        , CreateAccountWithAddress (..)
+       , DeleteWallet (..)
        ) where
 
 import           Universum
@@ -122,8 +121,6 @@ makeAcidic ''WalletStorage
     , 'WS.addOnlyNewTxMetas
     , 'WS.setWalletTxHistory
     , 'WS.addOnlyNewTxMeta
-    , 'WS.removeWallet
-    , 'WS.removeTxMetas
     , 'WS.removeWalletTxMetas
     , 'WS.removeHistoryCache
     , 'WS.removeAccount
@@ -143,4 +140,5 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WST.createAccountWithAddress
+    , 'WST.deleteWallet
     ]

@@ -4,11 +4,16 @@
 --   specific (named) functions in order to generate acidic
 --   guarantees for them.
 module Pos.Wallet.Web.State.Transactions
-  ( createAccountWithAddress )
+  ( createAccountWithAddress
+  , deleteWallet
+  )
   where
 
+import           Universum
+
+import qualified Data.HashMap.Strict          as HM
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountMeta,
-                                               CWAddressMeta (..))
+                                               CId, CWAddressMeta (..), Wal)
 import           Pos.Wallet.Web.State.Storage (Update)
 import qualified Pos.Wallet.Web.State.Storage as WS
 
@@ -21,3 +26,18 @@ createAccountWithAddress
 createAccountWithAddress accId accMeta addrMeta = do
   WS.createAccount accId accMeta
   WS.addWAddress addrMeta
+
+-- | Delete a wallet (and all associated data).
+--   Compared to the low-level 'removeWallet', this function:
+--   - Removes all accounts associated with the wallet.
+--   - Removes transaction metadata.
+--   - Removes the history cache.
+deleteWallet
+  :: CId Wal
+  -> Update ()
+deleteWallet walId = do
+  accIds <- filter ((== walId) . aiWId) . HM.keys <$> use WS.wsAccountInfos
+  for_ accIds WS.removeAccount
+  WS.removeWallet walId
+  WS.removeTxMetas walId
+  WS.removeHistoryCache walId

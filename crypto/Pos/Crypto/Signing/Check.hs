@@ -61,9 +61,9 @@ verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
 validateProxySecretKey
     :: (HasCryptoConfiguration, MonadError Text m, Bi w)
     => ProxySecretKey w
-    -> m (ProxySecretKey w)
+    -> m ()
 validateProxySecretKey psk =
     if verifyProxyCert (pskIssuerPk psk) (pskDelegatePk psk)
                        (pskOmega psk) (pskCert psk)
-        then pure psk
+        then pure ()
         else throwError "a ProxySecretKey has an invalid signature"

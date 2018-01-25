@@ -19,7 +19,7 @@ import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Openi
 import           Pos.Core.Ssc.Vss (VssCertificate (..), VssCertificatesMap (..),
                                    mkVssCertificatesMap)
 import           Pos.Crypto (Hash, PublicKey)
-import           Pos.Util.Util (cborError, toCborError)
+import           Pos.Util.Util (cborError)
 
 instance Bi Commitment where
     encode Commitment{..} = encodeListLen 2 <> encode commShares
@@ -80,12 +80,7 @@ encodeVssCertificates = encode . HS.fromList . toList
 decodeVssCertificates :: HasConfiguration => Decoder s VssCertificatesMap
 decodeVssCertificates = do
     certs <- toList <$> decode @(HashSet VssCertificate)
-    -- If the attacker creates two certs that are different but have the
-    -- same 'vcSigningKey', it's bad because then we lose canonicity (only
-    -- one cert will be present in resulting map and the attacker can set
-    -- the other cert to be anything at all). 'mkVssCertificatesMap' checks
-    -- that all certificates have distinct keys, so we can safely use it.
-    toCborError $ mkVssCertificatesMap certs
+    pure $ mkVssCertificatesMap certs
 
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList

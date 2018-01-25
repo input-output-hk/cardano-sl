@@ -13,6 +13,7 @@ module Pos.Core.Ssc.Vss
 
        -- * Certificate maps
        -- ** Creating maps
+       , checkVssCertificatesMap
        , mkVssCertificatesMap
        , mkVssCertificatesMapLossy
        , mkVssCertificatesMapSingleton
@@ -56,9 +57,9 @@ mkVssCertificate sk vk expiry =
 checkVssCertificate
     :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
     => VssCertificate
-    -> m VssCertificate
+    -> m ()
 checkVssCertificate it =
-    it <$ (unless (checkCertSign it) $ throwError "checkVssCertificate: invalid sign")
+    unless (checkCertSign it) $ throwError "checkVssCertificate: invalid sign"
 
 -- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
@@ -75,13 +76,26 @@ getCertId = addressHash . vcSigningKey
 toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
 toCertPair vc = (getCertId vc, vc)
 
--- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
--- with duplicate signing keys or with duplicate 'vcVssKey's.
-mkVssCertificatesMap
-    :: MonadError Text m
-    => [VssCertificate] -> m VssCertificatesMap
-mkVssCertificatesMap certs = do
-    pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
+-- | Construct a 'VssCertificatesMap' from a list of certs by making a
+-- hashmap on certificate identifiers.
+mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
+mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
+
+-- | Guard against certificates with duplicate signing keys or with duplicate
+-- 'vcVssKey's. Also checks every VssCertificate in the map (see
+-- 'checkVssCertificate').
+checkVssCertificatesMap
+    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
+    => VssCertificatesMap
+    -> m ()
+checkVssCertificatesMap vssCertsMap = do
+    forM_ certs checkVssCertificate
+    unless (allDistinct (map vcSigningKey certs))
+        (throwError "VssCertificatesMap: two certs have the same signing key")
+    unless (allDistinct (map vcVssKey certs))
+        (throwError "VssCertificatesMap: two certs have the same VSS key")
+  where
+    certs = HM.elems (getVssCertificatesMap vssCertsMap)
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.

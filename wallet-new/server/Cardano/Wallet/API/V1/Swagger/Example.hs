@@ -63,7 +63,7 @@ instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
 
 instance Example TransactionGroupingPolicy where
-    example = pure OptimiseForSizePolicy
+    example = pure OptimiseForHighThroughputPolicy
 
 instance Example Account where
     example = Account <$> example

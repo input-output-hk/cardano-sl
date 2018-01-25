@@ -294,10 +294,13 @@ instance Arbitrary PaymentDistribution where
 -- | A policy to be passed to each new payment request to
 -- determine how a 'Transaction' is assembled.
 data TransactionGroupingPolicy =
-    OptimiseForSizePolicy
+    OptimiseForHighThroughputPolicy
   -- ^ Tries to minimise the size of the created transaction
   -- by choosing only the biggest value available up until
   -- the stake sum is greater or equal the payment amount.
+  -- Confirmed addresses are givest the highest priority (i.e.
+  -- the set of pending transactions is taken into consideration
+  -- to pick, if possible, only "stable" addresses.
   | OptimiseForSecurityPolicy
   -- ^ Tries to minimise the number of addresses left with
   -- unspent funds after the transaction has been created.
@@ -314,13 +317,13 @@ instance Default TransactionGroupingPolicy where
 
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
-  { pmtSourceWallet   :: !WalletId
+  { pmtSourceWallet     :: !WalletId
     -- ^ The source Wallet.
-  , pmtSourceAccount  :: !AccountId
+  , pmtSourceAccount    :: !AccountId
     -- ^ The source Account.
-  , pmtDestinations   :: !(NonEmpty PaymentDistribution)
+  , pmtDestinations     :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.
-  , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
+  , pmtGroupingPolicy   :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
   , pmtSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ spending password to encrypt private keys

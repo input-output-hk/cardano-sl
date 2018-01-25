@@ -22,8 +22,7 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  GenesisBlockchain, GenesisExtraBodyData (..),
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
                                  MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainToSign (..), mkGenericHeader, GenericBlock (..),
-                                 checkGenericHeader, checkGenericBlock)
+                                 MainToSign (..), mkGenericHeader, GenericBlock (..))
 import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
@@ -34,19 +33,10 @@ import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion)
-import           Pos.Util.Util (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors
 ----------------------------------------------------------------------------
-
--- FIXME these currently do validation but they shouldn't.
--- They're complex enough without the validation, it wouuld be useful to
--- have the two notions separate: I can get a "smart constructed" main
--- or genesis block, without validating it.
---
--- Also would like to raise the question: what is the programmer to do if
--- 'mkMainHeader' fails because it's invalid?
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
@@ -79,8 +69,10 @@ mkMainHeader prevHeader slotId sk pske body extra =
         , _mcdSignature = signature prevHash proof
         }
 
--- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
--- verifies consistency of given data and may fail.
+-- | Smart constructor for 'MainBlock'.
+--
+-- FIXME TBD do we need to verify here? This is not used on untrusted data,
+-- so why bother?
 mkMainBlock
     :: (HasUpdateConfiguration, HasConfiguration, MonadError Text m)
     => Maybe BlockHeader
@@ -90,7 +82,7 @@ mkMainBlock
     -> Body MainBlockchain
     -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
-    checkGenericBlock $ UnsafeGenericBlock
+    pure $ UnsafeGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB
@@ -131,12 +123,11 @@ mkGenesisHeader
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail
-    leftToPanic "mkGenesisHeader: " $ checkGenericHeader $
-        mkGenericHeader
-            prevHeader
-            body
-            consensus
-            (GenesisExtraHeaderData $ mkAttributes ())
+    mkGenericHeader
+        prevHeader
+        body
+        consensus
+        (GenesisExtraHeaderData $ mkAttributes ())
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -150,7 +141,7 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
-    leftToPanic "mkGenesisBlock: " $ checkGenericBlock $ UnsafeGenericBlock header body extra
+    UnsafeGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders

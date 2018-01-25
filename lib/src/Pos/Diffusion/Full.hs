@@ -41,7 +41,7 @@ import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout,
-                                    networkConnectionTimeout)
+                                    networkConnectionTimeout, networkConnectionTimeouts)
 import           Pos.Core (BlockVersionData (..), HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Configuration (protocolMagic)
@@ -350,7 +350,10 @@ timeWarpNode transport ourVerInfo listeners k = do
     mkTransport = simpleNodeEndPoint transport
     mkReceiveDelay = const (pure Nothing)
     mkConnectDelay = const (pure Nothing)
-    nodeEnv = defaultNodeEnvironment { nodeAckTimeout = conversationEstablishTimeout }
+    nodeEnv = defaultNodeEnvironment
+      { nodeAckTimeout = conversationEstablishTimeout
+      , nodeConnectionTimeouts = networkConnectionTimeouts
+      }
 
 ----------------------------------------------------------------------------
 -- Kademlia

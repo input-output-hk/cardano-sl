@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.Transactions
   ( createAccountWithAddress
   , removeWallet2
   , applyModifierToWallet
+  , rollbackModifierFromWallet
   )
   where
 
@@ -14,9 +15,12 @@ import           Universum                    hiding (for_)
 
 import           Data.Foldable                (for_)
 import qualified Data.HashMap.Strict          as HM
+import qualified Data.Map                     as M
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core                     (HasProtocolConstants)
 import           Pos.Txp                      (TxId, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
+import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr,
                                                CAccountMeta, CId, CTxId,
                                                CTxMeta, CWAddressMeta (..), Wal)
@@ -71,4 +75,32 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
   for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
   WS.insertIntoHistoryCache walId historyEntries
   for_ ptxConditions $ uncurry $ WS.setPtxCondition walId
+  WS.setWalletSyncTip walId syncTip
+
+-- | Rollback some set of modifiers to a wallet.
+--   TODO Find out the significance of this set of modifiers and document.
+rollbackModifierFromWallet
+    :: HasProtocolConstants -- Needed for ptxUpdateMeta
+    => CId Wal
+    -> [CWAddressMeta] -- ^ Addresses to remove
+    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+    -> UtxoModifier
+       -- We use this odd representation because Data.Map does not get 'withoutKeys'
+       -- until 5.8.1
+    -> Map TxId () -- ^ Entries to remove from history cache.
+    -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+    -> HeaderHash -- ^ New sync tip
+    -> Update ()
+rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
+                           historyEntries ptxConditions
+                           syncTip = do
+  for_ wAddrs WS.removeWAddress
+  for_ custAddrs $ \(cat, addrs) ->
+    for_ addrs $ WS.removeCustomAddress cat
+  WS.updateWalletBalancesAndUtxo utxoMod
+  WS.removeFromHistoryCache walId historyEntries
+  WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
+  for_ ptxConditions $ \(txId, cond, meta) -> do
+    WS.ptxUpdateMeta walId txId meta
+    WS.setPtxCondition walId txId cond
   WS.setWalletSyncTip walId syncTip

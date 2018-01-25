@@ -88,6 +88,7 @@ module Pos.Wallet.Web.State.State
        , cancelSpecificApplyingPtx
        , flushWalletStorage
        , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
 
 import           Data.Acid                       (EventResult, EventState, QueryEvent,
@@ -529,3 +530,28 @@ applyModifierToWallet db walId wAddrs custAddrs utxoMod
           txMetas historyEntries ptxConditions syncTip
       )
       db
+
+rollbackModifierFromWallet
+  :: (MonadIO m, HasProtocolConstants)
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Addresses to remove
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+  -> UtxoModifier
+     -- We use this odd representation because Data.Map does not get 'withoutKeys'
+     -- until 5.8.1
+  -> Map TxId a -- ^ Entries to remove from history cache.
+  -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
+                           historyEntries ptxConditions
+                           syncTip =
+    updateDisk
+      ( A.RollbackModifierFromWallet
+          walId wAddrs custAddrs utxoMod
+          historyEntries' ptxConditions syncTip
+      )
+      db
+  where
+    historyEntries' = Map.map (const ()) historyEntries

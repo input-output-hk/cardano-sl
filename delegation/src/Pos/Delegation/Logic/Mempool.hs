@@ -28,7 +28,6 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
                            epochIndexL, headerHash)
-import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -133,7 +132,6 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
-       , BlockchainHelpers MainBlockchain
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -144,7 +142,7 @@ processProxySKHeavy psk =
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
-       forall ctx m. (ProcessHeavyConstraint ctx m, BlockchainHelpers MainBlockchain)
+       forall ctx m. (ProcessHeavyConstraint ctx m)
     => ProxySKHeavy
     -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do

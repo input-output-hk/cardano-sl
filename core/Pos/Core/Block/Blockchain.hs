@@ -6,15 +6,12 @@
 
 module Pos.Core.Block.Blockchain
        ( Blockchain (..)
-       , BlockchainHelpers (..)
        , GenericBlockHeader (..)
        , GenericBlock (..)
 
        -- * Smart constructors
        , mkGenericHeader
-       , checkGenericHeader
        , mkGenericBlock
-       , checkGenericBlock
 
        -- * Lenses
        -- ** Header
@@ -87,15 +84,6 @@ class Blockchain p where
                          ", calculated proof: "%build)
                 proof calculatedProof
         unless (calculatedProof == proof) $ throwError errMsg
-
--- | Extension of 'Blockchain' type class with helper functions.
-class Blockchain p => BlockchainHelpers p where
-    -- | Verify consistency of block header. This function should do
-    -- all checks which can be done without any extra data.
-    verifyBBlockHeader :: MonadError Text m => GenericBlockHeader p -> m ()
-    -- | Verify consistency of block. This function should do
-    -- all checks which can be done without any extra data.
-    verifyBBlock :: MonadError Text m => GenericBlock p -> m ()
 
 ----------------------------------------------------------------------------
 -- Generic types
@@ -199,18 +187,6 @@ mkGenericHeader prevHeader body consensus extra =
     h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
--- | Check a 'GenericBlockHeader' for validity by using 'veryifyBBlockHeader'
--- from the 'BlockchainHelpers' class.
-checkGenericHeader
-    :: forall b m.
-       ( BlockchainHelpers b
-       , MonadError Text m
-       )
-    => GenericBlockHeader b
-    -> m (GenericBlockHeader b)
-checkGenericHeader it =
-    it <$ verifyBBlockHeader it
-
 -- | Smart constructor for 'GenericBlock'.
 mkGenericBlock
     :: forall b .
@@ -229,22 +205,6 @@ mkGenericBlock prevHeader body consensus extraH extra =
     UnsafeGenericBlock header body extra
   where
     header = mkGenericHeader prevHeader body consensus extraH
-
--- | Check a 'GenericBlock' for validity by checking the body proof of its
--- header. Everything else is according to 'verifyBBlock'.
--- The header (contained in the 'GenericBlock') is also checked for validy,
--- even though you can do that separtaely with 'checkGenericHeader'.
-checkGenericBlock
-    :: forall b m.
-       ( BlockchainHelpers b
-       , MonadError Text m
-       )
-    => GenericBlock b
-    -> m (GenericBlock b)
-checkGenericBlock it = do
-    _ <- checkGenericHeader (_gbHeader it)
-    _ <- checkBodyProof (_gbBody it) (_gbhBodyProof (_gbHeader it))
-    it <$ verifyBBlock it
 
 ----------------------------------------------------------------------------
 -- Lenses

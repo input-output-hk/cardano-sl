@@ -60,7 +60,6 @@ import           Pos.Binary.Class (Bi, decodeFull')
 import           Pos.Binary.Core ()
 import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
                            isBootstrapEra)
-import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Util.Util (eitherToThrow)
 
@@ -124,7 +123,7 @@ instance {-# OVERLAPPABLE #-}
     dbGetSerBlock = lift . dbGetSerBlock
     dbGetSerUndo = lift . dbGetSerUndo
 
-type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
+type MonadBlockDBRead m = (MonadDBRead m)
 
 getDeserialized
     :: (MonadBlockDBRead m, Bi v)

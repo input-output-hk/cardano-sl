@@ -2,9 +2,15 @@
 {-# LANGUAGE TypeOperators #-}
 
 -- | Definition of 'BlockchainHelpers' for the main blockchain.
+--
+-- FIXME rename this module to something to do with verification.
 
 module Pos.Block.BHelpers
-       (
+       ( verifyMainBlock
+       , verifyMainBody
+       , verifyMainBlockHeader
+       , verifyMainConsensusData
+       , verifyMainExtraHeaderData
        ) where
 
 import           Universum
@@ -13,61 +19,84 @@ import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..),
-                                            GenericBlock (..), GenericBlockHeader (..), gbExtra)
+import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
+                                            GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
-                                      MainBlockchain, MainToSign (..), mainBlockEBDataProof)
+                                      MainBlockchain, MainToSign (..), mainBlockEBDataProof,
+                                      MainExtraHeaderData (..))
 import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Delegation (checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
+import           Pos.Core.Ssc (checkSscPayload)
 import           Pos.Core.Txp (checkTxPayload)
-import           Pos.Core.Update (checkUpdatePayload)
+import           Pos.Core.Update (checkUpdatePayload, checkSoftwareVersion)
 import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
                              proxyVerify)
 import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 
-instance ( Bi BlockHeader
-         , HasConfiguration
-         , IsMainHeader MainBlockHeader
-         ) =>
-         BlockchainHelpers MainBlockchain where
-    verifyBBlockHeader = verifyMainBlockHeader
-    verifyBBlock block@UnsafeGenericBlock {..} = do
-
-        _ <- checkTxPayload (_mbTxPayload _gbBody)
-
-        either (throwError . pretty) pure $
-            verifySscPayload
-                (Right (Some _gbHeader))
-                (_mbSscPayload _gbBody)
-
-        -- FIXME roll these into one
-        _ <- checkDlgPayload (_mbDlgPayload _gbBody)
-        dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
-
-        _ <- checkUpdatePayload (_mbUpdatePayload _gbBody)
-
-        unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $
-            throwError "Hash of extra body data is not equal to its representation in the header."
-
-verifyMainBlockHeader ::
-       (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))
-    => MainBlockHeader
+verifyMainBlock
+    :: ( HasConfiguration
+       , MonadError Text m
+       , Bi BlockHeader
+       , Bi (BodyProof MainBlockchain)
+       , IsMainHeader MainBlockHeader
+       )
+    => GenericBlock MainBlockchain
     -> m ()
-verifyMainBlockHeader mbh = do
-    when (selfSignedProxy $ _mcdSignature) $
-        throwError "can't use self-signed psk to issue the block"
+verifyMainBlock block@UnsafeGenericBlock {..} = do
+    verifyMainBlockHeader _gbHeader
+    verifyMainBody _gbBody
+    -- No need to verify the main extra body data. It's an 'Attributes ()'
+    -- which is valid whenever it's well-formed.
+    --
+    -- Check internal consistency: the body proofs are all correct.
+    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
+    -- Check that the headers' extra body data hash is correct.
+    -- This isn't subsumed by the body proof check.
+    unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $
+        throwError "Hash of extra body data is not equal to its representation in the header."
+    -- Ssc and Dlg consistency checks which require the header, and so can't
+    -- be done in 'verifyMainBody'.
+    either (throwError . pretty) pure $
+        verifySscPayload
+            (Right (Some _gbHeader))
+            (_mbSscPayload _gbBody)
+    dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
+
+-- | Verify the body of a block. There are no internal consistency checks,
+-- it's just a verification of its sub-components (payloads).
+verifyMainBody
+    :: ( HasConfiguration, MonadError Text m )
+    => Body MainBlockchain
+    -> m ()
+verifyMainBody MainBody {..} = do
+    checkTxPayload _mbTxPayload
+    checkSscPayload _mbSscPayload
+    checkDlgPayload _mbDlgPayload
+    checkUpdatePayload _mbUpdatePayload
+
+-- | Verify a main block header in isolation.
+verifyMainBlockHeader
+    :: (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))
+    => GenericBlockHeader MainBlockchain
+    -> m ()
+verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do
+    -- Previous header hash is always valid.
+    -- Body proof is just a bunch of hashes, which is always valid (although
+    -- must be checked against the actual body, in verifyMainBlock.
+    -- Consensus data and extra header data require validation.
+    verifyMainConsensusData _gbhConsensus
+    verifyMainExtraHeaderData _gbhExtra
+    -- Internal consistency: is the signature in the consensus data really for
+    -- this block?
     unless (verifyBlockSignature _mcdSignature) $
         throwError "can't verify signature"
-  where
 
-    selfSignedProxy (BlockSignature _)                      = False
-    selfSignedProxy (BlockPSignatureLight (psigPsk -> psk)) = isSelfSignedPsk psk
-    selfSignedProxy (BlockPSignatureHeavy (psigPsk -> psk)) = isSelfSignedPsk psk
+  where
 
     verifyBlockSignature (BlockSignature sig) =
         checkSig SignMainBlock leaderPk signature sig
@@ -80,15 +109,31 @@ verifyMainBlockHeader mbh = do
             signature
     verifyBlockSignature (BlockPSignatureHeavy proxySig) =
         proxyVerify SignMainBlockHeavy proxySig (const True) signature
-    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty extra
+    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty _gbhExtra 
     epochId = siEpoch slotId
-    UnsafeGenericBlockHeader {
-        _gbhConsensus = MainConsensusData
-            { _mcdLeaderKey = leaderPk
-            , _mcdSlot = slotId
-            , _mcdDifficulty = difficulty
-            , ..
-            }
-      , _gbhExtra = extra
-      , ..
-      } = mbh
+    MainConsensusData
+        { _mcdLeaderKey = leaderPk
+        , _mcdSlot = slotId
+        , _mcdDifficulty = difficulty
+        , ..
+        } = _gbhConsensus
+
+-- | Verify the consensus data in isolation.
+verifyMainConsensusData
+    :: ( MonadError Text m )
+    => ConsensusData MainBlockchain
+    -> m ()
+verifyMainConsensusData MainConsensusData {..} = do
+    when (selfSignedProxy _mcdSignature) $
+        throwError "can't use self-signed psk to issue the block"
+  where
+    selfSignedProxy (BlockSignature _)                      = False
+    selfSignedProxy (BlockPSignatureLight (psigPsk -> psk)) = isSelfSignedPsk psk
+    selfSignedProxy (BlockPSignatureHeavy (psigPsk -> psk)) = isSelfSignedPsk psk
+
+verifyMainExtraHeaderData
+    :: ( MonadError Text m )
+    => ExtraHeaderData MainBlockchain
+    -> m ()
+verifyMainExtraHeaderData MainExtraHeaderData {..} = do
+    checkSoftwareVersion _mehSoftwareVersion

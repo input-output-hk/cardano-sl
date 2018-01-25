@@ -39,4 +39,4 @@ main = do
   where
     -- | Run benchmark if corresponding config is defined.
     maybeRun client endpoint configs =
-        maybe (return ()) (runBench client) (extractConfigFor endpoint configs)
+        maybe (return ()) (runBench client endpoint) (extractConfigFor endpoint configs)

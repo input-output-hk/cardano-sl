@@ -6,18 +6,26 @@ module Bench.Pos.Wallet.Run
 
 import           Universum
 
-import           Gauge.Main             (bench, defaultMainWith, nfIO)
-import           Gauge.Main.Options     (Config (..), defaultConfig)
+import           Gauge.Main             (bench, runMode, nfIO)
+import           Gauge.Main.Options     (Config (..), Mode (..), defaultConfig)
 import           System.Random          (randomRIO)
 import           Control.Concurrent     (threadDelay)
 
-import           Bench.Pos.Wallet.Types (AdditionalBenchConfig (..), EndpointClient)
+import           Bench.Pos.Wallet.Types (AdditionalBenchConfig (..),
+                                         BenchEndpoint (..), EndpointClient)
 
 -- | Runs benchmark using particular client.
-runBench :: EndpointClient -> AdditionalBenchConfig -> IO ()
-runBench endpointClient (AdditionalBenchConfig {..}) =
-    defaultMainWith config [bench benchName $
-        nfIO (endpointClient >> wait (minDelayForCalls, maxDelayForCalls))]
+runBench
+    :: EndpointClient
+    -> BenchEndpoint
+    -> AdditionalBenchConfig
+    -> IO ()
+runBench endpointClient benchEp (AdditionalBenchConfig {..}) =
+    runMode DefaultMode
+            config
+            [show benchEp]
+            [bench benchName $
+                nfIO (endpointClient >> wait (minDelayForCalls, maxDelayForCalls))]
   where
     config = defaultConfig {
         timeLimit  = Just benchDuration,

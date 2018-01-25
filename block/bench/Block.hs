@@ -15,6 +15,7 @@ import           System.Environment (getEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import           Pos.Block.Util.Generate
+import qualified Pos.Block.BHelpers as Verify
 import           Pos.Core.Common (SharedSeed (..), CoinPortion)
 import           Pos.Core.Configuration
 import           Pos.Core.Genesis
@@ -199,7 +200,10 @@ testSubject seed size =
 benchMain :: ( HasConfiguration ) => Int -> Int -> IO ()
 benchMain seed size = defaultMain
     [ env (return (testSubject seed size) >>= printSizes) $ \ts -> bgroup "block" $
-          [ bgroup "serialize" $ 
+          [ bgroup "verify" $
+                [ bench "all" (nf (either (Prelude.error "invalid") identity . Verify.verifyMainBlock :: MainBlock -> ()) (fst . tsBlock $ ts))
+                ]
+          , bgroup "serialize" $
                 [ bench "all" (nf serialize (fst . tsBlock $ ts))
                 , bgroup "header" $
                       [ bench "all" (nf serialize (fst . tsHeader $ ts))

@@ -45,10 +45,9 @@ module Pos.Network.Types
        , NodeId (..)
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import           Data.IP (IPv4)
-import           GHC.Show (Show (..))
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -56,8 +55,9 @@ import           Network.DNS (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
+import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog.CanLog (WithLogger)
+import           System.Wlog (LoggerNameBox, WithLogger)
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains
@@ -116,12 +116,16 @@ showableNetworkConfig NetworkConfig {..} =
 --
 -- Although the peers are statically configured, this is nonetheless stateful
 -- because we re-read the file on SIGHUP.
-data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
+data StaticPeers = StaticPeers {
       -- | Register a handler to be invoked whenever the static peers change
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
+      staticPeersOnChange   :: (Peers NodeId -> LoggerNameBox IO ()) -> IO ()
+    , -- | Monitoring worker which is supposed to be started in a
+      -- separate thread. This worker processes handlers registered by
+      -- 'staticPeersOnChange'.
+      staticPeersMonitoring :: LoggerNameBox IO ()
     }
 
 instance Show StaticPeers where

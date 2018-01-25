@@ -81,10 +81,10 @@ about them, because:
    confirmations (i. e. blocks) their transaction is stable. If
    rollback of more than `n` blocks happens, transaction may be
    reverted. Note, however, that rollback may happen only for one
-   node, and in this case it won't be misbehaviiur visible to
+   node, and in this case it won't be misbehaviour visible to
    exchanges or end users.
-2. As a precaution we should also inspect into deep rollbacks, because
-   they _might_ indicate a problem.
+2. As a precaution we should also inspect not very deep rollbacks,
+   because they _might_ indicate a problem.
 
 You should [classify rollback](#how-to-classify-rollback): how deep
 and frequent it is and how many nodes are affected.

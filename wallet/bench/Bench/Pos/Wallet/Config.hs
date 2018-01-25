@@ -1,7 +1,10 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 -- | Functions for working with configuration file.
 
 module Bench.Pos.Wallet.Config
-    ( getBenchConfig
+    ( getOptions
+    , getBenchConfig
     , extractConfigFor
     ) where
 
@@ -15,18 +18,46 @@ import qualified Data.ByteString.Lazy   as Lazy
 import           Data.Vector            (Vector)
 import qualified Data.Vector            as V
 import           Control.Exception      (SomeException)
+import           Options.Applicative    (Parser,
+                                         execParser, fullDesc, header,
+                                         help, helper, info, long,
+                                         metavar, progDesc,
+                                         showDefault, strOption, switch, value)
 
 import           Bench.Pos.Wallet.Types (AdditionalBenchConfig (..),
-                                         BenchEndpoint (..))
+                                         BenchEndpoint (..),
+                                         CLOptions (..))
+
+-- | Parser for command-line options.
+optionsParser :: Parser CLOptions
+optionsParser = do
+    pathToEndpointsConf
+        <- strOption $
+           long        "ep-conf"
+        <> metavar     "PATH_TO_ENDPOINTS_CONF"
+        <> showDefault
+        <> value       "$PWD/wallet/bench/config/Endpoints.csv"
+        <> help        "Path to endpoints configuration file"
+    runConcurrently
+        <- switch $
+           long        "async"
+        <> help        "If defined - run benchmarks concurrently"
+    return CLOptions{..}
+
+-- | Get command-line options.
+getOptions :: IO CLOptions
+getOptions = execParser programInfo
+  where
+    programInfo = info (helper <*> optionsParser) $
+        fullDesc <> progDesc ""
+                 <> header "Tool for Wallet Web API benchmarking."
 
 -- | Read benchmark configuration from the local .csv-file. The format is:
 --
 -- BenchName,BenchDuration,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile
--- GetHistoryBench,5.0,0.5,2.5,/tmp/GetHistoryBenchReport.csv
--- GetWalletsBench,5.5,0.2,2.1,/tmp/GetWalletsBenchReport.csv
---
-getBenchConfig :: IO [AdditionalBenchConfig]
-getBenchConfig = do
+-- GetHistoryBench,5.0,0.5,2.5,wallet/bench/results/GetHistoryBenchReport.csv
+getBenchConfig :: FilePath -> IO [AdditionalBenchConfig]
+getBenchConfig pathToConfig = do
     content <- Lazy.readFile pathToConfig `catch` anyProblems
     case extractConfig content of
         Left problem -> reportAboutInvalidConfig problem
@@ -36,9 +67,6 @@ getBenchConfig = do
   where
     extractConfig rawContent =
         decode HasHeader rawContent :: Either String (Vector AdditionalBenchConfig)
-
-    pathToConfig :: String
-    pathToConfig = "wallet/bench/config/Endpoints.csv" 
 
     anyProblems :: SomeException -> IO a
     anyProblems whatHappened = error . toText $

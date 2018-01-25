@@ -2,6 +2,7 @@
 
 module Bench.Pos.Wallet.Types
     ( AdditionalBenchConfig (..)
+    , CLOptions (..)
     , BenchEndpoint (..)
     , EndpointClient
     ) where
@@ -22,6 +23,14 @@ data AdditionalBenchConfig = AdditionalBenchConfig
     , maxDelayForCalls :: !Double
       -- | Path to report file (if doesn't exist, it will be created).
     , pathToReportFile :: !FilePath
+    }
+
+-- | Command-line options for benchmarks.
+data CLOptions = CLOptions
+    { -- | Path to benchmark configuration file.
+      pathToEndpointsConf :: !FilePath
+      -- | If True, run benchmarks concurrently.
+    , runConcurrently     :: !Bool
     }
 
 -- | Clarification which benchmark we want to use.

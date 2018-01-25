@@ -39,10 +39,10 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
 import           Pos.Delegation.Lrc (getDlgRichmen)
-import           Pos.Delegation.Types (DlgPayload (..), checkDlgPayload)
+import           Pos.Delegation.Types (DlgPayload (..))
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
-import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
+import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 ----------------------------------------------------------------------------
@@ -50,16 +50,10 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 ----------------------------------------------------------------------------
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
--- It also validates the DlgPayload and so could fail via MonadFail (see
--- 'checkDlgPayload').
--- TBD should this be done here? Does it make sense / can it happen that
--- the dlg mempool doesn't form a valid DlgPayload?
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m DlgPayload
-getDlgMempool = do
-    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
-    pure $ leftToPanic "getDlgMempool: " $ checkDlgPayload (UnsafeDlgPayload sks)
+getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool

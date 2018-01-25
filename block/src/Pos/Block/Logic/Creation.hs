@@ -62,7 +62,7 @@ import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.LogSafe (logInfoS)
-import           Pos.Util.Util (HasLens (..), HasLens', leftToPanic)
+import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
@@ -448,8 +448,11 @@ createMainBody bodyLimit sId payload =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
+        let dlgPay' = UnsafeDlgPayload psks'
         -- TBD: is it necessary to check here?
-        let dlgPay' = leftToPanic "createMainBlockPure: " $ checkDlgPayload (UnsafeDlgPayload psks')
+        -- What if it fails? What will be the behaviour of cardano-sl at
+        -- large?
+        checkDlgPayload dlgPay'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block

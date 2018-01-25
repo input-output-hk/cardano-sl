@@ -15,12 +15,11 @@ import           Pos.Crypto (ProxySecretKey (..), validateProxySecretKey)
 
 -- | Verifier of 'DlgPayload' which ensures absence of duplicates, or invalid
 -- PSKs.
-checkDlgPayload :: (HasConfiguration, MonadError Text m) => DlgPayload -> m DlgPayload
+checkDlgPayload :: (HasConfiguration, MonadError Text m) => DlgPayload -> m ()
 checkDlgPayload it = do
     unless (null duplicates) $
         throwError "Some of block's PSKs have the same issuer, which is prohibited"
     forM_ proxySKs validateProxySecretKey
-    pure it
   where
     proxySKs = getDlgPayload it
     proxySKsDups psks =

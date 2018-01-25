@@ -11,7 +11,10 @@ module Pos.Slotting.Util
        , getNextEpochSlotDuration
        , slotFromTimestamp
 
-         -- * Worker which ticks when slot starts
+         -- * Worker which ticks when slot starts and its parameters
+       , OnNewSlotParams (..)
+       , defaultOnNewSlotParams
+       , ActionTerminationPolicy (..)
        , onNewSlot
 
          -- * Worker which logs beginning of new slot
@@ -24,10 +27,11 @@ module Pos.Slotting.Util
 import           Universum
 
 import           Data.Time.Units (Millisecond)
-import           Formatting (int, sformat, shown, (%))
-import           Mockable (Delay, Mockable, delay)
+import           Formatting (int, sformat, shown, stext, (%))
+import           Mockable (Async, Delay, Mockable, delay, timeout)
 import           Serokell.Util (sec)
-import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, modifyLoggerName)
+import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarning,
+                              modifyLoggerName)
 
 import           Pos.Core (FlatSlotId, HasConfiguration, LocalSlotIndex, SlotId (..),
                            Timestamp (..), flattenSlotId, slotIdF)
@@ -93,12 +97,13 @@ getNextEpochSlotDuration =
     esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
 
 -- | Type constraint for `onNewSlot*` workers
-type OnNewSlot ctx m =
+type MonadOnNewSlot ctx m =
     ( MonadIO m
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
+    , Mockable Async m
     , Mockable Delay m
     , MonadReporting ctx m
     , HasShutdownContext ctx
@@ -106,28 +111,71 @@ type OnNewSlot ctx m =
     , HasConfiguration
     )
 
+-- | Parameters for `onNewSlot`.
+data OnNewSlotParams = OnNewSlotParams
+    { onspStartImmediately  :: !Bool
+    -- ^ Whether first action should be executed ASAP (i. e. basically
+    -- when the program starts), or only when new slot starts.
+    --
+    -- For example, if the program is started in the middle of a slot
+    -- and this parameter in 'False', we will wait for half of slot
+    -- and only then will do something.
+    , onspTerminationPolicy :: !ActionTerminationPolicy
+    -- ^ What should be done if given action doesn't finish before new
+    -- slot starts. See the description of 'ActionTerminationPolicy'.
+    }
+
+-- | Default parameters which were used by almost all code before this
+-- data type was introduced.
+defaultOnNewSlotParams :: OnNewSlotParams
+defaultOnNewSlotParams =
+    OnNewSlotParams
+    { onspStartImmediately = True
+    , onspTerminationPolicy = NoTerminationPolicy
+    }
+
+-- | This policy specifies what should be done if the action passed to
+-- `onNewSlot` doesn't finish when current slot finishes.
+--
+-- We don't want to run given action more than once in parallel for
+-- variety of reasons:
+-- 1. If action hangs for some reason, there can be infinitely growing pool
+-- of hanging actions with probably bad consequences (e. g. leaking memory).
+-- 2. Thread management will be quite complicated if we want to fork
+-- threads inside `onNewSlot`.
+-- 3. If more than one action is launched, they may use same resources
+-- concurrently, so the code must account for it.
+data ActionTerminationPolicy
+    = NoTerminationPolicy
+    -- ^ Even if action keeps running after current slot finishes,
+    -- we'll just wait and start action again only after the previous
+    -- one finishes.
+    | NewSlotTerminationPolicy !Text
+    -- ^ If new slot starts, running action will be cancelled. Name of
+    -- the action should be passed for logging.
+
 -- | Run given action as soon as new slot starts, passing SlotId to
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
 onNewSlot
-    :: OnNewSlot ctx m
-    => Bool -> (SlotId -> m ()) -> m ()
+    :: MonadOnNewSlot ctx m
+    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 onNewSlotWithLogging
-    :: OnNewSlot ctx m
-    => Bool -> (SlotId -> m ()) -> m ()
+    :: MonadOnNewSlot ctx m
+    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall ctx m. OnNewSlot ctx m
-    => Bool -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotImpl withLogging startImmediately action =
+    :: forall ctx m. MonadOnNewSlot ctx m
+    => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotImpl withLogging params action =
     impl `catch` workerHandler
   where
-    impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
-    -- [CSL-1578] TODO: consider removing it.
+    impl = onNewSlotDo withLogging Nothing params actionWithCatch
+    -- [CSL-198] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
     actionHandler :: SomeException -> m ()
     -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
@@ -137,40 +185,34 @@ onNewSlotImpl withLogging startImmediately action =
         -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
         reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
-        onNewSlotImpl withLogging startImmediately action
+        onNewSlotImpl withLogging params action
 
 onNewSlotDo
-    :: OnNewSlot ctx m
-    => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = do
+    :: MonadOnNewSlot ctx m
+    => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotDo withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
-
-    -- Note that the action can take more time than the slot
-    -- duration. In this case action for the next slot won't start
-    -- until the ongoing action finishes.
-    -- The caller should decide how to deal with long-running actions.
-    -- They can do whatever they want with 'action', the simplest thing is
-    -- 'void . fork' (which is likely not the best idea, for the reasons why
-    -- 'async' package should be used instead of 'fork'-ing threads manually.
-    --
-    -- There are few things to consider when one wants to run this action in a
-    -- separate thread every time:
-    -- 1. If more than one action is launched, they may use same resources
-    -- concurrently, so the code must account for it.
-    -- 2. If action hangs for some reason, there can be infinitely growing pool
-    -- of hanging actions with probably bad consequences.
-    --
-    -- See also: CSL-1606.
-    when startImmediately $ action curSlot
 
     let nextSlot = succ curSlot
     Timestamp curTime <- currentTimeSlotting
     Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
     let timeToWait = nextSlotStart - curTime
+
+    let applyTimeout a = case onspTerminationPolicy onsp of
+          NoTerminationPolicy -> a
+          NewSlotTerminationPolicy name ->
+              whenNothingM_ (timeout timeToWait a) $
+                  logWarning $ sformat
+                  ("Action "%stext%
+                   " hasn't finished before new slot started") name
+
+    when (onspStartImmediately onsp) $ applyTimeout $ action curSlot
+
     when (timeToWait > 0) $ do
         when withLogging $ logTTW timeToWait
         delay timeToWait
-    onNewSlotDo withLogging (Just nextSlot) True action
+    let newParams = onsp { onspStartImmediately = True }
+    onNewSlotDo withLogging (Just nextSlot) newParams action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
@@ -192,9 +234,9 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = do
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: OnNewSlot ctx m => m ()
+logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
 logNewSlotWorker =
-    onNewSlotWithLogging True $ \slotId -> do
+    onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 

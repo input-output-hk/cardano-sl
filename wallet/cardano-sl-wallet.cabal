@@ -374,9 +374,11 @@ benchmark cardano-sl-wallet-bench
                      , cardano-sl-core
                      , cardano-sl-wallet
                      , cassava
+                     , connection
                      , data-default
                      , gauge
                      , http-client
+                     , http-client-tls
                      , lens
                      , optparse-applicative
                      , random
@@ -385,6 +387,7 @@ benchmark cardano-sl-wallet-bench
                      , servant-client
                      , statistics
                      , text-format
+                     , tls
                      , universum >= 0.1.11
                      , vector
   default-language:    Haskell2010

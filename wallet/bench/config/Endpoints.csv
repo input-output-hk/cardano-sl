@@ -1,2 +1,2 @@
 BenchName,BenchDuration,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile
-GetWalletsBench,5.5,0.7,2.1,wallet/bench/results/GetWalletsBenchReport.csv
+GetWalletsBench,10.0,3.0,5.0,wallet/bench/results/GetWalletsBenchReport.csv

@@ -7596,7 +7596,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-wallet" = callPackage
-        ({ mkDerivation, acid-state, aeson, base, base58-bytestring
+        ({ mkDerivation, acid-state, aeson, async, base, base58-bytestring
          , bytestring, cardano-sl, cardano-sl-block, cardano-sl-client
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra
@@ -7620,7 +7620,7 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             acid-state aeson base base58-bytestring bytestring cardano-sl
+             acid-state aeson async base base58-bytestring bytestring cardano-sl
              cardano-sl-block cardano-sl-client cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp

@@ -11,7 +11,7 @@ module Pos.Wallet.Web.Sockets.Notifier
 
 import           Universum
 
-import           Control.Concurrent (forkFinally)
+import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Lens ((.=))
 import           Data.Default (Default (def))
 import           Data.Time.Units (Microsecond, Second)
@@ -42,7 +42,7 @@ launchNotifier
     => (forall x. m x -> Handler x)
     -> m ()
 launchNotifier nat =
-    void . liftIO $ mapM startForking
+    void . liftIO $ mapConcurrently startNotifier
         [ dificultyNotifier
         , updateNotifier
         ]
@@ -54,14 +54,14 @@ launchNotifier nat =
     difficultyNotifyPeriod = 500000  -- 0.5 sec
 
     -- networkResendPeriod = 10         -- in delay periods
-    forkForever action = forkFinally action $ const $ do
+    restartOnError action = catchAny action $ const $ do
         -- TODO: log error
         -- cooldown
         threadDelay cooldownPeriod
-        void $ forkForever action
+        restartOnError action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    startForking = forkForever . void . runHandler . nat
+    startNotifier = restartOnError . void . runHandler . nat
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action

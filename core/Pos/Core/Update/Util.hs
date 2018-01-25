@@ -20,7 +20,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Distribution.System (Arch (..), OS (..))
-import           Distribution.Text   (display)
+import           Distribution.Text (display)
 import           Formatting (Format, build)
 import           Instances.TH.Lift ()
 
@@ -39,7 +39,7 @@ softforkRuleF :: Format r (SoftforkRule -> r)
 softforkRuleF = build
 
 mkUpdateProposal
-    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
@@ -47,7 +47,7 @@ mkUpdateProposal
     -> UpAttributes
     -> PublicKey
     -> Signature UpdateProposalToSign
-    -> m UpdateProposal
+    -> Either Text UpdateProposal
 mkUpdateProposal
     upBlockVersion
     upBlockVersionMod
@@ -64,7 +64,7 @@ mkUpdateProposal
                     upData
                     upAttributes
         unless (checkSig SignUSProposal upFrom toSign upSignature) $
-            fail $ "UpdateProposal: signature is invalid"
+            Left "UpdateProposal: signature is invalid"
         pure UnsafeUpdateProposal{..}
 
 mkUpdateProposalWSign
@@ -110,6 +110,6 @@ osHelper sys = case sys of
 -- used in 'configuration.yaml'.
 archHelper :: Arch -> String
 archHelper archt = case archt of
-    I386    -> "32"
-    X86_64  -> "64"
-    _       -> display archt
+    I386   -> "32"
+    X86_64 -> "64"
+    _      -> display archt

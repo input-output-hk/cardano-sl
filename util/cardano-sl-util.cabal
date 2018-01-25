@@ -46,6 +46,7 @@ library
                      , bytestring
                      , cardano-sl-networking
                      , cborg
+                     , cereal
                      , containers
                      , concurrent-extra
                      , cryptonite
@@ -60,6 +61,7 @@ library
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
+                     , megaparsec
                      , mmorph
                      , mtl
                      , parsec

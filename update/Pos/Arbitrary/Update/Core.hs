@@ -29,7 +29,7 @@ instance Arbitrary BlockVersionModifier where
 instance Arbitrary SystemTag where
     arbitrary =
         oneof .
-        map (pure . fromMaybe onFail . mkSystemTag) $
+        map (pure . fromMaybe onFail . rightToMaybe . mkSystemTag) $
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
       where
         onFail = error "instance Arbitrary SystemTag: disaster"

@@ -17,17 +17,17 @@ import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CFilePath (..))
 
-mkPassPhrase :: Text -> Either String Core.PassPhrase
+mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of
-        Left e -> Left (toString e)
+        Left e -> Left e
         Right bs -> do
             let bl = BS.length bs
             -- Currently passphrase may be either 32-byte long or empty (for
             -- unencrypted keys).
             if bl == 0 || bl == Core.passphraseLength
-                then pure $ ByteArray.convert bs
-                else fail $ toString $ sformat
+                then Right $ ByteArray.convert bs
+                else Left $ sformat
                      ("Expected spending password to be of either length 0 or "%int%", not "%int)
                      Core.passphraseLength bl
 
@@ -47,6 +47,6 @@ instance ToJSON Core.PassPhrase where
 instance FromJSON Core.PassPhrase where
     parseJSON Null        = mempty
     parseJSON x@(String pp) = case mkPassPhrase pp of
-        Left e    -> typeMismatch e x
+        Left e    -> typeMismatch (toString e) x
         Right pp' -> pure pp'
     parseJSON x           = typeMismatch "parseJSON failed for PassPhrase" x

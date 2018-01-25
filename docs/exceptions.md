@@ -246,14 +246,6 @@ with simple `Either`, we should do this replacement. For instance,
 -> m AddrStakeDistribution` becomes `mkMultiKeyDistr :: Map
 StakeholderId CoinPortion -> Either Text AddrStakeDistribution`
 
-We should get rid of `MonadFail` usages everywhere except places where
-it's required by external API. For instance, `mkTx :: MonadFail m =>
-NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes -> m Tx` should be
-changed to `mkTx :: NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes ->
-Either Text Tx`. We can use `eitherToFail` helper function if we want
-to use this function inside a monad from external library which uses
-`MonadFail` to fail.
-
 We should locate all usages of `forkIO` and replace with appropriate functions
 from `async`.
 

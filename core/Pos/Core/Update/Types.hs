@@ -87,13 +87,13 @@ newtype ApplicationName = ApplicationName
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
 
 -- | Smart constructor of 'ApplicationName'.
-mkApplicationName :: MonadFail m => Text -> m ApplicationName
+mkApplicationName :: Text -> Either Text ApplicationName
 mkApplicationName appName
     | length appName > applicationNameMaxLength =
-        fail "ApplicationName: too long string passed"
+        Left "ApplicationName: too long string passed"
     | T.any (not . isAscii) appName =
-        fail "ApplicationName: not ascii string passed"
-    | otherwise = pure $ ApplicationName appName
+        Left "ApplicationName: not ascii string passed"
+    | otherwise = Right $ ApplicationName appName
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
@@ -294,13 +294,13 @@ newtype SystemTag = SystemTag { getSystemTag :: Text }
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
 
-mkSystemTag :: MonadFail m => Text -> m SystemTag
+mkSystemTag :: Text -> Either Text SystemTag
 mkSystemTag tag | T.length tag > systemTagMaxLength
-                    = fail "SystemTag: too long string passed"
+                    = Left "SystemTag: too long string passed"
                 | T.any (not . isAscii) tag
-                    = fail "SystemTag: not ascii string passed"
+                    = Left "SystemTag: not ascii string passed"
                 | otherwise
-                    = pure $ SystemTag tag
+                    = Right $ SystemTag tag
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal

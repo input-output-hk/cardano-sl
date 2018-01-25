@@ -17,6 +17,7 @@ import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), d
                                     jsonInfo)
 
 import           Cardano.Wallet.Util (mkJsonKey)
+import           Pos.Util.Util (aesonError)
 
 --
 -- Helper proxies
@@ -105,7 +106,7 @@ parseJsendValues (JsonMultiple tag) =
     unJsendValue tag $
     withArray "Array" $ \arr ->
         case fromList (V.toList arr) of
-            Nothing   -> fail "Too few values!"
+            Nothing   -> aesonError "Too few values!"
             Just vals ->
                 let mkVal :: FromJSON a => K Value a -> Parser a
                     mkVal = parseJSON . unK

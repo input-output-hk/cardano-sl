@@ -15,6 +15,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl (version)
 import           Pos.Core (makeRedeemAddress)
 import           Pos.Crypto.Signing (fromAvvmPk)
+import           Pos.Util.Util (eitherToThrow)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)
@@ -57,7 +58,9 @@ You can also run it without arguments to switch to interactive mode.
 In this case each entered vending address is echoed with a testnet address.|]
 
 convertAddr :: Text -> IO Text
-convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)
+convertAddr addr =
+    pretty . makeRedeemAddress <$>
+    (eitherToThrow . fromAvvmPk) (toText addr)
 
 main :: IO ()
 main = do

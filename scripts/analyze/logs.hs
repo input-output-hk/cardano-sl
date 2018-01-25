@@ -100,7 +100,7 @@ parseLine = P.parseMaybe @P.Dec $ do
        | "Block has been adopted" `isInfixOf` msg ->
              pure (time, Adoption One)
        | otherwise ->
-             fail "unknown event type"
+             P.parserFail "unknown event type"
 
 type Run = [Line]
 

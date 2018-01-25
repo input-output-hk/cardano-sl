@@ -125,7 +125,6 @@ library
                        -- Update
                        Pos.Core.Update.Types
                        Pos.Core.Update.Util
-                       Pos.Core.Update.Version
 
   build-depends:       aeson
                      , ansi-terminal

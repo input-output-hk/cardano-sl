@@ -265,6 +265,7 @@ executable cardano-addr-convert
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-util
                      , neat-interpolation
                      , optparse-applicative
                      , text

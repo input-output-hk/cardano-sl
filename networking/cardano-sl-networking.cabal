@@ -139,6 +139,7 @@ executable ping-pong
                      , cardano-sl-networking
                      , network-transport-tcp
                      , random
+                     , safe-exceptions
                      , time-units
 
   hs-source-dirs:      examples
@@ -163,6 +164,7 @@ executable bench-sender
                      , network-transport-tcp
                      , optparse-simple >= 0.0.3
                      , random
+                     , safe-exceptions
                      , serokell-util
                      , time-units
   hs-source-dirs:      bench/Sender
@@ -187,6 +189,7 @@ executable bench-receiver
                      , network-transport-tcp
                      , optparse-simple
                      , random
+                     , safe-exceptions
                      , serokell-util
                      , time-units
   hs-source-dirs:      bench/Receiver

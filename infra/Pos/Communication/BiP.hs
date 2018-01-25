@@ -52,4 +52,4 @@ fromBiDecoder p x = do
       (Bi.Done bs off t)   -> return (TW.Done bs off t)
       (Bi.Fail bs off exn) -> do
           let msg = "fromBiDecoder failure for " <> label p <> ": " <> show exn <> ", leftover: " <> show bs
-          return (TW.Fail bs off (toText @String msg))
+          return (TW.Fail bs off msg)

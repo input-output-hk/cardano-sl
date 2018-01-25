@@ -7140,9 +7140,9 @@ inherit (pkgs) mesa;};
          , cardano-crypto, cardano-sl-binary, cardano-sl-util, containers
          , cpphs, cryptonite, cryptonite-openssl, data-default, ed25519
          , formatting, generic-arbitrary, hashable, lens, memory, mtl, pvss
-         , QuickCheck, quickcheck-instances, reflection, scrypt
-         , serokell-util, stdenv, stm, text, text-format, transformers
-         , universum, unordered-containers, vector
+         , QuickCheck, quickcheck-instances, reflection, safe-exceptions
+         , scrypt, serokell-util, stdenv, stm, text, text-format
+         , transformers, universum, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-crypto";
@@ -7153,8 +7153,9 @@ inherit (pkgs) mesa;};
              cardano-sl-binary cardano-sl-util containers cryptonite
              cryptonite-openssl data-default ed25519 formatting
              generic-arbitrary hashable lens memory mtl pvss QuickCheck
-             quickcheck-instances reflection scrypt serokell-util stm text
-             text-format transformers universum unordered-containers vector
+             quickcheck-instances reflection safe-exceptions scrypt
+             serokell-util stm text text-format transformers universum
+             unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7565,15 +7566,15 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-util" = callPackage
         ({ mkDerivation, aeson, autoexporter, base, bytestring
-         , cardano-sl-networking, cborg, concurrent-extra, containers, cpphs
-         , cryptonite, data-default, deepseq, directory, ether, exceptions
-         , filepath, formatting, hashable, lens, log-warper, lrucache
-         , mmorph, mtl, parsec, process, QuickCheck, quickcheck-instances
-         , random, reflection, resourcet, safe-exceptions, semigroups
-         , serokell-util, stdenv, stm, tagged, template-haskell, text
-         , text-format, th-lift-instances, time, time-units, transformers
-         , transformers-base, transformers-lift, universum
-         , unordered-containers, vector
+         , cardano-sl-networking, cborg, cereal, concurrent-extra
+         , containers, cpphs, cryptonite, data-default, deepseq, directory
+         , ether, exceptions, filepath, formatting, hashable, lens
+         , log-warper, lrucache, megaparsec, mmorph, mtl, parsec, process
+         , QuickCheck, quickcheck-instances, random, reflection, resourcet
+         , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
+         , template-haskell, text, text-format, th-lift-instances, time
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-util";
@@ -7581,9 +7582,9 @@ inherit (pkgs) mesa;};
            src = ./../util;
            libraryHaskellDepends = [
              aeson autoexporter base bytestring cardano-sl-networking cborg
-             concurrent-extra containers cryptonite data-default deepseq
+             cereal concurrent-extra containers cryptonite data-default deepseq
              directory ether exceptions filepath formatting hashable lens
-             log-warper lrucache mmorph mtl parsec process QuickCheck
+             log-warper lrucache megaparsec mmorph mtl parsec process QuickCheck
              quickcheck-instances random reflection resourcet safe-exceptions
              semigroups serokell-util stm tagged template-haskell text
              text-format th-lift-instances time time-units transformers

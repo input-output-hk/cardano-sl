@@ -10,7 +10,7 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
-import           Pos.Util.Util (toCborError)
+import           Pos.Util.Util (cborError, toCborError)
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -30,8 +30,8 @@ instance ( Typeable b
     decode = do
         enforceSize "GenericBlockHeader b" 5
         blockMagic <- decode
-        when (blockMagic /= getProtocolMagic protocolMagic) $
-            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
+            "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
         prevBlock <- decode
         bodyProof <- decode
         consensus <- decode

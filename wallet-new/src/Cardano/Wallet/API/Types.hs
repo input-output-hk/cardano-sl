@@ -103,4 +103,5 @@ data Tags (tags :: [Symbol])
 -- as the latter is needed only for Swagger.
 instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context where
   type ServerT (Tags tags :> subApi) m = ServerT subApi m
-  route _ = route (Proxy @ subApi)
+  route _ = route (Proxy @subApi)
+  hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)

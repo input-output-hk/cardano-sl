@@ -105,7 +105,6 @@ txsHandlers = toServant' A.WTxsApiRecord
     , _newPaymentBatch           = M.newPaymentBatch
     , _txFee                     = M.getTxFee
     , _resetFailedPtxs           = M.resetAllFailedPtxs
-    , _updateTx                  = M.updateTransaction
     , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
     , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
     , _getHistory                = M.getHistoryLimited

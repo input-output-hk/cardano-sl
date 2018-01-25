@@ -31,7 +31,7 @@ for trgt in $targets; do
   # echo "Prebuilding dependencies for $trgt, quietly.."
   # nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
   #         echo "Prebuild failed!"
-          
+
   echo "Building $trgt verbosely.."
   nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT
 #    TODO: CSL-1133
@@ -52,9 +52,8 @@ done
   #./update-haddock.sh
 #fi
 
-./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
-
 # Generate daedalus-bridge
+mkdir -p daedalus
 pushd daedalus
   echo $BUILDKITE_BUILD_NUMBER > build-id
   echo $BUILDKITE_COMMIT > commit-id
@@ -62,9 +61,9 @@ pushd daedalus
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .
-  cp ../cardano-sl-wallet.root/bin/cardano-node .
+  cp ../cardano-sl-wallet.root/bin/cardano-node-old .
   # check that binaries exit with 0
-  ./cardano-node --help > /dev/null
+  ./cardano-node-old --help > /dev/null
   ./cardano-launcher --help > /dev/null
 popd
 

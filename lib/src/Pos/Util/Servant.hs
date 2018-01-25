@@ -159,8 +159,7 @@ instance HasSwagger v => HasSwagger (VerbMod mod v) where
 -------------------------------------------------------------------------
 
 -- | For many types with nice structure there exists a /client type/, which is
--- an intermediate representation between internal types and JSON. Their ToJSON
--- instances are derived automatically and they are used by daedalus-bridge.
+-- an intermediate representation between internal types and JSON.
 -- | This family maps /client types/ to their respective original types
 -- (e.g. @CAccountAddress@ -> @AccountAddress@).
 type family OriginType ctype :: *

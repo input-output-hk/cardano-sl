@@ -44,7 +44,8 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Slotting (getCurrentSlot, getSlotStartEmpatically, onNewSlot)
+import           Pos.Slotting (defaultOnNewSlotParams, getCurrentSlot, getSlotStartEmpatically,
+                               onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
@@ -90,7 +91,7 @@ shouldParticipate epoch = do
 onNewSlotSsc
     :: (SscMessageConstraints m, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
+onNewSlotSsc = onNewSlotWorker defaultOnNewSlotParams outs $ \slotId sendActions ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
@@ -402,7 +403,7 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
-    onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
+    onNewSlot defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl counter)
 
 -- This worker checks whether our commitments appear in blocks. This check
 -- is done only if we actually should participate in SSC. It's triggered if

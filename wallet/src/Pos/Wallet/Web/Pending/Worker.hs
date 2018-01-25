@@ -28,7 +28,8 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
-import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
+import           Pos.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
+                               getNextEpochSlotDuration, onNewSlot)
 import           Pos.Util.Chrono (getOldestFirst)
 import           Pos.Util.LogSafe (logDebugS, logInfoS)
 import           Pos.Wallet.Web.Networking (MonadWalletSendActions)
@@ -156,6 +157,8 @@ processPtxsOnSlot curSlot = do
 startPendingTxsResubmitter
     :: MonadPendings ctx m
     => m ()
-startPendingTxsResubmitter = setLogger $ onNewSlot False processPtxsOnSlot
+startPendingTxsResubmitter = setLogger $ onNewSlot onsp processPtxsOnSlot
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
+    onsp :: OnNewSlotParams
+    onsp = defaultOnNewSlotParams { onspStartImmediately = False }

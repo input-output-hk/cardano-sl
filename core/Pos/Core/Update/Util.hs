@@ -37,18 +37,23 @@ import           Pos.Core.Common.Types (checkCoinPortion)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
                                         UpdatePayload (..), UpdateProof, UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..), VoteId)
+                                        UpdateProposalToSign (..), UpdateVote (..), VoteId,
+                                        checkSoftwareVersion, checkSystemTag)
 import           Pos.Crypto (SafeSigner, SignTag (SignUSProposal, SignUSVote),
                              checkSig, hash, safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
     => UpdatePayload
-    -> m UpdatePayload
+    -> m ()
 checkUpdatePayload it = do
-    _ <- forM (upProposal it) checkUpdateProposal
-    _ <- forM (upVotes it) checkUpdateVote
-    pure it
+    -- Linter denies using foldables on Maybe.
+    -- Suggests whenJust rather than forM_.
+    --
+    --   ¯\_(ツ)_/¯
+    --
+    whenJust (upProposal it) checkUpdateProposal
+    forM_ (upVotes it) checkUpdateVote
 
 checkBlockVersionModifier
     :: (MonadError Text m)
@@ -77,16 +82,16 @@ softforkRuleF = build
 checkUpdateVote
     :: (HasConfiguration, MonadError Text m)
     => UpdateVote
-    -> m UpdateVote
+    -> m ()
 checkUpdateVote it =
-    it <$ unless sigValid (throwError "UpdateVote: invalid signature")
+    unless sigValid (throwError "UpdateVote: invalid signature")
   where
     sigValid = checkSig SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
 
 checkUpdateProposal
     :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
     => UpdateProposal
-    -> m UpdateProposal
+    -> m ()
 checkUpdateProposal it = do
     checkBlockVersionModifier (upBlockVersionMod it)
     checkSoftwareVersion (upSoftwareVersion it)
@@ -97,8 +102,10 @@ checkUpdateProposal it = do
             (upSoftwareVersion it)
             (upData it)
             (upAttributes it)
-    it <$ unless (checkSig SignUSProposal (upFrom it) toSign (upSignature it))
+    unless (checkSig SignUSProposal (upFrom it) toSign (upSignature it))
         (throwError "UpdateProposal: invalid signature")
+    checkSoftwareVersion (upSoftwareVersion it)
+    forM_ (HM.keys (upData it)) checkSystemTag
 
 mkUpdateProposalWSign
     :: (HasConfiguration, Bi UpdateProposalToSign)

@@ -378,6 +378,7 @@ benchmark cardano-sl-wallet-bench
                      , gauge
                      , http-client
                      , lens
+                     , optparse-applicative
                      , random
                      , QuickCheck
                      , servant

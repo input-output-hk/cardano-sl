@@ -53,11 +53,11 @@ spec = describe "Txp.Core" $ do
         "doesn't create Tx with non-positive coins in outputs"
 
 mkTxGood :: Tx -> Bool
-mkTxGood UnsafeTx{..} = isJust $ mkTx _txInputs _txOutputs _txAttributes
+mkTxGood UnsafeTx{..} = isRight $ mkTx _txInputs _txOutputs _txAttributes
 
 mkTxBad :: Tx -> Bool
 mkTxBad UnsafeTx {..} =
-    all (\outs -> isNothing $ mkTx _txInputs outs _txAttributes) badOutputs
+    all (\outs -> isLeft $ mkTx _txInputs outs _txAttributes) badOutputs
   where
     invalidateOut :: TxOut -> TxOut
     invalidateOut out = out {txOutValue = mkCoin 0}

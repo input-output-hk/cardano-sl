@@ -9,8 +9,6 @@ module Mockable.Production
        ( Production (..)
        ) where
 
-import           Universum (MonadFail (..))
-
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
@@ -141,9 +139,6 @@ newtype FailException = FailException String
 
 deriving instance Show FailException
 instance Exception.Exception FailException
-
-instance MonadFail Production where
-    fail = Production . Exception.throwM . FailException
 
 instance MonadMask Production where
     mask act = Production $ mask $

@@ -3,9 +3,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE LambdaCase            #-}
 
 module Main where
 
+import           Control.Exception.Safe (throwString, throwM)
 import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
@@ -40,8 +42,11 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" (show port))
-        TCP.defaultTCPParameters
+    transport_ <- do
+        transportOrError <-
+            TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" (show port))
+            TCP.defaultTCPParameters
+        either throwM return transportOrError
     let transport = concrete transport_
 
     let prng = mkStdGen 0
@@ -53,7 +58,9 @@ main = do
   where
     pingListener noPong =
         Listener $ \_ _ cactions -> do
-            Just (Ping mid payload) <- recv cactions maxBound
+            (mid, payload) <- recv cactions maxBound >>= \case
+                Just (Ping mid payload) -> return (mid, payload)
+                _ -> throwString "Expected a ping"
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload

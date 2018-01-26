@@ -17,7 +17,7 @@ import           Mockable (delay, fork)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
-import           System.Wlog (logDebug, logInfo, logWarning)
+import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
@@ -138,7 +138,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                   (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
     onNoLeader =
-        logWarning "Couldn't find a leader for current slot among known ones"
+        logError "Couldn't find a leader for current slot among known ones"
     logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
     logOnEpochF = if siSlot == minBound then logInfo else logDebug
     onKnownLeader leaders leader = do

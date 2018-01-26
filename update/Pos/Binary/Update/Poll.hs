@@ -13,6 +13,7 @@ import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, Coin,
 import qualified Pos.Core.Update as U
 import           Pos.Slotting.Types (SlottingData)
 import qualified Pos.Update.Poll.Types as U
+import           Pos.Util.Util (cborError)
 
 deriveSimpleBi ''U.VoteState [
     Cons 'U.PositiveVote [],
@@ -28,7 +29,7 @@ instance Bi a => Bi (U.PrevValue a) where
         case len of
             1 -> U.PrevValue <$> decode
             0 -> pure U.NoExist
-            _ -> fail $ "decode@PrevValue: invalid len: " <> show len
+            _ -> cborError $ "decode@PrevValue: invalid len: " <> show len
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''U.USUndo [
     Cons 'U.USUndo [

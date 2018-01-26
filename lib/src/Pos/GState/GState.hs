@@ -2,18 +2,13 @@
 
 module Pos.GState.GState
        ( prepareGStateDB
-       , usingGStateSnapshot
        ) where
 
 import           Universum
 
-import qualified Database.RocksDB as Rocks
-
 import           Pos.Core (GenesisData (..), HasConfiguration, HeaderHash, genesisData)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.GState.Common (initGStateCommon, isInitialized, setInitialized)
-import           Pos.DB.Rocks (DB (..), MonadRealDB, NodeDBs (..), Snapshot (..), gStateDB,
-                               getNodeDBs, usingReadOptions, usingSnapshot)
 import           Pos.Delegation.DB (initGStateDlg)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
@@ -42,9 +37,14 @@ prepareGStateDB initialTip = unlessM isInitialized $ do
 
     setInitialized
 
+-- The following is not used in the project yet. To be added back at a
+-- later stage when needed.
+
+{-
 usingGStateSnapshot :: (MonadRealDB ctx m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do
     db <- _gStateDB <$> getNodeDBs
     let readOpts = rocksReadOpts db
     usingSnapshot db (\(Snapshot sn) ->
         usingReadOptions readOpts {Rocks.useSnapshot = Just sn} gStateDB action)
+-}

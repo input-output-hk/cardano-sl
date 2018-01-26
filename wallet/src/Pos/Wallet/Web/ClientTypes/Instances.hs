@@ -44,8 +44,8 @@ instance FromCType CPassPhrase where
         -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
         if bl == 0 || bl == passphraseLength
-            then pure $ ByteArray.convert bs
-            else fail . toString $ sformat
+            then Right $ ByteArray.convert bs
+            else Left $ sformat
                  ("Expected password length 0 or "%int%", not "%int)
                  passphraseLength bl
 

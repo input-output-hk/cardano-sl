@@ -11,8 +11,8 @@ environment:
     WORK_DIR: "c:\\w"
     CACHE_S3_VERSION: v0.1.1
     AWS_REGION: us-west-1
-    S3_BUCKET: appveyor-ci-cache              
-    AWS_ACCESS_KEY_ID: 
+    S3_BUCKET: appveyor-ci-cache
+    AWS_ACCESS_KEY_ID:
       secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
     AWS_SECRET_ACCESS_KEY:
       secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna

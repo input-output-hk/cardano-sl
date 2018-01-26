@@ -7,7 +7,6 @@
 module Pos.Web.Server
        ( serveImpl
        , withRoute53HealthCheckApplication
-       , route53HealthCheckApplication
        , serveWeb
        , application
        ) where
@@ -19,7 +18,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
-import           Mockable (Production (runProduction), Mockable, Async, async, cancel)
+import           Mockable (Production (runProduction), Mockable, Async, withAsync)
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
@@ -67,10 +66,9 @@ withRoute53HealthCheckApplication
     -> Word16
     -> m x
     -> m x
-withRoute53HealthCheckApplication mStatus host port act = bracket acquire release (const act)
+withRoute53HealthCheckApplication mStatus host port act = withAsync go (const act)
   where
-    acquire = async (serveImpl (pure app) host port Nothing)
-    release = cancel
+    go = serveImpl (pure app) host port Nothing
     app = route53HealthCheckApplication mStatus
 
 route53HealthCheckApplication :: IO HealthStatus -> Application

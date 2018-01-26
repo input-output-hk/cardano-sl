@@ -9,7 +9,6 @@ main = return ()
 
 import           Universum
 
-import qualified APISpec as API
 import qualified MarshallingSpec as Marshalling
 import qualified SwaggerSpec as Swagger
 import           Test.Hspec
@@ -18,6 +17,5 @@ import           Test.Hspec
 main :: IO ()
 main = hspec $ do
     Marshalling.spec
-    API.spec
     Swagger.spec
 #endif

@@ -268,55 +268,55 @@ test-suite cardano-test
                        Spec
 
                        -- Something
-                       Test.Pos.BinarySpec
+                       --Test.Pos.BinarySpec
 
                        -- Pos.Block testing
-                       Test.Pos.Block.Identity.BinarySpec
-                       Test.Pos.Block.Identity.SafeCopySpec
+                       --Test.Pos.Block.Identity.BinarySpec
+                       --Test.Pos.Block.Identity.SafeCopySpec
 
                        -- Core
                        Test.Pos.Core.AddressSpec
-                       Test.Pos.Core.CoinSpec
-                       Test.Pos.Core.SeedSpec
-                       Test.Pos.Core.SlottingSpec
+                       --Test.Pos.Core.CoinSpec
+                       --Test.Pos.Core.SeedSpec
+                       --Test.Pos.Core.SlottingSpec
 
                        -- LRC
-                       Test.Pos.Lrc.FollowTheSatoshiSpec
+                       --Test.Pos.Lrc.FollowTheSatoshiSpec
 
                        -- Ssc
-                       Test.Pos.Ssc.ComputeSharesSpec
-                       Test.Pos.Ssc.Identity.BinarySpec
-                       Test.Pos.Ssc.Identity.SafeCopySpec
-                       Test.Pos.Ssc.SeedSpec
-                       Test.Pos.Ssc.Toss.BaseSpec
-                       Test.Pos.Ssc.VssCertDataSpec
-                       Test.Pos.Ssc.Toss.PureSpec
+                       --Test.Pos.Ssc.ComputeSharesSpec
+                       --Test.Pos.Ssc.Identity.BinarySpec
+                       --Test.Pos.Ssc.Identity.SafeCopySpec
+                       --Test.Pos.Ssc.SeedSpec
+                       --Test.Pos.Ssc.Toss.BaseSpec
+                       --Test.Pos.Ssc.VssCertDataSpec
+                       --Test.Pos.Ssc.Toss.PureSpec
 
                        -- Everything else
-                       Test.Pos.Cbor.CborSpec
-                       Test.Pos.Communication.Identity.BinarySpec
+                       --Test.Pos.Cbor.CborSpec
+                       --Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
-                       Test.Pos.CryptoSpec
-                       Test.Pos.Delegation.Identity.BinarySpec
-                       Test.Pos.DHT.Identity.BinarySpec
-                       Test.Pos.Genesis.CanonicalSpec
-                       Test.Pos.MerkleSpec
+                       --Test.Pos.CryptoSpec
+                       --Test.Pos.Delegation.Identity.BinarySpec
+                       --Test.Pos.DHT.Identity.BinarySpec
+                       --Test.Pos.Genesis.CanonicalSpec
+                       --Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
-                       Test.Pos.Slotting.BinarySpec
-                       Test.Pos.Txp.CoreSpec
-                       Test.Pos.Txp.Identity.BinarySpec
-                       Test.Pos.Txp.Toil.UtxoSpec
-                       Test.Pos.Types.BlockSpec
-                       Test.Pos.Types.Identity.BinarySpec
-                       Test.Pos.Types.Identity.SafeCopySpec
-                       Test.Pos.Types.Identity.ShowReadSpec
-                       Test.Pos.Update.Identity.BinarySpec
-                       Test.Pos.Update.Identity.SafeCopySpec
-                       Test.Pos.Update.MemStateSpec
-                       Test.Pos.Update.PollSpec
+                       --Test.Pos.Slotting.BinarySpec
+                       --Test.Pos.Txp.CoreSpec
+                       --Test.Pos.Txp.Identity.BinarySpec
+                       --Test.Pos.Txp.Toil.UtxoSpec
+                       --Test.Pos.Types.BlockSpec
+                       --Test.Pos.Types.Identity.BinarySpec
+                       --Test.Pos.Types.Identity.SafeCopySpec
+                       --Test.Pos.Types.Identity.ShowReadSpec
+                       --Test.Pos.Update.Identity.BinarySpec
+                       --Test.Pos.Update.Identity.SafeCopySpec
+                       --Test.Pos.Update.MemStateSpec
+                       --Test.Pos.Update.PollSpec
                        Test.Pos.Util.LimitsSpec
-                       Test.Pos.Util.ModifierSpec
-                       Test.Pos.UtilSpec
+                       --Test.Pos.Util.ModifierSpec
+                       --Test.Pos.UtilSpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom

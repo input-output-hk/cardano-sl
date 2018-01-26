@@ -321,12 +321,12 @@ test-suite cardano-explorer-test
                        -- Standard module with some magic
                        Spec
                        -- Utils
-                       Test.Pos.Explorer.MockFactory
+                       --Test.Pos.Explorer.MockFactory
                        -- Tests
-                       Test.Pos.Explorer.Socket.AppSpec
-                       Test.Pos.Explorer.Socket.MethodsSpec
+                       --Test.Pos.Explorer.Socket.AppSpec
+                       --Test.Pos.Explorer.Socket.MethodsSpec
                        Test.Pos.Explorer.Socket.UtilSpec
-                       Test.Pos.Explorer.Web.ServerSpec
+                       --Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
                        -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.

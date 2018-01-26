@@ -102,11 +102,11 @@ test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec
-                       Test.Pos.Helpers
+                       --Test.Pos.Helpers
 
-                       Test.Pos.Lrc.WorkerSpec
-                       Test.Pos.Block.Logic.CreationSpec
-                       Test.Pos.Block.Logic.VarSpec
+                       --Test.Pos.Lrc.WorkerSpec
+                       --Test.Pos.Block.Logic.CreationSpec
+                       --Test.Pos.Block.Logic.VarSpec
 
   type:                exitcode-stdio-1.0
 

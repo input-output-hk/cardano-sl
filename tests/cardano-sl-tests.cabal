@@ -19,10 +19,8 @@ library
                         Test.Pos.Block.Logic.Mode
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Helpers
-                        Test.Pos.Util
                         Test.Pos.Explorer.Util
-
-  other-modules:
+                        Test.Pos.Explorer.TestMode
 
   build-depends:        MonadRandom
                       , QuickCheck
@@ -96,7 +94,179 @@ library
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        TypeFamilies
                         GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite cardano-tests-test
+  main-is:             Test.hs
+  other-modules:
+                       Spec
+                       -- Explorer
+                       Test.Pos.Explorer.Socket.MethodsSpec
+                       Test.Pos.Explorer.Web.ServerSpec
+                       Test.Pos.Explorer.MockFactory
+                       Test.Pos.Explorer.Socket.AppSpec
+
+                       -- Wallet
+                       -- Basic mocks and instances
+                       Test.Pos.Wallet.Web.Mode
+                       Test.Pos.Wallet.Web.Util
+                       Test.Pos.Wallet.Web.SyncSpec
+
+                       -- Test scenarios
+                       Test.Pos.Wallet.Web.AddressSpec
+                       Test.Pos.Wallet.Web.Methods.LogicSpec
+                       Test.Pos.Wallet.Web.Methods.PaymentSpec
+                       Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
+
+                       -- Generator
+                       Test.Pos.Lrc.WorkerSpec
+                       Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.VarSpec
+
+                       -- Lib
+                       -- Something
+                       Test.Pos.BinarySpec
+
+                       -- Pos.Block testing
+                       Test.Pos.Block.Identity.BinarySpec
+                       Test.Pos.Block.Identity.SafeCopySpec
+
+                       -- Core
+                       Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
+
+                       -- LRC
+                       Test.Pos.Lrc.FollowTheSatoshiSpec
+
+                       -- Ssc
+                       Test.Pos.Ssc.ComputeSharesSpec
+                       Test.Pos.Ssc.Identity.BinarySpec
+                       Test.Pos.Ssc.Identity.SafeCopySpec
+                       Test.Pos.Ssc.SeedSpec
+                       Test.Pos.Ssc.Toss.BaseSpec
+                       Test.Pos.Ssc.VssCertDataSpec
+                       Test.Pos.Ssc.Toss.PureSpec
+
+                       -- Everything else
+                       Test.Pos.Cbor.CborSpec
+                       Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.CryptoSpec
+                       Test.Pos.Delegation.Identity.BinarySpec
+                       Test.Pos.DHT.Identity.BinarySpec
+                       Test.Pos.Genesis.CanonicalSpec
+                       Test.Pos.MerkleSpec
+                       Test.Pos.Slotting.BinarySpec
+                       Test.Pos.Txp.CoreSpec
+                       Test.Pos.Txp.Identity.BinarySpec
+                       Test.Pos.Txp.Toil.UtxoSpec
+                       Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.Identity.BinarySpec
+                       Test.Pos.Types.Identity.SafeCopySpec
+                       Test.Pos.Types.Identity.ShowReadSpec
+                       Test.Pos.Update.Identity.BinarySpec
+                       Test.Pos.Update.Identity.SafeCopySpec
+                       Test.Pos.Update.MemStateSpec
+                       Test.Pos.Update.PollSpec
+                       Test.Pos.Util.ModifierSpec
+                       Test.Pos.UtilSpec
+
+                       -- Client
+                       Test.Pos.Client.Txp.Mode
+                       Test.Pos.Client.Txp.UtilSpec
+
+  hs-source-dirs:      test
+  type:                exitcode-stdio-1.0
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       GADTs
+
+  build-depends:       MonadRandom
+                     , QuickCheck
+                     , base
+                     , bytestring
+                     , canonical-json
+                     , cardano-sl
+                     , cardano-sl-binary
+                     , cardano-sl-block
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-delegation
+                     , cardano-sl-explorer
+                     , cardano-sl-generator
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-networking
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
+                     , cardano-sl-tests
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , cardano-sl-wallet
+                     , cardano-sl-wallet-new
+                     , cborg
+                     , cereal
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , engine-io
+                     , ether
+                     , extra
+                     , fmt
+                     , formatting
+                     , generic-arbitrary
+                     , half
+                     , hspec
+                     , http-client
+                     , http-types
+                     , lens
+                     , log-warper
+                     , mtl
+                     , pvss
+                     , random
+                     , reflection
+                     , safecopy
+                     , serokell-util >= 0.1.3.4
+                     , servant-server
+                     , servant-quickcheck
+                     , stm
+                     , tagged
+                     , text
+                     , text-format
+                     , time-units
+                     , universum >= 0.1.11
+                     , unordered-containers
+                     , quickcheck-instances
+                     , vector
+                     , warp
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans

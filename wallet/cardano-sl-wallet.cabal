@@ -351,17 +351,17 @@ test-suite cardano-wallet-test
                        Spec
 
                        -- Basic mocks and instances
-                       Test.Pos.Wallet.Web.Mode
-                       Test.Pos.Wallet.Web.Util
+                       --Test.Pos.Wallet.Web.Mode
+                       --Test.Pos.Wallet.Web.Util
 
                        -- Test scenarios
-                       Test.Pos.Wallet.Web.AddressSpec
+                       --Test.Pos.Wallet.Web.AddressSpec
 
-                       Test.Pos.Wallet.Web.Methods.LogicSpec
-                       Test.Pos.Wallet.Web.Methods.PaymentSpec
-                       Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
+                       --Test.Pos.Wallet.Web.Methods.LogicSpec
+                       --Test.Pos.Wallet.Web.Methods.PaymentSpec
+                       --Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
 
-                       Test.Pos.Wallet.Web.Tracking.SyncSpec
+                       --Test.Pos.Wallet.Web.Tracking.SyncSpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom

@@ -92,8 +92,8 @@ test-suite cardano-client-test
                        Spec
 
                        -- Txp
-                       Test.Pos.Client.Txp.Mode
-                       Test.Pos.Client.Txp.UtilSpec
+                       --Test.Pos.Client.Txp.Mode
+                       --Test.Pos.Client.Txp.UtilSpec
 
   type:                exitcode-stdio-1.0
 

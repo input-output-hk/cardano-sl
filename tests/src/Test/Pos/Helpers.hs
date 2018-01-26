@@ -14,6 +14,8 @@ module Test.Pos.Helpers
 
        -- * Message length
        , msgLenLimitedTest
+
+       , blockPropertySpec
        ) where
 
 import           Universum
@@ -35,8 +37,13 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (HasConfiguration)
 import           Pos.Communication (Limit (..), MessageLimited (..))
+import           Pos.Delegation (HasDlgConfiguration)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
+import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable)
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
 
@@ -200,3 +207,15 @@ msgLenLimitedTest = msgLenLimitedTest' @a (runIdentity (getMsgLenLimit Proxy)) "
 ----------------------------------------------------------------------------
 
 deriving instance Bi bi => Bi (SmallGenerator bi)
+
+----------------------------------------------------------------------------
+-- Various properties and predicates
+----------------------------------------------------------------------------
+
+-- | Specialized version of 'prop' function from 'hspec'.
+blockPropertySpec ::
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+    => String
+    -> (HasConfiguration => BlockProperty a)
+    -> Spec
+blockPropertySpec description bp = prop description (blockPropertyTestable bp)

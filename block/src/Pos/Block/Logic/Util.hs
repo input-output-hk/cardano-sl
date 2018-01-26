@@ -154,7 +154,7 @@ calcChainQualityFixedTime = do
     calcChainQualityFixedTimeDo olderSlotId currentSlotId (OldestFirst lastSlots) =
         case findIndex (>= olderSlotId) lastSlots of
             Just firstNew
-                | firstNew > 0 || head lastSlots == Just olderSlotId ->
+                | firstNew > 0 || safeHead lastSlots == Just olderSlotId ->
                     let blockCount = fromIntegral (length lastSlots - firstNew)
                     in calcChainQuality blockCount olderSlotId currentSlotId
             -- All slots are less than 'olderSlotId', something is bad.

@@ -124,7 +124,7 @@ type UndoMap = HashMap TxId TxUndo
 type AddrCoinMap = HashMap Address Coin
 
 utxoToModifier :: Utxo -> UtxoModifier
-utxoToModifier = foldl' (flip $ uncurry MM.insert) mempty . M.toList
+utxoToModifier = foldl' (uncurry MM.insert) mempty . toPairs
 
 -- | Takes utxo modifier and address-coin map with correspodning utxo
 -- and applies utxo modifier to map.
@@ -150,8 +150,8 @@ applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) = result
     subAddress :: Coin -> Coin -> Maybe Coin
     subAddress r c = if r < c then Just (c `unsafeSubCoin` r) else Nothing
 
-    updateHM :: HashMap Address Coin -> (Address, Coin) -> HashMap Address Coin
-    updateHM hm (ad, coins) = HM.update (subAddress coins) ad hm
+    updateHM :: (Address, Coin) -> HashMap Address Coin -> HashMap Address Coin
+    updateHM (ad, coins) = HM.update (subAddress coins) ad
 
     -- Substract coins from current balances
     addrCoinsRest :: HashMap Address Coin
@@ -167,7 +167,7 @@ applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) = result
 
     -- Add coins to balances
     result :: HashMap Address Coin
-    result = foldl' (flip $ uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest addrCoinsAdditions
+    result = foldl' (uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest addrCoinsAdditions
 
 instance Default UndoMap where
     def = mempty

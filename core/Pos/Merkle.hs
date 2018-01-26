@@ -19,7 +19,6 @@ import           Universum
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
 import           Data.Coerce (coerce)
-import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
@@ -40,15 +39,21 @@ data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
 
 instance NFData a => NFData (MerkleTree a)
 
+instance ToList (MerkleTree a) where
+    toList MerkleEmpty         = []
+    toList (MerkleTree _ node) = toList node
+
+    null MerkleEmpty      = True
+    null (MerkleTree _ _) = False
+
 instance Foldable MerkleTree where
     foldMap _ MerkleEmpty      = mempty
     foldMap f (MerkleTree _ n) = foldMap f n
 
-    null MerkleEmpty = True
-    null _           = False
-
     length MerkleEmpty      = 0
     length (MerkleTree s _) = fromIntegral s
+
+instance Container (MerkleTree a)
 
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (toList tree)
@@ -63,11 +68,19 @@ data MerkleNode a
 
 instance NFData a => NFData (MerkleNode a)
 
+instance ToList (MerkleNode a) where
+    toList MerkleLeaf{mVal}            = [mVal]
+    toList MerkleBranch{mLeft, mRight} = toList mLeft ++ toList mRight
+
+    null _ = False
+
 instance Foldable MerkleNode where
-    foldMap f x = case x of
+    foldMap f = \case
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
             foldMap f mLeft `mappend` foldMap f mRight
+
+instance Container (MerkleNode a)
 
 mkLeaf :: Bi a => a -> MerkleNode a
 mkLeaf a =

@@ -253,7 +253,8 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- type is crucial.
 verifyBlocks
     :: ( t ~ OldestFirst f Block
-       , NontrivialContainer t
+       , Container t
+       , Element t ~ Block
        , HasConfiguration
        )
     => Maybe SlotId
@@ -272,8 +273,8 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
     -- headers. However, it's a little obscure invariant, so keep it
     -- in mind.
     start = (initLeaders, Nothing, mempty)
-    step :: VerifyBlocksIter -> Block -> VerifyBlocksIter
-    step (leaders, prevHeader, res) blk =
+    step :: Block -> VerifyBlocksIter -> VerifyBlocksIter
+    step blk (leaders, prevHeader, res) =
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders

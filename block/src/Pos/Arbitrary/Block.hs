@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 
+-- TODO: a lot of warnings here... We should start use Hedgehog
+
 module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
@@ -267,11 +269,11 @@ recursiveHeaderGen genesis
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let gHeader = Left $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          let gHeader = Left $ T.mkGenesisHeader (safeHead blockchain) siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
           recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
-          curHeader <- genMainHeader (head blockchain)
+          curHeader <- genMainHeader (safeHead blockchain)
           recursiveHeaderGen True leaders rest (curHeader : blockchain)
   where
     genMainHeader prevHeader = do

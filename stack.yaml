@@ -40,10 +40,10 @@ nix:
 
 extra-deps:
 # Serokell packages
-- log-warper-1.8.5                # TODO: remove after appear on Stackage
+- log-warper-1.8.6                # TODO: remove after appear on Stackage
 - rocksdb-haskell-1.0.0
 - serokell-util-0.6.0
-- universum-1.0.2                 # TODO: remove after appear on Stackage
+- universum-1.0.4                 # TODO: remove after appear on Stackage
 
 # miscellaneous packages
 - base58-bytestring-0.1.0
@@ -78,7 +78,7 @@ extra-deps:
   - cborg
 # acid-state (required for Pos.Wallet.Web)
 - git: https://github.com/serokell/acid-state.git
-  commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+  commit: c913cf2cd1a83d62f04815f10739f8dfded05575 # after moving from serokell-util
 ## kademlia; P2P discovery
 - git: https://github.com/serokell/kademlia.git
   commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
@@ -91,7 +91,7 @@ extra-deps:
   commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
 ## logging report server
 - git: https://github.com/input-output-hk/cardano-report-server.git
-  commit: 7b28613c9c3535193991712ff5a4a36a9f165570 # master v0.4.0
+  commit: e2046d662b211c604fbb07ce2952db8ca4561017  # master v0.4.2
 
 # These three are needed for cardano-sl-networking
 - git: https://github.com/serokell/network-transport-tcp
@@ -102,12 +102,6 @@ extra-deps:
   commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
 - git: https://github.com/input-output-hk/cardano-crypto
   commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
-
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
-- git: https://github.com/serokell/swagger2
-  commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
 
 # Required for explorer
 - git: https://github.com/serokell/engine.io.git

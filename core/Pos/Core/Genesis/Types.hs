@@ -78,8 +78,6 @@ newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
     } deriving (Show, Eq, ToList, Container)
 
-type instance Element GenesisDelegation = ProxySKHeavy
-
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation
 noGenesisDelegation = UnsafeGenesisDelegation mempty
@@ -167,8 +165,6 @@ instance (Hashable Address, Buildable Address) =>
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
     } deriving (Show, Eq, Semigroup, Monoid, ToList, Container)
-
-type instance Element GenesisAvvmBalances = Coin
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances

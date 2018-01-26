@@ -3,7 +3,6 @@
 module Pos.Binary.Core.Address () where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Codec.CBOR.Encoding (Encoding)
 import qualified Codec.CBOR.Write as CBOR.Write
@@ -11,7 +10,7 @@ import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import qualified Data.ByteString as BS
 import           Data.Digest.CRC32 (CRC32 (..))
-import           Data.Word (Word8)
+import           Data.Maybe (fromJust)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
                                    decodeUnknownCborDataItem, deserialize', encodeCrcProtected,
@@ -132,10 +131,10 @@ instance Bi (Attributes AddrAttributes) where
         derivationPathListWithIndices =
             case derivationPath of
                 Nothing -> []
-                -- 'unsafeFromJust' is safe, because 'case' ensures
+                -- 'fromJust' is safe, because 'case' ensures
                 -- that derivation path is 'Just'.
                 Just _ ->
-                    [(1, serialize' . unsafeFromJust . aaPkDerivationPath)]
+                    [(1, serialize' . fromJust . aaPkDerivationPath)]
     decode = decodeAttributes initValue go
       where
         initValue =
@@ -180,10 +179,7 @@ encodeAddr :: Address -> Encoding
 encodeAddr Address {..} =
     encode addrRoot <> encode addrAttributes <> encode addrType
 
--- Note: we are using 'Buildable' constraint here, which in turn
--- relies on 'Bi', but it uses only encoding, while 'Buildable' is
--- used here only in decoding.
-instance Buildable Address => Bi Address where
+instance Bi Address where
     encode Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
     decode = do
         (addrRoot, addrAttributes, addrType) <- decodeCrcProtected

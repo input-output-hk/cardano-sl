@@ -10,7 +10,7 @@ import           Universum
 import           Control.Lens (makeLenses, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Data.List (nub, tail)
+import           Data.List (nub)
 
 import           Pos.Binary.Core ()
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), txInputs)
@@ -30,6 +30,7 @@ data TopsortState a = TopsortState
 $(makeLenses ''TopsortState)
 
 -- Why?
+-- ChShersh: Yes, I'm also interested, why? Also, there's 'hashNub' as well.
 {-# ANN topsortTxs ("HLint: ignore Use ordNub" :: Text) #-}
 -- | Does topological sort on things that contain transactions – e.g. can be
 -- used both for sorting @[Tx]@ and @[(Tx, TxWitness)]@.
@@ -54,11 +55,11 @@ topsortTxs toTx input =
     -- visited vertices.
     dfs1 :: State (TopsortState a) ()
     dfs1 = unlessM (use tsLoop) $ do
-        t <- head <$> use tsUnprocessed
+        t <- safeHead <$> use tsUnprocessed
         whenJust t $ \a -> do
             let tx = toTx a
             ifM (HS.member (whHash tx) <$> use tsVisited)
-                (tsUnprocessed %= tail)
+                (tsUnprocessed %= drop 1)
                 (dfs2 HS.empty a)
             dfs1
     -- Does dfs putting vertices into tsResult in reversed order of

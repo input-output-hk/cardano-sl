@@ -44,5 +44,7 @@ data ComponentBlock payload =
 --
 -- Perhaps, it shouldn't be here, but I decided not to create a module
 -- for only this function.
+--
+-- TODO: this constraint output warnings; without this constraint it doesn't compile
 blockHeaderHash :: Bi BlockHeader => BlockHeader -> HeaderHash
 blockHeaderHash = unsafeHash

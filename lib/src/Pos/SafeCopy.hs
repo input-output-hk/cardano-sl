@@ -15,6 +15,7 @@ import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveS
 import qualified Data.Serialize as Cereal
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
+import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)
@@ -47,7 +48,7 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Util (toCerealError, cerealError)
+import           Pos.Util.Util (cerealError, toCerealError)
 
 ----------------------------------------------------------------------------
 -- Bi

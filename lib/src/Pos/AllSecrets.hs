@@ -36,8 +36,6 @@ newtype InvSecretsMap = InvSecretsMap
     { unInvSecretsMap :: HashMap StakeholderId SecretKey
     } deriving (Semigroup, Monoid, ToList, Container)
 
-type instance Element InvSecretsMap = SecretKey
-
 -- | Make 'InvSecretsMap' from a list of secret keys.
 mkInvSecretsMap :: [SecretKey] -> InvSecretsMap
 mkInvSecretsMap =
@@ -49,8 +47,6 @@ mkInvSecretsMap =
 newtype InvAddrSpendingData = InvAddrSpendingData
     { unInvAddrSpendingData :: HashMap Address AddrSpendingData
     } deriving (Semigroup, Monoid, ToList, Container)
-
-type instance Element InvAddrSpendingData = AddrSpendingData
 
 -- | Safe constructor of 'InvAddrSpendingData'.
 mkInvAddrSpendingData :: [(Address, AddrSpendingData)] -> InvAddrSpendingData

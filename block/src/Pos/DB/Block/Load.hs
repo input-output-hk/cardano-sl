@@ -39,7 +39,6 @@ import           Pos.Util.Util (maybeThrow)
 type LoadHeadersMode m =
     ( HasConfiguration
     , MonadDBRead m
-    , CB.BlockchainHelpers CB.MainBlockchain
     )
 
 ----------------------------------------------------------------------------
@@ -114,6 +113,7 @@ loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
+-- TODO: really strange warning here
 loadBlocksWhile
     :: MonadBlockDBRead m
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Block)

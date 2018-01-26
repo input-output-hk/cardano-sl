@@ -90,9 +90,9 @@ refreshPoll slot proposals votes = do
         fromMaybe (mkCoin 0) <$>
         getRichmanStake (siEpoch slot) (addressHash (uvKey vote))
     groupVotes :: [UpdateVote] -> [(UpId, HashMap PublicKey UpdateVote)]
-    groupVotes = HM.toList . foldl' groupVotesStep mempty
-    groupVotesStep :: LocalVotes -> UpdateVote -> LocalVotes
-    groupVotesStep curVotes vote =
+    groupVotes = toPairs . foldl' groupVotesStep mempty
+    groupVotesStep :: UpdateVote -> LocalVotes -> LocalVotes
+    groupVotesStep vote curVotes =
         curVotes & at (uvProposalId vote) . non mempty . at (uvKey vote)
                      .~ Just vote
 

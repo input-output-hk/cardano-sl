@@ -25,7 +25,7 @@ module Pos.Ssc.VssCertData
        , filter
        ) where
 
-import           Universum hiding (empty, filter)
+import           Universum hiding (empty, filter, keys)
 
 import           Control.Lens (makeLensesFor)
 import qualified Data.HashMap.Strict as HM
@@ -134,7 +134,7 @@ keys VssCertData{..} = HM.keys (getVssCertificatesMap certs)
 -- deleted certificates. Use carefully.
 filter :: (StakeholderId -> Bool) -> VssCertData -> VssCertData
 filter predicate vcd =
-    foldl' (flip delete) vcd $ List.filter (not . predicate) $ keys vcd
+    foldl' delete vcd $ List.filter (not . predicate) $ keys vcd
 
 -- | Return True if the specified address hash is present in the map, False otherwise.
 member :: StakeholderId -> VssCertData -> Bool
@@ -143,7 +143,7 @@ member id VssCertData{..} = memberVss id certs
 -- | This function is dangerous, because after you using it you can't rollback
 -- deleted certificates. Use carefully.
 difference :: VssCertData -> HM.HashMap StakeholderId a -> VssCertData
-difference mp hm = foldl' (flip delete) mp . HM.keys $ hm
+difference mp hm = foldl' delete mp . HM.keys $ hm
 
 fromList :: [VssCertificate] -> VssCertData
 fromList = foldr' insert empty
@@ -161,7 +161,7 @@ addInt cert vcd =
     id = getCertId cert
     insertRaw mp@VssCertData{..} =
         let (certs', delCerts) = insertVss cert certs
-        in foldl' (flip delete) mp delCerts
+        in foldl' delete mp delCerts
                & _certs .~ certs'
                & _whenInsMap %~ HM.insert id lastKnownEoS
                & _whenInsSet %~ S.insert (lastKnownEoS, id)
@@ -209,7 +209,7 @@ setSmallerLKS lks vcd@VssCertData{..}
     | Just ((sl, (id, insSlot, cert)), restExp) <- S.maxView expiredCerts
     , sl > addEpoch lks = setSmallerLKS lks $
         let (certs', delCerts) = insertVss cert certs
-        in foldl' (flip delete) vcd delCerts
+        in foldl' delete vcd delCerts
                & _certs      .~ certs'
                & _whenInsMap %~ HM.insert id insSlot
                & _whenInsSet %~ S.insert (insSlot, id)

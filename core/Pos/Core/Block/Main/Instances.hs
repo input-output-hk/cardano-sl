@@ -34,6 +34,7 @@ import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 
 
+-- TODO: this constraint ommits warning but doesn't compile without
 instance Bi BlockHeader => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint

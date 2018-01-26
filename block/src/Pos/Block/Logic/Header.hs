@@ -13,11 +13,11 @@ module Pos.Block.Logic.Header
        ) where
 
 import           Universum
-import           Unsafe (unsafeLast)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import qualified Data.List as List
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
@@ -148,6 +148,7 @@ data ClassifyHeadersRes
     | CHsUseless !Text             -- ^ Header is useless.
     | CHsInvalid !Text             -- ^ Header is invalid.
 
+-- TODO: warning here
 deriving instance Show BlockHeader => Show ClassifyHeadersRes
 
 -- | Classify headers received in response to 'GetHeaders' message.
@@ -344,13 +345,13 @@ getHeadersOlderExp upto = do
     -- λ> selectIndices [4] "123456789"
     -- "5"
     selectIndices :: [Int] -> [a] -> [a]
-    selectIndices ixs elems  =
+    selectIndices ixs elements  =
         let selGo _ [] _ = []
             selGo [] _ _ = []
             selGo ee@(e:es) ii@(i:is) skipped
                 | skipped == i = e : selGo ee is skipped
                 | otherwise = selGo es ii $ succ skipped
-        in selGo elems ixs 0
+        in selGo elements ixs 0
 
 -- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
 -- is older (not strict) than @to@, and valid chain in between can be
@@ -425,8 +426,9 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
         "getHeadersRange: loaded 0 headers though checks passed. " <>
         "May be (very rare) concurrency problem, just retry"
 
-    -- It's safe to use 'unsafeLast' here after the last check.
-    let lastElem = allExceptNewest ^. _OldestFirst . to unsafeLast
+    -- It's safe to use 'List.last' here after the last check.
+    -- TODO: it's better to pattern match on _OldestFirst instead of performing unsafe functions
+    let lastElem = allExceptNewest ^. _OldestFirst . to List.last
     when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
         throwError $
         sformat ("getHeadersRange: newest block parent is not "%

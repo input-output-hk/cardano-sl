@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
                               productionB)
-import           Text.Parsec (try, parserFail)
+import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
@@ -46,7 +46,7 @@ stakeholderIdParser = do
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser =
-    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (PubKeyAddressTarget <$> Text.Parsec.try stakeholderIdParser) <|>
     (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is

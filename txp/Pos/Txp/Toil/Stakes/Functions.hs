@@ -83,9 +83,9 @@ recomputeStakes plusDistr minusDistr = do
     -- This implementation does all the computation using
     -- Integer. Maybe it's possible to do it in word64. (@volhovm)
     calcNegStakes distr hm = foldl' minusAt hm distr
-    plusAt hm (key, c) = HM.insertWith (+) key (coinToInteger c) hm
-    minusAt hm (key, c) =
-        HM.alter (maybe err (\v -> Just (v - coinToInteger c))) key hm
+    plusAt (key, c) = HM.insertWith (+) key (coinToInteger c)
+    minusAt (key, c) =
+        HM.alter (maybe err (\v -> Just (v - coinToInteger c))) key
       where
         err = error ("recomputeStakes: no stake for " <> show key)
 

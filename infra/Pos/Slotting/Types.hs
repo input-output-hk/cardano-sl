@@ -20,7 +20,7 @@ module Pos.Slotting.Types
 
 import           Universum
 
-import           Data.Map.Strict as M
+import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, toMicroseconds)
 
 import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..),

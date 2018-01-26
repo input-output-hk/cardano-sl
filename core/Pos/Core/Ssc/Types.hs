@@ -92,8 +92,6 @@ newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
     } deriving (Generic, Semigroup, Monoid, Show, Eq, ToList, NFData)
 
-type instance Element CommitmentsMap = SignedCommitment
-
 -- | Safe constructor of 'CommitmentsMap'.
 mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap
 mkCommitmentsMap = CommitmentsMap . HM.fromList . map toCommPair
@@ -213,8 +211,6 @@ instance Hashable VssCertificate where
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
     deriving (Eq, Show, Generic, NFData, ToList, Container)
-
-type instance Element VssCertificatesMap = VssCertificate
 
 makeWrapped ''VssCertificatesMap
 

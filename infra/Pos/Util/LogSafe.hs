@@ -192,7 +192,7 @@ secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
 
 -- | For public logs hides list content, showing only its size.
 secureListF
-    :: NontrivialContainer l
+    :: Container l
     => LogSecurityLevel -> Format r (l -> r) -> Format r (l -> r)
 secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
   where

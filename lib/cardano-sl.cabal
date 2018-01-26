@@ -141,6 +141,7 @@ library
 
   build-depends:        MonadRandom
                       , QuickCheck
+                      , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
                       , ansi-wl-pprint
@@ -166,7 +167,7 @@ library
                       , conduit >= 1.2.8
                       , constraints
                       , containers
-                      , cryptonite >= 0.23 && <= 0.23
+                      , cryptonite >= 0.23 && <= 0.24
                       , data-default
                       , deepseq
                       , directory

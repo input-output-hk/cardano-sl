@@ -100,7 +100,7 @@ class ApiHasArgClass apiType a where
     apiArgName :: Proxy (apiType a) -> String
     default apiArgName
         :: forall n someApiType. (KnownSymbol n, someApiType n ~ apiType)
-        => Proxy (someApiType n a) -> String
+        => Proxy (apiType a) -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
 class ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
@@ -416,8 +416,11 @@ class ApiHasArgClass apiType a =>
         :: BuildableSafe (ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     default toLogParamInfo
-        :: BuildableSafe (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredText
+        :: ( BuildableSafe (ApiArgToLog apiType a)
+           , ApiHasArgClass apiType a
+           , ApiArg apiType a ~ ApiArgToLog apiType a
+           )
+        => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a

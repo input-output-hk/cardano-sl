@@ -120,11 +120,11 @@ initGStateDlg (unGenesisDelegation -> genesisDlg) =
         map (uncurry SetTransitiveDlgRev) $ HM.toList $
         foldl' revStep mempty stIdPairs
     revStep ::
-           HashMap StakeholderId (HashSet StakeholderId)
-        -> (StakeholderId, StakeholderId)
+           (StakeholderId, StakeholderId)
         -> HashMap StakeholderId (HashSet StakeholderId)
-    revStep res (issuer, delegate) =
-        res & at delegate . non mempty . at issuer .~ Just ()
+        -> HashMap StakeholderId (HashSet StakeholderId)
+    revStep (issuer, delegate) =
+        at delegate . non mempty . at issuer .~ Just ()
     -- We assume that genesis delegation happened before 0-th epoch.
     thisEpochOperations = []
 

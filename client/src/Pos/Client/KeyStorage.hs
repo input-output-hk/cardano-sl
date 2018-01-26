@@ -78,8 +78,6 @@ newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
     } deriving (ToList, Container)
 
-type instance Element AllUserSecrets = EncryptedSecretKey
-
 getSecretKeys :: MonadKeysRead m => m AllUserSecrets
 getSecretKeys = AllUserSecrets . view usKeys <$> getSecret
 

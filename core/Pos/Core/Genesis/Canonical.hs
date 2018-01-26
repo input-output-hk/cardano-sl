@@ -7,7 +7,6 @@ module Pos.Core.Genesis.Canonical
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
@@ -63,11 +62,13 @@ instance Buildable SchemaError where
             Just actual -> " but got " <> Builder.fromText actual
         ]
 
-instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
-    expected expec actual = throwError SchemaError
-        { seExpected = fromString expec
-        , seActual = fmap fromString actual
-        }
+-- This instance is not reliable. For example, this 'expected' might trigger in 'tryParseString'.
+-- Or might not trigger. I'd prefer to remove this instance. Especially when code perfectly compiles without this instance.
+-- instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
+--     expected expec actual = throwError SchemaError
+--         { seExpected = fromString expec
+--         , seActual = fmap fromString actual
+--         }
 
 instance Monad m => ToJSON m Int32 where
     toJSON = pure . JSNum . fromIntegral

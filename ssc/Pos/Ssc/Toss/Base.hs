@@ -241,12 +241,12 @@ computeSharesDistrPure richmen threshold
         -- in total, we multiply the number of shares by 4 because
         -- 'genSharedSecret' can't break the secret into less than 4 shares.
         pure $
-            HM.fromList $ zip keys $
+            HM.fromList $ zip sids $
             (\xs -> if sum xs < 4 then map (*4) xs else xs) $
             fromMaybe (repeat 1) (compute fromX toX 0)
   where
-    keys :: [StakeholderId]
-    keys = map fst $ HM.toList richmen
+    sids :: [StakeholderId]
+    sids = map fst $ HM.toList richmen
 
     coins :: [CoinUnsafe]
     coins = map (fromIntegral . unsafeGetCoin . snd) (HM.toList richmen)

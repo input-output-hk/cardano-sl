@@ -40,10 +40,10 @@ getTotalCoinsInUtxo =
 
 -- | Convert 'Utxo' to 'StakesMap'.
 utxoToStakes :: HasGenesisData => Utxo -> StakesMap
-utxoToStakes = foldl' putDistr mempty . M.toList
+utxoToStakes = foldl' putDistr mempty . toPairs
   where
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake txOut)
+    plusAt (key, val) = HM.insertWith unsafeAddCoin key val
+    putDistr (_, TxOutAux txOut) hm = foldl' plusAt hm (txOutStake txOut)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

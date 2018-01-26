@@ -65,7 +65,3 @@ Please note that these scripts are for CI only (we use Buildkite and AppVeyor). 
 
 * `common-functions.sh` - different Bash-functions we call in other scripts.
 * `grep.sh` - search in Cardano SL source code.
-
-## Log Configuration Templates
-
-Directory `log-templates` contains different YAML-templates for logging configuration.

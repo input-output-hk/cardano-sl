@@ -20,6 +20,7 @@ library
                         Pos.Block.BListener
                         Pos.Block.Configuration
                         Pos.Block.Error
+                        Pos.Block.Genesis
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure

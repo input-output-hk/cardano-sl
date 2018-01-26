@@ -111,6 +111,11 @@ instance HasCustomSwagger DeleteAccount where
         \account in wallet)."
 
 
+instance HasCustomSwagger GetAddress where
+    swaggerModifier = modifyDescription
+        "Get info about address with given ID. \
+        \Note, this method may display address belatedly."
+
 instance HasCustomSwagger NewAddress where
     swaggerModifier = modifyDescription
         "Create a new address in given account."

@@ -56,6 +56,8 @@ servantHandlers sendActions =
      M.deleteAccount
     :<|>
 
+     M.getWAddressSingle
+    :<|>
      M.newAddress RandomSeed
     :<|>
 

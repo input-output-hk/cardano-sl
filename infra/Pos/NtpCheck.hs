@@ -14,9 +14,9 @@ import           Universum
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
-import           Mockable (CurrentTime, Delay, Fork, Mockable, Mockables, currentTime)
-import           NTP.Client (NtpClientSettings (..), ntpSingleShot, pressNtpStopButton,
-                             startNtpClient)
+import           Mockable (Async, Concurrently, CurrentTime, Delay, Mockable, Mockables,
+                           currentTime, withAsync)
+import           NTP.Client (NtpClientSettings (..), ntpSingleShot, spawnNtpClient)
 import           Serokell.Util (sec)
 import           System.Wlog (WithLogger)
 
@@ -29,15 +29,15 @@ type NtpCheckMonad m =
     ( MonadIO m
     , MonadMask m
     , MonadBaseControl IO m
-    , Mockable Fork m
+    , Mockable Async m
+    , Mockable Concurrently m
     , Mockable CurrentTime m
     , WithLogger m
     , HasInfraConfiguration
     )
 
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings m -> m a -> m a
-withNtpCheck settings action =
-    bracket (startNtpClient settings) pressNtpStopButton (const action)
+withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action)
 
 ntpSettings :: NtpCheckMonad m => (NtpStatus -> m ()) -> NtpClientSettings m
 ntpSettings onStatus = NtpClientSettings

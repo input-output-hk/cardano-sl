@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
--- | Servant API for explorer
+-- | Type-level specification of Explorer API (via Servant).
 
 module Pos.Explorer.Web.Api
        ( ExplorerApi

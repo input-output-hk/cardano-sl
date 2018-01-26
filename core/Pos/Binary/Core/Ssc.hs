@@ -19,6 +19,7 @@ import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Openi
 import           Pos.Core.Ssc.Vss (VssCertificate (..), VssCertificatesMap (..),
                                    mkVssCertificatesMap, recreateVssCertificate)
 import           Pos.Crypto (Hash, PublicKey)
+import           Pos.Util.Util (cborError, toCborError)
 
 instance Bi Commitment where
     encode Commitment{..} = encodeListLen 2 <> encode commShares
@@ -26,7 +27,7 @@ instance Bi Commitment where
     decode = do
         enforceSize "Commitment" 2
         commShares <- decode
-        when (null commShares) $ fail "decode@Commitment: no shares"
+        when (null commShares) $ cborError "decode@Commitment: no shares"
         commProof <- decode
         return $ Commitment commProof commShares
 
@@ -45,9 +46,7 @@ instance HasConfiguration => Bi VssCertificate where
         epo <- decode
         sig <- decode
         sky <- decode
-        case recreateVssCertificate key epo sig sky of
-            Left e  -> fail e
-            Right v -> pure v
+        toCborError $ recreateVssCertificate key epo sig sky
 
 instance HasConfiguration => Bi VssCertificatesMap where
     encode = encodeVssCertificates
@@ -86,7 +85,7 @@ decodeVssCertificates = do
     -- one cert will be present in resulting map and the attacker can set
     -- the other cert to be anything at all). 'mkVssCertificatesMap' checks
     -- that all certificates have distinct keys, so we can safely use it.
-    mkVssCertificatesMap certs
+    toCborError $ mkVssCertificatesMap certs
 
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList
@@ -94,8 +93,8 @@ encodeCommitments = encode . HS.fromList . toList
 decodeCommitments :: Decoder s CommitmentsMap
 decodeCommitments = do
     comms <- toList <$> decode @(HashSet SignedCommitment)
-    unless (allDistinct (map (view _1) comms :: [PublicKey])) $
-        fail "decodeCommitments: two commitments have the same signing key"
+    unless (allDistinct (map (view _1) comms :: [PublicKey])) $ cborError $
+        "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)
 
 ----------------------------------------------------------------------------

@@ -22,6 +22,9 @@ module Pos.Binary.Class.Core
     -- * GHC-Generics-based encoding & decoding
     , genericEncode
     , genericDecode
+    -- * Utils
+    , toCborError
+    , cborError
     ) where
 
 import           Universum
@@ -47,28 +50,36 @@ import qualified Data.Vector.Generic as Vector.Generic
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
+-- | This function must match the one from 'Pos.Util.Util'. It is copied here
+-- to avoid a dependency and facilitate parallel builds.
+toCborError :: Either Text a -> D.Decoder s a
+toCborError = either (fail . toString) return
+
+cborError :: Text -> D.Decoder s a
+cborError = toCborError . Left
+
 encodeBinary :: Binary.Binary a => a -> E.Encoding
 encodeBinary = encode . BS.Lazy.toStrict . Binary.encode
 
 decodeBinary :: Binary.Binary a => D.Decoder s a
 decodeBinary = do
     x <- decode @ByteString
-    case Binary.decodeOrFail (BS.Lazy.fromStrict x) of
-        Left (_, _, err) -> fail err
+    toCborError $ case Binary.decodeOrFail (BS.Lazy.fromStrict x) of
+        Left (_, _, err) -> Left (fromString err)
         Right (bs, _, res)
-            | BS.Lazy.null bs -> pure res
-            | otherwise       -> fail "decodeBinary: unconsumed input"
+            | BS.Lazy.null bs -> Right res
+            | otherwise       -> Left "decodeBinary: unconsumed input"
 
 -- | Enforces that the input size is the same as the decoded one, failing in
 -- case it's not.
-enforceSize :: String -> Int -> D.Decoder s ()
+enforceSize :: Text -> Int -> D.Decoder s ()
 enforceSize lbl requestedSize = D.decodeListLenCanonical >>= matchSize requestedSize lbl
 
 -- | Compare two sizes, failing if they are not equal.
-matchSize :: Int -> String -> Int -> D.Decoder s ()
+matchSize :: Int -> Text -> Int -> D.Decoder s ()
 matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
-    fail (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
+    cborError (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
 ----------------------------------------
 
@@ -76,7 +87,7 @@ class Typeable a => Bi a where
     encode :: a -> E.Encoding
     decode :: D.Decoder s a
 
-    label :: Proxy a -> String
+    label :: Proxy a -> Text
     label = show . typeRep
 
     encodeList :: [a] -> E.Encoding
@@ -111,9 +122,9 @@ instance Bi Bool where
 instance Bi Char where
     encode c = E.encodeString (Text.singleton c)
     decode = do t <- D.decodeString
-                if Text.length t == 1
-                  then return $! Text.head t
-                  else fail "expected a single char, found a string"
+                toCborError $ if Text.length t == 1
+                  then Right (Text.head t)
+                  else Left "expected a single char, found a string"
 
     -- For [Char]/String we have a special encoding
     encodeList cs = E.encodeString (toText cs)
@@ -169,8 +180,8 @@ instance Bi Nano where
     decode = MkFixed <$> decode
 
 instance Bi Void where
-    decode = fail "instance Bi Void: you shouldn't try to deserialize Void"
-    encode = error "instance Bi Void: you shouldn't try to serialize Void"
+    decode = cborError "instance Bi Void: you shouldn't try to deserialize Void"
+    encode = absurd
 
 ----------------------------------------------------------------------------
 -- Tagged
@@ -246,14 +257,14 @@ instance (Bi a, Bi b) => Bi (Either a b) where
                           return (Left x)
                   1 -> do !x <- decode
                           return (Right x)
-                  _ -> fail $ "decode@Either: unknown tag " <> show t
+                  _ -> cborError $ "decode@Either: unknown tag " <> show t
 
 instance Bi a => Bi (NonEmpty a) where
     encode = defaultEncodeList . toList
     decode =
-        nonEmpty <$> defaultDecodeList >>= \case
-            Nothing -> fail "Expected a NonEmpty list, but an empty list was found!"
-            Just xs -> return xs
+        nonEmpty <$> defaultDecodeList >>= toCborError . \case
+            Nothing -> Left "Expected a NonEmpty list, but an empty list was found!"
+            Just xs -> Right xs
 
 instance Bi a => Bi (Maybe a) where
     encode Nothing  = E.encodeListLen 0
@@ -264,7 +275,7 @@ instance Bi a => Bi (Maybe a) where
                   0 -> return Nothing
                   1 -> do !x <- decode
                           return (Just x)
-                  _ -> fail $ "decode@Maybe: unknown tag " <> show n
+                  _ -> cborError $ "decode@Maybe: unknown tag " <> show n
 
 encodeContainerSkel :: (Word -> E.Encoding)
                     -> (container -> Int)
@@ -352,7 +363,7 @@ decodeMapSkel fromDistinctAscList = do
         -- key on the list is the same in all of them.
         case newKey > previousKey of
             True  -> decodeEntries (remainingPairs - 1) newKey (p : acc)
-            False -> fail "Canonicity violation whilst decoding a Map!"
+            False -> cborError "Canonicity violation whilst decoding a Map!"
 {-# INLINE decodeMapSkel #-}
 
 instance (Hashable k, Ord k, Bi k, Bi v) => Bi (HM.HashMap k v) where
@@ -392,7 +403,7 @@ encodeSetTag = E.encodeTag setTag
 decodeSetTag :: D.Decoder s ()
 decodeSetTag = do
     t <- D.decodeTagCanonical
-    when (t /= setTag) $ fail ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
+    when (t /= setTag) $ cborError ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
 decodeSetSkel fromDistinctAscList = do
@@ -413,7 +424,7 @@ decodeSetSkel fromDistinctAscList = do
         -- will result in the same set.
         case newValue > previousValue of
             True  -> decodeEntries (remainingEntries - 1) newValue (newValue : acc)
-            False -> fail "Canonicity violation whilst decoding a Set!"
+            False -> cborError "Canonicity violation whilst decoding a Set!"
 {-# INLINE decodeSetSkel #-}
 
 instance (Hashable a, Ord a, Bi a) => Bi (HashSet a) where
@@ -500,7 +511,7 @@ instance GSerialiseEncode G.U1 where
 instance GSerialiseDecode G.U1 where
     gdecode   = do
       n <- D.decodeListLenCanonical
-      when (n /= 0) $ fail "expect list of length 0"
+      when (n /= 0) $ cborError "expect list of length 0"
       return G.U1
 
 instance GSerialiseEncode a => GSerialiseEncode (G.M1 i c a) where
@@ -520,7 +531,7 @@ instance Bi a => GSerialiseDecode (G.K1 i a) where
     gdecode = do
       n <- D.decodeListLenCanonical
       when (n /= 1) $
-        fail "expect list of length 1"
+        cborError "expect list of length 1"
       G.K1 <$> decode
 
 instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f G.:*: g) where
@@ -536,7 +547,7 @@ instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseDecode (f G.:*: g) wh
       n <- D.decodeListLenCanonical
       -- TODO FIXME: signedness of list length
       when (fromIntegral n /= nF) $
-        fail $ "Wrong number of fields: expected="++show (nF)++" got="++show n
+        cborError $ "Wrong number of fields: expected="<>show (nF)<>" got="<>show n
       !f <- gdecodeSeq
       !g <- gdecodeSeq
       return $ f G.:*: g
@@ -553,11 +564,11 @@ instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseDecode (f G.:+: g) wher
         n <- D.decodeListLenCanonical
         -- TODO FIXME: Again signedness
         when (n == 0) $
-          fail "Empty list encountered for sum type"
+          cborError "Empty list encountered for sum type"
         nCon  <- D.decodeWordCanonical
         trueN <- fieldsForCon (Proxy :: Proxy (f G.:+: g)) nCon
         when (n-1 /= fromIntegral trueN ) $
-          fail $ "Number of fields mismatch: expected="++show trueN++" got="++show n
+          cborError $ "Number of fields mismatch: expected="<>show trueN<>" got="<>show n
         decodeSum nCon
 
 
@@ -644,6 +655,6 @@ instance (i ~ G.C, GSerialiseProd f) => GSerialiseSum (G.M1 i c f) where
 
     nConstructors  _ = 1
     fieldsForCon _ 0 = return $ nFields (Proxy :: Proxy f)
-    fieldsForCon _ _ = fail "Bad constructor number"
+    fieldsForCon _ _ = cborError "Bad constructor number"
     decodeSum      0 = G.M1 <$> gdecodeSeq
-    decodeSum      _ = fail "bad constructor number"
+    decodeSum      _ = cborError "bad constructor number"

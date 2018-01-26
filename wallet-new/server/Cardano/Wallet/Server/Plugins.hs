@@ -8,6 +8,8 @@ module Cardano.Wallet.Server.Plugins (
     , acidCleanupWorker
     , conversation
     , walletBackend
+    , resubmitterPlugin
+    , notifierPlugin
     ) where
 
 import           Universum
@@ -87,10 +89,17 @@ walletBackend WalletBackendParams {..} =
       wsConn <- getWalletWebSockets
       ctx <- V0.walletWebModeContext
       syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-      startPendingTxsResubmitter
       launchNotifier (V0.convertHandler ctx)
       let app = upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx))
       return $ withMiddleware walletRunMode app
+
+-- | A @Plugin@ to resubmit pending transactions.
+resubmitterPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
+resubmitterPlugin = ([ActionSpec $ \_ _ -> startPendingTxsResubmitter], mempty)
+
+-- | A @Plugin@ to notify frontend via websockets.
+notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
+notifierPlugin = ([ActionSpec $ \_ _ -> V0.notifierPlugin], mempty)
 
 -- | "Attaches" the middleware to this 'Application', if any.
 -- When running in debug mode, chances are we want to at least allow CORS to test the API
@@ -107,4 +116,3 @@ corsMiddleware = cors (const $ Just policy)
         { corsRequestHeaders = ["Content-Type"]
         , corsMethods = "PUT" : simpleMethods
         }
-

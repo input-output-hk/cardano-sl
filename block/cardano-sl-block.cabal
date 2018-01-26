@@ -106,7 +106,7 @@ library
                       , mtl
                       , random
                       , reflection
-                      , rocksdb-haskell
+                      , rocksdb-haskell-ng
                       , safe-exceptions
                       , serokell-util
                       , stm

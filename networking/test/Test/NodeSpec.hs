@@ -13,9 +13,9 @@ module Test.NodeSpec
 
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Exception.Safe (catch)
+import           Control.Exception.Safe (catch, throwM)
 import           Control.Lens (sans, (%=), (&~), (.=))
-import           Control.Monad (forM_, when)
+import           Control.Monad (forM_, when, unless)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
 import           Network.QDisc.Fair (fairQDisc)
@@ -75,7 +75,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 let attempts = 1
 
                 let listener = Listener $ \pd _ cactions -> do
-                        True <- return $ pd == ("client", 24)
+                        unless (pd == ("client", 24)) (error "bad pd")
                         initial <- timeout "server waiting for request" 30000000 (recv cactions maxBound)
                         case initial of
                             Nothing -> error "got no initial message"
@@ -93,7 +93,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         NodeAction (const [listener]) $ \converse -> do
                             serverAddress <- readSharedExclusive serverAddressVar
                             forM_ [1..attempts] $ \i -> converseWith converse serverAddress $ \peerData -> Conversation $ \cactions -> do
-                                True <- return $ peerData == ("server", 42)
+                                unless (peerData == ("server", 42)) (error "bad peer data")
                                 _ <- timeout "client sending" 30000000 (send cactions (Parcel i (Payload 32)))
                                 response <- timeout "client waiting for response" 30000000 (recv cactions maxBound)
                                 case response of
@@ -120,7 +120,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 let attempts = 100
 
                 let listener = Listener $ \pd _ cactions -> do
-                        True <- return $ pd == ("some string", 42)
+                        unless (pd == ("some string", 42)) (error "bad pd")
                         initial <- recv cactions maxBound
                         case initial of
                             Nothing -> error "got no initial message"
@@ -131,7 +131,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
                     NodeAction (const [listener]) $ \converse -> do
                         forM_ [1..attempts] $ \i -> converseWith converse (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
-                            True <- return $ peerData == ("some string", 42)
+                            unless (peerData == ("some string", 42)) (error "bad peer data")
                             _ <- send cactions (Parcel i (Payload 32))
                             response <- recv cactions maxBound
                             case response of
@@ -149,7 +149,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         }
                 -- An endpoint to which the node will connect. It will never
                 -- respond to the node's SYN.
-                Right ep <- NT.newEndPoint transport
+                ep <- NT.newEndPoint transport >>= either throwM return
                 let peerAddr = NodeId (NT.address ep)
                 -- Must clear the endpoint's receive queue so that it's
                 -- never blocked on enqueue.

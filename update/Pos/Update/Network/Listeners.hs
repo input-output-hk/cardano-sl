@@ -80,8 +80,8 @@ voteRelay =
         NoMempool $
         InvReqDataParams
            { invReqMsgType = MsgTransaction
-           , contentsToKey = \UpdateVote{..} ->
-                 pure $ tag (uvProposalId, uvKey, uvDecision)
+           , contentsToKey = \vote ->
+                 pure $ tag (uvProposalId vote, uvKey vote, uvDecision vote)
            , handleInv = \_ (Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
            , handleReq = \_ (Tagged (id, pk, dec)) -> getLocalVote id pk dec
            , handleData = \_ uv -> do
@@ -101,7 +101,7 @@ voteRelay =
 -- Helpers
 ----------------------------------------------------------------------------
 
--- Update votes are accepted rarely (at least before Shelely), so
+-- Update votes are accepted rarely (at least before Shelley), so
 -- it deserves 'Notice' severity.
 logVoteAccepted :: WithLogger m => UpdateVote -> m ()
 logVoteAccepted =

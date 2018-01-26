@@ -1,3 +1,5 @@
+-- | Worker that tracks peer updates from Kademlia and calls
+-- 'updatePeersBucket' on each update.
 
 module Pos.Subscription.Dht
     ( dhtSubscriptionWorker

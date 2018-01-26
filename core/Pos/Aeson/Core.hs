@@ -101,11 +101,11 @@ instance ToJSON Address where
 deriveJSON defaultOptions ''BlockCount
 
 instance FromJSON ApplicationName where
-    -- mkApplicationName will fail if the parsed text isn't appropriate.
+    -- mkApplicationName will validate the text to be an appropriate app name
     --
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = parseJSON v >>= mkApplicationName
+    parseJSON v = parseJSON v >>= toAesonError . mkApplicationName
 
 deriveToJSON defaultOptions ''ApplicationName
 

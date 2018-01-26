@@ -55,15 +55,15 @@ mkVssCertificate sk vk expiry =
 -- | Recreate 'VssCertificate' from its contents. This function main
 -- 'fail' if data is invalid.
 recreateVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadFail m)
+    :: (HasCryptoConfiguration, Bi EpochIndex)
     => AsBinary VssPublicKey
     -> EpochIndex
     -> Signature (AsBinary VssPublicKey, EpochIndex)
     -> PublicKey
-    -> m VssCertificate
+    -> Either Text VssCertificate
 recreateVssCertificate vssKey epoch sig pk =
     res <$
-    (unless (checkCertSign res) $ fail "recreateVssCertificate: invalid sign")
+    (unless (checkCertSign res) $ Left "recreateVssCertificate: invalid sign")
   where
     res =
         UnsafeVssCertificate
@@ -90,14 +90,12 @@ toCertPair vc = (getCertId vc, vc)
 
 -- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
 -- with duplicate signing keys or with duplicate 'vcVssKey's.
-mkVssCertificatesMap
-    :: MonadFail m
-    => [VssCertificate] -> m VssCertificatesMap
+mkVssCertificatesMap :: [VssCertificate] -> Either Text VssCertificatesMap
 mkVssCertificatesMap certs = do
     unless (allDistinct (map vcSigningKey certs)) $
-        fail "mkVssCertificatesMap: two certs have the same signing key"
+        Left "mkVssCertificatesMap: two certs have the same signing key"
     unless (allDistinct (map vcVssKey certs)) $
-        fail "mkVssCertificatesMap: two certs have the same VSS key"
+        Left "mkVssCertificatesMap: two certs have the same VSS key"
     pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away

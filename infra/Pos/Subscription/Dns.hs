@@ -3,13 +3,14 @@ module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Universum
+
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
-import           Universum
 
 import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAtomicT, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
@@ -21,7 +22,7 @@ import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
 import           Pos.Slotting (MonadSlotsData, getNextEpochSlotDuration)
-import           Pos.Subscription.Common
+import           Pos.Subscription.Common (SubscriptionMode, subscribeTo)
 import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker

@@ -1,13 +1,17 @@
 -- | Canonical encoding of 'GenesisData'.
 
 module Pos.Core.Genesis.Canonical
-       (
+       ( SchemaError(..)
        ) where
 
 import           Universum
 
+import           Control.Lens (_Left)
+import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Text.Buildable as Buildable
+import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Data.Typeable (typeRep)
 import           Formatting (formatToString)
@@ -46,13 +50,24 @@ import           Pos.Crypto.Configuration (ProtocolMagic (..))
 -- Primitive standard/3rdparty types
 ----------------------------------------------------------------------------
 
-instance (Monad m, Applicative m, MonadFail m) => ReportSchemaErrors m where
-    expected expec got = fail $ mconcat
-        [ "expected "
-        , expec
-        , " but got "
-        , fromMaybe "" got
+data SchemaError = SchemaError
+    { seExpected :: !Text
+    , seActual   :: !(Maybe Text)
+    } deriving (Show)
+
+instance Buildable SchemaError where
+    build SchemaError{..} = mconcat
+        [ "expected " <> Builder.fromText seExpected
+        , case seActual of
+            Nothing     -> mempty
+            Just actual -> " but got " <> Builder.fromText actual
         ]
+
+instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
+    expected expec actual = throwError SchemaError
+        { seExpected = fromString expec
+        , seActual = fmap fromString actual
+        }
 
 instance Monad m => ToJSON m Int32 where
     toJSON = pure . JSNum . fromIntegral
@@ -145,14 +160,14 @@ instance Monad m => ToJSON m Address where
     toJSON = fmap JSString . toObjectKey
 
 instance Monad m => ToJSON m (ProxySecretKey EpochIndex) where
-    toJSON ProxySecretKey {..} =
+    toJSON psk =
         -- omega is encoded as a number, because in genesis we always
         -- set it to 0.
         mkObject
-            [ ("omega", pure (JSNum . fromIntegral $ pskOmega))
-            , ("issuerPk", toJSON pskIssuerPk)
-            , ("delegatePk", toJSON pskDelegatePk)
-            , ("cert", toJSON pskCert)
+            [ ("omega", pure (JSNum . fromIntegral $ pskOmega psk))
+            , ("issuerPk", toJSON $ pskIssuerPk psk)
+            , ("delegatePk", toJSON $ pskDelegatePk psk)
+            , ("cert", toJSON $ pskCert psk)
             ]
 
 instance Monad m => ToJSON m SoftforkRule where
@@ -329,7 +344,7 @@ instance (Typeable x, ReportSchemaErrors m) => FromJSON m (Signature x) where
 instance ReportSchemaErrors m => FromObjectKey m RedeemPublicKey where
     fromObjectKey =
         fmap Just .
-        tryParseString (fromAvvmPk :: Text -> Either String RedeemPublicKey) .
+        tryParseString (over _Left pretty . fromAvvmPk) .
         JSString
 
 instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
@@ -367,7 +382,7 @@ instance ReportSchemaErrors m => FromJSON m Coin where
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
     fromJSON val = do
         number <- fromJSON val
-        wrapConstructor @String $ mkCoinPortion number
+        wrapConstructor $ mkCoinPortion number
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =
@@ -386,7 +401,7 @@ instance ReportSchemaErrors m => FromJSON m (ProxySecretKey EpochIndex) where
         pskIssuerPk <- fromJSField obj "issuerPk"
         pskDelegatePk <- fromJSField obj "delegatePk"
         pskCert <- fromJSField obj "cert"
-        return ProxySecretKey {..}
+        pure UnsafeProxySecretKey{..}
 
 instance ReportSchemaErrors m => FromJSON m SoftforkRule where
     fromJSON obj = do

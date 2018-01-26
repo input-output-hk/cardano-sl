@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative (empty, (<|>))
+import           Control.Exception.Safe (Exception, handle, throwString)
 import           Control.Lens (at, (%=), (^.), _2, _Just)
 import           Control.Monad (forM_)
 import           Control.Monad.State (StateT (..), evalStateT, execStateT, get, modify)
@@ -27,8 +28,8 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), Meas
                                         Payload (..), Timestamp, logMessageParser,
                                         measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
-import           System.Wlog (LoggerNameBox, Severity (Info), initTerminalLogging, logError,
-                              logWarning, usingLoggerName)
+import           System.Wlog (LoggerNameBox, logError, logWarning, productionB, setupLogging,
+                              usingLoggerName)
 import           System.Wlog.Formatter (centiUtcTimeF)
 
 
@@ -106,7 +107,7 @@ printMeasures file measures = runResourceT $
         upd m (ev, ts) = m >>= \m' ->
             case ev `M.lookup` m' of
               Nothing -> return $ M.insert ev ts m'
-              _       -> fail ""
+              _       -> throwString ""
 
     alignColumns = map (\(s, m) -> bprint (right s ' ') m)
                   . zip (7 : 7 : (18 <$ eventsUniverse))
@@ -123,7 +124,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = usingLoggerName mempty $ do
-    initTerminalLogging centiUtcTimeF True True (Just Info)
+    setupLogging (Just centiUtcTimeF) productionB
     Args{..} <- liftIO getOptions
     measures <- flip execStateT M.empty $
         forM_ inputFiles analyze

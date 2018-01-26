@@ -104,6 +104,7 @@ library
   build-depends:        QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
+                      , async
                       , base
                       , base58-bytestring
                       , bytestring
@@ -198,7 +199,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-executable cardano-node-old
+executable cardano-node
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions

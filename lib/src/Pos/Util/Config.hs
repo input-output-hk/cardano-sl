@@ -15,7 +15,7 @@ import qualified Language.Haskell.TH.Syntax as TH
 import           System.Directory (canonicalizePath, getDirectoryContents)
 import           System.FilePath (takeDirectory, takeFileName, (</>))
 
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Util (maybeThrow, templateHaskellError)
 
 embedYamlObject :: Y.FromJSON r => FilePath -> FilePath -> (r -> TH.Q TH.Exp) -> TH.Q TH.Exp
 embedYamlObject name marker parser = do
@@ -41,15 +41,18 @@ embedYamlObject name marker parser = do
     TH.qAddDependentFile path
     TH.runIO (Y.decodeFileEither path) >>= \case
         Right x  -> parser x
-        Left err -> fail $ "Couldn't parse " ++ path ++ ": " ++
-                           Y.prettyPrintParseException err
+        Left err -> templateHaskellError $
+            "Couldn't parse " <> pretty path <> ": " <>
+            fromString (Y.prettyPrintParseException err)
 
 embedYamlConfigCT :: forall conf . (Y.FromJSON conf, TH.Lift conf)
                 => Proxy conf -> FilePath -> FilePath -> Text -> TH.Q TH.Exp
 embedYamlConfigCT _ name marker key =
     embedYamlObject @(Map Text conf) name marker $ \multiConfig ->
-    maybe (fail $ "Embedded file " <> name <> " contains no key " <> toString key)
-          TH.lift (Map.lookup key multiConfig)
+        case Map.lookup key multiConfig of
+            Just a -> TH.lift a
+            Nothing -> templateHaskellError $
+                "Embedded file " <> fromString name <> " contains no key " <> key
 
 parseYamlConfig :: (MonadThrow m, MonadIO m, Y.FromJSON conf)
             => FilePath -> Text -> m conf

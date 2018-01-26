@@ -81,6 +81,8 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     plugins = mconcat [ Plugins.conversation wArgs
                       , Plugins.walletBackend wArgs
                       , Plugins.acidCleanupWorker wArgs
+                      , Plugins.resubmitterPlugin
+                      , Plugins.notifierPlugin
                       ]
 
 -- | Runs an edge node plus its wallet backend API.

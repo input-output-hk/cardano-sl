@@ -54,7 +54,7 @@ instance Buildable BackupPhrase where
     build _ = "<backup phrase>"
 
 instance Read BackupPhrase where
-    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
+    readsPrec _ str = either (const []) (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
 
 toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList

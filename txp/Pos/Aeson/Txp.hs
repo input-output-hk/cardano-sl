@@ -19,7 +19,7 @@ import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
 import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                TxSigData)
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
-import           Pos.Util.Util (toAesonError)
+import           Pos.Util.Util (toAesonError, aesonError)
 
 txInFromText :: Text -> Either Text TxIn
 txInFromText t = case T.splitOn "_" t of
@@ -88,11 +88,9 @@ instance FromJSON TxInWitness where
             "UnknownWitnessType" -> do
                 (o .: "contents") >>= \case
                     [a, b] -> UnknownWitnessType <$> parseJSON a <*> (getJsonByteString <$> parseJSON b)
-                    _      -> toAesonError . Left $
-                        "expected 'contents' to have two elements"
+                    _      -> aesonError $ "expected 'contents' to have two elements"
             _  ->
-                toAesonError . Left $
-                    "expected 'tag' to be one of 'PkWitness', 'ScriptWitness', \
+                aesonError $ "expected 'tag' to be one of 'PkWitness', 'ScriptWitness', \
                     \'RedeemWitness', 'UnknownWitnessType'"
 
 deriveJSON defaultOptions ''Tx

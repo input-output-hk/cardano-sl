@@ -27,8 +27,8 @@ data NtpPacket = NtpPacket
     , ntpTransmitTime :: Microsecond  -- when client sent request
     } deriving (Show)
 
--- | NTP timestamp is not the same as time past from start of UNIX epoch - differ in
--- 70 years
+-- | NTP timestamp is not the same as time past from start of UNIX epoch — they
+-- differ by 70 years.
 ntpTimestampDelta :: Integer
 ntpTimestampDelta = 2208988800
 

@@ -61,9 +61,9 @@ pushd daedalus
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .
-  cp ../cardano-sl-wallet.root/bin/cardano-node-old .
+  cp ../cardano-sl-wallet.root/bin/cardano-node .
   # check that binaries exit with 0
-  ./cardano-node-old --help > /dev/null
+  ./cardano-node --help > /dev/null
   ./cardano-launcher --help > /dev/null
 popd
 

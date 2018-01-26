@@ -12,7 +12,7 @@ import           Control.Lens (_Left)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
-import           Pos.Binary.Class (AsBinary, fromBinaryM)
+import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Core (SharedSeed, StakeholderId, addressHash, mkCoin, sumCoins,
                            unsafeIntegerToCoin)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (..), Opening (..), OpeningsMap,
@@ -47,7 +47,7 @@ calculateSeed commitments' binVssKeys openings lShares richmen = do
     let participants :: HashSet StakeholderId
         participants = getKeys commitments
     vssKeys :: HashMap StakeholderId VssPublicKey <-
-        over _Left BrokenVssKey $ mapFailing fromBinaryM binVssKeys
+        over _Left BrokenVssKey $ mapFailing (rightToMaybe . fromBinary) binVssKeys
 
     -- First let's do some sanity checks.
     let nonRichmen :: HashSet StakeholderId
@@ -90,7 +90,7 @@ calculateSeed commitments' binVssKeys openings lShares richmen = do
     -- shares :: HashMap StakeholderId
     --                   (HashMap StakeholderId (NonEmpty DecShare))
     shares <- over _Left BrokenShare $
-              mapFailing (traverse (traverse fromBinaryM)) lShares
+              mapFailing (traverse (traverse (rightToMaybe . fromBinary))) lShares
     -- Get shares of some particular stakeholder's secret
     let getShares :: StakeholderId -> HashMap VssPublicKey (NonEmpty DecShare)
         getShares sender = HM.fromList $ catMaybes $ do
@@ -127,7 +127,7 @@ calculateSeed commitments' binVssKeys openings lShares richmen = do
             pure secret
 
     secrets0 <- over _Left BrokenSecret $
-                mapFailing (fromBinaryM . getOpening) openings
+                mapFailing (rightToMaybe . fromBinary . getOpening) openings
 
     -- All secrets, both recovered and from openings
     let secrets :: HashMap StakeholderId Secret

@@ -6,9 +6,12 @@ module Pos.Binary.Core.Slotting
 
 import           Universum
 
+import           Control.Lens (_Left)
+
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBiCxt)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import qualified Pos.Core.Slotting as T
+import           Pos.Util.Util (toCborError)
 
 instance Bi T.Timestamp where
     encode (T.Timestamp ms) = encode . toInteger $ ms
@@ -26,9 +29,9 @@ instance HasProtocolConstants => Bi T.LocalSlotIndex where
     encode = encode . T.getSlotIndex
     decode = do
         word16 <- decode @Word16
-        case T.mkLocalSlotIndex word16 of
-            Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
-            Right slotIndex -> return slotIndex
+        toCborError $
+            over _Left ("decode@LocalSlotIndex: " <>) $
+            T.mkLocalSlotIndex word16
 
 deriveSimpleBiCxt [t| HasProtocolConstants |] ''T.SlotId [
     Cons 'T.SlotId [

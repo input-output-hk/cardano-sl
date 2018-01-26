@@ -458,11 +458,17 @@ runUpdater ndbp ud = do
                 -- this will throw an exception if the file doesn't exist but
                 -- hopefully if the updater has succeeded it *does* exist
                 whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
-                    updateArchive <- BS.L.readFile updateArchivePath
-                    bracketNodeDBs ndbp $ \lmcNodeDBs ->
-                        usingReaderT LauncherModeContext{..} $
-                        affirmUpdateInstalled (installerHash updateArchive)
-                    removeFile updateArchivePath
+                    let affirmInstalled = do
+                            updateArchive <- BS.L.readFile updateArchivePath
+                            bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                                usingReaderT LauncherModeContext{..} $
+                                affirmUpdateInstalled (installerHash updateArchive)
+                        removeInstaller = removeFile updateArchivePath
+                    -- Even if we fail to affirm that update was
+                    -- installed, we still want to remove installer to
+                    -- avoid infinite loop. If we don't remove it, we
+                    -- will launch it again and again.
+                    affirmInstalled `finally` removeInstaller
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 

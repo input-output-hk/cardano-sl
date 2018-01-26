@@ -121,7 +121,8 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
+      staticPeersOnChange   :: (Peers NodeId -> m ()) -> IO ()
+    , staticPeersMonitoring :: forall n. (MonadIO n, WithLogger n) => n ()
     }
 
 instance Show StaticPeers where

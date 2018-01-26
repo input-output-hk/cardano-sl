@@ -51,3 +51,52 @@ done
   #./update-cli-docs.sh
   #./update-haddock.sh
 #fi
+
+# Generate daedalus-bridge
+mkdir -p daedalus
+pushd daedalus
+  echo $BUILDKITE_BUILD_NUMBER > build-id
+  echo $BUILDKITE_COMMIT > commit-id
+  cp ../log-configs/daedalus.yaml ./log-config-prod.yaml
+  cp ../lib/configuration.yaml .
+  cp ../lib/*genesis*.json .
+  cp ../cardano-sl-tools.root/bin/cardano-launcher .
+  cp ../cardano-sl-wallet.root/bin/cardano-node .
+  # check that binaries exit with 0
+  ./cardano-node --help > /dev/null
+  ./cardano-launcher --help > /dev/null
+popd
+
+# Replace BUILDKITE_BRANCH slash not to fail on subdirectory missing
+export BUILD_UID="$OS_NAME-${BUILDKITE_BRANCH//\//-}"
+export XZ_OPT=-1
+
+###
+### Artifact upload
+###
+ARTIFACT_BUCKET=ci-output-sink        # ex- cardano-sl-travis
+CARDANO_ARTIFACT=cardano-binaries     # ex- daedalus-bridge
+CARDANO_ARTIFACT_FULL_NAME=${CARDANO_ARTIFACT}-${BUILD_UID}
+
+echo "Packing up ${CARDANO_ARTIFACT} ..."
+APP_NAME=cardano-sl
+mkdir -p ${APP_NAME}
+tar cJf ${APP_NAME}/${CARDANO_ARTIFACT_FULL_NAME}.tar.xz daedalus/
+echo "Uploading.."
+buildkite-agent artifact upload ${APP_NAME}/${CARDANO_ARTIFACT_FULL_NAME}.tar.xz s3://${ARTIFACT_BUCKET} --job ${BUILDKITE_JOB_ID}
+echo "Done."
+
+# For now we dont have macOS developers on explorer
+if [[ ("$OS_NAME" == "linux") ]]; then
+  # Generate explorer frontend
+  export EXPLORER_EXECUTABLE=$(pwd)/cardano-sl-explorer-static.root/bin/cardano-explorer-hs2purs
+  ./explorer/frontend/scripts/build.sh
+
+  echo "Packing up explorer-frontend ..."
+  APP_NAME=cardano-sl-explorer
+  mkdir -p ${APP_NAME}
+  tar cJf ${APP_NAME}/explorer-frontend-$BUILD_UID.tar.xz explorer/frontend/dist
+  echo "Uploading.."
+  buildkite-agent artifact upload "${APP_NAME}/explorer-frontend-$BUILD_UID.tar.xz" s3://${ARTIFACT_BUCKET} --job $BUILDKITE_JOB_ID
+  echo "Done."
+fi

@@ -29,7 +29,7 @@ scripts/ci/                     @iohk-devops
 
 Delegation/                     @volhovm
 
-Wallet/                         @akegalj
+Wallet/                         @akegalj @adinapoli-iohk
 
 txp/                            @gromakovsky @pva701 @neongreen
 update/                         @gromakovsky @pva701
@@ -59,9 +59,9 @@ networking/                     @dcoutts @avieth
 scripts/bench                   @kantp @avieth
 
 # Wallet
-wallet/src                      @martoon @akegalj
-wallet/purescript               @akegalj
-wallet/web-api-swagger          @martoon
+wallet/src                      @martoon @akegalj @adinapoli-iohk
+wallet/purescript               @akegalj @adinapoli-iohk
+wallet/web-api-swagger          @martoon @adinapoli-iohk
 wallet-new/                     @adinapoli-iohk
 
 ## Auxx

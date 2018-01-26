@@ -56,7 +56,8 @@ actionWithWallet ::
     -> NodeParams
     -> WalletArgs
     -> Production ()
-actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
+actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
+    logInfo "Running `actionWithWallet'"
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams

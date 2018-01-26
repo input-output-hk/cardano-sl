@@ -20,11 +20,13 @@ import           Universum
 import           Network.Wai (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
+import           System.Wlog (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
@@ -70,24 +72,28 @@ bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
        , HasConfigurations
+       , WithLogger m
        )
     => FilePath  -- ^ Path to wallet acid-state
     -> Bool      -- ^ Rebuild flag for acid-state
     -> (ExtendedState WalletStorage -> m a)
     -> m a
 bracketWalletWebDB daedalusDbPath dbRebuild =
-    bracket (openState dbRebuild daedalusDbPath)
-            closeState
+    bracketWithLogging msg (openState dbRebuild daedalusDbPath) closeState
+  where
+    msg = "bracketWalletWebDB"
 
 bracketWalletWS
     :: ( MonadIO m
        , MonadMask m
+       , WithLogger m
        )
     => (ConnectionsVar -> m a)
     -> m a
-bracketWalletWS = bracket initWS closeWSConnections
+bracketWalletWS = bracketWithLogging msg initWS closeWSConnections
   where
-    initWS = putText "walletServeImpl initWsConnection" >> initWSConnections
+    initWS = logInfo "walletServeImpl initWsConnection" >> initWSConnections
+    msg = "bracketWalletWS"
 
 walletServerOuts :: OutSpecs
 walletServerOuts = sendTxOuts

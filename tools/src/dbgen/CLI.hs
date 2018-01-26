@@ -21,9 +21,6 @@ data CLI = CLI
     -- ^ The path to the secret key from the database.
     , walletPath        :: FilePath
     -- ^ The path to a valid acid-state database.
-    , addTo             :: Maybe AccountId
-    -- ^ If specified, only append addresses to the
-    -- given <wallet_id@account_id>
     , configurationPath :: FilePath
     -- ^ The path to a valid cardano-sl configuration.
     , configurationProf :: String
@@ -34,7 +31,11 @@ data CLI = CLI
     -- ^ If true, print the stats for the `wallet-db`
     , queryMethod       :: Maybe Method
     -- ^ If true, generate a DB targeting mainnet.
+    , addTo             :: Maybe AccountId
+    -- ^ If specified, only append addresses to the
+    -- given <wallet_id@account_id>
     , genFakeUtxo       :: Bool
+    -- ^ If true, generate fake UTXO.
     }
 
 
@@ -52,10 +53,6 @@ instance ParseRecord CLI where
               <*> (strOption (long "walletDB" <> metavar "acidstate-path"
                              <> help "A path to a valid acidstate database."
                                       ))
-              <*> (optional (option (eitherReader readAccountId)
-                            (long "add-to" <> metavar "walletId@accountId"
-                                           <> help "Append to an existing wallet & account."
-              )))
               <*> (strOption (long "configPath" <> metavar "configuration-path"
                              <> help "A path to a valid cardano-sl configuration."
                                       ))
@@ -66,6 +63,10 @@ instance ParseRecord CLI where
                              <> help "A valid node system start to use."))
               <*> switch (long "stats" <> help "Show stats for this wallet.")
               <*> ((readMaybe =<<) <$> (optional (strOption (long "query" <> help "Query a predefined endpoint."))))
+              <*> (optional (option (eitherReader readAccountId)
+                            (long "add-to" <> metavar "walletId@accountId"
+                                           <> help "Append to an existing wallet & account."
+              )))
               <*> switch (long "genFakeUtxo" <> help "Generate fake UTXO for the wallet. Fake as-in doesn't exist in node DB.")
 
 

@@ -16,12 +16,17 @@ import           Data.Function                        (id)
 import qualified Data.ByteString                      as B
 import           Data.String.Conv
 import           Data.Time
-import           Dhall
+import           Data.Map                             (union, fromList)
+import           Dhall                                (Interpret, input, auto)
 import           GHC.Generics                         (Generic)
-import           Network.Haskoin.Crypto
+import           Network.Haskoin.Crypto               (Entropy, toMnemonic)
 import           Pos.Crypto.Random
 import           Pos.DB.GState.Common                 (getTip)
 import           Pos.StateLock
+import           Pos.Core.Address                     (Address)
+import           Pos.Core.Types                       (Coin, mkCoin)
+import           Pos.Txp.Core.Types                   (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil.Types                   (utxoToModifier)
 import           Pos.Util.BackupPhrase
 import           Pos.Util.Servant
 import           Pos.Util.Util                        (lensOf)
@@ -30,6 +35,8 @@ import           Pos.Wallet.Web.ClientTypes
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic
 import           Pos.Wallet.Web.Methods.Restore
+import           Pos.Wallet.Web.State.State           (getWalletUtxo, setWalletUtxo, updateWalletBalancesAndUtxo)
+import           Test.QuickCheck                      (arbitrary, generate)
 import           Rendering
 import           Text.Printf
 
@@ -37,30 +44,45 @@ import           Text.Printf
 -- Types
 --
 
-data GenSpec = GenSpec {
-    wallets       :: !Integer
+data GenSpec = GenSpec
+    { wallets     :: !Integer
     -- ^ How many wallets to create
     , wallet_spec :: WalletSpec
     -- ^ The specification for each wallet.
+    , fakeUtxo    :: FakeUtxoSpec
     } deriving (Show, Eq, Generic)
 
 instance Interpret GenSpec
 
-data WalletSpec = WalletSpec {
-    accounts       :: !Integer
+data WalletSpec = WalletSpec
+    { accounts      :: !Integer
     -- ^ How many accounts to generate
-    , account_spec :: AccountSpec
+    , account_spec  :: AccountSpec
     -- ^ How specification for each account.
     } deriving (Show, Eq, Generic)
 
 instance Interpret WalletSpec
 
-data AccountSpec = AccountSpec {
-    addresses :: !Integer
-    -- How many addresses to generate.
+data AccountSpec = AccountSpec
+    { addresses :: !Integer
+    -- ^ How many addresses to generate.
     } deriving (Show, Eq, Generic)
 
 instance Interpret AccountSpec
+
+-- TODO(ks): The question here is whether we need to support some other
+-- strategies for distributing money, like maybe using a fixed amount
+-- of `toAddress` to cap the distribution - we have examples where we
+-- have around 80 000 addresses which is a lot and can be intensive?
+-- For now, KISS.
+data FakeUtxoSpec = FakeUtxoSpec
+    {  fromAddress  :: !Integer
+    -- ^ How many addresses to contain fake ADA.
+    ,  amount       :: !Integer
+    -- ^ How much ADA do we want to distribute in a single address.
+    } deriving (Show, Eq, Generic)
+
+instance Interpret FakeUtxoSpec
 
 --
 -- Functions
@@ -94,19 +116,56 @@ fakeSync = do
     () <$ tryPutMVar mvar tip
 
 -- | The main entry point.
-generate :: CLI -> GenSpec -> UberMonad ()
-generate CLI{..} spec@GenSpec{..} = do
+generateWalletDB :: CLI -> GenSpec -> UberMonad ()
+generateWalletDB CLI{..} spec@GenSpec{..} = do
     fakeSync
     -- If `addTo` is not mempty, skip the generation
     -- but append the requested addresses to the input
     -- CAccountId.
+
+    -- TODO(ks): Simplify this?
     case addTo of
-        Just accId -> addAddressesTo accId spec
+        Just accId -> if genFakeUtxo
+            then generateFakeUtxo spec accId
+            else addAddressesTo accId spec
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
             wallets' <- timed (forM [1..wallets] genWallet)
             forM_ (zip [1..] wallets') (genAccounts spec)
     say $ green "OK."
+
+generateFakeUtxo :: GenSpec -> AccountId -> UberMonad ()
+generateFakeUtxo (fakeUtxo -> utxoSpec) aId = do
+    let fromAddr    = fromAddress utxoSpec
+    let amountCoins = amount utxoSpec
+    -- First let's generate the initial addesses where we will fake money from.
+    genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
+
+    let generatedAddresses = rights $ map unwrapCAddress genCAddresses
+
+    let coinAmount :: Coin
+        coinAmount = mkCoin $ fromIntegral amountCoins
+
+    let txsOut :: [TxOutAux]
+        txsOut = map (\address -> TxOutAux $ TxOut address coinAmount) generatedAddresses
+
+    utxo           <- getWalletUtxo
+
+    txInTxOutTuple <- liftIO $ sequence [ (,) <$> genTxIn <*> pure txOut | txOut <- txsOut ]
+    let newUtxo    = utxo `union` fromList txInTxOutTuple
+
+    setWalletUtxo newUtxo
+
+    -- Update state
+    let mapModifier = utxoToModifier newUtxo
+    updateWalletBalancesAndUtxo mapModifier
+  where
+    genTxIn :: IO TxIn
+    genTxIn = generate $ TxInUtxo <$> arbitrary <*> arbitrary
+
+    unwrapCAddress :: CAddress -> Either Text Address
+    unwrapCAddress = decodeCType . cadId
+
 
 addAddressesTo :: AccountId -> GenSpec -> UberMonad ()
 addAddressesTo cid spec = genAddresses spec cid
@@ -127,7 +186,6 @@ genAddresses (account_spec . wallet_spec -> aspec) cid = do
     let addrs = addresses aspec
     say $ printf "Generating %d addresses for Account %s..." addrs (renderAccountId cid)
     timed (forM_ [1..addrs] (const $ genAddress cid))
-
 
 -- | Creates a new 'CWallet'.
 genWallet :: Integer -> UberMonad CWallet

@@ -54,6 +54,7 @@ executable dbgen
                      , cardano-sl-db
                      , cardano-sl-ssc
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-wallet
                      , optparse-generic
                      , optparse-applicative
@@ -62,6 +63,7 @@ executable dbgen
                      , log-warper
                      , data-default
                      , lens
+                     , hashmap
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

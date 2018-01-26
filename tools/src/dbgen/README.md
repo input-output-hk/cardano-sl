@@ -9,37 +9,18 @@ fail with the "wrong magic" error.
 
 ## Usage
 
-First compile `dbgen` against the same revision of Cardano you want it to generate the `wallet-db` for.
-At the moment the program has been tested with `release/1.0.4`
-(SHA: `6e53bf599097aa0b55738a454115f76f69c9489e`). Then edit the `config.dhall` file to specify the number
-of wallets, accounts and addresses to generate. For example, the following config will generate 10 wallets,
-each wallet with 1 account and 100 addresses underneath:
-
+A typical usage is to run the tool from the branch/commit your wallet is on. 
+The properties file should look something like this:
 ```
 { wallet_spec = { account_spec = { addresses = 100 }, accounts = 1 }
-, wallets     = 10
+, fakeUtxo    = { fromAddress = 100, amount = 10000 }
+, wallets     = 1
 }
 ```
 
-Once you are ready, you can invoke `dbgen`:
-
+You should run the program using something like (from say `cardano-sl` root):
 ```
-Usage: dbgen [--config CONFIG.DHALL] [--dbPath rocksdb-path]
-```
-
-If all is well, the program will generate a new `wallet-db` filled with synthetic but valid data,
-together with stats about how much time it took to generate those:
-
-```
-dbgen --dbPath ../cardano-sl/run/node-db0
-Faking StateLock syncing...
-Generating 1 wallets...
-Action took 0.13194 seconds.
-Generating 1 accounts for Wallet 1...
-Action took 0.083039 seconds.
-Generating 10 addresses for Account CAccountId "Ae2tdPwUPEZGwUVR8meJ6mgbHeiC16TNyM3wTDYRYwDBMeCHUXdMVLHKupC@793406314"...
-Action took 0.739177 seconds.
-OK.
+stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full
 ```
 
 ## Printing statistics
@@ -56,24 +37,12 @@ instead of rebuild the DB from scratch, new addresses (which number can be contr
 file) will be added. For example, the following two commands first create a DB with a single wallet, a single
 account and 10 addresses, then it appends extra 100 to it:
 
+## Generate fake UTXO
+
+If we want to generate fake utxo in order to test how the wallet behaves like a "real" wallet, you can modify the 
+configuration and call `dbgen` with something like(we presume that the `add-to` account exists?):
 ```
-stack exec dbgen -- --nodeDB ../cardano-sl/run/node-db0 --walletDB wallet-db
-# now grab the account id by printing --stats
-stack exec dbgen -- --nodeDB ../cardano-sl/run/node-db0 --walletDB wallet-db --stats               
-Wallets: 1
-
-- Wallet #1, ready, Synced[AbstractHash 6e5377d2c78b8ba69644bc17caa8c05131d9dd32ed95e8da7a2c3babcad90e6e], PendingTxs: 0
-
-Accounts: 2
-
-- Initial account, Ae2tdPwUPEZGwUVR8meJ6mgbHeiC16TNyM3wTDYRYwDBMeCHUXdMVLHKupC@2147483648, addresses: 1, removed: 0
-- Account Number #1, Ae2tdPwUPEZGwUVR8meJ6mgbHeiC16TNyM3wTDYRYwDBMeCHUXdMVLHKupC@75378469, addresses: 111, removed: 0
-
-Number of used addresses: 0
-Number of change addresses: 0
-
-# Now add more addresses..
-stack exec dbgen -- --nodeDB ../cardano-sl/run/node-db0 --walletDB wallet-db --add-to Ae2tdPwUPEZGwUVR8meJ6mgbHeiC16TNyM3wTDYRYwDBMeCHUXdMVLHKupC@75378469
+stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full --add-to Ae2tdPwUPEZJHA8wEbVWoT4zgDGuWkXT9vLW6RzLvMt8kYCefkBQ1nixzpX@2147483648 --genFakeUtxo
 ```
 
 ## Pitfalls
@@ -89,4 +58,4 @@ stack exec dbgen -- --nodeDB ../cardano-sl/run/node-db0 --walletDB wallet-db --a
 ## To implement
 
 - https://iohk.myjetbrains.com/youtrack/issue/CSL-2210
-- https://iohk.myjetbrains.com/youtrack/issue/CSL-2208
+

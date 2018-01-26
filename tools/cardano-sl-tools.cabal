@@ -63,7 +63,6 @@ executable dbgen
                      , log-warper
                      , data-default
                      , lens
-                     , hashmap
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

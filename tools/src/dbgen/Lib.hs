@@ -49,7 +49,6 @@ data GenSpec = GenSpec
     -- ^ How many wallets to create
     , wallet_spec :: WalletSpec
     -- ^ The specification for each wallet.
-    , fakeUtxo    :: FakeUtxoSpec
     } deriving (Show, Eq, Generic)
 
 instance Interpret GenSpec
@@ -59,6 +58,8 @@ data WalletSpec = WalletSpec
     -- ^ How many accounts to generate
     , account_spec  :: AccountSpec
     -- ^ How specification for each account.
+    , fakeUtxo      :: FakeUtxoSpec
+    -- ^ Configuration for the generation of the fake UTxO.
     } deriving (Show, Eq, Generic)
 
 instance Interpret WalletSpec
@@ -76,8 +77,9 @@ instance Interpret AccountSpec
 -- have around 80 000 addresses which is a lot and can be intensive?
 -- For now, KISS.
 data FakeUtxoSpec = FakeUtxoSpec
-    {  fromAddress  :: !Integer
-    -- ^ How many addresses to contain fake ADA.
+    {  fromAddress  :: Maybe Integer
+    -- ^ How many addresses to contain fake ADA. If empty, don't generate
+    -- fake UTxO.
     ,  amount       :: !Integer
     -- ^ How much ADA do we want to distribute in a single address.
     } deriving (Show, Eq, Generic)
@@ -124,27 +126,27 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
     -- CAccountId.
 
     -- TODO(ks): Simplify this?
+    let fakeUtxoSpec = fakeUtxo wallet_spec
     case addTo of
-        Just accId -> if genFakeUtxo
-            then generateFakeUtxo spec accId
-            else addAddressesTo accId spec
+        Just accId -> case (fromAddress fakeUtxoSpec) of
+            Just _  -> generateFakeUtxo fakeUtxoSpec accId
+            Nothing -> addAddressesTo accId spec
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
             wallets' <- timed (forM [1..wallets] genWallet)
             forM_ (zip [1..] wallets') (genAccounts spec)
     say $ green "OK."
 
-generateFakeUtxo :: GenSpec -> AccountId -> UberMonad ()
-generateFakeUtxo (fakeUtxo -> utxoSpec) aId = do
-    let fromAddr    = fromAddress utxoSpec
-    let amountCoins = amount utxoSpec
+generateFakeUtxo :: FakeUtxoSpec -> AccountId -> UberMonad ()
+generateFakeUtxo FakeUtxoSpec{..} aId = do
+    let fromAddr = maybe 0 id fromAddress
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
 
     let generatedAddresses = rights $ map unwrapCAddress genCAddresses
 
     let coinAmount :: Coin
-        coinAmount = mkCoin $ fromIntegral amountCoins
+        coinAmount = mkCoin $ fromIntegral amount
 
     let txsOut :: [TxOutAux]
         txsOut = map (\address -> TxOutAux $ TxOut address coinAmount) generatedAddresses

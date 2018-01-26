@@ -10,10 +10,10 @@ fail with the "wrong magic" error.
 ## Usage
 
 A typical usage is to run the tool from the branch/commit your wallet is on. 
+
 The properties file should look something like this:
 ```
-{ wallet_spec = { account_spec = { addresses = 100 }, accounts = 1 }
-, fakeUtxo    = { fromAddress = 100, amount = 10000 }
+{ wallet_spec = { account_spec = { addresses = 100 }, accounts = 1, fakeUtxo = { fromAddress = [] : Optional Integer, amount = 10000 } }
 , wallets     = 1
 }
 ```
@@ -42,8 +42,18 @@ account and 10 addresses, then it appends extra 100 to it:
 If we want to generate fake utxo in order to test how the wallet behaves like a "real" wallet, you can modify the 
 configuration and call `dbgen` with something like(we presume that the `add-to` account exists?):
 ```
-stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full --add-to Ae2tdPwUPEZJHA8wEbVWoT4zgDGuWkXT9vLW6RzLvMt8kYCefkBQ1nixzpX@2147483648 --genFakeUtxo
+stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full --add-to Ae2tdPwUPEZJHA8wEbVWoT4zgDGuWkXT9vLW6RzLvMt8kYCefkBQ1nixzpX@2147483648
 ```
+
+If you define the field `fromAddress` then the wallet will generate additional N addresses from which each will 
+contain `amount` which is useful for benchmarking/testing. If you don't want to generate fake UTxO, 
+then you can provide the empty value `[]`:
+```
+{ wallet_spec = { account_spec = { addresses = 100 }, accounts = 1, fakeUtxo = { fromAddress = [100] : Optional Integer, amount = 10000 } }
+, wallets     = 1
+}
+```
+
 
 ## Pitfalls
 

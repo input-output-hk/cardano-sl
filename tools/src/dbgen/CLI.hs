@@ -30,12 +30,11 @@ data CLI = CLI
     , showStats         :: Bool
     -- ^ If true, print the stats for the `wallet-db`
     , queryMethod       :: Maybe Method
-    -- ^ If true, generate a DB targeting mainnet.
+    -- ^ If a method is defined, try to call it. For example,
+    -- calling `GetWallet` could be useful.
     , addTo             :: Maybe AccountId
     -- ^ If specified, only append addresses to the
     -- given <wallet_id@account_id>
-    , genFakeUtxo       :: Bool
-    -- ^ If true, generate fake UTXO.
     }
 
 
@@ -67,7 +66,6 @@ instance ParseRecord CLI where
                             (long "add-to" <> metavar "walletId@accountId"
                                            <> help "Append to an existing wallet & account."
               )))
-              <*> switch (long "genFakeUtxo" <> help "Generate fake UTXO for the wallet. Fake as-in doesn't exist in node DB.")
 
 
 readAccountId :: String -> Either String AccountId

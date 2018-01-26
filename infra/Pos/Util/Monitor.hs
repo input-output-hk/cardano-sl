@@ -2,11 +2,9 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE GADTs            #-}
 
-module Pos.Util.Monitor (
-
-      startMonitor
+module Pos.Util.Monitor
+    ( startMonitor
     , stopMonitor
-
     ) where
 
 import           Control.Concurrent (killThread)

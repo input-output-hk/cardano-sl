@@ -1,5 +1,4 @@
--- | Types used for block processing.  I suppose this module is
--- temporary, I expect us to have a meeting in near future.
+-- | Types used for block processing: most importantly, 'Undo' and 'Blund'.
 
 module Pos.Block.Types
        ( SlogUndo (..)

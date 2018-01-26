@@ -68,8 +68,9 @@ instance Applicative m => MessageLimited PublicKey m where
 
 -- Sometimes 'AsBinary a' is serialized with some overhead compared to
 -- 'a'. This is tricky to estimate as CBOR uses a number of bytes at
--- the beginning of a BS to encode the length, which depends by the
--- length itself. This overhead is (conservatively) estimated as at most 64.
+-- the beginning of a BS to encode the length, and the encoding of the length
+-- depends on the length itself. This overhead is (conservatively) estimated
+-- as at most 64.
 maxAsBinaryOverhead :: Limit a
 maxAsBinaryOverhead = 64
 
@@ -347,71 +348,8 @@ instance (Applicative m) => MessageLimited MsgSubscribe1 m where
     getMsgLenLimit _ = pure 0
 
 ----------------------------------------------------------------------------
--- Arbitrary
-----------------------------------------------------------------------------
-
--- TODO [CSL-859]
--- These instances were assuming that commitment limit is constant, but
--- it's not, because threshold can change.
--- P. S. Also it would be good to move them somewhere (and clean-up
--- this module), because currently it's quite messy (I think). @gromak
--- By messy I mean at least that it contains some 'Arbitrary' stuff, which we
--- usually put somewhere outside. Also I don't like that it knows about
--- SSC (I think instances for SSC should be in SSC), but it can wait.
-
--- instance T.Arbitrary (MaxSize Commitment) where
---     arbitrary = MaxSize <$>
---         (Commitment <$> T.arbitrary <*> T.arbitrary
---                     <*> aMultimap commitmentsNumLimit)
---
--- instance T.Arbitrary (MaxSize SecretSharingExtra) where
---     arbitrary = do
---         SecretSharingExtra gen commitments <- T.arbitrary
---         let commitments' = alignLength commitmentsNumLimit commitments
---         return $ MaxSize $ SecretSharingExtra gen commitments'
---       where
---         alignLength n = take n . cycle
---
--- instance T.Arbitrary (MaxSize MCCommitment) where
---     arbitrary = fmap MaxSize $ MCCommitment <$>
---             ((,,) <$> T.arbitrary
---                   <*> (getOfMaxSize <$> T.arbitrary)
---                   <*> T.arbitrary)
---
--- instance T.Arbitrary (MaxSize MCOpening) where
---     arbitrary = fmap MaxSize $ MCOpening <$> T.arbitrary <*> T.arbitrary
---
--- instance T.Arbitrary (MaxSize MCShares) where
---     arbitrary = fmap MaxSize $ MCShares <$> T.arbitrary
---                      <*> aMultimap commitmentsNumLimit
---
--- instance T.Arbitrary (MaxSize MCVssCertificate) where
---     arbitrary = fmap MaxSize $ MCVssCertificate <$> T.arbitrary
---
--- instance T.Arbitrary (MaxSize (DataMsg MCCommitment)) where
---     arbitrary = fmap DataMsg <$> T.arbitrary
---
--- instance T.Arbitrary (MaxSize (DataMsg MCOpening)) where
---     arbitrary = fmap DataMsg <$> T.arbitrary
---
--- instance T.Arbitrary (MaxSize (DataMsg MCShares)) where
---     arbitrary = fmap DataMsg <$> T.arbitrary
---
--- instance T.Arbitrary (MaxSize (DataMsg MCVssCertificate)) where
---     arbitrary = fmap DataMsg <$> T.arbitrary
-
-----------------------------------------------------------------------------
 -- Utils
 ----------------------------------------------------------------------------
-
--- -- | Generates multimap which has given number of keys, each associated
--- -- with a single value
--- aMultimap
---     :: (Eq k, Hashable k, T.Arbitrary k, T.Arbitrary v)
---     => Int -> T.Gen (HashMap k (NonEmpty v))
--- aMultimap k =
---     let pairs = (,) <$> T.arbitrary <*> ((:|) <$> T.arbitrary <*> pure [])
---     in  fromList <$> T.vectorOf k pairs
 
 -- | Given a limit for a list item, generate limit for a list with N elements
 vectorOf :: Int -> Limit (Item l) -> Limit l

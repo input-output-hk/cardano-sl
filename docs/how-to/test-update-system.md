@@ -41,7 +41,7 @@ for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask testnet$i.key;
 Launch `cardano-auxx` with CLI:
 
 ```
-stack exec -- cardano-auxx --system-start 0 --log-config log-config-prod.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer {relayHost}:3000 repl
+stack exec -- cardano-auxx --system-start 0 --log-config log-configs/daedalus.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer {relayHost}:3000 repl
 ```
 
 (!) Replace:
@@ -112,7 +112,7 @@ Read file daedalus1c.pkg succesfuly, its hash: f53b7e9e024eeb6d96116764b4bedd756
 [smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet received Tagged ReqOrRes
 [smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet sending Inventory/Data
 [smart-wallet:DEBUG:ThreadId 17] [2017-09-01 15:13:09 MSK] Light wallet received Tagged ReqOrRes
-Update proposal submitted, upId: e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594 
+Update proposal submitted, upId: e800f0be119ecbeec98e34d3c9ec0612a8161a5b4c8fcd57d5773678e6fdc594
 ```
 
 Note `77de53da248fa85143f45ca8a3f83ef7088395222b25ea777859e4209cff1ceb`, `f53b7e9e024eeb6d96116764b4bedd756e9b5f5fccb07beac27cc9c197cd593c`, it's hash of installer.
@@ -138,7 +138,7 @@ In blockchain should be:
 44003   transactions (0 items): []
 44004   proxy signing keys (0 items): []
 44005     no SSC payload
-44006   update payload: csl-daedalus:1 { block v0.1.0, UpId: f3fe3a62, { scripts v1, slot duration: 15000 mcs, block size limit: 1.907 MiB, header size limit: 195.313 KiB, tx size limit: 4 KiB, proposal size           limit: 700 B, mpc threshold: 20000000000000/1000000000000000 (approx. 0.02), heavyweight delegation threshold: 300000000000/1000000000000000 (approx. 0.0003), update vote threshold: 1000000000000/                1000000000000000 (approx. 0.001), update proposal threshold: 100000000000000/1000000000000000 (approx. 0.1), update implicit period: 10000 slots, no softfork rule, no tx fee policy, unlock stake epoch:  },       tags: [win64], no attributes } 
+44006   update payload: csl-daedalus:1 { block v0.1.0, UpId: f3fe3a62, { scripts v1, slot duration: 15000 mcs, block size limit: 1.907 MiB, header size limit: 195.313 KiB, tx size limit: 4 KiB, proposal size           limit: 700 B, mpc threshold: 20000000000000/1000000000000000 (approx. 0.02), heavyweight delegation threshold: 300000000000/1000000000000000 (approx. 0.0003), update vote threshold: 1000000000000/                1000000000000000 (approx. 0.001), update proposal threshold: 100000000000000/1000000000000000 (approx. 0.1), update implicit period: 10000 slots, no softfork rule, no tx fee policy, unlock stake epoch:  },       tags: [win64], no attributes }
 44007     votes: [(c9a26b08 for f3fe3a62)]
 44008   no extra data
 ```
@@ -212,4 +212,3 @@ Check logs, there should be lines like:
 ```
 
 Installer should be put by cardano-node to `%APPDATA%\Daedalus\Installer.exe`.
-

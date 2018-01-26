@@ -12,8 +12,8 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Formatting (build, sformat, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import           Formatting (build, sformat, (%))
+import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
 import           Pos.Binary ()
@@ -22,7 +22,6 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
-import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
@@ -131,12 +130,9 @@ action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
-        logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
-        t <- currentTime
-        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
-        logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
+        currentParams <- getNodeParams loggerName cArgs nodeArgs
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
@@ -155,6 +151,5 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
     let loggingParams = CLI.loggingParams loggerName (wnaCommonNodeArgs args)
     loggerBracket loggingParams . logException "node" . runProduction $ do
-        CLI.printFlags
         logInfo "[Attention] Software is built with wallet part"
         action args

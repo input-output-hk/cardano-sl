@@ -12,8 +12,7 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Formatting (sformat, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           NodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..), getExplorerNodeOptions)
@@ -21,7 +20,6 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (Timestamp (Timestamp), gdStartTime, genesisData)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -48,7 +46,6 @@ main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
     loggerBracket loggingParams . logException "node" . runProduction $ do
-        CLI.printFlags
         logInfo "[Attention] Software is built with explorer part"
         action args
 
@@ -56,13 +53,9 @@ action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations conf $
     withCompileInfo $(retrieveCompileTimeInfo) $ do
-        let systemStart = gdStartTime genesisData
-        logInfo $ sformat ("System start time is " % shown) systemStart
-        t <- currentTime
-        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        CLI.printInfoOnStart cArgs
         logInfo $ "Explorer is enabled!"
-        logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
+        currentParams <- getNodeParams loggerName cArgs nodeArgs
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

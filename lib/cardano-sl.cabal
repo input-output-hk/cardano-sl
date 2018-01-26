@@ -112,7 +112,6 @@ library
 
                         -- NodeContext
                         Pos.Context.Context
-                        Pos.Context.Functions
 
                         -- Crypto
                         Pos.Crypto.HDDiscovery

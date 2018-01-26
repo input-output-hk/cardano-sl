@@ -11,7 +11,7 @@ module Pos.DB.DB
 
 import           Universum
 
-import           Pos.Context.Functions (genesisBlock0)
+import           Pos.Block.Genesis (genesisBlock0)
 import           Pos.Core (BlockVersionData, HasConfiguration, headerHash)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))

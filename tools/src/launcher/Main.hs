@@ -409,7 +409,7 @@ serverScenario ndbp logConf node updater report = do
 clientScenario
     :: NodeDbPath
     -> Maybe FilePath    -- ^ Logger config
-    -> NodeData          -- ^ Node, args, wallet log path
+    -> NodeData          -- ^ Node, args, node log path
     -> NodeData          -- ^ Wallet, args, wallet log path
     -> UpdaterData       -- ^ Updater, args, updater runner, archive path
     -> Int               -- ^ Node timeout, in seconds

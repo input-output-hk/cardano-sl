@@ -27,13 +27,14 @@ import           Pos.Wallet.Web.ClientTypes   (CFilePath (..), CId, CWallet, Wal
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
+import           Pos.Wallet.Web.State         (askWalletDB, createAccount, getWalletMeta, askWalletSnapshot)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
+    ws <- askWalletSnapshot
     let wId = encToCId wbSecretKey
-    wExists <- isJust <$> getWalletMeta wId
+        wExists = isJust $ getWalletMeta ws wId
 
     if wExists
         then do
@@ -45,11 +46,17 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
+            -- My current thinking is that we don't want a transaction here. If we're restoring
+            -- from a backup, we can hopefully assume that nothing else is happening. And even if
+            -- is is, it's hard to see that it would interfere with account creation. Further, if
+            -- the bacup is large, there may be a large number of accounts, so forcing atomicity
+            -- may not be what we want.
+            db <- askWalletDB
             for_ accList $ \(idx, meta) -> do
                 let aIdx = fromInteger $ fromIntegral idx
                     seedGen = DeterminedSeed aIdx
-                accId <- genUniqueAccountId seedGen wId
-                createAccount accId meta
+                accId <- genUniqueAccountId ws seedGen wId
+                createAccount db accId meta
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
             void $ L.createWalletSafe wId wMeta False
@@ -70,5 +77,6 @@ importWalletJSON (CFilePath (toString -> fp)) = do
 
 exportWalletJSON :: MonadWalletWebMode m => CId Wal -> CFilePath -> m ()
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
-    wBackup <- TotalBackup <$> getWalletBackup wid
+    ws <- askWalletSnapshot
+    wBackup <- TotalBackup <$> getWalletBackup ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup

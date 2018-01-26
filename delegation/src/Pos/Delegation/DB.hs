@@ -57,7 +57,7 @@ import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Core.Genesis (GenesisDelegation (..))
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
@@ -109,8 +109,8 @@ initGStateDlg (unGenesisDelegation -> genesisDlg) =
   where
     stIdPairs :: [(StakeholderId, StakeholderId)] -- (issuer, delegate)
     stIdPairs =
-        HM.toList genesisDlg <&> \(issuer, ProxySecretKey {..}) ->
-            (issuer, addressHash pskDelegatePk)
+        HM.toList genesisDlg <&> \(issuer, psk) ->
+            (issuer, addressHash (pskDelegatePk psk))
     -- DB is split into 4 groups, each of them is represented as a
     -- list of operations.
     pskOperations = map (PskFromEdgeAction . DlgEdgeAdd) $ toList genesisDlg
@@ -152,8 +152,6 @@ instance HasConfiguration => RocksBatchOp DelegationOp where
         | isRevokePsk psk =
           error $ "RocksBatchOp DelegationOp: malformed " <>
                   "revoke psk in DlgEdgeAdd: " <> pretty psk
-        | not (verifyPsk psk) =
-          error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
           [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerializeValue psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =

@@ -21,11 +21,11 @@ import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
-import           Pos.Crypto (Hash, SignTag (SignUSVote), emptyPassphrase, encToPublic, hash,
-                             hashHexF, safeSign, unsafeHash, withSafeSigner, withSafeSigners)
+import           Pos.Crypto (Hash, emptyPassphrase, hash, hashHexF, unsafeHash, withSafeSigner,
+                             withSafeSigners)
 import           Pos.Exception (reportFatalError)
-import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), installerHash,
-                             mkUpdateProposalWSign)
+import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
+                             mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
 import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
@@ -46,17 +46,11 @@ vote sendActions idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
-    msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
-                        \ss -> pure $ safeSign SignUSVote ss (upid, decision)
-    case msignature of
+    mbVoteUpd <- withSafeSigner skey (pure emptyPassphrase) $ mapM $ \signer ->
+        pure $ mkUpdateVoteSafe signer upid decision
+    case mbVoteUpd of
         Nothing -> logError "Invalid passphrase"
-        Just signature -> do
-            let voteUpd = UpdateVote
-                    { uvKey        = encToPublic skey
-                    , uvProposalId = upid
-                    , uvDecision   = decision
-                    , uvSignature  = signature
-                }
+        Just voteUpd -> do
             if null ccPeers
                 then logError "Error: no addresses specified"
                 else do

@@ -31,10 +31,9 @@ import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,
                                       MonadWalletWebSockets)
-import           Pos.Wallet.Web.Pending (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers (servantHandlersWithSwagger)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, getWalletWebSockets,
-                                         initWSConnections, launchNotifier, upgradeApplicationWS)
+                                         initWSConnections, upgradeApplicationWS)
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWalletsWithGState)
@@ -65,8 +64,6 @@ walletServer
     -> m (Server WalletSwaggerApi)
 walletServer nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    startPendingTxsResubmitter
-    launchNotifier nat
     return $ servantHandlersWithSwagger nat
 
 bracketWalletWebDB

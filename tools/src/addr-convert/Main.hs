@@ -36,7 +36,7 @@ getAddrConvertOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc  "Produce public key and write it in stdout."
-                 <> header    "Tool to convert vending addresses into testnet addresses."
+                 <> header    "Tool to convert vending addresses into mainnet/testnet addresses."
                  <> footerDoc usageExample
 
     versionOption = infoOption

@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pending transactions resubmition logic.
+-- | Pending transactions resubmission logic.
 
 module Pos.Wallet.Web.Pending.Worker
     ( startPendingTxsResubmitter
@@ -13,8 +13,8 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (has)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
-import           Mockable (delay, fork)
-import           Serokell.Util.Text (listJson)
+import           Mockable (delay, forConcurrently)
+import           Serokell.Util (enumerate, listJson)
 import           System.Wlog (logDebug, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses)
@@ -93,9 +93,9 @@ resubmitPtxsDuringSlot
     => [PendingTx] -> m ()
 resubmitPtxsDuringSlot ptxs = do
     interval <- evalSubmitDelay (length ptxs)
-    forM_ ptxs $ \ptx -> do
-        delay interval
-        fork $ resubmitTx ptx
+    void . forConcurrently (enumerate ptxs) $ \(i, ptx) -> do
+        delay (interval * i)
+        resubmitTx ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -156,8 +156,6 @@ processPtxsOnSlot curSlot = do
 startPendingTxsResubmitter
     :: MonadPendings ctx m
     => m ()
-startPendingTxsResubmitter =
-    void . fork . setLogger $
-    onNewSlot False processPtxsOnSlot
+startPendingTxsResubmitter = setLogger $ onNewSlot False processPtxsOnSlot
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")

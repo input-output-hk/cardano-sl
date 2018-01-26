@@ -15,10 +15,9 @@ import           System.Wlog (logInfo)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
 import           Pos.Communication.Relay (invReqDataFlowTK)
-import           Pos.Crypto (SafeSigner, SignTag (SignUSVote), hash, hashHexF, safeSign,
-                             safeToPublic)
+import           Pos.Crypto (SafeSigner, hash, hashHexF)
 import           Pos.DB.Class (MonadGState)
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkVoteId)
+import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe, mkVoteId)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
@@ -43,21 +42,9 @@ submitUpdateProposal
     -> UpdateProposal
     -> m ()
 submitUpdateProposal enqueue ss prop = do
-    let upid = hash prop
-    let votes = constructVotes upid
+    let upid  = hash prop
+    let votes = [mkUpdateVoteSafe signer upid True | signer <- ss]
     sendUpdateProposal enqueue upid prop votes
-  where
-    createVote upid (signer, signature) =
-        UpdateVote
-            { uvKey        = safeToPublic signer
-            , uvProposalId = upid
-            , uvDecision   = True
-            , uvSignature  = signature
-            }
-    constructVotes :: UpId -> [UpdateVote]
-    constructVotes upid =
-        let signatures = map (\s -> safeSign SignUSVote s (upid, True)) ss
-        in map (createVote upid) (zip ss signatures)
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal

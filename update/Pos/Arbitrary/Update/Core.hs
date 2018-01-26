@@ -17,8 +17,8 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag, UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
                                   UpdateProposalToSign (..), UpdateVote (..), mkSystemTag,
-                                  mkUpdateProposalWSign)
-import           Pos.Crypto (SignTag (SignUSVote), fakeSigner, sign, toPublic)
+                                  mkUpdateProposalWSign, mkUpdateVote)
+import           Pos.Crypto (fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
@@ -36,13 +36,7 @@ instance Arbitrary SystemTag where
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary UpdateVote where
-    arbitrary = do
-        sk <- arbitrary
-        let uvKey = toPublic sk
-        uvProposalId <- arbitrary
-        uvDecision <- arbitrary
-        let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
-        return UpdateVote {..}
+    arbitrary = mkUpdateVote <$> arbitrary <*> arbitrary <*> arbitrary
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary UpdateProposal where

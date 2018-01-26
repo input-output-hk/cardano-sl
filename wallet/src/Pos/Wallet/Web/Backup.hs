@@ -11,16 +11,17 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
+import           Test.QuickCheck (Arbitrary (..), elements)
+
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Signing.Safe (emptyPassphrase, safeKeyGen)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..),
-                                             CId, CWalletMeta (..), Wal)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
+                                             CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (getAccountMeta, getWalletMeta)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
-import           Test.QuickCheck (Arbitrary (..), elements)
 
 currentBackupFormatVersion :: V.Version
 currentBackupFormatVersion = V.initial & V.major .~ 1
@@ -56,11 +57,11 @@ instance Arbitrary WalletBackup where
 getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
 getWalletBackup wId = do
     sk <- getSKById wId
-    meta <- maybeThrow (InternalError "Wallet have no meta") =<<
+    meta <- maybeThrow (InternalError "Wallet has no meta") =<<
             getWalletMeta wId
     accountIds <- getWalletAccountIds wId
     accountMetas <- forM accountIds $
-        maybeThrow (InternalError "Account have no meta") <=<
+        maybeThrow (InternalError "Account has no meta") <=<
         getAccountMeta
 
     let accountsMap = HM.fromList $ zip

@@ -1,6 +1,5 @@
 -- | Common definitions for peer discovery and subscription workers.
 
-
 module Pos.Subscription.Common
     ( SubscriptionMode
     , SubscriptionTerminationReason (..)
@@ -9,11 +8,12 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
+import           Universum
+
 import           Control.Exception.Safe (try)
 import qualified Data.List.NonEmpty as NE
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum
 
 import           Formatting (sformat, shown, (%))
 import           Node.Message.Class (Message)

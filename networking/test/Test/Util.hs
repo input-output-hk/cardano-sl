@@ -54,7 +54,7 @@ import           Data.Time.Units (Microsecond, Second, TimeUnit)
 import           Data.Word (Word32)
 import           GHC.Generics (Generic)
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, Delay, delay, forConcurrently, fork,
+import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, delay, forConcurrently,
                                       wait, withAsync)
 import           Mockable.Production (Production (..))
 import           Mockable.SharedExclusive (SharedExclusive, newSharedExclusive, putSharedExclusive,
@@ -195,10 +195,10 @@ throwLeft = (>>= f)
 awaitSTM :: TimeUnit t => t -> STM Bool -> Production ()
 awaitSTM time predicate = do
     tvar <- liftIO $ newTVarIO False
-    void . fork $ do
-        delay time
-        liftIO . atomically $ writeTVar tvar True
-    liftIO . atomically $
+    let waitAndFinish = do
+            delay time
+            liftIO . atomically $ writeTVar tvar True
+    void $ concurrently waitAndFinish $ liftIO . atomically $
         check =<< (||) <$> predicate <*> readTVar tvar
 
 sendAll

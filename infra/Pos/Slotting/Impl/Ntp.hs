@@ -30,13 +30,11 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLenses)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (int, sformat, shown, stext, (%))
-import           Mockable (CurrentTime, Delay, Fork, Mockable, Mockables, currentTime, delay)
-import           NTP.Client (NtpClientSettings (..), ntpSingleShot, startNtpClient)
-import           NTP.Example ()
+import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, delay)
+import           NTP.Client (NtpClientSettings (..), NtpMonad, ntpSingleShot, spawnNtpClient)
 import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
@@ -49,22 +47,6 @@ import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimest
 import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
                                         getCurrentNextEpochSlottingDataM, waitCurrentEpochEqualsM)
 import           Pos.Util.Util (median)
-
-----------------------------------------------------------------------------
--- TODO
-----------------------------------------------------------------------------
-
--- TODO: it's not exported from 'node-sketch' and it's too hard to do
--- it because of the mess in 'node-sketch' branches.
---
--- It should be exported and used here, I think.
-type NtpMonad m =
-    ( MonadIO m
-    , MonadBaseControl IO m
-    , WithLogger m
-    , Mockable Fork m
-    , MonadMask m
-    )
 
 ----------------------------------------------------------------------------
 -- State
@@ -128,7 +110,7 @@ type NtpMode ctx m =
     , HasInfraConfiguration
     )
 
-type NtpWorkerMode m = (HasInfraConfiguration, NtpMonad m)
+type NtpWorkerMode m = (HasInfraConfiguration, NtpMonad m, Mockable Delay m)
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -238,7 +220,7 @@ ntpWorkers = one . ntpSyncWorker
 ntpSyncWorker
     :: NtpWorkerMode m
     => NtpSlottingVar -> m ()
-ntpSyncWorker = void . startNtpClient . ntpSettings
+ntpSyncWorker var = spawnNtpClient (ntpSettings var)
 
 ntpHandlerDo
     :: (MonadIO m, WithLogger m)

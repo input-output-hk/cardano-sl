@@ -24,7 +24,8 @@ import           Serokell.Util.Concurrent (threadDelay)
 import           System.Random (mkStdGen)
 import           System.Wlog (LoggerNameBox, usingLoggerName)
 
-import           Mockable (Production, delay, fork, realTime, runProduction)
+import           Mockable (Production, concurrently, delay, forConcurrently, realTime,
+                           runProduction)
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
@@ -80,11 +81,11 @@ main = do
                                      (zip [0, msgNum..] nodeIds)
 
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
-                NodeAction (const []) $ \converse -> do
+                NodeAction (const []) $ \converse -> () <$ do
                     drones <- forM nodeIds (startDrone node')
-                    _ <- forM pingWorkers (fork . flip ($) converse)
-                    delay (fromIntegral duration :: Second)
-                    forM_ drones stopDrone
+                    forConcurrently pingWorkers ($ converse) `concurrently` do
+                        delay (fromIntegral duration :: Second)
+                        forM_ drones stopDrone
 
     runProduction $ usingLoggerName "sender" $ action
   where

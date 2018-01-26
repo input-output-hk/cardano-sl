@@ -152,7 +152,12 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
 -- | Creates proxy secret key
 safeCreatePsk :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
 safeCreatePsk ss delegatePk w =
-    ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w
+    UnsafeProxySecretKey
+        { pskOmega      = w
+        , pskIssuerPk   = safeToPublic ss
+        , pskDelegatePk = delegatePk
+        , pskCert       = safeCreateProxyCert ss delegatePk w
+        }
 
 -- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
 --   left here because of their implementation details

@@ -70,6 +70,12 @@ instance Buildable SchemaError where
 --         , seActual = fmap fromString actual
 --         }
 
+instance ReportSchemaErrors (Either SchemaError) where
+    expected expec actual = Left $ SchemaError
+        { seExpected = fromString expec
+        , seActual = fmap fromString actual
+        }
+
 instance Monad m => ToJSON m Int32 where
     toJSON = pure . JSNum . fromIntegral
 

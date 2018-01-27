@@ -149,7 +149,7 @@ instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
             serverHandlerL' %~ modifyApiResult (Proxy @mod)
 
     hoistServerWithContext _ pc nt s =
-        hoistServerWithContext (Proxy :: Proxy (Verb mt st ct api)) pc nt s
+        hoistServerWithContext (Proxy @(VerbMod mod $ Verb mt st ct a)) pc nt s
 
 instance HasSwagger v => HasSwagger (VerbMod mod v) where
     toSwagger _ = toSwagger $ Proxy @v

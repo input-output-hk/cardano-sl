@@ -39,9 +39,8 @@ module Test.Pos.Util
 
 import           Universum
 
-import           Data.Tagged (Tagged (..))
 import qualified Test.Hspec as Hspec (Expectation)
-import           Test.QuickCheck (Arbitrary (arbitrary), Property, counterexample, property)
+import           Test.QuickCheck (Property, counterexample, property)
 import           Test.QuickCheck.Gen (Gen, choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
@@ -102,9 +101,6 @@ withDefConfigurations :: (HasConfigurations => r) -> r
 withDefConfigurations bardaq =
     withDefConfiguration $ withStaticConfigurations bardaq
 
-instance Arbitrary a => Arbitrary (Tagged s a) where
-    arbitrary = Tagged <$> arbitrary
-
 ----------------------------------------------------------------------------
 -- Various properties and predicates
 ----------------------------------------------------------------------------
@@ -126,18 +122,18 @@ qcIsRight (Right _) = property True
 qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
 
 qcElem
-    :: (Eq a, Show a, Show t, Container t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a ~ Eq a)
     => a -> t -> Property
 qcElem x xs =
     counterexample ("expected " <> show x <> " to be in " <> show xs) $
     x `elem` xs
 
 qcNotElem
-    :: (Eq a, Show a, Show t, Container t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a ~ Eq a)
     => a -> t -> Property
 qcNotElem x xs =
     counterexample ("expected " <> show x <> " not to be in " <> show xs) $
-    not (x `elem` xs)
+    x `notElem` xs
 
 -- | A property that is always false
 qcFail :: Text -> Property

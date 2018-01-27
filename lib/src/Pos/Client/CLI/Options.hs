@@ -125,7 +125,6 @@ portOption portNum =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -135,7 +134,6 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from.")
 

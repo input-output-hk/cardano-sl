@@ -7,7 +7,6 @@ module Pos.Diffusion.Full
     ( diffusionLayerFull
     ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Monad.Fix (MonadFix)

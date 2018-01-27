@@ -4,6 +4,8 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
+import           Universum
+
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HM
@@ -14,7 +16,6 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, property, vector,
                                   (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
-import           Universum
 
 import           Pos.Arbitrary.Crypto (SharedSecrets (..))
 import           Pos.Binary (AsBinary, Bi)
@@ -481,7 +482,7 @@ verifyEncSharesBadSecProof SharedSecrets {..} secProof =
 
 verifyEncSharesWrongKeys :: SharedSecrets -> Property
 verifyEncSharesWrongKeys SharedSecrets {..} =
-    (headMay ssVssKeys /= lastMay ssVssKeys) ==>
+    (safeHead ssVssKeys /= (last <$> nonEmpty ssVssKeys)) ==>
     not <$> Crypto.verifyEncShares @Gen ssSecProof ssThreshold
                (zip (reverse ssVssKeys) ssEncShares)
 
@@ -534,20 +535,20 @@ verifyProofBadSecProof SharedSecrets {..} secProof =
 
 recoverSecretSuccessfully :: SharedSecrets -> Property
 recoverSecretSuccessfully SharedSecrets {..} =
-    Crypto.recoverSecret ssThreshold keys shares === Just ssSecret
+    Crypto.recoverSecret ssThreshold vssKeys shares === Just ssSecret
   where
-    keys = map (,1) ssVssKeys
+    vssKeys = map (,1) ssVssKeys
     shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 recoverSecBadThreshold :: SharedSecrets -> Integer -> Property
 recoverSecBadThreshold SharedSecrets {..} rnd =
     (badThreshold > ssThreshold) ==>
-    isNothing (Crypto.recoverSecret badThreshold keys shares)
+    isNothing (Crypto.recoverSecret badThreshold vssKeys shares)
   where
     maxThreshold = genericLength ssEncShares
     -- badThreshold is in ]actualThreshold, actualThreshold * 2]
     badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
-    keys = map (,1) ssVssKeys
+    vssKeys = map (,1) ssVssKeys
     shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 matchingPassphraseWorks :: Crypto.PassPhrase -> Property

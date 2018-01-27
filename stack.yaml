@@ -35,9 +35,9 @@ packages:
 - wallet-new # The new (unreleased) version of the wallet
 
 - location:
-    git: https://github.com/well-typed/cborg
+    git: https://github.com/avieth/cborg
     # Has support for canonical cbor
-    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+    commit: f1a9e0ce735d49284f06bea986beac06a8503162
   subdirs:
   - cborg
   extra-dep: true

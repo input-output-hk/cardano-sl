@@ -55,10 +55,21 @@ cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 -- Test that serialized 'a' has canonical representation, i.e. if we're able to
 -- change its serialized form, it won't be successfully deserialized.
 cborCanonicalRep :: forall a. (Bi a, Show a) => a -> Property
-cborCanonicalRep a = counterexample (show a) . property $ do
+cborCanonicalRep a = property $ do
     let sa = serialize a
     sa' <- R.serialise <$> perturbCanonicity (R.deserialise sa)
-    pure $ sa == sa' || isLeft (decodeFull @a $ sa')
+    let out = decodeFull @a $ sa'
+    pure $ case out of
+        -- perturbCanonicity may have not changed anything. Decoding can
+        -- succeed in this case.
+        Right a' -> counterexample (show a') (sa == sa')
+        -- It didn't decode. The error had better be a canonicity violation.
+        Left err -> counterexample (show err) (isCanonicityViolation err)
+  where
+    -- FIXME cbor errors are just text.
+    -- Regex matching on "non-canonical" might work.
+    -- Would be nice if we had a sum type for these errors.
+    isCanonicityViolation = const True
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -83,10 +94,8 @@ identityTest fun = prop (typeName @a) fun
     typeName :: forall x. Typeable x => String
     typeName = show $ typeRep (Proxy @a)
 
--- This does a lot of deserializing/serializing which tends to be very
--- expensive, so we limit the size.
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
-binaryTest = modifyMaxSize (const 8) $
+binaryTest =
     identityTest @a $ \x -> binaryEncodeDecode x
                        .&&. cborFlatTermValid x
                        .&&. cborCanonicalRep x

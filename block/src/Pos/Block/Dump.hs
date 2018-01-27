@@ -23,9 +23,11 @@ module Pos.Block.Dump
        (
        -- * Encoding
          encodeBlockDump
+       , encodeBlockDump'
 
        -- * Decoding
        , decodeBlockDump
+       , decodeBlockDump'
        , BlockDumpDecodeError (..)
 
        -- * Internals
@@ -50,7 +52,7 @@ import qualified Codec.CBOR.Decoding as Cbor hiding (DecodeAction (..))
 import qualified Codec.CBOR.Encoding as Cbor
 import qualified Codec.CBOR.Read as Cbor
 import qualified Codec.CBOR.Write as Cbor
-import           Conduit (Conduit, Consumer, Producer, yield, (.|))
+import           Conduit (Conduit, Consumer, Producer, runConduit, yield, (.|))
 import qualified Conduit
 import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.Text.Buildable
@@ -63,6 +65,7 @@ import qualified Pos.Binary.Conduit as Bi
 import           Pos.Core (Block, GenericBlock (..), GenericBlockHeader (..))
 import qualified Pos.Core as C
 import           Pos.Crypto (HasCryptoConfiguration)
+import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.Util (eitherToFail)
 
 ----------------------------------------------------------------------------
@@ -75,6 +78,15 @@ encodeBlockDump
     => Conduit Block m ByteString
 encodeBlockDump = (encodeDumpHeader >> encodeBlockStream)
                .| Lzma.compress Nothing
+
+-- | Like 'encodeBlockDump', but without conduits.
+encodeBlockDump'
+    :: Bi BlockNoProof
+    => OldestFirst [] Block -> IO LByteString
+encodeBlockDump' blocks = Conduit.runResourceT $ runConduit $
+    Conduit.yieldMany (toList blocks)
+    .| encodeBlockDump
+    .| Conduit.sinkLazy
 
 encodeDumpHeader :: Monad m => Producer m ByteString
 encodeDumpHeader = yield $ Cbor.toStrictByteString $
@@ -143,6 +155,17 @@ decodeBlockDump =
         decodeBlockStream
   where
     memlimit = Just (200*1024*1024)  -- 200 MB
+
+-- | Like 'decodeBlockDump', but without conduits.
+--
+-- /Throws:/ 'BlockDumpDecodeError'
+decodeBlockDump'
+    :: Bi BlockNoProof
+    => LByteString -> IO (OldestFirst [] Block)
+decodeBlockDump' dump = fmap OldestFirst $ Conduit.runResourceT $ runConduit $
+    Conduit.sourceLazy dump
+    .| decodeBlockDump
+    .| Conduit.sinkList
 
 -- | Deserialize the header of a dump and return data decoded from the
 -- header (i.e. block version).

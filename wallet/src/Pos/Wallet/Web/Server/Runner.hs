@@ -24,7 +24,7 @@ import           Ether.Internal (HasLens (..))
 import           Mockable (Production, runProduction)
 import           Network.Wai (Application)
 import           Servant.Server (Handler)
-import           System.Wlog (logInfo)
+import           System.Wlog (logDebug, logInfo)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol (SendActions)
@@ -53,8 +53,10 @@ runWRealMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn res spec = do
+    logDebug "runWRealMode = entered"
     saVar <- atomically STM.newEmptyTMVar
     ref <- newIORef mempty
+    logDebug "Going to `runRealBasedMode'"
     runRealBasedMode
         (Mtl.withReaderT (WalletWebModeContext db conn (AddrCIdHashes ref) saVar))
         (Mtl.withReaderT (\(WalletWebModeContext _ _ _ _ rmc) -> rmc))

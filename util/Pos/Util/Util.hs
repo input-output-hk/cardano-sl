@@ -1,5 +1,5 @@
-{-# LANGUAGE PolyKinds  #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PolyKinds     #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Util.Util
@@ -8,7 +8,6 @@ module Pos.Util.Util
          maybeThrow
        , eitherToThrow
        , leftToPanic
-       , logException
        , toAesonError
        , aesonError
        , toCborError
@@ -49,6 +48,8 @@ module Pos.Util.Util
        -- * Logging helpers
        , buildListBounds
        , multilineBounds
+       , logException
+       , bracketWithLogging
 
        -- * Misc
        , mconcatPair
@@ -67,7 +68,6 @@ module Pos.Util.Util
 
 import           Universum
 
-import qualified Data.Serialize as Cereal
 import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
@@ -82,6 +82,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
+import qualified Data.Serialize as Cereal
 import           Data.Time.Clock (NominalDiffTime, UTCTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
@@ -90,10 +91,10 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
-import qualified Text.Megaparsec as P
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, logError, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, logError, logInfo, usingLoggerName)
+import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
 -- Exceptions/errors
@@ -113,13 +114,6 @@ eitherToThrow = either throwM pure
 -- Intended usage is when you're sure that value must be right.
 leftToPanic :: Buildable a => Text -> Either a b -> b
 leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
-
--- | Catch and log an exception, then rethrow it
-logException :: LoggerName -> IO a -> IO a
-logException name = E.handleAsync (\e -> handler e >> E.throw e)
-  where
-    handler :: E.SomeException -> IO ()
-    handler = usingLoggerName name . logError . pretty
 
 type f ~> g = forall x. f x -> g x
 
@@ -286,6 +280,29 @@ multilineBounds maxSize = F.later formatList
    maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
    half = maxSize' `div` 2
    remaining = maxSize' - half
+
+-- | Catch and log an exception, then rethrow it
+logException :: LoggerName -> IO a -> IO a
+logException name = E.handleAsync (\e -> handler e >> E.throw e)
+  where
+    handler :: E.SomeException -> IO ()
+    handler = usingLoggerName name . logError . pretty
+
+-- | 'bracket' which logs given message after acquiring the resource
+-- and before calling the callback with 'Info' severity.
+bracketWithLogging ::
+       (MonadMask m, WithLogger m)
+    => Text
+    -> m a
+    -> (a -> m b)
+    -> (a -> m c)
+    -> m c
+bracketWithLogging msg acquire release = bracket acquire release . addLogging
+  where
+    addLogging callback resource = do
+        logInfo $ "<bracketWithLogging:before> " <> msg
+        callback resource <*
+            logInfo ("<bracketWithLogging:after> " <> msg)
 
 ----------------------------------------------------------------------------
 -- Misc

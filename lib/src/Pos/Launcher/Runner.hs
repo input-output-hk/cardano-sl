@@ -39,7 +39,7 @@ import qualified System.Metrics as Metrics
 import           System.Random (newStdGen)
 import qualified System.Remote.Monitoring.Statsd as Monitoring
 import qualified System.Remote.Monitoring.Wai as Monitoring
-import           System.Wlog (WithLogger, logInfo)
+import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Binary ()
 import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), MkListeners (..),
@@ -147,6 +147,7 @@ runRealModeDo NodeResources {..} outSpecs action = do
             nrJLogHandle
 
         oq <- initQueue ncNetworkConfig (Just nrEkgStore)
+        logDebug "Initialized outbound queue"
 
         runToProd jsonLogConfig oq $
           runServer (simpleNodeEndPoint nrTransport)

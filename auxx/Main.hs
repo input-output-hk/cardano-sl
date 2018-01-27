@@ -8,14 +8,14 @@ import           Unsafe (unsafeFromJust)
 import           Control.Exception.Safe (handle)
 import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (ConfigurationError, Timestamp (..), gdStartTime, genesisData)
+import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
@@ -78,7 +78,6 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
-    CLI.printFlags
     let runWithoutNode = rawExec Nothing opts Nothing command
     printAction <- either getPrintAction (const $ return putText) command
 
@@ -99,9 +98,7 @@ action opts@AuxxOptions {..} command = do
     case hasConfigurations of
       Nothing -> runWithoutNode
       Just Dict -> do
-          logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
-          t <- currentTime
-          logInfo $ sformat ("Current time is "%shown) (Timestamp t)
+          CLI.printInfoOnStart aoCommonNodeArgs
           (nodeParams, tempDbUsed) <-
               correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
           let

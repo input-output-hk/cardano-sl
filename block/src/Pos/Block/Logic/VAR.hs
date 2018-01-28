@@ -31,6 +31,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            toUpdateBlock)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Block.BHelpers (verifyBlock)
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
@@ -78,6 +79,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- We determine it here and pass to all interested components.
     adoptedBV <- lift GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
+
+    -- Ensure every block is internally consistent.
+    _ <- withExceptT VerifyBlocksError $ forM_ blocks verifyBlock
 
     -- And then we run verification of each component.
     slogUndos <- withExceptT VerifyBlocksError $

@@ -6,7 +6,9 @@
 -- FIXME rename this module to something to do with verification.
 
 module Pos.Block.BHelpers
-       ( verifyMainBlock
+       ( verifyBlock
+       , verifyGenesisBlock
+       , verifyMainBlock
        , verifyMainBody
        , verifyMainBlockHeader
        , verifyMainConsensusData
@@ -19,11 +21,13 @@ import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
+import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
                                       MainBlockchain, MainToSign (..), mainBlockEBDataProof,
                                       MainExtraHeaderData (..))
+import           Pos.Core.Block.Genesis (GenesisBlockchain)
 import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
@@ -37,6 +41,25 @@ import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, 
 import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
+
+verifyBlock
+    :: ( HasConfiguration
+       , MonadError Text m
+       , Bi BlockHeader
+       , Bi (BodyProof MainBlockchain)
+       , IsMainHeader MainBlockHeader
+       )
+    => Block
+    -> m ()
+verifyBlock = either verifyGenesisBlock verifyMainBlock
+
+-- | To verify a genesis block we only have to check the body proof.
+verifyGenesisBlock
+    :: ( MonadError Text m )
+    => GenericBlock GenesisBlockchain
+    -> m ()
+verifyGenesisBlock UnsafeGenericBlock {..} = 
+    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
 
 verifyMainBlock
     :: ( HasConfiguration

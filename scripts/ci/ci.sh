@@ -11,7 +11,7 @@ if [[ ("$OS_NAME" == "linux") && ("$BUILDKITE_BRANCH" == "master") ]];
   else with_haddock=false
 fi
 
-targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet"
+targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet-static"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$OS_NAME" == "linux" ]]; then
@@ -52,7 +52,7 @@ done
   #./update-haddock.sh
 #fi
 
-./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
+./cardano-sl-wallet-static.root/bin/cardano-wallet-hs2purs
 
 # Generate daedalus-bridge
 pushd daedalus
@@ -62,7 +62,7 @@ pushd daedalus
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .
-  cp ../cardano-sl-wallet.root/bin/cardano-node .
+  cp ../cardano-sl-wallet-static.root/bin/cardano-node .
   # check that binaries exit with 0
   ./cardano-node --help > /dev/null
   ./cardano-launcher --help > /dev/null

@@ -37,8 +37,13 @@ getWalletsConfig :: FilePath -> IO WalletsConfig
 getWalletsConfig pathToConfig =
     (Yaml.decodeFile pathToConfig :: IO (Maybe WalletsConfig)) >>= \case
         Nothing   -> reportAboutInvalidConfig
-        Just conf -> pure conf
+        Just conf -> makeSureWalletsAreNonEmpty conf
   where
     reportAboutInvalidConfig :: IO a
     reportAboutInvalidConfig = error . toText $
         "Unable to read endpoints configuration " <> pathToConfig
+
+-- | Checks if wallets data isn't empty, otherwise we cannot run benchmarks.
+makeSureWalletsAreNonEmpty :: WalletsConfig -> IO WalletsConfig
+makeSureWalletsAreNonEmpty w = return w
+    -- while (empty wallets) $ 

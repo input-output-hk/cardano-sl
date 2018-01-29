@@ -217,9 +217,11 @@ instance HasClient (apiType a :> res) =>
     type Client (WithDefaultApiArg apiType a :> res) = Client (apiType a :> res)
     clientWithRoute _ req = clientWithRoute (Proxy @(apiType a :> res)) req
 
--- instance HasClient api => HasClient (VerbMod mod api) where
---     type Client (VerbMod mod api) = ApiModifiedRes mod (Client api)
---     clientWithRoute _ req = clientWithRoute (Proxy @api) req
+--instance HasClient api => HasClient (VerbMod mod api) where
+--    type Client (VerbMod mod api) = ApiModifiedRes mod (Client api)
+--    clientWithRoute _ req =
+--        let l = clientWithRoute (Proxy @api) req
+--        in modifyApiResult (Proxy @api)
 
 instance HasClient api => HasClient (VerbMod mod api) where
     type Client (VerbMod mod api) = Client api

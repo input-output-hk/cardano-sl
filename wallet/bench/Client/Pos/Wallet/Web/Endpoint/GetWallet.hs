@@ -15,8 +15,9 @@ import           Pos.Wallet.Web.ClientTypes (CId (..), CHash (..))
 -- | Run 'GetWallet' client. As a result we will get a particular wallet.
 getWalletIO :: WalletsConfig -> IO ()
 getWalletIO WalletsConfig {..} =
-    let walletId = CId (CHash "")
-    in
     runEndpointClient (getWallet walletId) >>= \case
         Left problem -> putText $ "Cannot obtain wallet information: " <> problem
         Right wallet -> print wallet     -- :: CWallet
+  where
+    walletId = CId (CHash "")
+    -- walletId = [CId (CHash anId) | Wallet anId _ <- wallets]

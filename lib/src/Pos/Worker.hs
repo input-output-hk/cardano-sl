@@ -17,6 +17,7 @@ import           Pos.Delegation.Listeners (delegationRelays)
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers (dhtWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Network.Types (NetworkConfig (..), SubscriptionWorker (..),
                                     topologyRunKademlia, topologySubscriptionWorker)
 import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
@@ -50,7 +51,7 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
-    , wrap' "subscription" $ case topologySubscriptionWorker (ncTopology ncNetworkConfig) of
+    , wrap' "subscription" $ case topologySubscriptionWorker topology of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
           subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains
                                                     ncSubscriptionKeepAliveTimer)
@@ -69,11 +70,16 @@ allWorkers NodeResources {..} = mconcatPair
       -- FIXME: perhaps these shouldn't be considered workers, but rather
       -- spawned when the DHT instance is created and killed when it's
       -- released.
-    , case topologyRunKademlia (ncTopology ncNetworkConfig) of
+    , case topologyRunKademlia topology of
         Just (kinst, _) -> dhtWorkers kinst
         Nothing         -> mempty
+    , wrap' "StaticConfigMonitoring" $
+      first one $
+      localWorker $
+      launchStaticConfigMonitoring topology
     ]
   where
+    topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
     properSlottingWorkers =
        fst (localWorker logNewSlotWorker) :

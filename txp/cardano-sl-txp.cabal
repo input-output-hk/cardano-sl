@@ -24,6 +24,9 @@ library
 
     Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
+    Pos.Txp.Toil.Stakes
+    Pos.Txp.Toil.Class
+    Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
     Pos.Txp.Toil.Logic
     Pos.Txp.Toil.Monad

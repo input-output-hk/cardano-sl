@@ -31,6 +31,7 @@ import           Pos.Configuration (HasNodeConfiguration, conversationEstablishT
 import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Configuration (protocolMagic)
+import           Pos.Core.Ssc (Opening, InnerSharesMap, SignedCommitment, VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
@@ -54,7 +55,7 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (.
                                     topologyRunKademlia)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
-import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
+import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -258,17 +259,17 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             -- things.
             --
             -- TODO put these into a Pos.Diffusion.Full.Ssc module.
-            sendSscCert :: MCVssCertificate -> d ()
-            sendSscCert = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+            sendSscCert :: VssCertificate -> d ()
+            sendSscCert = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCVssCertificate
 
-            sendSscOpening :: MCOpening -> d ()
-            sendSscOpening = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+            sendSscOpening :: Opening -> d ()
+            sendSscOpening = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCOpening (ourStakeholderId logic)
 
-            sendSscShares :: MCShares -> d ()
-            sendSscShares = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+            sendSscShares :: InnerSharesMap -> d ()
+            sendSscShares = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCShares (ourStakeholderId logic)
 
-            sendSscCommitment :: MCCommitment -> d ()
-            sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
+            sendSscCommitment :: SignedCommitment -> d ()
+            sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCCommitment
 
             sendPskHeavy :: ProxySKHeavy -> d ()
             sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue

@@ -7,6 +7,7 @@ module Pos.Diffusion.Transport.TCP
 
 import           Universum
 
+import           Data.Time.Units (Microsecond)
 import           Formatting (sformat, shown, (%))
 import           System.Wlog (WithLogger, logError, usingLoggerName, askLoggerName)
 
@@ -16,36 +17,37 @@ import           Network.Transport.Abstract (Transport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
 
-import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
-
 bracketTransportTCP
-    :: ( HasNodeConfiguration
-       , MonadIO m
+    :: ( MonadIO m
        , MonadIO n
        , MonadThrow m
        , MonadMask m
        , WithLogger m
        )
-    => TCP.TCPAddr
+    => Microsecond
+    -> TCP.TCPAddr
     -> (Transport n -> m a)
     -> m a
-bracketTransportTCP tcpAddr k = bracket (createTransportTCP tcpAddr) snd (k . fst)
+bracketTransportTCP connectionTimeout tcpAddr k = bracket
+    (createTransportTCP connectionTimeout tcpAddr)
+    snd
+    (k . fst)
 
 createTransportTCP
-    :: ( HasNodeConfiguration
-       , MonadIO n
+    :: ( MonadIO n
        , MonadIO m
        , WithLogger m
        , MonadThrow m
        )
-    => TCP.TCPAddr
+    => Microsecond -- ^ Connection timeout
+    -> TCP.TCPAddr
     -> m (Transport n, m ())
-createTransportTCP addrInfo = do
+createTransportTCP connectionTimeout addrInfo = do
     loggerName <- askLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
-                   Just $ fromIntegral networkConnectionTimeout
+                   Just $ fromIntegral connectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              -- Will check the peer's claimed host against the observed host
              -- when new connections are made. This prevents an easy denial

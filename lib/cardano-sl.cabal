@@ -30,8 +30,6 @@ library
                         Pos.DB.DB
 
                         -- Diffusion layer
-                        Pos.Diffusion.Transport.TCP
-                        Pos.Diffusion.Types
                         Pos.Diffusion.Full
                         Pos.Diffusion.Full.Block
                         Pos.Diffusion.Full.Delegation
@@ -39,9 +37,6 @@ library
                         Pos.Diffusion.Full.Types
                         Pos.Diffusion.Full.Txp
                         Pos.Diffusion.Full.Update
-                        Pos.Diffusion.Subscription.Common
-                        Pos.Diffusion.Subscription.Dns
-                        Pos.Diffusion.Subscription.Dht
 
                         -- GState
                         Pos.GState
@@ -53,9 +48,6 @@ library
 
                         -- Behavior
                         Pos.Behavior
-
-                        -- Block
-                        Pos.Block.Network
 
                         -- Launcher
                         Pos.Launcher
@@ -71,18 +63,9 @@ library
                         Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
-                        Pos.Communication.Util
-
-                        -- Statistics
-                        Pos.Statistics
 
                         -- Recovery
                         Pos.Recovery
-
-                        -- Reporting
-                        Pos.Reporting.Health.Types
-                        Pos.Reporting.Ekg
-                        Pos.Reporting.Statsd
 
                         -- Client CLI
                         Pos.Client.CLI
@@ -94,7 +77,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Config
-                        Pos.Util.Monitor
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
@@ -106,7 +88,6 @@ library
 
                         -- Worker, work mode
                         Pos.Worker
-                        Pos.Worker.Types
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
@@ -121,8 +102,6 @@ library
                         -- Util code for tests
                         Test.Pos.Util
                         Test.Pos.Configuration
-
-                        Pos.Update.Worker
 
                         Pos.Util.Servant
 
@@ -149,31 +128,6 @@ library
                         Pos.Communication.Server
 
                         Pos.Recovery.Instance
-
-                        -- Health Checks
-                        Pos.HealthCheck.Route53
-
-                        -- Statistics
-                        Pos.Statistics.Ekg
-                        Pos.Statistics.Statsd
-
-                        Pos.DHT.Workers
-
-                        Pos.Block.BlockWorkMode
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
-                        Pos.Block.Worker
-
-                        Pos.Delegation.Listeners
-                        Pos.Delegation.Worker
-
-                        Pos.Ssc.Worker
-
-                        Pos.Txp.Network.Listeners
-
-                        Pos.Update.Network.Listeners
-
 
   build-depends:        MonadRandom
                       , QuickCheck

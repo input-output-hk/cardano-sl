@@ -16,8 +16,8 @@ import           Pos.Core                         (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Txp                     (TxAux)
 import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
 import           Pos.Reporting.Health.Types       (HealthStatus (..))
-import           Pos.Ssc.Message                  (MCOpening, MCShares, MCCommitment,
-                                                   MCVssCertificate)
+import           Pos.Core.Ssc                     (Opening, InnerSharesMap, SignedCommitment,
+                                                   VssCertificate)
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -45,16 +45,16 @@ data Diffusion m = Diffusion
     , sendVote           :: UpdateVote -> m ()
       -- SSC: send our certificate (diffusion layer takes care of relaying
       -- certs for other stakeholders).
-    , sendSscCert        :: MCVssCertificate -> m ()
+    , sendSscCert        :: VssCertificate -> m ()
       -- SSC: send our opening (diffusion layer takes care of relaying openings
       -- for other stakeholders).
-    , sendSscOpening     :: MCOpening -> m ()
+    , sendSscOpening     :: Opening -> m ()
       -- SSC: send our shares (diffusion layer takes care of relaying shares
       -- for other stakeholders).
-    , sendSscShares      :: MCShares -> m ()
+    , sendSscShares      :: InnerSharesMap -> m ()
       -- SSC: send our commitment (diffusion layer takes care of relaying
       -- commitments for other stakeholders).
-    , sendSscCommitment  :: MCCommitment -> m ()
+    , sendSscCommitment  :: SignedCommitment -> m ()
       -- Delegation: send a heavy certificate.
     , sendPskHeavy       :: ProxySKHeavy -> m ()
 

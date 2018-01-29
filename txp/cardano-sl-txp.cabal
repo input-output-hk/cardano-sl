@@ -39,6 +39,7 @@ library
 
     Pos.Txp.Network
     Pos.Txp.Network.Types
+    Pos.Txp.Network.Listeners
 
     Pos.Txp.MemState
     Pos.Txp.MemState.Class

@@ -18,6 +18,7 @@ library
                         Pos.Block.Base
                         Pos.Block.BHelpers
                         Pos.Block.BListener
+                        Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Genesis
@@ -26,6 +27,11 @@ library
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
+
+                        Pos.Block.Network
+                        Pos.Block.Network.Logic
+                        Pos.Block.Network.Retrieval
+                        Pos.Block.Network.Types
 
                         Pos.DB.Block
                         Pos.DB.Block.Load
@@ -49,6 +55,8 @@ library
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
 
+                        Pos.Block.Worker
+
   other-modules:
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
@@ -65,6 +73,7 @@ library
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
+
 
   build-depends:        QuickCheck
                       , aeson

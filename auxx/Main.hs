@@ -18,6 +18,7 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (ConfigurationError)
+import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
@@ -125,7 +126,7 @@ action opts@AuxxOptions {..} command = do
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
-                      bracketTransportTCP (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
+                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
                           diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity

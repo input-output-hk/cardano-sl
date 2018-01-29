@@ -26,6 +26,7 @@ import           Mockable.Production (Production (..))
 import           Pos.Binary ()
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
@@ -134,7 +135,7 @@ runServer
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     logicLayerFull jsonLog $ \logicLayer ->
-        bracketTransportTCP tcpAddr $ \transport ->
+        bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
                 when npEnableMetrics (registerEkgMetrics ekgStore)

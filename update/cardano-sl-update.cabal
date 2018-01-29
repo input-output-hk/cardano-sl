@@ -40,6 +40,9 @@ library
                        Pos.Update.Logic.Global
                        Pos.Update.Logic.Local
 
+                       Pos.Update.Network
+                       Pos.Update.Network.Listeners
+
                        -- Poll
                        Pos.Update.Poll
                        Pos.Update.Poll.Class
@@ -68,6 +71,9 @@ library
                        -- Context-like things
                        Pos.Update.Context
                        Pos.Update.Params
+
+                       -- Worker
+                       Pos.Update.Worker
 
   other-modules:
                        Pos.Arbitrary.Update.Core

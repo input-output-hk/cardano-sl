@@ -53,6 +53,8 @@ library
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
 
+    Pos.Ssc.Worker
+
     Pos.Arbitrary.Ssc
 
     Pos.Binary.Ssc

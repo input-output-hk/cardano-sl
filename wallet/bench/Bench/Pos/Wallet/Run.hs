@@ -11,21 +11,22 @@ import           Gauge.Main.Options     (Config (..), Mode (..), defaultConfig)
 import           System.Random          (randomRIO)
 import           Control.Concurrent     (threadDelay)
 
-import           Bench.Pos.Wallet.Types (AdditionalBenchConfig (..),
+import           Bench.Pos.Wallet.Types (CompleteConfig (..), EndpointConfig (..),
                                          BenchEndpoint (..), EndpointClient)
 
 -- | Runs benchmark using particular client.
 runBench
     :: EndpointClient
     -> BenchEndpoint
-    -> AdditionalBenchConfig
+    -> CompleteConfig
+    -> EndpointConfig
     -> IO ()
-runBench endpointClient benchEp (AdditionalBenchConfig {..}) =
+runBench endpointClient benchEp CompleteConfig {..} EndpointConfig {..} =
     runMode DefaultMode
             config
             [show benchEp]
             [bench benchName $
-                nfIO (endpointClient >> wait (minDelayForCalls, maxDelayForCalls))]
+                nfIO (endpointClient walletsConfig >> wait (minDelayForCalls, maxDelayForCalls))]
   where
     config = defaultConfig {
         timeLimit  = Just benchDuration,

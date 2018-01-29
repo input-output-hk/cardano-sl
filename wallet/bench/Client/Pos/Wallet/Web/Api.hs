@@ -55,4 +55,5 @@ newPayment
     -> Coin
     -> Maybe InputSelectionPolicy
     -> ClientM CTx
-getHistory :<|> getWallet :<|> getWallets :<|> newPayment = client (Proxy @WalletBenchApi)
+getHistory :<|> getWallet :<|> getWallets :<|> newPayment =
+    client (Proxy @WalletBenchApi)

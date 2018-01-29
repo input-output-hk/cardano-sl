@@ -10,6 +10,7 @@ import           Test.QuickCheck            ()
 
 import           Client.Pos.Wallet.Web.Api  (getHistory)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
+import           Bench.Pos.Wallet.Types     (WalletsConfig (..))
 
 import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
                                              CId (..), CHash (..), ScrollLimit (..),
@@ -17,8 +18,8 @@ import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
 
 -- | Run 'GetHistory' client. As a result we will get
 -- a list of transactions and size of a full history.
-getHistoryIO :: IO ()
-getHistoryIO =
+getHistoryIO :: WalletsConfig -> IO ()
+getHistoryIO WalletsConfig {..} =
     let wallet    = CId (CHash "")
         accountId = CAccountId ""
         address   = CId (CHash "")

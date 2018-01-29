@@ -355,6 +355,9 @@ benchmark cardano-sl-wallet-bench
   hs-source-dirs:      bench
   main-is:             Main.hs
   other-modules:       Bench.Pos.Wallet.Config
+                       Bench.Pos.Wallet.Config.CLI
+                       Bench.Pos.Wallet.Config.Endpoints
+                       Bench.Pos.Wallet.Config.Wallets
                        Bench.Pos.Wallet.Run
                        Bench.Pos.Wallet.Types
 
@@ -368,7 +371,8 @@ benchmark cardano-sl-wallet-bench
                        Client.Pos.Wallet.Web.Run
 
   type:                exitcode-stdio-1.0
-  build-depends:       async
+  build-depends:       aeson
+                     , async
                      , base
                      , bytestring
                      , cardano-sl
@@ -391,6 +395,7 @@ benchmark cardano-sl-wallet-bench
                      , tls
                      , universum >= 0.1.11
                      , vector
+                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

@@ -5,42 +5,42 @@ module Main
 import           Universum
 
 import           Control.Concurrent.Async       (async, wait)
-import           Control.Monad                  (void)
 import           System.IO                      (hSetEncoding, stdout, utf8)
 import           Data.Maybe                     (maybe)
 
-import           Bench.Pos.Wallet.Config        (extractConfigFor, getBenchConfig,
-                                                 getOptions)
+import           Bench.Pos.Wallet.Config        (getOptions, extractEndpointConfigFor,
+                                                 getEndpointsConfig, getWalletsConfig)
 import           Bench.Pos.Wallet.Run           (runBench)
-import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CLOptions (..))
+import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CompleteConfig (..),
+                                                 CLOptions (..))
 import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getWalletsIO,
                                                  newPaymentIO)
 
 -- | Example of benchmark command:
--- $ stack bench cardano-sl-wallet --benchmark-arguments "--ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
+-- $ stack bench cardano-sl-wallet --benchmark-arguments \
+--      "--wal-conf=$PWD/wallet/bench/config/Wallets.yaml --ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
 --
 -- It's a client, so we assume that the node (with Wallet Web API enabled)
 -- is already running.
 main :: IO ()
 main = do
-    CLOptions {..} <- getOptions
-    conf <- getBenchConfig pathToEndpointsConf
     hSetEncoding stdout utf8
+    CLOptions {..} <- getOptions
+    conf <- CompleteConfig <$> getEndpointsConfig pathToEndpointsConfig
+                           <*> getWalletsConfig pathToWalletsConfig
+    let benchmarks = [ maybeRun getHistoryIO GetHistoryBench conf
+                     , maybeRun getWalletIO  GetWalletBench  conf
+                     , maybeRun getWalletsIO GetWalletsBench conf
+                     , maybeRun newPaymentIO NewPaymentBench conf
+                     ]
     if runConcurrently then do
-        b1 <- async $ maybeRun getHistoryIO GetHistoryBench conf
-        b2 <- async $ maybeRun getWalletIO  GetWalletBench  conf
-        b3 <- async $ maybeRun getWalletsIO GetWalletsBench conf
-        b4 <- async $ maybeRun newPaymentIO NewPaymentBench conf
-        void $ wait b1
-        void $ wait b2
-        void $ wait b3
-        void $ wait b4
-    else do
-        maybeRun getHistoryIO GetHistoryBench conf
-        maybeRun getWalletIO  GetWalletBench  conf
-        maybeRun getWalletsIO GetWalletsBench conf
-        maybeRun newPaymentIO NewPaymentBench conf
+        asyncs <- forM benchmarks async
+        forM_ asyncs wait
+    else
+        sequence_ benchmarks
   where
-    -- | Run benchmark if corresponding config is defined.
-    maybeRun client endpoint configs =
-        maybe (return ()) (runBench client endpoint) (extractConfigFor endpoint configs)
+      -- | Run benchmark if config for corresponding endpoint is defined.
+    maybeRun client endpoint conf =
+        maybe (return ())
+              (runBench client endpoint conf)
+              (extractEndpointConfigFor endpoint conf)

@@ -8,6 +8,7 @@ import           Universum
 
 import           Client.Pos.Wallet.Web.Api  (newPayment)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
+import           Bench.Pos.Wallet.Types     (WalletsConfig (..))
 
 import           Pos.Client.Txp.Util        (InputSelectionPolicy (..))
 import           Pos.Core.Types             (mkCoin)
@@ -16,8 +17,8 @@ import           Pos.Wallet.Web.ClientTypes (CAccountId (..),
 
 -- | Run 'NewPayment' client. As a result
 -- we will get a newly created transaction.
-newPaymentIO :: IO ()
-newPaymentIO =
+newPaymentIO :: WalletsConfig -> IO ()
+newPaymentIO WalletsConfig {..} =
     let passPhrase = CPassPhrase ""
         accountId  = CAccountId ""
         address    = CId (CHash "")

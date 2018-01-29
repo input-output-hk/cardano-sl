@@ -1,7 +1,11 @@
 -- | Auxiliary types.
 
 module Bench.Pos.Wallet.Types
-    ( AdditionalBenchConfig (..)
+    ( CompleteConfig (..)
+    , EndpointConfig (..)
+    , WalletAccount (..)
+    , Wallet (..)
+    , WalletsConfig (..)
     , CLOptions (..)
     , BenchEndpoint (..)
     , EndpointClient
@@ -9,8 +13,14 @@ module Bench.Pos.Wallet.Types
 
 import           Universum
 
--- | Additional benchmark configuration, obtained from the file.
-data AdditionalBenchConfig = AdditionalBenchConfig
+-- | Complete configuration for benchmarking.
+data CompleteConfig = CompleteConfig
+    { endpointsConfig :: ![EndpointConfig]
+    , walletsConfig   :: !WalletsConfig
+    }
+
+-- | Endpoint configuration, obtained from the .csv-file.
+data EndpointConfig = EndpointConfig
     { -- | Name of the benchmark, used in the report file.
       benchName        :: !String
       -- | Duration of benchmark, in seconds.
@@ -25,12 +35,31 @@ data AdditionalBenchConfig = AdditionalBenchConfig
     , pathToReportFile :: !FilePath
     }
 
+-- | @WalletAccount@, for Wallets configuration, obtained from the .yaml-file.
+data WalletAccount = WalletAccount
+    { accountId :: !Text
+    , addresses :: ![Text]
+    }
+
+-- | @Wallet@, for Wallets configuration, obtained from the .yaml-file.
+data Wallet = Wallet
+    { walletId :: !Text
+    , accounts :: ![WalletAccount]
+    }
+
+-- | @WalletsConfig@, for Wallets configuration, obtained from the .yaml-file.
+data WalletsConfig = WalletsConfig
+    { wallets :: ![Wallet]
+    }
+
 -- | Command-line options for benchmarks.
 data CLOptions = CLOptions
-    { -- | Path to benchmark configuration file.
-      pathToEndpointsConf :: !FilePath
+    { -- | Path to endpoints configuration file.
+      pathToEndpointsConfig :: !FilePath
+      -- | Path to wallets configuration file.
+    , pathToWalletsConfig   :: !FilePath
       -- | If True, run benchmarks concurrently.
-    , runConcurrently     :: !Bool
+    , runConcurrently       :: !Bool
     }
 
 -- | Clarification which benchmark we want to use.
@@ -44,4 +73,4 @@ data BenchEndpoint
 
 -- | Type synonym for client function: this function sends
 -- requests to particular endpoint of the Wallet Web API.
-type EndpointClient = IO ()
+type EndpointClient = WalletsConfig -> IO ()

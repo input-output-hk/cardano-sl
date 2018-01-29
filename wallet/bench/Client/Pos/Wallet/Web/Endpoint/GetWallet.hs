@@ -6,14 +6,15 @@ module Client.Pos.Wallet.Web.Endpoint.GetWallet
 
 import           Universum
 
-import           Client.Pos.Wallet.Web.Api (getWallet)
-import           Client.Pos.Wallet.Web.Run (runEndpointClient)
+import           Client.Pos.Wallet.Web.Api  (getWallet)
+import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
+import           Bench.Pos.Wallet.Types     (WalletsConfig (..))
 
 import           Pos.Wallet.Web.ClientTypes (CId (..), CHash (..))
 
 -- | Run 'GetWallet' client. As a result we will get a particular wallet.
-getWalletIO :: IO ()
-getWalletIO =
+getWalletIO :: WalletsConfig -> IO ()
+getWalletIO WalletsConfig {..} =
     let walletId = CId (CHash "")
     in
     runEndpointClient (getWallet walletId) >>= \case

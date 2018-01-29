@@ -75,9 +75,9 @@ serializeBuilder = CBOR.Write.toBuilder . encode
 -- | Serialize using the safe allocation strategy with a given first and
 -- subsequent chunk size.
 serializeWith :: Bi a => Int -> Int -> a -> BSL.ByteString
-serializeWith first next = Builder.toLazyByteStringWith strategy mempty . serializeBuilder
+serializeWith firstChunk nextChunk = Builder.toLazyByteStringWith strategy mempty . serializeBuilder
   where
-    strategy = Builder.safeStrategy first next
+    strategy = Builder.safeStrategy firstChunk nextChunk
 
 -- | Deserialize a Haskell value from the external binary representation
 -- (which must have been made using 'serialize' or related function).

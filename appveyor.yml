@@ -18,7 +18,7 @@ environment:
       secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
 
 init:
-- ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne ""))
+- ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne "") -and ("$env:AWS_ACCESS_KEY_ID" -ne "") -and ("$env:AWS_SECRET_ACCESS_KEY" -ne ""))
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars

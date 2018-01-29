@@ -16,6 +16,7 @@ import           Generics.SOP
 import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), defaultJsonOptions,
                                     jsonInfo)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.Util (mkJsonKey)
 import           Pos.Util.Util (aesonError)
 
@@ -52,24 +53,24 @@ jsendInfo pa = jsonInfo pa $ defaultJsonOptions
 -- JSend format.
 gtoJsend
     :: forall a. (Generic a, HasDatatypeInfo a, All2 ToJSON (Code a))
-    => a -> Value
-gtoJsend a = hcollapse $
-    hcliftA2 allpt gtoJsend'
+    => ResponseStatus -> a -> Value
+gtoJsend rs a = hcollapse $
+    hcliftA2 allpt (gtoJsend' rs)
     (jsendInfo (Proxy :: Proxy a))
     (unSOP $ from a)
 
 gtoJsend'
     :: All ToJSON xs
-    => JsonInfo xs -> NP I xs -> K Value xs
-gtoJsend' (JsonZero n) Nil =
-    jsendValue (Tag n) (Object mempty)
-gtoJsend' (JsonOne tag) (I a :* Nil) =
-    jsendValue tag (toJSON a)
-gtoJsend' (JsonMultiple tag) cs =
-    jsendValue tag . Array . V.fromList . hcollapse $
+    => ResponseStatus -> JsonInfo xs -> NP I xs -> K Value xs
+gtoJsend' rs (JsonZero n) Nil =
+    jsendValue rs (Tag n) (Object mempty)
+gtoJsend' rs (JsonOne tag) (I a :* Nil) =
+    jsendValue rs tag (toJSON a)
+gtoJsend' rs (JsonMultiple tag) cs =
+    jsendValue rs tag . Array . V.fromList . hcollapse $
     hcliftA pt (K . toJSON . unI) cs
-gtoJsend' (JsonRecord tag fields) cs =
-    jsendValue tag . Object . HM.fromList . hcollapse $
+gtoJsend' rs (JsonRecord tag fields) cs =
+    jsendValue rs tag . Object . HM.fromList . hcollapse $
     hcliftA2 pt (\(K field) (I a) -> K (toText field, toJSON a)) fields cs
 
 -- | Generic method which parses a Haskell value from given `Value`.
@@ -120,11 +121,12 @@ parseJsendValues (JsonRecord tag fields) =
 
 -- | Helper function which makes a JSON value in JSend format
 -- from a constructor tag and object with constructor's arguments
-jsendValue :: Tag -> Value -> K Value a
-jsendValue NoTag v   = K v
-jsendValue (Tag t) v = K $ Object $
+jsendValue :: ResponseStatus -> Tag -> Value -> K Value a
+jsendValue _ NoTag v   = K v
+jsendValue rs (Tag t) v = K $ Object $
     HM.fromList [ ("message", String $ toText t)
                 , ("diagnostic", v)
+                , ("status", toJSON rs)
                 ]
 
 -- | Helper function to parse value in JSend format if desired constructor

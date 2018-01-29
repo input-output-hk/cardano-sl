@@ -11,8 +11,8 @@ environment:
     WORK_DIR: "c:\\w"
     CACHE_S3_VERSION: v0.1.1
     AWS_REGION: us-west-1
-    S3_BUCKET: appveyor-ci-cache              
-    AWS_ACCESS_KEY_ID: 
+    S3_BUCKET: appveyor-ci-cache
+    AWS_ACCESS_KEY_ID:
       secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
     AWS_SECRET_ACCESS_KEY:
       secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
@@ -91,21 +91,17 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  - stack exec -- cardano-wallet-hs2purs
-  # Prepare files for frontend build
+  # Cardano pieces, modulo the frontend
+  - mkdir daedalus
   - copy log-config-prod.yaml daedalus\
   - copy lib\configuration.yaml daedalus\
   - copy lib\*genesis*.json daedalus\
   - copy cardano-launcher.exe daedalus\
   - copy cardano-node.exe daedalus\
-  # Build the bridge
   - cd daedalus
-  - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - Echo %APPVEYOR_BUILD_VERSION% > build-id		
   - Echo %APPVEYOR_REPO_COMMIT% > commit-id
   - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
-  - ps: Install-Product node 7
-  - ..\scripts\ci\appveyor-retry call npm install
-  - npm run build:prod
 
 after_test:
  - cd "%WORK_DIR%" # Get back to where cache-s3.exe is located

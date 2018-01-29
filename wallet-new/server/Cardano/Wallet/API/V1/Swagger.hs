@@ -1,4 +1,3 @@
-
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -12,16 +11,23 @@ module Cardano.Wallet.API.V1.Swagger where
 import           Universum
 
 import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Request.Filter
+import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Request.Sort
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Parameters
+import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), Value (Number, Object, String))
+import           Data.Aeson (ToJSON (..), Value (Number, Object))
 import           Data.Aeson.Encode.Pretty
-import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
 import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
@@ -30,12 +36,11 @@ import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.String.Conv
-import           Data.Swagger hiding (Header)
+import           Data.Swagger hiding (Example, Header, example)
+import qualified Data.Swagger as S
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
-import           Formatting (build, sformat)
-import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
 import           Servant.Swagger
@@ -48,15 +53,15 @@ import           Test.QuickCheck.Random
 --
 
 -- | Generates an example for type `a` with a static seed.
-genExample :: (ToJSON a, Arbitrary a) => a
-genExample = (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+genExample :: (ToJSON a, Example a) => a
+genExample = (unGen (resize 3 example)) (mkQCGen 42) 42
 
 -- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
 -- by calling `sketchSchema` under the hood.
-fromArbitraryJSON :: (ToJSON a, Typeable a, Arbitrary a)
+fromExampleJSON :: (ToJSON a, Typeable a, Example a)
                   => proxy a
                   -> Declare (Definitions Schema) NamedSchema
-fromArbitraryJSON (_ :: proxy a) = do
+fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
@@ -65,7 +70,7 @@ renderType :: Typeable a => proxy a -> T.Text
 renderType = fromString . show . typeRep
 
 -- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
-withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
+withExample :: (ToJSON a, Example a) => proxy a -> T.Text -> T.Text
 withExample (_ :: proxy a) desc =
   desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
@@ -81,7 +86,7 @@ newDescr (p :: proxy a) =
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
-readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
+readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Example a, ToJSON a, Example b, ToJSON b)
                        => proxy a -> Set T.Text
 readOnlyFieldsFromJSON _ =
     case (toJSON (genExample @a), toJSON (genExample @b)) of
@@ -106,15 +111,16 @@ setReadOnlyFields p hm =
 -- Extra Typeclasses
 --
 
+
 -- TODO: Writing instances this way is a bit verbose. Is there a better way?
-class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
+class (ToJSON a, Typeable a, Example a) => ToDocs a where
   annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
            -> proxy a
            -> Declare (Definitions Schema) NamedSchema
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ descriptionFor p)
-               . (schema . example ?~ toJSON @a genExample)
+               . (schema . S.example ?~ toJSON @a genExample)
                . (over (schema . properties) (setReadOnlyFields p))
 
   descriptionFor :: proxy a -> T.Text
@@ -123,23 +129,9 @@ class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
   readOnlyFields :: proxy a -> Set T.Text
   readOnlyFields _ = mempty
 
--- | Shamelessly copied from:
--- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>
--- The idea is to extend `KnownSymbol` to a type-level list, so that it's possibly to reify at the value-level
--- a `'[Symbol]` into a `[String]`.
-class KnownSymbols (xs :: [Symbol]) where
-  symbolVals :: proxy xs -> [String]
-
 --
 -- Instances
 --
-
-instance KnownSymbols ('[]) where
-  symbolVals _ = []
-
-instance (KnownSymbol a, KnownSymbols as) => KnownSymbols (a ': as) where
-  symbolVals _ =
-    symbolVal (Proxy :: Proxy a) : symbolVals (Proxy :: Proxy as)
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where
@@ -155,6 +147,57 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
+instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (FilterBy syms res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+            allOps     = map toText $ symbolVals (Proxy @syms)
+        in swgr & over (operationsOf swgr . parameters) (addFilterOperations allOps)
+          where
+            addFilterOperations :: [Text] -> [Referenced Param] -> [Referenced Param]
+            addFilterOperations ops xs = map (Inline . newParam) ops <> xs
+
+            newParam :: Text -> Param
+            newParam opName =
+                let typeOfRes = fromString $ show $ typeRep (Proxy @ res)
+                in Param {
+                  _paramName = opName
+                , _paramRequired = Nothing
+                , _paramDescription = Just $ "A **FILTER** operation on a " <> typeOfRes <> "."
+                , _paramSchema = ParamOther ParamOtherSchema {
+                         _paramOtherSchemaIn = ParamQuery
+                       , _paramOtherSchemaAllowEmptyValue = Nothing
+                       , _paramOtherSchemaParamSchema = mempty
+                       }
+                }
+
+instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (SortBy syms res :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @subApi)
+        in swgr & over (operationsOf swgr . parameters) addSortOperation
+          where
+            addSortOperation :: [Referenced Param] -> [Referenced Param]
+            addSortOperation xs = (Inline newParam) : xs
+
+            newParam :: Param
+            newParam =
+                let typeOfRes = fromString $ show $ typeRep (Proxy @ res)
+                    allowedKeys = T.intercalate "," (map toText $ symbolVals (Proxy @syms))
+                in Param {
+                  _paramName = "sort_by"
+                , _paramRequired = Just False
+                , _paramDescription = Just (sortDescription typeOfRes allowedKeys)
+                , _paramSchema = ParamOther ParamOtherSchema {
+                         _paramOtherSchemaIn = ParamQuery
+                       , _paramOtherSchemaAllowEmptyValue = Just True
+                       , _paramOtherSchemaParamSchema = mempty
+                       }
+                }
+
+sortDescription :: Text -> Text -> Text
+sortDescription resource allowedKeys = [text|
+A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
+|]
+
 instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @(WithWalletRequestParams subApi))
@@ -162,15 +205,15 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
           where
             toDescription :: Referenced Param -> Referenced Param
             toDescription (Inline p@(_paramName -> pName)) =
-              Inline (p & description .~ M.lookup pName requestParameterToDescription)
+                case M.lookup pName requestParameterToDescription of
+                    Nothing -> Inline p
+                    Just d  -> Inline (p & description .~ Just d)
             toDescription x = x
 
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  , ("response_format", responseFormatDescription)
-  , ("Daedalus-Response-Format", responseFormatDescription)
   ]
 
 pageDescription :: T.Text
@@ -186,15 +229,6 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-responseFormatDescription :: T.Text
-responseFormatDescription = [text|
-Determines the response format. If set to `extended`, then fetched
-data will be wrapped in an `ExtendedResponse` (see the Models section).
-Otherwise, it defaults to "plain", which can as well be passed to switch to a
-simpler response format, which includes only the requested payload.
-An `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.
-|]
-
 instance ToParamSchema PerPage where
   toParamSchema _ = mempty
     & type_ .~ SwaggerInteger
@@ -208,29 +242,30 @@ instance ToParamSchema Page where
     & default_ ?~ (Number 1) -- Always show the first page by default.
     & minimum_ ?~ 1
 
-instance ToParamSchema ResponseFormat where
-    toParamSchema _ = mempty
-        & type_ .~ SwaggerString
-        & default_ ?~ (String $ rtToText def)
-        & enum_ ?~ map (String . rtToText) [minBound..maxBound]
-      where
-        rtToText :: ResponseFormat -> Text
-        rtToText = sformat build
-
 instance ToParamSchema WalletId
 
 instance ToDocs Metadata where
-  descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
+  descriptionFor _ = "Metadata returned as part of an <b>WalletResponse</b>."
 
 instance ToDocs Account where
   readOnlyFields   = readOnlyFieldsFromJSON
   descriptionFor _ = "An Account."
 
+instance ToDocs WalletAddress where
+  readOnlyFields   = readOnlyFieldsFromJSON
+  descriptionFor _ = "An Address with meta information related to it."
+
 instance ToDocs AccountUpdate where
   descriptionFor _ = updateDescr (Proxy @Account)
 
+instance ToDocs NewAccount where
+  descriptionFor _ = newDescr (Proxy @Account)
+
+instance ToDocs AddressValidity where
+  descriptionFor _ = "Verifies that an address is base58 decodable."
+
 instance ToDocs Address where
-  descriptionFor _ = "An Address."
+  descriptionFor _ = "A base58-encoded Address."
 
 instance ToDocs WalletId where
   descriptionFor _ = "A Wallet ID."
@@ -240,6 +275,9 @@ instance ToDocs Wallet where
 
 instance ToDocs NewWallet where
   descriptionFor _ = newDescr (Proxy @Wallet)
+
+instance ToDocs NewAddress where
+  descriptionFor _ = newDescr (Proxy @WalletAddress)
 
 instance ToDocs WalletUpdate where
   descriptionFor _ = updateDescr (Proxy @Wallet)
@@ -292,82 +330,72 @@ possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound.
 -- ToSchema instances
 
 instance ToSchema Account where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema WalletAddress where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema AccountUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema NewAccount where
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema AddressValidity where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Address where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletId where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Metadata where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Wallet where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewWallet where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
+
+instance ToSchema NewAddress where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema PasswordUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema EstimatedFees where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Transaction where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Payment where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletSoftwareUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NodeSettings where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NodeInfo where
-  declareNamedSchema = annotate fromArbitraryJSON
+  declareNamedSchema = annotate fromExampleJSON
 
-instance ToDocs a => ToDocs (ExtendedResponse a) where
+instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)
 
-instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (ExtendedResponse a) where
-  declareNamedSchema = annotate fromArbitraryJSON
+instance (ToJSON a, ToDocs a, Typeable a, Example a) => ToSchema (WalletResponse a) where
+  declareNamedSchema = annotate fromExampleJSON
 
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ "A list of " <> renderType p <> ".")
-
-instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ desc)
-    where
-      typeOfA, typeOfB :: T.Text
-      typeOfA = renderType (Proxy @b)
-      typeOfB = renderType (Proxy @a)
-
-      desc :: T.Text
-      desc = "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning " <>
-             "different types depending on the parameter of the request. While this has been fixed " <>
-             "in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either " <>
-             typeOfA <> " or " <> typeOfB <>
-             " depending on whether or not the extended response format has been requested. While using the " <>
-             " API this type is erased away in the HTTP response, so that, in case the user requested the 'normal' " <>
-             (withExample (Proxy @ a) " response format, an <b>a</b> will be returned.") <>
-             (withExample (Proxy @ b) " In case the user selected the extended format, a full 'ExtendedResponse' will be yielded.")
-
-instance (ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 --
 -- The API
@@ -380,22 +408,28 @@ This is the specification for the Cardano Wallet API, automatically generated
 as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
 of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-### Request format (all versions)
+Git revision: **$deGitRevision**
+Software version: **$deSoftwareVersion**
+
+
+## Request format (all versions)
 
 Issuing requests against this API is conceptually not very different from any other web service out there. The API
-is versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.
+is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_
+in the URL.
 
-For example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:
+**For the sake of backward compatibility, we expose the legacy version of the API, available simply as
+unversioned endpoints.**
+
+This means that _omitting_ the version number would call the old version of the API. Examples:
 
 ```
 /api/version
-/api/v0/version
 ```
 
-Both URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the
-request & response formats might differ.
+Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
 
-### Response format (V1 onwards)
+## Response format (V1 onwards)
 
 **All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is
 the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
@@ -405,27 +439,43 @@ which returns a _collection_ (i.e. typically a JSON array of resources) lists ex
 used to modify the shape of the response. In particular, those are:
 
 * `page`: (Default value: **1**).
-* `per_page`: (Default value: **$defaultPerPage**)
-* `extended`: (Default value: `false`)
-* `Daedalus-Response-Format`: (Default value: `null`)
+* `per_page`: (Default value: **$deDefaultPerPage**)
 
 For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
-the first two control how many results and which results to access in a paginated request. The other two
-(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting
-both, the "naked" collection will be returned. For example, requesting for a list of _Accounts_ might issue,
-in this case:
+the first two control how many results and which results to access in a paginated request.
+
+This is an example of a typical (successful) response from the API:
 
 ``` json
-$accountExample
+$deWalletResponseExample
 ```
 
-In the second case, instead:
+## Filtering and sorting
 
-``` json
-$accountExtendedExample
-```
+`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked
+in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
 
-### Dealing with errors (V1 onwards)
+### Filter operators
+
+| Operator | Description                                                               | Example                |
+|----------|---------------------------------------------------------------------------|------------------------|
+| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |
+| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |
+| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |
+| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |
+| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |
+| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |
+| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
+
+### Sort operators
+
+| Operator | Description                                                               | Example                |
+|----------|---------------------------------------------------------------------------|------------------------|
+| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |
+| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |
+| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |
+
+## Dealing with errors (V1 onwards)
 
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
 [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
@@ -433,27 +483,53 @@ with a numeric error code which can be used by API consumers to implement proper
 application. For example, here's a typical error which might be issued:
 
 ``` json
-$errorExample
+$deErrorExample
 ```
+
+### Existing wallet errors
+
+$deWalletErrorTable
 
 |]
 
+type TableHeader = [T.Text]
+type TableRow = [T.Text]
+
+-- | Creates markdown table
+-- TODO: test edge cases:
+--  * TableHeader == []
+--  * no TableRow
+--  * when list of rows contains elements with different length (different number of columns)
+markdownTable :: TableHeader -> [TableRow] -> T.Text
+markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
+  where
+    header = makeRow h                             -- corresponds to "a|b|c"
+    headerSplitter = makeRow $ map (const "---") h -- corresponds to "---|---|---"
+    makeRow = T.intercalate "|"
+
 data DescriptionEnvironment = DescriptionEnvironment {
-    errorExample           :: !T.Text
-  , defaultPerPage         :: !T.Text
-  , accountExample         :: !T.Text
-  , accountExtendedExample :: !T.Text
+    deErrorExample          :: !T.Text
+  , deDefaultPerPage        :: !T.Text
+  , deWalletResponseExample :: !T.Text
+  , deWalletErrorTable      :: !T.Text
+  , deGitRevision           :: !T.Text
+  , deSoftwareVersion       :: !T.Text
   }
 
-api :: Swagger
+api :: (HasCompileInfo, HasUpdateConfiguration) => Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty Errors.WalletNotFound
-    , defaultPerPage = fromString (show defaultPerPageEntries)
-    , accountExample = toS $ encodePretty (genExample @[Account])
-    , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
+      deErrorExample = toS $ encodePretty Errors.WalletNotFound
+    , deDefaultPerPage = fromString (show defaultPerPageEntries)
+    , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
+    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
+    , deGitRevision = ctiGitRevision compileInfo
+    , deSoftwareVersion = fromString $ show curSoftwareVersion
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  where
+    makeRow err = [surroundedBy "`" err, "-", "-"]
+    surroundedBy wrap context = wrap <> context <> wrap

@@ -7,7 +7,6 @@
 # Order is important; the last matching pattern takes the most precedence.
 
 *.purs                          @akegalj
-daedalus/                       @akegalj
 
 # Explorer
 explorer/                             @akegaljj

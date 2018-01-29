@@ -1,3 +1,0 @@
---compilers js:babel-core/register
---reporter spec
---require ./test/mocha-entry.js

@@ -6,7 +6,7 @@ import           Universum
 
 import qualified Prelude
 
-import           Cardano.Wallet.API
+import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Swagger ()
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Orphans.Arbitrary ()
@@ -16,6 +16,7 @@ import           Pos.Wallet.Aeson.ClientTypes ()
 import           Servant.API.ContentTypes
 import           Servant.Swagger.Test
 import           Test.Hspec
+import           Test.Hspec.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 
@@ -28,14 +29,7 @@ instance {-# OVERLAPPABLE #-} Buildable a => Prelude.Show a where
 instance ToSchema NoContent where
     declareNamedSchema _ = pure (NamedSchema Nothing mempty)
 
--- | Apparently these specs will fail for OneOf with:
---
--- > let t = OneOf (Right (ExtendedResponse [Account "foo"] (Metadata 10 10 10 10)))
--- > validateToJSON (t :: OneOf [Account] (ExtendedResponse [Account]))
--- ["expected JSON value of type SwaggerArray"]
---
--- Is there a way to make the specs pass?
-
 spec :: Spec
-spec = describe "Swagger Integration" $ do
-  xdescribe "ToJSON matches ToSchema" $ validateEveryToJSON walletAPI
+spec = modifyMaxSuccess (const 10) $
+    describe "Swagger Integration" $ do
+        xdescribe "(V1) ToJSON matches ToSchema" $ validateEveryToJSON (Proxy @ V1.API)

@@ -17,7 +17,8 @@ import qualified Data.ByteString                      as B
 import           Data.String.Conv
 import           Data.Time
 import           Data.Map                             (union, fromList)
-import           Dhall                                (Interpret, input, auto)
+--import           Dhall                                (Interpret, input, auto)
+import           Data.Aeson                           (FromJSON, ToJSON, eitherDecodeStrict)
 import           GHC.Generics                         (Generic)
 import           Network.Haskoin.Crypto               (Entropy, toMnemonic)
 import           Pos.Crypto.Random
@@ -44,32 +45,46 @@ import           Text.Printf
 -- Types
 --
 
+-- | A simple example of how the configuration looks like.
+_testSpec :: GenSpec
+_testSpec = GenSpec
+    { walletSpec = WalletSpec
+        { accounts = 1
+        , accountSpec = AccountSpec { addresses = 100 }
+        , fakeUtxo = FakeUtxoSpec { amount = 1000, distribution = RangeDistribution { range=100 } }
+        }
+    , wallets = 1
+    }
+
 data GenSpec = GenSpec
-    { wallets     :: !Integer
+    { wallets    :: !Integer
     -- ^ How many wallets to create
-    , wallet_spec :: WalletSpec
+    , walletSpec :: WalletSpec
     -- ^ The specification for each wallet.
     } deriving (Show, Eq, Generic)
 
-instance Interpret GenSpec
+instance FromJSON GenSpec
+instance ToJSON GenSpec
 
 data WalletSpec = WalletSpec
     { accounts      :: !Integer
     -- ^ How many accounts to generate
-    , account_spec  :: AccountSpec
+    , accountSpec  :: AccountSpec
     -- ^ How specification for each account.
     , fakeUtxo      :: FakeUtxoSpec
     -- ^ Configuration for the generation of the fake UTxO.
     } deriving (Show, Eq, Generic)
 
-instance Interpret WalletSpec
+instance FromJSON WalletSpec
+instance ToJSON WalletSpec
 
 data AccountSpec = AccountSpec
     { addresses :: !Integer
     -- ^ How many addresses to generate.
     } deriving (Show, Eq, Generic)
 
-instance Interpret AccountSpec
+instance FromJSON AccountSpec
+instance ToJSON AccountSpec
 
 -- TODO(ks): The question here is whether we need to support some other
 -- strategies for distributing money, like maybe using a fixed amount
@@ -77,14 +92,32 @@ instance Interpret AccountSpec
 -- have around 80 000 addresses which is a lot and can be intensive?
 -- For now, KISS.
 data FakeUtxoSpec = FakeUtxoSpec
-    {  fromAddress  :: Maybe Integer
-    -- ^ How many addresses to contain fake ADA. If empty, don't generate
-    -- fake UTxO.
-    ,  amount       :: !Integer
+    { amount       :: !Integer
     -- ^ How much ADA do we want to distribute in a single address.
+    , distribution :: CoinDistributionSpec
+    -- ^ Choose a @CoinDistributionSpec@.
     } deriving (Show, Eq, Generic)
 
-instance Interpret FakeUtxoSpec
+instance FromJSON FakeUtxoSpec
+instance ToJSON FakeUtxoSpec
+
+data CoinDistributionSpec
+    = NoDistribution
+    -- ^ Do not distribute the coins.
+    | RangeDistribution { range :: !Integer }
+    -- ^ Distributes to only XX addresses.
+    -- ^ TODO(adn): For now we KISS, later we can add more type constructors
+    deriving (Show, Eq, Generic)
+
+instance FromJSON CoinDistributionSpec
+instance ToJSON CoinDistributionSpec
+
+{-
+λ> encode NoDistribution
+"{\"tag\":\"NoDistribution\"}"
+λ> encode $ RangeDistribution { range=100 }
+"{\"tag\":\"RangeDistribution\",\"range\":100}"
+-}
 
 --
 -- Functions
@@ -92,14 +125,19 @@ instance Interpret FakeUtxoSpec
 
 -- | Load the 'GenSpec' from an input file.
 loadGenSpec :: FilePath -> IO GenSpec
-loadGenSpec = input auto . toS
+loadGenSpec fpath = do
+    fileContent <- B.readFile fpath
+    either exception pure (eitherDecodeStrict fileContent)
+  where
+    -- TODO(ks): MonadThrow maybe?
+    exception = error "Invalid JSON configuration file format!"
 
 -- | Run an action and report the time it took.
 timed :: MonadIO m => m a -> m a
 timed action = do
-    before <- liftIO getCurrentTime
-    res <- action
-    after <- liftIO getCurrentTime
+    before  <- liftIO getCurrentTime
+    res     <- action
+    after   <- liftIO getCurrentTime
     -- NOTE: Mind the `fromEnum` overflow.
     let diff = fromEnum $ after `diffUTCTime` before
 
@@ -126,11 +164,11 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
     -- CAccountId.
 
     -- TODO(ks): Simplify this?
-    let fakeUtxoSpec = fakeUtxo wallet_spec
+    let fakeUtxoSpec = fakeUtxo walletSpec
     case addTo of
-        Just accId -> case (fromAddress fakeUtxoSpec) of
-            Just _  -> generateFakeUtxo fakeUtxoSpec accId
-            Nothing -> addAddressesTo accId spec
+        Just accId -> case (distribution fakeUtxoSpec) of
+            NoDistribution -> addAddressesTo accId spec
+            _              -> generateFakeUtxo fakeUtxoSpec accId
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
             wallets' <- timed (forM [1..wallets] genWallet)
@@ -139,7 +177,7 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
 generateFakeUtxo :: FakeUtxoSpec -> AccountId -> UberMonad ()
 generateFakeUtxo FakeUtxoSpec{..} aId = do
-    let fromAddr = maybe 0 id fromAddress
+    let fromAddr = distrToNumAddr distribution
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
 
@@ -168,12 +206,16 @@ generateFakeUtxo FakeUtxoSpec{..} aId = do
     unwrapCAddress :: CAddress -> Either Text Address
     unwrapCAddress = decodeCType . cadId
 
+    distrToNumAddr :: CoinDistributionSpec -> Integer
+    distrToNumAddr NoDistribution             = 0
+    distrToNumAddr (RangeDistribution range)  = range
+
 
 addAddressesTo :: AccountId -> GenSpec -> UberMonad ()
 addAddressesTo cid spec = genAddresses spec cid
 
 genAccounts :: GenSpec -> (Int, CWallet) -> UberMonad ()
-genAccounts spec@(wallet_spec -> wspec) (idx, wallet) = do
+genAccounts spec@(walletSpec -> wspec) (idx, wallet) = do
     let accs = accounts wspec
     say $ printf "Generating %d accounts for Wallet %d..." accs idx
     cAccounts <- timed (forM [1..accs] (genAccount wallet))
@@ -184,7 +226,7 @@ toAccountId :: CAccount -> AccountId
 toAccountId CAccount{..} = either (error . toS) id (decodeCType caId)
 
 genAddresses :: GenSpec -> AccountId -> UberMonad ()
-genAddresses (account_spec . wallet_spec -> aspec) cid = do
+genAddresses (accountSpec . walletSpec -> aspec) cid = do
     let addrs = addresses aspec
     say $ printf "Generating %d addresses for Account %s..." addrs (renderAccountId cid)
     timed (forM_ [1..addrs] (const $ genAddress cid))

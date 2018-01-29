@@ -1,0 +1,16 @@
+{
+   "wallets":1,
+   "walletSpec":{
+      "accounts":1,
+      "accountSpec":{
+         "addresses":100
+      },
+      "fakeUtxo":{
+         "amount":1000,
+         "distribution":{
+            "tag":"RangeDistribution",
+            "range":100
+         }
+      }
+   }
+}

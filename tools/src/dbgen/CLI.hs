@@ -10,7 +10,7 @@ import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.ClientTypes.Types
 import           Text.Read                            (readMaybe)
-import           Types                                (Method)
+import           Types                                (Method (..))
 
 data CLI = CLI
     { config            :: FilePath

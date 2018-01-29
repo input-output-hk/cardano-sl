@@ -208,24 +208,16 @@ instance HasClient (apiType a :> res) => HasClient (CDecodeApiArg apiType a :> r
     type Client (CDecodeApiArg apiType a :> res) = Client (apiType a :> res)
     clientWithRoute _ req = clientWithRoute (Proxy @(apiType a :> res)) req
 
-type family MaybeArg a where
-   MaybeArg (a -> b) = Maybe a -> b
-
--- | For convenience, optional fields with default value are optional on client.
 instance HasClient (apiType a :> res) =>
          HasClient (WithDefaultApiArg apiType a :> res) where
     type Client (WithDefaultApiArg apiType a :> res) = Client (apiType a :> res)
     clientWithRoute _ req = clientWithRoute (Proxy @(apiType a :> res)) req
 
---instance HasClient api => HasClient (VerbMod mod api) where
---    type Client (VerbMod mod api) = ApiModifiedRes mod (Client api)
---    clientWithRoute _ req =
---        let l = clientWithRoute (Proxy @api) req
---        in modifyApiResult (Proxy @api)
-
-instance HasClient api => HasClient (VerbMod mod api) where
-    type Client (VerbMod mod api) = Client api
-    clientWithRoute _ req = clientWithRoute (Proxy @api) req
+instance HasClient (Verb mt st ct $ ApiModifiedRes mod a) =>
+         HasClient (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    type Client (VerbMod mod (Verb mt st ct a)) = Client (Verb mt st ct $ ApiModifiedRes mod a)
+    clientWithRoute _ req =
+        clientWithRoute (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
 
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults

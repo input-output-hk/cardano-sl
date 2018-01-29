@@ -30,8 +30,8 @@ before_test:
     if ( $env:CACHE_S3_READY -eq $true ) {
       Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
       7z x cache-s3.zip cache-s3.exe
-      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack --base-branch=master
-      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=master
+      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack --base-branch=develop
+      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
     }
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)

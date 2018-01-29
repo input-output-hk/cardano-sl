@@ -61,6 +61,7 @@ import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWeb
                                                    convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (WalletSnapshot, askWalletDB, askWalletSnapshot,
+                                                   getWalletSnapshot,
                                                    AddressLookupMode (Ever, Existing), AddressInfo (..))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
@@ -82,10 +83,8 @@ newPayment sa passphrase srcAccount dstAccount coin policy =
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
-      ws <- askWalletSnapshot
       sendMoney
           sa
-          ws
           passphrase
           (AccountMoneySource srcAccount)
           (one (dstAccount, coin))
@@ -100,10 +99,8 @@ newPaymentBatch
 newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
-      ws <- askWalletSnapshot
       sendMoney
         sa
-        ws
         passphrase
         (AccountMoneySource src)
         npbTo
@@ -185,13 +182,13 @@ instance
 sendMoney
     :: MonadWalletWebMode m
     => SendActions m
-    -> WalletSnapshot
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
+sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
+    ws <- askWalletSnapshot
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
@@ -251,10 +248,11 @@ sendMoney SendActions{..} ws passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     addHistoryTx db srcWallet th
     diff <- getCurChainDifficulty
-    let srcWalletAddrsDetector = getWalletAddrsDetector ws Ever srcWallet
+    ws' <- getWalletSnapshot db
+    let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
 
     logDebug "sendMoney: constructing response"
-    fst <$> constructCTx ws srcWallet srcWalletAddrsDetector diff th
+    fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

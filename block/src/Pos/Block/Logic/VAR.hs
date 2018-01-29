@@ -1,3 +1,6 @@
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Verify|apply|rollback logic.
 
 module Pos.Block.Logic.VAR
@@ -5,6 +8,7 @@ module Pos.Block.Logic.VAR
 
        , BlockLrcMode
        , verifyAndApplyBlocks
+       , verifyAndApplyBlocksC
        , applyWithRollback
 
        -- * Exported for tests
@@ -14,6 +18,8 @@ module Pos.Block.Logic.VAR
 
 import           Universum
 
+import           Conduit (Consumer, (.|))
+import qualified Conduit
 import           Control.Lens (_Wrapped)
 import           Control.Monad.Catch (bracketOnError)
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
@@ -40,7 +46,7 @@ import           Pos.Txp.Settings (TxpGlobalSettings (..))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
-import           Pos.Util (neZipWith4, spanSafe, _neHead)
+import           Pos.Util (neZipWith4, spanSafe, splitC, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
 
@@ -179,11 +185,33 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
                 logDebug "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe (ShouldCallBListener True) newBlunds (Just pModifier)
                 case getOldestFirst suffix of
-                    [] -> GS.getTip
+                    [] -> do
+                        logDebug "Rolling: Applying done"
+                        GS.getTip
                     (genesis:xs) -> do
                         logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
+
+-- | 'verifyAndApplyBlocks' in form of a conduit.
+--
+-- We simply break blocks into chunks of 1000 and then do
+-- 'verifyAndApplyBlocks' for each. This isn't the most optimal strategy but
+-- it'll do for now.
+--
+-- If there are no blocks, 'verifyAndApplyBlocksC' returns the current tip.
+verifyAndApplyBlocksC
+    :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
+    => Bool -> Consumer Block m (Either ApplyBlocksException HeaderHash)
+verifyAndApplyBlocksC rollback = do
+    tip <- lift GS.getTip
+    splitC 1000 .| Conduit.mapC OldestFirst .| processBatches tip
+  where
+    processBatches tip = Conduit.await >>= \case
+        Nothing     -> pure (Right tip)
+        Just blocks -> lift (verifyAndApplyBlocks rollback blocks) >>= \case
+            Left err     -> pure (Left err)
+            Right newTip -> processBatches newTip
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txs and ssc

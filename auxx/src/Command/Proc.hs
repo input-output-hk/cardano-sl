@@ -57,9 +57,6 @@ import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCt
                        makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
-import           Conduit (runConduit, runResourceT, sinkList, sourceFile, (.|))
-import           Pos.Block.Dump (decodeBlockDump)
-
 createCommandProcs ::
        forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
     => Maybe (Dict (MonadAuxxMode m))
@@ -280,16 +277,14 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
                \ using secret key #i"
     },
 
-    let name = "load-dump" in
+    let name = "apply-blockchain-dump" in
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
-    , cpArgumentConsumer = getArg tyFilePath "file"
-    , cpExec = \filePath -> do
-        blocks <- runResourceT $ runConduit $
-            sourceFile filePath .| decodeBlockDump .| sinkList
-        print (length blocks)
+    , cpArgumentConsumer = getArg tyFilePath "file/directory"
+    , cpExec = \path -> do
+        DumpBlockchain.applyBlockchainDump path
         return ValueUnit
     , cpHelp = ""
     },

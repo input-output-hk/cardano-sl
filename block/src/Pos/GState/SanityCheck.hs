@@ -7,7 +7,7 @@ module Pos.GState.SanityCheck
 import           Universum
 
 import           Control.Monad.Catch (MonadMask)
-import           System.Wlog (WithLogger)
+import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
@@ -21,7 +21,9 @@ sanityCheckDB ::
        , MonadReader ctx m
        )
     => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
+sanityCheckDB = inAssertMode $ do
+    sanityCheckGStateDB
+    logDebug "Finished sanity check"
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB ::

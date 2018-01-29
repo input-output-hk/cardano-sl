@@ -1,20 +1,25 @@
 module Command.DumpBlockchain
     ( dumpBlockchain
+    , applyBlockchainDump
     ) where
 
 import           Universum
 
-import           Conduit (runConduit, runResourceT, sinkFile, yieldMany, (.|))
+import qualified Algorithms.NaturalSort as NaturalSort
+import           Conduit (runConduitRes, (.|))
+import qualified Conduit as C
 import           Control.Lens (_Wrapped)
 import           Data.List.NonEmpty (last)
+import           Fmt ((+|), (|+))
 import           Formatting (build, sformat, (%))
-import           System.Directory (createDirectoryIfMissing)
+import           System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import           System.FilePath ((</>))
 import           System.Wlog (logInfo, logWarning)
 
-import           Pos.Block.Dump (encodeBlockDump)
-import           Pos.Core (Block, BlockHeader, EpochIndex (..), HeaderHash, blockHeaderHash,
-                           difficultyL, epochIndexL, genesisHash, getBlockHeader, prevBlockL)
+import           Pos.Block.Dump (decodeBlockDump, encodeBlockDump)
+import           Pos.Block.Logic.VAR (verifyAndApplyBlocksC)
+import           Pos.Core (Block, BlockHeader, EpochIndex (..), HeaderHash, difficultyL,
+                           epochIndexL, genesisHash, getBlockHeader, headerHash, prevBlockL)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.DB.BlockIndex as DB
@@ -25,6 +30,10 @@ import           Pos.Util.Chrono (NewestFirst (..), toOldestFirst)
 import           Pos.Util.Util (maybeThrow)
 
 import           Mode (MonadAuxxMode)
+
+----------------------------------------------------------------------------
+-- Creating a dump
+----------------------------------------------------------------------------
 
 -- | Dump whole blockchain in CBOR format to the specified folder.
 -- Each epoch will be at <outFolder>/epoch<epochIndex>.cbor.
@@ -71,16 +80,16 @@ dumpBlockchain outFolder = withStateLock HighPriority "auxx" $ \_ -> do
     doDump start = do
         let epochIndex = start ^. epochIndexL
         logInfo $ sformat ("Processing "%build) epochIndex
-        (maybePrev, blocksMaybeEmpty) <- loadEpoch $ blockHeaderHash start
+        (maybePrev, blocksMaybeEmpty) <- loadEpoch $ headerHash start
         -- TODO: use forward links instead so that we'd be able to stream
         -- the blocks into the compression conduit
         case _Wrapped nonEmpty blocksMaybeEmpty of
             Nothing -> pass
             Just (blocks :: NewestFirst NonEmpty Block) -> do
-                runResourceT $ runConduit $
-                    yieldMany (toList (toOldestFirst blocks)) .|
+                runConduitRes $
+                    C.yieldMany (toList (toOldestFirst blocks)) .|
                     encodeBlockDump .|
-                    sinkFile (getOutPath epochIndex)
+                    C.sinkFile (getOutPath epochIndex)
                 whenJust maybePrev $ \prev -> do
                     maybeHeader <- DB.getHeader prev
                     case maybeHeader of
@@ -91,7 +100,7 @@ dumpBlockchain outFolder = withStateLock HighPriority "auxx" $ \_ -> do
                                     getNewestFirst &
                                     last &
                                     getBlockHeader &
-                                    blockHeaderHash in
+                                    headerHash in
                             logWarning $ sformat ("DB contains block "%build%
                                 " but not its parent "%build) anchorHash prev
 
@@ -108,3 +117,48 @@ dumpBlockchain outFolder = withStateLock HighPriority "auxx" $ \_ -> do
         maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
       where
         errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
+
+----------------------------------------------------------------------------
+-- Loading a dump
+----------------------------------------------------------------------------
+
+-- | Load blocks from a file or directory and apply them.
+applyBlockchainDump
+    :: (MonadAuxxMode m, MonadIO m)
+    => FilePath -> m ()
+applyBlockchainDump path = withStateLock HighPriority "auxx" $ \_ -> do
+    isDir <- liftIO $ doesDirectoryExist path
+    if isDir then applyDir path else applyEpoch path
+
+-- | Apply all epochs from a directory.
+applyDir
+    :: (MonadAuxxMode m, MonadIO m)
+    => FilePath -> m ()
+applyDir path = do
+    files <- sortBy NaturalSort.compare <$> liftIO (listDirectory path)
+    for_ files $ \f -> applyEpoch (path </> f)
+
+-- | Apply a single epoch stored in a file.
+applyEpoch
+    :: (MonadAuxxMode m, MonadIO m)
+    => FilePath -> m ()
+applyEpoch path = do
+    (tip, difficulty) <- getTipAndDifficulty
+
+    logInfo ("Applying blocks from "+|path|+", tip is "+|tip|+", " <>
+             "difficulty is "+|difficulty|+"")
+    result <- runConduitRes $
+           C.sourceFile path
+        .| decodeBlockDump                            -- get a stream of blocks
+        .| (C.dropWhileC ((/= tip) . view prevBlockL) -- skip blocks until tip
+        >> verifyAndApplyBlocksC True)                -- apply blocks w/ rollback
+    whenLeft result throwM
+
+    (newTip, newDifficulty) <- getTipAndDifficulty
+    if tip == newTip
+        then logInfo ("All blocks were skipped because they can't " <>
+                      "be applied to the current tip")
+        else logInfo ("Applied blocks: "+|newDifficulty - difficulty|+". " <>
+                      "The current tip is "+|newTip|+"")
+  where
+    getTipAndDifficulty = (headerHash &&& view difficultyL) <$> DB.getTipHeader

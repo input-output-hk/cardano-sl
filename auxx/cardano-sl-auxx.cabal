@@ -66,6 +66,7 @@ library
                      , directory
                      , ether
                      , filepath
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , haskeline
@@ -75,12 +76,14 @@ library
                      , megaparsec
                      , mmorph
                      , mtl
+                     , natural-sort
                      , neat-interpolation
                      , optparse-applicative
                      , parser-combinators
                      , quickcheck-instances
                      , random
                      , reflection
+                     , resourcet
                      , safe-exceptions
                      , scientific
                      , serokell-util >= 0.1.3.4
@@ -140,6 +143,7 @@ executable cardano-auxx
                      , formatting
                      , log-warper
                      , network-transport-tcp
+                     , resourcet
                      , safe-exceptions
                      , temporary
                      , universum

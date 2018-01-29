@@ -13,13 +13,15 @@ module Mockable.Concurrent (
     ThreadId
   , Fork(..)
   , fork
-  , myThreadId
   , throwTo
   , killThread
 
   , Delay(..)
   , delay
   , sleepForever
+
+  , MyThreadId(..)
+  , myThreadId
 
   , RunInUnboundThread(..)
   , runInUnboundThread
@@ -54,17 +56,26 @@ import           Control.Exception.Safe (Exception)
 import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 
-type family ThreadId (m :: * -> *) :: *
+----------------------------------------------------------------------------
+-- Type families
+----------------------------------------------------------------------------
 
--- | Fork mock to add ability for threads manipulation.
+type family ThreadId (m :: * -> *) :: *
+type family Promise (m :: * -> *) :: * -> *
+
+----------------------------------------------------------------------------
+-- Fork mock
+----------------------------------------------------------------------------
+
+-- | Fork mock to add ability for low-level threads
+-- manipulation. Usually you should prefer 'Async' mock for threads
+-- manipulation.
 data Fork m t where
     Fork       :: m () -> Fork m (ThreadId m)
-    MyThreadId :: Fork m (ThreadId m)
     ThrowTo    :: Exception e => ThreadId m -> e -> Fork m ()
 
 instance (ThreadId n ~ ThreadId m) => MFunctor' Fork m n where
     hoist' nat (Fork action) = Fork $ nat action
-    hoist' _ MyThreadId      = MyThreadId
     hoist' _ (ThrowTo tid e) = ThrowTo tid e
 
 ----------------------------------------------------------------------------
@@ -75,10 +86,6 @@ instance (ThreadId n ~ ThreadId m) => MFunctor' Fork m n where
 fork :: ( Mockable Fork m ) => m () -> m (ThreadId m)
 fork term = liftMockable $ Fork term
 
-{-# INLINE myThreadId #-}
-myThreadId :: ( Mockable Fork m ) => m (ThreadId m)
-myThreadId = liftMockable MyThreadId
-
 {-# INLINE throwTo #-}
 throwTo :: ( Mockable Fork m, Exception e ) => ThreadId m -> e -> m ()
 throwTo tid e = liftMockable $ ThrowTo tid e
@@ -86,6 +93,10 @@ throwTo tid e = liftMockable $ ThrowTo tid e
 {-# INLINE killThread #-}
 killThread :: ( Mockable Fork m ) => ThreadId m -> m ()
 killThread tid = throwTo tid ThreadKilled
+
+----------------------------------------------------------------------------
+-- Delay mock
+----------------------------------------------------------------------------
 
 data Delay (m :: * -> *) (t :: *) where
     Delay :: TimeUnit t => t -> Delay m ()    -- Finite delay.
@@ -95,6 +106,10 @@ instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
     hoist' _ SleepForever = SleepForever
 
+----------------------------------------------------------------------------
+-- Delay mock helper functions
+----------------------------------------------------------------------------
+
 {-# INLINE delay #-}
 delay :: ( Mockable Delay m ) => TimeUnit t => t -> m ()
 delay time = liftMockable $ Delay time
@@ -102,6 +117,24 @@ delay time = liftMockable $ Delay time
 {-# INLINE sleepForever #-}
 sleepForever :: ( Mockable Delay m ) => m ()
 sleepForever = liftMockable SleepForever
+
+----------------------------------------------------------------------------
+-- MyThreadId mock and helper functions
+----------------------------------------------------------------------------
+
+data MyThreadId m t where
+    MyThreadId :: MyThreadId m (ThreadId m)
+
+instance (ThreadId n ~ ThreadId m) => MFunctor' MyThreadId m n where
+    hoist' _ MyThreadId      = MyThreadId
+
+{-# INLINE myThreadId #-}
+myThreadId :: ( Mockable MyThreadId m ) => m (ThreadId m)
+myThreadId = liftMockable MyThreadId
+
+----------------------------------------------------------------------------
+-- RunInUnboundThread mock and helper functions
+----------------------------------------------------------------------------
 
 data RunInUnboundThread m t where
     RunInUnboundThread :: m t -> RunInUnboundThread m t
@@ -113,7 +146,9 @@ instance MFunctor' RunInUnboundThread m n where
 runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m
 
-type family Promise (m :: * -> *) :: * -> *
+----------------------------------------------------------------------------
+-- Async mock and helper functions
+----------------------------------------------------------------------------
 
 data Async m t where
     Async :: m t -> Async m (Promise m t)
@@ -226,6 +261,10 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
+
+----------------------------------------------------------------------------
+-- Other utility functions
+----------------------------------------------------------------------------
 
 -- | This function is analogous to `System.Timeout.timeout`, it's
 -- based on `Race` and `Delay`.

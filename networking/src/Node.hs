@@ -272,7 +272,7 @@ manualNodeEndPoint ep _ = LL.NodeEndPoint {
 --   finish.
 node
     :: forall packing peerData m t .
-       ( Mockable Fork m, Mockable Channel.Channel m
+       ( Mockable Channel.Channel m
        , Mockable SharedAtomic m, MonadMask m
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)

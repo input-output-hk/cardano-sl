@@ -1226,12 +1226,12 @@ type SendMsg m msg nid = forall a. msg a -> nid -> m a
 -- It is the responsibility of the next layer up to fork this thread; this
 -- function does not return unless told to terminate using 'waitShutdown'.
 dequeueThread :: forall m msg nid buck. (
-                   MonadIO              m
-                 , MonadMask            m
-                 , M.Mockable M.Async   m
-                 , M.Mockable M.Fork    m
-                 , Ord (M.ThreadId      m)
-                 , WithLogger           m
+                   MonadIO                 m
+                 , MonadMask               m
+                 , M.Mockable M.Async      m
+                 , M.Mockable M.MyThreadId m
+                 , Ord (M.ThreadId         m)
+                 , WithLogger              m
                  )
               => OutboundQ msg nid buck -> SendMsg m msg nid -> m ()
 dequeueThread outQ@OutQ{..} sendMsg = withThreadRegistry $ \threadRegistry ->
@@ -1367,21 +1367,21 @@ updatePeersBucket outQ@OutQ{..} buck f = do
 -------------------------------------------------------------------------------}
 
 data ThreadRegistry m =
-       ( MonadIO              m
-       , M.Mockable M.Async   m
-       , M.Mockable M.Fork    m
-       , MonadMask            m
-       , Ord (M.ThreadId      m)
+       ( MonadIO                 m
+       , M.Mockable M.Async      m
+       , M.Mockable M.MyThreadId m
+       , MonadMask               m
+       , Ord (M.ThreadId         m)
        )
     => TR (MVar (Map (M.ThreadId m) (M.Promise m ())))
 
 -- | Create a new thread registry, killing all threads when the action
 -- terminates.
-withThreadRegistry :: ( MonadIO              m
-                      , M.Mockable M.Async   m
-                      , M.Mockable M.Fork    m
-                      , MonadMask            m
-                      , Ord (M.ThreadId      m)
+withThreadRegistry :: ( MonadIO                 m
+                      , M.Mockable M.Async      m
+                      , M.Mockable M.MyThreadId m
+                      , MonadMask               m
+                      , Ord (M.ThreadId         m)
                       )
                    => (ThreadRegistry m -> m ()) -> m ()
 withThreadRegistry k = do

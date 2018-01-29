@@ -30,8 +30,8 @@ import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Mockable.Channel (Channel (..), ChannelT)
 import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..), Promise,
-                                      RunInUnboundThread (..), ThreadId)
+import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..),
+                                      MyThreadId (..), Promise, RunInUnboundThread (..), ThreadId)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
@@ -54,7 +54,6 @@ instance Mockable Fork Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Fork Production t -> Production t #-}
     liftMockable (Fork m)        = Production $ Conc.forkIO (runProduction m)
-    liftMockable (MyThreadId)    = Production $ Conc.myThreadId
     liftMockable (ThrowTo tid e) = Production $ Conc.throwTo tid e
 
 instance Mockable Delay Production where
@@ -62,6 +61,11 @@ instance Mockable Delay Production where
     {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
     liftMockable (Delay time) = Production $ Serokell.threadDelay time
     liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
+
+instance Mockable MyThreadId Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: MyThreadId Production t -> Production t #-}
+    liftMockable (MyThreadId)    = Production $ Conc.myThreadId
 
 instance Mockable RunInUnboundThread Production where
     {-# INLINABLE liftMockable #-}

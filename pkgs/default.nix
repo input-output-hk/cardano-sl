@@ -7660,19 +7660,21 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-wallet-new" = callPackage
         ({ mkDerivation, aeson, aeson-pretty, base, bytestring, cardano-sl
-         , cardano-sl-client, cardano-sl-core, cardano-sl-crypto
-         , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
-         , cardano-sl-txp, cardano-sl-update, cardano-sl-util
-         , cardano-sl-wallet, containers, data-default, exceptions
-         , formatting, generics-sop, hspec, http-api-data, http-client
-         , http-types, insert-ordered-containers, ixset-typed, json-sop
-         , lens, log-warper, memory, mtl, neat-interpolation, network-uri
-         , optparse-applicative, QuickCheck, quickcheck-instances
-         , safe-exceptions, serokell-util, servant, servant-client
-         , servant-quickcheck, servant-server, servant-swagger, stdenv, stm
-         , string-conv, swagger2, template-haskell, text, text-format, time
-         , time-units, transformers, universum, unordered-containers, vector
-         , wai, wai-cors, wai-extra, warp
+         , cardano-sl-binary, cardano-sl-block, cardano-sl-client
+         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
+         , cardano-sl-delegation, cardano-sl-infra, cardano-sl-networking
+         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
+         , cardano-sl-util, cardano-sl-wallet, constraints, containers
+         , data-default, ether, exceptions, formatting, generics-sop, hspec
+         , http-api-data, http-client, http-types, insert-ordered-containers
+         , ixset-typed, json-sop, lens, log-warper, memory, mtl
+         , neat-interpolation, network-uri, optparse-applicative, QuickCheck
+         , quickcheck-instances, safe-exceptions, serokell-util, servant
+         , servant-client, servant-quickcheck, servant-server
+         , servant-swagger, stdenv, stm, string-conv, swagger2
+         , template-haskell, text, text-format, time, time-units
+         , transformers, universum, unordered-containers, vector, wai
+         , wai-cors, wai-extra, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7705,16 +7707,17 @@ inherit (pkgs) mesa;};
              wai-cors wai-extra warp
            ];
            testHaskellDepends = [
-             aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
-             cardano-sl-core cardano-sl-crypto cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
-             data-default exceptions formatting hspec http-client http-types
-             insert-ordered-containers ixset-typed lens memory
-             neat-interpolation QuickCheck quickcheck-instances safe-exceptions
-             serokell-util servant servant-quickcheck servant-server
-             servant-swagger stm string-conv swagger2 text universum
-             unordered-containers
+             aeson aeson-pretty base bytestring cardano-sl cardano-sl-binary
+             cardano-sl-block cardano-sl-client cardano-sl-core
+             cardano-sl-crypto cardano-sl-db cardano-sl-delegation
+             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
+             cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
+             constraints containers data-default ether exceptions formatting
+             hspec http-client http-types insert-ordered-containers ixset-typed
+             lens log-warper memory mtl neat-interpolation QuickCheck
+             quickcheck-instances safe-exceptions serokell-util servant
+             servant-quickcheck servant-server servant-swagger stm string-conv
+             swagger2 text text-format universum unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/swagger-api/swagger-codegen#readme";

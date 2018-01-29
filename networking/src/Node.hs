@@ -173,7 +173,7 @@ nodeConverse
     :: forall m packing peerData .
        ( Mockable Channel.Channel m
        , MonadMask m, Mockable SharedAtomic m, Mockable SharedExclusive m
-       , Mockable Async m, Ord (ThreadId m)
+       , Mockable LowLevelAsync m, Mockable Async m, Ord (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , WithLogger m, MonadFix m
@@ -274,7 +274,7 @@ node
     :: forall packing peerData m t .
        ( Mockable Channel.Channel m
        , Mockable SharedAtomic m, MonadMask m
-       , Mockable Async m, Mockable Concurrently m
+       , Mockable LowLevelAsync m, Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable SharedExclusive m
        , Mockable Delay m

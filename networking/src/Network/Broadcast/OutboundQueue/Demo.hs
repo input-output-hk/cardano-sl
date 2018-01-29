@@ -50,6 +50,8 @@ type instance M.Promise  Dequeue = M.Promise  M.Production
 
 instance M.Mockable M.Async Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
+instance M.Mockable M.LowLevelAsync Dequeue where
+    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 instance M.Mockable M.MyThreadId  Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 

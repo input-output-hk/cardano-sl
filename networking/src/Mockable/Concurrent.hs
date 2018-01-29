@@ -28,22 +28,24 @@ module Mockable.Concurrent (
 
   , Promise
   , Async(..)
-  , async
-  , asyncWithUnmask
   , withAsync
   , withAsyncWithUnmask
-  , wait
-  , cancelWith
-  , cancel
   , asyncThreadId
   , race
-  , link
-  , waitAny
 
   , Concurrently(..)
   , concurrently
   , mapConcurrently
   , forConcurrently
+
+  , LowLevelAsync(..)
+  , async
+  , asyncWithUnmask
+  , cancelWith
+  , cancel
+  , link
+  , wait
+  , waitAny
 
   -- * Utility functions
   , timeout
@@ -147,28 +149,20 @@ runInUnboundThread :: ( Mockable RunInUnboundThread m ) => m t -> m t
 runInUnboundThread m = liftMockable $ RunInUnboundThread m
 
 ----------------------------------------------------------------------------
--- Async mock and helper functions
+-- High-level Async mock and helper functions
 ----------------------------------------------------------------------------
 
+-- | 'Async' mock which mimics functions from `async` library. It
+-- intentionally does not contain 'async' function, because it
+-- generally should not be used (there is e. g. 'withAsync' function
+-- which is safer).
 data Async m t where
-    Async :: m t -> Async m (Promise m t)
     WithAsync :: m t -> (Promise m t -> m r) -> Async m r
-    Wait :: Promise m t -> Async m t
-    WaitAny :: [Promise m t] -> Async m (Promise m t, t)
-    CancelWith :: Exception e => Promise m t -> e -> Async m ()
     AsyncThreadId :: Promise m t -> Async m (ThreadId m)
     Race :: m t -> m r -> Async m (Either t r)
-    Link :: Promise m t -> Async m ()
+    -- | This is needed to implement 'withAsyncWithUnmask'. Note that
+    -- 'unsafeUnmask' function is not exported.
     UnsafeUnmask :: m a -> Async m a
-
-{-# INLINE async #-}
-async :: ( Mockable Async m ) => m t -> m (Promise m t)
-async m = liftMockable $ Async m
-
-{-# INLINE asyncWithUnmask #-}
-asyncWithUnmask :: ( Mockable Async m )
-                => ((forall a. m a -> m a) -> m t) -> m (Promise m t)
-asyncWithUnmask f = async (f unsafeUnmask)
 
 {-# INLINE withAsync #-}
 withAsync :: ( Mockable Async m ) => m t -> (Promise m t -> m r) -> m r
@@ -180,22 +174,6 @@ withAsyncWithUnmask
     => ((forall a. m a -> m a) -> m t) -> (Promise m t -> m r) -> m r
 withAsyncWithUnmask f = withAsync (f unsafeUnmask)
 
-{-# INLINE wait #-}
-wait :: ( Mockable Async m ) => Promise m t -> m t
-wait promise = liftMockable $ Wait promise
-
-{-# INLINE waitAny #-}
-waitAny :: ( Mockable Async m ) => [Promise m t] -> m (Promise m t, t)
-waitAny promises = liftMockable $ WaitAny promises
-
-{-# INLINE cancel #-}
-cancel :: ( Mockable Async m ) => Promise m t -> m ()
-cancel promise = cancelWith promise ThreadKilled
-
-{-# INLINE cancelWith #-}
-cancelWith :: ( Mockable Async m, Exception e ) => Promise m t -> e -> m ()
-cancelWith promise e = liftMockable $ CancelWith promise e
-
 {-# INLINE asyncThreadId #-}
 asyncThreadId :: ( Mockable Async m ) => Promise m t -> m (ThreadId m)
 asyncThreadId promise = liftMockable $ AsyncThreadId promise
@@ -204,23 +182,14 @@ asyncThreadId promise = liftMockable $ AsyncThreadId promise
 race :: (Mockable Async m ) => m t -> m r -> m (Either t r)
 race a b = liftMockable $ Race a b
 
-{-# INLINE link #-}
-link :: ( Mockable Async m ) => Promise m t -> m ()
-link promise = liftMockable $ Link promise
-
 {-# INLINE unsafeUnmask #-}
 unsafeUnmask :: Mockable Async m => m a -> m a
 unsafeUnmask act = liftMockable $ UnsafeUnmask act
 
 instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' Async m n where
-    hoist' nat (Async act)      = Async $ nat act
     hoist' nat (WithAsync m k)  = WithAsync (nat m) (nat . k)
-    hoist' _ (Wait p)           = Wait p
-    hoist' _ (WaitAny p)        = WaitAny p
-    hoist' _ (CancelWith p e)   = CancelWith p e
     hoist' _ (AsyncThreadId p)  = AsyncThreadId p
     hoist' nat (Race p e)       = Race (nat p) (nat e)
-    hoist' _ (Link p)           = Link p
     hoist' nat (UnsafeUnmask m) = UnsafeUnmask (nat m)
 
 data Concurrently m t where
@@ -261,6 +230,53 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
+
+----------------------------------------------------------------------------
+-- Low-level Async mock and helper functions
+----------------------------------------------------------------------------
+
+data LowLevelAsync m t where
+    Async :: m t -> LowLevelAsync m (Promise m t)
+    Link :: Promise m t -> LowLevelAsync m ()
+    Wait :: Promise m t -> LowLevelAsync m t
+    WaitAny :: [Promise m t] -> LowLevelAsync m (Promise m t, t)
+    CancelWith :: Exception e => Promise m t -> e -> LowLevelAsync m ()
+
+{-# INLINE async #-}
+async :: ( Mockable LowLevelAsync m ) => m t -> m (Promise m t)
+async m = liftMockable $ Async m
+
+{-# INLINE asyncWithUnmask #-}
+asyncWithUnmask :: ( Mockable Async m, Mockable LowLevelAsync m )
+                => ((forall a. m a -> m a) -> m t) -> m (Promise m t)
+asyncWithUnmask f = async (f unsafeUnmask)
+
+{-# INLINE link #-}
+link :: ( Mockable LowLevelAsync m ) => Promise m t -> m ()
+link promise = liftMockable $ Link promise
+
+{-# INLINE wait #-}
+wait :: ( Mockable LowLevelAsync m ) => Promise m t -> m t
+wait promise = liftMockable $ Wait promise
+
+{-# INLINE waitAny #-}
+waitAny :: ( Mockable LowLevelAsync m ) => [Promise m t] -> m (Promise m t, t)
+waitAny promises = liftMockable $ WaitAny promises
+
+{-# INLINE cancel #-}
+cancel :: ( Mockable LowLevelAsync m ) => Promise m t -> m ()
+cancel promise = cancelWith promise ThreadKilled
+
+{-# INLINE cancelWith #-}
+cancelWith :: ( Mockable LowLevelAsync m, Exception e ) => Promise m t -> e -> m ()
+cancelWith promise e = liftMockable $ CancelWith promise e
+
+instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' LowLevelAsync m n where
+    hoist' nat (Async act)    = Async $ nat act
+    hoist' _ (Link p)         = Link p
+    hoist' _ (Wait p)         = Wait p
+    hoist' _ (WaitAny p)      = WaitAny p
+    hoist' _ (CancelWith p e) = CancelWith p e
 
 ----------------------------------------------------------------------------
 -- Other utility functions

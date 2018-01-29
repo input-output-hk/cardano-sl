@@ -1,28 +1,25 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Pos.Util.TimeLimit
-       ( execWithTimeLimit
-
-       -- * TimeWarp helpers
-       , CanLogInParallel
+       (
+         -- * Log warning when action takes too much time
+         CanLogInParallel
        , WaitingDelta (..)
        , logWarningLongAction
        , logWarningWaitOnce
        , logWarningWaitLinear
        , logWarningSWaitLinear
        , logWarningWaitInf
-       , runWithRandomIntervals'
-       , waitRandomInterval'
+
+         -- * Random invervals
        , runWithRandomIntervals
-       , runWithRandomIntervalsNow
-       , waitRandomInterval
        ) where
 
 import           Universum
 
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (sformat, shown, stext, (%))
-import           Mockable (Async, Delay, Mockable, delay, race, withAsyncWithUnmask)
+import           Mockable (Async, Delay, Mockable, delay, withAsyncWithUnmask)
 import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
@@ -106,17 +103,7 @@ logWarningSWaitLinear = logWarningLongAction True . WaitLinear
 logWarningWaitInf :: CanLogInParallel m => Second -> Text -> m a -> m a
 logWarningWaitInf = logWarningLongAction False . (`WaitGeometric` 1.3) . convertUnit
 
-execWithTimeLimit
-    :: ( Mockable Async m
-       , Mockable Delay m
-       )
-    => Microsecond -> m a -> m (Maybe a)
-execWithTimeLimit timeout action = do
-    res <- race (delay timeout) action
-    return $ case res of
-        Left () -> Nothing
-        Right a -> Just a
-
+-- TODO remove MonadIO in preference to some `Mockable Random`
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval
     :: (MonadIO m, Mockable Delay m)
@@ -129,38 +116,9 @@ waitRandomInterval minT maxT = do
 
 -- | Wait random interval and then perform given action.
 runWithRandomIntervals
-    :: (MonadIO m, WithLogger m, Mockable Delay m)
+    :: (MonadIO m, Mockable Delay m)
     => Microsecond -> Microsecond -> m () -> m ()
 runWithRandomIntervals minT maxT action = do
   waitRandomInterval minT maxT
   action
   runWithRandomIntervals minT maxT action
-
--- | Like `runWithRandomIntervals`, but performs action immidiatelly
--- at first time.
-runWithRandomIntervalsNow
-    :: (MonadIO m, WithLogger m, Mockable Delay m)
-    => Microsecond -> Microsecond -> m () -> m ()
-runWithRandomIntervalsNow minT maxT action = do
-  action
-  runWithRandomIntervals minT maxT action
-
--- TODO remove MonadIO in preference to some `Mockable Random`
--- | Wait random number of 'Microsecond'`s between min and max.
-waitRandomInterval'
-    :: (MonadIO m, Mockable Delay m)
-    => Microsecond -> Microsecond -> m ()
-waitRandomInterval' minT maxT = do
-    interval <-
-        (+ minT) . fromIntegral <$>
-        liftIO (randomNumber $ fromIntegral $ maxT - minT)
-    delay interval
-
--- | Wait random interval and then perform given action.
-runWithRandomIntervals'
-    :: (MonadIO m, Mockable Delay m)
-    => Microsecond -> Microsecond -> m () -> m ()
-runWithRandomIntervals' minT maxT action = do
-  waitRandomInterval' minT maxT
-  action
-  runWithRandomIntervals' minT maxT action

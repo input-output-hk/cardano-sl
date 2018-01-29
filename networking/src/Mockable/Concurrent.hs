@@ -36,8 +36,6 @@ module Mockable.Concurrent (
   , race
   , link
   , waitAny
-  , waitAnyNonFail
-  , waitAnyUnexceptional
 
   , Concurrently(..)
   , concurrently
@@ -47,7 +45,7 @@ module Mockable.Concurrent (
   ) where
 
 import           Control.Exception (AsyncException (..))
-import           Control.Exception.Safe (Exception, MonadCatch, catchAny)
+import           Control.Exception.Safe (Exception)
 import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 
@@ -223,24 +221,3 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
-
-{-# INLINE waitAnyNonFail #-}
-waitAnyNonFail
-    :: ( Mockable Async m, Eq (Promise m (Maybe a)) )
-    => [ Promise m (Maybe a) ] -> m (Maybe (Promise m (Maybe a), a))
-waitAnyNonFail promises = waitAny promises >>= handleRes
-  where
-    handleRes (p, Just res) = pure $ Just (p, res)
-    handleRes (p, _)        = waitAnyNonFail (filter (/= p) promises)
-
-{-# INLINE waitAnyUnexceptional #-}
-waitAnyUnexceptional
-    :: ( Mockable Async m, MonadCatch m, Eq (Promise m (Maybe a)) )
-    => [m a] -> m (Maybe a)
-waitAnyUnexceptional acts = impl
-  where
-    impl = (fmap . fmap) snd $ waitAnyNonFail =<< mapM toAsync acts
-    toAsync :: ( Mockable Async m, MonadCatch m ) => m a -> m (Promise m (Maybe a))
-    toAsync = async . forPromise
-    forPromise :: ( Mockable Async m, MonadCatch m ) => m a -> m (Maybe a)
-    forPromise a = (Just <$> a) `catchAny` (const $ pure Nothing)

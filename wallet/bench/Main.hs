@@ -13,7 +13,8 @@ import           Bench.Pos.Wallet.Config        (extractConfigFor, getBenchConfi
                                                  getOptions)
 import           Bench.Pos.Wallet.Run           (runBench)
 import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CLOptions (..))
-import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletsIO, newPaymentIO)
+import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getWalletsIO,
+                                                 newPaymentIO)
 
 -- | Example of benchmark command:
 -- $ stack bench cardano-sl-wallet --benchmark-arguments "--ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
@@ -27,13 +28,16 @@ main = do
     hSetEncoding stdout utf8
     if runConcurrently then do
         b1 <- async $ maybeRun getHistoryIO GetHistoryBench conf
-        b2 <- async $ maybeRun getWalletsIO GetWalletsBench conf
-        b3 <- async $ maybeRun newPaymentIO NewPaymentBench conf
+        b2 <- async $ maybeRun getWalletIO  GetWalletBench  conf
+        b3 <- async $ maybeRun getWalletsIO GetWalletsBench conf
+        b4 <- async $ maybeRun newPaymentIO NewPaymentBench conf
         void $ wait b1
         void $ wait b2
         void $ wait b3
+        void $ wait b4
     else do
         maybeRun getHistoryIO GetHistoryBench conf
+        maybeRun getWalletIO  GetWalletBench  conf
         maybeRun getWalletsIO GetWalletsBench conf
         maybeRun newPaymentIO NewPaymentBench conf
   where

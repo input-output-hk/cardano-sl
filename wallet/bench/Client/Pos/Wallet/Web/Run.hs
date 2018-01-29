@@ -14,9 +14,8 @@ import           Network.Connection       (TLSSettings (..))
 import           Network.HTTP.Client      (Manager, newManager)
 import           Network.HTTP.Client.TLS  (mkManagerSettings)
 import           Network.TLS              (ClientParams (..), credentialLoadX509,
-                                           defaultParamsClient,
-                                           onCertificateRequest, onServerCertificate,
-                                           supportedCiphers)
+                                           defaultParamsClient, onCertificateRequest,
+                                           onServerCertificate, supportedCiphers)
 import           Network.TLS.Extra.Cipher (ciphersuite_all)
 
 -- | Run client for particular endpoint. It is assumed that
@@ -52,5 +51,5 @@ makeClientManager = credentialLoadX509 pathToPubCert pathToPrivKey >>= \case
         newManager $ mkManagerSettings tlsSettings Nothing
   where
     -- TODO: Fix paths.
-    pathToPubCert = "~/cardano-sl/scripts/tls-files/ca.crt"
-    pathToPrivKey = "~/cardano-sl/scripts/tls-files/server.key"
+    pathToPubCert = "/home/denis/cardano-sl/scripts/tls-files/ca.crt"
+    pathToPrivKey = "/home/denis/cardano-sl/scripts/tls-files/server.key"

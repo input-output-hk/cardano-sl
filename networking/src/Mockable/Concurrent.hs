@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -42,7 +43,11 @@ module Mockable.Concurrent (
   , mapConcurrently
   , forConcurrently
 
+  -- * Utility functions
+  , timeout
   ) where
+
+import           Universum
 
 import           Control.Exception (AsyncException (..))
 import           Control.Exception.Safe (Exception)
@@ -221,3 +226,9 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
+
+-- | This function is analogous to `System.Timeout.timeout`, it's
+-- based on `Race` and `Delay`.
+{-# INLINE timeout #-}
+timeout :: (Mockable Delay m, Mockable Async m, TimeUnit t) => t -> m a -> m (Maybe a)
+timeout t ma = rightToMaybe <$> race (delay t) ma

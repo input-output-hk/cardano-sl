@@ -26,6 +26,7 @@ import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots)
+import           Pos.Slotting.Util (defaultOnNewSlotParams)
 
 type DhtWorkMode ctx m =
     ( WithLogger m
@@ -56,7 +57,7 @@ dumpKademliaStateWorker
        )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
+dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker onsp $ \slotId ->
     when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
@@ -66,4 +67,5 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
             Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
+    onsp = defaultOnNewSlotParams
     isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

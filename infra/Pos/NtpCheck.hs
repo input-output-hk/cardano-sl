@@ -11,14 +11,11 @@ module Pos.NtpCheck
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
-import           Mockable (Async, Concurrently, CurrentTime, Delay, Mockable, Mockables,
-                           currentTime, withAsync)
-import           NTP.Client (NtpClientSettings (..), ntpSingleShot, spawnNtpClient)
+import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, withAsync)
+import           NTP.Client (NtpClientSettings (..), NtpMonad, ntpSingleShot, spawnNtpClient)
 import           Serokell.Util (sec)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
@@ -26,13 +23,8 @@ import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
-    ( MonadIO m
-    , MonadMask m
-    , MonadBaseControl IO m
-    , Mockable Async m
-    , Mockable Concurrently m
+    ( NtpMonad m
     , Mockable CurrentTime m
-    , WithLogger m
     , HasInfraConfiguration
     )
 

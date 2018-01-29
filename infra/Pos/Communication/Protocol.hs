@@ -35,7 +35,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic)
+import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
@@ -48,7 +48,7 @@ import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots)
-import           Pos.Slotting.Util (onNewSlot)
+import           Pos.Slotting.Util (OnNewSlotParams, onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -239,7 +239,7 @@ type LocalOnNewSlotComm ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockables m [Fork, Delay]
+    , Mockables m [Async, Delay]
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
@@ -255,21 +255,21 @@ type OnNewSlotComm ctx m =
 
 onNewSlot'
     :: OnNewSlotComm ctx m
-    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' startImmediately (h, outs) =
+    => OnNewSlotParams -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' params (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
-        onNewSlot startImmediately $
+        onNewSlot params $
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
     :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
+    => OnNewSlotParams -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
+onNewSlotWorker params outs = onNewSlot' params . workerHelper outs
 
 localOnNewSlotWorker
     :: LocalOnNewSlotComm ctx m
-    => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
+    => OnNewSlotParams -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+localOnNewSlotWorker params h = (ActionSpec $ \__vI __sA -> onNewSlot params h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker = localSpecs

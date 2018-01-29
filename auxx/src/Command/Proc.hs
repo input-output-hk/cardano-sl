@@ -41,7 +41,7 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
+                                       tySecond, tySoftwareVersion, tyStakeholderId,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
@@ -49,7 +49,7 @@ import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
                              ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), SendMode (..), Value (..))
+                             RollbackParams (..), Value (..))
 import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
                        makePubKeyAddressAuxx)
 import           Repl (PrintAction)
@@ -173,10 +173,6 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpHelp = "construct an address distribution (use 'dp' for each part)"
     },
 
-    return . procConst "neighbours" $ ValueSendMode SendNeighbours,
-    return . procConst "round-robin" $ ValueSendMode SendRoundRobin,
-    return . procConst "send-random" $ ValueSendMode SendRandom,
-
     return . procConst "boot" $ ValueAddrStakeDistribution BootstrapEraDistr,
 
     return . procConst "true" $ ValueBool True,
@@ -215,7 +211,6 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         stagpDuration <- getArg tyInt "dur"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
-        stagpMode <- getArg tySendMode "mode"
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do

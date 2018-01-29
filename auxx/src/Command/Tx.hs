@@ -27,7 +27,6 @@ import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, 
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
-import           System.Random (randomRIO)
 import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
@@ -46,8 +45,7 @@ import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
-import           Lang.Value (SendMode (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx, makePubKeyAddressAuxx)
+import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -58,7 +56,6 @@ data SendToAllGenesisParams = SendToAllGenesisParams
     { stagpDuration    :: !Int
     , stagpConc        :: !Int
     , stagpDelay       :: !Int
-    , stagpMode        :: !SendMode
     , stagpTpsSentFile :: !FilePath
     } deriving (Show)
 
@@ -88,9 +85,7 @@ sendToAllGenesis
     => Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
-    CmdCtx {ccPeers} <- getCmdCtx
-    let nNeighbours = length ccPeers
+sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
@@ -98,7 +93,6 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
         liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show genesisSlotDuration
-                                                   , "sendMode=" <> show sendMode
                                                    , "conc=" <> show conc
                                                    , "startTime=" <> startTime
                                                    , "delay=" <> show delay_ ]
@@ -106,7 +100,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
-        forM_ (zip keysToSend [0..]) $ \(secretKey, n) -> do
+        forM_ keysToSend $ \secretKey -> do
             outAddr <- makePubKeyAddressAuxx (toPublic secretKey)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
@@ -114,13 +108,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode
                     txOutValue = val1
                     }
                 txOuts = TxOutAux txOut1 :| []
-            neighbours <- case sendMode of
-                SendNeighbours -> return ccPeers
-                SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
-                SendRandom -> do
-                    i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                    return [ccPeers !! i]
-            atomically $ writeTQueue txQueue (secretKey, txOuts, neighbours)
+            atomically $ writeTQueue txQueue (secretKey, txOuts)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
@@ -145,18 +133,18 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ sendMode
                       modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (key, txOuts, neighbours) -> do
+                      Just (key, txOuts) -> do
                           utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
                           etx <- createTx mempty utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left err -> do
                                   addTxFailed tpsMVar
-                                  logError (sformat ("Error: "%build%" while trying to send to "%shown) err neighbours)
+                                  logError (sformat ("Error: "%build%" while trying to send") err)
                               Right (tx, _) -> do
                                   res <- submitTxRaw diffusion tx
                                   addTxSubmit tpsMVar
                                   logInfo $ if res
-                                      then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
+                                      then sformat ("Submitted transaction: "%txaF) tx
                                       else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."

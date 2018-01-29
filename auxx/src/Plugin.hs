@@ -134,7 +134,6 @@ withValueText cont = \case
     Lang.ValueAddrDistrPart adp -> cont (show adp)
     Lang.ValueAddrStakeDistribution asd -> cont (pretty asd)
     Lang.ValueFilePath s -> cont (toText s)
-    Lang.ValueSendMode sm -> cont (show sm)
     Lang.ValueList vs -> for_ vs $
         withValueText (cont . mappend "  ")
 

@@ -17,7 +17,6 @@ import qualified Data.ByteString                      as B
 import           Data.String.Conv
 import           Data.Time
 import           Data.Map                             (union, fromList)
---import           Dhall                                (Interpret, input, auto)
 import           Data.Aeson                           (FromJSON, ToJSON, eitherDecodeStrict)
 import           GHC.Generics                         (Generic)
 import           Network.Haskoin.Crypto               (Entropy, toMnemonic)

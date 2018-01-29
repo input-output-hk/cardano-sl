@@ -5,6 +5,7 @@
 
 module Client.Pos.Wallet.Web.Api
     ( getHistory
+    , getWallet
     , getWallets
     , newPayment
     ) where
@@ -16,8 +17,8 @@ import           Servant.Client             (ClientM, client)
 
 import           Pos.Client.Txp.Util        (InputSelectionPolicy)
 import           Pos.Core.Types             (Coin)
-import           Pos.Wallet.Web.Api         (ApiPrefix, GetHistory, GetWallets,
-                                             NewPayment)
+import           Pos.Wallet.Web.Api         (ApiPrefix, GetHistory, GetWallet,
+                                             GetWallets, NewPayment)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..),
                                              CId (..), CPassPhrase, CTx, CWallet,
                                              ScrollLimit, ScrollOffset, Wal)
@@ -26,6 +27,8 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..),
 -- endpoints we need for benchmarking.
 type WalletBenchApi = ApiPrefix :> (
      GetHistory
+    :<|>
+     GetWallet
     :<|>
      GetWallets
     :<|>
@@ -40,6 +43,9 @@ getHistory
     -> Maybe ScrollOffset
     -> Maybe ScrollLimit
     -> ClientM ([CTx], Word)
+getWallet
+    :: CId Wal
+    -> ClientM CWallet
 getWallets
     :: ClientM [CWallet]
 newPayment
@@ -49,4 +55,4 @@ newPayment
     -> Coin
     -> Maybe InputSelectionPolicy
     -> ClientM CTx
-getHistory :<|> getWallets :<|> newPayment = client (Proxy @WalletBenchApi)
+getHistory :<|> getWallet :<|> getWallets :<|> newPayment = client (Proxy @WalletBenchApi)

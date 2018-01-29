@@ -244,6 +244,9 @@ verifyBlock VerifyBlockParams {..} blk =
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
+    -- Oh no! Verification involves re-searilizing the thing!
+    -- What a tragic waste.
+    -- What shall we do about this?
     blkSize = Bi.biSize blk
     checkSize maxSize = verifyGeneric [
       (blkSize <= maxSize,

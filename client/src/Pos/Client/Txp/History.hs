@@ -45,7 +45,7 @@ import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
-import           Pos.Context (genesisBlock0)
+import           Pos.Block.Genesis (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, HasConfiguration, HeaderHash, Timestamp (..),
                            difficultyL, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)

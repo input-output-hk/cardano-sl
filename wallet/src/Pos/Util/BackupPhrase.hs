@@ -40,7 +40,7 @@ englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist
                , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
                , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
                , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean "
+               , "success" , "worry" , "rural" , "silver" , "invest" , "mean"
                ]
 
 -- | Number of words in backup phrase
@@ -54,7 +54,7 @@ instance Buildable BackupPhrase where
     build _ = "<backup phrase>"
 
 instance Read BackupPhrase where
-    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
+    readsPrec _ str = either (const []) (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
 
 toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList

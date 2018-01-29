@@ -46,7 +46,6 @@ library
     Pos.Ssc.Shares
     Pos.Ssc.DB
     Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -83,7 +82,9 @@ library
                      , cryptonite
                      , data-default
                      , ether
+                     , ekg-core
                      , exceptions
+                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens
@@ -94,7 +95,7 @@ library
                      , mtl
                      , parsec
                      , reflection
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , stm
                      , tagged
@@ -129,6 +130,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

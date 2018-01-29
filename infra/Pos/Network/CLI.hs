@@ -26,7 +26,7 @@ module Pos.Network.CLI
 import           Universum
 
 import           Control.Concurrent
-import           Control.Exception.Safe (throwM, try)
+import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as BS.C8
 import           Data.IP (IPv4)
 import qualified Data.Map.Strict as M

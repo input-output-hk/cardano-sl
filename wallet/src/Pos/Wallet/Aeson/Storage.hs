@@ -16,7 +16,7 @@ import qualified Data.Text as T
 import           Pos.Aeson.Crypto ()
 import           Pos.Aeson.Txp ()
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError)
 
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CHash (..), CId (..), CTxId (..))
@@ -44,10 +44,10 @@ instance ToJSON CTxId => ToJSONKey CTxId where
 accountIdFromText :: Text -> Either Text AccountId
 accountIdFromText t = case T.splitOn "@" t of
     [walId, idx] -> AccountId (CId $ CHash walId) <$> readEither idx
-    _            -> fail $ toString $ "Invalid AccountId " <> t
+    _            -> Left $ "Invalid AccountId " <> t
 
 instance FromJSON AccountId => FromJSONKey AccountId where
-    fromJSONKey = FromJSONKeyTextParser (eitherToFail . accountIdFromText)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . accountIdFromText)
 
 instance ToJSON AccountId => ToJSONKey AccountId where
     toJSONKey = toJSONKeyText pretty

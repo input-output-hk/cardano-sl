@@ -18,7 +18,7 @@ import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupI
 
 import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin, unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
-import           Pos.Crypto (PassPhrase, hashHexF, passphraseLength)
+import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
                                    ToCType (..), WithTruncatedLog (..))
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..), CAccountId (..),
@@ -44,8 +44,8 @@ instance FromCType CPassPhrase where
         -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
         if bl == 0 || bl == passphraseLength
-            then pure $ ByteArray.convert bs
-            else fail . toString $ sformat
+            then Right $ ByteArray.convert bs
+            else Left $ sformat
                  ("Expected password length 0 or "%int%", not "%int)
                  passphraseLength bl
 
@@ -99,6 +99,8 @@ type instance OriginType CTxId = TxId
 instance ToCType CTxId where
     encodeCType = mkCTxId . sformat hashHexF
 
+instance FromCType CTxId where
+    decodeCType (CTxId (CHash h)) = decodeHash h
 
 type instance OriginType CPtxCondition = Maybe PtxCondition
 

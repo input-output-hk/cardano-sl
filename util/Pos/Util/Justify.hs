@@ -1,3 +1,9 @@
+-- | Left-align some text, that is, split it into words
+-- and then eagerly allocate these words into lines, as
+-- long as the total line length does not exceed the predefined
+-- threshold. If a word is longer than the threshold, leave
+-- it on a separate line.
+
 module Pos.Util.Justify
        ( leftAlign
        ) where

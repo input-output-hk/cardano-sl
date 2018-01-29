@@ -7,6 +7,7 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
+import           Control.Lens (_Left)
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Crypto.ECC.Edwards25519 as Ed25519
 import           Crypto.Hash (digestFromByteString)
@@ -20,10 +21,12 @@ import           Formatting (int, sformat, (%))
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
+import           Pos.Crypto.Signing.Check (validateProxySecretKey)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..))
@@ -31,6 +34,7 @@ import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..), RedeemSe
                                                   RedeemSignature (..))
 import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhrase,
                                                 passphraseLength)
+import           Pos.Util.Util (toCborError, cborError)
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -44,9 +48,9 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
     encode (AbstractHash digest) = encode (ByteArray.convert digest :: ByteString)
     decode = do
         bs <- decode @ByteString
-        case digestFromByteString bs of
-            Nothing -> fail "AbstractHash.decode: invalid digest"
-            Just x  -> pure (AbstractHash x)
+        toCborError $ case digestFromByteString bs of
+            Nothing -> Left "AbstractHash.decode: invalid digest"
+            Just x  -> Right (AbstractHash x)
 
 ----------------------------------------------------------------------------
 -- SecretSharing
@@ -110,7 +114,7 @@ deriveSimpleBi ''C.SecretProof [
   instance Bi (AsBinary B) where {\
     encode (AsBinary bs) = encode bs ;\
     decode = do { bs <- decode \
-                ; when (BYTES /= length bs) (fail $ "AsBinary B: length mismatch!") \
+                ; when (BYTES /= length bs) (cborError "AsBinary B: length mismatch!") \
                 ; return (AsBinary bs) } }; \
 
 BiMacro(C.VssPublicKey, vssPublicKeyBytes)
@@ -140,15 +144,15 @@ instance Bi CC.ChainCode where
 
 instance Bi CC.XPub where
     encode (CC.unXPub -> kc) = encode kc
-    decode = either fail pure . CC.xpub =<< decode
+    decode = toCborError . over _Left fromString . CC.xpub =<< decode
 
 instance Bi CC.XPrv where
     encode (CC.unXPrv -> kc) = encode kc
-    decode = either fail pure . CC.xprv =<< decode @ByteString
+    decode = toCborError . over _Left fromString . CC.xprv =<< decode @ByteString
 
 instance Bi CC.XSignature where
     encode (CC.unXSignature -> bs) = encode bs
-    decode = either fail pure . CC.xsignature =<< decode
+    decode = toCborError . over _Left fromString . CC.xsignature =<< decode
 
 deriving instance Typeable a => Bi (Signature a)
 deriving instance Bi PublicKey
@@ -174,19 +178,24 @@ instance Bi a => Bi (Signed a) where
 
 deriving instance Typeable w => Bi (ProxyCert w)
 
-instance Bi w => Bi (ProxySecretKey w) where
-    encode ProxySecretKey{..} = encodeListLen 4
-                             <> encode pskOmega
-                             <> encode pskIssuerPk
-                             <> encode pskDelegatePk
-                             <> encode pskCert
-    decode = ProxySecretKey <$  enforceSize "ProxySecretKey" 4
-                            <*> decode
-                            <*> decode
-                            <*> decode
-                            <*> decode
+instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
+    encode UnsafeProxySecretKey{..} =
+        encodeListLen 4
+        <> encode pskOmega
+        <> encode pskIssuerPk
+        <> encode pskDelegatePk
+        <> encode pskCert
+    decode = do
+        enforceSize "ProxySecretKey" 4
+        pskOmega      <- decode
+        pskIssuerPk   <- decode
+        pskDelegatePk <- decode
+        pskCert       <- decode
+        toCborError . over _Left ("decode@ProxySecretKey: " <>) $
+            validateProxySecretKey UnsafeProxySecretKey{..}
 
-instance (Typeable a, Bi w) => Bi (ProxySignature w a) where
+instance (Typeable a, Bi w, HasCryptoConfiguration) =>
+         Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk
                              <> encode psigSig
@@ -202,9 +211,9 @@ instance Bi PassPhrase where
         let bl = BS.length bs
         -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
-        if bl == 0 || bl == passphraseLength
-            then pure $ ByteArray.convert bs
-            else fail . toString $ sformat
+        toCborError $ if bl == 0 || bl == passphraseLength
+            then Right $ ByteArray.convert bs
+            else Left $ sformat
                  ("put@PassPhrase: expected length 0 or "%int%", not "%int)
                  passphraseLength bl
 

@@ -29,10 +29,8 @@ mkGenesisDelegation ::
 mkGenesisDelegation psks = do
     unless (allDistinct $ pskIssuerPk <$> psks) $
         throwError "all issuers must be distinct"
-    let resPairs =
-            psks <&> \psk@ProxySecretKey {..} -> (addressHash pskIssuerPk, psk)
-    let resMap = HM.fromList resPairs
-    recreateGenesisDelegation resMap
+    let res = HM.fromList [(addressHash (pskIssuerPk psk), psk) | psk <- psks]
+    recreateGenesisDelegation res
 
 -- | Safe constructor of 'GenesisDelegation' from existing map.
 recreateGenesisDelegation ::
@@ -40,16 +38,16 @@ recreateGenesisDelegation ::
     => HashMap StakeholderId ProxySKHeavy
     -> m GenesisDelegation
 recreateGenesisDelegation pskMap = do
-    forM_ (HM.toList pskMap) $ \(k, ProxySecretKey{..}) ->
-        when (addressHash pskIssuerPk /= k) $
+    forM_ (HM.toList pskMap) $ \(k, psk) ->
+        when (addressHash (pskIssuerPk psk) /= k) $
             throwError $ sformat
                 ("wrong issuerPk set as key for delegation map: "%
                  "issuer id = "%build%", cert id = "%build)
-                k (addressHash pskIssuerPk)
+                k (addressHash (pskIssuerPk psk))
     when (any isSelfSignedPsk pskMap) $
         throwError "there is a self-signed (revocation) psk"
-    let isIssuer ProxySecretKey {..} =
-            isJust $ pskMap ^. at (addressHash pskDelegatePk)
+    let isIssuer psk =
+            isJust $ pskMap ^. at (addressHash (pskDelegatePk psk))
     when (any isIssuer pskMap) $
         throwError "one of the delegates is also an issuer, don't do it"
     return $ UnsafeGenesisDelegation pskMap
@@ -59,7 +57,7 @@ recreateGenesisDelegation pskMap = do
 -- calling funciton.
 convertNonAvvmDataToBalances
     :: forall m .
-       ( MonadFail m, Bi Address )
+       ( MonadError Text m, Bi Address )
     => HashMap Text Integer
     -> m GenesisNonAvvmBalances
 convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
@@ -67,6 +65,6 @@ convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
     balances' :: m (HashMap Address Coin)
     balances' = HM.fromListWith unsafeAddCoin <$> traverse convert (HM.toList balances)
     convert :: (Text, Integer) -> m (Address, Coin)
-    convert (txt, i) = case decodeTextAddress txt of
-        Left err   -> fail (toString err)
-        Right addr -> return (addr, unsafeIntegerToCoin i)
+    convert (txt, i) = do
+        addr <- either throwError pure $ decodeTextAddress txt
+        return (addr, unsafeIntegerToCoin i)

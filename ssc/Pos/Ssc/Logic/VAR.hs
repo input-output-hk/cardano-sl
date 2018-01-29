@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Block verification, application, and rollback.
+-- | Block verification, application, and rollback: processing of SSC-related payload.
+
 module Pos.Ssc.Logic.VAR
        (
          sscVerifyBlocks
@@ -31,7 +32,7 @@ import           Pos.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Lrc (getSscRichmenFromLrc)
+import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
 import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
                                runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
@@ -84,7 +85,7 @@ sscVerifyBlocks blocks = do
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
-    richmenSet <- getSscRichmenFromLrc "sscVerifyBlocks" epoch
+    richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar

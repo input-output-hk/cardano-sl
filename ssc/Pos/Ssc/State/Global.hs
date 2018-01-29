@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Working with global SSC state.
+-- | Methods that operate on 'SscGlobalState' and 'VssCertificatesMap'.
 
 module Pos.Ssc.State.Global
        (

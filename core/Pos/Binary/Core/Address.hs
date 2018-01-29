@@ -7,6 +7,8 @@ import           Unsafe (unsafeFromJust)
 
 import           Codec.CBOR.Encoding (Encoding)
 import qualified Codec.CBOR.Write as CBOR.Write
+import           Control.Exception.Safe (Exception (displayException))
+import           Control.Lens (_Left)
 import qualified Data.ByteString as BS
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.Word (Word8)
@@ -22,7 +24,7 @@ import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (.
                                         AddrStakeDistribution (..), AddrType (..), Address (..),
                                         Address' (..), mkMultiKeyDistr)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (cborError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization
@@ -97,14 +99,13 @@ instance Bi AddrStakeDistribution where
             2 ->
                 decode @Word8 >>= \case
                     0 -> SingleKeyDistr <$> decode
-                    1 -> eitherToFail . mkMultiKeyDistr =<< decode
-                    tag ->
-                        fail $
+                    1 -> toCborError . (_Left %~ toText . displayException) .
+                         mkMultiKeyDistr =<< decode
+                    tag -> cborError $
                         "decode @AddrStakeDistribution: unexpected tag " <>
-                        show tag
-            len ->
-                fail $
-                "decode @AddrStakeDistribution: unexpected length " <> show len
+                        pretty tag
+            len -> cborError $
+                "decode @AddrStakeDistribution: unexpected length " <> pretty len
 
 {- NOTE: Address attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

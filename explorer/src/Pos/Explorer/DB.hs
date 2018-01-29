@@ -40,7 +40,7 @@ import           Formatting (sformat, (%))
 import           Serokell.Util (Color (Red), colorize, mapJson)
 import           System.Wlog (WithLogger, logError)
 
-import           Pos.Binary.Class (UnsignedVarInt (..), serialize')
+import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
                            coinToInteger, unsafeAddCoin)
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
@@ -418,7 +418,7 @@ addrBalanceKey = encodeWithKeyPrefix @BalancesIter
 blockPagePrefix :: Page -> ByteString
 blockPagePrefix page = "e/page/" <> encodedPage
   where
-    encodedPage = serialize' $ UnsignedVarInt page
+    encodedPage = serialize' page
 
 -- | TODO(ks): To remove in the next version.
 oldEpochBlocksPrefix :: Epoch -> ByteString
@@ -428,7 +428,7 @@ oldEpochBlocksPrefix epoch = "e/epoch/" <> serialize' epoch
 blockEpochPagePrefix :: Epoch -> Page -> ByteString
 blockEpochPagePrefix epoch page = "e/epochs/" <> serialize' epoch <> "/" <> encodedPage
   where
-    encodedPage = serialize' $ UnsignedVarInt page
+    encodedPage = serialize' page
 
 blockEpochMaxPagePrefix :: Epoch -> ByteString
 blockEpochMaxPagePrefix epoch = "e/epochPages/" <> serialize' epoch

@@ -28,7 +28,7 @@ import           Pos.Core.Configuration.GeneratedSecrets as E
 import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Configuration.Protocol as E
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Core.Genesis.Canonical (SchemaError)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
@@ -78,7 +78,7 @@ withCoreConfigurations ::
        ( MonadThrow m
        , WithLogger m
        , MonadIO m
-       , Canonical.FromJSON (Either String) GenesisData
+       , Canonical.FromJSON (Either SchemaError) GenesisData
        )
     => CoreConfiguration
     -> FilePath
@@ -107,7 +107,7 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
             Right it -> return it
 
         theGenesisData <- case Canonical.fromJSON gdataJSON of
-            Left str -> throwM $ GenesisDataParseFailure (fromString str)
+            Left err -> throwM $ GenesisDataSchemaError err
             Right it -> return it
 
         let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
@@ -201,6 +201,7 @@ data ConfigurationError =
     | UnnecessarySystemStartTime
 
     | GenesisDataParseFailure !Text
+    | GenesisDataSchemaError !SchemaError
 
       -- | The GenesisData canonical JSON hash is different than expected.
     | GenesisHashMismatch !Text !Text

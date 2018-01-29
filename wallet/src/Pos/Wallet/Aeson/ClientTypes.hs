@@ -4,16 +4,15 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value (String), object, withArray,
-                             withObject, (.!=), (.:), (.:?), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
+                             (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
-import           Data.Default (def)
+import           Data.Aeson.Types (Parser, typeMismatch)
 import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Aeson.Options (customOptionsWithTag)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
                                              CAccountInit, CAccountMeta, CAddress, CCoin,
                                              CFilePath (..), CHash, CId, CInitialized,
@@ -24,6 +23,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
+import           Pos.Util.Util (aesonError)
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta
@@ -42,7 +42,31 @@ deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
-deriveJSON (customOptionsWithTag "groupingPolicy") ''InputSelectionPolicy
+
+-- NOTE(adinapoli): We need a manual instance to ensure we map @OptimizeForSize@
+-- to @OptimizeForHighThroughput@, for exchanges backward compatibility.
+instance ToJSON InputSelectionPolicy where
+  toJSON pol =
+      let renderPolicy = toJSON @Text $ case pol of
+              OptimizeForSecurity       -> "OptimizeForSecurity"
+              OptimizeForHighThroughput -> "OptimizeForHighThroughput"
+          in object [ "groupingPolicy" .= renderPolicy ]
+
+-- NOTE(adinapoli): Super lenient decoder to overcome the fact some revisions of
+-- the API were using a raw JSON String and later versions used on Object like
+-- `{"groupingPolicy": "blabla" }`
+instance FromJSON InputSelectionPolicy where
+    parseJSON (Object o)         = fromRawPolicy =<< (o .: "groupingPolicy")
+    parseJSON (String rawPolicy) = fromRawPolicy rawPolicy
+    parseJSON x                  = typeMismatch "Not a valid InputSelectionPolicy" x
+
+fromRawPolicy :: Text -> Parser InputSelectionPolicy
+fromRawPolicy rawPolicy = case rawPolicy of
+    "OptimizeForSecurity"       -> pure OptimizeForSecurity
+    "OptimizeForHighThroughput" -> pure OptimizeForHighThroughput
+    "OptimiseForSize"           -> pure OptimizeForHighThroughput
+    _                           -> typeMismatch "Not a valid InputSelectionPolicy" (String rawPolicy)
+
 
 deriveJSON defaultOptions ''CCoin
 deriveJSON defaultOptions ''CTxId
@@ -80,11 +104,14 @@ instance ToJSON NoContent where
 instance FromJSON NewBatchPayment where
     parseJSON = withObject "NewBatchPayment" $ \o -> do
         npbFrom <- o .: "from"
-        npbTo <- (`whenNothing` expectedOneRecipient) . nonEmpty . toList =<< withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
-        npbInputSelectionPolicy <- o .:? "groupingPolicy" .!= def
-        return $ NewBatchPayment {..}
+        npbTo <-
+            (`whenNothing` expectedOneRecipient) . nonEmpty . toList =<<
+            withArray "NewBatchPayment.to" collectRecipientTuples =<<
+            o .: "to"
+        npbInputSelectionPolicy <- o .: "policy"
+        return NewBatchPayment {..}
       where
-        expectedOneRecipient = fail $ "Expected at least one recipient."
+        expectedOneRecipient = aesonError "Expected at least one recipient."
         collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
             \o -> (,)
                 <$> o .: "address"
@@ -95,7 +122,7 @@ instance ToJSON NewBatchPayment where
         object
             [ "from" .= toJSON npbFrom
             , "to" .= map toRecipient (toList npbTo)
-            , "groupingPolicy" .= String (show npbInputSelectionPolicy)
+            , "policy" .= npbInputSelectionPolicy
             ]
       where
         toRecipient (address, amount) =

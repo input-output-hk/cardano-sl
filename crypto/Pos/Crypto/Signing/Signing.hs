@@ -1,4 +1,5 @@
 -- | Signing done with public/private keys.
+
 module Pos.Crypto.Signing.Signing
        (
        -- * Keys
@@ -8,21 +9,20 @@ module Pos.Crypto.Signing.Signing
 
        -- * Signing and verification
        , sign
-       , checkSig
+       , checkSig                      -- reexport
        , fullSignatureHexF
        , parseFullSignature
-
        , mkSigned
 
        -- * Versions for raw bytestrings
        , signRaw
-       , verifyRaw
+       , checkSigRaw                   -- reexport
 
        -- * Proxy signature scheme
-       , verifyProxyCert
+       , verifyProxyCert               -- reexport
        , fullProxyCertHexF
        , parseFullProxyCert
-       , verifyPsk
+       , validateProxySecretKey        -- reexport
        , proxySign
        , proxyVerify
 
@@ -43,9 +43,11 @@ import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw, validateProxySecretKey,
+                                           verifyProxyCert)
 import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types.Signing
-import           Pos.Crypto.Signing.Types.Tag (SignTag (SignProxySK))
+import           Pos.Crypto.Signing.Types.Tag (SignTag)
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -112,31 +114,6 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
   where
     tag = maybe mempty signTag mbTag
 
--- CHECK: @checkSig
--- | Verify a signature.
--- #verifyRaw
-checkSig ::
-       (HasCryptoConfiguration, Bi a)
-    => SignTag
-    -> PublicKey
-    -> a
-    -> Signature a
-    -> Bool
-checkSig t k x s = verifyRaw (Just t) k (Bi.serialize' x) (coerce s)
-
--- CHECK: @verifyRaw
--- | Verify raw 'ByteString'.
-verifyRaw ::
-       HasCryptoConfiguration
-    => Maybe SignTag
-    -> PublicKey
-    -> ByteString
-    -> Signature Raw
-    -> Bool
-verifyRaw mbTag (PublicKey k) x (Signature s) = CC.verify k (tag <> x) s
-  where
-    tag = maybe mempty signTag mbTag
-
 -- | Smart constructor for 'Signed' data type with proper signing.
 mkSigned :: (HasCryptoConfiguration, Bi a) => SignTag -> SecretKey -> a -> Signed a
 mkSigned t sk x = Signed x (sign t sk x)
@@ -144,13 +121,6 @@ mkSigned t sk x = Signed x (sign t sk x)
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
-
--- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
-verifyProxyCert :: (HasCryptoConfiguration, Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
-verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
-    checkSig SignProxySK issuerPk
-        (mconcat ["00", CC.unXPub delegatePk, Bi.serialize' o])
-        (Signature sig)
 
 -- | Formatter for 'ProxyCert' to show it in hex.
 fullProxyCertHexF :: Format r (ProxyCert a -> r)
@@ -163,12 +133,6 @@ parseFullProxyCert s = do
     b <- B16.decode s
     ProxyCert <$> first fromString (CC.xsignature b)
 
--- | Checks if proxy secret key is valid (the signature/cert inside is
--- correct).
-verifyPsk :: (HasCryptoConfiguration, Bi w) => ProxySecretKey w -> Bool
-verifyPsk ProxySecretKey{..} =
-    verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
-
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
 -- certificate inside, we panic. Please check this condition outside
@@ -176,18 +140,18 @@ verifyPsk ProxySecretKey{..} =
 proxySign
     :: (HasCryptoConfiguration, Bi a)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
-    | toPublic sk /= pskDelegatePk =
+proxySign t sk@(SecretKey delegateSk) psk m
+    | toPublic sk /= pskDelegatePk psk =
         error $ sformat ("proxySign called with irrelevant certificate "%
                          "(psk delegatePk: "%build%", real delegate pk: "%build%")")
-                        pskDelegatePk (toPublic sk)
+                        (pskDelegatePk psk) (toPublic sk)
     | otherwise =
         ProxySignature
         { psigPsk = psk
         , psigSig = sigma
         }
   where
-    PublicKey issuerPk = pskIssuerPk
+    PublicKey issuerPk = pskIssuerPk psk
     sigma =
         CC.sign emptyPass delegateSk $
         mconcat
@@ -202,13 +166,11 @@ proxyVerify
     :: (HasCryptoConfiguration, Bi w, Bi a)
     => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
 proxyVerify t ProxySignature{..} omegaPred m =
-    and [predCorrect, pskValid, sigValid]
+    predCorrect && sigValid
   where
-    ProxySecretKey{..} = psigPsk
-    PublicKey issuerPk = pskIssuerPk
-    PublicKey pdDelegatePkRaw = pskDelegatePk
-    predCorrect = omegaPred pskOmega
-    pskValid = verifyPsk psigPsk
+    PublicKey issuerPk = pskIssuerPk psigPsk
+    PublicKey pdDelegatePkRaw = pskDelegatePk psigPsk
+    predCorrect = omegaPred (pskOmega psigPsk)
     sigValid =
         CC.verify
             pdDelegatePkRaw

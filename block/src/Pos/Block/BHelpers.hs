@@ -40,7 +40,7 @@ instance ( Bi BlockHeader
                 (_mbSscPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
         unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $
-            throwError "Hash of extra body data is not equal to it's representation in the header."
+            throwError "Hash of extra body data is not equal to its representation in the header."
 
 verifyMainBlockHeader ::
        (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))

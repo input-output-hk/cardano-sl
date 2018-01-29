@@ -8,7 +8,7 @@ module Network.Discovery.Abstract (
 
     ) where
 
-import           Control.Exception (Exception)
+import           Control.Exception.Safe (Exception)
 import           Data.Set (Set)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)

@@ -43,7 +43,7 @@ import           Pos.Lrc.Context (HasLrcContext)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (buildListBounds, _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 
@@ -223,7 +223,8 @@ classifyHeaders inRecovery headers = do
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify tipHeader = runMaybeT $ do
         lift $ logDebug $
-            sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
+            sformat ("Classifying headers (newest first): "%buildListBounds) $
+                getNewestFirst $ map (view headerHashG) headers
         lca <-
             MaybeT . DB.getHeader =<<
             MaybeT (lcaWithMainChain $ toOldestFirst headers)

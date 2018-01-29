@@ -107,11 +107,10 @@ dlgReachesIssuance i d psk = reach i
     -- where every arrow is resolved psk, and the last one xₖ → d
     -- equals to the passed one.
     reach curUser = getPsk (addressHash curUser) >>= \case
-        Nothing -> pure False
-        Just psk'@ProxySecretKey{..}
-            | pskDelegatePk == d -> pure $ psk' == psk
-            | otherwise          -> reach pskDelegatePk
-
+        Nothing   -> pure False
+        Just psk'
+            | pskDelegatePk psk' == d -> pure $ psk' == psk
+            | otherwise               -> reach (pskDelegatePk psk')
 
 -- | Verifies a header from delegation perspective (signature checks).
 dlgVerifyHeader ::
@@ -184,8 +183,8 @@ dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) tipEpoch psk = do
     -- as well.
     prevPsk <- getPsk stakeholderId
     let duplicate = do
-            psk2@ProxySecretKey{..} <- prevPsk
-            guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
+            psk2 <- prevPsk
+            guard $ pskIssuerPk psk2 == iPk && pskDelegatePk psk2 == dPk
             pure psk2
     whenJust duplicate $ \psk2 ->
         throwError $ sformat

@@ -61,6 +61,7 @@ executable cardano-node-simple
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

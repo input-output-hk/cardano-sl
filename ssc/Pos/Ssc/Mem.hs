@@ -1,5 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
+-- | Utilities for manipulating in-memory SSC state.
+
 -- TODO: the names for functions are pretty bad
 module Pos.Ssc.Mem
        (

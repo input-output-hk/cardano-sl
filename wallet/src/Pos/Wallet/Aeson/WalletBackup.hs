@@ -6,32 +6,33 @@ module Pos.Wallet.Aeson.WalletBackup
 
 import           Universum
 
+import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
                              withText, (.:), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
-import           Formatting (build, formatToString, (%))
+import           Formatting (build, sformat, (%))
 import qualified Serokell.Util.Base64 as B64
 
 import qualified Pos.Binary as Bi
 import           Pos.Crypto (EncryptedSecretKey (..))
-import           Pos.Util.Util (eitherToFail)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
                                              CWalletMeta (..))
+import           Pos.Util.Util (toAesonError, aesonError)
 
 data IndexedAccountMeta = IndexedAccountMeta Int AccountMetaBackup
 
-strToUnit :: MonadFail m => Text -> m Int
-strToUnit "ADA"      = pure 0
-strToUnit "Lovelace" = pure 1
-strToUnit s          = fail $ "Unknown wallet unit: " ++ toString s
+strToUnit :: Text -> Either Text Int
+strToUnit "ADA"      = Right 0
+strToUnit "Lovelace" = Right 1
+strToUnit s          = Left $ "Unknown wallet unit: " <> s
 
-strToAssurance :: MonadFail m => Text -> m CWalletAssurance
-strToAssurance "normal" = pure CWANormal
-strToAssurance "strict" = pure CWAStrict
-strToAssurance s        = fail $ "Unknown assurance type: " ++ toString s
+strToAssurance :: Text -> Either Text CWalletAssurance
+strToAssurance "normal" = Right CWANormal
+strToAssurance "strict" = Right CWAStrict
+strToAssurance s        = Left $ "Unknown assurance type: " <> s
 
 unitToStr :: Int -> Text
 unitToStr 0 = "ADA"
@@ -42,17 +43,18 @@ assuranceToStr :: CWalletAssurance -> Text
 assuranceToStr CWANormal = "normal"
 assuranceToStr CWAStrict = "strict"
 
-checkIfCurrentVersion :: MonadFail m => V.Version -> m ()
+checkIfCurrentVersion :: V.Version -> Either Text ()
 checkIfCurrentVersion version
-    | version == currentBackupFormatVersion = pure ()
+    | version == currentBackupFormatVersion = Right ()
     | otherwise =
-          fail $ formatToString
+          Left $ sformat
           ("Unsupported backup format version "%build%", expected "%build)
           (V.toBuilder version) (V.toBuilder currentBackupFormatVersion)
 
 
 instance FromJSON V.Version where
-    parseJSON = withText "Version" $ eitherToFail . V.fromText
+    parseJSON = withText "Version" $
+        toAesonError . over _Left fromString . V.fromText
 
 instance FromJSON AccountMetaBackup where
     parseJSON = withObject "AccountMetaBackup" $ \o -> do
@@ -62,8 +64,8 @@ instance FromJSON AccountMetaBackup where
 instance FromJSON WalletMetaBackup where
     parseJSON = withObject "WalletMetaBackup" $ \o -> do
         cwName <- o .: "name"
-        cwAssurance <- strToAssurance =<< o .: "assurance"
-        cwUnit <- strToUnit =<< o .: "unit"
+        cwAssurance <- toAesonError . strToAssurance =<< o .: "assurance"
+        cwUnit <- toAesonError . strToUnit =<< o .: "unit"
         return $ WalletMetaBackup $ CWalletMeta {..}
 
 instance FromJSON IndexedAccountMeta where
@@ -74,7 +76,7 @@ instance FromJSON IndexedAccountMeta where
 
 instance FromJSON WalletBackup where
     parseJSON = withObject "WalletBackup" $ \o -> do
-        let decodeBase64 x = eitherToFail (B64.decode x) >>= eitherToFail . Bi.decodeFull
+        let decodeBase64 x = toAesonError (B64.decode x) >>= toAesonError . Bi.decodeFull
             collectAccMap = foldlM parseAddAcc HM.empty
             parseAddAcc accMap v = do
                 IndexedAccountMeta idx meta <- parseJSON v
@@ -93,9 +95,9 @@ instance FromJSON TotalBackup where
         fileType :: Text <- o .: "fileType"
         case fileType of
             "WALLETS_EXPORT" -> do
-                o .: "fileVersion" >>= checkIfCurrentVersion
+                o .: "fileVersion" >>= toAesonError . checkIfCurrentVersion
                 TotalBackup <$> o .: "wallet"
-            unknownType -> fail $ "Unknown type of backup file: " ++ toString unknownType
+            unknownType -> aesonError $ "Unknown type of backup file: " <> unknownType
 
 
 instance ToJSON V.Version where

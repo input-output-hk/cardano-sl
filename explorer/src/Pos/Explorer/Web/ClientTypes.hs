@@ -2,7 +2,10 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Types for using in purescript-bridge
+-- | Types that arise in the API: mostly simplified representations
+-- of the core types which are easier to serialize.
+-- Used in purescript-bridge.
+
 module Pos.Explorer.Web.ClientTypes
        ( CHash (..)
        , CAddress (..)
@@ -327,11 +330,6 @@ data CGenesisSummary = CGenesisSummary
 
 data CGenesisAddressInfo = CGenesisAddressInfo
     { cgaiCardanoAddress :: !CAddress
-    -- Commenting out RSCoin address since currently genesisUtxo stores
-    -- only Cardano addresses, which are essentially hashes of RSCoin addresses
-    -- and therefore cannot be converted to them. Hence we should enable RSCoin
-    -- addresses here only after we start storing them in genesisUtxo.
-    -- , cgaiRSCoinAddress  :: !CAddress
     , cgaiGenesisAmount  :: !CCoin
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)

@@ -125,16 +125,15 @@ library
                        -- Update
                        Pos.Core.Update.Types
                        Pos.Core.Update.Util
-                       Pos.Core.Update.Version
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , ansi-terminal
                      , autoexporter
                      , base
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , Cabal
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-crypto
@@ -165,6 +164,7 @@ library
                      , quickcheck-instances
                      , random
                      , reflection
+                     , safe-exceptions
                      , scrypt >= 0.5
                      , serokell-util
                      , tagged
@@ -177,6 +177,7 @@ library
                      , universum
                      , unordered-containers
                      , vector
+                     , QuickCheck
 
   default-language:    Haskell2010
 
@@ -202,6 +203,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

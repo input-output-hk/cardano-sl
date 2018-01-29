@@ -114,6 +114,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -170,6 +171,7 @@ executable cardano-auxx
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -232,6 +234,7 @@ test-suite cardano-auxx-test
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

@@ -133,7 +133,7 @@ getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> koParser) $
-        fullDesc <> header "Tool to generate keyfiles-related data"
+        fullDesc <> header "Tool to generate keyfiles-related data."
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)

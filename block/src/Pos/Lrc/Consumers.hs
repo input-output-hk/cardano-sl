@@ -6,7 +6,7 @@ module Pos.Lrc.Consumers
          allLrcConsumers
        ) where
 
-import           Pos.Delegation.Lrc (delegationLrcConsumer)
+import           Pos.Delegation.Lrc (dlgLrcConsumer)
 import           Pos.Lrc.Consumer (LrcConsumer)
 import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Ssc.Lrc (sscLrcConsumer)
@@ -16,4 +16,4 @@ import           Pos.Update.Lrc (usLrcConsumer)
 allLrcConsumers
     :: forall ctx m. (SscMessageConstraints m, LrcMode ctx m)
     => [LrcConsumer m]
-allLrcConsumers = [delegationLrcConsumer, usLrcConsumer, sscLrcConsumer]
+allLrcConsumers = [dlgLrcConsumer, usLrcConsumer, sscLrcConsumer]

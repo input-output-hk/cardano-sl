@@ -37,9 +37,10 @@ import qualified Data.Map.Strict as M
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
-import           Pos.Network.Types (Fallbacks, NodeName (..), Valency)
 
+import           Pos.Network.Types (Fallbacks, NodeName (..), Valency)
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Util.Util (toAesonError, aesonError)
 
 -- | Description of the network topology in a Yaml file
 --
@@ -71,8 +72,8 @@ data Topology =
   deriving (Show)
 
 -- | All statically known peers in the newtork
-data AllStaticallyKnownPeers = AllStaticallyKnownPeers
-    { allStaticallyKnownPeers :: !(Map NodeName NodeMetadata)
+newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
+    { allStaticallyKnownPeers :: Map NodeName NodeMetadata
     } deriving (Show)
 
 newtype NodeRegion = NodeRegion Text
@@ -197,31 +198,31 @@ instance FromJSON NodeRoutes where
 
 instance FromJSON NodeType where
     parseJSON = A.withText "NodeType" $ \typ -> do
-        case toString typ of
-          "core"     -> return NodeCore
-          "edge"     -> return NodeEdge
-          "relay"    -> return NodeRelay
-          _otherwise -> fail $ "Invalid NodeType " ++ show typ
+        toAesonError $ case toString typ of
+          "core"     -> Right NodeCore
+          "edge"     -> Right NodeEdge
+          "relay"    -> Right NodeRelay
+          _otherwise -> Left $ "Invalid NodeType " <> show typ
 
 instance FromJSON OQ.Precedence where
     parseJSON = A.withText "Precedence" $ \typ -> do
-        case toString typ of
-          "lowest"   -> return OQ.PLowest
-          "low"      -> return OQ.PLow
-          "medium"   -> return OQ.PMedium
-          "high"     -> return OQ.PHigh
-          "highest"  -> return OQ.PHighest
-          _otherwise -> fail $ "Invalid Precedence" ++ show typ
+        toAesonError $ case toString typ of
+          "lowest"   -> Right OQ.PLowest
+          "low"      -> Right OQ.PLow
+          "medium"   -> Right OQ.PMedium
+          "high"     -> Right OQ.PHigh
+          "highest"  -> Right OQ.PHighest
+          _otherwise -> Left $ "Invalid Precedence" <> show typ
 
 instance FromJSON (DnsDomains DNS.Domain) where
     parseJSON = fmap DnsDomains . parseJSON
 
 instance FromJSON (NodeAddr DNS.Domain) where
-    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr aux
+    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr (toAesonError . aux)
       where
-        aux :: Maybe DNS.Domain -> A.Parser DNS.Domain
-        aux Nothing    = fail "Missing domain name or address"
-        aux (Just dom) = return dom
+        aux :: Maybe DNS.Domain -> Either Text DNS.Domain
+        aux Nothing    = Left "Missing domain name or address"
+        aux (Just dom) = Right dom
 
 -- Useful when we have a 'NodeAddr' as part of a larger object
 extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
@@ -234,17 +235,17 @@ extractNodeAddr mkA obj = do
     case (mAddr, mHost) of
       (Just ipAddr, Nothing) -> do
           -- Make sure `addr` is a proper IP address
-          case readMaybe ipAddr of
-              Nothing   -> fail "The value specified in 'addr' is not a valid IP address."
-              Just addr -> return $ NodeAddrExact addr mPort
+          toAesonError $ case readMaybe ipAddr of
+              Nothing   -> Left "The value specified in 'addr' is not a valid IP address."
+              Just addr -> Right $ NodeAddrExact addr mPort
       (Nothing,  _)        -> do
           -- Make sure 'host' is not a valid IP address (which is disallowed)
           case mHost of
               Nothing  -> mkNodeAddrDNS mHost mPort -- User didn't specify a 'host', proceed normally.
               Just mbH -> case readMaybe @IP mbH of
                   Nothing -> mkNodeAddrDNS mHost mPort -- mHost is not an IP, allow it.
-                  Just _  -> fail "The value specified in 'host' is not a valid hostname, but an IP."
-      (Just _, Just _)    -> fail "Cannot use both 'addr' and 'host'"
+                  Just _  -> aesonError "The value specified in 'host' is not a valid hostname, but an IP."
+      (Just _, Just _)    -> aesonError "Cannot use both 'addr' and 'host'"
   where
     aux :: String -> DNS.Domain
     aux = BS.C8.pack
@@ -268,9 +269,9 @@ instance FromJSON NodeMetadata where
         nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
         case (nmRoutes, nmSubscribe) of
             (NodeRoutes [], DnsDomains []) ->
-              fail "One of 'static-routes' or 'dynamic-subscribe' must be given"
+              aesonError "One of 'static-routes' or 'dynamic-subscribe' must be given"
             (NodeRoutes (_:_), DnsDomains (_:_)) ->
-              fail "Only one of 'static-routes' or 'dynamic-subscribe' may be given"
+              aesonError "Only one of 'static-routes' or 'dynamic-subscribe' may be given"
             _ -> return ()
         return NodeMetadata{..}
      where
@@ -309,12 +310,12 @@ instance FromJSON Topology where
               topologyValency    <- p2pObj .:? "valency"   .!= 3
               topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
               topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
-              flip (A.withText "P2P variant") variantTxt $ \case
-                  "traditional" -> return TopologyTraditional{..}
-                  "normal"      -> return TopologyP2P{..}
-                  _             -> fail "P2P variant: expected 'traditional' or 'normal'"
+              flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
+                  "traditional" -> Right TopologyTraditional{..}
+                  "normal"      -> Right TopologyP2P{..}
+                  _             -> Left "P2P variant: expected 'traditional' or 'normal'"
           _ ->
-            fail "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
+            aesonError "Topology: expected exactly one of 'nodes', 'relays', or 'p2p'"
 
 maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
@@ -454,7 +455,7 @@ instance FromJSON OQ.Enqueue where
         case (mAll, mOne) of
             (Just all_, Nothing) -> parseEnqueueAll all_
             (Nothing, Just one_) -> parseEnqueueOne one_
-            _                    -> fail "Enqueue: expected 'one' or 'all', and not both."
+            _                    -> aesonError "Enqueue: expected 'one' or 'all', and not both."
       where
         parseEnqueueAll :: A.Object -> A.Parser OQ.Enqueue
         parseEnqueueAll obj = do

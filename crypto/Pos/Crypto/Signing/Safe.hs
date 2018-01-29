@@ -1,4 +1,4 @@
--- | Module for safe (zero-memory) signing
+-- | Module for safe (zero-memory) signing.
 
 module Pos.Crypto.Signing.Safe
        ( changeEncPassphrase
@@ -34,8 +34,8 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
--- | Regerates secret key with new passphrase.
--- Note: This operation remains corresponding public key and derived (child) keys unchanged.
+-- | Regenerates secret key with new passphrase.
+-- Note: This operation keeps corresponding public key and derived (child) keys unchanged.
 changeEncPassphrase
     :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase
@@ -152,7 +152,12 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
 -- | Creates proxy secret key
 safeCreatePsk :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
 safeCreatePsk ss delegatePk w =
-    ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w
+    UnsafeProxySecretKey
+        { pskOmega      = w
+        , pskIssuerPk   = safeToPublic ss
+        , pskDelegatePk = delegatePk
+        , pskCert       = safeCreateProxyCert ss delegatePk w
+        }
 
 -- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
 --   left here because of their implementation details

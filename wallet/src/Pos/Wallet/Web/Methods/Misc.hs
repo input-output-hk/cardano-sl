@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Various small endpoints
@@ -15,6 +16,8 @@ module Pos.Wallet.Web.Methods.Misc
        , syncProgress
        , localTimeDifference
 
+       , requestShutdown
+
        , testResetAll
        , dumpState
        , WalletStateSnapshot (..)
@@ -25,6 +28,9 @@ module Pos.Wallet.Web.Methods.Misc
        , convertCIdTOAddrs
        , convertCIdTOAddr
        , AddrCIdHashes(AddrCIdHashes)
+       , PendingTxsSummary (..)
+       , cancelAllApplyingPtxs
+       , cancelOneApplyingPtx
        ) where
 
 import           Universum
@@ -34,29 +40,38 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
-import           Mockable (MonadMockable)
+import           Formatting (bprint, build, (%))
+import           Mockable (Async, Delay, Mockables, MonadMockable, async, delay)
+import           Serokell.Util (listJson, sec)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
+import           System.Wlog (WithLogger)
 
-import           Pos.Client.KeyStorage (MonadKeys, deleteAllSecretKeys)
+import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, SoftwareVersion (..))
+import           Pos.Core (Address, SlotId, SoftwareVersion (..))
+import           Pos.Crypto (hashHexF)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
+import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util (maybeThrow, lensOf, HasLens)
+import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
                                         connectedPeers, localChainDifficulty,
                                         networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CUpdateInfo (..),
-                                             SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CPtxCondition,
+                                             CTxId (..), CUpdateInfo (..), SyncProgress (..),
+                                             cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, cancelApplyingPtxs,
+                                       cancelSpecificApplyingPtx, getNextUpdate, getProfile,
                                        getWalletStorage, removeNextUpdate, resetFailedPtxs,
                                        setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Util (testOnlyEndpoint)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -101,6 +116,22 @@ postponeUpdate = removeNextUpdate >> return NoContent
 -- | Delete next update info and restart immediately
 applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
 applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
+
+----------------------------------------------------------------------------
+-- System
+----------------------------------------------------------------------------
+
+-- | Triggers shutdown in a short interval after called. Delay is
+-- needed in order for http request to succeed.
+requestShutdown ::
+       ( MonadIO m
+       , MonadReader ctx m
+       , WithLogger m
+       , HasShutdownContext ctx
+       , Mockables m [Async, Delay]
+       )
+    => m NoContent
+requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -207,3 +238,46 @@ convertCIdTOAddrs cids = do
        in (hm', map result lookups)
 
     mapM (either (throwM . DecodeError) pure) maddrs
+
+----------------------------------------------------------------------------
+-- Print pending transactions info
+----------------------------------------------------------------------------
+
+data PendingTxsSummary = PendingTxsSummary
+    { ptiSlot    :: !SlotId
+    , ptiCond    :: !CPtxCondition
+    , ptiInputs  :: !(NonEmpty TxIn)
+    , ptiOutputs :: !(NonEmpty TxOut)
+    , ptiTxId    :: !TxId
+    } deriving (Eq, Show, Generic)
+
+deriveJSON defaultOptions ''PendingTxsSummary
+
+instance Buildable PendingTxsSummary where
+    build PendingTxsSummary{..} =
+        bprint (  "  slotId: "%build%
+                "\n  status: "%build%
+                "\n  inputs: "%listJson%
+                "\n  outputs: "%listJson%
+                "\n  id: "%hashHexF)
+            ptiSlot
+            ptiCond
+            ptiInputs
+            ptiOutputs
+            ptiTxId
+
+instance HasTruncateLogPolicy PendingTxsSummary where
+    -- called rarely, and we are very interested in the output
+    truncateLogPolicy = identity
+
+cancelAllApplyingPtxs ::
+       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m) => m NoContent
+cancelAllApplyingPtxs = testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs
+
+cancelOneApplyingPtx ::
+       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m)
+    => CTxId
+    -> m NoContent
+cancelOneApplyingPtx cTxId = testOnlyEndpoint $ NoContent <$ do
+    txId <- decodeCTypeOrFail cTxId
+    cancelSpecificApplyingPtx txId

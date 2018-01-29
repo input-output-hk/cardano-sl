@@ -17,9 +17,8 @@ module Pos.Explorer.ExplorerMode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
-import           System.Wlog (HasLoggerName (..), LoggerName (..), CanLog)
+import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
@@ -43,8 +42,8 @@ import           Pos.Util (postfixLFields)
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
                                             runExtraContextT)
-import           Pos.Explorer.Txp (ExplorerExtra (..))
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
+import           Pos.Explorer.Txp (ExplorerExtra (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)

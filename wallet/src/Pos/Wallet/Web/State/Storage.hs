@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.Storage
        , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , CurrentAndRemoved (..)
        , WalletBalances
        , WalBalancesAndUtxo
        , WalletTip (..)
@@ -23,6 +24,7 @@ module Pos.Wallet.Web.State.Storage
        , doesAccountExist
        , getAccountIds
        , getAccountMeta
+       , getAccountAddrMaps
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
@@ -74,6 +76,8 @@ module Pos.Wallet.Web.State.Storage
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , resetFailedPtxs
+       , cancelApplyingPtxs
+       , cancelSpecificApplyingPtx
        ) where
 
 import           Universum
@@ -104,8 +108,9 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
                                              PassPhraseLU, Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
                                                ptxCond, ptxSubmitTiming, _PtxCreating)
-import           Pos.Wallet.Web.Pending.Util (incPtxSubmitTimingPure, mkPtxSubmitTiming,
-                                              ptxMarkAcknowledgedPure, resetFailedPtx)
+import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
+                                              mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
+                                              resetFailedPtx)
 
 -- | Type alias for indices which are used to maintain order
 -- in which addresses were created.
@@ -262,6 +267,12 @@ customAddressL :: CustomAddressType -> Lens' WalletStorage CustomAddresses
 customAddressL UsedAddr   = wsUsedAddresses
 customAddressL ChangeAddr = wsChangeAddresses
 
+-- | Keeps existing and pseudo-removed entries, e.g. addresses.
+data CurrentAndRemoved a = CurrentAndRemoved
+    { getCurrent :: a
+    , getRemoved :: a
+    }
+
 -- | Get user profile metadata.
 getProfile :: Query CProfile
 getProfile = view wsProfile
@@ -277,6 +288,14 @@ getAccountIds = HM.keys <$> view wsAccountInfos
 -- | Get account meta info by given account ID.
 getAccountMeta :: AccountId -> Query (Maybe CAccountMeta)
 getAccountMeta accId = preview (wsAccountInfos . ix accId . aiMeta)
+
+getAccountAddrMaps :: AccountId -> Query (CurrentAndRemoved CAddresses)
+getAccountAddrMaps accId = do
+    getCurrent <- getMap aiAddresses
+    getRemoved <- getMap aiRemovedAddresses
+    return CurrentAndRemoved{..}
+  where
+    getMap aiLens = fmap (fromMaybe mempty) $ preview $ wsAccountInfos . ix accId . aiLens
 
 -- | Get wallet meta info considering sync status of wallet.
 getWalletMetaIncludeUnready ::
@@ -311,17 +330,12 @@ getWalletAddresses =
 getAccountWAddresses ::
        AddressLookupMode             -- ^ Determines which addresses to include: existing, deleted or both
     -> AccountId                     -- ^ Account ID.
-    -> Query (Maybe [CWAddressMeta]) -- ^ Returns @Nothing@ if given account ID does not exist.
+    -> Query (Maybe [AddressInfo]) -- ^ Returns @Nothing@ if given account ID does not exist.
 getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
-    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
-    fetch which = do
-        cAddresses <- preview (wsAccountInfos . ix accId . which)
-        -- here `cAddresses` has type `Maybe CAddresses`
-        pure $
-            (map adiCWAddressMeta . sortOn adiSortingKey . map snd . HM.toList)
-            <$> cAddresses
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
+    fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
 
 -- | Check if given address exists.
 doesWAddressExist ::
@@ -596,6 +610,16 @@ ptxUpdateMeta wid txId updType =
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
 
+cancelApplyingPtxs :: Update ()
+cancelApplyingPtxs =
+    wsWalletInfos . traversed .
+    wsPendingTxs . traversed %= cancelApplyingPtx
+
+cancelSpecificApplyingPtx :: TxId -> Update ()
+cancelSpecificApplyingPtx txId =
+    wsWalletInfos . traversed .
+    wsPendingTxs . ix txId %= cancelApplyingPtx
+
 -- | Add transaction to set of pending transactions, if it isn't already there.
 addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
@@ -649,6 +673,7 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
+deriveSafeCopySimple 0 'base ''CurrentAndRemoved
 deriveSafeCopySimple 0 'base ''TxAux
 deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming

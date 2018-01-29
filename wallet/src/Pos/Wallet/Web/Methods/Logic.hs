@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Methods.Logic
        , newAccount
        , newAccountIncludeUnready
        , newAddress
+       , newAddress_
        , markWalletReady
 
        , deleteWallet
@@ -29,11 +30,11 @@ import           Universum
 
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
 import           System.Wlog (WithLogger)
-import qualified Data.Set as S
 
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
                                         deleteSecretKeyBy)
@@ -55,8 +56,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              CWAddressMeta (..), CWallet (..), CWalletMeta (..),
                                              Wal, addrMetaToAccount, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddr, MonadConvertToAddr)
-import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
+import           Pos.Wallet.Web.Methods.Misc (MonadConvertToAddr, convertCIdTOAddr)
+import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
                                        MonadWalletDBRead, WalBalancesAndUtxo, addWAddress,
                                        createAccount, createWallet, doesAccountExist, getAccountIds,
@@ -140,7 +141,9 @@ getAccountMod
     -> AccountId
     -> m CAccount
 getAccountMod balAndUtxo accMod accId = do
-    dbAddrs    <- getAccountAddrsOrThrow Existing accId
+    dbAddrs <-
+        map adiCWAddressMeta . sortOn adiSortingKey <$>
+        getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
@@ -206,6 +209,24 @@ getWallets = getWalletAddresses >>= mapM getWallet
 -- Creators
 ----------------------------------------------------------------------------
 
+newAddress_
+    :: MonadWalletLogic ctx m
+    => AddrGenSeed
+    -> PassPhrase
+    -> AccountId
+    -> m CWAddressMeta
+newAddress_ addGenSeed passphrase accId = do
+    -- check whether account exists
+    parentExists <- doesAccountExist accId
+    unless parentExists $ throwM noAccount
+
+    cAccAddr <- genUniqueAddress addGenSeed passphrase accId
+    addWAddress cAccAddr
+    return cAccAddr
+  where
+    noAccount =
+        RequestError $ sformat ("No account with id "%build%" found") accId
+
 newAddress
     :: MonadWalletLogic ctx m
     => AddrGenSeed
@@ -214,17 +235,9 @@ newAddress
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
     balAndUtxo <- getWalletBalancesAndUtxo
+    cwAddrMeta <- newAddress_ addGenSeed passphrase accId
     fixCachedAccModifierFor accId $ \accMod -> do
-        -- check whether account exists
-        parentExists <- doesAccountExist accId
-        unless parentExists $ throwM noAccount
-
-        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
-        addWAddress cAccAddr
-        getWAddress balAndUtxo accMod cAccAddr
-  where
-    noAccount =
-        RequestError $ sformat ("No account with id "%build%" found") accId
+        getWAddress balAndUtxo accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m

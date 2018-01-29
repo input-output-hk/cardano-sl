@@ -18,7 +18,6 @@ library
 
   other-modules:
                        Pos.Binary.Class.Core
-                       Pos.Binary.Class.Numbers
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
 
@@ -37,6 +36,7 @@ library
                      , parsec
                      , process
                      , quickcheck-instances
+                     , safe-exceptions
                      , semigroups
                      , serokell-util
                      , stm
@@ -78,6 +78,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

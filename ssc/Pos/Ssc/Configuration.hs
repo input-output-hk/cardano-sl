@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
+-- | Utilities for passing runtime SSC configuration.
+
 module Pos.Ssc.Configuration
     ( SscConfiguration (..)
     , HasSscConfiguration

@@ -30,6 +30,7 @@ import           Pos.Wallet.Web.ClientTypes (CAccount (..), CWAddressMeta (..),
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
+import           Pos.Wallet.Web.State.Storage (AddressInfo (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, splitWord,
                                 stopProperty, withDefConfigurations)
@@ -112,7 +113,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     -- expectedChangeAddresses
   where
     getAddress srcAccId =
-        lift . decodeCTypeOrFail . cwamId =<<
+        lift . decodeCTypeOrFail . cwamId . adiCWAddressMeta =<<
         expectedOne "address" =<<
         lift (getAccountAddrsOrThrow WS.Existing srcAccId)
     oneNewPaymentBatchDesc =

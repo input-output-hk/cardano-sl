@@ -14,7 +14,6 @@ module Pos.Util.Concurrent.PriorityLock
        ) where
 
 import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar, takeTMVar)
-import           Control.Monad.Catch (MonadMask)
 import           Universum
 
 import           Pos.Util.Queue (Q, dequeue, enqueue, queue)
@@ -25,7 +24,7 @@ data PriorityLockState
     = Unlocked
     | Locked (Q (TMVar ())) (Q (TMVar ()))
     -- ^ locked, with a queue of contenders with high precedence, and
-    -- a second queuewith contenders of low precedence
+    -- a second queue with contenders of low precedence
 
 data Priority = HighPriority
               | LowPriority

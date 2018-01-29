@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
--- | Set of constraints used by LRC.
+-- | Constraints for LRC; a restricted version of `WorkMode`.
 
 module Pos.Lrc.Mode
        ( LrcMode

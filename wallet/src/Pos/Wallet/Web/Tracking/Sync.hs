@@ -10,8 +10,8 @@
 -- There are severals cases when we must  synchronise wallet-db and node-db:
 -- • When we relaunch wallet. Desynchronization can be caused by interruption
 --   during blocks application/rollback at the previous launch,
---   then wallet-db can fall behind from node-db (when interruption during rollback)
---   or vice versa (when interruption during application)
+--   then wallet-db can fall behind from node-db (when interrupted during rollback)
+--   or vice versa (when interrupted during application)
 --   @syncWSetsWithGStateLock@ implements this functionality.
 -- • When a user wants to import a secret key. Then we must rely on
 --   Utxo (GStateDB), because blockchain can be large.
@@ -41,8 +41,8 @@ module Pos.Wallet.Web.Tracking.Sync
 import           Universum
 import           Unsafe (unsafeLast)
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
-import           Control.Monad.Catch (handleAll)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -156,7 +156,7 @@ syncWalletsWithGState
     , HasConfiguration
     )
     => [EncryptedSecretKey] -> m ()
-syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
+syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) $ do
     let wAddr = encToCId encSK
     WS.getWalletSyncTip wAddr >>= \case
         Nothing                -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr

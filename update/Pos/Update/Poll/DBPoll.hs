@@ -22,8 +22,8 @@ import           Pos.Lrc.DB.Issuers (getIssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import qualified Pos.Update.DB as GS
+import           Pos.Update.Lrc (tryGetUSRichmen)
 import           Pos.Update.Poll.Class (MonadPollRead (..))
-import           Pos.Update.RichmenComponent (getRichmenUS)
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -54,8 +54,8 @@ instance ( MonadIO m
     getProposal = GS.getProposalState
     getProposalsByApp = GS.getProposalsByApp
     getConfirmedProposals = GS.getConfirmedProposals Nothing
-    getEpochTotalStake e = fmap fst <$> getRichmenUS e
-    getRichmanStake e id = (findStake =<<) <$> getRichmenUS e
+    getEpochTotalStake e = fmap fst <$> tryGetUSRichmen e
+    getRichmanStake e id = (findStake =<<) <$> tryGetUSRichmen e
       where
         findStake :: FullRichmenData -> Maybe Coin
         findStake = HM.lookup id . snd

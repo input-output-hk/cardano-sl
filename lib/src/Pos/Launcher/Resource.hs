@@ -36,8 +36,9 @@ import qualified Network.Transport.TCP as TCP
 import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
 import           System.Wlog (CanLog, LoggerConfig (..), WithLogger, askLoggerName, consoleActionB,
-                              defaultHandleAction, logError, logInfo, maybeLogsDirB, productionB,
-                              removeAllHandlers, setupLogging, showTidB, usingLoggerName)
+                              defaultHandleAction, logDebug, logError, logInfo, maybeLogsDirB,
+                              productionB, removeAllHandlers, setupLogging, showTidB,
+                              usingLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Block.Slog (mkSlogContext)
@@ -56,6 +57,7 @@ import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..))
+import           Pos.Reporting.MemState (initializeMisbehaviorMetrics)
 import           Pos.Shutdown.Types (ShutdownContext (..))
 import           Pos.Slotting (SlottingContextSum (..), mkNtpSlottingVar, mkSimpleSlottingVar)
 import           Pos.Slotting.Types (SlottingData)
@@ -67,7 +69,7 @@ import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLoca
 import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
-import           Pos.Util (newInitFuture)
+import           Pos.Util (bracketWithLogging, newInitFuture)
 import           Pos.Util.Timer (newTimer)
 
 #ifdef linux_HOST_OS
@@ -125,6 +127,7 @@ allocateNodeResources
     -> InitMode ()
     -> Production (NodeResources ext m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp txpSettings initDB = do
+    logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
             let dbPath = "node-db" :: FilePath
@@ -144,10 +147,13 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp txpSettin
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
+    logDebug "Opened DB, created some futures, going to run InitMode"
     runInitMode initModeContext $ do
         initDB
+        logDebug "Initialized DB"
 
         nrEkgStore <- liftIO $ Metrics.newStore
+        logDebug "Created EKG store"
 
         txpVar <- mkTxpLocalData -- doesn't use slotting or LRC
         let ancd =
@@ -159,10 +165,13 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp txpSettin
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings
+        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
+        logDebug "Filled LRC Context future"
         dlgVar <- mkDelegationVar
+        logDebug "Created DLG var"
         sscState <- mkSscState
+        logDebug "Created SSC var"
         let nrTransport = transport
         nrJLogHandle <-
             case npJLFile of
@@ -172,6 +181,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp txpSettin
                     liftIO $ hSetBuffering h NoBuffering
                     return $ Just h
 
+        logDebug "Finished allocating node resources!"
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
@@ -208,9 +218,11 @@ bracketNodeResources :: forall ext m a.
     -> Production a
 bracketNodeResources np sp txp initDB action =
     bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
-        bracketKademlia (npNetworkConfig np) $ \networkConfig ->
-            bracket (allocateNodeResources transport networkConfig np sp txp initDB)
-                    releaseNodeResources $ \nodeRes ->do
+        bracketKademlia (npNetworkConfig np) $ \networkConfig -> do
+            let msg = "`NodeResources'"
+            bracketWithLogging msg
+                    (allocateNodeResources transport networkConfig np sp txp initDB)
+                    releaseNodeResources $ \nodeRes -> do
                 -- Notify systemd we are fully operative
                 notifyReady
                 action nodeRes
@@ -258,8 +270,9 @@ allocateNodeContext
       (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration)
     => AllocateNodeContextData ext
     -> TxpGlobalSettings
+    -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext ancd txpSettings = do
+allocateNodeContext ancd txpSettings ekgStore = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -267,32 +280,51 @@ allocateNodeContext ancd txpSettings = do
                                 , ancdEkgStore = store
                                 , ancdTxpMemState = TxpLocalData {..}
                                 } = ancd
+    logInfo "Allocating node context..."
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
+    logDebug "Got logger config"
     ncStateLock <- newStateLock =<< GS.getTip
+    logDebug "Created a StateLock"
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
+    logDebug "Created StateLock metrics"
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
+    logDebug "Created LRC sync"
     ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
+    logDebug "Created slotting variable"
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
             False -> SCSimple <$> mkSimpleSlottingVar
+    logDebug "Created slotting context"
     putSlotting ncSlottingVar ncSlottingContext
+    logDebug "Filled slotting future"
     ncUserSecret <- newTVarIO $ npUserSecret
+    logDebug "Created UserSecret variable"
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
+    logDebug "Created block retrieval queue, recovery and progress headers"
     ncShutdownFlag <- newTVarIO False
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
+    logDebug "Created last known header and shutdown flag variables"
     ncUpdateContext <- mkUpdateContext
+    logDebug "Created context for update"
     ncSscContext <- createSscContext sscnp
+    logDebug "Created context for ssc"
     ncSlogContext <- mkSlogContext store
+    logDebug "Created context for slog"
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
+    logDebug "Created peersVar"
     let slotDuration :: Integer
         slotDuration = toMicroseconds . bvdSlotDuration $ gdBlockVersionData genesisData
     ncSubscriptionKeepAliveTimer <- newTimer $ 3 * fromIntegral slotDuration
+    logDebug "Created subscription timer"
+    mm <- initializeMisbehaviorMetrics ekgStore
+
+    logDebug "Finished allocating node context!"
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
@@ -301,6 +333,7 @@ allocateNodeContext ancd txpSettings = do
             , ncNodeParams = np
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig
+            , ncMisbehaviorMetrics = Just mm
             , ..
             }
     return ctx
@@ -318,12 +351,12 @@ mkSlottingVar = newTVarIO =<< GState.getSlottingData
 ----------------------------------------------------------------------------
 
 createKademliaInstance ::
-       (HasNodeConfiguration, MonadIO m, MonadCatch m, CanLog m)
+       (HasNodeConfiguration, MonadIO m, MonadCatch m, WithLogger m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
 createKademliaInstance kp defaultPort =
-    usingLoggerName "kademlia" (startDHTInstance instConfig defaultBindAddress)
+    startDHTInstance instConfig defaultBindAddress
   where
     instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ defaultPeers}
     defaultBindAddress = ("0.0.0.0", defaultPort)
@@ -336,7 +369,12 @@ bracketKademliaInstance
     -> (KademliaDHTInstance -> m a)
     -> m a
 bracketKademliaInstance kp defaultPort action =
-    bracket (createKademliaInstance kp defaultPort) stopDHTInstance action
+    usingLoggerName "kademlia" $
+    bracketWithLogging
+        "kademlia instance"
+        (createKademliaInstance kp defaultPort)
+        stopDHTInstance
+        (lift . action)
 
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
@@ -415,7 +453,11 @@ bracketTransport
     -> (Transport n -> m a)
     -> m a
 bracketTransport tcpAddr k =
-    bracket (createTransportTCP tcpAddr) snd (k . fst)
+    bracketWithLogging
+        "TCP transport"
+        (createTransportTCP tcpAddr)
+        snd
+        (k . fst)
 
 -- | Notify process manager tools like systemd the node is ready.
 -- Available only on Linux for systems where `libsystemd-dev` is installed.

@@ -17,10 +17,11 @@ import           Formatting (build, int, ords, sformat, shown, (%))
 import           Mockable (currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
+import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinaryM)
+import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Protocol (EnqueueMsg, Message, MsgType (..), Origin (..),
@@ -39,10 +40,10 @@ import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, 
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (getCurrentSlot, getSlotStartEmpatically, onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
@@ -52,10 +53,10 @@ import           Pos.Ssc.Configuration (HasSscConfiguration, mdNoCommitmentsEpoc
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.Logic (sscGarbageCollectLocalData, sscProcessCertificate,
                                 sscProcessCommitment, sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..), SscMessageConstraints, SscTag (..))
 import           Pos.Ssc.Mode (SscMode)
-import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import qualified Pos.Ssc.SecretStorage as SS
 import           Pos.Ssc.Shares (getOurShares)
 import           Pos.Ssc.State (getGlobalCerts, getStableCerts, sscGetGlobalState)
@@ -75,9 +76,7 @@ sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
 
 shouldParticipate :: (SscMode ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do
-    richmen <- lrcActionOnEpochReason epoch
-        "couldn't get SSC richmen"
-        getRichmenSsc
+    richmen <- getSscRichmen "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
         atomically . readTVar . scParticipateSsc
     ourId <- getOurStakeholderId
@@ -313,8 +312,7 @@ generateAndSetNewSecret
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
 generateAndSetNewSecret sk SlotId {..} = do
-    richmen <-
-        lrcActionOnEpochReason siEpoch "couldn't get SSC richmen" getRichmenSsc
+    richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
     certs <- getStableCerts siEpoch
     inAssertMode $ do
         let participantIds =
@@ -349,7 +347,7 @@ generateAndSetNewSecret sk SlotId {..} = do
             case multiPSmb of
                 Nothing -> Nothing <$
                     logWarningS (here "Couldn't compute participant's vss")
-                Just multiPS -> case mapM fromBinaryM multiPS of
+                Just multiPS -> case mapM fromBinary multiPS of
                     Left err -> Nothing <$
                         logErrorS (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do
@@ -434,6 +432,8 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
                         atomically $ do
                             !x <- succ <$> readTVar counter
                             x <$ writeTVar counter x
+                    whenJustM (view misbehaviorMetrics) $ liftIO .
+                        flip Metrics.set (fromIntegral newCounterValue) . _mmIgnoredCommitments
                     when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
     -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected:
     -- our commitments don't get included into blockchain

@@ -30,7 +30,7 @@ import           Pos.Core.Ssc.Types (VssCertificate)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
                                         SoftforkRule, SoftwareVersion (..), mkApplicationName)
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError)
 
 instance ToJSON SharedSeed where
     toJSON = toJSON . JsonByteString . getSharedSeed
@@ -81,13 +81,13 @@ instance ToJSON UnparsedFields where
 deriveJSON defaultOptions ''Attributes
 
 instance FromJSONKey Address where
-    fromJSONKey = FromJSONKeyTextParser (eitherToFail . decodeTextAddress)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . decodeTextAddress)
 
 instance ToJSONKey Address where
     toJSONKey = toJSONKeyText (sformat addressF)
 
 instance FromJSON Address where
-    parseJSON v = eitherToFail =<< (decodeTextAddress <$> parseJSON v)
+    parseJSON = toAesonError . decodeTextAddress <=< parseJSON
 
 instance ToJSON Address where
     toJSON = toJSON . sformat addressF
@@ -101,11 +101,11 @@ instance ToJSON Address where
 deriveJSON defaultOptions ''BlockCount
 
 instance FromJSON ApplicationName where
-    -- mkApplicationName will fail if the parsed text isn't appropriate.
+    -- mkApplicationName will validate the text to be an appropriate app name
     --
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = parseJSON v >>= mkApplicationName
+    parseJSON v = parseJSON v >>= toAesonError . mkApplicationName
 
 deriveToJSON defaultOptions ''ApplicationName
 

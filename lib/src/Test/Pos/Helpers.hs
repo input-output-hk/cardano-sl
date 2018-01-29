@@ -44,6 +44,7 @@ import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, coun
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
+import           Pos.Core.Genesis (SchemaError)
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
 import           Pos.Communication (Limit (..), MessageLimited (..))
@@ -107,17 +108,10 @@ showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
 showReadTest = identityTest @a showReadId
 
 
-newtype CatchesCanonicalJsonParseErrors a = CatchesCanonicalJsonParseErrors
-    { unCatchesCanonicalJsonParseErrors :: Either Text a
-    } deriving (Functor, Applicative, Monad)
-
 type ToAndFromCanonicalJson a
      = ( CanonicalJSON.ToJSON Identity a
-       , CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+       , CanonicalJSON.FromJSON (Either SchemaError) a
        )
-
-instance MonadFail CatchesCanonicalJsonParseErrors where
-    fail s = CatchesCanonicalJsonParseErrors $ Left (toText s)
 
 canonicalJsonTest ::
        forall a. (IdTestingRequiredClassesAlmost a, ToAndFromCanonicalJson a)
@@ -138,7 +132,7 @@ canonicalJsonTest =
                 runIdentity $ CanonicalJSON.toJSON x
         in canonicalJsonDecodeAndCompare x encodedX
     canonicalJsonDecodeAndCompare ::
-           CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+           CanonicalJSON.FromJSON (Either SchemaError) a
         => a
         -> LByteString
         -> Property
@@ -147,8 +141,7 @@ canonicalJsonTest =
                 either (error . toText) identity $
                 CanonicalJSON.parseCanonicalJSON encodedX
             decodedX =
-                either error identity $
-                unCatchesCanonicalJsonParseErrors $
+                either (error . pretty @SchemaError) identity $
                 CanonicalJSON.fromJSON decodedValue
         in decodedX === x
 

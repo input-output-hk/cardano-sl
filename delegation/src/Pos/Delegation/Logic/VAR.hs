@@ -43,9 +43,9 @@ import qualified Pos.Delegation.DB as GS
 import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
                                                processProxySKHeavyInternal)
-import           Pos.Delegation.RichmenComponent (getRichmenDlg)
+import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -295,12 +295,10 @@ getNoLongerRichmen ::
     -> m [StakeholderId]
 getNoLongerRichmen (EpochIndex 0) = pure mempty
 getNoLongerRichmen newEpoch =
-    (\\) <$> getRichmen (newEpoch - 1) <*> getRichmen newEpoch
+    (\\) <$> getRichmen (newEpoch - 1)
+         <*> getRichmen newEpoch
   where
-    getRichmen e =
-        toList <$>
-        lrcActionOnEpochReason e "getNoLongerRichmen" getRichmenDlg
-
+    getRichmen epoch = toList <$> getDlgRichmen "getNoLongerRichmen" epoch
 
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
@@ -325,11 +323,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
-    (richmen :: RichmenSet) <-
-        lrcActionOnEpochReason
-        headEpoch
-        "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
-        getRichmenDlg
+    richmen <- getDlgRichmen "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL

@@ -47,6 +47,7 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (toCerealError, cerealError)
 
 ----------------------------------------------------------------------------
 -- Bi
@@ -58,9 +59,9 @@ putCopyBi = contain . safePut . Bi.serialize
 getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
-    case Bi.deserializeOrFail bs of
-        Left (err, _) -> fail $ "getCopy@" ++ (Bi.label (Proxy @a)) <> ": " <> show err
-        Right (x, _)  -> return x
+    toCerealError $ case Bi.deserializeOrFail bs of
+        Left (err, _) -> Left $ "getCopy@" <> Bi.label (Proxy @a) <> ": " <> show err
+        Right (x, _)  -> Right x
 
 
 ----------------------------------------------------------------------------
@@ -238,7 +239,7 @@ instance SafeCopy BlockSignature where
         0 -> BlockSignature <$> safeGet
         1 -> BlockPSignatureLight <$> safeGet
         2 -> BlockPSignatureHeavy <$> safeGet
-        t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
+        t -> cerealError $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)            = contain $ Cereal.putWord8 0 >> safePut sig
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
@@ -305,7 +306,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
+            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where

@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Heavy PSK processing, in-mem state and
--- mempool-related functions.
+-- | Heavy PSK processing, in-memory state and mempool-related functions.
 
 module Pos.Delegation.Logic.Mempool
        (
@@ -29,7 +28,7 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
                            epochIndexL, headerHash)
 import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
 import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
@@ -38,9 +37,9 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.RichmenComponent (getRichmenDlg)
+import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
@@ -71,12 +70,16 @@ clearDlgMemPoolAction = do
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
 -- Caller must also ensure that size limit allows to put more data.
-putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
+putToDlgMemPool
+    :: HasConfiguration
+    => PublicKey -> ProxySKHeavy -> DelegationStateAction ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
     dwPoolSize += biSize pk + biSize psk
 
-deleteFromDlgMemPool :: PublicKey -> DelegationStateAction ()
+deleteFromDlgMemPool
+    :: HasConfiguration
+    => PublicKey -> DelegationStateAction ()
 deleteFromDlgMemPool pk =
     use (dwProxySKPool . at pk) >>= \case
         Nothing -> pass
@@ -86,7 +89,9 @@ deleteFromDlgMemPool pk =
 
 -- Caller must ensure that there won't be too much data (more than limit) as
 -- a result of transformation.
-modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
+modifyDlgMemPool
+    :: HasConfiguration
+    => (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
     let newPool = f memPool
@@ -102,7 +107,6 @@ modifyDlgMemPool f = do
 data PskHeavyVerdict
     = PHExists       -- ^ If we have exactly the same cert in psk mempool
     | PHInvalid Text -- ^ Can't accept PSK though it's most probably user's error
-    | PHBroken       -- ^ Broken (signature, most probably attack, we can ban for this)
     | PHCached       -- ^ Message is cached
     | PHTipMismatch  -- ^ Verdict can't be made at the moment, mempool tip is different from db one
     | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data
@@ -148,14 +152,9 @@ processProxySKHeavyInternal psk = do
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
-    richmen <-
-        lrcActionOnEpochReason
-        headEpoch
-        "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
-        getRichmenDlg
+    richmen <- getDlgRichmen "Delegation.Logic#processProxySKHeavy" headEpoch
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
-    let consistent = verifyPsk psk
-        iPk = pskIssuerPk psk
+    let iPk = pskIssuerPk psk
 
     -- Retrieve psk pool and perform another db check. It's
     -- guaranteed that pool is not changed when we're under
@@ -195,7 +194,6 @@ processProxySKHeavyInternal psk = do
 
         let res = if | cached -> PHCached
                      | not coherent -> PHTipMismatch
-                     | not consistent -> PHBroken
                      | existsSameMempool -> PHExists
                      | not pskValid -> PHInvalid verificationError
                      | exhausted -> PHExhausted

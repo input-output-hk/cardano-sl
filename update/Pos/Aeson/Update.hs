@@ -8,8 +8,9 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
 import           Pos.Core.Update (SystemTag, mkSystemTag)
+import           Pos.Util (toAesonError)
 
 instance FromJSON SystemTag where
-    parseJSON v = parseJSON v >>= mkSystemTag
+    parseJSON v = parseJSON v >>= toAesonError . mkSystemTag
 
 deriveToJSON defaultOptions ''SystemTag

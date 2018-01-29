@@ -16,15 +16,21 @@ Cardano SL supports two ways for building itself:
 -   (preferred) [Nix](https://nixos.org/nix/) package manager (backed by a binary cache by IOHK continuous integration)
 -   [Stack](https://haskellstack.org) with Nix for system libraries
 
-In any case, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already have `stack` and `nix-*` programs.
+In any case, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html)
+to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version,
+but won't override the system-installed version. The following commands assume that you already have
+`stack` and `nix-*` programs.
 
 ### Binaries
 
-As a result of building Cardano SL, you will get a set of components (binary files). This set includes the main node for Cardano SL network and various helper tools. Please read [this page of the documentation](https://cardanodocs.com/technical/cli-options/) for technical details.
+As a result of building Cardano SL, you will get a set of components (binary files). This set includes
+the main node for Cardano SL network and various helper tools. Please read
+[this page of the documentation](https://cardanodocs.com/technical/cli-options/) for technical details.
 
 ## Common build steps
 
-The following steps are shared between the two methods of building Cardano: fetching source and deciding on a branch to be built.
+The following steps are shared between the two methods of building Cardano: fetching source and deciding
+on a branch to be built.
 
 Clone Cardano SL repository and go to the root directory:
 
@@ -99,9 +105,12 @@ try running the following command from outside of a `nix-shell`
 
     $ nix-shell -p moreutils expect --run "unbuffer ./scripts/build/cardano-sl.sh | ts"
 
-It is suggested having at least 8GB of RAM and some swap space for the build process. As the project is fairly large and GHC parallelizes builds very effectively, memory and CPU consumption during the build process is high. Please make sure you have enough free disk space as well.
+It is suggested having at least 8GB of RAM and some swap space for the build process. As the project
+is fairly large and GHC parallelizes builds very effectively, memory and CPU consumption during the
+build process is high. Please make sure you have enough free disk space as well.
 
-After the project is built - it can take quite a long time -  the built binaries can be launched using the `stack exec` command. Let's discuss important binaries briefly before proceeding to the next step.
+After the project is built - it can take quite a long time -  the built binaries can be launched using
+the `stack exec` command. Let's discuss important binaries briefly before proceeding to the next step.
 
 ## Stack build mode (for developers)
 
@@ -112,7 +121,7 @@ by yourself (see below).
 ### Install Stack
 
 [Stack](https://docs.haskellstack.org/en/stable/README/) is a cross-platform program
-for developing Haskell projects. 
+for developing Haskell projects.
 
 Recommended way, for all Unix-systems:
 
@@ -142,7 +151,7 @@ On macOS:
 
     $ brew install rocksdb
 
-### Jemalloc Notice 
+### Jemalloc Notice
 
 Please make sure that you have [jemalloc](http://jemalloc.net/) package, version `4.5.0`.
 If you have newer version of it - you will probably get linker errors during building.
@@ -174,7 +183,8 @@ To run acceptance tests one first has to have cluster running. We can run cluste
     $ tmux
     [nix-shell:~/cardano-sl]$ ./scripts/launch/demo-with-wallet-api.sh
 
-**Important**: you have to build a node with Stack (using `./scripts/build/cardano-sl.sh`) to run this script.
+**Important**: you have to build a node with Stack (using `./scripts/build/cardano-sl.sh`) to run this
+script.
 
 Then navigate to daedalus repo and run tests server with:
 
@@ -184,6 +194,8 @@ and in the seperate terminal window run tests:
 
     [nix-shell:~/daedalus]$ npm run test
 
-You should see acceptance tests being run for about 5 minutes. Note that acceptance tests will be actively be taking window focus until they are finished. If it complains about `cardano-node.log` not existing just create it in the path with:
+You should see acceptance tests being run for about 5 minutes. Note that acceptance tests will be actively
+be taking window focus until they are finished. If it complains about `cardano-node.log` not existing just
+create it in the path with:
 
     [nix-shell:~/daedalus]$ touch ~/.config/Daedalus/Logs/cardano-node.log

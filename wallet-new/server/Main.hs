@@ -11,10 +11,8 @@ import           Universum
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Data.Maybe (fromJust)
-import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..), currentTime, runProduction)
+import           Mockable (Production (..), runProduction)
 import           Pos.Communication (ActionSpec (..))
-import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bracketNodeResources,
                                loggerBracket, runNode, withConfigurations)
@@ -79,6 +77,8 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     plugins = mconcat [ Plugins.conversation wArgs
                       , Plugins.walletBackend wArgs
                       , Plugins.acidCleanupWorker wArgs
+                      , Plugins.resubmitterPlugin
+                      , Plugins.notifierPlugin
                       ]
 
 -- | Runs an edge node plus its wallet backend API.
@@ -94,17 +94,12 @@ startEdgeNode WalletStartupOptions{..} = do
     getParameters = do
 
       whenJust (CLI.cnaDumpGenesisDataPath wsoNodeArgs) $ CLI.dumpGenesisData True
-      t <- currentTime
       currentParams <- CLI.getNodeParams loggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
-      mapM_ logInfo [
-            sformat ("System start time is " % shown) $ gdStartTime genesisData
-          , sformat ("Current time is " % shown) (Timestamp t)
-          , "Wallet is enabled!"
-          , sformat ("Using configs and genesis:\n"%shown) conf
-          ]
+      CLI.printInfoOnStart wsoNodeArgs
+      logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)
 
@@ -131,6 +126,5 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   generateSwaggerDocumentation
   let loggingParams = CLI.loggingParams loggerName (wsoNodeArgs cfg)
   loggerBracket loggingParams . runProduction $ do
-    CLI.printFlags
     logInfo "[Attention] Software is built with the wallet backend"
     startEdgeNode cfg

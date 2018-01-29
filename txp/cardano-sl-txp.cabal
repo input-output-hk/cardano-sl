@@ -97,7 +97,8 @@ library
                      , neat-interpolation
                      , plutus-prototype
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
+                     , safe-exceptions
                      , serokell-util
                      , stm
                      , tagged
@@ -133,6 +134,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

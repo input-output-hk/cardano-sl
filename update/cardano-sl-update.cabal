@@ -34,7 +34,6 @@ library
                        Pos.Update.Download
                        Pos.Update.Lrc
                        Pos.Update.Mode
-                       Pos.Update.RichmenComponent
                        Pos.Update.Worker
 
                        -- Logic
@@ -81,7 +80,8 @@ library
                        Pos.Arbitrary.Update.Network
                        Pos.Arbitrary.Update.Poll
 
-  build-depends:       QuickCheck
+  build-depends:       Cabal
+                     , QuickCheck
                      , aeson
                      , base
                      , bytestring
@@ -111,11 +111,12 @@ library
                      , mtl
                      , reflection
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
                      , stm
                      , tagged
+                     , template-haskell
                      , text
                      , text-format
                      , time-units
@@ -147,6 +148,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

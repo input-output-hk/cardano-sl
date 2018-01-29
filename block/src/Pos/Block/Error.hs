@@ -8,7 +8,7 @@ module Pos.Block.Error
 
 import           Universum
 
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import           Data.Text.Buildable (Buildable (..))
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (bprint, stext, (%))

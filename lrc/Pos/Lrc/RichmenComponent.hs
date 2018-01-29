@@ -5,7 +5,7 @@
 
 -- | Abstract parts of LRC.
 
-module Pos.Lrc.Class
+module Pos.Lrc.RichmenComponent
        ( RichmenComponent (..)
        , SomeRichmenComponent (..)
        , someRichmenComponent

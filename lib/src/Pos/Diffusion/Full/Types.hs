@@ -11,14 +11,13 @@ module Pos.Diffusion.Full.Types
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)

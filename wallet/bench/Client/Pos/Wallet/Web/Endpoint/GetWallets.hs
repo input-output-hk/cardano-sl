@@ -8,12 +8,11 @@ import           Universum
 
 import           Client.Pos.Wallet.Web.Api (getWallets)
 import           Client.Pos.Wallet.Web.Run (runEndpointClient)
-
--- import           Pos.Wallet.Web.ClientTypes (CWallet (..))
+import           Bench.Pos.Wallet.Types    (WalletsConfig (..))
 
 -- | Run 'GetWallets' client. As a result we will get a list of wallets.
-getWalletsIO :: IO ()
-getWalletsIO =
+getWalletsIO :: WalletsConfig -> IO ()
+getWalletsIO WalletsConfig {..} =
     runEndpointClient getWallets >>= \case
-        Left problem  -> putText $ "Cannot obtain wallets information: " <> problem
-        Right wallets -> print wallets     -- :: [CWallet]
+        Left problem -> putText $ "Cannot obtain wallets information: " <> problem
+        Right walletsInfo -> print walletsInfo     -- :: [CWallet]

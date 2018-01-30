@@ -10,8 +10,7 @@ import           Universum
 import           Data.Default (def)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import           Cardano.Crypto.Wallet (xpub, xsignature)
-import qualified Crypto.Hash as Crypto (hash)
+import           Cardano.Crypto.Wallet (xsignature)
 
 import           Pos.Core (StakeholderId, SoftwareVersion (..), BlockVersion (..),
                            HeaderHash, Block, BlockHeader, GenericBlock (..),
@@ -26,8 +25,8 @@ import           Pos.Core.Slotting (SlotId (..), EpochIndex (..), LocalSlotIndex
 import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Crypto.Hashing (AbstractHash (..), Hash)
-import           Pos.Crypto.Signing (PublicKey (..), Signature (..))
+import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
+import           Pos.Crypto.Signing (PublicKey (..), Signature (..), deterministicKeyGen)
 import           Pos.Data.Attributes (UnparsedFields (..), Attributes (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Util.Chrono (OldestFirst (..), NewestFirst (..))
@@ -72,7 +71,7 @@ pureLogic = Logic
         }
 
 stakeholderId :: StakeholderId
-stakeholderId = AbstractHash (Crypto.hash (mempty :: ByteString))
+stakeholderId = unsafeMkAbstractHash mempty
 
 blockVersionData :: BlockVersionData
 blockVersionData = BlockVersionData
@@ -179,7 +178,7 @@ mainBlockHeader = UnsafeGenericBlockHeader
     }
 
 mainBlockHeaderHash :: HeaderHash
-mainBlockHeaderHash = AbstractHash (Crypto.hash (mempty :: ByteString))
+mainBlockHeaderHash = unsafeMkAbstractHash mempty
 
 bodyProof :: BodyProof MainBlockchain
 bodyProof = MainProof
@@ -192,20 +191,20 @@ bodyProof = MainProof
 txProof :: TxProof
 txProof = TxProof
     { txpNumber        = 0
-    , txpRoot          = MerkleRoot (AbstractHash (Crypto.hash (mempty :: ByteString)))
-    , txpWitnessesHash = AbstractHash (Crypto.hash (mempty :: ByteString))
+    , txpRoot          = MerkleRoot (unsafeMkAbstractHash mempty)
+    , txpWitnessesHash = unsafeMkAbstractHash mempty
     }
 
 sscProof :: SscProof
 sscProof = CertificatesProof
-    { sprVss = AbstractHash (Crypto.hash (mempty :: ByteString))
+    { sprVss = unsafeMkAbstractHash mempty
     }
 
 dlgProof :: Hash DlgPayload
-dlgProof = AbstractHash (Crypto.hash (mempty :: ByteString))
+dlgProof = unsafeMkAbstractHash mempty
 
 updateProof :: UpdateProof
-updateProof = AbstractHash (Crypto.hash (mempty :: ByteString))
+updateProof = unsafeMkAbstractHash mempty
 
 consensusData :: ConsensusData MainBlockchain
 consensusData = MainConsensusData
@@ -222,9 +221,7 @@ slotId = SlotId
     }
 
 publicKey :: PublicKey
-publicKey = PublicKey key
-  where
-    Right key = xpub (BS.replicate 64 0)
+publicKey = fst (deterministicKeyGen (mempty :: ByteString))
 
 chainDifficulty :: ChainDifficulty
 chainDifficulty = ChainDifficulty
@@ -266,4 +263,4 @@ blockHeaderAttributes = Attributes
     }
 
 extraBodyDataProof :: Hash MainExtraBodyData
-extraBodyDataProof = AbstractHash (Crypto.hash (mempty :: ByteString))
+extraBodyDataProof = unsafeMkAbstractHash mempty

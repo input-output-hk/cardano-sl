@@ -24,10 +24,10 @@ runBench endpointClient benchEp completeConfig EndpointConfig {..} =
     runMode DefaultMode
             config
             [show benchEp]
-            [bench benchName $
-                nfIO (endpointClient completeConfig >>
-                        waitRandom (minDelayForCalls, maxDelayForCalls))]
+            [bench benchName $ nfIO ioForBench]
   where
+    ioForBench = endpointClient completeConfig >> waitRandom (minDelayForCalls,
+                                                              maxDelayForCalls)
     config = defaultConfig {
         timeLimit  = Just benchDuration,
         reportFile = Just pathToReportFile

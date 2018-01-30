@@ -8,14 +8,14 @@ import           Universum
 
 import           Client.Pos.Wallet.Web.Api  (getWallet)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
-import           Bench.Pos.Wallet.Types     (WalletsConfig (..))
+import           Bench.Pos.Wallet.Types     (CompleteConfig (..))
 
 import           Pos.Wallet.Web.ClientTypes (CId (..), CHash (..))
 
 -- | Run 'GetWallet' client. As a result we will get a particular wallet.
-getWalletIO :: WalletsConfig -> IO ()
-getWalletIO WalletsConfig {..} =
-    runEndpointClient (getWallet walletId) >>= \case
+getWalletIO :: CompleteConfig -> IO ()
+getWalletIO conf@CompleteConfig {..} =
+    runEndpointClient conf (getWallet walletId) >>= \case
         Left problem -> putText $ "Cannot obtain wallet information: " <> problem
         Right wallet -> print wallet     -- :: CWallet
   where

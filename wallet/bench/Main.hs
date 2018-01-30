@@ -7,6 +7,7 @@ import           Universum
 import           Control.Concurrent.Async       (async, wait)
 import           System.IO                      (hSetEncoding, stdout, utf8)
 import           Data.Maybe                     (maybe)
+import qualified Data.ByteString                as BS
 
 import           Bench.Pos.Wallet.Config        (getOptions, extractEndpointConfigFor,
                                                  getEndpointsConfig, getWalletsConfig)
@@ -17,8 +18,11 @@ import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getW
                                                  newPaymentIO)
 
 -- | Example of benchmark command:
--- $ stack bench cardano-sl-wallet --benchmark-arguments \
---      "--wal-conf=$PWD/wallet/bench/config/Wallets.yaml --ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
+-- $ stack bench cardano-sl-wallet --benchmark-arguments  \
+--      "--tls-pub-cert=$PWD/scripts/tls-files/ca.crt     \
+--       --tls-priv-key=$PWD/scripts/tls-files/server.key \
+--       --wal-conf=$PWD/wallet/bench/config/Wallets.yaml \
+--       --ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
 --
 -- It's a client, so we assume that the node (with Wallet Web API enabled)
 -- is already running.
@@ -28,6 +32,8 @@ main = do
     CLOptions {..} <- getOptions
     conf <- CompleteConfig <$> getEndpointsConfig pathToEndpointsConfig
                            <*> getWalletsConfig pathToWalletsConfig
+                           <*> BS.readFile pathToTLSPubCert
+                           <*> BS.readFile pathToTLSPrivKey
     let benchmarks = [ maybeRun getHistoryIO GetHistoryBench conf
                      , maybeRun getWalletIO  GetWalletBench  conf
                      , maybeRun getWalletsIO GetWalletsBench conf

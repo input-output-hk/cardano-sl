@@ -19,7 +19,7 @@ module UTxO.Context (
   , AddrMap(..)
   , initAddrMap
     -- * Our custom context
-  , Context(..)
+  , TransCtxt(..)
   , initContext
     -- * Derived information
   , resolveAddr
@@ -35,7 +35,6 @@ import Universum
 import Formatting (sformat, bprint, build, (%))
 import Serokell.Util (listJson, mapJson, pairF)
 import Serokell.Util.Base16 (base16F)
-import Text.Show.Pretty (PrettyVal)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty  as NE
 import qualified Data.Map.Strict     as Map
@@ -138,7 +137,7 @@ initCardanoContext = CardanoContext{..}
 
   Concretely, the generated genesis data looks something like this:
 
-  > Context{
+  > TransCtxt{
   >     cardano: CardanoContext{
   >       leaders:  [ S3, S4, S1, S1, S3, S2, S2, S1, S4, S4, .. ]
   >     , stakes:   [
@@ -349,7 +348,7 @@ initActors CardanoContext{..} = Actors{..}
 
 -- | Index the actors by number
 data ActorIx = IxRich Int | IxPoor Int | IxAvvm Int
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
+  deriving (Show, Eq, Ord)
 
 -- | Address index of a regular actor
 --
@@ -362,7 +361,7 @@ data Addr = Addr {
       addrActorIx :: ActorIx
     , addrIx      :: AddrIx
     }
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
+  deriving (Show, Eq, Ord)
 
 -- | Mapping between our addresses and Cardano addresses
 data AddrMap = AddrMap {
@@ -414,14 +413,14 @@ initAddrMap Actors{..} = AddrMap{
   and Cardano types. Accumulation of the environments above.
 -------------------------------------------------------------------------------}
 
-data Context = Context {
+data TransCtxt = TransCtxt {
       tcCardano  :: CardanoContext
     , tcActors   :: Actors
     , tcAddrMap  :: AddrMap
     }
 
-initContext :: CardanoContext -> Context
-initContext tcCardano = Context{..}
+initContext :: CardanoContext -> TransCtxt
+initContext tcCardano = TransCtxt{..}
   where
     tcActors  = initActors  tcCardano
     tcAddrMap = initAddrMap tcActors
@@ -430,24 +429,24 @@ initContext tcCardano = Context{..}
   Derived information
 -------------------------------------------------------------------------------}
 
-resolveAddr :: Addr -> Context -> (SomeKeyPair, Address)
-resolveAddr addr Context{..} =
+resolveAddr :: Addr -> TransCtxt -> (SomeKeyPair, Address)
+resolveAddr addr TransCtxt{..} =
     fromMaybe
       (error $ sformat ("resolveAddr: " % build % " not found") addr)
       (Map.lookup addr addrMap)
   where
     AddrMap{..} = tcAddrMap
 
-resolveAddress :: Address -> Context -> Addr
-resolveAddress addr Context{..} =
+resolveAddress :: Address -> TransCtxt -> Addr
+resolveAddress addr TransCtxt{..} =
     fromMaybe
       (error $ sformat ("resolveAddress: " % build % " not found") addr)
       (Map.lookup addr addrRevMap)
   where
     AddrMap{..} = tcAddrMap
 
-leaderForSlot :: SlotId -> Context -> Stakeholder
-leaderForSlot slotId Context{..} = actorsStake Map.! leader
+leaderForSlot :: SlotId -> TransCtxt -> Stakeholder
+leaderForSlot slotId TransCtxt{..} = actorsStake Map.! leader
   where
     Actors{..}         = tcActors
     CardanoContext{..} = tcCardano
@@ -480,7 +479,7 @@ blockSignInfo Stakeholder{..} = BlockSignInfo{..}
     bsiKey    = regKpSec richKey
     bsiPSK    = delPSK
 
-blockSignInfoForSlot :: SlotId -> Context -> BlockSignInfo
+blockSignInfoForSlot :: SlotId -> TransCtxt -> BlockSignInfo
 blockSignInfoForSlot slotId = blockSignInfo . leaderForSlot slotId
 
 {-------------------------------------------------------------------------------
@@ -579,9 +578,9 @@ instance Buildable AddrMap where
       )
       addrRevMap
 
-instance Buildable Context where
-  build Context{..} = bprint
-      ( "Context"
+instance Buildable TransCtxt where
+  build TransCtxt{..} = bprint
+      ( "TransCtxt"
       % "{ cardano: " % build
       % ", actors:  " % build
       % ", addrMap: " % build

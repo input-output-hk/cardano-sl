@@ -5,21 +5,22 @@
 module Main (main) where
 
 import Universum
-import Data.List (last)
 import Formatting (sformat, bprint, build, (%), shown)
 import Test.Hspec
 import Prelude (Show(..))
 import qualified Data.Text.Buildable
+import qualified Data.Set as Set
 
+import Pos.Util.Chrono
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil    as Cardano
 import Serokell.Util (mapJson)
 
 import UTxO.Bootstrap
 import UTxO.Context
-import UTxO.DSL hiding (example1)
-import UTxO.Fees
+import UTxO.DSL
 import UTxO.Interpreter
+import UTxO.PreChain
 import UTxO.Translate
 
 {-------------------------------------------------------------------------------
@@ -28,7 +29,7 @@ import UTxO.Translate
 
 main :: IO ()
 main = do
-    -- _showContext
+--    _showContext
     hspec tests
 
 -- | Debugging: show the translation context
@@ -37,7 +38,9 @@ _showContext = do
     putStrLn $ runTranslateNoErrors $ withConfig $
       sformat build <$> ask
     putStrLn $ runTranslateNoErrors $
-      dumpStr . bootstrapTransactions <$> ask
+      let bootstrapTransaction' :: TransCtxt -> Transaction GivenHash Addr
+          bootstrapTransaction' = bootstrapTransaction
+      in sformat build . bootstrapTransaction' <$> ask
 
 {-------------------------------------------------------------------------------
   Tests proper
@@ -64,47 +67,75 @@ testSanityChecks = describe "Test sanity checks" $ do
     it "can reject double spending" $
       intAndVerify doublespend `shouldSatisfy` expectInvalid
   where
-    emptyBlock :: PreChain
-    emptyBlock = PreChain $ \_boot _fees -> [[]]
+    ExampleChains{..} = exampleChains :: ExampleChains GivenHash
 
-    oneTrans :: PreChain
+{-------------------------------------------------------------------------------
+  Example chains that we use in the tests
+-------------------------------------------------------------------------------}
+
+data ExampleChains h = ExampleChains {
+      emptyBlock  :: PreChain h
+    , oneTrans    :: PreChain h
+    , overspend   :: PreChain h
+    , doublespend :: PreChain h
+    , example1    :: PreChain h
+    }
+
+exampleChains :: Hash h Addr => ExampleChains h
+exampleChains = ExampleChains {..}
+  where
+    emptyBlock = PreChain $ \_boot _fees ->
+      OldestFirst [OldestFirst []]
+
     oneTrans = PreChain $ \boot ((fee : _) : _) ->
       let t1 = Transaction {
-            trIns  = [ Input boot 0 ] -- rich 0
-          , trOuts = [ Output (AddrOrdinary r1) 1000
-                     , Output (AddrOrdinary r0) (initR0 - 1000 - fee)
-                     , Output AddrTreasury      fee
-                     ]
-          }
-      in [[t1]]
+                   trFresh = 0
+                 , trFee   = fee
+                 , trHash  = 1
+                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trOuts  = [ Output r1 1000
+                             , Output r0 (initR0 - 1000 - fee)
+                             ]
+                 }
+      in OldestFirst [OldestFirst [t1]]
 
     -- Try to transfer from R0 to R1, but leaving R0's balance the same
-    overspend :: PreChain
     overspend = PreChain $ \boot ((fee : _) : _) ->
       let t1 = Transaction {
-                   trIns  = [ Input boot 0 ] -- rich 0
-                 , trOuts = [ Output (AddrOrdinary r1) 1000
-                            , Output (AddrOrdinary r0) initR0
-                            , Output AddrTreasury      fee
-                            ]
+                   trFresh = 0
+                 , trFee   = fee
+                 , trHash  = 1
+                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trOuts  = [ Output r1 1000
+                             , Output r0 initR0
+                             ]
                  }
-      in [[t1]]
+      in OldestFirst [OldestFirst [t1]]
 
-    -- Try to transfer from R0 and R1 using the same output
+    -- Try to transfer to R1 and R2 using the same output
     -- TODO: in principle this example /ought/ to work without any kind of
     -- outputs at all; but in practice this breaks stuff because now we have
     -- two identical transactions which would therefore get identical IDs?
-    doublespend :: PreChain
-    doublespend = PreChain $ \boot _fees ->
+    doublespend = PreChain $ \boot ((fee1 : fee2 : _) : _) ->
       let t1 = Transaction {
-                   trIns  = [ Input boot 0 ] -- rich 0
-                 , trOuts = [ Output (AddrOrdinary r1) 1000 ]
+                   trFresh = 0
+                 , trFee   = fee1
+                 , trHash  = 1
+                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trOuts  = [ Output r1 1000
+                             , Output r0 (initR0 - 1000 - fee1)
+                             ]
                  }
           t2 = Transaction {
-                       trIns  = [ Input boot 0 ] -- rich 0
-                     , trOuts = [ Output (AddrOrdinary r2) 1000 ]
-                     }
-      in [[t1, t2]]
+                   trFresh = 0
+                 , trFee   = fee2
+                 , trHash  = 2
+                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trOuts  = [ Output r2 1000
+                             , Output r0 (initR0 - 1000 - fee2)
+                             ]
+                 }
+      in OldestFirst [OldestFirst [t1, t2]]
 
     -- Translation of example 1 of the paper, adjusted to allow for fees
     --
@@ -119,22 +150,24 @@ testSanityChecks = describe "Test sanity checks" $ do
     -- Transaction 5 in example 1 is a transaction /from/ the treasury /to/ an
     -- ordinary address. This currently has no equivalent in Cardano, so we omit
     -- it.
-    example1 :: PreChain
     example1 = PreChain $ \boot ((fee3 : fee4 : _) : _) ->
       let t3 = Transaction {
-                   trIns  = [ Input boot 0 ] -- rich 0
-                 , trOuts = [ Output (AddrOrdinary r1) 1000
-                            , Output (AddrOrdinary r0) (initR0 - 1000 - fee3)
-                            , Output AddrTreasury      fee3
-                            ]
+                   trFresh = 0
+                 , trFee   = fee3
+                 , trHash  = 3
+                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trOuts  = [ Output r1 1000
+                             , Output r0 (initR0 - 1000 - fee3)
+                             ]
                  }
           t4 = Transaction {
-                   trIns  = [ Input t3 1 ]
-                 , trOuts = [ Output (AddrOrdinary r2) (initR0 - 1000 - fee3 - fee4)
-                            , Output AddrTreasury      fee4
-                            ]
+                   trFresh = 0
+                 , trFee   = fee4
+                 , trHash  = 4
+                 , trIns   = Set.fromList [ Input (hash t3) 1 ]
+                 , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
                  }
-      in [[t3, t4]]
+      in OldestFirst [OldestFirst [t3, t4]]
 
     initR0 = 11137499999752500
 
@@ -143,43 +176,31 @@ testSanityChecks = describe "Test sanity checks" $ do
     r2 = Addr (IxRich 2) 0
 
 {-------------------------------------------------------------------------------
-  Chain with some information still missing
--------------------------------------------------------------------------------}
-
-newtype PreChain = PreChain (Transaction Addr -> [[Fee]] -> [[Transaction Addr]])
-
-fromPreChain :: PreChain -> Translate IntException (Chain Addr, Ledger Addr)
-fromPreChain (PreChain f) = do
-    boot <- asks bootstrapTransactions
-    txs  <- calculateFees (f (last boot))
-    let chain  = Chain txs -- doesn't include the boot transactions
-        ledger = chainToLedger chain ++ reverse boot
-    return (chain, ledger)
-
-{-------------------------------------------------------------------------------
   Verify chain
 -------------------------------------------------------------------------------}
 
 -- | Interpret and verify a chain, given the bootstrap transactions
-intAndVerify :: PreChain -> ValidationResult
-intAndVerify pc = runInterpret $ do
-    (chain, ledger) <- fromPreChain pc
-    let dslIsValid = isValidLedger ledger
-        dslUtxo    = utxoAfter     ledger
-    mChain' <- catchTranslateErrors $ int chain
-    case mChain' of
+intAndVerify :: Hash h Addr => PreChain h -> ValidationResult
+intAndVerify pc = runTranslate $ do
+    FromPreChain{..} <- fromPreChain pc
+    let dslIsValid = ledgerIsValid fpcLedger
+        dslUtxo    = ledgerUtxo    fpcLedger
+    intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
+    case intResult of
       Left e ->
         if dslIsValid
           then return $ Disagreement (UnexpectedError e)
           else return $ ExpectedInvalid (Right e)
-      Right chain' -> do
-        isCardanoValid <- verifyBlocksPrefix chain'
+      Right (chain', ctxt) -> do
+        let chain'' = fromMaybe (error "intAndVerify: Nothing")
+                    $ nonEmptyOldestFirst chain'
+        isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
           (False, Left e)  -> return $ ExpectedInvalid (Left e)
           (False, Right _) -> return $ Disagreement UnexpectedValid
           (True,  Left e)  -> return $ Disagreement (UnexpectedInvalid e)
           (True,  Right (_undo, utxo)) -> do
-            utxo' <- int dslUtxo
+            (utxo', _) <- runIntM ctxt dslUtxo
             if utxo == utxo'
               then return $ ExpectedValid
               else return $ Disagreement (UnexpectedUtxo dslUtxo utxo utxo')
@@ -213,6 +234,10 @@ data ValidationResult =
   | Disagreement Disagreement
 
 -- | Disagreement between Cardano and the DSL
+--
+-- We consider something to be "unexpectedly foo" when Cardano says it's
+-- " foo " but the DSL says it's " not foo "; the DSL is the spec, after all
+-- (of course that doesn't mean that it cannot contain bugs :).
 data Disagreement =
     -- | Cardano reported the chain as invalid, but the DSL reported it as
     -- valid. We record the error message from Cardano.
@@ -228,8 +253,8 @@ data Disagreement =
 
     -- | Both Cardano and the DSL reported the chain as valid, but they computed
     -- a different UTxO
-  | UnexpectedUtxo {
-        utxoDsl     :: Utxo Addr
+  | forall h. Hash h Addr => UnexpectedUtxo {
+        utxoDsl     :: Utxo h Addr
       , utxoCardano :: Cardano.Utxo
       , utxoInt     :: Cardano.Utxo
       }

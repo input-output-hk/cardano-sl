@@ -21,12 +21,12 @@ runBench
     -> CompleteConfig
     -> EndpointConfig
     -> IO ()
-runBench endpointClient benchEp CompleteConfig {..} EndpointConfig {..} =
+runBench endpointClient benchEp completeConfig EndpointConfig {..} =
     runMode DefaultMode
             config
             [show benchEp]
             [bench benchName $
-                nfIO (endpointClient walletsConfig >> wait (minDelayForCalls, maxDelayForCalls))]
+                nfIO (endpointClient completeConfig >> wait (minDelayForCalls, maxDelayForCalls))]
   where
     config = defaultConfig {
         timeLimit  = Just benchDuration,

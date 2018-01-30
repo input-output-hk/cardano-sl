@@ -30,6 +30,16 @@ optionsParser = do
            long        "wal-conf"
         <> metavar     "PATH_TO_WALLETS_CONFIG"
         <> help        "Path to wallets configuration .yaml-file"
+    pathToTLSPubCert
+        <- strOption $
+           long        "tls-pub-cert"
+        <> metavar     "PATH_TO_TLS_PUB_CERT"
+        <> help        "Path to TLS public certificate"
+    pathToTLSPrivKey
+        <- strOption $
+           long        "tls-priv-key"
+        <> metavar     "PATH_TO_TLS_PRIV_KEY"
+        <> help        "Path to TLS private key"
     runConcurrently
         <- switch $
            long        "async"

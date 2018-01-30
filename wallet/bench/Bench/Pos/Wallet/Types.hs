@@ -17,6 +17,8 @@ import           Universum
 data CompleteConfig = CompleteConfig
     { endpointsConfig :: ![EndpointConfig]
     , walletsConfig   :: !WalletsConfig
+    , tlsPubCert      :: !ByteString
+    , tlsPrivKey      :: !ByteString
     }
 
 -- | Endpoint configuration, obtained from the .csv-file.
@@ -58,6 +60,10 @@ data CLOptions = CLOptions
       pathToEndpointsConfig :: !FilePath
       -- | Path to wallets configuration file.
     , pathToWalletsConfig   :: !FilePath
+      -- | Path to TLS public certificate.
+    , pathToTLSPubCert      :: !FilePath
+      -- | Path to TLS private key.
+    , pathToTLSPrivKey      :: !FilePath
       -- | If True, run benchmarks concurrently.
     , runConcurrently       :: !Bool
     }
@@ -73,4 +79,4 @@ data BenchEndpoint
 
 -- | Type synonym for client function: this function sends
 -- requests to particular endpoint of the Wallet Web API.
-type EndpointClient = WalletsConfig -> IO ()
+type EndpointClient = CompleteConfig -> IO ()

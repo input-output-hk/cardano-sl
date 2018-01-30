@@ -112,9 +112,9 @@ instance FromJSON FakeUtxoCoinDistribution where
 instance ToJSON FakeUtxoCoinDistribution
 
 {-
-λ> decode $ "{\"type\":\"none\"}" :: Maybe CoinDistributionSpec
+λ> decode $ "{\"type\":\"none\"}" :: Maybe FakeUtxoCoinDistribution
 Just NoDistribution
-λ> decode $ "{\"type\":\"range\",\"range\":1000}" :: Maybe CoinDistributionSpec
+λ> decode $ "{\"type\":\"range\",\"range\":1000}" :: Maybe FakeUtxoCoinDistribution
 Just (RangeDistribution {range = 1000})
 -}
 

@@ -20,12 +20,7 @@ The properties file should look something like this:
       "accountSpec":{
          "addresses":100
       },
-      "fakeUtxo":{
-         "amount":1000,
-         "distribution":{
-            "tag":"NoDistribution"
-         }
-      }
+      "fakeUtxoCoinDistr":{"type":"none"}
    }
 }
 ```
@@ -68,13 +63,7 @@ then you can provide the empty value `[]`:
       "accountSpec":{
          "addresses":100
       },
-      "fakeUtxo":{
-         "amount":1000,
-         "distribution":{
-            "tag":"RangeDistribution",
-            "range":100
-         }
-      }
+      "fakeUtxoCoinDistr":{"type":"range","range":100,"amount":1000}
    }
 }
 ```

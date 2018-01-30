@@ -26,7 +26,8 @@ import           Data.Default (Default)
 import qualified Data.Map as M
 import           Data.Reflection (give)
 import           Formatting (build, sformat, (%))
-import           Mockable (MonadMockable, Production (..), async, cancel, killThread)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable, Production (..), async, cancel,
+                           killThread)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
                        defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
@@ -240,6 +241,7 @@ oqEnqueue oq msgType k = do
 oqDequeue
     :: ( MonadIO m
        , MonadMockable m
+       , Mockable LowLevelAsync m
        , WithLogger m
        )
     => OQ m
@@ -253,6 +255,7 @@ runServer
     :: forall m t b .
        ( MonadIO m
        , MonadMockable m
+       , Mockable LowLevelAsync m
        , MonadFix m
        , WithLogger m
        , HasConfiguration

@@ -27,7 +27,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
 import           Ether.Internal (HasLens (..))
-import           Mockable (Production)
+import           Mockable (LowLevelAsync, Mockable, Production)
 import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
@@ -210,6 +210,7 @@ type MonadFullWalletWebMode ctx m =
     , MonadWalletWebSockets ctx m
     , MonadWalletSendActions m
     , MonadReporting ctx m
+    , Mockable LowLevelAsync m
     )
 
 ----------------------------------------------------------------------------

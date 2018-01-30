@@ -13,7 +13,7 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable)
 import           System.Wlog (WithLogger)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
@@ -28,6 +28,7 @@ type DiffusionWorkMode m
     = ( WithLogger m
       , CanJsonLog m
       , MonadMockable m
+      , Mockable LowLevelAsync m
       , MonadIO m
       , HasConfiguration
       , HasBlockConfiguration

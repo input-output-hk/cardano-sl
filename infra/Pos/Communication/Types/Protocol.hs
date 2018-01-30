@@ -56,7 +56,7 @@ import           Formatting (bprint, build, hex, sformat, shown, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, async, wait)
+import           Mockable.Concurrent (Async, LowLevelAsync, async, wait)
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode)
@@ -106,7 +106,9 @@ data SendActions m = SendActions {
 --
 -- You probably do not want to use this. Use 'enqueueMsg' instead.
 immediateConcurrentConversations
-    :: ( Mockable Async m )
+    :: ( Mockable LowLevelAsync m
+       , Mockable Async m
+       )
     => SendActions m
     -> [NodeId]
     -> EnqueueMsg m

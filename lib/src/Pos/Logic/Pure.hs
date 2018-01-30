@@ -73,25 +73,6 @@ pureLogic = Logic
 stakeholderId :: StakeholderId
 stakeholderId = AbstractHash (Crypto.hash (mempty :: ByteString))
 
-{-
-data BlockVersionData = BlockVersionData
-    { bvdScriptVersion     :: !ScriptVersion
-    , bvdSlotDuration      :: !Millisecond
-    , bvdMaxBlockSize      :: !Byte
-    , bvdMaxHeaderSize     :: !Byte
-    , bvdMaxTxSize         :: !Byte
-    , bvdMaxProposalSize   :: !Byte
-    , bvdMpcThd            :: !CoinPortion
-    , bvdHeavyDelThd       :: !CoinPortion
-    , bvdUpdateVoteThd     :: !CoinPortion
-    , bvdUpdateProposalThd :: !CoinPortion
-    , bvdUpdateImplicit    :: !FlatSlotId
-    , bvdSoftforkRule      :: !SoftforkRule
-    , bvdTxFeePolicy       :: !TxFeePolicy
-    , bvdUnlockStakeEpoch  :: !EpochIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
--}
-
 blockVersionData :: BlockVersionData
 blockVersionData = BlockVersionData
     { bvdScriptVersion = 0
@@ -137,27 +118,6 @@ blockVersionData = BlockVersionData
 -- request.
 -- The diffusion layer should work just fine even if the logic layer gives
 -- *invalid* but *well-formed* blocks.
-
--- type Block = Either GenesisBlock MainBlock
--- type MainBlock = GenericBlock MainBlockChain
---
--- data GenericBlock b = UnsafeGenericBlock
---     { _gbHeader :: !(GenericBlockHeader b)
---     , _gbBody   :: !(Body b)
---     , _gbExtra  :: !(ExtraBodyData b)
---     } deriving (Generic)
---
--- data GenericBlockHeader b = UnsafeGenericBlockHeader
---     { -- | Pointer to the header of the previous block.
---       _gbhPrevBlock :: !(BHeaderHash b)
---     , -- | Proof of body.
---       _gbhBodyProof :: !(BodyProof b)
---     , -- | Consensus data to verify consensus algorithm.
---       _gbhConsensus :: !(ConsensusData b)
---     , -- | Any extra data.
---       _gbhExtra     :: !(ExtraHeaderData b)
---     } deriving (Generic)
-
 
 -- | This block is always given by 'getBlock' and 'getTip'
 block :: Block

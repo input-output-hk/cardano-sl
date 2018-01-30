@@ -7683,14 +7683,14 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
              cardano-sl-core cardano-sl-crypto cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-update
-             cardano-sl-util cardano-sl-wallet containers data-default
-             exceptions formatting generics-sop http-api-data http-client
-             http-types ixset-typed json-sop lens memory mtl network-uri
-             QuickCheck safe-exceptions serokell-util servant servant-client
-             servant-quickcheck servant-server string-conv template-haskell text
-             text-format time transformers universum unordered-containers vector
-             wai warp
+             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
+             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
+             data-default exceptions formatting generics-sop http-api-data
+             http-client http-types ixset-typed json-sop lens memory mtl
+             network-uri QuickCheck safe-exceptions serokell-util servant
+             servant-client servant-quickcheck servant-server string-conv
+             template-haskell text text-format time transformers universum
+             unordered-containers vector wai warp
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
@@ -7717,7 +7717,7 @@ inherit (pkgs) mesa;};
              unordered-containers
            ];
            doHaddock = false;
-           homepage = "https://github.com/swagger-api/swagger-codegen#readme";
+           homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
            description = "The Wallet Backend for a Cardano node";
            license = stdenv.lib.licenses.mit;
          }) {};

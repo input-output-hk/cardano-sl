@@ -2,10 +2,10 @@ name:                cardano-sl-wallet-new
 version:             0.1.0.0
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
-homepage:            https://github.com/swagger-api/swagger-codegen#readme
+homepage:            https://github.com/input-output-hk/cardano-sl/#readme
 author:              IOHK Engineering Team
 maintainer:          operations@iohk.io
-copyright:           2017 - Input Output Hong Kong
+copyright:           2018 IOHK
 license:             MIT
 license-file:        LICENSE
 category:            Web
@@ -93,6 +93,7 @@ library
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-networking
+                     , cardano-sl-txp
                      -- Avoidable deps(?)
                      , cardano-sl
                      , cardano-sl-client

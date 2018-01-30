@@ -10,6 +10,8 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
+import qualified Pos.Client.Txp.Util as V0
+import           Pos.Util (eitherToThrow)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -20,7 +22,6 @@ import qualified Data.IxSet.Typed as IxSet
 import           Data.Default
 import qualified Data.List.NonEmpty as NE
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -61,5 +62,15 @@ allTransactions walletId requestParams = do
                               (NoSorts :: SortOperations Transaction)
                               (IxSet.fromList <$> transactions)
 
-estimateFees :: Payment -> MonadV1 (WalletResponse EstimatedFees)
-estimateFees _ = single <$> liftIO (generate arbitrary)
+estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
+    => Payment
+    -> m (WalletResponse EstimatedFees)
+estimateFees Payment{..} = do
+    policy <- migrate $ fromMaybe def pmtGroupingPolicy
+    pendingAddrs <- V0.getPendingAddresses policy
+    cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
+    utxo <- V0.getMoneySourceUtxo (V0.AccountMoneySource cAccountId)
+    outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
+    fee <- V0.rewrapTxError "Cannot compute transaction fee" $
+        eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
+    single <$> migrate fee

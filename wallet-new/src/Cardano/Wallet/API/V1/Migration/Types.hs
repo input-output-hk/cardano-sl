@@ -18,6 +18,7 @@ import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
+import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
@@ -173,6 +174,11 @@ instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, Core.Coin) where
     eitherMigrate V1.PaymentDistribution {..} =
         pure (V0.encodeCType pdAddress, pdAmount)
 
+instance Migrate (V0.CId V0.Addr, Core.Coin) V1.PaymentDistribution where
+    eitherMigrate (cIdAddr, coin) = do
+        pdAddress <- eitherMigrate cIdAddr
+        pure $ V1.PaymentDistribution pdAddress coin
+
 instance Migrate V0.CTxId V1.TxId where
     eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
 
@@ -205,3 +211,9 @@ instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
         pure $ case policy of
                   V1.OptimiseForHighThroughputPolicy -> V0.OptimizeForHighThroughput
                   V1.OptimiseForSecurityPolicy       -> V0.OptimizeForSecurity
+
+instance Migrate V0.TxFee V1.EstimatedFees where
+    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees coin
+
+instance Migrate V1.EstimatedFees V0.TxFee where
+    eitherMigrate V1.EstimatedFees{..} = pure $ V0.TxFee feeEstimatedAmount

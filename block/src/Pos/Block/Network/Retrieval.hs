@@ -17,7 +17,7 @@ import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (toMicroseconds)
 import           Ether.Internal (HasLens (..))
-import           Formatting (build, builder, int, sformat, (%), shown)
+import           Formatting (build, builder, int, sformat, (%))
 import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (sec)
@@ -294,20 +294,13 @@ getProcessBlocks
 getProcessBlocks diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case result of
-      Left getBlocksError -> do
-          let msg = sformat ("Error retrieving blocks from "%listJson%
-                             " to "%shortHashF%" from peer "%
-                             build%": "%shown)
-                            checkpoints (headerHash desired) nodeId getBlocksError
-          logWarning msg
-          throwM $ DialogUnexpected msg
-      Right [] -> do
+      [] -> do
           let msg = sformat ("Error retrieving blocks from "%listJson%
                              " to "%shortHashF%" from peer "%
                              build%": unexpected empty list")
                             checkpoints (headerHash desired) nodeId
           throwM $ DialogUnexpected msg
-      Right (headBlocks : tailBlocks) -> do
+      (headBlocks : tailBlocks) -> do
           let blocks = OldestFirst (headBlocks :| tailBlocks)
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
           logDebug $ sformat

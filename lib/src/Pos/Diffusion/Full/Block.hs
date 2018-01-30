@@ -45,7 +45,6 @@ import           Pos.Core (HeaderHash, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
-import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
@@ -112,7 +111,7 @@ getBlocks
     -> NodeId
     -> BlockHeader
     -> [HeaderHash]
-    -> d (Either GetBlocksError [Block])
+    -> d [Block]
 getBlocks logic enqueue nodeId tipHeader checkpoints = do
     -- It is apparently an error to request headers for the tipHeader and
     -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
@@ -124,10 +123,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
     blocks <- if singleBlockHeader
               then requestBlocks (NewestFirst (pure tipHeader))
               else requestHeaders >>= requestBlocks
-    pure (Right (toList blocks))
-    -- TODO exception handling? Don't just catch all.
-    -- What exactly is 'GetBlocksError' for?
-    -- Maybe we don't need it?
+    pure (toList blocks)
   where
 
     singleBlockHeader :: Bool

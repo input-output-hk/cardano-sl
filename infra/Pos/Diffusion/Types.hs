@@ -4,7 +4,6 @@
 module Pos.Diffusion.Types
     ( DiffusionLayer (..)
     , Diffusion (..)
-    , GetBlocksError (..)
     , dummyDiffusionLayer
     ) where
 
@@ -26,7 +25,7 @@ data Diffusion m = Diffusion
       getBlocks          :: NodeId
                          -> BlockHeader
                          -> [HeaderHash]
-                         -> m (Either GetBlocksError [Block])
+                         -> m [Block]
       -- This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
       -- This type is chosen so that it fits with the current implementation:
@@ -69,11 +68,6 @@ data Diffusion m = Diffusion
     , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
     }
 
--- | Failure description for getting blocks from the diffusion layer.
-data GetBlocksError = GetBlocksError Text
-
-deriving instance Show GetBlocksError
-
 -- | A diffusion layer: its interface, and a way to run it.
 data DiffusionLayer m = DiffusionLayer
     { runDiffusionLayer :: forall x . m x -> m x
@@ -89,7 +83,7 @@ dummyDiffusionLayer = DiffusionLayer
   where
     dummyDiffusion :: Applicative m => Diffusion m
     dummyDiffusion = Diffusion
-        { getBlocks          = \_ _ _ -> pure (Left (GetBlocksError "not implemented"))
+        { getBlocks          = \_ _ _ -> pure []
         , requestTip         = \_ -> pure mempty
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True

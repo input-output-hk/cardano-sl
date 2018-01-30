@@ -165,7 +165,7 @@ updateTest config (Config{..}) = do
             , "--system-start", "0"
             , "--peer", "127.0.0.1:3001"
             , "--db-path", "run/auxx-db"
-            , "--log-config", "scripts/log-templates/log-config-greppable.yaml"
+            , "--log-config", "log-configs/greppable.yaml"
             , "cmd", "--commands", cmds
             ]
     (exitCode, textToLines -> auxxOut) <- uncurry procStrict (auxx cmdPropose) empty

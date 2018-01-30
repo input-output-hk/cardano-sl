@@ -1,0 +1,6 @@
+# This config is used by cluster nodes (core, relay, explorer)
+
+loggerTree:
+  severity: Debug+
+  files:
+    - node.log

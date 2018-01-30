@@ -5,11 +5,8 @@
 {-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
-       (
-         module Pos.Communication.Limits.Types
-
+       ( module Pos.Communication.Limits.Types
        , HasAdoptedBlockVersionData (..)
-
        ) where
 
 import           Universum

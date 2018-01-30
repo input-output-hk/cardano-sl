@@ -1,9 +1,8 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-| 'WorkMode' constraint. It is widely used in almost every our code.
-    Simple alias for bunch of useful constraints. This module also
-    contains new monads to extend functional capabilities inside do-block.
+{-| The 'WorkMode' constraint, which is widely used throughout the codebase.
+    It is a simple alias for a bunch of other useful constraints.
 -}
 
 module Pos.WorkMode.Class

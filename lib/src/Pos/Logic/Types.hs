@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Logic.Types
@@ -10,21 +10,19 @@ module Pos.Logic.Types
     ) where
 
 import           Universum
-import           Data.Conduit              (Source)
-import           Data.Default              (def)
-import           Data.Tagged               (Tagged)
 
-import           Pos.Communication         (NodeId, TxMsgContents)
-import           Pos.Core.Block            (Block, BlockHeader)
-import           Pos.Core                  (HeaderHash, StakeholderId,
-                                            ProxySKHeavy)
-import           Pos.Core.Txp              (TxId)
-import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData,
-                                            VoteId)
-import           Pos.Security.Params       (SecurityParams (..))
-import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
-                                            MCVssCertificate)
-import           Pos.Util.Chrono           (NewestFirst, OldestFirst, NE)
+import           Data.Conduit (Source)
+import           Data.Default (def)
+import           Data.Tagged (Tagged)
+
+import           Pos.Communication (NodeId, TxMsgContents)
+import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core.Txp (TxId)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
+import           Pos.Security.Params (SecurityParams (..))
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
@@ -69,7 +67,7 @@ data Logic m = Logic
       -- NodeId is needed for first iteration, but will be removed later.
     , postBlockHeader    :: BlockHeader -> NodeId -> m ()
 
-      -- Tx, update, ssc... 
+      -- Tx, update, ssc...
       -- Common pattern is:
       --   - What to do with it when we receive it (key and data).
       --   - How to get it when it's requested (key).
@@ -81,19 +79,19 @@ data Logic m = Logic
       -- system minimal, so the logic layer must define how to do all of
       -- these things for every relayed piece of data.
       -- See comment on the 'KeyVal' type.
-    , postTx            :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
-    , postUpdate        :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
-    , postVote          :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
-    , postSscCommitment :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
-    , postSscOpening    :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
-    , postSscShares     :: KeyVal (Tagged MCShares StakeholderId) MCShares m
-    , postSscVssCert    :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
+    , postTx             :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
+    , postUpdate         :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
+    , postVote           :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
+    , postSscCommitment  :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
+    , postSscOpening     :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
+    , postSscShares      :: KeyVal (Tagged MCShares StakeholderId) MCShares m
+    , postSscVssCert     :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
 
       -- Give a heavy delegation certificate. Returns False if something
       -- went wrong.
       --
       -- NB light delegation is apparently disabled in master.
-    , postPskHeavy      :: ProxySKHeavy -> m Bool
+    , postPskHeavy       :: ProxySKHeavy -> m Bool
 
       -- Recovery mode related stuff.
       -- TODO get rid of this eventually.
@@ -133,9 +131,9 @@ data Logic m = Logic
 --     I do not believe we ever make a mempool request (MempoolMsg).
 --     Ok we can probably dump this.
 data KeyVal key val m = KeyVal
-    { toKey :: val -> m key
-    , handleInv :: key -> m Bool
-    , handleReq :: key -> m (Maybe val)
+    { toKey      :: val -> m key
+    , handleInv  :: key -> m Bool
+    , handleReq  :: key -> m (Maybe val)
     , handleData :: val -> m Bool
     }
 
@@ -151,7 +149,7 @@ data LogicLayer m = LogicLayer
     , logic         :: Logic m
     }
 
--- | A diffusion layer that does nothing, and probably crahes the program.
+-- | A diffusion layer that does nothing, and probably crashes the program.
 dummyLogicLayer
     :: ( Applicative m )
     => LogicLayer m

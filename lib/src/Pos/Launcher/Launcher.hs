@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
@@ -11,12 +12,12 @@ import           Universum
 import           Data.Reflection (give)
 import           Mockable (Production)
 
-import           Pos.Communication.Protocol (OutSpecs)
-import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Core (HasConfiguration, BlockVersionData (..))
-import           Pos.DB.DB (initNodeDBs)
+import           Pos.Communication.Protocol (OutSpecs)
+import           Pos.Core (BlockVersionData (..), HasConfiguration)
 import           Pos.DB.Class (gsAdoptedBVData)
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)

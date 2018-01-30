@@ -8,29 +8,29 @@ import           Universum
 
 import           Client.Pos.Wallet.Web.Api  (getHistory)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
-import           Bench.Pos.Wallet.Types     (CompleteConfig (..))
-
-import           Pos.Wallet.Web.ClientTypes (CAccountId (..), CHash (..), CId (..),
-                                             ScrollLimit (..), ScrollOffset (..))
+import           Bench.Pos.Wallet.Types     (CompleteConfig (..), Wallet (..),
+                                             WalletAccount (..))
+import           Bench.Pos.Wallet.Random    (pickRandomWalletFrom,
+                                             pickRandomAccountIn,
+                                             pickRandomAddressIn)
 
 -- | Run 'GetHistory' client. As a result we will get
 -- a list of transactions and size of a full history.
 getHistoryIO :: CompleteConfig -> IO ()
-getHistoryIO conf@CompleteConfig {..} =
-    let wallet    = CId (CHash "")
-        accountId = CAccountId ""
-        address   = CId (CHash "")
-        offset    = ScrollOffset 1
-        limit     = ScrollLimit 2
-    in
-    runEndpointClient conf (getHistory (Just wallet)
-                                       (Just accountId)
+getHistoryIO conf@CompleteConfig {..} = do
+    wallet  <- pickRandomWalletFrom walletsConfig
+    account <- pickRandomAccountIn wallet
+    address <- pickRandomAddressIn account
+    let offset = Nothing -- Default value of offset will be used.
+        limit  = Nothing -- Default value of limit will be used.
+    runEndpointClient conf (getHistory (Just $ walletId wallet)
+                                       (Just $ accountId account)
                                        (Just address)
-                                       (Just offset)
-                                       (Just limit)) >>= \case
+                                       offset
+                                       limit) >>= \case
         Left problem ->
             putText $ "Cannot get a history: " <> problem
         Right (Left failure) ->
             putText $ "Server returned an error: " <> pretty failure
-        Right (Right (transactions, _)) ->
-            print transactions -- :: ([CTx], Word)
+        Right (Right ({-transactions-}_, _)) ->
+            return () -- :: ([CTx], Word)

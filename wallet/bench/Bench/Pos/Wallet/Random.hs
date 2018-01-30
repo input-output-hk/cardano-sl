@@ -1,7 +1,9 @@
 -- | Functions for random values.
 
 module Bench.Pos.Wallet.Random
-    ( pickRandomWalletIdFrom
+    ( pickRandomWalletFrom
+    , pickRandomAccountIn
+    , pickRandomAddressIn
     , waitRandom
     ) where
 
@@ -12,14 +14,26 @@ import qualified Data.List.NonEmpty         as NE
 import           Data.List.NonEmpty         ((!!))
 import           System.Random              (randomRIO)
 
-import           Bench.Pos.Wallet.Types     (Wallet (..), WalletsConfig (..))
-import           Pos.Wallet.Web.ClientTypes (CId (..), Wal)
+import           Bench.Pos.Wallet.Types     (Wallet (..), WalletAccount (..), WalletsConfig (..))
+import           Pos.Wallet.Web.ClientTypes (Addr, CId (..))
 
--- | Picks wallet's identifier randomly.
-pickRandomWalletIdFrom :: MonadIO m => WalletsConfig -> m (CId Wal)
-pickRandomWalletIdFrom WalletsConfig {..} = pickRandomElementFrom walletsIds
-  where
-    walletsIds = NE.map (\(Wallet anId _) -> anId) wallets
+pickRandomWalletFrom
+    :: MonadIO m
+    => WalletsConfig
+    -> m (Wallet)
+pickRandomWalletFrom WalletsConfig {..} = pickRandomElementFrom wallets
+
+pickRandomAccountIn
+    :: MonadIO m
+    => Wallet
+    -> m WalletAccount
+pickRandomAccountIn (Wallet _ allAccounts) = pickRandomElementFrom allAccounts
+
+pickRandomAddressIn
+    :: MonadIO m
+    => WalletAccount
+    -> m (CId Addr)
+pickRandomAddressIn (WalletAccount _ allAddresses) = pickRandomElementFrom allAddresses
 
 pickRandomElementFrom :: MonadIO m => NonEmpty a -> m a
 pickRandomElementFrom aList = do

@@ -65,7 +65,6 @@ data Diffusion m = Diffusion
       -- system: to be used by the reporting mechanism (supply info about
       -- network topology) and also by the user interface (how's our connection
       -- quality?).
-      -- [CS-235]
     , healthStatus       :: m HealthStatus
     , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
     }

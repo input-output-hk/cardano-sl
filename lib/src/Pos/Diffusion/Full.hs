@@ -275,7 +275,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
             -- Amazon Route53 health check support (stopgap measure, see note
-            -- in Pos.Diffusion.Types, search for [CS-235].
+            -- in Pos.Diffusion.Types, above 'healthStatus' record field).
             healthStatus :: d HealthStatus
             healthStatus = do
                 let maxCapacityText :: Text

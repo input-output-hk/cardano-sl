@@ -8,22 +8,22 @@ module Bench.Pos.Wallet.Random
 import           Universum
 
 import           Control.Concurrent         (threadDelay)
-import           Data.List                  ((!!))
+import qualified Data.List.NonEmpty         as NE
+import           Data.List.NonEmpty         ((!!))
 import           System.Random              (randomRIO)
 
 import           Bench.Pos.Wallet.Types     (Wallet (..), WalletsConfig (..))
-import           Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (CId (..), Wal)
 
 -- | Picks wallet's identifier randomly.
 pickRandomWalletIdFrom :: MonadIO m => WalletsConfig -> m (CId Wal)
 pickRandomWalletIdFrom WalletsConfig {..} = pickRandomElementFrom walletsIds
   where
-    walletsIds = [CId (CHash anId) | Wallet anId _ <- toList wallets]
+    walletsIds = NE.map (\(Wallet anId _) -> anId) wallets
 
--- | It is assumed that list isn't empty.
-pickRandomElementFrom :: MonadIO m => [a] -> m a
+pickRandomElementFrom :: MonadIO m => NonEmpty a -> m a
 pickRandomElementFrom aList = do
-    someIndex <- liftIO $ randomRIO (0, length aList - 1)
+    someIndex <- liftIO $ randomRIO (0, NE.length aList - 1)
     return $ aList !! someIndex
 
 -- | Waiting some random delay.

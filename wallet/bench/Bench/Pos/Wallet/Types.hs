@@ -13,6 +13,8 @@ module Bench.Pos.Wallet.Types
 
 import           Universum
 
+import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CAccountId (..), Wal)
+
 -- | Complete configuration for benchmarking.
 data CompleteConfig = CompleteConfig
     { endpointsConfig :: !(NonEmpty EndpointConfig)
@@ -39,13 +41,13 @@ data EndpointConfig = EndpointConfig
 
 -- | @WalletAccount@, for Wallets configuration, obtained from the .yaml-file.
 data WalletAccount = WalletAccount
-    { accountId :: !Text
-    , addresses :: !(NonEmpty Text)
+    { accountId :: !CAccountId
+    , addresses :: !(NonEmpty (CId Addr))
     }
 
 -- | @Wallet@, for Wallets configuration, obtained from the .yaml-file.
 data Wallet = Wallet
-    { walletId :: !Text
+    { walletId :: !(CId Wal)
     , accounts :: !(NonEmpty WalletAccount)
     }
 

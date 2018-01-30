@@ -20,6 +20,7 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
+import           Data.Time.Units (toMicroseconds)
 -- TODO hopefully we can get rid of this import. It's needed for the
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
@@ -41,7 +42,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              EnqueueMsg, MsgType (..), NodeId, Origin (..),
                                              waitForConversations, OutSpecs, ListenerSpec,
                                              MkListeners (..), constantListeners)
-import           Pos.Core (HeaderHash, headerHash, prevBlockL)
+import           Pos.Core (HeaderHash, headerHash, prevBlockL, bvdSlotDuration)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -54,6 +55,7 @@ import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE, nonEmptyNewestFirst)
 import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
+import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -403,14 +405,15 @@ blockListeners
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
+    -> Timer -- ^ Keepalive timer
     -> MkListeners m
-blockListeners logic oq = constantListeners $ map ($ oq)
+blockListeners logic oq keepaliveTimer = constantListeners $
     [ -- Peer wants some block headers from us.
-      handleGetHeaders logic
+      handleGetHeaders logic oq
       -- Peer wants some blocks from us.
-    , handleGetBlocks logic
+    , handleGetBlocks logic oq
       -- Peer has a block header for us (yes, singular only).
-    , handleBlockHeaders logic
+    , handleBlockHeaders logic oq keepaliveTimer
     ]
 
 ----------------------------------------------------------------------------
@@ -471,15 +474,21 @@ handleBlockHeaders
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
+    -> Timer
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
     whenJust mHeaders $ \case
-        (MsgHeaders headers) ->
+        (MsgHeaders headers) -> do
+            -- Reset the keepalive timer.
+            -- slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
+            slotDuration <- fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
+            setTimerDuration keepaliveTimer $ 3 * slotDuration
+            startTimer keepaliveTimer
             handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId
         _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.
 

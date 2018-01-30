@@ -23,7 +23,6 @@ import           Universum
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Default (Default)
 import qualified Data.Time as Time
-import           Data.Time.Units (toMicroseconds)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..))
 import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
@@ -37,8 +36,7 @@ import           Pos.Block.Slog (mkSlogContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, bvdSlotDuration, gdBlockVersionData,
-                           gdStartTime, genesisData)
+import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
@@ -61,7 +59,6 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
 import qualified Pos.Update.DB as GState
 import           Pos.Util (bracketWithLogging, newInitFuture)
-import           Pos.Util.Timer (newTimer)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd
@@ -296,10 +293,6 @@ allocateNodeContext ancd txpSettings ekgStore = do
     -- populates it.
     peersVar <- newTVarIO mempty
     logDebug "Created peersVar"
-    let slotDuration :: Integer
-        slotDuration = toMicroseconds . bvdSlotDuration $ gdBlockVersionData genesisData
-    ncSubscriptionKeepAliveTimer <- newTimer $ 3 * fromIntegral slotDuration
-    logDebug "Created subscription timer"
     mm <- initializeMisbehaviorMetrics ekgStore
 
     logDebug "Finished allocating node context!"

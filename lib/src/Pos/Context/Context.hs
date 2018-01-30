@@ -49,7 +49,6 @@ import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Timer (Timer)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 
 ----------------------------------------------------------------------------
@@ -110,9 +109,6 @@ data NodeContext = NodeContext
     , ncConnectedPeers             :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
     , ncNetworkConfig              :: !(NetworkConfig KademliaParams)
-    -- ^ Timer for delaying sending keep-alive like packets to relay nodes until
-    -- a specific duration after the last time a block was received has passed.
-    , ncSubscriptionKeepAliveTimer :: !Timer
     , ncMisbehaviorMetrics :: Maybe MisbehaviorMetrics
     }
 

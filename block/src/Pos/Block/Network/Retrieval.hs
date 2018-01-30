@@ -15,7 +15,6 @@ import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (toMicroseconds)
 import           Ether.Internal (HasLens (..))
 import           Formatting (build, builder, int, sformat, (%))
 import           Mockable (delay)
@@ -40,16 +39,14 @@ import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
-import           Pos.Slotting.Util (getCurrentEpochSlotDuration)
 import           Pos.Util.Chrono (OldestFirst (..), _OldestFirst)
-import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> (WorkerSpec m, OutSpecs)
-retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer)
+    => (WorkerSpec m, OutSpecs)
+retrievalWorker = worker outs retrievalWorkerImpl
   where
     outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
                              (Proxy :: Proxy MsgBlock)
@@ -71,8 +68,8 @@ retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer
 retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> Diffusion m -> m ()
-retrievalWorkerImpl keepAliveTimer diffusion =
+    => Diffusion m -> m ()
+retrievalWorkerImpl diffusion =
     handleAny mainLoopE $ do
         logInfo "Starting retrievalWorker loop"
         mainLoop
@@ -100,9 +97,6 @@ retrievalWorkerImpl keepAliveTimer diffusion =
         -- Restart the timer for sending keep-alive like packets to node(s)
         -- we're subscribed to as when we keep receiving blocks from them it
         -- means the connection is sound.
-        slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
-        setTimerDuration keepAliveTimer $ 3 * slotDuration
-        startTimer keepAliveTimer
         thingToDoNext
         mainLoop
     mainLoopE e = do

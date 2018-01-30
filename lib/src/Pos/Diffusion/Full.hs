@@ -24,7 +24,12 @@ import           System.Random (newStdGen)
 import           System.Wlog (WithLogger, CanLog, usingLoggerName)
 
 import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
-import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..), createOutSpecs, toOutSpecs, convH, InvOrDataTK, MsgSubscribe, makeSendActions, SendActions, Msg)
+import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
+                                    EnqueueMsg, makeEnqueueMsg, bipPacking, Listener,
+                                    MkListeners (..), HandlerSpecs, InSpecs (..),
+                                    OutSpecs (..), createOutSpecs, toOutSpecs, convH,
+                                    InvOrDataTK, MsgSubscribe, MsgSubscribe1,
+                                    makeSendActions, SendActions, Msg)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
@@ -57,6 +62,7 @@ import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
+import           Pos.Util.Timer (Timer, newTimer)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -87,6 +93,9 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
         -- Make the outbound queue using network policies.
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
             initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
+
+        -- Timer is in microseconds.
+        keepaliveTimer :: Timer <- newTimer 20000000
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
@@ -183,14 +192,17 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
                 _                                          -> mempty
               where
-                specs = toOutSpecs [ convH (Proxy @MsgSubscribe) (Proxy @Void) ]
+                specs = toOutSpecs
+                    [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
+                    , convH (Proxy @MsgSubscribe1) (Proxy @Void)
+                    ]
 
             -- It's a localOnNewSlotWorker, so mempty.
             dhtWorkerOutSpecs = mempty
 
             mkL :: MkListeners d
             mkL = mconcat $
-                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq
+                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq keepaliveTimer
                 , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
                 , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
                 , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
@@ -210,6 +222,9 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             listeners :: VerInfo -> [Listener d]
             listeners = mkListeners mkL ourVerInfo
 
+            currentSlotDuration :: d Millisecond
+            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
+
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.
             runDiffusionLayer :: forall y . d y -> d y
@@ -219,6 +234,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 ourVerInfo
                 mEkgNodeMetrics
                 oq
+                keepaliveTimer
                 currentSlotDuration
                 listeners
 
@@ -271,9 +287,6 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             sendPskHeavy :: ProxySKHeavy -> d ()
             sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue
 
-            currentSlotDuration :: d Millisecond
-            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
-
             -- Amazon Route53 health check support (stopgap measure, see note
             -- in Pos.Diffusion.Types, above 'healthStatus' record field).
             healthStatus :: d HealthStatus
@@ -311,11 +324,12 @@ runDiffusionLayerFull
     -> VerInfo
     -> Maybe (EkgNodeMetrics d)
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
+    -> Timer -- ^ Keepalive timer.
     -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq slotDuration listeners action =
+runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse -> do
             withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
@@ -336,8 +350,8 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq slot
         let itMap = M.fromList itList
         return ((>>= either throwM return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
-        Just (SubscriptionWorkerBehindNAT dnsDomains) -> do
-            dnsSubscriptionWorker oq networkConfig dnsDomains slotDuration sactions
+        Just (SubscriptionWorkerBehindNAT dnsDomains) ->
+            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
             dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
         Nothing -> pure ()

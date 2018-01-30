@@ -38,7 +38,7 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
+    , wrap' "block"      $ blkWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     ]

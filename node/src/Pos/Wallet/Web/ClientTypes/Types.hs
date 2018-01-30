@@ -37,6 +37,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
       , Wal (..)
       , Addr (..)
+      , SinceTime (..)
       , ScrollOffset (..)
       , ScrollLimit (..)
       , CFilePath (..)
@@ -366,6 +367,10 @@ data CElectronCrashReport = CElectronCrashReport
 ----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
+
+newtype SinceTime = SinceTime Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
 
 newtype ScrollOffset = ScrollOffset Word
     deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,

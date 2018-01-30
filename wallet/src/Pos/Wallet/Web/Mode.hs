@@ -7,8 +7,8 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
-       , convertCIdTOAddrs
-       , convertCIdTOAddr
+       , convertCIdToAddrs
+       , convertCIdToAddr
        , AddrCIdHashes(AddrCIdHashes)
        ) where
 
@@ -108,8 +108,8 @@ makeLensesWith postfixLFields ''WalletWebModeContext
 instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
     lensOf = wwmcHashes_L
 
-convertCIdTOAddr :: (MonadWalletWebMode m) => CId Addr -> m Address
-convertCIdTOAddr i@(CId id) = do
+convertCIdToAddr :: MonadWalletWebMode m => CId Addr -> m Address
+convertCIdToAddr i@(CId id) = do
     hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
     maddr <- atomicModifyIORef' hmRef $ \hm ->
       case id `M.lookup` hm of
@@ -120,8 +120,8 @@ convertCIdTOAddr i@(CId id) = do
                       Left  err  -> (hm,                  Left err)
     either (throwM . DecodeError) pure maddr
 
-convertCIdTOAddrs :: (MonadWalletWebMode m, Traversable t) => t (CId Addr) -> m (t Address)
-convertCIdTOAddrs cids = do
+convertCIdToAddrs :: (MonadWalletWebMode m, Traversable t) => t (CId Addr) -> m (t Address)
+convertCIdToAddrs cids = do
     hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
     maddrs <- atomicModifyIORef' hmRef $ \hm ->
       let lookups = map (\cid@(CId h) -> (h, M.lookup h hm, cIdToAddress cid)) cids

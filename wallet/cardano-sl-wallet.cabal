@@ -358,6 +358,7 @@ benchmark cardano-sl-wallet-bench
                        Bench.Pos.Wallet.Config.CLI
                        Bench.Pos.Wallet.Config.Endpoints
                        Bench.Pos.Wallet.Config.Wallets
+                       Bench.Pos.Wallet.Random
                        Bench.Pos.Wallet.Run
                        Bench.Pos.Wallet.Types
 

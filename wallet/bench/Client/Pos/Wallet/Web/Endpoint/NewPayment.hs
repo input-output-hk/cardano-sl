@@ -31,4 +31,4 @@ newPaymentIO conf@CompleteConfig {..} =
                                        coin
                                        (Just policy)) >>= \case
         Left problem -> putText $ "Cannot create new payment: " <> problem
-        Right newTx  -> print newTx -- :: CTx
+        Right _ -> return () -- :: CTx

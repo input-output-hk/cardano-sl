@@ -26,6 +26,14 @@ runBench endpointClient benchEp completeConfig EndpointConfig {..} =
             [show benchEp]
             [bench benchName $ nfIO ioForBench]
   where
+    -- Since we treat a node as a blackbox, we measure complete IO-action.
+    -- Currently this action includes:
+    -- 1. Preparing TLS-connection.
+    -- 2. Preparing, serialization and sending request.
+    -- 3. Waiting for response.
+    -- 4. Response deserealization.
+    -- 5. Do something with response.
+    -- TODO: Probably it should be changed.
     ioForBench = endpointClient completeConfig >> waitRandom (minDelayForCalls,
                                                               maxDelayForCalls)
     config = defaultConfig {

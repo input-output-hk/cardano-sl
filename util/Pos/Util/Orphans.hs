@@ -154,9 +154,6 @@ instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
 -- MonadResource/ResourceT
 ----------------------------------------------------------------------------
 
-instance LiftLocal ResourceT where
-    liftLocal _ l f = hoist (l f)
-
 instance {-# OVERLAPPABLE #-}
     (MonadResource m, MonadTrans t, Applicative (t m),
      MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>

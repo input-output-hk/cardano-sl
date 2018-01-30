@@ -267,13 +267,6 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
               Just (MsgNoBlock t) ->
                   throwError $ sformat ("Peer failed to produce block #"%int%": "%stext) i t
               Just (MsgBlock block) -> do
-                  -- FIXME
-                  -- Something to do with recording progress here.
-                  -- Perhaps we could restore it by offering a streaming interface
-                  -- for getBlocks.
-                  --progressHeaderVar <- view (lensOf @ProgressHeaderTag)
-                  --atomically $ do void $ tryTakeTMVar progressHeaderVar
-                  --                putTMVar progressHeaderVar $ block ^. blockHeader
                   retrieveBlocksDo conv (i - 1) (block : acc)
 
 requestTip

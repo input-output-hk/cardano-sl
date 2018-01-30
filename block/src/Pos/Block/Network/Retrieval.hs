@@ -32,7 +32,7 @@ import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpect
                                           mkHeadersRequest, triggerRecovery)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
-import           Pos.Block.Types (ProgressHeaderTag, RecoveryHeaderTag)
+import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader, blockHeader)
@@ -166,7 +166,6 @@ retrievalWorkerImpl keepAliveTimer diffusion =
         reportOrLogW (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash header)) e
-        dropUpdateHeader
         dropRecoveryHeaderAndRepeat diffusion nodeId
 
     -- Recovery handling. We assume that header in the recovery variable is
@@ -235,11 +234,6 @@ updateRecoveryHeader nodeId hdr = do
             ("Recovery continued with nodeId="%build%" and tip="%build)
             rNodeId
             (headerHash rHeader)
-
-dropUpdateHeader :: BlockWorkMode ctx m => m ()
-dropUpdateHeader = do
-    progressHeaderVar <- view (lensOf @ProgressHeaderTag)
-    void $ atomically $ tryTakeTMVar progressHeaderVar
 
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
 -- was stopped.
@@ -322,7 +316,6 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
               (unitBuilder $ biSize blocks)
               (map (headerHash . view blockHeader) blocks)
           handleBlocks nodeId blocks diffusion 
-          dropUpdateHeader
           -- If we've downloaded any block with bigger
           -- difficulty than ncrecoveryheader, we're
           -- gracefully exiting recovery mode.

@@ -27,7 +27,7 @@ import           Data.Time.Units (Millisecond)
 import           Ether.Internal (HasLens (..))
 import           System.Wlog (WithLogger, logWarning)
 
-import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader, MonadProgressHeader)
+import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import qualified Pos.Context as PC
 import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxAux (..), TxId,
                            TxUndo, difficultyL, getCurrentTimestamp)
@@ -64,7 +64,6 @@ getLastKnownHeader =
 type BlockchainInfoEnv ctx m =
     ( MonadDBRead m
     , MonadLastKnownHeader ctx m
-    , MonadProgressHeader ctx m
     , MonadReader ctx m
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m

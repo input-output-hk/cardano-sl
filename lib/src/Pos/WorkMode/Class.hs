@@ -21,7 +21,7 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
-import           Pos.Block.Types (MonadLastKnownHeader, MonadProgressHeader, MonadRecoveryHeader)
+import           Pos.Block.Types (MonadLastKnownHeader, MonadRecoveryHeader)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
@@ -66,7 +66,6 @@ type WorkMode ctx m
       , MonadSscMem ctx m
       , MonadRecoveryInfo m
       , MonadRecoveryHeader ctx m
-      , MonadProgressHeader ctx m
       , MonadLastKnownHeader ctx m
       , MonadBListener m
       , MonadReporting ctx m

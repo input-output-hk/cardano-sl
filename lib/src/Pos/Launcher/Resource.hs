@@ -281,7 +281,6 @@ allocateNodeContext ancd txpSettings ekgStore = do
     logDebug "Created UserSecret variable"
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
-    ncProgressHeader <- liftIO newEmptyTMVarIO
     logDebug "Created block retrieval queue, recovery and progress headers"
     ncShutdownFlag <- newTVarIO False
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime

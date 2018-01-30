@@ -19,8 +19,8 @@ import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
 import           Pos.Block.Slog (HasSlogContext)
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressHeader,
-                                  ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
+                                  RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol (Message)
 import           Pos.Core.Context (HasPrimaryKey)
@@ -72,7 +72,6 @@ type BlockWorkMode ctx m =
 
     , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
     , HasLens LastKnownHeaderTag ctx LastKnownHeader
-    , HasLens ProgressHeaderTag ctx ProgressHeader
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , HasLens TxpHolderTag ctx (GenericTxpLocalData (MempoolExt m))
     , HasLens' ctx SecurityParams

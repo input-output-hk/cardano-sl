@@ -1,321 +1,422 @@
--- | "Translating and Unifying UTxO-based and Account-based Cryptocurrencies"
---
--- Haskell translation of the UTxO definitions in said paper, with the goal of
--- having a clean definition of UTxO-style accounting that could be used to
--- drive testing for the wallet (amongst other things).
+{-# LANGUAGE DeriveAnyClass       #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedStrings    #-}
 
-{-# LANGUAGE DeriveAnyClass #-}
-
+-- | Idealized specification of UTxO-style accounting
 module UTxO.DSL (
-    -- * Types
-    Index
-  , Value
+    -- * Parameters
+    Value
+  , Index
+    -- * Addresses
   , Address(..)
-  , Input(..)
-  , Output(..)
+    -- * Transaction
   , Transaction(..)
-  , TransactionType(..)
-  , Ledger
-    -- * Validity
-  , isValidTransaction
-  , isValidLedger
-    -- * Derived info
-  , out
-  , balance
-    -- * Examples
-  , example1
-    -- * Computation of the UTxO (not present in the paper)
+  , trIns'
+  , trIsAcceptable
+  , trBalance
+  , trSpentOutputs
+  , trUnspentOutputs
+  , trUtxo
+    -- * Outputs
+  , Output(..)
+    -- * Inputs
+  , Input(..)
+  , inpTransaction
+  , inpSpentOutput
+  , inpSpentOutput'
+  , inpVal
+  , inpVal'
+    -- * Ledger
+  , Ledger(..)
+  , ledgerEmpty
+  , ledgerSingleton
+  , ledgerAdd
+  , ledgerAdds
+  , ledgerTails
+  , ledgerBalance
+  , ledgerUnspentOutputs
+  , ledgerUtxo
+  , ledgerIsValid
+    -- * Hash
+  , Hash(..)
+  , GivenHash(..)
+  , findHash
+  , findHash'
+    -- * Additional
+    -- ** UTxO
   , Utxo(..)
+  , utxoEmpty
+  , utxoFromMap
+  , utxoFromList
   , utxoToList
-  , utxoAfter
-    -- * Additional types and functions
-  , Block(..)
+  , utxoDomain
+  , utxoRemove
+  , utxoUnion
+    -- ** Chain
+  , Block
+  , Blocks
   , Chain(..)
   , chainToLedger
-  , outputIsFee
-    -- * Convenience re-exports
-  , dumpStr
   ) where
 
 import Universum
-import Data.Bifunctor (first)
-import Data.List ((!!))
-import Formatting (bprint, build, (%))
+import Control.Exception (throw)
+import Data.List (tail)
+import Data.Map.Strict (Map)
+import Data.Set (Set)
+import Formatting (sformat, bprint, build, (%))
+import Pos.Util.Chrono
 import Serokell.Util (listJson, mapJson)
-import Text.Show.Pretty (PrettyVal, dumpStr)
-import qualified Data.Set        as Set
+import Prelude (Show(..))
 import qualified Data.Map.Strict as Map
+import qualified Data.Set        as Set
 import qualified Data.Text.Buildable
 
 {-------------------------------------------------------------------------------
-  Core UTxO formalization
+  Parameters
 -------------------------------------------------------------------------------}
 
-type Index = Word32
 type Value = Word64
+type Index = Word32
+
+{-------------------------------------------------------------------------------
+  Addresses
+-------------------------------------------------------------------------------}
 
 -- | Address
 --
--- The code is polymorphic in what we consider to be an "ordinary address",
--- so that for instance we can instantiate it to a wallet/account/address.
---
--- (No associated Definition, defined in intro to Section 2, Preliminaries.)
+-- We identity some special addresses to deal with fresh coin generation and
+-- fees. This is only used in balance computations.
 data Address a =
     AddrGenesis
   | AddrTreasury
-  | AddrOrdinary a
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
+  | AddrRegular a
+  deriving (Eq, Ord)
 
--- | Transaction input
---
--- TODO: Do we want to keep the inductive nature of Bruno's paper here,
--- or do we want to introduce transaction IDs?
---
--- (Definition 1.)
-data Input a = Input {
-      inpTrans :: Transaction a
-    , inpIndex :: Index
+{-------------------------------------------------------------------------------
+  Transactions
+
+  We define UTxO-style transactions only; for our purposes account-style
+  transactions are not needed.
+-------------------------------------------------------------------------------}
+
+data Transaction h a = Transaction {
+      trFresh :: Value
+    , trIns   :: Set (Input h a)
+    , trOuts  :: [Output a]
+    , trFee   :: Value
+    , trHash  :: Int -- Must be unique
     }
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
+
+deriving instance (Hash h a, Eq  a) => Eq  (Transaction h a)
+deriving instance (Hash h a, Ord a) => Ord (Transaction h a)
+
+-- | The inputs as a list
+--
+-- Useful in various calculations
+trIns' :: Transaction h a -> [Input h a]
+trIns' = Set.toList . trIns
+
+-- | Whether this transaction is acceptable for the given ledger
+--
+-- NOTE: The notion of 'valid' is not relevant for UTxO transactions,
+-- so we omit it.
+trIsAcceptable :: (Hash h a, Buildable a)
+               => Transaction h a -> Ledger h a -> Bool
+trIsAcceptable t l = and [
+      allInputsHaveOutputs
+    , valueIsPreserved
+    , inputsHaveNotBeenSpent
+    ]
+  where
+    allInputsHaveOutputs :: Bool
+    allInputsHaveOutputs = all (isJust . (`inpSpentOutput` l)) (trIns t)
+
+    valueIsPreserved :: Bool
+    valueIsPreserved =
+           sum (map (`inpVal'` l) (trIns' t)) + trFresh t
+        == sum (map outVal        (trOuts t)) + trFee   t
+
+    inputsHaveNotBeenSpent :: Bool
+    inputsHaveNotBeenSpent = all (`Set.member` ledgerUnspentOutputs l) (trIns t)
+
+-- | The effect this transaction has on the balance of an address
+trBalance :: forall h a. (Hash h a, Eq a, Buildable a)
+          => Address a -> Transaction h a -> Ledger h a -> Value
+trBalance a t l = received - spent
+  where
+    received, spent :: Value
+    received = total outputsReceived + case a of
+                                         AddrTreasury -> trFee t
+                                         _otherwise   -> 0
+    spent    = total outputsSpent    + case a of
+                                         AddrGenesis  -> trFresh t
+                                         _otherwise   -> 0
+
+    outputsReceived, outputsSpent :: [Output a]
+    outputsReceived = our $                            trOuts t
+    outputsSpent    = our $ map (`inpSpentOutput'` l) (trIns' t)
+
+    our :: [Output a] -> [Output a]
+    our = filter (\o -> AddrRegular (outAddr o) == a)
+
+    total :: [Output a] -> Value
+    total = sum . map outVal
+
+-- | The outputs spent by this transaction
+--
+-- Defined only for consistency.
+trSpentOutputs :: Transaction h a -> Set (Input h a)
+trSpentOutputs = trIns
+
+-- | The outputs generated by this transaction
+trUnspentOutputs :: Hash h a => Transaction h a -> Set (Input h a)
+trUnspentOutputs = utxoDomain . trUtxo
+
+-- | The UTxO generated by this transaction
+trUtxo :: Hash h a => Transaction h a -> Utxo h a
+trUtxo t = utxoFromList $
+             zipWith (\i o -> (Input (hash t) i, o)) [0..] (trOuts t)
+
+{-------------------------------------------------------------------------------
+  Outputs
+-------------------------------------------------------------------------------}
 
 -- | Transaction output
 --
--- Invariant: outAddr /= AddrGenesis
---
--- (Definition 1.)
+-- NOTE: In the spec, this allows for @Address a@ rather than @a@. This is not
+-- needed in Cardano, where that additional flexibility is not supported. We
+-- therefore use this more restricted version.
 data Output a = Output {
-      outAddr :: Address a
+      outAddr :: a
     , outVal  :: Value
     }
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
+  deriving (Eq, Ord)
 
--- | Transaction
---
--- (Definition 1.)
-data Transaction a = Transaction {
-      trIns  :: [Input a]
-    , trOuts :: [Output a]
+{-------------------------------------------------------------------------------
+  Inputs
+-------------------------------------------------------------------------------}
+
+data Input h a = Input {
+      inpTrans :: h (Transaction h a)
+    , inpIndex :: Index
     }
-  deriving (Show, Eq, Ord, Generic, PrettyVal)
 
--- | Transaction type
---
--- (Definition 1.)
-data TransactionType = TransRegular | TransGenesis
+deriving instance Hash h a => Eq  (Input h a)
+deriving instance Hash h a => Ord (Input h a)
 
--- | Classify transactions
---
--- (Definition 1.)
-transactionType :: Transaction a -> TransactionType
-transactionType t =
-    if null (trIns t)
-      then TransGenesis
-      else TransRegular
+inpTransaction :: Hash h a => Input h a -> Ledger h a -> Maybe (Transaction h a)
+inpTransaction = findHash . inpTrans
 
--- | The output spent by an input
---
--- (Definition 2.)
-out :: Input a -> Output a
-out i = trOuts (inpTrans i) !! fromEnum (inpIndex i)
+inpSpentOutput :: Hash h a => Input h a -> Ledger h a -> Maybe (Output a)
+inpSpentOutput i l = do
+    t <- inpTransaction i l
+    trOuts t `at` fromIntegral (inpIndex i)
 
--- | Validity of regular transactions
---
--- (Definition 3, part 1.)
-isValidRegularTransaction :: Eq a => Transaction a -> Bool
-isValidRegularTransaction t = and [
-      and [ 0 <= inpIndex i && fromEnum (inpIndex i) < length (trOuts (inpTrans i))
-          | i <- trIns t
-          ]
-    -- TODO: This comparison of _transactions_ feels strange somehow
-    -- (related to the introduction of transaction IDs; at the moment
-    -- comparing transactions for equality is a linear operation.)
-    , and [ (trIns t !! j1) /= (trIns t !! j2)
-          | j1 <- [0 .. length (trIns t) - 1]
-          , j2 <- [0 .. length (trIns t) - 1]
-          , j1 /= j2
-          ]
-    , sum [ outVal o | o <- trOuts t ] == sum [ outVal (out i) | i <- trIns t ]
-    ]
+inpVal :: Hash h a => Input h a -> Ledger h a -> Maybe Value
+inpVal i l = outVal <$> inpSpentOutput i l
 
--- | Validity of genesis transactions
---
--- (Definition 3, part 2.)
-isValidGenesisTransaction :: Eq a => Transaction a -> Bool
-isValidGenesisTransaction t = and [
-      null (trIns t)
-    , and [ outAddr o == AddrTreasury | o <- trOuts t ]
-    ]
+{-------------------------------------------------------------------------------
+  Variations on the functions on inputs, when we are sure that the
+  transaction is known and the input index is correct
+-------------------------------------------------------------------------------}
 
--- | Validity of transactions
-isValidTransaction :: Eq a => Transaction a -> Bool
-isValidTransaction t =
-    case transactionType t of
-      TransRegular -> isValidRegularTransaction t
-      TransGenesis -> isValidGenesisTransaction t
+inpTransaction' :: (Hash h a, Buildable a)
+                => Input h a -> Ledger h a -> Transaction h a
+inpTransaction' = findHash' . inpTrans
 
--- | Ledger
---
--- Side condition: all transactions must be valid.
--- Most recent transaction is the head of the list.
---
--- (Definition 4.)
-type Ledger a = [Transaction a]
-
-{-
--- | Unspent outputs in a ledger
---
--- (Definition 5.)
---
--- TODO: This is very odd. Is a set of 'Output's really sufficient?
--- Surely multiple transaction outputs can have the same 'Output'?
-unspentOutputs :: forall a. Ord a => Ledger a -> Set (Output a)
-unspentOutputs l = allOutputs \\ spentOutputs
+inpSpentOutput' :: (Hash h a, Buildable a, HasCallStack)
+                => Input h a -> Ledger h a -> Output a
+inpSpentOutput' i l = fromJust err $
+      trOuts (inpTransaction' i l) `at` fromIntegral (inpIndex i)
   where
-    allOutputs, spentOutputs :: Set (Output a)
-    allOutputs   = Set.fromList $ concatMap trOuts l
-    spentOutputs = Set.fromList $ concatMap (map out . trIns) l
--}
+    err = sformat ("Input index out of bounds: " % build) i
+
+inpVal' :: (Hash h a, Buildable a) => Input h a -> Ledger h a -> Value
+inpVal' i = outVal . inpSpentOutput' i
+
+{-------------------------------------------------------------------------------
+  Ledger
+-------------------------------------------------------------------------------}
+
+-- | Ledger (list of transactions)
+--
+-- The ledger is stored in newest-first order. To enforce this, the constructor
+-- is marked as unsafe.
+newtype Ledger h a = Ledger {
+    ledgerTransactions :: NewestFirst [] (Transaction h a)
+  }
+
+ledgerEmpty :: Ledger h a
+ledgerEmpty = Ledger (NewestFirst [])
+
+ledgerSingleton :: Transaction h a -> Ledger h a
+ledgerSingleton t = Ledger (NewestFirst [t])
+
+ledgerToNewestFirst :: Ledger h a -> [Transaction h a]
+ledgerToNewestFirst (Ledger l) = toList l
+
+-- | Append single transaction to the ledger
+ledgerAdd :: Transaction h a -> Ledger h a -> Ledger h a
+ledgerAdd = ledgerAdds . NewestFirst . (:[])
+
+-- | Append a bunch of transactions to the ledger
+ledgerAdds :: NewestFirst [] (Transaction h a) -> Ledger h a -> Ledger h a
+ledgerAdds (NewestFirst ts) (Ledger (NewestFirst l)) =
+    Ledger (NewestFirst (ts ++ l))
+
+-- | Each transaction in the ledger, along with its context (the transactions
+-- it's allowed to refer to)
+ledgerTails :: Ledger h a -> [(Transaction h a, Ledger h a)]
+ledgerTails (Ledger (NewestFirst l)) =
+    zipWith (\t ts -> (t, Ledger (NewestFirst ts))) l (tail (tails l))
+
+ledgerBalance :: forall h a. (Hash h a, Eq a, Buildable a)
+              => Address a -> Ledger h a -> Value
+ledgerBalance a l = sum $ map (uncurry (trBalance a)) (ledgerTails l)
+
+-- | Unspent outputs in the ledger
+--
+-- Should satisfy that
+--
+-- > ledgerUnspentOutputs l = Map.keysSet (ledgerUtxo l)
+ledgerUnspentOutputs :: forall h a. Hash h a => Ledger h a -> Set (Input h a)
+ledgerUnspentOutputs l = go (ledgerToNewestFirst l)
+  where
+    go :: [Transaction h a] -> Set (Input h a)
+    go []     = Set.empty
+    go (t:ts) = (go ts Set.\\ trSpentOutputs t) `Set.union` trUnspentOutputs t
+
+-- | UTxO of a ledger
+--
+-- TODO: We should have a property relating this to 'ledgerBalance'.
+ledgerUtxo :: forall h a. Hash h a => Ledger h a -> Utxo h a
+ledgerUtxo l = go (ledgerToNewestFirst l)
+  where
+    go :: [Transaction h a] -> Utxo h a
+    go []     = utxoEmpty
+    go (t:ts) = go ts `utxoRemove` trSpentOutputs t `utxoUnion` trUtxo t
 
 -- | Ledger validity
---
--- NOTE: This doesn't check transaction validity. See 'isValidLedger'.
---
--- (Definition 6.)
-isValidLedger' :: Ord a => Ledger a -> Bool
-isValidLedger' []     = True
-isValidLedger' (t:l) = isValidLedger' l
-                    && and [ elem (inpTrans i) l &&
-                             i `inUtxo` utxoAfter l
-                           | i <- trIns t
-                           ]
-
--- | Ledger and transaction validity
-isValidLedger :: Ord a => Ledger a -> Bool
-isValidLedger l = all isValidTransaction l && isValidLedger' l
-
--- | Balance
---
--- (Definition 7.)
-balance :: Ord a => Ledger a -> Address a -> Value
-balance l AddrGenesis = (-1) * sum [ outVal o
-                                   | t <- l
-                                   , o <- trOuts t
-                                   , outAddr o == AddrTreasury
-                                   ]
-balance l a           = sum [ outVal o
-                            | o <- outputs (utxoAfter l)
-                            , outAddr o == a
-                            ]
+ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Bool
+ledgerIsValid l = all (uncurry trIsAcceptable) (ledgerTails l)
 
 {-------------------------------------------------------------------------------
-  Computation of the UTxO (not present in the paper)
+  We parameterize over the hashing function
 -------------------------------------------------------------------------------}
 
-data Utxo a = Utxo { utxoToMap :: Map (Input a) (Output a) }
-  deriving (Show)
+-- | Generalization of a hashing function
+--
+-- Ideally we'd strip the @a@ parameter here, but that would mean we'd need
+-- quantified contexts to model the superclass constraint, which sadly we
+-- don't have in ghc yet.
+class ( Ord       (h (Transaction h a))
+      , Buildable (h (Transaction h a))
+      ) => Hash h a where
+  -- | Hash a transaction
+  hash :: Transaction h a -> h (Transaction h a)
 
-inUtxo :: Ord a => Input a -> Utxo a -> Bool
-inUtxo inp (Utxo utxo) = Map.member inp utxo
+-- | Locate a transaction in the ledger, giving its hash
+--
+-- NOTE: Even when we instantiate @h@ to 'Identity', we still want to search
+-- the ledger, because an input that refers to a transaction that isn't
+-- actually in the ledger would be invalid.
+findHash :: Hash h a
+         => h (Transaction h a) -> Ledger h a -> Maybe (Transaction h a)
+findHash h l = find (\t -> hash t == h) (ledgerToNewestFirst l)
 
-outputs :: Utxo a -> [Output a]
-outputs (Utxo utxo) = Map.elems utxo
+-- | Variation on 'findHash', assumes hash refers to existing transaction
+findHash' :: (Hash h a, Buildable a, HasCallStack)
+          => h (Transaction h a) -> Ledger h a -> Transaction h a
+findHash' h l = fromJust err (findHash h l)
+  where
+    err = sformat ("Hash not found: " % build) h
 
-utxoToList :: Utxo a -> [(Input a, Output a)]
+{-------------------------------------------------------------------------------
+  Additional: UTxO
+-------------------------------------------------------------------------------}
+
+-- | Unspent transaciton outputs
+data Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
+
+utxoEmpty :: Utxo h a
+utxoEmpty = Utxo Map.empty
+
+utxoFromMap :: Map (Input h a) (Output a) -> Utxo h a
+utxoFromMap = Utxo
+
+utxoFromList :: Hash h a => [(Input h a, Output a)] -> Utxo h a
+utxoFromList = utxoFromMap . Map.fromList
+
+utxoToList :: Utxo h a -> [(Input h a, Output a)]
 utxoToList = Map.toList . utxoToMap
 
-utxoAfter :: forall a. Ord a => Ledger a -> Utxo a
-utxoAfter l = Utxo $ allOutputs `withoutKeys` allSpent
-  where
-    allOutputs :: Map (Input a) (Output a)
-    allOutputs = Map.fromList $ concatMap outputsOf l
+utxoDomain :: Utxo h a -> Set (Input h a)
+utxoDomain = Map.keysSet . utxoToMap
 
-    outputsOf :: Transaction a -> [(Input a, Output a)]
-    outputsOf t = map (first (Input t)) (zip [0..] (trOuts t))
+utxoRemove :: Hash h a => Utxo h a -> Set (Input h a) -> Utxo h a
+utxoRemove (Utxo utxo) inps = Utxo (utxo `withoutKeys` inps)
 
-    allSpent :: Set (Input a)
-    allSpent = Set.fromList $ concatMap trIns l
+utxoUnion :: Hash h a => Utxo h a -> Utxo h a -> Utxo h a
+utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 
 {-------------------------------------------------------------------------------
-  Example one from the paper
+  Additional: chain
 -------------------------------------------------------------------------------}
 
-example1 :: Ledger Int
-example1 = [t5, t4, t3, t2, t1]
-  where
-    t1, t2, t3, t4, t5 :: Transaction Int
-    t1 = Transaction []           [ Output  AddrTreasury    1000 ]
-    t2 = Transaction [Input t1 0] [ Output (AddrOrdinary 1) 1000 ]
-    t3 = Transaction [Input t2 0] [ Output (AddrOrdinary 2)  800
-                                  , Output (AddrOrdinary 1)  200 ]
-    t4 = Transaction [Input t3 1] [ Output (AddrOrdinary 3)  199
-                                  , Output  AddrTreasury       1 ]
-    t5 = Transaction [Input t4 1] [ Output (AddrOrdinary 2)    1 ]
-
-{-------------------------------------------------------------------------------
-  Additional types and functions
--------------------------------------------------------------------------------}
-
--- | A block of transactions
---
--- The block must be signed by the slot leader for the given slot.
-data Block sid a = Block {
-      blockPrev  :: Maybe (Block sid a)
-    , blockSId   :: sid
-    , blockTrans :: [Transaction a]
-    }
-  deriving (Generic, PrettyVal)
+type Block  h a = OldestFirst [] (Transaction h a)
+type Blocks h a = OldestFirst [] (Block h a)
 
 -- | A chain
 --
 -- A chain is just a series of blocks, here modelled simply as the transactions
 -- they contain, since the rest of the block information can then be inferred.
-data Chain a = Chain {
-      chainBlocks :: [[Transaction a]]
-    }
-  deriving (Generic, PrettyVal)
+data Chain h a = Chain { chainBlocks :: Blocks h a }
 
-chainToLedger :: Chain a -> Ledger a
-chainToLedger Chain{..} = reverse $ concat chainBlocks
+chainToLedger :: Transaction h a -> Chain h a -> Ledger h a
+chainToLedger boot = Ledger
+                   . NewestFirst
+                   . reverse
+                   . (boot :)
+                   . concatMap toList . toList
+                   . chainBlocks
 
--- | The DSL models fees as outpus to the treasury
-outputIsFee :: Output a -> Bool
-outputIsFee (Output AddrTreasury _) = True
-outputIsFee _otherwise = False
+{-------------------------------------------------------------------------------
+  Instantiating the hash to the identity
+
+  NOTE: A lot of definitions in the DSL rely on comparing 'Input's. When using
+  'Identity' as the " hash ", comparing 'Input's implies comparing their
+  'Transactions', and hence the cost of comparing two inputs grows linearly
+  with their position in the chain.
+-------------------------------------------------------------------------------}
+
+instance (Ord a, Buildable a) => Hash Identity a where
+  hash = Identity
+
+instance (Ord a, Buildable a) => Buildable (Identity (Transaction Identity a)) where
+  build (Identity t) = bprint build t
+
+{-------------------------------------------------------------------------------
+  Use the specified hash instead
+-------------------------------------------------------------------------------}
+
+newtype GivenHash a = GivenHash Int
+  deriving (Eq, Ord)
+
+instance Buildable (GivenHash a) where
+  build (GivenHash i) = bprint build i
+
+instance Hash GivenHash a where
+  hash = GivenHash . trHash
 
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
 
-instance Buildable a => Buildable (Chain a) where
-  build Chain{..} = bprint
-      ( "Chain"
-      % "{ blocks: " % listJson
-      % "}"
-      )
-      chainBlocks
-
-instance Buildable a => Buildable [Transaction a] where
-  build = bprint listJson
-
-instance Buildable a => Buildable (Transaction a) where
-  build Transaction{..} = bprint
-      ( "Transaction"
-      % "{ ins: " % listJson
-      % ", outs: " % listJson
-      % "}"
-      )
-      trIns
-      trOuts
-
-instance Buildable a => Buildable (Input a) where
-  build Input{..} = bprint
-      ( "Input"
-      % "{ trans: " % build
-      % ", index: " % build
-      % "}"
-      )
-      inpTrans
-      inpIndex
+instance Buildable a => Buildable (Address a) where
+  build AddrGenesis     = "AddrGenesis"
+  build AddrTreasury    = "AddrTreasury"
+  build (AddrRegular a) = bprint ("AddrRegular " % build) a
 
 instance Buildable a => Buildable (Output a) where
   build Output{..} = bprint
@@ -327,32 +428,76 @@ instance Buildable a => Buildable (Output a) where
       outAddr
       outVal
 
-instance Buildable a => Buildable (Address a) where
-  build AddrGenesis      = "AddrGenesis"
-  build AddrTreasury     = "AddrTreasury"
-  build (AddrOrdinary a) = bprint ("AddrOrdinary " % build) a
-
-instance (Buildable a, Buildable sid) => Buildable (Block sid a) where
-  build Block{..} = bprint
-      ( "Block"
-      % "{ prev:  " % build
-      % ", sid:   " % build
-      % ", trans: " % build
+instance (Buildable a, Hash h a) => Buildable (Input h a) where
+  build Input{..} = bprint
+      ( "Input"
+      % "{ trans: " % build
+      % ", index: " % build
       % "}"
       )
-      blockPrev
-      blockSId
-      blockTrans
+      inpTrans
+      inpIndex
 
-instance (Buildable a, Ord a) => Buildable (Utxo a) where
+instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
+  build Transaction{..} = bprint
+      ( "Transaction"
+      % "{ fresh: " % build
+      % ", ins:   " % listJson
+      % ", outs:  " % listJson
+      % ", fee:   " % build
+      % ", hash:  " % build
+      % "}"
+      )
+      trFresh
+      trIns
+      trOuts
+      trFee
+      trHash
+
+instance (Buildable a, Hash h a) => Buildable (Chain h a) where
+  build Chain{..} = bprint
+      ( "Chain"
+      % "{ blocks: " % listJson
+      % "}"
+      )
+      chainBlocks
+
+instance ( Buildable a, Hash h a, Foldable f) => Buildable (NewestFirst f (Transaction h a)) where
+  build ts = bprint ("NewestFirst " % listJson) (toList ts)
+
+instance (Buildable a, Hash h a, Foldable f) => Buildable (OldestFirst f (Transaction h a)) where
+  build ts = bprint ("OldestFirst " % listJson) (toList ts)
+
+instance (Buildable a, Hash h a) => Buildable (Ledger h a) where
+  build (Ledger l) = bprint build l
+
+instance (Buildable a, Hash h a) => Buildable (Utxo h a) where
   build (Utxo utxo) = bprint ("Utxo " % mapJson) utxo
 
 {-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}
 
--- | Remove a set of keys from the domain of a map
---
--- TODO: This function is available out of the box from containers >= 0.5.8.
+at :: [a] -> Int -> Maybe a
+at []     _ = Nothing
+at (x:_)  0 = Just x
+at (_:xs) i = at xs (i - 1)
+
 withoutKeys :: Ord k => Map k a -> Set k -> Map k a
 m `withoutKeys` s = m `Map.difference` Map.fromSet (const ()) s
+
+data UtxoException = UtxoException CallStack Text
+
+instance Show UtxoException where
+  show (UtxoException cs err) =
+    "Utxo exception: " ++ toString err ++ " at " ++ prettyCallStack cs
+
+instance Exception UtxoException
+
+-- | Throw a 'UtxoException' on 'Nothing'
+--
+-- NOTE: We cannot call 'error' from "Universum" because it doesn't have
+-- a 'HasCallStack' context.
+fromJust :: HasCallStack => Text -> Maybe a -> a
+fromJust _ (Just a) = a
+fromJust e Nothing  = throw (UtxoException callStack e)

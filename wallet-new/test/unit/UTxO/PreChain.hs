@@ -4,9 +4,10 @@
 --
 -- * Module "Pos.Core.Common.Fee"
 -- * Function 'Pos.Client.Txp.Util.stabilizeTxFee'
-module UTxO.Fees (
-    Fee
-  , calculateFees
+module UTxO.PreChain (
+    PreChain(..)
+  , FromPreChain(..)
+  , fromPreChain
   ) where
 
 import Universum
@@ -14,11 +15,34 @@ import Universum
 import Pos.Core
 import Pos.Client.Txp
 import Pos.Txp.Toil
+import Pos.Util.Chrono
 
+import UTxO.Bootstrap
 import UTxO.Context
 import UTxO.DSL
 import UTxO.Interpreter
 import UTxO.Translate
+
+{-------------------------------------------------------------------------------
+  Chain with some information still missing
+-------------------------------------------------------------------------------}
+
+newtype PreChain h = PreChain (h (Transaction h Addr) -> [[Fee]] -> Blocks h Addr)
+
+data FromPreChain h = FromPreChain {
+      fpcBoot   :: Transaction h Addr
+    , fpcChain  :: Chain       h Addr
+    , fpcLedger :: Ledger      h Addr
+    }
+
+fromPreChain :: Hash h Addr
+             => PreChain h -> Translate IntException (FromPreChain h)
+fromPreChain (PreChain f) = do
+    fpcBoot <- asks bootstrapTransaction
+    txs <- calcFees fpcBoot (f (hash fpcBoot))
+    let fpcChain  = Chain txs -- doesn't include the boot transactions
+        fpcLedger = chainToLedger fpcBoot fpcChain
+    return FromPreChain{..}
 
 {-------------------------------------------------------------------------------
   Fee calculation
@@ -63,13 +87,27 @@ type Fee = Value
 --   is that initially we cannot even know how many transactions the function
 --   returns, and hence we just provide an infinite list of zeroes.
 --   (We could address this at the type level by using vectors.)
-calculateFees :: ([[Fee]] -> [[Transaction Addr]])
-              -> Translate IntException [[Transaction Addr]]
-calculateFees f = do
-    txs <- mapM (mapM int) (f (repeat [0..]))
+--
+-- TODO: We should check that the fees of the constructed transactions match the
+-- fees we calculuated. This ought to be true at the moment, but may break when
+-- the size of the fee might change the size of the the transaction.
+calcFees :: Hash h Addr
+         => Transaction h Addr
+         -> ([[Fee]] -> Blocks h Addr)
+         -> Translate IntException (Blocks h Addr)
+calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
-    fees <- mapTranslateErrors IntExTx $ mapM (mapM (txToLinearFee policy)) txs
-    return $ f (map (map feeValue) fees)
+    let txToLinearFee' :: TxAux -> Translate IntException Value
+        txToLinearFee' = mapTranslateErrors IntExTx
+                       . fmap feeValue
+                       . txToLinearFee policy
+
+    (txs, _) <- runIntBoot boot $ f (repeat [0..])
+    fees     <- mapM (mapM txToLinearFee') txs
+    return $ f (unmarkOldestFirst fees)
   where
+    unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]
+    unmarkOldestFirst = map toList . toList
+
     feeValue :: TxFee -> Value
     feeValue (TxFee fee) = unsafeGetCoin fee

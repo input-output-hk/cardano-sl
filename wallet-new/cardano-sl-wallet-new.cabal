@@ -211,16 +211,17 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      UTxO.Context
-                      UTxO.Bootstrap
+  other-modules:      UTxO.Bootstrap
+                      UTxO.Context
                       UTxO.Crypto
                       UTxO.DSL
-                      UTxO.Fees
                       UTxO.Interpreter
+                      UTxO.PreChain
                       UTxO.Translate
                       UTxO.Verify
   default-language:   Haskell2010
-  default-extensions: ConstraintKinds
+  default-extensions: BangPatterns
+                      ConstraintKinds
                       DeriveGeneric
                       FlexibleContexts
                       FlexibleInstances
@@ -263,7 +264,6 @@ test-suite wallet-unit-tests
                     , lens
                     , log-warper
                     , mtl
-                    , pretty-show
                     , serokell-util
                     , text
                     , text-format

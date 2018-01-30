@@ -53,7 +53,7 @@ import Test.Pos.Util (
 -------------------------------------------------------------------------------}
 
 data TranslateEnv = TranslateEnv {
-      teContext :: Context
+      teContext :: TransCtxt
     , teConfig  :: Dict HasConfiguration
     , teUpdate  :: Dict HasUpdateConfiguration
     }
@@ -63,7 +63,7 @@ newtype Translate e a = Translate {
     }
   deriving (Functor, Applicative, Monad, MonadError e)
 
-instance MonadReader Context (Translate e) where
+instance MonadReader TransCtxt (Translate e) where
   ask     = Translate $ asks teContext
   local f = Translate . local f' . unTranslate
     where

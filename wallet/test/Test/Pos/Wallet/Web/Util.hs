@@ -21,7 +21,7 @@ module Test.Pos.Wallet.Web.Util
 import           Universum
 import           Unsafe (unsafeHead)
 
-import           Control.Concurrent.STM (putTMVar, tryTakeTMVar, writeTVar)
+import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List ((!!))
 import qualified Data.Map as M
@@ -30,7 +30,7 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, 
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag, ProgressHeaderTag)
+import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
@@ -78,10 +78,6 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
                 lastKnownHeader <- view (lensOf @LastKnownHeaderTag)
                 atomically $ writeTVar lastKnownHeader (Just tipBlockHeader)
-                progressHeader <- view (lensOf @ProgressHeaderTag)
-                atomically $ do
-                    void $ tryTakeTMVar progressHeader
-                    putTMVar progressHeader tipBlockHeader
                 pure (tipBlockHeader ^. headerHashG, blunds)
             Nothing -> pure (prevTip, blunds)
 

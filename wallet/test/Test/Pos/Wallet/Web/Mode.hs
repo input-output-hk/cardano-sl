@@ -38,8 +38,8 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressHeader,
-                                  ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
+                                  RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -141,7 +141,6 @@ data WalletTestContext = WalletTestContext
     -- ^ Secret keys which are used to send transactions
     , wtcRecoveryHeader   :: !RecoveryHeader
     -- ^ Stub empty value, not used for tests for now.
-    , wtcProgressHeader   :: !ProgressHeader
     , wtcLastKnownHeader  :: !LastKnownHeader
     , wtcStateLock        :: !StateLock
     -- ^ A lock which manages access to shared resources.
@@ -187,7 +186,6 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcStateLock <- newStateLock tip
             wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
-            wtcProgressHeader <- STM.newEmptyTMVarIO
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
             wtcHashes <- AddrCIdHashes <$> newIORef mempty
@@ -349,9 +347,6 @@ instance HasLens StateLock WalletTestContext StateLock where
 -- For MonadBlockchainInfo
 instance HasLens LastKnownHeaderTag WalletTestContext LastKnownHeader where
     lensOf = wtcLastKnownHeader_L
-
-instance HasLens ProgressHeaderTag WalletTestContext ProgressHeader where
-    lensOf = wtcProgressHeader_L
 
 instance HasLens ConnectedPeers WalletTestContext ConnectedPeers where
     lensOf = wtcConnectedPeers_L

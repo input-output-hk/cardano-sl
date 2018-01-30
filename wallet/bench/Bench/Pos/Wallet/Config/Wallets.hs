@@ -37,22 +37,8 @@ getWalletsConfig :: FilePath -> IO WalletsConfig
 getWalletsConfig pathToConfig =
     (Yaml.decodeFile pathToConfig :: IO (Maybe WalletsConfig)) >>= \case
         Nothing   -> reportAboutInvalidConfig
-        Just conf -> makeSureWalletsAreNonEmpty conf >> return conf
+        Just conf -> return conf
   where
     reportAboutInvalidConfig :: IO a
     reportAboutInvalidConfig = error . toText $
         "Unable to read endpoints configuration " <> pathToConfig
-
--- | Checks if wallets data isn't empty, otherwise we cannot run benchmarks.
-makeSureWalletsAreNonEmpty :: WalletsConfig -> IO ()
-makeSureWalletsAreNonEmpty WalletsConfig {..} = do
-    when (null wallets) reportAboutWalletsMissing
-    when (any null allAccounts) reportAboutAccountsMissing
-    when (any null allAddresses) reportAboutAddressesMissing
-  where
-    allAccounts  = [accs | (Wallet _ accs) <- wallets]
-    allAddresses = [addrs | (WalletAccount _ addrs) <- concat allAccounts]
-
-    reportAboutWalletsMissing   = error "At least one wallet must be defined in Wallets.yaml."
-    reportAboutAccountsMissing  = error "Each wallet must contain at least one account, check Wallets.yaml."
-    reportAboutAddressesMissing = error "Each account must contain at least one address, check Wallets.yaml."

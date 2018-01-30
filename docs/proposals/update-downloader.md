@@ -33,11 +33,7 @@ downloading of updates). There are the following requirements:
          the hash of the installer.
       2. Verify the hash of the downloaded installer.
       3. Notify frontend about it (if previous steps are successful).
-   
-   * If we have already downloaded an update we can ignore all new
-  updates until the downloaded one is installed (which happens on restart).
-   * [Optional] Ideally we shouldn't ignore all new updates, but
-  instead utilize newer update if it's possible. Though this one is questionable.
+
 2. If we process a lot of blocks and multiple update proposals get
    confirmed, only the last installer should be downloaded.
 3. It should be possible to specify multiple servers and if one fails
@@ -48,6 +44,13 @@ downloading of updates). There are the following requirements:
 5. If the installer is downloaded succesfully, then when user opens
    Daedalus next time, the installer should be launched automatically
    and update Daedalus.
+
+There are two options for (1):
+
+* 1.1. If we have already downloaded an update we can ignore all new
+updates until the downloaded one is installed (which happens on restart).
+* 1.2. [Optional] Ideally we shouldn't ignore all new updates, but
+instead utilize newer update if it's possible. Though this one is questionable.
 
 ## Current approach
 
@@ -75,7 +78,7 @@ mode.
   know servers from which we can download the update and try them
   one-by-one until we download the installer. When we download it, we
   also check that its hash is the expected one.
-     * NB: Servers are provided via to node via command line
+     * NB: Servers are provided to node via command line.
 * In the end we put information about downloaded update into `MVar`
   (`ucDownloadedUpdate`) and thus notify Daedalus.
 
@@ -136,8 +139,8 @@ more general problems:
 
 ## Suggested improvements
 
-To address the drawbacks of the current approach, I propose to do two
-changes:
+To address the drawbacks of the current approach, I propose to do the
+following changes:
 1. Change the check whether we have already downloaded the installer
    in `downloadUpdateDo` function. If the file doesn't exist, we can
    simply proceed with download. If the file exists, there are two

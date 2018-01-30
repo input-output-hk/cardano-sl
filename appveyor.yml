@@ -51,6 +51,13 @@ before_test:
 # CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('node/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
 - copy rocksdb.dll node
+- copy rocksdb.dll lib
+- copy rocksdb.dll wallet
+- copy rocksdb.dll wallet-new
+
+# Install liblzma/xz
+- ps: Start-FileDownload https://tukaani.org/xz/xz-5.2.3-windows.zip -Filename xz-5.2.3-windows.zip
+- 7z -oC:\xz_extracted x xz-5.2.3-windows.zip
 
 test_script:
   - cd "%WORK_DIR%"

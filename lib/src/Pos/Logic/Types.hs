@@ -5,10 +5,7 @@ module Pos.Logic.Types
     ( LogicLayer (..)
     , Logic (..)
     , KeyVal (..)
-    , GetBlockError (..)
-    , GetBlockHeaderError (..)
     , GetBlockHeadersError (..)
-    , GetTipError (..)
     , dummyLogicLayer
     ) where
 
@@ -34,11 +31,11 @@ data Logic m = Logic
     { -- The stakeholder id of our node.
       ourStakeholderId   :: StakeholderId
       -- Get a block, perhaps from a database.
-    , getBlock           :: HeaderHash -> m (Either GetBlockError (Maybe Block))
+    , getBlock           :: HeaderHash -> m (Maybe Block)
       -- Get a block header.
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
-    , getBlockHeader     :: HeaderHash -> m (Either GetBlockHeaderError (Maybe BlockHeader))
+    , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- Inspired by 'getHeadersFromManyTo'.
       -- Included here because that function is quite complicated; it's not
       -- clear whether it can be expressed simply in terms of getBlockHeader.:q
@@ -48,15 +45,16 @@ data Logic m = Logic
       -- FIXME we must unify these.
       -- May want to think about giving a streaming-IO interface (pipes, conduit
       -- or similar).
-    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (Maybe (OldestFirst NE HeaderHash)))
+    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
       -- normal.
-    , getTip             :: m (Either GetTipError Block)
-      -- TBD useful to have this and getTip? There are existing different
-      -- implementations so presumably yes?
-    , getTipHeader       :: m (Either GetTipError BlockHeader)
+    , getTip             :: m Block
+      -- Apparently 'getTipHeader' can be cheaper than
+      -- 'headerHash <$> getTip' in some particular cases, so we have
+      -- both.
+    , getTipHeader       :: m BlockHeader
 
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
@@ -141,29 +139,11 @@ data KeyVal key val m = KeyVal
     , handleData :: val -> m Bool
     }
 
--- | Failure description for getting a block from the logic layer.
-data GetBlockError = GetBlockError Text
-
-deriving instance Show GetBlockError
-instance Exception GetBlockError
-
--- | Failure description for getting a block header from the logic layer.
-data GetBlockHeaderError = GetBlockHeaderError Text
-
-deriving instance Show GetBlockHeaderError
-instance Exception GetBlockHeaderError
-
 -- | Failure description for getting a block header from the logic layer.
 data GetBlockHeadersError = GetBlockHeadersError Text
 
 deriving instance Show GetBlockHeadersError
 instance Exception GetBlockHeadersError
-
--- | Failure description for getting the tip of chain from the logic layer.
-data GetTipError = GetTipError Text
-
-deriving instance Show GetTipError
-instance Exception GetTipError
 
 -- | A diffusion layer: its interface, and a way to run it.
 data LogicLayer m = LogicLayer

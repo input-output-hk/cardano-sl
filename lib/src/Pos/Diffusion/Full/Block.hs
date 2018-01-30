@@ -47,7 +47,7 @@ import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Diffusion.Types (GetBlocksError (..))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Logic.Types (GetBlockHeadersError (..), GetTipError (..), Logic (..))
+import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
@@ -360,10 +360,8 @@ handleHeadersCommunication logic conv = do
                 -- This is how a peer requests one particular header: empty
                 -- checkpoint list, Just for the limiting hash.
                 ([], Just h)  -> do
-                    bheader <- getBlockHeader logic h
-                    case bheader of
-                        Left _ -> pure $ Left "getBlockHeader failed"
-                        Right mHeader -> pure . maybeToRight "getBlockHeader returned Nothing" . fmap one $ mHeader
+                    mHeader <- getBlockHeader logic h
+                    pure . maybeToRight "getBlockHeader returned Nothing" . fmap one $ mHeader
                 -- This is how a peer requests a chain of headers.
                 -- NB: if the limiting hash is Nothing, getBlockHeaders will
                 -- substitute our current tip.
@@ -378,16 +376,13 @@ handleHeadersCommunication logic conv = do
     -- genesis otherwise.
     getLastMainHeader :: d BlockHeader
     getLastMainHeader = do
-        etip :: Either GetTipError Block <- getTip logic
-        case etip of
-            Left err@(GetTipError _) -> throwM err
-            Right tip -> let tipHeader = tip ^. blockHeader in case tip of
-                Left _  -> do
-                    bheader <- getBlockHeader logic (tip ^. prevBlockL)
-                    case bheader of
-                        Left err      -> throwM err
-                        Right mHeader -> pure $ fromMaybe tipHeader mHeader
-                Right _ -> pure tipHeader
+        tip :: Block <- getTip logic
+        let tipHeader = tip ^. blockHeader
+        case tip of
+            Left _  -> do
+                mHeader <- getBlockHeader logic (tip ^. prevBlockL)
+                pure $ fromMaybe tipHeader mHeader
+            Right _ -> pure tipHeader
     handleSuccess :: NewestFirst NE BlockHeader -> d ()
     handleSuccess h = do
         send conv (MsgHeaders h)
@@ -454,18 +449,16 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
             mgb nodeId
         mHashes <- getBlockHeaders' logic mgbFrom mgbTo
         case mHashes of
-            Right (Just hashes) -> do
+            Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
                     getBlock logic hHash >>= \case
-                        Right (Just b) -> send conv $
+                        Just b -> send conv $
                             MsgBlock b
-                        Right Nothing  -> send conv $
-                            MsgNoBlock ("Block with hash " <> pretty hHash <> " not found")
-                        Left _         -> send conv $
+                        Nothing  -> send conv $
                             MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"

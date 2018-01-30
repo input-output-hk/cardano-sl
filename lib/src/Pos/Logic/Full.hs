@@ -37,8 +37,7 @@ import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
 import           Pos.Logic.Types (LogicLayer (..), Logic (..), KeyVal (..),
-                                  GetTipError (..), GetBlockError (..),
-                                  GetBlockHeadersError (..), GetBlockHeaderError (..))
+                                  GetBlockHeadersError (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
 import           Pos.Security.Params (SecurityParams)
@@ -90,8 +89,7 @@ type LogicWorkMode ctx m =
 -- monadX constraints to do most of its work.
 logicLayerFull
     :: forall ctx m x .
-       ( Monad m
-       , LogicWorkMode ctx m
+       ( LogicWorkMode ctx m
        )
     => (JLTxR -> m ())
     -> (LogicLayer m -> m x)
@@ -105,14 +103,14 @@ logicLayerFull jsonLogTx k =
         securityParams <- view (lensOf @SecurityParams)
 
         let
-            getBlock :: HeaderHash -> m (Either GetBlockError (Maybe Block))
-            getBlock = fmap Right . DB.getBlock
+            getBlock :: HeaderHash -> m (Maybe Block)
+            getBlock = DB.getBlock
 
-            getTip :: m (Either GetTipError Block)
-            getTip = fmap Right DB.getTipBlock
+            getTip :: m Block
+            getTip = DB.getTipBlock
 
-            getTipHeader :: m (Either GetTipError BlockHeader)
-            getTipHeader = fmap Right DB.getTipHeader
+            getTipHeader :: m BlockHeader
+            getTipHeader = DB.getTipHeader
 
             getAdoptedBVData :: m BlockVersionData
             getAdoptedBVData = gsAdoptedBVData
@@ -120,8 +118,8 @@ logicLayerFull jsonLogTx k =
             recoveryInProgress :: m Bool
             recoveryInProgress = Recovery.recoveryInProgress
 
-            getBlockHeader :: HeaderHash -> m (Either GetBlockHeaderError (Maybe BlockHeader))
-            getBlockHeader = fmap Right . DB.getHeader
+            getBlockHeader :: HeaderHash -> m (Maybe BlockHeader)
+            getBlockHeader = DB.getHeader
 
             getBlockHeaders
                 :: NonEmpty HeaderHash
@@ -131,18 +129,15 @@ logicLayerFull jsonLogTx k =
                 result <- runExceptT (DB.getHeadersFromManyTo DB.getHeader checkpoints start)
                 either (pure . Left . GetBlockHeadersError) (pure . Right) result
 
-            -- FIXME this should use a list rather than a Maybe over NonEmpty.
-            -- An empty list of header hashes is not an error, it just means
-            -- none were found.
             getBlockHeaders'
                 :: HeaderHash
                 -> HeaderHash
-                -> m (Either GetBlockHeadersError (Maybe (OldestFirst NE HeaderHash)))
+                -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
             getBlockHeaders' older newer = do
                 outcome <- DB.getHeadersRange DB.getHeader Nothing older newer
                 case outcome of
                     Left txt -> pure (Left (GetBlockHeadersError txt))
-                    Right it -> pure (Right (Just it))
+                    Right it -> pure (Right it)
 
             postBlockHeader :: BlockHeader -> NodeId -> m ()
             postBlockHeader = Block.handleUnsolicitedHeader

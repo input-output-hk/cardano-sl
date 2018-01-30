@@ -23,12 +23,13 @@ import           Pos.Core.Common (ChainDifficulty (..), BlockCount (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
 import           Pos.Core.Slotting (SlotId (..), EpochIndex (..), LocalSlotIndex (..))
-import           Pos.Core.Txp (TxPayload (..), TxProof (..))
+import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
+import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Crypto.Hashing (AbstractHash (..), Hash)
 import           Pos.Crypto.Signing (PublicKey (..), Signature (..))
 import           Pos.Data.Attributes (UnparsedFields (..), Attributes (..))
-import           Pos.Merkle (MerkleTree (..), MerkleRoot (..))
+import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Util.Chrono (OldestFirst (..), NewestFirst (..))
 
 import           Pos.Logic.Types (Logic (..), KeyVal (..))
@@ -40,12 +41,12 @@ pureLogic
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
-    , getBlock           = \_ -> pure (Right (Just block))
-    , getBlockHeader     = \_ -> pure (Right (Just blockHeader))
+    , getBlock           = \_ -> pure (Just block)
+    , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getBlockHeaders    = \_ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getBlockHeaders'   = \_ _ -> pure (Right (Just (OldestFirst (pure mainBlockHeaderHash))))
-    , getTip             = pure (Right block)
-    , getTipHeader       = pure (Right blockHeader)
+    , getBlockHeaders'   = \_ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
+    , getTip             = pure block
+    , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure True
@@ -136,12 +137,6 @@ blockBody = MainBody
     , _mbSscPayload    = emptySscPayload
     , _mbDlgPayload    = emptyDlgPayload
     , _mbUpdatePayload = emptyUpdatePayload
-    }
-
-emptyTxPayload :: TxPayload
-emptyTxPayload = UnsafeTxPayload
-    { _txpTxs       = MerkleEmpty
-    , _txpWitnesses = []
     }
 
 -- SscPayload is 4 alternatives. I chose CertificatesPayload because it has

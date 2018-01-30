@@ -5,8 +5,7 @@ This manual describes how to build Cardano SL and Daedalus from the source code.
 ## Cardano SL and Daedalus
 
 Cardano SL consists of a collection of binaries that constitute
-the backend, a PureScript API for the Electron-based wallet, and the
-Electron-based wallet called “Daedalus”.
+the backend and the Electron-based wallet called “Daedalus”.
 
 The source code of Cardano SL can be obtained from the
 [official repository](https://github.com/input-output-hk/cardano-sl).

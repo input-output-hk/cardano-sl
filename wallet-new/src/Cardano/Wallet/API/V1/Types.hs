@@ -7,17 +7,9 @@
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
-    ExtendedResponse (..)
-  , Metadata (..)
-  , Page(..)
-  , PerPage(..)
-  , ResponseFormat (..)
-  , PaginationParams (..)
-  , maxPerPageEntries
-  , defaultPerPageEntries
-  , OneOf (..)
-  , PasswordUpdate (..)
+    PasswordUpdate (..)
   , AccountUpdate (..)
+  , NewAccount (..)
   , Update
   , New
   -- * Domain-specific types
@@ -28,10 +20,16 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , SpendingPassword
+  -- * Addresses
+  , AddressValidity (..)
   -- * Accounts
   , Account (..)
   , AccountId
+  -- * Addresses
+  , WalletAddress (..)
+  , NewAddress (..)
   -- * Payments
+  , TxId (..)
   , Payment (..)
   , PaymentDistribution (..)
   , Transaction (..)
@@ -61,11 +59,9 @@ import           Universum
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as C
-import           Data.Default (Default (def))
+import           Data.Default
 import           Data.Text (Text, dropEnd, toLower)
-import qualified Data.Text.Buildable
 import           Data.Version (Version)
-import           Formatting (build, sformat)
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
@@ -82,143 +78,6 @@ import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core as Core
 import qualified Pos.Crypto.Signing as Core
-
---
--- Swagger & REST-related types
---
-
--- | A `Page` is used in paginated endpoints to request access to a particular
--- subset of a collection.
-newtype Page = Page Int
-             deriving (Show, Eq, Ord, Num)
-
-deriveJSON Serokell.defaultOptions ''Page
-
-instance Arbitrary Page where
-  arbitrary = Page . getPositive <$> arbitrary
-
-instance FromHttpApiData Page where
-    parseQueryParam qp = case parseQueryParam qp of
-        Right (p :: Int) | p < 1 -> Left "A page number cannot be less than 1."
-        Right (p :: Int) -> Right (Page p)
-        Left e           -> Left e
-
-instance ToHttpApiData Page where
-    toQueryParam (Page p) = fromString (show p)
-
--- | If not specified otherwise, return first page.
-instance Default Page where
-    def = Page 1
-
--- | A `PerPage` is used to specify the number of entries which should be returned
--- as part of a paginated response.
-newtype PerPage = PerPage Int
-                deriving (Show, Eq, Num, Ord)
-
-deriveJSON Serokell.defaultOptions ''PerPage
-
--- | The maximum number of entries a paginated request can return on a single call.
--- This value is currently arbitrary and it might need to be tweaked down to strike
--- the right balance between number of requests and load of each of them on the system.
-maxPerPageEntries :: Int
-maxPerPageEntries = 50
-
--- | If not specified otherwise, a default number of 10 entries from the collection will
--- be returned as part of each paginated response.
-defaultPerPageEntries :: Int
-defaultPerPageEntries = 10
-
-instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
-
-instance FromHttpApiData PerPage where
-    parseQueryParam qp = case parseQueryParam qp of
-        Right (p :: Int) | p < 1 -> Left "per_page should be at least 1."
-        Right (p :: Int) | p > maxPerPageEntries ->
-                           Left $ fromString $ "per_page cannot be greater than " <> show maxPerPageEntries <> "."
-        Right (p :: Int) -> Right (PerPage p)
-        Left e           -> Left e
-
-instance ToHttpApiData PerPage where
-    toQueryParam (PerPage p) = fromString (show p)
-
-instance Default PerPage where
-    def = PerPage defaultPerPageEntries
-
--- | Extra information associated with an HTTP response.
-data Metadata = Metadata
-  { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
-  , metaPage         :: Page    -- ^ The current page number (index starts at 1).
-  , metaPerPage      :: PerPage -- ^ The number of entries contained in this page.
-  , metaTotalEntries :: Int     -- ^ The total number of entries in the collection.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Metadata
-
-instance Arbitrary Metadata where
-  arbitrary = Metadata <$> fmap getPositive arbitrary
-                       <*> arbitrary
-                       <*> arbitrary
-                       <*> fmap getPositive arbitrary
-
--- | An `ExtendedResponse` allows the consumer of the API to ask for
--- more than simply the result of the RESTful endpoint, but also for
--- extra informations like pagination parameters etc.
-data ExtendedResponse a = ExtendedResponse
-  { extData :: a        -- ^ The wrapped domain object.
-  , extMeta :: Metadata -- ^ Extra metadata to be returned.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''ExtendedResponse
-
-instance Arbitrary a => Arbitrary (ExtendedResponse a) where
-  arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
-
--- | A `ResponseFormat` determines which type of response we want to return.
--- For now there's only two response formats - plain and extended with pagination data.
-data ResponseFormat = Plain | Extended
-    deriving (Show, Eq, Generic, Enum, Bounded)
-
-instance Buildable ResponseFormat where
-    build Plain    = "plain"
-    build Extended = "extended"
-
-instance FromHttpApiData ResponseFormat where
-    parseQueryParam qp = parseQueryParam @Text qp >>= \case
-        "plain"    -> Right Plain
-        "extended" -> Right Extended
-        _          -> Right def -- yield the default
-
-instance ToHttpApiData ResponseFormat where
-    toQueryParam = sformat build
-
-instance Default ResponseFormat where
-    def = Plain
-
-instance Arbitrary ResponseFormat where
-    arbitrary = oneof $ map pure [minBound..maxBound]
-
--- | `PaginationParams` is datatype which combines request params related
--- to pagination together
-
-data PaginationParams = PaginationParams
-    { ppPage           :: Page
-    , ppPerPage        :: PerPage
-    , ppResponseFormat :: ResponseFormat
-    } deriving (Show, Eq, Generic)
-
--- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
--- depending from some query or header parameters. In this context, this represents an HTTP Response which can
--- return the wrapped object OR the ExtendedResponse.
-newtype OneOf a b = OneOf { oneOf :: Either a b } deriving (Show, Eq, Generic)
-
-instance (ToJSON a, ToJSON b) => ToJSON (OneOf a b) where
-  toJSON (OneOf (Left x))  = toJSON x -- Simply "unwrap" the type.
-  toJSON (OneOf (Right x)) = toJSON x -- Simply "unwrap" the type.
-
-instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
-  arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
-                              , fmap Right (arbitrary :: Gen b)]
 
 --
 -- Domain-specific types, mostly placeholders.
@@ -246,14 +105,14 @@ deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower
                                    } ''AssuranceLevel
 
 -- | A Wallet ID.
-newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
+newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletId
 
 instance Arbitrary WalletId where
   arbitrary =
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-          in WalletId . fromString <$> elements [wid]
+          in WalletId <$> elements [wid]
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
@@ -296,7 +155,7 @@ data Wallet = Wallet {
       walId      :: !WalletId
     , walName    :: !WalletName
     , walBalance :: !Core.Coin
-    } deriving (Eq, Show, Generic)
+    } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
 
@@ -305,27 +164,44 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
-type AccountId = Text
+--------------------------------------------------------------------------------
+-- Addresses
+--------------------------------------------------------------------------------
 
--- | A wallet's 'Account'.
+-- | Whether an address is valid or not.
+newtype AddressValidity = AddressValidity { isValid :: Bool }
+  deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressValidity
+
+instance Arbitrary AddressValidity where
+  arbitrary = AddressValidity <$> arbitrary
+
+--------------------------------------------------------------------------------
+-- Accounts
+--------------------------------------------------------------------------------
+
+type AccountId = Word32
+
+-- | A wallet 'Account'.
 data Account = Account
   { accId        :: !AccountId
-  , accAddresses :: [Core.Address]
+  , accAddresses :: [Core.Address]  -- should be WalletAddress
   , accAmount    :: !Core.Coin
   , accName      :: !Text
   -- ^ The Account name.
   , accWalletId  :: WalletId
   -- ^ The 'WalletId' this 'Account' belongs to.
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
-  arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
-                                   <*> listOf1 arbitrary
-                                   <*> arbitrary
-                                   <*> pure "My account"
-                                   <*> arbitrary
+  arbitrary = Account <$> arbitrary
+                      <*> arbitrary
+                      <*> arbitrary
+                      <*> pure "My account"
+                      <*> arbitrary
 
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text
@@ -334,7 +210,47 @@ data AccountUpdate = AccountUpdate {
 deriveJSON Serokell.defaultOptions ''AccountUpdate
 
 instance Arbitrary AccountUpdate where
-  arbitrary = AccountUpdate . fromString <$> pure "myAccount"
+  arbitrary = AccountUpdate <$> pure "myAccount"
+
+data NewAccount = NewAccount
+  { naccSpendingPassword :: !(Maybe SpendingPassword)
+  , naccName             :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAccount
+
+instance Arbitrary NewAccount where
+  arbitrary = NewAccount <$> arbitrary
+                         <*> arbitrary
+
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+  { addrId            :: !Core.Address
+  , addrBalance       :: !Core.Coin
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance Arbitrary WalletAddress where
+  arbitrary = WalletAddress <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
+data NewAddress = NewAddress
+  { newaddrSpendingPassword :: !(Maybe SpendingPassword)
+  , newaddrAccountId        :: !AccountId
+  , newaddrWalletId         :: !WalletId
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewAddress
+
+instance Arbitrary NewAddress where
+  arbitrary = NewAddress <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -367,7 +283,7 @@ instance Arbitrary EstimatedFees where
 data PaymentDistribution = PaymentDistribution {
       pdAddress :: Core.Address
     , pdAmount  :: Core.Coin
-    } deriving (Show, Eq)
+    } deriving (Show, Ord, Eq)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
 
@@ -378,10 +294,13 @@ instance Arbitrary PaymentDistribution where
 -- | A policy to be passed to each new payment request to
 -- determine how a 'Transaction' is assembled.
 data TransactionGroupingPolicy =
-    OptimiseForSizePolicy
+    OptimiseForHighThroughputPolicy
   -- ^ Tries to minimise the size of the created transaction
   -- by choosing only the biggest value available up until
   -- the stake sum is greater or equal the payment amount.
+  -- Confirmed addresses are givest the highest priority (i.e.
+  -- the set of pending transactions is taken into consideration
+  -- to pick, if possible, only "stable" addresses.
   | OptimiseForSecurityPolicy
   -- ^ Tries to minimise the number of addresses left with
   -- unspent funds after the transaction has been created.
@@ -393,17 +312,22 @@ instance Arbitrary TransactionGroupingPolicy where
 -- Drops the @Policy@ suffix.
 deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
 
+instance Default TransactionGroupingPolicy where
+    def = OptimiseForSecurityPolicy
+
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
-  { pmtSourceWallet   :: !WalletId
+  { pmtSourceWallet     :: !WalletId
     -- ^ The source Wallet.
-  , pmtSourceAccount  :: !AccountId
+  , pmtSourceAccount    :: !AccountId
     -- ^ The source Account.
-  , pmtDestinations   :: !(NonEmpty PaymentDistribution)
+  , pmtDestinations     :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.
-  , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
+  , pmtGroupingPolicy   :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
-  } deriving (Show, Eq, Generic)
+  , pmtSpendingPassword :: !(Maybe SpendingPassword)
+    -- ^ spending password to encrypt private keys
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
 
@@ -412,8 +336,34 @@ instance Arbitrary Payment where
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
+                      <*> arbitrary
 
-type TxId = Text
+----------------------------------------------------------------------------
+-- TxId
+----------------------------------------------------------------------------
+
+-- | TxId
+newtype TxId = TxId Text
+    deriving (Show, Eq, Ord, Generic)
+
+deriveJSON Serokell.defaultOptions ''TxId
+
+instance Arbitrary TxId where
+  arbitrary = TxId . fromString <$> elements
+      [ "1f434ae9e903ea86f420cd18160d2a6c4d5efa29a1004dfb0466f7a2ec643a6d"
+      , "b53fadd178f752271cfd079aeaf2b791870ede4ed1456d889e43273a8cef87fb"
+      , "a792424d01bbba9fcdf129f40cdde3808baa7c9c38f898e40e7545358a093ca6"
+      ]
+
+instance FromHttpApiData TxId where
+    parseQueryParam = Right . TxId
+
+instance ToHttpApiData TxId where
+    toQueryParam (TxId txId) = txId
+
+----------------------------------------------------------------------------
+  -- Transaction types
+----------------------------------------------------------------------------
 
 -- | The 'Transaction' type.
 data TransactionType =
@@ -423,7 +373,7 @@ data TransactionType =
   -- transaction was originated.
   | ForeignTransaction
   -- ^ This transaction is not local to this wallet.
-  deriving (Show, Eq, Enum, Bounded)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
@@ -438,7 +388,7 @@ data TransactionDirection =
   -- ^ This represents an incoming transactions.
   | OutgoingTransaction
   -- ^ This qualifies external transactions.
-  deriving (Show, Eq, Enum, Bounded)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 instance Arbitrary TransactionDirection where
   arbitrary = elements [minBound .. maxBound]
@@ -463,12 +413,12 @@ data Transaction = Transaction
     -- ^ The type for this transaction (e.g local, foreign, etc).
   , txDirection     :: TransactionDirection
     -- ^ The direction for this transaction (e.g incoming, outgoing).
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
-  arbitrary = Transaction <$> fmap fromString arbitrary
+  arbitrary = Transaction <$> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
@@ -487,8 +437,8 @@ data WalletSoftwareUpdate = WalletSoftwareUpdate
 deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
 
 instance Arbitrary WalletSoftwareUpdate where
-  arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
-                                   <*> fmap fromString arbitrary
+  arbitrary = WalletSoftwareUpdate <$> arbitrary
+                                   <*> arbitrary
                                    <*> fmap getPositive arbitrary
 
 -- | How many milliseconds a slot lasts for.
@@ -634,9 +584,11 @@ instance Arbitrary NodeInfo where
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet  = WalletUpdate
-  Update Account = AccountUpdate
+  Update Wallet        = WalletUpdate
+  Update Account       = AccountUpdate
+  Update WalletAddress = () -- read-only
 
 type family New (original :: *) :: * where
   New Wallet  = NewWallet
-  New Account = AccountUpdate -- POST == PUT
+  New Account = NewAccount
+  New WalletAddress = NewAddress

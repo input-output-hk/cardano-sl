@@ -505,10 +505,12 @@ runUpdater ndbp ud = do
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
-runUpdaterProc path args = liftIO $ do
-    let cr = createProc Process.CreatePipe path args
-    phvar <- newEmptyMVar
-    system' phvar cr mempty EUpdater
+runUpdaterProc path args = do
+    logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
+    liftIO $ do
+        let cr = createProc Process.CreatePipe path args
+        phvar <- newEmptyMVar
+        system' phvar cr mempty EUpdater
 
 writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do

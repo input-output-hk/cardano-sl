@@ -161,7 +161,7 @@ dbOptionsParser = WalletDBOptions <$> dbPathParser
     dbPathParser :: Parser FilePath
     dbPathParser = strOption (long  "wallet-db-path" <>
                               help  "Path to the wallet's database." <>
-                              value "wallet-new-db"
+                              value "wallet-db"
                              )
 
     rebuildDbParser :: Parser Bool

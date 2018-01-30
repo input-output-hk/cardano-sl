@@ -31,9 +31,12 @@ pickRandomElementFrom aList = do
 -- both are positive and @to@ is greater than @from@.
 waitRandom :: (Double, Double) -> IO ()
 waitRandom (from, to) =
-    randomRIO (fromInMicrosec, toInMicrosec) >>= threadDelay
+    if thereIsNoDelay
+        then return ()
+        else randomRIO (fromInMicrosec, toInMicrosec) >>= threadDelay
   where
     fromInMicrosec, toInMicrosec :: Int
     fromInMicrosec = truncate $ from * asMicrosec
     toInMicrosec   = truncate $ to * asMicrosec
+    thereIsNoDelay = fromInMicrosec == 0 && toInMicrosec == 0
     asMicrosec = 1000000

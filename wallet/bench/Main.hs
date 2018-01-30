@@ -25,7 +25,7 @@ import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getW
 --       --ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
 --
 -- It's a client, so we assume that the node (with Wallet Web API enabled)
--- is already running.
+-- is already running. During benchmarking we treat a node as a blackbox.
 main :: IO ()
 main = do
     hSetEncoding stdout utf8

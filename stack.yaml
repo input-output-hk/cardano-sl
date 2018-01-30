@@ -113,7 +113,7 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/input-output-hk/rocksdb-haskell-ng.git 
+    git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
     commit: 49f501a082d745f3b880677220a29cafaa181452 
   extra-dep: true
 

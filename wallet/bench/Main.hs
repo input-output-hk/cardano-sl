@@ -48,5 +48,5 @@ main = do
       -- | Run benchmark if config for corresponding endpoint is defined.
     maybeRun client endpoint conf =
         maybe (return ())
-              (runBench client endpoint conf)
+              (runBench client conf)
               (extractEndpointConfigFor endpoint conf)

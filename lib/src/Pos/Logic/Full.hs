@@ -126,7 +126,7 @@ logicLayerFull jsonLogTx k =
                 -> Maybe HeaderHash
                 -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
             getBlockHeaders checkpoints start = do
-                result <- runExceptT (DB.getHeadersFromManyTo DB.getHeader checkpoints start)
+                result <- runExceptT (DB.getHeadersFromManyTo checkpoints start)
                 either (pure . Left . GetBlockHeadersError) (pure . Right) result
 
             getBlockHeaders'
@@ -134,7 +134,7 @@ logicLayerFull jsonLogTx k =
                 -> HeaderHash
                 -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
             getBlockHeaders' older newer = do
-                outcome <- DB.getHeadersRange DB.getHeader Nothing older newer
+                outcome <- DB.getHeadersRange Nothing older newer
                 case outcome of
                     Left txt -> pure (Left (GetBlockHeadersError txt))
                     Right it -> pure (Right it)

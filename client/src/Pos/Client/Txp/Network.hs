@@ -51,7 +51,7 @@ submitAndSave
     => Diffusion m -> TxAux -> m Bool
 submitAndSave diffusion txAux@TxAux {..} = do
     let txId = hash taTx
-    accepted <- sendTx diffusion txAux
+    accepted <- submitTxRaw diffusion txAux
     saveTx (txId, txAux)
     pure accepted
 

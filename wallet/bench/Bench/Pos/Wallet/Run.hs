@@ -11,19 +11,18 @@ import           Gauge.Main.Options      (Config (..), Mode (..), defaultConfig)
 
 import           Bench.Pos.Wallet.Random (waitRandom)
 import           Bench.Pos.Wallet.Types  (CompleteConfig (..), EndpointConfig (..),
-                                          BenchEndpoint (..), EndpointClient)
+                                          EndpointClient)
 
 -- | Runs benchmark using particular client.
 runBench
     :: EndpointClient
-    -> BenchEndpoint
     -> CompleteConfig
     -> EndpointConfig
     -> IO ()
-runBench endpointClient benchEp completeConfig EndpointConfig {..} =
+runBench endpointClient completeConfig EndpointConfig {..} =
     runMode DefaultMode
             config
-            [show benchEp]
+            [benchName]
             [bench benchName $ nfIO ioForBench]
   where
     -- Since we treat a node as a blackbox, we measure complete IO-action.

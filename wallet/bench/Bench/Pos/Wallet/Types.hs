@@ -15,7 +15,7 @@ import           Universum
 
 -- | Complete configuration for benchmarking.
 data CompleteConfig = CompleteConfig
-    { endpointsConfig :: ![EndpointConfig]
+    { endpointsConfig :: !(NonEmpty EndpointConfig)
     , walletsConfig   :: !WalletsConfig
     , tlsPubCert      :: !ByteString
     , tlsPrivKey      :: !ByteString
@@ -40,18 +40,18 @@ data EndpointConfig = EndpointConfig
 -- | @WalletAccount@, for Wallets configuration, obtained from the .yaml-file.
 data WalletAccount = WalletAccount
     { accountId :: !Text
-    , addresses :: ![Text]
+    , addresses :: !(NonEmpty Text)
     }
 
 -- | @Wallet@, for Wallets configuration, obtained from the .yaml-file.
 data Wallet = Wallet
     { walletId :: !Text
-    , accounts :: ![WalletAccount]
+    , accounts :: !(NonEmpty WalletAccount)
     }
 
 -- | @WalletsConfig@, for Wallets configuration, obtained from the .yaml-file.
 data WalletsConfig = WalletsConfig
-    { wallets :: ![Wallet]
+    { wallets :: !(NonEmpty Wallet)
     }
 
 -- | Command-line options for benchmarks.

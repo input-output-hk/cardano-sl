@@ -12,11 +12,12 @@ import           Universum
 import           Data.Csv               (FromRecord (..), HasHeader (..),
                                          (.!), decode)
 
-import           Data.Monoid            ((<>))
+import           Control.Exception      (SomeException)
 import qualified Data.ByteString.Lazy   as Lazy
+import           Data.List.NonEmpty     (fromList)
+import           Data.Monoid            ((<>))
 import           Data.Vector            (Vector)
 import qualified Data.Vector            as V
-import           Control.Exception      (SomeException)
 
 import           Bench.Pos.Wallet.Types (CompleteConfig (..),
                                          EndpointConfig (..),
@@ -26,14 +27,15 @@ import           Bench.Pos.Wallet.Types (CompleteConfig (..),
 --
 -- BenchName,BenchDuration,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile
 -- GetHistoryBench,5.0,0.5,2.5,wallet/bench/results/GetHistoryBenchReport.csv
-getEndpointsConfig :: FilePath -> IO [EndpointConfig]
+getEndpointsConfig :: FilePath -> IO (NonEmpty EndpointConfig)
 getEndpointsConfig pathToConfig = do
     content <- Lazy.readFile pathToConfig `catch` anyProblems
     case extractConfig content of
         Left problem -> reportAboutInvalidConfig problem
         Right (V.toList -> configs) -> do
+            makeSureConfigsAreNonEmpty configs
             mapM_ checkDelayRange configs
-            return configs
+            return $ fromList configs
   where
     extractConfig rawContent =
         decode HasHeader rawContent :: Either String (Vector EndpointConfig)
@@ -45,6 +47,10 @@ getEndpointsConfig pathToConfig = do
     reportAboutInvalidConfig :: String -> IO a
     reportAboutInvalidConfig problem = error . toText $
         "Invalid configuration " <> pathToConfig <> ": " <> show problem
+
+    makeSureConfigsAreNonEmpty :: [EndpointConfig] -> IO ()
+    makeSureConfigsAreNonEmpty configs =
+        when (null configs) $ error "Endpoints.csv must contain at least one endpoint for benchmarking."
 
     checkDelayRange :: EndpointConfig -> IO ()
     checkDelayRange (EndpointConfig name _ from to _) =

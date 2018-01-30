@@ -21,4 +21,4 @@ getWalletIO conf@CompleteConfig {..} = do
         Left problem -> putText $ "Cannot obtain wallet information: " <> problem
         Right wallet -> print wallet     -- :: CWallet
   where
-    walletsIds = [CId (CHash anId) | Wallet anId _ <- wallets walletsConfig]
+      walletsIds = [CId (CHash anId) | Wallet anId _ <- toList (wallets walletsConfig)]

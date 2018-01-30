@@ -389,6 +389,7 @@ benchmark cardano-sl-wallet-bench
                      , optparse-applicative
                      , random
                      , QuickCheck
+                     , semigroups
                      , servant
                      , servant-client
                      , statistics

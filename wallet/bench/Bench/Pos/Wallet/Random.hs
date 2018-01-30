@@ -1,15 +1,24 @@
 -- | Functions for random values.
 
 module Bench.Pos.Wallet.Random
-    ( pickRandomElementFrom
+    ( pickRandomWalletIdFrom
     , waitRandom
     ) where
 
 import           Universum
 
-import           Control.Concurrent (threadDelay)
-import           Data.List          ((!!))
-import           System.Random      (randomRIO)
+import           Control.Concurrent         (threadDelay)
+import           Data.List                  ((!!))
+import           System.Random              (randomRIO)
+
+import           Bench.Pos.Wallet.Types     (Wallet (..), WalletsConfig (..))
+import           Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), Wal)
+
+-- | Picks wallet's identifier randomly.
+pickRandomWalletIdFrom :: MonadIO m => WalletsConfig -> m (CId Wal)
+pickRandomWalletIdFrom WalletsConfig {..} = pickRandomElementFrom walletsIds
+  where
+    walletsIds = [CId (CHash anId) | Wallet anId _ <- toList wallets]
 
 -- | It is assumed that list isn't empty.
 pickRandomElementFrom :: MonadIO m => [a] -> m a

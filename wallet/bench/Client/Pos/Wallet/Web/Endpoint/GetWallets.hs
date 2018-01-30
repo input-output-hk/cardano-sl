@@ -15,4 +15,4 @@ getWalletsIO :: CompleteConfig -> IO ()
 getWalletsIO conf =
     runEndpointClient conf getWallets >>= \case
         Left problem -> putText $ "Cannot obtain wallets information: " <> problem
-        Right walletsInfo -> print walletsInfo     -- :: [CWallet]
+        Right _ -> return ()

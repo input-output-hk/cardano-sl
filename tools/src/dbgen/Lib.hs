@@ -17,13 +17,12 @@ import qualified Data.ByteString                      as B
 import           Data.String.Conv
 import           Data.Time
 import           Data.Map                             (union, fromList)
-import           Data.Aeson                           (FromJSON, ToJSON, eitherDecodeStrict)
+import           Data.Aeson                           (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
 import           GHC.Generics                         (Generic)
 import           Network.Haskoin.Crypto               (Entropy, toMnemonic)
 import           Pos.Crypto.Random
 import           Pos.DB.GState.Common                 (getTip)
 import           Pos.StateLock
-import           Pos.Core.Address                     (Address)
 import           Pos.Core.Types                       (Coin, mkCoin)
 import           Pos.Txp.Core.Types                   (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types                   (utxoToModifier)
@@ -45,12 +44,12 @@ import           Text.Printf
 --
 
 -- | A simple example of how the configuration looks like.
-_testSpec :: GenSpec
-_testSpec = GenSpec
+_exampleSpec :: GenSpec
+_exampleSpec = GenSpec
     { walletSpec = WalletSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
-        , fakeUtxo = FakeUtxoSpec { amount = 1000, distribution = RangeDistribution { range=100 } }
+        , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
         }
     , wallets = 1
     }
@@ -66,11 +65,11 @@ instance FromJSON GenSpec
 instance ToJSON GenSpec
 
 data WalletSpec = WalletSpec
-    { accounts      :: !Integer
+    { accounts          :: !Integer
     -- ^ How many accounts to generate
-    , accountSpec  :: AccountSpec
+    , accountSpec       :: AccountSpec
     -- ^ How specification for each account.
-    , fakeUtxo      :: FakeUtxoSpec
+    , fakeUtxoCoinDistr :: FakeUtxoCoinDistribution
     -- ^ Configuration for the generation of the fake UTxO.
     } deriving (Show, Eq, Generic)
 
@@ -90,32 +89,33 @@ instance ToJSON AccountSpec
 -- of `toAddress` to cap the distribution - we have examples where we
 -- have around 80 000 addresses which is a lot and can be intensive?
 -- For now, KISS.
-data FakeUtxoSpec = FakeUtxoSpec
-    { amount       :: !Integer
-    -- ^ How much ADA do we want to distribute in a single address.
-    , distribution :: CoinDistributionSpec
-    -- ^ Choose a @CoinDistributionSpec@.
-    } deriving (Show, Eq, Generic)
-
-instance FromJSON FakeUtxoSpec
-instance ToJSON FakeUtxoSpec
-
-data CoinDistributionSpec
+data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
-    | RangeDistribution { range :: !Integer }
-    -- ^ Distributes to only XX addresses.
+    | RangeDistribution
+        { range   :: !Integer
+        -- ^ Distributes to only XX addresses.
+        , amount  :: !Integer
+        -- ^ The amount we want to distribute to those addresses.
+        }
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
-instance FromJSON CoinDistributionSpec
-instance ToJSON CoinDistributionSpec
+instance FromJSON FakeUtxoCoinDistribution where
+    parseJSON = withObject "CoinDistribution" $ \o -> do
+        distrType <- o .: "type"
+        case distrType of
+          "none"  -> pure NoDistribution
+          "range" -> RangeDistribution <$> o .: "range" <*> o .: "amount"
+          _       -> fail ("Unknown type: " ++ distrType)
+
+instance ToJSON FakeUtxoCoinDistribution
 
 {-
-λ> encode NoDistribution
-"{\"tag\":\"NoDistribution\"}"
-λ> encode $ RangeDistribution { range=100 }
-"{\"tag\":\"RangeDistribution\",\"range\":100}"
+λ> decode $ "{\"type\":\"none\"}" :: Maybe CoinDistributionSpec
+Just NoDistribution
+λ> decode $ "{\"type\":\"range\",\"range\":1000}" :: Maybe CoinDistributionSpec
+Just (RangeDistribution {range = 1000})
 -}
 
 --
@@ -163,9 +163,9 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
     -- CAccountId.
 
     -- TODO(ks): Simplify this?
-    let fakeUtxoSpec = fakeUtxo walletSpec
+    let fakeUtxoSpec = fakeUtxoCoinDistr walletSpec
     case addTo of
-        Just accId -> case (distribution fakeUtxoSpec) of
+        Just accId -> case fakeUtxoSpec of
             NoDistribution -> addAddressesTo accId spec
             _              -> generateFakeUtxo fakeUtxoSpec accId
         Nothing -> do
@@ -174,9 +174,10 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
             forM_ (zip [1..] wallets') (genAccounts spec)
     say $ green "OK."
 
-generateFakeUtxo :: FakeUtxoSpec -> AccountId -> UberMonad ()
-generateFakeUtxo FakeUtxoSpec{..} aId = do
-    let fromAddr = distrToNumAddr distribution
+generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
+generateFakeUtxo NoDistribution _          = error "Cannot generate fake UTxO without distribution."
+generateFakeUtxo RangeDistribution{..} aId = do
+    let fromAddr = range
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
 
@@ -202,12 +203,7 @@ generateFakeUtxo FakeUtxoSpec{..} aId = do
     genTxIn :: IO TxIn
     genTxIn = generate $ TxInUtxo <$> arbitrary <*> arbitrary
 
-    unwrapCAddress :: CAddress -> Either Text Address
     unwrapCAddress = decodeCType . cadId
-
-    distrToNumAddr :: CoinDistributionSpec -> Integer
-    distrToNumAddr NoDistribution             = 0
-    distrToNumAddr (RangeDistribution range)  = range
 
 
 addAddressesTo :: AccountId -> GenSpec -> UberMonad ()

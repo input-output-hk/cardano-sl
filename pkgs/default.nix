@@ -26573,21 +26573,28 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.asl20;
          }) {};
       "mono-traversable" = callPackage
-        ({ mkDerivation, base, bytestring, containers, hashable, split
-         , stdenv, text, transformers, unordered-containers, vector
-         , vector-algorithms
+        ({ mkDerivation, base, bytestring, containers, fetchgit, hashable
+         , hpack, split, stdenv, text, transformers, unordered-containers
+         , vector, vector-algorithms
          }:
          mkDerivation {
            pname = "mono-traversable";
-           version = "1.0.2.1";
-           sha256 = "4ed2f4a2c389105b330b631eeff03e36908765ca120888922aeda819f9cdb16a";
+           version = "1.0.7.0";
+           src = fetchgit {
+             url = "https://github.com/snoyberg/mono-traversable.git";
+             sha256 = "0hfli0lhw0ppikz1m6wvbkq8zmrqny33m4dm15nzpm0q6c4v6n61";
+             rev = "a4c980c36f2fe8b8f78ac5b235c60ab91493bf01";
+           };
+           postUnpack = "sourceRoot+=/mono-traversable; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [
              base bytestring containers hashable split text transformers
              unordered-containers vector vector-algorithms
            ];
+           libraryToolDepends = [ hpack ];
            doHaddock = false;
            doCheck = false;
-           homepage = "https://github.com/snoyberg/mono-traversable";
+           preConfigure = "hpack";
+           homepage = "https://github.com/snoyberg/mono-traversable#readme";
            description = "Type classes for mapping, folding, and traversing monomorphic containers";
            license = stdenv.lib.licenses.mit;
          }) {};
@@ -41025,15 +41032,22 @@ inherit (pkgs) which;};
       "wai-extra" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, base, base64-bytestring
          , blaze-builder, bytestring, case-insensitive, containers, cookie
-         , data-default-class, deepseq, directory, fast-logger, http-types
-         , iproute, lifted-base, network, old-locale, resourcet, stdenv
-         , streaming-commons, stringsearch, text, time, transformers, unix
-         , unix-compat, vault, void, wai, wai-logger, word8, zlib
+         , data-default-class, deepseq, directory, fast-logger, fetchgit
+         , http-types, iproute, lifted-base, network, old-locale, resourcet
+         , stdenv, streaming-commons, stringsearch, text, time, transformers
+         , unix, unix-compat, vault, void, wai, wai-logger, word8, zlib
          }:
          mkDerivation {
            pname = "wai-extra";
-           version = "3.0.20.0";
-           sha256 = "ad63ca529e812f5edec84e197a58433095a1376a127f8e9416235028bf021971";
+           version = "3.0.22.0";
+           src = fetchgit {
+             url = "https://github.com/yesodweb/wai.git";
+             sha256 = "152p2jj2awhyc2m1vygsmm3cfg6bjl39y9w7sj548pl89dbnz7n7";
+             rev = "d43e4b1d4ed874803632e07ef09b0009e0479135";
+           };
+           postUnpack = "sourceRoot+=/wai-extra; echo source root reset to $sourceRoot";
+           isLibrary = true;
+           isExecutable = true;
            libraryHaskellDepends = [
              aeson ansi-terminal base base64-bytestring blaze-builder bytestring
              case-insensitive containers cookie data-default-class deepseq
@@ -43048,14 +43062,18 @@ inherit (pkgs) which;};
          }) {};
       "yaml" = callPackage
         ({ mkDerivation, aeson, attoparsec, base, bytestring, conduit
-         , containers, directory, filepath, resourcet, scientific
+         , containers, directory, fetchgit, filepath, resourcet, scientific
          , semigroups, stdenv, template-haskell, text, transformers
          , unordered-containers, vector
          }:
          mkDerivation {
            pname = "yaml";
-           version = "0.8.23.3";
-           sha256 = "cc855c7ed50cbc4c706400f98854087ce7b8eadbd98646001a15c13c11ed7543";
+           version = "0.8.28";
+           src = fetchgit {
+             url = "https://github.com/snoyberg/yaml.git";
+             sha256 = "0fcy0bqzxyw46ykdmx191ffw8v2wnzqsk9cppnwq8akpgarw0xf0";
+             rev = "7ce90970adb3b278dffb2d5e4ac724bfe59db768";
+           };
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [

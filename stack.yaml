@@ -42,6 +42,29 @@ packages:
   - cborg
   extra-dep: true
 - location:
+    git: https://github.com/snoyberg/conduit.git
+    commit: 7f75bfca8d479e1737861a75437a288af662a3cf
+    subdirs:
+    - resourcet
+    - conduit
+    - conduit-extra
+- location:
+    git: https://github.com/yesodweb/wai.git
+    commit: d43e4b1d4ed874803632e07ef09b0009e0479135
+    subdirs:
+    - wai-extra
+  extra-dep: true
+- location:
+    git: https://github.com/snoyberg/mono-traversable.git
+    commit: a4c980c36f2fe8b8f78ac5b235c60ab91493bf01
+    subdirs:
+    - mono-traversable
+  extra-dep: true
+- location:
+    git: https://github.com/snoyberg/yaml.git
+    commit: 7ce90970adb3b278dffb2d5e4ac724bfe59db768
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true

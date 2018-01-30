@@ -50,11 +50,10 @@ module Pos.DB.Class
 
 import           Universum
 
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Trans (MonadTrans (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source)
+import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
+import           Data.Conduit (Source, transPipe)
 import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -122,10 +121,9 @@ instance {-# OVERLAPPABLE #-}
   where
     dbGet tag = lift . dbGet tag
     dbIterSource tag (p :: Proxy i) =
-        hoist (hoist lift) (dbIterSource tag p)
+        transPipe (transResourceT lift) (dbIterSource tag p)
     dbGetSerBlock = lift . dbGetSerBlock
     dbGetSerUndo = lift . dbGetSerUndo
-
 
 type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
 

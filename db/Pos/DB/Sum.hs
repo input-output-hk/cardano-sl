@@ -16,10 +16,9 @@ module Pos.DB.Sum
 
 import           Universum
 
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Conduit (Source)
+import           Data.Conduit (Source, transPipe)
 
 import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (Bi)
@@ -64,8 +63,8 @@ dbIterSourceSumDefault
        )
     => DBTag -> Proxy i -> Source m (IterType i)
 dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
-    RealDB dbs -> hoist (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
-    PureDB pdb -> hoist (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
+    RealDB dbs -> transPipe (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
+    PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
 
 dbPutSumDefault
     :: MonadDBSum ctx m

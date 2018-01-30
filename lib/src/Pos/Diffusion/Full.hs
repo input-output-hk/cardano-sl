@@ -14,7 +14,7 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second)
 import           Formatting (Format)
-import           Mockable (Mockable, withAsync, Fork)
+import           Mockable (withAsync)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
 import           Network.Transport.Abstract (Transport)
@@ -72,11 +72,8 @@ diffusionLayerFull
        ( DiffusionWorkMode d
        , MonadFix d
        , MonadIO m
-       , WithLogger m
        , MonadMask m
-       , MonadCatch m
-       , MonadThrow m
-       , Mockable Fork m
+       , WithLogger m
        )
     => NetworkConfig KademliaParams
     -> BlockVersion -- For making the VerInfo.

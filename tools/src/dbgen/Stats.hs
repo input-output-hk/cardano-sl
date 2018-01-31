@@ -1,18 +1,17 @@
 {-# LANGUAGE TypeFamilies #-}
+
 module Stats where
 
-import           Prelude
-import           Control.Exception
-import           Control.Monad.IO.Class
-import qualified Data.HashMap.Strict              as HM
-import           Data.Monoid
-import           Pos.Launcher.Configuration
-import           Pos.Wallet.Web.State.Acidic
-import           Pos.Wallet.Web.State.Storage
-import           Rendering
-import           Serokell.AcidState.ExtendedState
-import           System.Exit
-import           Text.Printf
+import           Universum
+
+import qualified Data.HashMap.Strict as HM
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Wallet.Web.State.Acidic (GetWalletStorage (..), closeState, openState, query)
+import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
+import           Serokell.AcidState.ExtendedState (ExtendedState)
+import           Text.Printf (printf)
+
+import           Rendering (blankLine, bold, listOf, red, renderAccount, renderWallet, say)
 
 {- For reference:
 

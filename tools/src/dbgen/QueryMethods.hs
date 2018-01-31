@@ -1,13 +1,16 @@
 {-# LANGUAGE GADTs      #-}
 {-# LANGUAGE RankNTypes #-}
+
 module QueryMethods where
 
-import           Prelude
-import           Lib
+import           Universum
+
 import           Pos.Wallet.Web.Methods.Logic (getWallets)
-import           Rendering                    (say)
-import           Text.Printf
-import           Types
+import           Text.Printf (printf)
+
+import           Lib (timed)
+import           Rendering (say)
+import           Types (Method (..), UberMonad)
 
 queryMethods :: Maybe Method -> UberMonad ()
 queryMethods Nothing = say "No valid method read from the CLI."

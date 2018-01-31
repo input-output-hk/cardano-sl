@@ -10,34 +10,39 @@ module Lib where
 
 import           Universum
 
-import           CLI
-import           Types (UberMonad)
-import           Data.Function                        (id)
-import qualified Data.ByteString                      as B
-import           Data.String.Conv
-import           Data.Time
-import           Data.Map                             (union, fromList)
-import           Data.Aeson                           (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
-import           GHC.Generics                         (Generic)
-import           Network.Haskoin.Crypto               (Entropy, toMnemonic)
-import           Pos.Crypto.Random
-import           Pos.DB.GState.Common                 (getTip)
-import           Pos.StateLock
-import           Pos.Core.Types                       (Coin, mkCoin)
-import           Pos.Txp.Core.Types                   (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil.Types                   (utxoToModifier)
-import           Pos.Util.BackupPhrase
-import           Pos.Util.Servant
-import           Pos.Util.Util                        (lensOf)
-import           Pos.Wallet.Web.Account
-import           Pos.Wallet.Web.ClientTypes
+import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
+import qualified Data.ByteString as B
+import           Data.Function (id)
+import           Data.Map (fromList, union)
+import           Data.String.Conv (toS)
+import           Data.Time (diffUTCTime, getCurrentTime)
+import           GHC.Generics (Generic)
+
+import           Crypto.Random.Entropy (getEntropy)
+import           Pos.Core.Types (Coin, mkCoin)
+import           Pos.DB.GState.Common (getTip)
+import           Pos.StateLock (StateLock (..))
+import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil.Types (utxoToModifier)
+import           Pos.Util.BackupPhrase (BackupPhrase, mkBackupPhrase12)
+import           Pos.Util.Servant (decodeCType)
+import           Pos.Util.Util (lensOf)
+import           Pos.Wallet.Web.Account (GenSeed (..))
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
+                                             CAccountMeta (..), CAddress (..), CWallet (..),
+                                             CWalletAssurance (..), CWalletInit (..),
+                                             CWalletMeta (..))
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Methods.Logic
-import           Pos.Wallet.Web.Methods.Restore
-import           Pos.Wallet.Web.State.State           (getWalletUtxo, setWalletUtxo, updateWalletBalancesAndUtxo)
-import           Test.QuickCheck                      (arbitrary, generate)
-import           Rendering
-import           Text.Printf
+import           Pos.Wallet.Web.Methods.Logic (newAccountIncludeUnready, newAddress)
+import           Pos.Wallet.Web.Methods.Restore (newWallet)
+import           Pos.Wallet.Web.State.State (getWalletUtxo, setWalletUtxo,
+                                             updateWalletBalancesAndUtxo)
+import           Test.QuickCheck (arbitrary, generate)
+import           Text.Printf (printf)
+
+import           CLI (CLI (..))
+import           Rendering (green, renderAccountId, say)
+import           Types (UberMonad)
 
 --
 -- Types
@@ -93,9 +98,9 @@ data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
     | RangeDistribution
-        { range   :: !Integer
+        { range  :: !Integer
         -- ^ Distributes to only XX addresses.
-        , amount  :: !Integer
+        , amount :: !Integer
         -- ^ The amount we want to distribute to those addresses.
         }
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
@@ -229,8 +234,7 @@ genAddresses (accountSpec . walletSpec -> aspec) cid = do
 -- | Creates a new 'CWallet'.
 genWallet :: Integer -> UberMonad CWallet
 genWallet walletNum = do
-    entropy   <- randomNumber walletNum
-    mnemonic  <- newRandomMnemonic (toEntropy entropy)
+    mnemonic  <- newRandomMnemonic
     newWallet mempty (walletInit mnemonic)
   where
     walletInit :: BackupPhrase -> CWalletInit
@@ -243,24 +247,22 @@ genWallet walletNum = do
       , cwBackupPhrase  = backupPhrase
       }
 
--- | Generates some 'Entropy' from an 'Integer'. Due to the fact
--- Haskoin accepts only multiple of 4 bytes, we pad the input with
--- zeros. It leads to quite crappy 12-words mnemonic, but as long as
--- they don't clash with each other, we are happy.
-toEntropy :: Integer -> Entropy
-toEntropy x =
-    let packs = B.unpack $ show x
-        len   = length packs
-    in B.pack $ case len < 16 of
-      True  -> packs <> replicate (16 - len) 0x0
-      False -> take (len - (len `mod` 16)) packs
 
--- | Generates a new 'BackupPhrase' piggybacking on @Haskoin@ for
--- the BIP-39 words list.
-newRandomMnemonic :: MonadIO m => Entropy -> m BackupPhrase
-newRandomMnemonic entropy = case toMnemonic entropy of
-    Left e  -> error (fromString $ "Error: " <> e)
-    Right x -> pure (mkBackupPhrase12 (words $ toS x))
+-- | Generates a new 'BackupPhrase'.
+newRandomMnemonic :: MonadIO m => m BackupPhrase
+newRandomMnemonic = do
+
+    -- The size 16 should give you 12 words after bip39 encoding.
+    let mnemonic :: IO ByteString
+        mnemonic = getEntropy 16
+
+    genMnemonic  <- liftIO mnemonic
+
+    let textMenmonics :: [Text]
+        textMenmonics = words $ show genMnemonic
+
+    pure $ mkBackupPhrase12 textMenmonics
+
 
 -- | Creates a new 'CAccount'.
 genAccount :: CWallet -> Integer -> UberMonad CAccount

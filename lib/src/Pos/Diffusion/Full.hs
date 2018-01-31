@@ -61,6 +61,7 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (.
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
+import           Pos.Util.Chrono (OldestFirst)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 
@@ -247,7 +248,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             getBlocks :: NodeId
                       -> BlockHeader
                       -> [HeaderHash]
-                      -> d [Block]
+                      -> d (OldestFirst [] Block)
             getBlocks = Diffusion.Block.getBlocks logic enqueue
 
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))

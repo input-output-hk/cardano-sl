@@ -284,7 +284,7 @@ getProcessBlocks
     -> m ()
 getProcessBlocks diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
-    case result of
+    case getOldestFirst result of
       [] -> do
           let msg = sformat ("Error retrieving blocks from "%listJson%
                              " to "%shortHashF%" from peer "%

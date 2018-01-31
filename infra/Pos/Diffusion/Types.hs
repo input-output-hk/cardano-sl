@@ -17,6 +17,7 @@ import           Pos.Core.Update                  (UpId, UpdateVote, UpdatePropo
 import           Pos.Reporting.Health.Types       (HealthStatus (..))
 import           Pos.Core.Ssc                     (Opening, InnerSharesMap, SignedCommitment,
                                                    VssCertificate)
+import           Pos.Util.Chrono                  (OldestFirst (..))
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -25,7 +26,7 @@ data Diffusion m = Diffusion
       getBlocks          :: NodeId
                          -> BlockHeader
                          -> [HeaderHash]
-                         -> m [Block]
+                         -> m (OldestFirst [] Block)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
       -- This type is chosen so that it fits with the current implementation:
@@ -83,7 +84,7 @@ dummyDiffusionLayer = DiffusionLayer
   where
     dummyDiffusion :: Applicative m => Diffusion m
     dummyDiffusion = Diffusion
-        { getBlocks          = \_ _ _ -> pure []
+        { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = \_ -> pure mempty
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True

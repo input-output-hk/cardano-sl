@@ -51,7 +51,8 @@ import           Pos.Network.Types (Bucket)
 import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
                                       AttackTarget (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE, nonEmptyNewestFirst)
+import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, OldestFirst (..),
+                                  NE, nonEmptyNewestFirst)
 import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 
@@ -111,7 +112,7 @@ getBlocks
     -> NodeId
     -> BlockHeader
     -> [HeaderHash]
-    -> d [Block]
+    -> d (OldestFirst [] Block)
 getBlocks logic enqueue nodeId tipHeader checkpoints = do
     -- It is apparently an error to request headers for the tipHeader and
     -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
@@ -123,7 +124,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
     blocks <- if singleBlockHeader
               then requestBlocks (NewestFirst (pure tipHeader))
               else requestHeaders >>= requestBlocks
-    pure (reverse (toList blocks))
+    pure (OldestFirst (reverse (toList blocks)))
   where
 
     singleBlockHeader :: Bool

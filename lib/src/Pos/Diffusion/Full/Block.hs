@@ -203,7 +203,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
     requestBlocksConversation headers conv = do
         -- Preserved behaviour from existing logic code: all of the headers
         -- except for the first and last are tossed away.
-        -- TODO don't be so wasteful.
+        -- TODO don't be so wasteful [CSL-2148]
         let oldestHeader = headers ^. _NewestFirst . _neLast
             newestHeader = headers ^. _NewestFirst . _neHead
             numBlocks = length headers

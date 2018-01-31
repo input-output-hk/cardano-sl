@@ -6,11 +6,18 @@ module Client.Pos.Wallet.Web.Endpoint.GetHistory
 
 import           Universum
 
-import           Client.Pos.Wallet.Web.Api  (getHistory)
-import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
-import           Bench.Pos.Wallet.Types     (CompleteConfig (..), Wallet (..),
-                                             WalletAccount (..), WalletsConfig (..))
-import           Bench.Pos.Wallet.Random    (pickRandomElementFrom)
+import qualified Data.Text.IO                      as TIO
+
+import           Client.Pos.Wallet.Web.Api         (getHistory)
+import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
+import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
+                                                    EndpointConfig (..), Wallet (..),
+                                                    WalletAccount (..), WalletsConfig (..),
+                                                    Response, ResponseReport (..))
+import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
+
+import           Pos.Wallet.Web.ClientTypes        (Addr, CId (..), CTx (..))
 
 -- | Run 'GetHistory' client. As a result we will get
 -- a list of transactions and size of a full history.
@@ -21,14 +28,37 @@ getHistoryIO conf@CompleteConfig {..} = do
     address <- pickRandomElementFrom $ addresses account
     let offset = Nothing -- Default value of offset will be used.
         limit  = Nothing -- Default value of limit will be used.
-    runEndpointClient conf (getHistory (Just $ walletId wallet)
-                                       (Just $ accountId account)
-                                       (Just address)
-                                       offset
-                                       limit) >>= \case
+    response <- runEndpointClient conf $ getHistory (Just $ walletId wallet)
+                                                    (Just $ accountId account)
+                                                    (Just address)
+                                                    offset
+                                                    limit
+    when needResponseAnalysis $ do
+        let ResponseReport report = analyze response wallet account address
+        case extractEndpointConfigFor GetHistoryBench conf of
+            Nothing -> return ()
+            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
+    return ()
+
+-- | Analyze response with transactions history on
+-- particular wallet/account/address.
+analyze
+    :: Response ([CTx], Word)
+    -> Wallet
+    -> WalletAccount
+    -> CId Addr
+    -> ResponseReport
+analyze response
+        Wallet {..}
+        WalletAccount {..}
+        address =
+    case response of
         Left problem ->
-            putText $ "Cannot get a history: " <> problem
-        Right (Left failure) ->
-            putText $ "Server returned an error: " <> pretty failure
-        Right (Right ({-transactions-}_, _)) ->
-            return () -- :: ([CTx], Word)
+            ResponseReport $
+                "Cannot get history for wallet '" <> "" <> "' : " <> problem
+        Right (Left walletError) ->
+            ResponseReport $
+                "Server returned an error: " <> pretty walletError
+        Right (Right (transactions, _)) -> do
+            ResponseReport $
+                show transactions

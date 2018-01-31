@@ -9,34 +9,40 @@ module Bench.Pos.Wallet.Types
     , CLOptions (..)
     , BenchEndpoint (..)
     , EndpointClient
+    , Response
+    , ResponseReport (..)
     ) where
 
 import           Universum
 
 import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CAccountId (..), Wal)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
 
 -- | Complete configuration for benchmarking.
 data CompleteConfig = CompleteConfig
-    { endpointsConfig :: !(NonEmpty EndpointConfig)
-    , walletsConfig   :: !WalletsConfig
-    , tlsPubCert      :: !ByteString
-    , tlsPrivKey      :: !ByteString
+    { endpointsConfig      :: !(NonEmpty EndpointConfig)
+    , walletsConfig        :: !WalletsConfig
+    , tlsPubCert           :: !ByteString
+    , tlsPrivKey           :: !ByteString
+    , needResponseAnalysis :: !Bool
     }
 
 -- | Endpoint configuration, obtained from the .csv-file.
 data EndpointConfig = EndpointConfig
     { -- | Name of the benchmark, used in the report file.
-      benchName        :: !String
+      benchName             :: !String
       -- | Duration of benchmark, in seconds.
-    , benchDuration    :: !Double
+    , benchDuration         :: !Double
       -- | Minimal value for the random delay generation, in seconds.
       -- This delay will be used as a pause between calls of a client.
-    , minDelayForCalls :: !Double
+    , minDelayForCalls      :: !Double
       -- | Maximal value for the random delay generation, in seconds.
       -- This delay will be used as a pause between calls of a client.
-    , maxDelayForCalls :: !Double
+    , maxDelayForCalls      :: !Double
       -- | Path to report file (if doesn't exist, it will be created).
-    , pathToReportFile :: !FilePath
+    , pathToReportFile      :: !FilePath
+      -- | Path to response reports file (if doesn't exist, it will be created).
+    , pathToResponseReports :: !FilePath
     }
 
 -- | @WalletAccount@, for Wallets configuration, obtained from the .yaml-file.
@@ -68,6 +74,8 @@ data CLOptions = CLOptions
     , pathToTLSPrivKey      :: !FilePath
       -- | If True, run benchmarks concurrently.
     , runConcurrently       :: !Bool
+      -- | If True, we must analyze responses from server.
+    , analyzeResponse       :: !Bool
     }
 
 -- | Clarification which benchmark we want to use.
@@ -82,3 +90,10 @@ data BenchEndpoint
 -- | Type synonym for client function: this function sends
 -- requests to particular endpoint of the Wallet Web API.
 type EndpointClient = CompleteConfig -> IO ()
+
+-- | Response from the server. All endpoints return this type.
+type Response r = Either Text (Either WalletError r)
+
+-- | Report about correctness of response from the server.
+newtype ResponseReport = ResponseReport Text
+    deriving Show

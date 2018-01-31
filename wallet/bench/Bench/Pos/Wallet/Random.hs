@@ -1,10 +1,9 @@
 -- | Functions for random values.
 
 module Bench.Pos.Wallet.Random
-    ( pickRandomWalletFrom
-    , pickRandomAccountIn
-    , pickRandomAddressIn
-    , pickRandomValueBetween
+    ( pickRandomValueBetween
+    , pickRandomElementFrom
+    , pickTwoRandomElementsFrom
     , waitRandom
     ) where
 
@@ -18,28 +17,27 @@ import           System.Random              (Random (..), randomRIO)
 import           Bench.Pos.Wallet.Types     (Wallet (..), WalletAccount (..), WalletsConfig (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId (..))
 
-pickRandomWalletFrom
+pickRandomElementFrom
     :: MonadIO m
-    => WalletsConfig
-    -> m (Wallet)
-pickRandomWalletFrom WalletsConfig {..} = pickRandomElementFrom wallets
-
-pickRandomAccountIn
-    :: MonadIO m
-    => Wallet
-    -> m WalletAccount
-pickRandomAccountIn (Wallet _ allAccounts) = pickRandomElementFrom allAccounts
-
-pickRandomAddressIn
-    :: MonadIO m
-    => WalletAccount
-    -> m (CId Addr)
-pickRandomAddressIn (WalletAccount _ allAddresses) = pickRandomElementFrom allAddresses
-
-pickRandomElementFrom :: MonadIO m => NonEmpty a -> m a
+    => NonEmpty a
+    -> m a
 pickRandomElementFrom aList = do
     someIndex <- liftIO $ randomRIO (0, NE.length aList - 1)
     return $ aList !! someIndex
+
+-- | It is assumed that 'aList' contains at least two elements.
+pickTwoRandomElementsFrom
+    :: MonadIO m
+    => NonEmpty a
+    -> m (a, a)
+pickTwoRandomElementsFrom aList = do
+    when (NE.length aList < 2) $ error "Unable to pick two random elements: too small list"
+    let indexOfLastElement = NE.length aList - 1
+    someIndex <- liftIO $ randomRIO (0, indexOfLastElement)
+    let nextIndex = someIndex + 1
+        prevIndex = someIndex - 1
+        someOtherIndex = if someIndex /= indexOfLastElement then nextIndex else prevIndex
+    return (aList !! someIndex, aList !! someOtherIndex)
 
 pickRandomValueBetween :: (Random a, MonadIO m) => (a, a) -> m a
 pickRandomValueBetween (minValue, maxValue) = liftIO $ randomRIO (minValue, maxValue)

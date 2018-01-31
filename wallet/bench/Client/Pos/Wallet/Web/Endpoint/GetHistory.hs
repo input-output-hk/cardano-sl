@@ -9,18 +9,16 @@ import           Universum
 import           Client.Pos.Wallet.Web.Api  (getHistory)
 import           Client.Pos.Wallet.Web.Run  (runEndpointClient)
 import           Bench.Pos.Wallet.Types     (CompleteConfig (..), Wallet (..),
-                                             WalletAccount (..))
-import           Bench.Pos.Wallet.Random    (pickRandomWalletFrom,
-                                             pickRandomAccountIn,
-                                             pickRandomAddressIn)
+                                             WalletAccount (..), WalletsConfig (..))
+import           Bench.Pos.Wallet.Random    (pickRandomElementFrom)
 
 -- | Run 'GetHistory' client. As a result we will get
 -- a list of transactions and size of a full history.
 getHistoryIO :: CompleteConfig -> IO ()
 getHistoryIO conf@CompleteConfig {..} = do
-    wallet  <- pickRandomWalletFrom walletsConfig
-    account <- pickRandomAccountIn wallet
-    address <- pickRandomAddressIn account
+    wallet  <- pickRandomElementFrom $ wallets walletsConfig
+    account <- pickRandomElementFrom $ accounts wallet
+    address <- pickRandomElementFrom $ addresses account
     let offset = Nothing -- Default value of offset will be used.
         limit  = Nothing -- Default value of limit will be used.
     runEndpointClient conf (getHistory (Just $ walletId wallet)

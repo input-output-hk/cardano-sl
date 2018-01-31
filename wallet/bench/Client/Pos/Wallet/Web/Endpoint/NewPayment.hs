@@ -8,10 +8,10 @@ import           Universum
 
 import           Client.Pos.Wallet.Web.Api (newPayment)
 import           Client.Pos.Wallet.Web.Run (runEndpointClient)
-import           Bench.Pos.Wallet.Types    (CompleteConfig (..), WalletAccount (..))
-import           Bench.Pos.Wallet.Random   (pickRandomWalletFrom,
-                                            pickRandomAccountIn,
-                                            pickRandomAddressIn,
+import           Bench.Pos.Wallet.Types    (CompleteConfig (..), Wallet (..),
+                                            WalletAccount (..), WalletsConfig (..))
+import           Bench.Pos.Wallet.Random   (pickRandomElementFrom,
+                                            pickTwoRandomElementsFrom,
                                             pickRandomValueBetween)
 
 import           Pos.Client.Txp.Util       (InputSelectionPolicy (..))
@@ -21,20 +21,19 @@ import           Pos.Core.Types            (mkCoin)
 -- we will get a newly created transaction.
 newPaymentIO :: CompleteConfig -> IO ()
 newPaymentIO conf@CompleteConfig {..} = do
-    -- TODO: Fix random values, it should be different wallets (?).
-    fromWallet  <- pickRandomWalletFrom walletsConfig
-    fromAccount <- pickRandomAccountIn fromWallet
-
-    toWallet    <- pickRandomWalletFrom walletsConfig
-    toAccount   <- pickRandomAccountIn toWallet
-    toAddress   <- pickRandomAddressIn toAccount
-
+    -- In real life we send money from one wallet to another.
+    -- So we want be sure that 'fromWallet' and 'toWallet' are
+    -- different wallets.
+    (fromWallet,
+     toWallet)  <- pickTwoRandomElementsFrom $ wallets walletsConfig
+    fromAccount <- pickRandomElementFrom $ accounts fromWallet
+    toAccount   <- pickRandomElementFrom $ accounts toWallet
+    toAddress   <- pickRandomElementFrom $ addresses toAccount
     amount      <- pickRandomValueBetween (minAmount, maxAmount)
-    let passPhrase    = Nothing
-        fromAccountId = accountId fromAccount
-        policy        = OptimizeForSecurity
+    let passPhrase = Nothing
+        policy     = OptimizeForSecurity
     runEndpointClient conf (newPayment passPhrase
-                                       fromAccountId
+                                       (accountId fromAccount)
                                        toAddress
                                        (mkCoin amount)
                                        (Just policy)) >>= \case
@@ -43,4 +42,4 @@ newPaymentIO conf@CompleteConfig {..} = do
   where
     minAmount, maxAmount :: Word64
     minAmount = 1
-    maxAmount = 100
+    maxAmount = 10

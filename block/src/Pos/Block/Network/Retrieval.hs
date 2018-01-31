@@ -14,13 +14,11 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
-import           Formatting (build, builder, int, sformat, (%))
+import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (listJson, sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Binary.Class (biSize)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
@@ -30,7 +28,7 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrieva
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
-import           Pos.Core.Block (BlockHeader, blockHeader)
+import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
@@ -292,11 +290,9 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
           logDebug $ sformat
-              ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+              ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-              (unitBuilder $ biSize blocks)
-              (map (headerHash . view blockHeader) blocks)
-          handleBlocks nodeId blocks diffusion
+          handleBlocks nodeId blocks diffusion 
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

@@ -20,23 +20,22 @@ import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..), i
                                             walletAcidInterval, walletDbOptions)
 
 import qualified Control.Concurrent.STM as STM
+import           Formatting (build, sformat, (%))
 import           Network.Wai (Application, Middleware)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Pos.Wallet.Web (cleanupAcidStatePeriodically, syncWalletsWithGState,
-                                 wwmcSendActions)
-import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
-import           Pos.Wallet.Web.Methods.Restore (addInitialRichAccount)
+import           Pos.Wallet.Web (cleanupAcidStatePeriodically, wwmcSendActions)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
-import           Pos.Wallet.Web.Sockets (getWalletWebSockets, launchNotifier, upgradeApplicationWS)
+import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
 import           Servant (serve)
 import           System.Wlog (logInfo, modifyLoggerName)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs, SendActions, WorkerSpec, worker)
 import           Pos.Context (HasNodeContext)
 
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
@@ -73,6 +72,11 @@ walletBackend :: (HasConfigurations, HasCompileInfo)
               -> Plugin WalletWebMode
 walletBackend WalletBackendParams {..} =
     first one $ worker walletServerOuts $ \sendActions -> do
+      logInfo $ sformat ("Production mode for API: "%build)
+        walletProductionApi
+      logInfo $ sformat ("Transaction submission disabled: "%build)
+        walletTxCreationDisabled
+
       walletServeImpl
         (getApplication sendActions)
         walletAddress
@@ -82,14 +86,11 @@ walletBackend WalletBackendParams {..} =
     -- Gets the Wai `Application` to run.
     getApplication :: SendActions WalletWebMode -> WalletWebMode Application
     getApplication sendActions = do
-      logInfo "DAEDALUS has STARTED!"
+      logInfo "Wallet Web API has STARTED!"
       saVar <- asks wwmcSendActions
       atomically $ STM.putTMVar saVar sendActions
-      when (isDebugMode walletRunMode) $ addInitialRichAccount 0
       wsConn <- getWalletWebSockets
       ctx <- V0.walletWebModeContext
-      syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-      launchNotifier (V0.convertHandler ctx)
       let app = upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx))
       return $ withMiddleware walletRunMode app
 

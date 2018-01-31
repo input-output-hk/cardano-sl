@@ -26,7 +26,7 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
-import           Pos.Block.BHelpers ()
+import qualified Pos.Block.BHelpers as BHelpers
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                            HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
@@ -60,6 +60,13 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Eq, Show)
 
+maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
+maybeMempty = maybe mempty
+
+verifyFromEither :: Text -> Either a b -> VerificationRes
+verifyFromEither txt (Left _)  = verifyGeneric [(False, txt)]
+verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
+
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
@@ -82,7 +89,8 @@ verifyHeader
     :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-    verifyGeneric checks
+       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader h)
+    <> verifyGeneric checks
   where
     checks =
         mconcat
@@ -238,12 +246,14 @@ verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
-    mconcat
+       verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
+    <> otherChecks
+  where
+    otherChecks = mconcat
         [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
         , checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
-  where
     -- Oh no! Verification involves re-searilizing the thing!
     -- What a tragic waste.
     -- What shall we do about this?

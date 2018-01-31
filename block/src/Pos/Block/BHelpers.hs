@@ -6,7 +6,8 @@
 -- FIXME rename this module to something to do with verification.
 
 module Pos.Block.BHelpers
-       ( verifyBlock
+       ( verifyBlockHeader
+       , verifyBlock
        , verifyGenesisBlock
        , verifyMainBlock
        , verifyMainBody
@@ -42,6 +43,15 @@ import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 
+-- | Verify a BlockHeader in isolation. There is nothing to be done for
+-- genesis headers.
+verifyBlockHeader
+    :: (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))
+    => BlockHeader
+    -> m ()
+verifyBlockHeader = either (const (pure ())) verifyMainBlockHeader
+
+-- | Verify a Block in isolation.
 verifyBlock
     :: ( HasConfiguration
        , MonadError Text m

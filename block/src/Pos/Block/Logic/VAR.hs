@@ -31,7 +31,6 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            toUpdateBlock)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Block.BHelpers (verifyBlock)
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
@@ -80,12 +79,11 @@ verifyBlocksPrefix blocks = runExceptT $ do
     adoptedBV <- lift GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
 
-    -- Ensure every block is internally consistent.
-    _ <- withExceptT VerifyBlocksError $ forM_ blocks verifyBlock
-
-    -- And then we run verification of each component.
-    slogUndos <- withExceptT VerifyBlocksError $
-        ExceptT $ slogVerifyBlocks blocks
+    -- Run verification of each component.
+    -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
+    -- the internal consistency checks formerly done in the 'Bi' instance
+    -- 'decode'.
+    slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)

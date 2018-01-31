@@ -32911,8 +32911,8 @@ inherit (pkgs) which;};
            version = "0.0.0";
            src = fetchgit {
              url = "https://github.com/input-output-hk/rocksdb-haskell-ng.git";
-             sha256 = "02jvri8ik8jgrxwa6qmh3xcwqvm4s27iv3sxpjpny79nlhlxvfzp";
-             rev = "49f501a082d745f3b880677220a29cafaa181452";
+             sha256 = "0mdcaznwiry98bvvg51lm0khra8c8g6xxwzxjj9c2sk1wh4cj3y7";
+             rev = "100f24a8aa628bca57836f98f6b0c56406e59897";
            };
            libraryHaskellDepends = [ base bytestring directory ];
            librarySystemDepends = [ rocksdb ];

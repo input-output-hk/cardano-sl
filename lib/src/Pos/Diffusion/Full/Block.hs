@@ -182,12 +182,9 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                             t
             Just (MsgHeaders headers) -> do
                 logDebug $ sformat
-                    ("requestHeaders: received "%int%" headers of total size "%builder%
-                     " from nodeId "%build%": "%listJson)
+                    ("requestHeaders: received "%int%" headers from nodeId "%build)
                     (headers ^. _NewestFirst . to NE.length)
-                    (unitBuilder $ biSize headers)
                     nodeId
-                    (map headerHash headers)
                 return headers
 
     requestBlocks :: NewestFirst NE BlockHeader -> d (NewestFirst NE Block)

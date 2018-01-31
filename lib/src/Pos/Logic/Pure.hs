@@ -58,8 +58,6 @@ pureLogic = Logic
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
     , securityParams     = def
-    , checkBlockHeader   = \_ -> pure True
-    , checkBlock         = \_ -> pure True
     }
   where
     dummyKeyVal :: Applicative m => KeyVal key val m

@@ -222,14 +222,6 @@ logicLayerFull jsonLogTx k = do
                     Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
 
-        -- TODO implement these proper
-        -- I do not know of an existing program which will do what we want:
-        -- check the block (header) in isolation; a coarse-but-fast test
-        -- to eliminate obviously bogus things. False positive possible,
-        -- but no false negatives, like a bloom filter.
-        checkBlockHeader = \_ -> pure True
-        checkBlock = \_ -> pure True
-
         logic :: Logic m
         logic = Logic {..}
 

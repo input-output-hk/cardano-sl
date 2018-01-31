@@ -24,13 +24,11 @@ import           Data.Time.Units (toMicroseconds)
 -- TODO hopefully we can get rid of this import. It's needed for the
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
-import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
+import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
-import           Pos.Binary.Class (biSize)
 -- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),

@@ -8,6 +8,7 @@ in
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
 , enableDebugging ? false
+, topologyFile ? null
 }:
 
 with pkgs.lib;
@@ -82,7 +83,7 @@ let
       });
     };
   });
-  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev topologyFile; });
   other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {

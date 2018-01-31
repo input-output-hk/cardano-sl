@@ -7,7 +7,6 @@
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
-       , runRealBasedMode
 
        , elimRealMode
 
@@ -46,23 +45,14 @@ import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
-import           Pos.WorkMode (RealMode, RealModeContext (..), WorkMode)
+import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 ----------------------------------------------------------------------------
 -- High level runners
 ----------------------------------------------------------------------------
 
--- | Run activity in 'RealMode'.
-runRealMode
-    :: forall ext ctx a.
-       (HasCompileInfo, WorkMode ctx (RealMode ext))
-    => NodeResources ext
-    -> (ActionSpec (RealMode ext) a, OutSpecs)
-    -> Production a
-runRealMode = runRealBasedMode @ext
-
 -- | Run activity in something convertible to 'RealMode' and back.
-runRealBasedMode
+runRealMode
     :: forall ext a.
        ( Default ext
        , HasCompileInfo
@@ -77,7 +67,7 @@ runRealBasedMode
     => NodeResources ext
     -> (ActionSpec (RealMode ext) a, OutSpecs)
     -> Production a
-runRealBasedMode nr@NodeResources {..} (actionSpec, outSpecs) =
+runRealMode nr@NodeResources {..} (actionSpec, outSpecs) =
     elimRealMode nr $ runServer
         ncNodeParams
         (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode nr))

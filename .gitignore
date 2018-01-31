@@ -72,3 +72,6 @@ pkgs/stack2nix
 explorer-*.log
 explorer.log
 socket-io.log
+
+# Results of wallet benchmarking.
+wallet/bench/results/*

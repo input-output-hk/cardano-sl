@@ -60,8 +60,8 @@ analyze
     -> ResponseReport
 analyze response
         WalletAccount {..}
-        address
-        amount =
+        _
+        _ =
     case response of
         Left problem ->
             ResponseReport $

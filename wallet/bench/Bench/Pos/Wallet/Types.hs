@@ -31,8 +31,8 @@ data CompleteConfig = CompleteConfig
 data EndpointConfig = EndpointConfig
     { -- | Name of the benchmark, used in the report file.
       benchName             :: !String
-      -- | Duration of benchmark, in seconds.
-    , benchDuration         :: !Double
+      -- | Number of measures in benchmark.
+    , numberOfMeasures      :: !Int
       -- | Minimal value for the random delay generation, in seconds.
       -- This delay will be used as a pause between calls of a client.
     , minDelayForCalls      :: !Double

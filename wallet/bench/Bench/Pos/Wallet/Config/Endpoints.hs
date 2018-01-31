@@ -35,6 +35,7 @@ getEndpointsConfig pathToConfig = do
         Right (V.toList -> configs) -> do
             makeSureConfigsAreNonEmpty configs
             mapM_ checkDelayRange configs
+            mapM_ checkNumberOfMeasures configs
             return $ fromList configs
   where
     extractConfig rawContent =
@@ -56,6 +57,11 @@ getEndpointsConfig pathToConfig = do
     checkDelayRange (EndpointConfig name _ from to _ _) =
         when (from < 0.0 || to < 0.0 || from > to) $
             error . toText $ "Invalid delay range for bench '" <> name <> "'"
+
+    checkNumberOfMeasures :: EndpointConfig -> IO ()
+    checkNumberOfMeasures (EndpointConfig name number _ _ _ _) =
+        when (number < 10) $
+            error . toText $ "Invalid number of measures for bench '" <> name <> "', use at least 10."
 
 -- | This instance is used for parsing @EndpointConfig@
 -- from one record (line) in .csv-config.

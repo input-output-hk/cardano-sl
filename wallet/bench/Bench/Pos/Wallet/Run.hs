@@ -31,11 +31,10 @@ runBench endpointClient completeConfig EndpointConfig {..} =
     -- 2. Preparing, serialization and sending request.
     -- 3. Waiting for response.
     -- 4. Response deserealization.
-    -- 5. Do something with response.
-    -- TODO: Probably it should be changed.
+    -- 5. Analyze response if needed.
     ioForBench = endpointClient completeConfig >> waitRandom (minDelayForCalls,
                                                               maxDelayForCalls)
     config = defaultConfig {
-        timeLimit  = Just benchDuration,
+        minSamples = Just numberOfMeasures,
         csvRawFile = Just pathToReportFile
     }

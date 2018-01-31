@@ -36,7 +36,7 @@ analyze
     :: Response CWallet
     -> CId Wal
     -> ResponseReport
-analyze response walletId =
+analyze response _ =
     case response of
         Left problem ->
             ResponseReport $

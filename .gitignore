@@ -75,3 +75,7 @@ socket-io.log
 
 # custom configuration
 custom-wallet-config.nix
+
+# Results of wallet benchmarking.
+wallet/bench/results/*.txt
+wallet/bench/results/*.csv

@@ -51,7 +51,7 @@ analyze
 analyze response
         Wallet {..}
         WalletAccount {..}
-        address =
+        _ =
     case response of
         Left problem ->
             ResponseReport $

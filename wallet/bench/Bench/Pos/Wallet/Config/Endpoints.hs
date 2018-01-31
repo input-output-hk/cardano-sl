@@ -61,8 +61,8 @@ getEndpointsConfig pathToConfig = do
 -- from one record (line) in .csv-config.
 instance FromRecord EndpointConfig where
     parseRecord r
-        -- We assume that each record contains 5 values.
-        | length r == 5 =
+        -- We assume that each record contains 6 values.
+        | length r == 6 =
             EndpointConfig
             <$> r .! 0
             <*> r .! 1

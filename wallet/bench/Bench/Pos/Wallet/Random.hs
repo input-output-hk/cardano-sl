@@ -14,9 +14,6 @@ import qualified Data.List.NonEmpty         as NE
 import           Data.List.NonEmpty         ((!!))
 import           System.Random              (Random (..), randomRIO)
 
-import           Bench.Pos.Wallet.Types     (Wallet (..), WalletAccount (..), WalletsConfig (..))
-import           Pos.Wallet.Web.ClientTypes (Addr, CId (..))
-
 pickRandomElementFrom
     :: MonadIO m
     => NonEmpty a

@@ -44,6 +44,10 @@ optionsParser = do
         <- switch $
            long        "async"
         <> help        "If defined - run benchmarks concurrently"
+    analyzeResponse
+        <- switch $
+           long        "analyze"
+        <> help        "If defined - analyze responses from the wallet"
     return CLOptions{..}
 
 -- | Get command-line options.

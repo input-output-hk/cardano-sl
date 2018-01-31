@@ -34,6 +34,7 @@ main = do
                            <*> getWalletsConfig pathToWalletsConfig
                            <*> BS.readFile pathToTLSPubCert
                            <*> BS.readFile pathToTLSPrivKey
+                           <*> return analyzeResponse
     let benchmarks = [ maybeRun getHistoryIO GetHistoryBench conf
                      , maybeRun getWalletIO  GetWalletBench  conf
                      , maybeRun getWalletsIO GetWalletsBench conf

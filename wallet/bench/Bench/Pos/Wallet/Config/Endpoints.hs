@@ -53,7 +53,7 @@ getEndpointsConfig pathToConfig = do
         when (null configs) $ error "Endpoints.csv must contain at least one endpoint for benchmarking."
 
     checkDelayRange :: EndpointConfig -> IO ()
-    checkDelayRange (EndpointConfig name _ from to _) =
+    checkDelayRange (EndpointConfig name _ from to _ _) =
         when (from < 0.0 || to < 0.0 || from > to) $
             error . toText $ "Invalid delay range for bench '" <> name <> "'"
 
@@ -69,6 +69,7 @@ instance FromRecord EndpointConfig where
             <*> r .! 2
             <*> r .! 3
             <*> r .! 4
+            <*> r .! 5
         | otherwise = mzero
 
 -- | Extracts configuration for a single endpoint's benchmark,

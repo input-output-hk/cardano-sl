@@ -385,15 +385,13 @@ benchmark cardano-sl-wallet-bench
                      , gauge
                      , http-client
                      , http-client-tls
-                     , lens
                      , optparse-applicative
                      , random
                      , QuickCheck
                      , semigroups
                      , servant
                      , servant-client
-                     , statistics
-                     , text-format
+                     , text
                      , tls
                      , universum >= 0.1.11
                      , vector

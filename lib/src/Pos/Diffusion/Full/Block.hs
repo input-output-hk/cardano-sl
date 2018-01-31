@@ -125,7 +125,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
     blocks <- if singleBlockHeader
               then requestBlocks (NewestFirst (pure tipHeader))
               else requestHeaders >>= requestBlocks
-    pure (toList blocks)
+    pure (reverse (toList blocks))
   where
 
     singleBlockHeader :: Bool
@@ -228,13 +228,7 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                 Nothing -> do
                     let msg = sformat ("Peer gave an empty blocks list")
                     throwM $ DialogUnexpected msg
-                Just blocks -> do
-                    logDebug $ sformat
-                        ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
-                        (blocks ^. _NewestFirst . to NE.length)
-                        (unitBuilder $ biSize bs)
-                        (map (headerHash . view blockHeader) blocks)
-                    return blocks
+                Just blocks -> return blocks
 
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.

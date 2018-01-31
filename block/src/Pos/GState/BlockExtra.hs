@@ -165,8 +165,7 @@ loadHeadersUpWhile
     => a
     -> (BlockHeader -> Int -> Bool)
     -> m (OldestFirst [] BlockHeader)
-loadHeadersUpWhile start condition =
-    loadUpWhile getHeader start condition
+loadHeadersUpWhile = loadUpWhile getHeader
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile

@@ -7,10 +7,10 @@ module Pos.Logic.Pure
 
 import           Universum
 
-import           Data.Default (def)
 import           Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
-import           Cardano.Crypto.Wallet (xsignature)
+import           Data.Coerce (coerce)
+import           Data.Default (def)
+import           Data.Reflection (give)
 
 import           Pos.Core (StakeholderId, SoftwareVersion (..), BlockVersion (..),
                            HeaderHash, Block, BlockHeader, GenericBlock (..),
@@ -25,8 +25,10 @@ import           Pos.Core.Slotting (SlotId (..), EpochIndex (..), LocalSlotIndex
 import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
 import           Pos.Txp.Base (emptyTxPayload)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.Crypto.Signing (PublicKey (..), Signature (..), deterministicKeyGen)
+import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
+                                     deterministicKeyGen, signRaw)
 import           Pos.Data.Attributes (UnparsedFields (..), Attributes (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Util.Chrono (OldestFirst (..), NewestFirst (..))
@@ -220,7 +222,8 @@ slotId = SlotId
     }
 
 publicKey :: PublicKey
-publicKey = fst (deterministicKeyGen (mempty :: ByteString))
+secretKey :: SecretKey
+(publicKey, secretKey) = deterministicKeyGen (mempty :: ByteString)
 
 chainDifficulty :: ChainDifficulty
 chainDifficulty = ChainDifficulty
@@ -228,9 +231,7 @@ chainDifficulty = ChainDifficulty
     }
 
 blockSignature :: BlockSignature
-blockSignature = BlockSignature (Signature sig)
-  where
-    Right sig = xsignature (BS.replicate 64 0)
+blockSignature = give (ProtocolMagic 0) (BlockSignature (coerce (signRaw Nothing secretKey mempty)))
 
 extraHeaderData :: ExtraHeaderData MainBlockchain
 extraHeaderData = MainExtraHeaderData

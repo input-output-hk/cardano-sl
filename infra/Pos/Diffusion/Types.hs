@@ -63,7 +63,7 @@ data Diffusion m = Diffusion
       -- In the future we should roll this in with a more general status/debug
       -- system: to be used by the reporting mechanism (supply info about
       -- network topology) and also by the user interface (how's our connection
-      -- quality?).
+      -- quality?). [CSL-2147]
     , healthStatus       :: m HealthStatus
     , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
     }

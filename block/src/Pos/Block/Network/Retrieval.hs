@@ -94,9 +94,6 @@ retrievalWorkerImpl diffusion =
                 -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
-        -- Restart the timer for sending keep-alive like packets to node(s)
-        -- we're subscribed to as when we keep receiving blocks from them it
-        -- means the connection is sound.
         thingToDoNext
         mainLoop
     mainLoopE e = do

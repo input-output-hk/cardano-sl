@@ -43,6 +43,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
 import           Pos.Core (HeaderHash, headerHash, prevBlockL, bvdSlotDuration)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
+import           Pos.DB (DBError (DBMalformed))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
@@ -436,6 +437,13 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
+        -- [CSL-2148] will probably make this a faster, streaming style:
+        -- get the blocks directly from headers rather than getting the list
+        -- of headers, then one-by-one getting the corresponding blocks.
+        -- As such, the DBMalformed error below (failMalformed) won't be
+        -- necessary: the streaming thing (probably a conduit) can determine
+        -- whether the DB is malformed. Really, this listener has no business
+        -- deciding that the database is malformed.
         mHashes <- getBlockHeaders' logic mgbFrom mgbTo
         case mHashes of
             Right hashes -> do
@@ -447,10 +455,18 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                     getBlock logic hHash >>= \case
                         Just b -> send conv $
                             MsgBlock b
-                        Nothing  -> send conv $
-                            MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
+                        Nothing  -> do
+                            send conv $
+                                MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash)
+                            failMalformed
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
+  where
+    -- See note above in the definition of handleGetBlocks [CSL-2148].
+    failMalformed =
+        throwM $ DBMalformed $
+        "handleGetBlocks: getBlockHeaders' returned header that doesn't " <>
+        "have corresponding block in storage."
 
 ----------------------------------------------------------------------------
 -- Header propagation

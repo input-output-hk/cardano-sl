@@ -64,6 +64,7 @@ scripts/haskell/dependencies
 # 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
 pkgs/stack2nix
 nixpkgs # in case generate.sh clones nixpkgs in here
+pkgs/result
 
 # explorer
 explorer-node.log.*
@@ -73,4 +74,3 @@ socket-io.log
 
 # importify
 .importify
-

@@ -286,7 +286,12 @@ logException :: LoggerName -> IO a -> IO a
 logException name = E.handleAsync (\e -> handler e >> E.throw e)
   where
     handler :: E.SomeException -> IO ()
-    handler = usingLoggerName name . logError . pretty
+    handler exc = do
+        let message = "logException: " <> pretty exc
+        usingLoggerName name (logError message) `E.catchAny` \loggingExc -> do
+            putStrLn message
+            putStrLn $
+                "logException failed to use logging: " <> pretty loggingExc
 
 -- | 'bracket' which logs given message after acquiring the resource
 -- and before calling the callback with 'Info' severity.

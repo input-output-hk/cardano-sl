@@ -74,7 +74,7 @@ import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendRepo
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util (HasLens (..), directory, logException, postfixLFields, sleep)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
@@ -316,7 +316,7 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
-    Log.usingLoggerName "launcher" $
+    logException loggerName . Log.usingLoggerName loggerName $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
@@ -329,6 +329,7 @@ main =
                     (UpdaterData
                         loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loReportServer
+                logNotice "Finished serverScenario"
             Just wpath -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
@@ -342,6 +343,7 @@ main =
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
+                logNotice "Finished clientScenario"
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
@@ -349,6 +351,7 @@ main =
     -- user passes these options to the node explicitly, then we
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
+    loggerName = "launcher"
     propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
     propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
         addNodeDbPath nodeDbPath .
@@ -421,7 +424,9 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
     let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
     walletAsync <- async (runWallet walletLog wallet (ndLogPath node))
+    logInfo "Waiting for wallet or node to finish..."
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    logInfo "Wallet or node has finished!"
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode

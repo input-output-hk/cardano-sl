@@ -26,7 +26,6 @@ import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Types (RecoveryHeaderTag, RecoveryHeader)
 import qualified Pos.Block.Logic as DB (getHeadersFromManyTo, getHeadersRange)
 import qualified Pos.Block.Network.Logic as Block (handleUnsolicitedHeader)
--- TODO rename these; nothing to do with listening/network.
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import           Pos.Core (HasConfiguration, HeaderHash, Block, BlockVersionData,
@@ -53,7 +52,6 @@ import           Pos.Ssc.Toss (TossModifier, tmCertificates, tmCommitments, tmOp
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
 import           Pos.Txp.MemState (getMemPool, JLTxR)
--- TODO rename; nothing to do with listening/network
 import           Pos.Txp.Network.Listeners (TxpMode)
 import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import           Pos.Txp.Network.Types (TxMsgContents (..))

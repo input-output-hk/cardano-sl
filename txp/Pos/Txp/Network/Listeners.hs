@@ -3,6 +3,9 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- | Server which handles transactions.
+--
+-- TODO rename this module. It doesn't define any listeners and doesn't deal
+-- with a network.
 
 module Pos.Txp.Network.Listeners
        ( handleTxDo

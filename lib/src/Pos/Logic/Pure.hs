@@ -41,6 +41,7 @@ pureLogic
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
     , getBlock           = \_ -> pure (Just block)
+    , getChainFrom       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getBlockHeaders    = \_ _ -> pure (Right (NewestFirst (pure blockHeader)))
     , getBlockHeaders'   = \_ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))

@@ -10,6 +10,7 @@ import           Universum
 
 import           Control.Monad.Trans.Except (runExceptT)
 import           Control.Lens (at, to)
+import           Data.Conduit (Source)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Ether.Internal (HasLens (..), lensOf)
@@ -35,6 +36,7 @@ import           Pos.Core.Context (HasPrimaryKey, getOurStakeholderId)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
+import qualified Pos.GState.BlockExtra as DB (blocksSourceFrom)
 import           Pos.Logic.Types (LogicLayer (..), Logic (..), KeyVal (..),
                                   GetBlockHeadersError (..))
 import           Pos.Recovery (MonadRecoveryInfo)
@@ -102,6 +104,9 @@ logicLayerFull jsonLogTx k = do
     let
         getBlock :: HeaderHash -> m (Maybe Block)
         getBlock = DB.getBlock
+
+        getChainFrom :: HeaderHash -> Source m Block
+        getChainFrom = DB.blocksSourceFrom
 
         getTip :: m Block
         getTip = DB.getTipBlock

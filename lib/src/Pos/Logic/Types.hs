@@ -10,6 +10,7 @@ module Pos.Logic.Types
     ) where
 
 import           Universum
+import           Data.Conduit              (Source)
 import           Data.Default              (def)
 import           Data.Tagged               (Tagged)
 
@@ -32,6 +33,11 @@ data Logic m = Logic
       ourStakeholderId   :: StakeholderId
       -- Get a block, perhaps from a database.
     , getBlock           :: HeaderHash -> m (Maybe Block)
+      -- Stream blocks from first hash to second hash.
+      -- Conduit is chosen mainly due to precedent: it's already used in
+      -- cardano-sl.
+    , getChainFrom       :: HeaderHash
+                         -> Source m Block
       -- Get a block header.
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
@@ -160,6 +166,7 @@ dummyLogicLayer = LogicLayer
     dummyLogic = Logic
         { ourStakeholderId   = error "dummy: no stakeholder id"
         , getBlock           = \_ -> pure (error "dummy: can't get block")
+        , getChainFrom       = \_ -> error "dummy: can't get chain"
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
         , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
         , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")

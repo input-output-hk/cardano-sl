@@ -21,43 +21,43 @@ import           Pos.Core.Ssc                     (Opening, InnerSharesMap, Sign
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
 data Diffusion m = Diffusion
-    { -- Get all blocks from a set of checkpoints to a given tip.
+    { -- | Get all blocks from a set of checkpoints to a given tip.
       getBlocks          :: NodeId
                          -> BlockHeader
                          -> [HeaderHash]
                          -> m [Block]
-      -- This is needed because there's a security worker which will request
+      -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
       -- This type is chosen so that it fits with the current implementation:
       -- for each header received, dump it into the block retrieval queue and
       -- let the retrieval worker figure out all the recovery mode business.
     , requestTip         :: forall t . (BlockHeader -> NodeId -> m t) -> m (Map NodeId (m t))
-      -- Announce a block header.
+      -- | Announce a block header.
     , announceBlockHeader :: MainBlockHeader -> m ()
-      -- Returns a Bool iff at least one peer accepted the transaction.
+      -- | Returns a Bool iff at least one peer accepted the transaction.
       -- I believe it's for the benefit of wallets who wish to know that the
       -- transaction has a hope of making it into a block.
     , sendTx             :: TxAux -> m Bool
-      -- Send an update proposal.
+      -- | Send an update proposal.
     , sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> m ()
-      -- Send a vote for a proposal.
+      -- | Send a vote for a proposal.
     , sendVote           :: UpdateVote -> m ()
-      -- SSC: send our certificate (diffusion layer takes care of relaying
+      -- | SSC: send our certificate (diffusion layer takes care of relaying
       -- certs for other stakeholders).
     , sendSscCert        :: VssCertificate -> m ()
-      -- SSC: send our opening (diffusion layer takes care of relaying openings
+      -- | SSC: send our opening (diffusion layer takes care of relaying openings
       -- for other stakeholders).
     , sendSscOpening     :: Opening -> m ()
-      -- SSC: send our shares (diffusion layer takes care of relaying shares
+      -- | SSC: send our shares (diffusion layer takes care of relaying shares
       -- for other stakeholders).
     , sendSscShares      :: InnerSharesMap -> m ()
-      -- SSC: send our commitment (diffusion layer takes care of relaying
+      -- | SSC: send our commitment (diffusion layer takes care of relaying
       -- commitments for other stakeholders).
     , sendSscCommitment  :: SignedCommitment -> m ()
-      -- Delegation: send a heavy certificate.
+      -- | Delegation: send a heavy certificate.
     , sendPskHeavy       :: ProxySKHeavy -> m ()
 
-      -- FIXME stopgap measure: there's an amazon route53 health check server
+      -- | FIXME stopgap measure: there's an amazon route53 health check server
       -- that we have to support. Also a reporting mechanism that still
       -- demands to know the current set of peers we may be talking to.
       -- In the future we should roll this in with a more general status/debug

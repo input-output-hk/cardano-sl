@@ -364,7 +364,7 @@ getHeadersRange ::
     -> HeaderHash
     -> m (Either Text (OldestFirst NE HeaderHash))
 getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
-    unlessM (isJust <$> (lift (DB.getHeader newer))) $
+    unlessM (isJust <$> DB.getHeader newer) $
         throwError "getHeadersRange: can't find newer-older header"
     whenJust depthLimitM $ \depthLimit ->
         when (depthLimit < 1) $

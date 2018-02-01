@@ -4,21 +4,6 @@ Wallets:
     Accounts:
       -
         Addresses:
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-        AccountId: Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
-      -
-        Addresses:
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-        AccountId: Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
-    WalletId: Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
-  -
-    Accounts:
-      -
-        Addresses:
-          - DdzFFzCqrhsrM9GN7kvQgBNNA4AkzgXN6FFdYsPFd9ftf4ghDf9AkqU4CxJSUbtWFnx1nnBsdwTmrXZ7PmfDV1t2nVxXaEarYNMWZLSN
-        AccountId: Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
-    WalletId: Ae2tdPwUPEZD7r1mGc4BxGj5ikBop9DpdsKDzKpFujdYpd6bZBn9fZYEgsg
+          - DdzFFzCqrhtCiiLVZtX8Ed8DFriGni43h8chAAoz9wCKwiQbzdLXCDGfPRY2ANavaEDDEK7DUVAHxR2oxfr9k7LwyachbkBP2FmyE47P
+        AccountId: Ae2tdPwUPEZMeiDfNHZ45V7RoaSqd4oSMuG4jo7asvmNHS193EEad1tUkeT@2147483648
+    WalletId: Ae2tdPwUPEZMeiDfNHZ45V7RoaSqd4oSMuG4jo7asvmNHS193EEad1tUkeT

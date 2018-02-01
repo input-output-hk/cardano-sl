@@ -17,7 +17,7 @@ import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), Complete
                                                     Response, ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
 
-import           Pos.Wallet.Web.ClientTypes        (CWallet (..), CId (..), Wal)
+import           Pos.Wallet.Web.ClientTypes        (CWallet (..), CId (..), CHash (..), Wal)
 
 -- | Run 'GetWallet' client. As a result we will get a particular wallet.
 getWalletIO :: CompleteConfig -> IO ()
@@ -36,14 +36,14 @@ analyze
     :: Response CWallet
     -> CId Wal
     -> ResponseReport
-analyze response _ =
+analyze response (CId (CHash anId)) =
     case response of
         Left problem ->
             ResponseReport $
-                "Cannot get a wallet: " <> problem
+                "Cannot get a wallet '" <> anId <> "': " <> problem
         Right (Left walletError) ->
             ResponseReport $
-                "Server returned an error: " <> pretty walletError
+                "Server returned an error for wallet '" <> anId <> "': " <> pretty walletError
         Right (Right wallet) -> do
             ResponseReport $
                 show wallet

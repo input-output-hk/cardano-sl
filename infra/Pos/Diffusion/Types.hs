@@ -23,6 +23,8 @@ import           Pos.Util.Chrono                  (OldestFirst (..))
 -- of getting data in from and pushing data out to a network.
 data Diffusion m = Diffusion
     { -- | Get all blocks from a set of checkpoints to a given tip.
+      -- The blocks come in oldest first, and form a chain (prev header of
+      -- {n}'th is the header of {n-1}th.
       getBlocks          :: NodeId
                          -> BlockHeader
                          -> [HeaderHash]

@@ -12,7 +12,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
 import           System.Wlog (logDebug, logInfo)
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker, worker)
+import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Recovery.Info (recoveryCommGuard)
@@ -25,6 +25,7 @@ import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Util (lensOf)
+import           Pos.Worker.Types (WorkerSpec, localOnNewSlotWorker, worker)
 
 -- | Update System related workers.
 usWorkers :: forall ctx m. UpdateMode ctx m => ([WorkerSpec m], OutSpecs)

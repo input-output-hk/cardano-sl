@@ -55,19 +55,21 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 
 newPayment
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> AccountId
     -> CId Addr
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment passphrase srcAccount dstAddress coin policy =
+newPayment submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $
       sendMoney
+          submitTx
           passphrase
           (AccountMoneySource srcAccount)
           (one (dstAddress, coin))
@@ -75,17 +77,19 @@ newPayment passphrase srcAccount dstAddress coin policy =
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch passphrase NewBatchPayment {..} = do
+newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $
       sendMoney
-        passphrase
-        (AccountMoneySource src)
-        npbTo
-        npbInputSelectionPolicy
+          submitTx
+          passphrase
+          (AccountMoneySource src)
+          npbTo
+          npbInputSelectionPolicy
 
 type MonadFees ctx m =
     ( MonadCatch m
@@ -153,17 +157,17 @@ getMoneySourceUtxo =
 
 sendMoney
     :: (MonadWalletTxFull ctx m)
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney passphrase moneySource dstDistr policy = do
+sendMoney submitTx passphrase moneySource dstDistr policy = do
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
         }
-
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`
@@ -203,7 +207,7 @@ sendMoney passphrase moneySource dstDistr policy = do
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx srcWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx ptx
+        th <$ submitAndSaveNewPtx submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

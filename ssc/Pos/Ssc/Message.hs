@@ -28,8 +28,6 @@ import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg, ReqOrRes)
 import           Pos.Core (HasConfiguration, StakeholderId, VssCertificate, addressHash, getCertId)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Toss.Types (SscTag (..))
 
 class HasSscTag a where
@@ -104,6 +102,4 @@ type SscMessageConstraints m =
         , ReqOrRes (Tagged MCShares         StakeholderId)
         , ReqOrRes (Tagged MCVssCertificate StakeholderId) ]
     , HasConfiguration
-    , HasSscConfiguration
-    , HasInfraConfiguration
     )

@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 module Pos.WorkMode
@@ -11,9 +12,6 @@ module Pos.WorkMode
        , RealMode
        , RealModeContext(..)
        , EmptyMempoolExt
-
-       , OQ
-       , EnqueuedConversation (..)
        ) where
 
 import           Universum
@@ -38,9 +36,9 @@ import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
-import           Pos.DHT.Real.Types (KademliaDHTInstance)
+import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..))
@@ -57,12 +55,9 @@ import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLog
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
-import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
-
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -72,7 +67,6 @@ data RealModeContext ext = RealModeContext
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !NodeContext
-    , rmcOutboundQ     :: !(OQ (RealMode ext))
     }
 
 type EmptyMempoolExt = ()
@@ -97,7 +91,7 @@ instance HasLens DelegationVar (RealModeContext ext) DelegationVar where
     lensOf = rmcDelegationVar_L
 
 instance HasNodeType (RealModeContext ext) where
-    getNodeType = getNodeTypeDefault @KademliaDHTInstance
+    getNodeType = getNodeTypeDefault @KademliaParams
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeContext r =>
@@ -176,11 +170,8 @@ instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
-instance MonadKnownPeers (RealMode ext) where
-    updatePeersBucket = OQ.Reader.updatePeersBucketReader rmcOutboundQ
-
 instance MonadFormatPeers (RealMode ext) where
-    formatKnownPeers = OQ.Reader.formatKnownPeersReader rmcOutboundQ
+    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt (RealMode ext) = ext
 

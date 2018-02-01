@@ -11,10 +11,6 @@ module Pos.Block.Types
        , LastKnownHeaderTag
        , MonadLastKnownHeader
 
-       , ProgressHeader
-       , ProgressHeaderTag
-       , MonadProgressHeader
-
        , RecoveryHeaderTag
        , RecoveryHeader
        , MonadRecoveryHeader
@@ -73,11 +69,6 @@ data LastKnownHeaderTag
 type LastKnownHeader = TVar (Maybe BlockHeader)
 type MonadLastKnownHeader ctx m
      = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
-
-data ProgressHeaderTag
-type ProgressHeader = STM.TMVar BlockHeader
-type MonadProgressHeader ctx m
-     = (MonadReader ctx m, HasLens ProgressHeaderTag ctx ProgressHeader)
 
 data RecoveryHeaderTag
 type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)

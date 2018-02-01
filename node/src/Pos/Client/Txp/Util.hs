@@ -281,7 +281,19 @@ fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
 fixedToFee = integerToFee . ceiling
 
 type FlatUtxo = [(TxIn, TxOutAux)]
-type InputPickingWay = Utxo -> TxOutputs -> Coin -> Either TxError FlatUtxo
+
+-- | With all needed information provided, describes how to select
+-- transaction inputs.
+type InputPickingWay = Utxo -> FixedInputPickingWay
+
+-- | Similar to 'InputPickingWay', but all predefined fixed arguments are
+-- already passed, while arguments adjusted during 'stabilizeTxFee' are yet to
+-- be passed.
+-- Input picker may benefit from accepting 'Utxo' argument, doing all 'Utxo'
+-- preprocessings and returning 'FixedInputPickingWay', this way those
+-- preprocessings will happen only once during multiple calls inside
+-- 'stabilizeTxFee'.
+type FixedInputPickingWay = TxOutputs -> Coin -> Either TxError FlatUtxo
 
 -- TODO [CSM-526] Scatter on submodules
 
@@ -298,33 +310,39 @@ makeLenses ''InputPickerState
 
 type InputPicker = StateT InputPickerState (Either TxError)
 
+-- | Most simple way of picking inputs:
+--
+-- * prefer ones which are not used in this slot
+--
+-- * take ones which have more coins first (in order to decrease number of
+-- picked inputs and thus decrease fee)
 plainInputPicker :: PendingAddresses -> InputPickingWay
-plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
-    evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
+plainInputPicker (PendingAddresses pendingAddrs) utxo =
+    let onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
+        onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `Set.member` addrs)
+        --
+        -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
+        -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
+        -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
+        -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
+        -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
+        -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
+        -- the `confirmed` set would tend to be quite big anyway.
+        -- We should revisit such policy and its implications during a proper rewrite.
+        --
+        -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
+        -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
+        -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
+        -- (The same malady the @OptimiseForSecurity@ policy was affected by).
+        sortedUnspent = confirmed ++ unconfirmed
+
+        (confirmed, unconfirmed) =
+            -- Give precedence to "confirmed" addresses.
+            partition (onlyConfirmedInputs pendingAddrs)
+                      (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
+    in \_outputs moneyToSpent ->
+        evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
   where
-    onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
-    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `Set.member` addrs)
-    --
-    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
-    -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
-    -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
-    -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
-    -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
-    -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
-    -- the `confirmed` set would tend to be quite big anyway.
-    -- We should revisit such policy and its implications during a proper rewrite.
-    --
-    -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
-    -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
-    -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
-    -- (The same malady the @OptimiseForSecurity@ policy was affected by).
-    sortedUnspent = confirmed ++ unconfirmed
-
-    (confirmed, unconfirmed) =
-      -- Give precedence to "confirmed" addresses.
-      partition (onlyConfirmedInputs pendingAddrs)
-                (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
-
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
         moneyLeft <- use ipsMoneyLeft
@@ -373,21 +391,25 @@ makeLenses ''GroupedInputPickerState
 
 type GroupedInputPicker = StateT GroupedInputPickerState (Either TxError)
 
+-- | Groups inputs by addresses, forbidding to spend an address just partially.
+-- Prefers input groups with larger amount of money.
 groupedInputPicker :: InputPickingWay
-groupedInputPicker utxo outputs moneyToSpent =
-    evalStateT (pickInputs []) (GroupedInputPickerState moneyToSpent sortedGroups)
+groupedInputPicker utxo =
+    let gUtxo = groupUtxo utxo
+        sortedGroups = sortOn (Down . ugTotalMoney) gUtxo
+    in \outputs moneyToSpent ->
+        let outputAddrsSet =
+                foldl' (flip HS.insert) mempty $
+                map (txOutAddress . toaOut) outputs
+            isOutputAddr = flip HS.member outputAddrsSet
+            preparedGroups = filter (not . isOutputAddr . ugAddr) sortedGroups
+            disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
+            disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
+        in  evalStateT (pickInputs disallowedMoney [])
+                       (GroupedInputPickerState moneyToSpent preparedGroups)
   where
-    gUtxo = groupUtxo utxo
-    outputAddrsSet = foldl' (flip HS.insert) mempty $
-        map (txOutAddress . toaOut) outputs
-    isOutputAddr = flip HS.member outputAddrsSet
-    sortedGroups = sortOn (Down . ugTotalMoney) $
-        filter (not . isOutputAddr . ugAddr) gUtxo
-    disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
-    disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
-
-    pickInputs :: FlatUtxo -> GroupedInputPicker FlatUtxo
-    pickInputs inps = do
+    pickInputs :: Integer -> FlatUtxo -> GroupedInputPicker FlatUtxo
+    pickInputs disallowedMoney inps = do
         moneyLeft <- use gipsMoneyLeft
         if moneyLeft == mkCoin 0
             then return inps
@@ -400,23 +422,28 @@ groupedInputPicker utxo outputs moneyToSpent =
                     Just UtxoGroup {..} -> do
                         gipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
                         gipsAvailableOutputGroups %= tail
-                        pickInputs (toList ugUtxo ++ inps)
+                        pickInputs disallowedMoney (toList ugUtxo ++ inps)
 
 -------------------------------------------------------------------------
 -- Further logic
 -------------------------------------------------------------------------
 
--- | Given filtered Utxo, desired outputs and fee size,
--- prepare correct inputs and outputs for transaction
--- (and tell how much to send to remaining address)
+-- | Given way of inputs selection, filtered Utxo,
+-- desired outputs and fee size, prepare correct
+-- inputs and outputs for transaction
+-- (and tell how much to send to remaining address).
+--
+-- Note that it utilizes opportunity to preprocess
+-- single given Utxo only once for several different
+-- outputs and fee passed, if used 'InputPickingWay'
+-- supports that.
 prepareTxRawWithPicker
     :: Monad m
-    => InputPickingWay
-    -> Utxo
+    => FixedInputPickingWay
     -> TxOutputs
     -> TxFee
     -> TxCreator m TxRaw
-prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
+prepareTxRawWithPicker inputPicker outputs (TxFee fee) = do
     mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
 
     totalMoney <- sumTxOuts outputs
@@ -424,7 +451,7 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
         throwError $ GeneralTxError "Attempted to send 0 money"
 
     let moneyToSpent = totalMoney `unsafeAddCoin` fee
-    futxo <- either throwError pure $ inputPicker utxo outputs moneyToSpent
+    futxo <- either throwError pure $ inputPicker outputs moneyToSpent
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -441,6 +468,27 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
         when (isRedeemAddress outAddr) $
             throwError $ OutputIsRedeem outAddr
 
+-- | This is extended version of 'prepareTxRaw', which allows to
+-- carry out 'Utxo' parameter and preprocess it internally only once.
+-- This is used in 'stabilizeTxFee' which invokes this function
+-- multiple times passing same utxo but different outputs and fee.
+mkTxRawPreparer
+    :: Monad m
+    => PendingAddresses
+    -> Utxo
+    -> TxCreator m (TxOutputs -> TxFee -> TxCreator m TxRaw)
+mkTxRawPreparer pendingTx utxo = do
+    inputSelectionPolicy <- view tcdInputSelectionPolicy
+    let inputPickingWay =
+          case inputSelectionPolicy of
+            OptimizeForHighThroughput -> plainInputPicker pendingTx
+            OptimizeForSecurity       -> groupedInputPicker
+    let inputPicker = inputPickingWay utxo
+    return $ prepareTxRawWithPicker inputPicker
+
+-- | Given filtered Utxo, desired outputs and fee size,
+-- prepare correct inputs and outputs for transaction
+-- (and tell how much to send to remaining address).
 prepareTxRaw
     :: Monad m
     => PendingAddresses
@@ -449,12 +497,8 @@ prepareTxRaw
     -> TxFee
     -> TxCreator m TxRaw
 prepareTxRaw pendingTx utxo outputs fee = do
-    inputSelectionPolicy <- view tcdInputSelectionPolicy
-    let inputPicker =
-          case inputSelectionPolicy of
-            OptimizeForHighThroughput -> plainInputPicker pendingTx
-            OptimizeForSecurity       -> groupedInputPicker
-    prepareTxRawWithPicker inputPicker utxo outputs fee
+    prepare <- mkTxRawPreparer pendingTx utxo
+    prepare outputs fee
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -662,7 +706,8 @@ stabilizeTxFee
     -> TxCreator m TxRaw
 stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
-    mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
+    prepareTxDo <- mkTxRawPreparer pendingTx utxo
+    mtx <- stabilizeTxFeeDo prepareTxDo (False, firstStageAttempts) minFee
     case mtx of
         Nothing -> throwError FailedToStabilize
         Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
@@ -670,17 +715,18 @@ stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     firstStageAttempts = 2 * length utxo + 5
     secondStageAttempts = 10
 
-    stabilizeTxFeeDo :: (Bool, Int)
+    stabilizeTxFeeDo :: (TxOutputs -> TxFee -> TxCreator m TxRaw)
+                     -> (Bool, Int)
                      -> TxFee
                      -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
-    stabilizeTxFeeDo (_, 0) _ = pure Nothing
-    stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
-        txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
+    stabilizeTxFeeDo _ (_, 0) _ = pure Nothing
+    stabilizeTxFeeDo prepareTxDo (isSecondStage, attempt) expectedFee = do
+        txRaw <- prepareTxDo outputs expectedFee
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx txRaw
 
         let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
-        let iterateDo step = stabilizeTxFeeDo step txMinFee
+        let iterateDo step = stabilizeTxFeeDo prepareTxDo step txMinFee
         case expectedFee `compare` txMinFee of
             LT -> iterateDo (isSecondStage, attempt - 1)
             EQ -> pure (Just txRawWithFee)

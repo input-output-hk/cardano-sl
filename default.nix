@@ -87,7 +87,11 @@ let
       });
     };
   });
-  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  connect = let
+      walletConfigFile = ./custom-wallet-config.nix;
+      walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
+    in
+      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
   other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {

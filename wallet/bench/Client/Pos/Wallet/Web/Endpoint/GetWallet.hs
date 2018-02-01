@@ -23,7 +23,7 @@ import           Pos.Wallet.Web.ClientTypes        (CWallet (..), CId (..), CHas
 getWalletIO :: CompleteConfig -> IO ()
 getWalletIO conf@CompleteConfig {..} = do
     Wallet anId _ <- pickRandomElementFrom $ wallets walletsConfig
-    response <- runEndpointClient conf (getWallet anId)
+    response <- runEndpointClient conf $ getWallet anId
     when needResponseAnalysis $ do
         let ResponseReport report = analyze response anId
         case extractEndpointConfigFor GetWalletBench conf of

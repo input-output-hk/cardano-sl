@@ -34,7 +34,7 @@ import           Pos.Util.Servant                     (FromCType (..),
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
                                                        mkCCoin, mkCTxId,
                                                        ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr,
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..),
                                                        ApiVersion (..), CAccount (..),
                                                        CAccountId (..), CAccountInit (..),
                                                        CAccountMeta (..), CAddress (..),
@@ -52,18 +52,15 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr,
                                                        CWalletRedeem (..),
                                                        ClientInfo (..), ScrollLimit (..),
                                                        ScrollOffset (..),
-                                                       SyncProgress (..), Wal)
+                                                       SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 
 -- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?
 -- This would allow to get tid of functions like 'ptxCondToCPtxCond' :/
 
 -- This instance is for benchmarking client.
-instance ToHttpApiData (CId Wal) where
-    toQueryParam _ = "Wal"
-
-instance ToHttpApiData (CId Addr) where
-    toQueryParam _ = "Addr"
+instance ToHttpApiData (CId a) where
+    toQueryParam (CId (CHash text)) = text
 
 instance ToHttpApiData CAccountId where
     toQueryParam (CAccountId text) = text

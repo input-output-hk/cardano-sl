@@ -130,7 +130,7 @@ bench: &bench
         initializer:
           testBalance:
             poors:        50000
-            richmen:      3
+            richmen:      7
             richmenShare: 0.99
             useHDAddresses: False
             totalBalance: 6000000000

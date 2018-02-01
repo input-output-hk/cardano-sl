@@ -47,7 +47,7 @@ let
     cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"} log-config-qa.yaml
+    cp -vi ${iohkPkgs.cardano-sl.src + "/../log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
     cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
@@ -78,7 +78,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
     ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
     ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \
-    --log-config ${configFiles}/log-config-qa.yaml                 \
+    --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
     --topology "${configFiles}/topology.yaml"                      \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"                                     \

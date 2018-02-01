@@ -57,7 +57,7 @@ mkdir -p daedalus
 pushd daedalus
   echo $BUILDKITE_BUILD_NUMBER > build-id
   echo $BUILDKITE_COMMIT > commit-id
-  cp ../log-config-prod.yaml .
+  cp ../log-configs/daedalus.yaml ./log-config-prod.yaml
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .

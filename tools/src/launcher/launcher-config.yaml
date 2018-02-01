@@ -1,3 +1,7 @@
+# Example config for cardano-launcher.
+# Use like so:
+#     stack exec -- cardano-launcher --config /path/to/launcher-config.yaml
+
 # Path to the node executable.
 nodePath: binaries/cardano-node
 

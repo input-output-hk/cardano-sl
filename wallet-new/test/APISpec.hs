@@ -26,7 +26,7 @@ import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 

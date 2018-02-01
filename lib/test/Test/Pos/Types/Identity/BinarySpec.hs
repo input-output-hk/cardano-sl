@@ -14,8 +14,8 @@ import           Pos.Data.Attributes (Attributes (..))
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.Cbor.CborSpec (U)
+import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do

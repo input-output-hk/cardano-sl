@@ -298,7 +298,7 @@ makeLenses ''InputPickerState
 type InputPicker = StateT InputPickerState (Either TxError)
 
 plainInputPicker :: PendingAddresses -> InputPickingWay
-plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
+plainInputPicker (PendingAddresses pendingAddrs) utxo = \_outputs moneyToSpent ->
     evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
   where
     onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
@@ -373,20 +373,22 @@ makeLenses ''GroupedInputPickerState
 type GroupedInputPicker = StateT GroupedInputPickerState (Either TxError)
 
 groupedInputPicker :: InputPickingWay
-groupedInputPicker utxo outputs moneyToSpent =
-    evalStateT (pickInputs []) (GroupedInputPickerState moneyToSpent sortedGroups)
+groupedInputPicker utxo = \outputs moneyToSpent ->
+    let outputAddrsSet =
+            foldl' (flip HS.insert) mempty $
+            map (txOutAddress . toaOut) outputs
+        isOutputAddr = flip HS.member outputAddrsSet
+        preparedGroups = filter (not . isOutputAddr . ugAddr) sortedGroups
+        disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
+        disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
+    in  evalStateT (pickInputs disallowedMoney [])
+                   (GroupedInputPickerState moneyToSpent preparedGroups)
   where
     gUtxo = groupUtxo utxo
-    outputAddrsSet = foldl' (flip HS.insert) mempty $
-        map (txOutAddress . toaOut) outputs
-    isOutputAddr = flip HS.member outputAddrsSet
-    sortedGroups = sortOn (Down . ugTotalMoney) $
-        filter (not . isOutputAddr . ugAddr) gUtxo
-    disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
-    disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
+    sortedGroups = sortOn (Down . ugTotalMoney) gUtxo
 
-    pickInputs :: FlatUtxo -> GroupedInputPicker FlatUtxo
-    pickInputs inps = do
+    pickInputs :: Integer -> FlatUtxo -> GroupedInputPicker FlatUtxo
+    pickInputs disallowedMoney inps = do
         moneyLeft <- use gipsMoneyLeft
         if moneyLeft == mkCoin 0
             then return inps
@@ -399,15 +401,21 @@ groupedInputPicker utxo outputs moneyToSpent =
                     Just UtxoGroup {..} -> do
                         gipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
                         gipsAvailableOutputGroups %= tail
-                        pickInputs (toList ugUtxo ++ inps)
+                        pickInputs disallowedMoney (toList ugUtxo ++ inps)
 
 -------------------------------------------------------------------------
 -- Further logic
 -------------------------------------------------------------------------
 
--- | Given filtered Utxo, desired outputs and fee size,
--- prepare correct inputs and outputs for transaction
--- (and tell how much to send to remaining address)
+-- | Given way of inputs selection, filtered Utxo,
+-- desired outputs and fee size, prepare correct
+-- inputs and outputs for transaction
+-- (and tell how much to send to remaining address).
+--
+-- Note that it utilizes opportunity to preprocess
+-- single given Utxo only once for several different
+-- outputs and fee passed, if used 'InputPickingWay'
+-- supports that.
 prepareTxRawWithPicker
     :: Monad m
     => InputPickingWay
@@ -415,7 +423,7 @@ prepareTxRawWithPicker
     -> TxOutputs
     -> TxFee
     -> TxCreator m TxRaw
-prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
+prepareTxRawWithPicker inputPickingWay utxo = \outputs (TxFee fee) -> do
     mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
 
     totalMoney <- sumTxOuts outputs
@@ -427,7 +435,7 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
         Left _  -> throwError $ NotEnoughMoney maxBound
         Right c -> pure c
 
-    futxo <- either throwError pure $ inputPicker utxo outputs moneyToSpent
+    futxo <- either throwError pure $ inputPicker outputs moneyToSpent
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -443,7 +451,28 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
     checkIsNotRedeemAddr outAddr =
         when (isRedeemAddress outAddr) $
             throwError $ OutputIsRedeem outAddr
+    inputPicker = inputPickingWay utxo
 
+-- | This is extended version of 'prepareTxRaw', which allows to
+-- carry out 'Utxo' parameter and preprocess it internally only once.
+-- This is used in 'stabilizeTxFee' which invokes this function
+-- multiple times passing same utxo but different outputs and fee.
+mkTxRawPreparer
+    :: Monad m
+    => PendingAddresses
+    -> Utxo
+    -> TxCreator m (TxOutputs -> TxFee -> TxCreator m TxRaw)
+mkTxRawPreparer pendingTx utxo = do
+    inputSelectionPolicy <- view tcdInputSelectionPolicy
+    let inputPickingWay =
+          case inputSelectionPolicy of
+            OptimizeForHighThroughput -> plainInputPicker pendingTx
+            OptimizeForSecurity       -> groupedInputPicker
+    return $ prepareTxRawWithPicker inputPickingWay utxo
+
+-- | Given filtered Utxo, desired outputs and fee size,
+-- prepare correct inputs and outputs for transaction
+-- (and tell how much to send to remaining address).
 prepareTxRaw
     :: Monad m
     => PendingAddresses
@@ -452,12 +481,8 @@ prepareTxRaw
     -> TxFee
     -> TxCreator m TxRaw
 prepareTxRaw pendingTx utxo outputs fee = do
-    inputSelectionPolicy <- view tcdInputSelectionPolicy
-    let inputPicker =
-          case inputSelectionPolicy of
-            OptimizeForHighThroughput -> plainInputPicker pendingTx
-            OptimizeForSecurity       -> groupedInputPicker
-    prepareTxRawWithPicker inputPicker utxo outputs fee
+    prepare <- mkTxRawPreparer pendingTx utxo
+    prepare outputs fee
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -665,7 +690,8 @@ stabilizeTxFee
     -> TxCreator m TxRaw
 stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
-    mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
+    prepareTxDo <- mkTxRawPreparer pendingTx utxo
+    mtx <- stabilizeTxFeeDo prepareTxDo (False, firstStageAttempts) minFee
     case mtx of
         Nothing -> throwError FailedToStabilize
         Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
@@ -673,18 +699,19 @@ stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     firstStageAttempts = 2 * length utxo + 5
     secondStageAttempts = 10
 
-    stabilizeTxFeeDo :: (Bool, Int)
+    stabilizeTxFeeDo :: (TxOutputs -> TxFee -> TxCreator m TxRaw)
+                     -> (Bool, Int)
                      -> TxFee
                      -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
-    stabilizeTxFeeDo (_, 0) _ = pure Nothing
-    stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
-        txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
+    stabilizeTxFeeDo _ (_, 0) _ = pure Nothing
+    stabilizeTxFeeDo prepareTxDo (isSecondStage, attempt) expectedFee = do
+        txRaw <- prepareTxDo outputs expectedFee
         fakeChangeAddr <- lift . lift $ getFakeChangeAddress
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx fakeChangeAddr txRaw
 
         let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
-        let iterateDo step = stabilizeTxFeeDo step txMinFee
+        let iterateDo step = stabilizeTxFeeDo prepareTxDo step txMinFee
         case expectedFee `compare` txMinFee of
             LT -> iterateDo (isSecondStage, attempt - 1)
             EQ -> pure (Just txRawWithFee)

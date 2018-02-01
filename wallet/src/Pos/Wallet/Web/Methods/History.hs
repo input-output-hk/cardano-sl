@@ -35,12 +35,11 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
-import           Pos.Wallet.Web.State       (WalletDB, WalletDbWriter, WalletSnapshot, askWalletDB,
-                                             askWalletSnapshot, AddressLookupMode (Ever),
-                                             AddressInfo (..), addOnlyNewTxMetas, getHistoryCache,
-                                             getPendingTx, getTxMeta, getWalletPendingTxs,
-                                             setWalletTxMeta)
-import           Pos.Wallet.Web.State.Acidic as A
+import           Pos.Wallet.Web.State       (AddressInfo (..), AddressLookupMode (Ever),
+                                             WalletDB, WalletSnapshot, addOnlyNewTxMetas,
+                                             askWalletDB, askWalletSnapshot,
+                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
                                              getWalletAddrs, getWalletAddrsDetector)
 
@@ -169,7 +168,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         "Please do not specify both walletId and accountId at the same time"
 
 addHistoryTx
-    :: (WalletDbWriter A.AddOnlyNewTxMetas m, MonadIO m)
+    :: MonadIO m
     => WalletDB
     -> CId Wal
     -> TxHistoryEntry
@@ -179,7 +178,7 @@ addHistoryTx db cWalId = addHistoryTxs db cWalId . txHistoryListToMap . one
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
 addHistoryTxs
-    :: (WalletDbWriter A.AddOnlyNewTxMetas m, MonadIO m)
+    :: MonadIO m
     => WalletDB
     -> CId Wal
     -> Map TxId TxHistoryEntry

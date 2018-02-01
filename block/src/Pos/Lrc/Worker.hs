@@ -225,7 +225,7 @@ leadersComputationDo epochId seed =
   where
     logLeaders :: SlotLeaders -> m ()
     logLeaders leaders = logInfo $
-        sformat ("Slot leaders for "%build%" are: "%slotLeadersF)
+        sformat ("Slot leaders for epoch "%build%" are: "%slotLeadersF)
         epochId (toList leaders)
 
 richmenComputationDo

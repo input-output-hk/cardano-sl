@@ -63,7 +63,7 @@ retrieveCompileTimeInfo = do
     retrieveFromGitExecutable :: IO String
     retrieveFromGitExecutable = do
         (exitCode, output, _) <-
-            readProcessWithExitCode "git" ["rev-parse", "--verify", "--short", "HEAD"] ""
+            readProcessWithExitCode "git" ["rev-parse", "--verify", "HEAD"] ""
         pure $ case exitCode of
             ExitSuccess -> output
             _           -> "Couldn't fetch git revision"

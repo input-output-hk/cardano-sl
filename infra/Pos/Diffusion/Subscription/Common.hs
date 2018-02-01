@@ -1,6 +1,7 @@
 -- | Common definitions for peer discovery and subscription workers.
 
-module Pos.Subscription.Common
+
+module Pos.Diffusion.Subscription.Common
     ( SubscriptionMode
     , SubscriptionTerminationReason (..)
     , subscribeTo
@@ -24,18 +25,17 @@ import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              ListenerSpec, MkListeners, MsgSubscribe (..),
-                                             MsgSubscribe1 (..), NodeId, OutSpecs, SendActions,
-                                             Worker, WorkerSpec, constantListeners, convH,
-                                             toOutSpecs, withConnectionTo, worker)
-import           Pos.KnownPeers (MonadKnownPeers (..))
+                                             MsgSubscribe1 (..), NodeId, OutSpecs,
+                                             SendActions, constantListeners,
+                                             convH, toOutSpecs, withConnectionTo)
 import           Pos.Network.Types (Bucket (..), NodeType)
-import           Pos.Util.Timer (Timer, setTimerDuration, startTimer, waitTimer)
+import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
+import           Pos.Worker.Types (Worker, WorkerSpec, worker)
 
 type SubscriptionMode m =
     ( MonadIO m
     , WithLogger m
     , MonadMask m
-    , MonadKnownPeers m
     , Message MsgSubscribe
     , Message MsgSubscribe1
     , MessageLimited MsgSubscribe m
@@ -76,7 +76,7 @@ subscribeTo keepAliveTimer sendActions peer = do
             startTimer keepAliveTimer
             atomically $ waitTimer keepAliveTimer
             logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
-                                peer
+                               peer
             send conv MsgSubscribeKeepAlive
             -- If there is a suspicion that subscriptions are no longer valid,
             -- we want to start sending keep-alive packets more frequently. Use
@@ -103,14 +103,14 @@ subscriptionListener
     => OQ.OutboundQ pack NodeId Bucket
     -> NodeType
     -> (ListenerSpec m, OutSpecs)
-subscriptionListener oq nodeType = listenerConv @Void oq $ \_ourVerInfo nodeId conv -> do
+subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
     recvLimited conv >>= \case
         Just MsgSubscribe -> do
             let peers = simplePeers [(nodeType, nodeId)]
             bracket
-              (updatePeersBucket BucketSubscriptionListener (<> peers))
+              (OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
               (\added -> when added $ do
-                void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId)
+                void $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
                 logDebug $ sformat ("subscriptionListener: removed "%shown) nodeId)
               (\added -> when added $ do -- if not added, close the conversation
                   logDebug $ sformat ("subscriptionListener: added "%shown) nodeId
@@ -140,9 +140,9 @@ subscriptionListener1 oq nodeType = listenerConv @Void oq $ \_ourVerInfo nodeId 
     whenJust mbMsg $ \MsgSubscribe1 -> do
       let peers = simplePeers [(nodeType, nodeId)]
       bracket
-          (updatePeersBucket BucketSubscriptionListener (<> peers))
+          (OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
           (\added -> when added $ do
-              void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId)
+              void $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
               logDebug $ sformat ("subscriptionListener1: removed "%shown) nodeId)
           (\added -> when added $ do -- if not added, close the conversation
               logDebug $ sformat ("subscriptionListener1: added "%shown) nodeId

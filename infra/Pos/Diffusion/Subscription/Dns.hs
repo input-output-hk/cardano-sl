@@ -5,7 +5,7 @@ module Pos.Diffusion.Subscription.Dns
 
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
-import           Data.Time.Units (Millisecond)
+import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
@@ -16,11 +16,12 @@ import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAt
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
-import           Pos.Communication.Protocol (Worker)
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
-import           Pos.Diffusion.Subscription.Common
+import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker
     :: forall pack kademlia m.
@@ -32,9 +33,11 @@ dnsSubscriptionWorker
     => OQ.OutboundQ pack NodeId Bucket
     -> NetworkConfig kademlia
     -> DnsDomains DNS.Domain
+    -> Timer
     -> m Millisecond
-    -> Worker m
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} retryInterval sendActions = do
+    -> SendActions m
+    -> m ()
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -86,7 +89,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} retryInterval sendActions = d
     subscribeToOne dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo retryInterval sendActions peer
+            void $ subscribeTo keepaliveTimer sendActions peer
             subscribeToOne peers
 
     -- Find peers via DNS, preserving order.
@@ -101,6 +104,13 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} retryInterval sendActions = d
         when (null nids)       $ logError (msgNoRelays index)
         when (not (null errs)) $ logError (msgDnsFailure index errs)
         return nids
+
+    -- How long to wait before retrying in case no alternative can be
+    -- subscribed to.
+    retryInterval :: m Millisecond
+    retryInterval = do
+        slotDur <- nextSlotDuration
+        pure $ max (slotDur `div` 4) (convertUnit (5 :: Second))
 
     msgDnsFailure :: Int -> [DNS.DNSError] -> Text
     msgDnsFailure = sformat ("dnsSubscriptionWorker: DNS failure for index "%int%": "%shown)

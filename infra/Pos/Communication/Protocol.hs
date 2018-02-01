@@ -8,14 +8,8 @@ module Pos.Communication.Protocol
        , hoistSendActions
        , mapListener
        , mapListener'
-       , mapActionSpec
        , Message (..)
        , MessageCode
-       , worker
-       , worker'
-       , localWorker
-       , localSpecs
-       , toAction
        , unpackLSpecs
        , hoistMkListeners
        , makeSendActions
@@ -24,9 +18,9 @@ module Pos.Communication.Protocol
        , checkingInSpecs
        , constantListeners
 
-       -- * OnNewSlot workers
-       , onNewSlotWorker
-       , localOnNewSlotWorker
+       -- * OnNewSlot constraints
+       , LocalOnNewSlotComm
+       , OnNewSlotComm
        ) where
 
 import           Universum
@@ -43,12 +37,10 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (SlotId)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots)
-import           Pos.Slotting.Util (OnNewSlotParams, onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -61,12 +53,6 @@ mapListener'
     -> (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener' caMapper mapper (N.Listener f) =
     N.Listener $ \d nId -> mapper . f d nId . caMapper nId
-
-mapActionSpec
-    :: (SendActions m -> SendActions m)
-    -> (forall t. m t -> m t) -> ActionSpec m a -> ActionSpec m a
-mapActionSpec saMapper aMapper (ActionSpec f) =
-    ActionSpec $ \vI sA -> aMapper $ f vI (saMapper sA)
 
 hoistSendActions
     :: forall n m .
@@ -218,20 +204,6 @@ instance Buildable MismatchedProtocolMagic where
         bprint
           ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
 
-toAction
-    :: (SendActions m -> m a) -> ActionSpec m a
-toAction h = ActionSpec $ const h
-
-worker :: OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
-worker outSpecs = (,outSpecs) . toAction
-
-workerHelper :: OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
-workerHelper outSpecs h = (,outSpecs) $ toAction . h
-
-worker' :: OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
-worker' outSpecs h =
-    (,outSpecs) $ ActionSpec $ h
-
 
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
@@ -252,30 +224,6 @@ type OnNewSlotComm ctx m =
     , Mockable SharedAtomic m
     , HasConfiguration
     )
-
-onNewSlot'
-    :: OnNewSlotComm ctx m
-    => OnNewSlotParams -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' params (h, outs) =
-    (,outs) . ActionSpec $ \vI sA ->
-        onNewSlot params $
-            \slotId -> let ActionSpec h' = h slotId
-                        in h' vI sA
-onNewSlotWorker
-    :: OnNewSlotComm ctx m
-    => OnNewSlotParams -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker params outs = onNewSlot' params . workerHelper outs
-
-localOnNewSlotWorker
-    :: LocalOnNewSlotComm ctx m
-    => OnNewSlotParams -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker params h = (ActionSpec $ \__vI __sA -> onNewSlot params h, mempty)
-
-localWorker :: m () -> (WorkerSpec m, OutSpecs)
-localWorker = localSpecs
-
-localSpecs :: m a -> (ActionSpec m a, OutSpecs)
-localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkProtocolMagic
     :: WithLogger m

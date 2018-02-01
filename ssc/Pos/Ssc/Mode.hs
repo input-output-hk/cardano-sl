@@ -19,6 +19,7 @@ import           Pos.Reporting (MonadReporting)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Types (HasSscContext)
 import           Pos.Util.TimeWarp (CanJsonLog)
@@ -44,4 +45,5 @@ type SscMode ctx m
       , HasLens SecurityParams ctx SecurityParams
       , HasLrcContext ctx
       , HasConfiguration
+      , HasSscConfiguration
       )

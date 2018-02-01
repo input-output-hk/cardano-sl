@@ -36,7 +36,7 @@ import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, 
                                 stopProperty, withDefConfigurations)
 
 import           Pos.Util.Servant (encodeCType)
-import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
+import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec, submitTxTestMode)
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 
@@ -79,7 +79,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
                 , npbTo = fromList $ zip dstCAddrs coins
                 , npbInputSelectionPolicy = policy
                 }
-    void $ lift $ newPaymentBatch pswd newBatchP
+    void $ lift $ newPaymentBatch submitTxTestMode pswd newBatchP
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

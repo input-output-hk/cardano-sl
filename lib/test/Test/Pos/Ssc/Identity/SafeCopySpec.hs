@@ -7,6 +7,7 @@ module Test.Pos.Ssc.Identity.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
+import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.SafeCopy ()
 

@@ -16,6 +16,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose, conjoin, counterexample,
                                   suchThat, vectorOf, (.&&.), (==>))
 
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, SlotId (..),
                            VssCertificate (..), getCertId, getVssCertificatesMap, mkVssCertificate,
                            slotSecurityParam)

@@ -47,7 +47,7 @@ askSlottingContextSum = view (lensOf @SlottingContextSum)
 type SlotsSumEnv ctx m =
     ( MonadSlottingSum ctx m
     , NtpMode ctx m
-    -- ^ Contains @MonadThrow@
+    --  Contains @MonadThrow@
     , SimpleSlottingMode ctx m
     )
 

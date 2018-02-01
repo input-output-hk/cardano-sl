@@ -1,3 +1,5 @@
+# This config is used by Daedalus (in production).
+
 rotation:
     logLimit: 5242880 # 5MB
     keepFiles: 20

@@ -33,8 +33,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
     Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
@@ -54,6 +52,8 @@ library
     Pos.Ssc.Toss.Class
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
+
+    Pos.Ssc.Worker
 
     Pos.Arbitrary.Ssc
 

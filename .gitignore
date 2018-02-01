@@ -74,3 +74,5 @@ socket-io.log
 # importify
 .importify
 
+# custom configuration
+custom-wallet-config.nix

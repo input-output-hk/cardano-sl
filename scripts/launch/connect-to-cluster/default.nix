@@ -9,6 +9,8 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
+, ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
+, additionalNodeArgs ? ""
 }:
 
 with localLib;
@@ -63,9 +65,9 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
 
   echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
-  if [ ! -d ${stateDir}tls ]; then
+  if [ ! -d ${stateDir}/tls ]; then
     mkdir ${stateDir}/tls/
-    openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
+    ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
   fi
   ''}
 
@@ -85,5 +87,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
-    --ekg-server ${ekgListen} --metrics +RTS -T -RTS
+    --ekg-server ${ekgListen} --metrics                            \
+    +RTS ${ghcRuntimeArgs} -RTS                                    \
+    ${additionalNodeArgs}
 ''

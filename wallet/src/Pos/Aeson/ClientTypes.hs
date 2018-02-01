@@ -4,13 +4,13 @@ module Pos.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value(..), object,
-                                               withArray, withObject, (.:), (.=))
-import           Data.Aeson.Types             (Parser, typeMismatch)
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), Value (..),
+                                               object, withArray, withObject, (.:), (.=))
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Aeson.Types             (Parser, typeMismatch)
 import           Data.Version                 (showVersion)
 
-import           Pos.Client.Txp.Util          (InputSelectionPolicy(..))
+import           Pos.Client.Txp.Util          (InputSelectionPolicy (..))
 import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
@@ -57,9 +57,9 @@ instance ToJSON InputSelectionPolicy where
 -- the API were using a raw JSON String and later versions used on Object like
 -- `{"groupingPolicy": "blabla" }`
 instance FromJSON InputSelectionPolicy where
-    parseJSON (Object o) = fromRawPolicy =<< (o .: "groupingPolicy")
+    parseJSON (Object o)         = fromRawPolicy =<< (o .: "groupingPolicy")
     parseJSON (String rawPolicy) = fromRawPolicy rawPolicy
-    parseJSON x = typeMismatch "Not a valid InputSelectionPolicy" x
+    parseJSON x                  = typeMismatch "Not a valid InputSelectionPolicy" x
 
 fromRawPolicy :: Text -> Parser InputSelectionPolicy
 fromRawPolicy rawPolicy = case rawPolicy of
@@ -79,10 +79,10 @@ deriveJSON defaultOptions ''CTx
 deriveJSON defaultOptions ''CTExMeta
 deriveJSON defaultOptions ''SoftwareVersion
 deriveJSON defaultOptions ''CUpdateInfo
+deriveJSON defaultOptions ''WalletError
 
 deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
-deriveToJSON defaultOptions ''WalletError
 
 -- For backward compatibility.
 -- Guys /really/ want it to be normal JSON

@@ -56,6 +56,7 @@ import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
                                           ReflectMethod (..), ReqBody, Verb)
+import           Servant.Client          (Client, HasClient (..))
 import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
                                           Server)
 import qualified Servant.Server.Internal as SI
@@ -202,6 +203,21 @@ instance ( HasServer (apiType a :> res) ctx
             sformat ("(in "%string%") "%stext)
                 (apiArgName $ Proxy @(apiType a))
                 err
+
+instance HasClient (apiType a :> res) => HasClient (CDecodeApiArg apiType a :> res) where
+    type Client (CDecodeApiArg apiType a :> res) = Client (apiType a :> res)
+    clientWithRoute _ req = clientWithRoute (Proxy @(apiType a :> res)) req
+
+instance HasClient (apiType a :> res) =>
+         HasClient (WithDefaultApiArg apiType a :> res) where
+    type Client (WithDefaultApiArg apiType a :> res) = Client (apiType a :> res)
+    clientWithRoute _ req = clientWithRoute (Proxy @(apiType a :> res)) req
+
+instance HasClient (Verb mt st ct $ ApiModifiedRes mod a) =>
+         HasClient (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    type Client (VerbMod mod (Verb mt st ct a)) = Client (Verb mt st ct $ ApiModifiedRes mod a)
+    clientWithRoute _ req =
+        clientWithRoute (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
 
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults

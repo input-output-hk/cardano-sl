@@ -23,22 +23,22 @@ optionsParser = do
     pathToEndpointsConfig
         <- strOption $
            long        "ep-conf"
-        <> metavar     "PATH_TO_ENDPOINTS_CONFIG"
+        <> metavar     "ENDPOINTS_CONFIG"
         <> help        "Path to endpoints configuration .csv-file"
     pathToWalletsConfig
         <- strOption $
            long        "wal-conf"
-        <> metavar     "PATH_TO_WALLETS_CONFIG"
+        <> metavar     "WALLETS_CONFIG"
         <> help        "Path to wallets configuration .yaml-file"
     pathToTLSPubCert
         <- strOption $
            long        "tls-pub-cert"
-        <> metavar     "PATH_TO_TLS_PUB_CERT"
+        <> metavar     "PUB_CERT"
         <> help        "Path to TLS public certificate"
     pathToTLSPrivKey
         <- strOption $
            long        "tls-priv-key"
-        <> metavar     "PATH_TO_TLS_PRIV_KEY"
+        <> metavar     "PRIV_KEY"
         <> help        "Path to TLS private key"
     runConcurrently
         <- switch $
@@ -47,7 +47,10 @@ optionsParser = do
     analyzeResponse
         <- switch $
            long        "analyze"
-        <> help        "If defined - analyze responses from the wallet"
+        <> help        ("If defined - analyze responses from the wallet. " <>
+                        "Please note that analysis makes measurement less accurate, " <>
+                        "because reports are storing in the file, and this IO-action " <>
+                        "will be measured as well.")
     return CLOptions{..}
 
 -- | Get command-line options.

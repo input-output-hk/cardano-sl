@@ -10,7 +10,7 @@
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
-, additionalArgs ? ""
+, additionalNodeArgs ? ""
 }:
 
 with localLib;
@@ -89,5 +89,5 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-address ${walletListen}" }               \
     --ekg-server ${ekgListen} --metrics                            \
     +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalArgs}
+    ${additionalNodeArgs}
 ''

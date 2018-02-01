@@ -9,7 +9,9 @@
   #ekgListen = "127.0.0.0.1:8000";
 
   ## Directory for the wallet's local state. Must be set BEFORE
-  ## running nix-build to have any effect.
+  ## running nix-build to have any effect. If the directory doesn't
+  ## already exist, either create it first or enclose in double
+  ## quotes.
   #stateDir = "./state-wallet-mainnet";
 
   ## Used to connect to a custom set of nodes on the network. When
@@ -20,5 +22,5 @@
   #ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T";
 
   ## Primarily used for troubleshooting.
-  #additionalArgs = "";
+  #additionalNodeArgs = "";
 }

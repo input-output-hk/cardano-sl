@@ -23,6 +23,8 @@ import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getW
 --       --tls-priv-key=$PWD/scripts/tls-files/server.key \
 --       --wal-conf=$PWD/wallet/bench/config/Wallets.yaml \
 --       --ep-conf=$PWD/wallet/bench/config/Endpoints.csv"
+-- To see arguments' description, run:
+-- $ stack bench cardano-sl-wallet --benchmark-arguments "--help"
 --
 -- It's a client, so we assume that the node (with Wallet Web API enabled)
 -- is already running. During benchmarking we treat a node as a blackbox.

@@ -8,7 +8,8 @@
   ## Runtime metrics server.
   #ekgListen = "127.0.0.0.1:8000";
 
-  ## Directory for the wallet's local state.
+  ## Directory for the wallet's local state. Must be set BEFORE
+  ## running nix-build to have any effect.
   #stateDir = "./state-wallet-mainnet";
 
   ## Used to connect to a custom set of nodes on the network. When

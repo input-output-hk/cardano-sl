@@ -17,7 +17,7 @@ import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), Complete
                                                     Response, ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
 
-import           Pos.Wallet.Web.ClientTypes        (Addr, CId (..), CTx (..))
+import           Pos.Wallet.Web.ClientTypes        (Addr, CHash (..), CId (..), CTx (..))
 
 -- | Run 'GetHistory' client. As a result we will get
 -- a list of transactions and size of a full history.
@@ -28,13 +28,15 @@ getHistoryIO conf@CompleteConfig {..} = do
     address <- pickRandomElementFrom $ addresses account
     let offset = Nothing -- Default value of offset will be used.
         limit  = Nothing -- Default value of limit will be used.
+    -- There's an error "Please do not specify both walletId and accountId at the same time"
+    -- on the server side, so we should specify just walletId.
     response <- runEndpointClient conf $ getHistory (Just $ walletId wallet)
-                                                    (Just $ accountId account)
+                                                    Nothing
                                                     (Just address)
                                                     offset
                                                     limit
     when needResponseAnalysis $ do
-        let ResponseReport report = analyze response wallet account address
+        let ResponseReport report = analyze response wallet address
         case extractEndpointConfigFor GetHistoryBench conf of
             Nothing -> return ()
             Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
@@ -45,20 +47,18 @@ getHistoryIO conf@CompleteConfig {..} = do
 analyze
     :: Response ([CTx], Word)
     -> Wallet
-    -> WalletAccount
     -> CId Addr
     -> ResponseReport
 analyze response
-        Wallet {..}
-        WalletAccount {..}
-        _ =
+        (Wallet (CId (CHash walletId)) _)
+        (CId (CHash addr)) =
     case response of
         Left problem ->
             ResponseReport $
-                "Cannot get history for wallet '" <> "" <> "' : " <> problem
+                "Cannot get history for wallet '" <> walletId <> "', address '" <> addr <> "': " <> problem
         Right (Left walletError) ->
             ResponseReport $
-                "Server returned an error: " <> pretty walletError
+                "Server returned an error, for wallet '" <> walletId <> "', address '" <> addr <> "': " <> pretty walletError
         Right (Right (transactions, _)) -> do
             ResponseReport $
                 show transactions

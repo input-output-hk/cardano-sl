@@ -21,12 +21,22 @@ import           Pos.Txp.Toil.Types           (MemPool (_mpSize))
 -- | 'StateLockMetrics' to record txp MemPool metrics.
 recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
 recordTxpMetrics ekgStore memPoolVar = do
-    ekgMemPoolSize        <- Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
-    ekgMemPoolWaitTimeApplyBlock    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeApplyBlock_microseconds") ekgStore
-    ekgMemPoolModifyTimeApplyBlock  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeApplyBlock_microseconds") ekgStore
-    ekgMemPoolWaitTimeProcessTx    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeProcessTx_microseconds") ekgStore
-    ekgMemPoolModifyTimeProcessTx  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeProcessTx_microseconds") ekgStore
-    ekgMemPoolQueueLength <- Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
+    ekgMemPoolSize <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
+    ekgMemPoolWaitTimeApplyBlock <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeApplyBlock_microseconds") ekgStore
+    ekgMemPoolModifyTimeApplyBlock <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeApplyBlock_microseconds") ekgStore
+    ekgMemPoolWaitTimeApplyBlockWithRollback <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeApplyBlockWithRollback_microseconds") ekgStore
+    ekgMemPoolModifyTimeApplyBlockWithRollback <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeApplyBlockWithRollback_microseconds") ekgStore
+    ekgMemPoolWaitTimeProcessTx <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeProcessTx_microseconds") ekgStore
+    ekgMemPoolModifyTimeProcessTx <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeProcessTx_microseconds") ekgStore
+    ekgMemPoolQueueLength <-
+        Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
 
     -- An exponential moving average is used for the time gauges (wait
     -- and modify durations). The parameter alpha is chosen somewhat
@@ -50,6 +60,7 @@ recordTxpMetrics ekgStore memPoolVar = do
               liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength
               let ekgMemPoolWaitTime = case reason of
                       ApplyBlock -> ekgMemPoolWaitTimeApplyBlock
+                      ApplyBlockWithRollback -> ekgMemPoolWaitTimeApplyBlockWithRollback
                       ProcessTransaction -> ekgMemPoolWaitTimeProcessTx
               timeWaited' <- liftIO $ Metrics.Gauge.read ekgMemPoolWaitTime
               -- Assume a 0-value estimate means we haven't taken
@@ -66,6 +77,7 @@ recordTxpMetrics ekgStore memPoolVar = do
               liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral newMemPoolSize)
               let ekgMemPoolModifyTime = case reason of
                       ApplyBlock -> ekgMemPoolModifyTimeApplyBlock
+                      ApplyBlockWithRollback -> ekgMemPoolModifyTimeApplyBlockWithRollback
                       ProcessTransaction -> ekgMemPoolModifyTimeProcessTx
               timeElapsed' <- liftIO $ Metrics.Gauge.read ekgMemPoolModifyTime
               let new_ = if timeElapsed' == 0

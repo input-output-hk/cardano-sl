@@ -9,9 +9,8 @@ import           Pos.Wallet.Web.Mode
 
 type UberMonad a = MonadWalletWebMode WalletWebMode => WalletWebMode a
 
-data Method  =
-  GetWallets
-  deriving (Show, Read)
+data Method = GetWallets
+    deriving (Show, Read)
 
 type Methods = MonadWalletWebMode WalletWebMode => Map Method (WalletWebMode ())
 

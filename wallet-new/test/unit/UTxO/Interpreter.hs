@@ -228,9 +228,10 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
       liftTranslate IntExClassifyInputs $ case classifyInputs trIns' of
         Left err ->
           throwError err
-        Right (InputsRegular trIns'') -> withConfig $ return $
+        Right (InputsRegular trIns'') -> withConfig $
+          return . either absurd identity $
           makeMPubKeyTx
-            (FakeSigner . regKpSec)
+            (Right . FakeSigner . regKpSec)
             (NE.fromList trIns'')
             (NE.fromList trOuts')
         Right (InputsRedeem (kp, inp)) -> withConfig $ return $

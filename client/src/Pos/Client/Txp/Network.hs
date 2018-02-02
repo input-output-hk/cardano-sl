@@ -58,7 +58,7 @@ submitAndSave diffusion txAux@TxAux {..} = do
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
     :: TxMode m
-    => (Address -> SafeSigner)
+    => (Address -> Maybe SafeSigner)
     -> PendingAddresses
     -> InputSelectionPolicy
     -> NonEmpty Address

@@ -52,8 +52,8 @@ mkVssCertificate sk vk expiry =
   where
     signature = sign SignVssCert sk (vk, expiry)
 
--- | Recreate 'VssCertificate' from its contents. This function main
--- 'fail' if data is invalid.
+-- | Recreate 'VssCertificate' from its contents. Returns a 'Left' if the
+-- data is invalid.
 recreateVssCertificate
     :: (HasCryptoConfiguration, Bi EpochIndex)
     => AsBinary VssPublicKey

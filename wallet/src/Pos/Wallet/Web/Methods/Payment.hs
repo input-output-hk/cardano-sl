@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import           Data.Time.Units (Second)
@@ -26,10 +25,10 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Coin, TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Core (Coin, TxAux (..), TxOut (..), getCurrentTimestamp, Address)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, ShouldCheckPassphrase (..), checkPassMatches, hash,
-                             withSafeSignerUnsafe)
+                             withSafeSignerUnsafe, SafeSigner)
 import           Pos.DB (MonadGState)
 import           Pos.Txp (TxFee (..), Utxo)
 import           Pos.Util (eitherToThrow, maybeThrow)
@@ -180,16 +179,16 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
 
     logDebug "sendMoney: processed addrs"
 
-    let metasAndAdrresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
+    let metasAndAddresses = M.fromList $ zip (toList srcAddrs) (toList addrMetas)
     allSecrets <- getSecretKeys
 
-    let getSigner addr = runIdentity $ do
-          let addrMeta =
-                  fromMaybe (error "Corresponding adress meta not found")
-                            (M.lookup addr metasAndAdrresses)
-          case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
-              Left err -> impureThrow err
-              Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
+    let
+        getSigner :: Address -> Maybe SafeSigner
+        getSigner addr = do
+          addrMeta <- M.lookup addr metasAndAddresses
+          sk <- rightToMaybe . runExcept $
+              getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta
+          withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr

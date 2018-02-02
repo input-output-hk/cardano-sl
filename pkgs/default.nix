@@ -7075,8 +7075,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, data-default, ether, formatting, hspec, lens, log-warper
-         , monad-control, MonadRandom, mtl, QuickCheck, serokell-util
-         , stdenv, stm, text-format, transformers, universum
+         , monad-control, MonadRandom, mtl, QuickCheck, safe-exceptions
+         , serokell-util, stdenv, stm, text-format, transformers, universum
          , unordered-containers, vector
          }:
          mkDerivation {
@@ -7096,7 +7096,8 @@ inherit (pkgs) mesa;};
              base bytestring cardano-sl cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-infra cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util containers formatting hspec
-             MonadRandom QuickCheck universum unordered-containers
+             MonadRandom QuickCheck safe-exceptions universum
+             unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

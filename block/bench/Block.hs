@@ -11,10 +11,10 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Formatting (sformat, build, shown)
-import           System.Environment (getEnv)
+import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import           Pos.Block.Util.Generate
+import           Pos.Block.Util.Generate (generateBlock)
 import qualified Pos.Block.BHelpers as Verify
 import           Pos.Core.Common (SharedSeed (..), CoinPortion)
 import           Pos.Core.Configuration
@@ -242,12 +242,12 @@ benchMain seed size = defaultMain
 
 main :: IO ()
 main = withCoreConfigurations cc confDir (Just (Timestamp 0)) Nothing $ do
-  sizeStr <- getEnv "SIZE"
-  seedStr <- getEnv "SEED"
-  let size = case reads sizeStr of
-          [(size',"")] -> size'
-          _ -> 30
-      seed = case reads seedStr of
-          [(seed',"")] -> seed'
-          _ -> 0
+  sizeStr <- lookupEnv "SIZE"
+  seedStr <- lookupEnv "SEED"
+  let size = case fmap reads sizeStr of
+          Just [(size',"")] -> size'
+          _ -> 4
+      seed = case fmap reads seedStr of
+          Just [(seed',"")] -> seed'
+          _ -> 42
   benchMain seed size

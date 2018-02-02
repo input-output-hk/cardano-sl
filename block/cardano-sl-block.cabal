@@ -162,10 +162,17 @@ Benchmark bench-block
     main-is: Block.hs
     hs-source-dirs: bench
     ghc-options: -O2
-    build-depends:   criterion >= 1.3.0.0
+    build-depends:   base
+                   , bytestring
+                   , criterion >= 1.3.0.0
+                   , cardano-sl-binary
+                   , cardano-sl-block
                    , cardano-sl-crypto
                    , cardano-sl-core
                    , cardano-sl-txp
                    , cardano-sl-update
                    , cardano-sl-ssc
-                   , cardano-sl-dlg
+                   , cardano-sl-delegation
+                   , formatting
+                   , universum
+                   , deepseq

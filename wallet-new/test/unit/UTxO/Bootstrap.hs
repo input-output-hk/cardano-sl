@@ -62,6 +62,7 @@ import qualified UTxO.DSL as DSL
 -- >     , Output{ addr: Addr{ actorIx: IxAvvm 9, addrIx:  0}, val:  100000}
 -- >   ]
 -- >   , fee:   0
+-- >   , hash:  0
 -- > }
 bootstrapTransaction :: TransCtxt -> DSL.Transaction h Addr
 bootstrapTransaction ctxt@TransCtxt{..} = DSL.Transaction {
@@ -87,8 +88,5 @@ bootstrapTransaction ctxt@TransCtxt{..} = DSL.Transaction {
     totalAda = sum $ map snd balances -- we're ignoring overflow here
 
 -- | Check if something is the bootstrap transaction
---
--- NOTE: We simply check if creates fresh Ada. This shortcut will only work
--- with the specific way in which we use the DSL.
 isBootstrapTransaction :: DSL.Transaction h a -> Bool
-isBootstrapTransaction DSL.Transaction{..} = trFresh > 0
+isBootstrapTransaction = Set.null . DSL.trIns

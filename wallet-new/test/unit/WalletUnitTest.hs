@@ -92,7 +92,7 @@ exampleChains = ExampleChains {..}
                    trFresh = 0
                  , trFee   = fee
                  , trHash  = 1
-                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
                  , trOuts  = [ Output r1 1000
                              , Output r0 (initR0 - 1000 - fee)
                              ]
@@ -105,7 +105,7 @@ exampleChains = ExampleChains {..}
                    trFresh = 0
                  , trFee   = fee
                  , trHash  = 1
-                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
                  , trOuts  = [ Output r1 1000
                              , Output r0 initR0
                              ]
@@ -121,7 +121,7 @@ exampleChains = ExampleChains {..}
                    trFresh = 0
                  , trFee   = fee1
                  , trHash  = 1
-                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
                  , trOuts  = [ Output r1 1000
                              , Output r0 (initR0 - 1000 - fee1)
                              ]
@@ -130,7 +130,7 @@ exampleChains = ExampleChains {..}
                    trFresh = 0
                  , trFee   = fee2
                  , trHash  = 2
-                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
                  , trOuts  = [ Output r2 1000
                              , Output r0 (initR0 - 1000 - fee2)
                              ]
@@ -155,7 +155,7 @@ exampleChains = ExampleChains {..}
                    trFresh = 0
                  , trFee   = fee3
                  , trHash  = 3
-                 , trIns   = Set.fromList [ Input boot 0 ] -- rich 0
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
                  , trOuts  = [ Output r1 1000
                              , Output r0 (initR0 - 1000 - fee3)
                              ]

@@ -27,7 +27,7 @@ import UTxO.Translate
   Chain with some information still missing
 -------------------------------------------------------------------------------}
 
-newtype PreChain h = PreChain (h (Transaction h Addr) -> [[Fee]] -> Blocks h Addr)
+newtype PreChain h = PreChain (Transaction h Addr -> [[Fee]] -> Blocks h Addr)
 
 data FromPreChain h = FromPreChain {
       fpcBoot   :: Transaction h Addr
@@ -39,7 +39,7 @@ fromPreChain :: Hash h Addr
              => PreChain h -> Translate IntException (FromPreChain h)
 fromPreChain (PreChain f) = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot (f (hash fpcBoot))
+    txs <- calcFees fpcBoot (f fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}

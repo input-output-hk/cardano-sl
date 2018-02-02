@@ -80,8 +80,8 @@ deriveJSON defaultOptions ''CTExMeta
 deriveJSON defaultOptions ''SoftwareVersion
 deriveJSON defaultOptions ''CUpdateInfo
 deriveJSON defaultOptions ''WalletError
+deriveJSON defaultOptions ''SyncProgress
 
-deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 
 -- For backward compatibility.

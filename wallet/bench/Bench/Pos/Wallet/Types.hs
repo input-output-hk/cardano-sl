@@ -82,6 +82,7 @@ data CLOptions = CLOptions
 -- We need it for extracting particular configuration.
 data BenchEndpoint
     = GetHistoryBench
+    | GetSyncProgressBench
     | GetWalletBench
     | GetWalletsBench
     | NewPaymentBench

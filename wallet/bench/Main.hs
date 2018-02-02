@@ -14,8 +14,8 @@ import           Bench.Pos.Wallet.Config        (getOptions, extractEndpointConf
 import           Bench.Pos.Wallet.Run           (runBench)
 import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CompleteConfig (..),
                                                  CLOptions (..))
-import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getWalletIO, getWalletsIO,
-                                                 newPaymentIO)
+import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getSyncProgressIO,
+                                                 getWalletIO, getWalletsIO, newPaymentIO)
 
 -- | Example of benchmark command:
 -- $ stack bench cardano-sl-wallet --benchmark-arguments  \
@@ -37,10 +37,11 @@ main = do
                            <*> BS.readFile pathToTLSPubCert
                            <*> BS.readFile pathToTLSPrivKey
                            <*> return analyzeResponse
-    let benchmarks = [ maybeRun getHistoryIO GetHistoryBench conf
-                     , maybeRun getWalletIO  GetWalletBench  conf
-                     , maybeRun getWalletsIO GetWalletsBench conf
-                     , maybeRun newPaymentIO NewPaymentBench conf
+    let benchmarks = [ maybeRun getHistoryIO      GetHistoryBench      conf
+                     , maybeRun getSyncProgressIO GetSyncProgressBench conf
+                     , maybeRun getWalletIO       GetWalletBench       conf
+                     , maybeRun getWalletsIO      GetWalletsBench      conf
+                     , maybeRun newPaymentIO      NewPaymentBench      conf
                      ]
     if runConcurrently then do
         asyncs <- forM benchmarks async

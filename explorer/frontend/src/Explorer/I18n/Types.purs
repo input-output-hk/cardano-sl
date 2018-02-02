@@ -184,7 +184,8 @@ type Footer =
     , fooCardanoFoundationYoutube :: String
     , fooCardanoFoundationTwitter :: String
     , fooCardanoHub :: String
-    , fooCardanoSlack :: String
+    , fooCardanoChat :: String
+    , fooCardanoForum :: String
     , fooCardanoReddit :: String
     , fooCardanoCommunity :: String
     , fooCardanoTestnet :: String

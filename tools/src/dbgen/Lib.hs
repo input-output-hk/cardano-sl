@@ -25,6 +25,7 @@ import           Pos.StateLock (StateLock (..))
 import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
 import           Pos.Util.BackupPhrase (BackupPhrase, mkBackupPhrase12)
+import           Pos.Util.Mnemonics (toMnemonic)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
@@ -249,7 +250,7 @@ genWallet walletNum = do
 
 
 -- | Generates a new 'BackupPhrase'.
-newRandomMnemonic :: MonadIO m => m BackupPhrase
+newRandomMnemonic :: UberMonad BackupPhrase
 newRandomMnemonic = do
 
     -- The size 16 should give you 12 words after bip39 encoding.
@@ -258,10 +259,9 @@ newRandomMnemonic = do
 
     genMnemonic  <- liftIO mnemonic
 
-    let textMenmonics :: [Text]
-        textMenmonics = words $ show genMnemonic
+    let newMnemonic = either (error . show) id (toMnemonic genMnemonic)
 
-    pure $ mkBackupPhrase12 textMenmonics
+    pure $ mkBackupPhrase12 $ words newMnemonic
 
 
 -- | Creates a new 'CAccount'.

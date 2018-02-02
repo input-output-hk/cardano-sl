@@ -161,7 +161,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         let prefixHead = prefix ^. _Wrapped . _neHead
         when (isLeft prefixHead) $ do
             let epochIndex = prefixHead ^. epochIndexL
-            logDebug $ "Rolling: Calculating LRC if needed for "
+            logDebug $ "Rolling: Calculating LRC if needed for epoch "
                        <> pretty epochIndex
             lift $ lrcSingleShot epochIndex
         logDebug "Rolling: verifying"

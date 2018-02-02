@@ -50,8 +50,11 @@ module UTxO.DSL (
   , utxoFromList
   , utxoToList
   , utxoDomain
+  , utxoRange
   , utxoRemove
   , utxoUnion
+  , utxoUnions
+  , utxoFilterByAddr
     -- ** Chain
   , Block
   , Blocks
@@ -337,7 +340,9 @@ findHash' h l = fromJust err (findHash h l)
 -------------------------------------------------------------------------------}
 
 -- | Unspent transaciton outputs
-data Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
+newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
+
+deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
 
 utxoEmpty :: Utxo h a
 utxoEmpty = Utxo Map.empty
@@ -354,11 +359,20 @@ utxoToList = Map.toList . utxoToMap
 utxoDomain :: Utxo h a -> Set (Input h a)
 utxoDomain = Map.keysSet . utxoToMap
 
+utxoRange :: Utxo h a -> [Output a]
+utxoRange = Map.elems . utxoToMap
+
 utxoRemove :: Hash h a => Utxo h a -> Set (Input h a) -> Utxo h a
 utxoRemove (Utxo utxo) inps = Utxo (utxo `withoutKeys` inps)
 
 utxoUnion :: Hash h a => Utxo h a -> Utxo h a -> Utxo h a
 utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
+
+utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
+utxoUnions = Utxo . Map.unions . map utxoToMap
+
+utxoFilterByAddr :: (a -> Bool) -> Utxo h a -> Utxo h a
+utxoFilterByAddr p = Utxo . Map.filter (p . outAddr) . utxoToMap
 
 {-------------------------------------------------------------------------------
   Additional: chain

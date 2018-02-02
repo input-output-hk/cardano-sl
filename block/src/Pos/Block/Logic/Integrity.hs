@@ -60,9 +60,6 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Eq, Show)
 
-maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
-maybeMempty = maybe mempty
-
 verifyFromEither :: Text -> Either a b -> VerificationRes
 verifyFromEither txt (Left _)  = verifyGeneric [(False, txt)]
 verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]

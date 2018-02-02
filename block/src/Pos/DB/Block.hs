@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Interface to Blocks DB.
+-- | Interface and implementation of Blocks DB: storing blocks in files on disk.
 
 module Pos.DB.Block
        ( getBlock

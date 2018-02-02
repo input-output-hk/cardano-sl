@@ -22,7 +22,6 @@ module Pos.Context.Context
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import           Control.Lens (lens, makeLensesWith)
 import           Data.Time.Clock (UTCTime)
 import           Ether.Internal (HasLens (..))
@@ -55,7 +54,7 @@ import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 -- NodeContext
 ----------------------------------------------------------------------------
 
-newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
+newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: TVar (Set NodeId) }
 newtype StartTime = StartTime { unStartTime :: UTCTime }
 
 data SscContextTag
@@ -109,7 +108,7 @@ data NodeContext = NodeContext
     , ncConnectedPeers             :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
     , ncNetworkConfig              :: !(NetworkConfig KademliaParams)
-    , ncMisbehaviorMetrics :: Maybe MisbehaviorMetrics
+    , ncMisbehaviorMetrics         :: Maybe MisbehaviorMetrics
     }
 
 makeLensesWith postfixLFields ''NodeContext

@@ -1,4 +1,3 @@
-{-# LANGUAGE ApplicativeDo #-}
 module Pos.HealthCheck.Route53
        ( route53HealthCheckOption
        ) where

@@ -19,10 +19,11 @@ import           Data.Time (diffUTCTime, getCurrentTime)
 import           GHC.Generics (Generic)
 
 import           Crypto.Random.Entropy (getEntropy)
-import           Pos.Core.Types (Coin, mkCoin)
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core.Types (Address, Coin, mkCoin)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.StateLock (StateLock (..))
-import           Pos.Txp.Core.Types (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
 import           Pos.Util.BackupPhrase (BackupPhrase, mkBackupPhrase12)
 import           Pos.Util.Mnemonics (toMnemonic)
@@ -30,16 +31,16 @@ import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CWallet (..),
-                                             CWalletAssurance (..), CWalletInit (..),
-                                             CWalletMeta (..))
+                                             CAccountMeta (..), CAddress (..), CId (..),
+                                             CWallet (..), CWalletAssurance (..), CWalletInit (..),
+                                             CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Methods.Logic (newAccountIncludeUnready, newAddress)
+import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
 import           Pos.Wallet.Web.State.State (askWalletDB, askWalletSnapshot, getWalletSnapshot,
-                                             getWalletUtxo, setWalletUtxo,
+                                             getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck (Gen, arbitrary, choose, generate)
 import           Text.Printf (printf)
 
 import           CLI (CLI (..))
@@ -58,6 +59,7 @@ _exampleSpec = GenSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
         , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
+        , fakeTxsHistory = SimpleTxsHistory { txsCount = 100 }
         }
     , wallets = 1
     }
@@ -79,6 +81,8 @@ data WalletSpec = WalletSpec
     -- ^ How specification for each account.
     , fakeUtxoCoinDistr :: FakeUtxoCoinDistribution
     -- ^ Configuration for the generation of the fake UTxO.
+    , fakeTxsHistory    :: FakeTxsHistory
+    -- ^ Configuration for the generation of the fake txs history.
     } deriving (Show, Eq, Generic)
 
 instance FromJSON WalletSpec
@@ -109,6 +113,13 @@ data FakeUtxoCoinDistribution
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
+{-
+λ> decode $ "{\"type\":\"none\"}" :: Maybe FakeUtxoCoinDistribution
+Just NoDistribution
+λ> decode $ "{\"type\":\"range\",\"range\":1000,\"amount\",10}" :: Maybe FakeUtxoCoinDistribution
+Just (RangeDistribution {range = 1000})
+-}
+
 instance FromJSON FakeUtxoCoinDistribution where
     parseJSON = withObject "CoinDistribution" $ \o -> do
         distrType <- o .: "type"
@@ -119,12 +130,29 @@ instance FromJSON FakeUtxoCoinDistribution where
 
 instance ToJSON FakeUtxoCoinDistribution
 
-{-
-λ> decode $ "{\"type\":\"none\"}" :: Maybe FakeUtxoCoinDistribution
-Just NoDistribution
-λ> decode $ "{\"type\":\"range\",\"range\":1000}" :: Maybe FakeUtxoCoinDistribution
-Just (RangeDistribution {range = 1000})
--}
+-- TODO(ks): As with @FakeUtxoCoinDistribution@, we may have different strategies
+-- to generate @FakeTxsHistory@.
+data FakeTxsHistory
+    = NoHistory
+    -- ^ Do not generate fake history.
+    | SimpleTxsHistory
+        { txsCount :: !Integer
+        -- ^ Number of txs we want to generate.
+        }
+    -- ^ Simple tx history generation.
+    -- TODO(ks): For now KISS, we can add more generation strategies.
+    deriving (Show, Eq, Generic)
+
+instance FromJSON FakeTxsHistory where
+    parseJSON = withObject "HistoryGeneration" $ \o -> do
+        distrType <- o .: "type"
+        case distrType of
+          "none"   -> pure NoHistory
+          "simple" -> SimpleTxsHistory <$> o .: "txsCount"
+          _        -> fail ("Unknown type: " ++ distrType)
+
+instance ToJSON FakeTxsHistory
+
 
 --
 -- Functions
@@ -138,6 +166,7 @@ loadGenSpec fpath = do
   where
     -- TODO(ks): MonadThrow maybe?
     exception = error "Invalid JSON configuration file format!"
+
 
 -- | Run an action and report the time it took.
 timed :: MonadIO m => m a -> m a
@@ -162,6 +191,7 @@ fakeSync = do
     (StateLock mvar _) <- view (lensOf @StateLock)
     () <$ tryPutMVar mvar tip
 
+
 -- | The main entry point.
 generateWalletDB :: CLI -> GenSpec -> UberMonad ()
 generateWalletDB CLI{..} spec@GenSpec{..} = do
@@ -172,21 +202,85 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
     -- TODO(ks): Simplify this?
     let fakeUtxoSpec = fakeUtxoCoinDistr walletSpec
+    let fakeTxs      = fakeTxsHistory walletSpec
+
     case addTo of
-        Just accId -> case fakeUtxoSpec of
-            NoDistribution -> addAddressesTo accId spec
-            _              -> generateFakeUtxo fakeUtxoSpec accId
+        Just accId ->
+            if (checkIfAddTo fakeUtxoSpec fakeTxs) then
+                addAddressesTo spec accId
+            else do
+                void $ generateFakeUtxo fakeUtxoSpec accId
+                void $ generateFakeTxs fakeTxs accId
+
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
             wallets' <- timed (forM [1..wallets] genWallet)
             forM_ (zip [1..] wallets') (genAccounts spec)
     say $ green "OK."
+  where
+    checkIfAddTo :: FakeUtxoCoinDistribution -> FakeTxsHistory -> Bool
+    checkIfAddTo NoDistribution NoHistory = True
+    checkIfAddTo _              _         = False
+
+
+-- | Here we generate fake txs. For now it's a simple arbitrary generation.
+generateFakeTxs :: FakeTxsHistory -> AccountId -> UberMonad ()
+generateFakeTxs NoHistory _                = error "Cannot generate fake history with no strategy."
+generateFakeTxs SimpleTxsHistory{..} aId   = do
+
+    db <- askWalletDB
+
+    -- Get the number of txs we need to generate.
+    let txsNumber = fromIntegral txsCount
+
+    accounts <- getAccounts Nothing -- aId
+
+    let accountsAddrs :: [Address]
+        accountsAddrs = rights . map unwrapCAddress $ concatMap caAddresses accounts
+
+    let outputAddresses :: [Address]
+        outputAddresses = take txsNumber accountsAddrs
+
+    let genTxOut :: Gen [TxOut]
+        genTxOut = forM outputAddresses $ \address -> TxOut address <$> genCoins
+
+    let genTxHistoryEntry :: IO TxHistoryEntry
+        genTxHistoryEntry = generate $ THEntry
+                                <$> arbitrary
+                                <*> arbitrary -- TODO(ks): Maybe use txOut as well?
+                                <*> arbitrary
+                                <*> genTxOut
+                                <*> pure outputAddresses
+                                <*> arbitrary
+
+    let walletId :: CId Wal
+        walletId = aiWId aId
+
+    -- Generate arbitrary tx ids and txs for the fake history.
+    fakeTxIds <- liftIO $ replicateM txsNumber genTxId
+    fakeTxs   <- liftIO $ replicateM txsNumber genTxHistoryEntry
+
+    let fakeMapTxs :: Map TxId TxHistoryEntry
+        fakeMapTxs = fromList $ zip fakeTxIds fakeTxs
+
+    -- Insert into the @WalletStorage@.
+    insertIntoHistoryCache db walletId fakeMapTxs
+  where
+
+    genTxId :: IO TxId
+    genTxId = generate arbitrary
+
+    genCoins :: Gen Coin
+    genCoins = mkCoin <$> choose (1, 1000)
+
 
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
 generateFakeUtxo NoDistribution _          = error "Cannot generate fake UTxO without distribution."
 generateFakeUtxo RangeDistribution{..} aId = do
+
     db <- askWalletDB
     ws <- getWalletSnapshot db
+
     let fromAddr = range
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
@@ -212,11 +306,14 @@ generateFakeUtxo RangeDistribution{..} aId = do
     genTxIn :: IO TxIn
     genTxIn = generate $ TxInUtxo <$> arbitrary <*> arbitrary
 
-    unwrapCAddress = decodeCType . cadId
+
+unwrapCAddress :: CAddress -> Either Text Address
+unwrapCAddress = decodeCType . cadId
 
 
-addAddressesTo :: AccountId -> GenSpec -> UberMonad ()
-addAddressesTo cid spec = genAddresses spec cid
+addAddressesTo :: GenSpec -> AccountId -> UberMonad ()
+addAddressesTo spec cid = genAddresses spec cid
+
 
 genAccounts :: GenSpec -> (Int, CWallet) -> UberMonad ()
 genAccounts spec@(walletSpec -> wspec) (idx, wallet) = do
@@ -226,14 +323,17 @@ genAccounts spec@(walletSpec -> wspec) (idx, wallet) = do
     let cids = map toAccountId cAccounts
     forM_ cids (genAddresses spec)
 
+
 toAccountId :: CAccount -> AccountId
 toAccountId CAccount{..} = either (error . toS) id (decodeCType caId)
+
 
 genAddresses :: GenSpec -> AccountId -> UberMonad ()
 genAddresses (accountSpec . walletSpec -> aspec) cid = do
     let addrs = addresses aspec
     say $ printf "Generating %d addresses for Account %s..." addrs (renderAccountId cid)
     timed (forM_ [1..addrs] (const $ genAddress cid))
+
 
 -- | Creates a new 'CWallet'.
 genWallet :: Integer -> UberMonad CWallet
@@ -279,6 +379,7 @@ genAccount CWallet{..} accountNum = do
           }
       , caInitWId  = cwId
       }
+
 
 -- | Creates a new 'CAddress'.
 genAddress :: AccountId -> UberMonad CAddress

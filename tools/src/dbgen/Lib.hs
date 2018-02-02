@@ -225,7 +225,7 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
 -- | Here we generate fake txs. For now it's a simple arbitrary generation.
 generateFakeTxs :: FakeTxsHistory -> AccountId -> UberMonad ()
-generateFakeTxs NoHistory _                = error "Cannot generate fake history with no strategy."
+generateFakeTxs NoHistory _                = pure ()
 generateFakeTxs SimpleTxsHistory{..} aId   = do
 
     db <- askWalletDB
@@ -275,7 +275,7 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
 
 
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
-generateFakeUtxo NoDistribution _          = error "Cannot generate fake UTxO without distribution."
+generateFakeUtxo NoDistribution _          = pure ()
 generateFakeUtxo RangeDistribution{..} aId = do
 
     db <- askWalletDB

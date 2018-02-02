@@ -9,6 +9,7 @@ module Client.Pos.Wallet.Web.Api
     , getWallet
     , getWallets
     , isValidAddress
+    , newAddress
     , newPayment
     ) where
 
@@ -21,10 +22,10 @@ import           Pos.Client.Txp.Util        (InputSelectionPolicy)
 import           Pos.Core.Types             (Coin)
 import           Pos.Wallet.Web.Api         (ApiPrefix, GetHistory, GetSyncProgress,
                                              GetWallet, GetWallets, IsValidAddress,
-                                             NewPayment)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..), CId (..), CPassPhrase,
-                                             CTx, CWallet, ScrollLimit, ScrollOffset,
-                                             SyncProgress, Wal)
+                                             NewAddress, NewPayment)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..), CAddress (..), CId (..),
+                                             CPassPhrase, CTx, CWallet, ScrollLimit,
+                                             ScrollOffset, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 -- | "Benchmarking API" which includes
@@ -39,6 +40,8 @@ type WalletBenchApi = ApiPrefix :> (
      GetWallets
     :<|>
      IsValidAddress
+    :<|>
+     NewAddress
     :<|>
      NewPayment
     )
@@ -61,6 +64,10 @@ getWallets
 isValidAddress
     :: CId Addr
     -> ClientM $ Either WalletError Bool
+newAddress
+    :: Maybe CPassPhrase
+    -> CAccountId
+    -> ClientM $ Either WalletError CAddress
 newPayment
     :: Maybe CPassPhrase
     -> CAccountId
@@ -73,4 +80,5 @@ getHistory
   :<|> getWallet
   :<|> getWallets
   :<|> isValidAddress
+  :<|> newAddress
   :<|> newPayment = client (Proxy @WalletBenchApi)

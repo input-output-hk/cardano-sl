@@ -16,7 +16,8 @@ import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CompleteCon
                                                  CLOptions (..))
 import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getSyncProgressIO,
                                                  getWalletIO, getWalletsIO,
-                                                 isValidAddressIO, newPaymentIO)
+                                                 isValidAddressIO, newAddressIO,
+                                                 newPaymentIO)
 
 -- | Example of benchmark command:
 -- $ stack bench cardano-sl-wallet --benchmark-arguments  \
@@ -43,6 +44,7 @@ main = do
                      , maybeRun getWalletIO       GetWalletBench       conf
                      , maybeRun getWalletsIO      GetWalletsBench      conf
                      , maybeRun isValidAddressIO  IsValidAddressBench  conf
+                     , maybeRun newAddressIO      NewAddressBench      conf
                      , maybeRun newPaymentIO      NewPaymentBench      conf
                      ]
     if runConcurrently then do

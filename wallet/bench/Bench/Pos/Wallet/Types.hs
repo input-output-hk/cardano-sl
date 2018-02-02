@@ -86,6 +86,7 @@ data BenchEndpoint
     | GetWalletBench
     | GetWalletsBench
     | IsValidAddressBench
+    | NewAddressBench
     | NewPaymentBench
     deriving (Show)
 

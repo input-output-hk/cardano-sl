@@ -16,7 +16,6 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import           Control.Exception.Safe (impureThrow)
 import           Control.Lens (makePrisms)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
@@ -43,6 +42,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever
                                        getPendingTx, getTxMeta, getWalletPendingTxs)
 import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
                                       getWalletAddrsDetector)
+import           Pos.Util.Util (eitherToThrow)
 import           Servant.API.ContentTypes (NoContent (..))
 
 
@@ -103,22 +103,23 @@ getHistory cWalId accIds mAddrId = do
     accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
     allAccIds <- getWalletAccountIds cWalId
 
-    let filterFn :: WalletHistory -> WalletHistory
-        !filterFn = case mAddrId of
+    let filterFn :: WalletHistory -> Either WalletError WalletHistory
+        filterFn cHistory = case mAddrId of
           Nothing
             | S.fromList accIds == S.fromList allAccIds
               -- can avoid doing any expensive filtering in this case
-                        -> identity
-            | otherwise -> filterByAddrs accAddrs
+                        -> Right cHistory
+            | otherwise -> Right $ filterByAddrs accAddrs cHistory
 
           Just addr
-            | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
-            | otherwise                -> impureThrow errorBadAddress
+            | addr `S.member` accAddrs -> Right $ filterByAddrs (S.singleton addr) cHistory
+            | otherwise                -> Left errorBadAddress
 
-    (cHistory, cHistorySize) <- first filterFn <$> getFullWalletHistory cWalId
+    (cHistory, cHistorySize) <- getFullWalletHistory cWalId
+    cHistory' <- eitherToThrow $ filterFn cHistory
     logDebug "getHistory: filtered transactions"
     -- TODO: Why do we reuse the old size, pre-filter? Explain.
-    return (cHistory, cHistorySize)
+    return (cHistory', cHistorySize)
   where
     filterByAddrs :: S.Set (CId Addr)
                   -> WalletHistory

@@ -85,6 +85,7 @@ data BenchEndpoint
     | GetSyncProgressBench
     | GetWalletBench
     | GetWalletsBench
+    | IsValidAddressBench
     | NewPaymentBench
     deriving (Show)
 

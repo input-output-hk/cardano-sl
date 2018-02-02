@@ -367,6 +367,7 @@ benchmark cardano-sl-wallet-bench
                        Client.Pos.Wallet.Web.Endpoint.GetSyncProgress
                        Client.Pos.Wallet.Web.Endpoint.GetWallet
                        Client.Pos.Wallet.Web.Endpoint.GetWallets
+                       Client.Pos.Wallet.Web.Endpoint.IsValidAddress
                        Client.Pos.Wallet.Web.Endpoint.NewPayment
 
                        Client.Pos.Wallet.Web.Api

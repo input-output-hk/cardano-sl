@@ -110,7 +110,7 @@ testCreateMTx
     :: HasTxpConfigurations
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
-testCreateMTx CreateMTxParams{..} =
+testCreateMTx CreateMTxParams{..} = lift $
     createMTx mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
@@ -310,9 +310,9 @@ data CreateRedemptionTxParams = CreateRedemptionTxParams
     , crpOutputs :: !TxOutputs
     } deriving Show
 
-getSignerFromList :: NonEmpty (SafeSigner, Address) -> (Address -> SafeSigner)
+getSignerFromList :: NonEmpty (SafeSigner, Address) -> Address -> Maybe SafeSigner
 getSignerFromList (HM.fromList . map swap . toList -> hm) =
-    \addr -> fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
+    \addr -> HM.lookup addr hm
 
 makeManyUtxoTo1Params :: InputSelectionPolicy -> Int -> Integer -> Integer -> Gen CreateMTxParams
 makeManyUtxoTo1Params inputSelectionPolicy numFrom amountEachFrom amountTo = do

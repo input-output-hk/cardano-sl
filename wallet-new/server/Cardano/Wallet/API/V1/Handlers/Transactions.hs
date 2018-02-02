@@ -57,7 +57,10 @@ allTransactions walletId requestParams = do
 
     -- TODO(ks): We need the type signature, fix this?
     let transactions :: m [Transaction]
-        transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
+        transactions = do
+            (V0.WalletHistory wh, V0.WalletHistorySize whs) <-
+                V0.getHistory cIdWallet mempty Nothing
+            migrate (wh, whs)
 
     respondWith requestParams (NoFilters :: FilterOperations Transaction)
                               (NoSorts :: SortOperations Transaction)

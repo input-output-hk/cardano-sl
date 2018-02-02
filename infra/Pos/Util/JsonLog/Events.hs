@@ -44,6 +44,8 @@ data JLTxR = JLTxR
 data MemPoolModifyReason =
       -- | Apply a block.
       ApplyBlock
+      -- | Apply a block, with rollback
+    | ApplyBlockWithRollback
       -- | Include a transaction.
     | ProcessTransaction
     deriving Show

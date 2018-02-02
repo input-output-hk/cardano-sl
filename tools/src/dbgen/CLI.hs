@@ -10,7 +10,7 @@ import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.ClientTypes.Types
 import           Text.Read                            (readMaybe)
-import           Types                                (Method)
+import           Types                                (Method (..))
 
 data CLI = CLI
     { config            :: FilePath
@@ -21,9 +21,6 @@ data CLI = CLI
     -- ^ The path to the secret key from the database.
     , walletPath        :: FilePath
     -- ^ The path to a valid acid-state database.
-    , addTo             :: Maybe AccountId
-    -- ^ If specified, only append addresses to the
-    -- given <wallet_id@account_id>
     , configurationPath :: FilePath
     -- ^ The path to a valid cardano-sl configuration.
     , configurationProf :: String
@@ -33,8 +30,11 @@ data CLI = CLI
     , showStats         :: Bool
     -- ^ If true, print the stats for the `wallet-db`
     , queryMethod       :: Maybe Method
-    -- ^ If true, generate a DB targeting mainnet.
-    , genFakeUtxo       :: Bool
+    -- ^ If a method is defined, try to call it. For example,
+    -- calling `GetWallet` could be useful.
+    , addTo             :: Maybe AccountId
+    -- ^ If specified, only append addresses to the
+    -- given <wallet_id@account_id>
     }
 
 
@@ -52,10 +52,6 @@ instance ParseRecord CLI where
               <*> (strOption (long "walletDB" <> metavar "acidstate-path"
                              <> help "A path to a valid acidstate database."
                                       ))
-              <*> (optional (option (eitherReader readAccountId)
-                            (long "add-to" <> metavar "walletId@accountId"
-                                           <> help "Append to an existing wallet & account."
-              )))
               <*> (strOption (long "configPath" <> metavar "configuration-path"
                              <> help "A path to a valid cardano-sl configuration."
                                       ))
@@ -66,7 +62,10 @@ instance ParseRecord CLI where
                              <> help "A valid node system start to use."))
               <*> switch (long "stats" <> help "Show stats for this wallet.")
               <*> ((readMaybe =<<) <$> (optional (strOption (long "query" <> help "Query a predefined endpoint."))))
-              <*> switch (long "genFakeUtxo" <> help "Generate fake UTXO for the wallet. Fake as-in doesn't exist in node DB.")
+              <*> (optional (option (eitherReader readAccountId)
+                            (long "add-to" <> metavar "walletId@accountId"
+                                           <> help "Append to an existing wallet & account."
+              )))
 
 
 readAccountId :: String -> Either String AccountId

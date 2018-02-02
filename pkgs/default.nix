@@ -7467,11 +7467,11 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, Chart
          , Chart-diagrams, containers, cpphs, cryptonite, data-default
-         , dhall, directory, ed25519, ether, fgl, filepath, foldl
-         , formatting, Glob, graphviz, haskoin-core, kademlia, lens
-         , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
-         , node-sketch, optparse-applicative, optparse-generic, parsec
-         , pipes, pipes-bytestring, pipes-interleave, pipes-safe, process
+         , directory, ed25519, ether, fgl, filepath, foldl, formatting, Glob
+         , graphviz, haskoin-core, kademlia, lens, lifted-async, log-warper
+         , MonadRandom, mtl, neat-interpolation, node-sketch
+         , optparse-applicative, optparse-generic, parsec, pipes
+         , pipes-bytestring, pipes-interleave, pipes-safe, process
          , QuickCheck, random, random-shuffle, safe-exceptions
          , serokell-util, silently, stdenv, stm, string-conv
          , system-filepath, tar, text, text-format, time, time-units
@@ -7489,14 +7489,14 @@ inherit (pkgs) mesa;};
              cardano-report-server cardano-sl cardano-sl-core cardano-sl-db
              cardano-sl-infra cardano-sl-lrc cardano-sl-ssc cardano-sl-txp
              cardano-sl-wallet Chart Chart-diagrams containers cryptonite
-             data-default dhall directory ed25519 ether fgl filepath foldl
-             formatting Glob graphviz haskoin-core kademlia lens lifted-async
-             log-warper MonadRandom mtl neat-interpolation node-sketch
-             optparse-applicative optparse-generic parsec pipes pipes-bytestring
-             pipes-interleave pipes-safe process QuickCheck random
-             random-shuffle safe-exceptions serokell-util silently stm
-             string-conv system-filepath tar text text-format time time-units
-             universum unix unix-compat unordered-containers vector yaml
+             data-default directory ed25519 ether fgl filepath foldl formatting
+             Glob graphviz haskoin-core kademlia lens lifted-async log-warper
+             MonadRandom mtl neat-interpolation node-sketch optparse-applicative
+             optparse-generic parsec pipes pipes-bytestring pipes-interleave
+             pipes-safe process QuickCheck random random-shuffle safe-exceptions
+             serokell-util silently stm string-conv system-filepath tar text
+             text-format time time-units universum unix unix-compat
+             unordered-containers vector yaml
            ];
            executableToolDepends = [ cpphs ];
            doHaddock = false;
@@ -10840,35 +10840,6 @@ inherit (pkgs) mesa;};
            doCheck = false;
            homepage = "https://github.com/chrisdone/descriptive";
            description = "Self-describing consumers/parsers; forms, cmd-line args, JSON, etc";
-           license = stdenv.lib.licenses.bsd3;
-         }) {};
-      "dhall" = callPackage
-        ({ mkDerivation, ansi-wl-pprint, base, base16-bytestring
-         , bytestring, case-insensitive, charset, containers, contravariant
-         , cryptohash, exceptions, http-client, http-client-tls, lens
-         , optparse-generic, parsers, prettyprinter, stdenv, system-fileio
-         , system-filepath, text, text-format, transformers, trifecta
-         , unordered-containers, vector
-         }:
-         mkDerivation {
-           pname = "dhall";
-           version = "1.8.2";
-           sha256 = "520184b58a70e4ac5dc3dc0b39bee64c279b5cdebd2b178aee6934cbb30899d2";
-           isLibrary = true;
-           isExecutable = true;
-           libraryHaskellDepends = [
-             ansi-wl-pprint base base16-bytestring bytestring case-insensitive
-             charset containers contravariant cryptohash exceptions http-client
-             http-client-tls lens parsers prettyprinter system-fileio
-             system-filepath text text-format transformers trifecta
-             unordered-containers vector
-           ];
-           executableHaskellDepends = [
-             base optparse-generic prettyprinter system-filepath text trifecta
-           ];
-           doHaddock = false;
-           doCheck = false;
-           description = "A configuration language guaranteed to terminate";
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "diagrams" = callPackage

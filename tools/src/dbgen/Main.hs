@@ -130,7 +130,7 @@ newConfig CLI{..} = defaultConfigurationOptions {
     , cfoKey          = toText configurationProf
     }
 
--- stack exec dbgen -- --config ./tools/src/dbgen/config.dhall --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full
+-- stack exec dbgen -- --config ./tools/src/dbgen/config.json --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full
 main :: IO ()
 main = do
 
@@ -148,7 +148,7 @@ main = do
         spec <- loadGenSpec config
         ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-        let generatedWallet = generate cli spec
+        let generatedWallet = generateWalletDB cli spec
         walletRunner cfg dbs secretKeyPath ws generatedWallet
         closeState ws
 

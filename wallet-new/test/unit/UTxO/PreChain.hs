@@ -27,7 +27,30 @@ import UTxO.Translate
   Chain with some information still missing
 -------------------------------------------------------------------------------}
 
-newtype PreChain h m = PreChain (Transaction h Addr -> [[Fee]] -> m (Blocks h Addr))
+-- | A chain with "holes" for the bootstrap transaction and the fees
+--
+-- NOTE: The position of @m@ here is very deliberate. If we used
+--
+-- > Transaction h Addr -> [[Fee]] -> m (Blocks h Addr)
+--
+-- instead then we'd have to execute the action that generates the blocks
+-- /twice/ (once before we know the fees, and once again after we computed
+-- the fees), and the second time around we may in fact generate a very
+-- different chain (think @m@ = QuickCheck 'Gen', for instance) -- which
+-- would then require very different fees. No good. If we did
+--
+-- > m (Transaction h Addr -> [[Fee]] -> Blocks h Addr)
+--
+-- instead, then (thinking @m@ = 'Gen' again) we could not generate different
+-- chains for different bootstrap transactions, which would also be no good.
+--
+-- By having the @m@ parameter after the bootstrap transaction but before
+-- the fees we avoid having to run the generator twice. It is still the
+-- responsibility of the 'PreChain' author to make sure that the structure of
+-- the blockchain does not depend on the fees that are passed.
+newtype PreChain h m = PreChain {
+      runPreChain :: Transaction h Addr -> m ([[Fee]] -> Blocks h Addr)
+    }
 
 data FromPreChain h = FromPreChain {
       fpcBoot   :: Transaction h Addr
@@ -39,7 +62,7 @@ fromPreChain :: (Hash h Addr, Monad m)
              => PreChain h m -> TranslateT IntException m (FromPreChain h)
 fromPreChain (PreChain f) = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot $ f fpcBoot
+    txs <- calcFees fpcBoot =<< lift (f fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
@@ -93,7 +116,7 @@ type Fee = Value
 -- the size of the fee might change the size of the the transaction.
 calcFees :: forall h m. (Hash h Addr, Monad m)
          => Transaction h Addr
-         -> ([[Fee]] -> m (Blocks h Addr))
+         -> ([[Fee]] -> Blocks h Addr)
          -> TranslateT IntException m (Blocks h Addr)
 calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
@@ -102,9 +125,9 @@ calcFees boot f = do
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot =<< lift (f (repeat [0..]))
+    (txs, _) <- runIntBoot boot $ f (repeat [0..])
     fees     <- mapM (mapM txToLinearFee') txs
-    lift (f (unmarkOldestFirst fees))
+    return $ f (unmarkOldestFirst fees)
   where
     unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]
     unmarkOldestFirst = map toList . toList

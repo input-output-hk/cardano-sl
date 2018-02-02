@@ -79,31 +79,38 @@ quickcheckSanityChecks = describe "QuickCheck sanity checks" $ do
   Example QuickCheck generated chains
 -------------------------------------------------------------------------------}
 
+-- | Chain with a single transaction that transfers an arbitrary amount from
+-- the first rich actor to the second.
 genOneTrans :: Hash h Addr => PreChain h Gen
-genOneTrans = PreChain $ \boot ((fee : _) : _) -> do
-    -- TODO: 'initR0' should be derived from 'boot'
-    value <- choose (0, initR0 - fee)
-    let t1 = Transaction {
-                 trFresh = 0
-               , trFee   = fee
-               , trHash  = 1
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r1 value
-                           , Output r0 (initR0 - value - fee)
-                           ]
-               }
-    return $ OldestFirst [OldestFirst [t1]]
+genOneTrans = PreChain $ \boot -> do
+    -- TODO: The actual range we can use here is @(0, initR0 - fee)@ where
+    -- @fee@ is the fee of the transaction. Sadly, however, we don't know
+    -- this fee in advantage. Hence, any QuickCheck generators for transactions
+    -- will need to be a little bit conversative (possibly using some kind of
+    -- @maxFee@ upper bound).
+    value <- choose (0, 1000)
+    return $ \((fee : _) : _) ->
+      let t1 = Transaction {
+                   trFresh = 0
+                 , trFee   = fee
+                 , trHash  = 1
+                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+                 , trOuts  = [ Output r1 value
+                             , Output r0 (initR0 - value - fee)
+                             ]
+                 }
+      in OldestFirst [OldestFirst [t1]]
 
 {-------------------------------------------------------------------------------
   Example hand-constructed chains
 -------------------------------------------------------------------------------}
 
 emptyBlock :: Hash h Addr => PreChain h Identity
-emptyBlock = PreChain $ \_boot _fees ->
-  return $ OldestFirst [OldestFirst []]
+emptyBlock = PreChain $ \_boot -> return $ \_fees ->
+    OldestFirst [OldestFirst []]
 
 oneTrans :: Hash h Addr => PreChain h Identity
-oneTrans = PreChain $ \boot ((fee : _) : _) -> do
+oneTrans = PreChain $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -113,11 +120,11 @@ oneTrans = PreChain $ \boot ((fee : _) : _) -> do
                            , Output r0 (initR0 - 1000 - fee)
                            ]
                }
-    return $ OldestFirst [OldestFirst [t1]]
+    in OldestFirst [OldestFirst [t1]]
 
 -- Try to transfer from R0 to R1, but leaving R0's balance the same
 overspend :: Hash h Addr => PreChain h Identity
-overspend = PreChain $ \boot ((fee : _) : _) -> do
+overspend = PreChain $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -127,14 +134,14 @@ overspend = PreChain $ \boot ((fee : _) : _) -> do
                            , Output r0 initR0
                            ]
                }
-    return $ OldestFirst [OldestFirst [t1]]
+    in OldestFirst [OldestFirst [t1]]
 
 -- Try to transfer to R1 and R2 using the same output
 -- TODO: in principle this example /ought/ to work without any kind of
 -- outputs at all; but in practice this breaks stuff because now we have
 -- two identical transactions which would therefore get identical IDs?
 doublespend :: Hash h Addr => PreChain h Identity
-doublespend = PreChain $ \boot ((fee1 : fee2 : _) : _) -> do
+doublespend = PreChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee1
@@ -153,7 +160,7 @@ doublespend = PreChain $ \boot ((fee1 : fee2 : _) : _) -> do
                            , Output r0 (initR0 - 1000 - fee2)
                            ]
                }
-    return $ OldestFirst [OldestFirst [t1, t2]]
+    in OldestFirst [OldestFirst [t1, t2]]
 
 -- Translation of example 1 of the paper, adjusted to allow for fees
 --
@@ -169,7 +176,7 @@ doublespend = PreChain $ \boot ((fee1 : fee2 : _) : _) -> do
 -- ordinary address. This currently has no equivalent in Cardano, so we omit
 -- it.
 example1 :: Hash h Addr => PreChain h Identity
-example1 = PreChain $ \boot ((fee3 : fee4 : _) : _) -> do
+example1 = PreChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
     let t3 = Transaction {
                  trFresh = 0
                , trFee   = fee3
@@ -186,7 +193,7 @@ example1 = PreChain $ \boot ((fee3 : fee4 : _) : _) -> do
                , trIns   = Set.fromList [ Input (hash t3) 1 ]
                , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
                }
-    return $ OldestFirst [OldestFirst [t3, t4]]
+    in OldestFirst [OldestFirst [t3, t4]]
 
 {-------------------------------------------------------------------------------
   Some initial values

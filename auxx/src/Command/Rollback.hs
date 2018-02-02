@@ -38,7 +38,7 @@ rollbackAndDump
     => Word
     -> FilePath
     -> m ()
-rollbackAndDump numToRollback outFile = withStateLock HighPriority ApplyBlock $ \_ -> do
+rollbackAndDump numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)

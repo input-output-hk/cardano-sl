@@ -183,6 +183,8 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
 generateFakeUtxo NoDistribution _          = error "Cannot generate fake UTxO without distribution."
 generateFakeUtxo RangeDistribution{..} aId = do
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
     let fromAddr = range
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
@@ -194,17 +196,16 @@ generateFakeUtxo RangeDistribution{..} aId = do
 
     let txsOut :: [TxOutAux]
         txsOut = map (\address -> TxOutAux $ TxOut address coinAmount) generatedAddresses
-
-    utxo           <- getWalletUtxo
+        utxo = getWalletUtxo ws
 
     txInTxOutTuple <- liftIO $ sequence [ (,) <$> genTxIn <*> pure txOut | txOut <- txsOut ]
     let newUtxo    = utxo `union` fromList txInTxOutTuple
 
-    setWalletUtxo newUtxo
+    setWalletUtxo db newUtxo
 
     -- Update state
     let mapModifier = utxoToModifier newUtxo
-    updateWalletBalancesAndUtxo mapModifier
+    updateWalletBalancesAndUtxo db mapModifier
   where
     genTxIn :: IO TxIn
     genTxIn = generate $ TxInUtxo <$> arbitrary <*> arbitrary
@@ -280,6 +281,6 @@ genAccount CWallet{..} accountNum = do
 -- | Creates a new 'CAddress'.
 genAddress :: AccountId -> UberMonad CAddress
 genAddress cid = do
+    ws <- askWalletSnapshot
     let (walletId, addrNum) = (aiWId cid, aiIndex cid)
-    newAddress RandomSeed mempty (AccountId walletId addrNum)
-
+    newAddress ws RandomSeed mempty (AccountId walletId addrNum)

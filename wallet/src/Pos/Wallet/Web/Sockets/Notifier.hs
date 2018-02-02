@@ -28,7 +28,7 @@ import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPe
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
-import           Pos.Wallet.Web.State              (addUpdate)
+import           Pos.Wallet.Web.State              (askWalletDB, addUpdate)
 
 -- FIXME: this is really inefficient. Temporary solution
 launchNotifier :: MonadWalletWebMode m => (m :~> Handler) -> m ()
@@ -77,9 +77,10 @@ launchNotifier nat =
             spPeers .= peers
 
     updateNotifier = do
+        db <- askWalletDB
         cps <- waitForUpdate
         bvd <- gsAdoptedBVData
-        addUpdate $ toCUpdateInfo bvd cps
+        addUpdate db $ toCUpdateInfo bvd cps
         logDebug "Added update to wallet storage"
         notifyAll UpdateAvailable
 

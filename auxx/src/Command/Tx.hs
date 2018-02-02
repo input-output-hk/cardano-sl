@@ -53,7 +53,8 @@ import           Pos.Wallet                       (getSecretKeysPlain)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
+                                                   getOwnUtxos)
 import           Pos.Auxx                         (makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
@@ -145,7 +146,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts, neighbours) -> do
-                          utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
+                          utxo <- getOwnUtxoForPk getOwnUtxos $ safeToPublic (fakeSigner key)
                           etx <- createTx mempty utxo (fakeSigner key) txOuts (toPublic key)
                           case etx of
                               Left err -> do
@@ -197,6 +198,7 @@ send sendActions idx outputs = do
         ss <- mss `whenNothing` throwError (toException $ AuxxException "Invalid passphrase")
         ExceptT $ try $ submitTx
             (immediateConcurrentConversations sendActions ccPeers)
+            getOwnUtxos
             mempty
             ss
             (map TxOutAux outputs)

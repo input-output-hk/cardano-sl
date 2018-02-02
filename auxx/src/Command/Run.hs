@@ -30,13 +30,13 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey)
-import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
+import           Pos.Wallet                 (addSecretKey, getSecretKeysPlain)
 
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
 import           Command.Types              (Command (..))
 import qualified Command.Update             as Update
-import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx, getBalance)
 
 
 helpMsg :: Text

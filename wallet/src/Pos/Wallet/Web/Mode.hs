@@ -45,8 +45,6 @@ import           Pos.DB.Rocks                     (dbDeleteDefault, dbGetDefault
                                                    dbIterSourceDefault, dbPutDefault,
                                                    dbWriteBatchDefault)
 
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault,
-                                                   getOwnUtxosDefault)
 import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getBlockHistoryDefault,
                                                    getLocalHistoryDefault, saveTxDefault)
@@ -86,7 +84,7 @@ import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes     (Addr, CHash, CId (..), cIdToAddress)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
-import           Pos.Wallet.Web.State.State     (WalletState)
+import           Pos.Wallet.Web.State.State     (WalletDB)
 import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
                                                  onRollbackTracking)
 import           Pos.WorkMode                   (RealModeContext (..))
@@ -95,7 +93,7 @@ import           Pos.WorkMode                   (RealModeContext (..))
 
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState     :: !WalletState
+    { wwmcWalletState     :: !WalletDB
     , wwmcConnectionsVar  :: !ConnectionsVar
     , wwmcHashes          :: !AddrCIdHashes
     , wwmcRealModeContext :: !(RealModeContext WalletSscType)
@@ -159,7 +157,7 @@ instance HasSlottingVar WalletWebModeContext where
     slottingTimestamp = wwmcRealModeContext_L . slottingTimestamp
     slottingVar = wwmcRealModeContext_L . slottingVar
 
-instance HasLens WalletState WalletWebModeContext WalletState where
+instance HasLens WalletDB WalletWebModeContext WalletDB where
     lensOf = wwmcWalletState_L
 
 instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
@@ -262,10 +260,6 @@ instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadB
     localChainDifficulty = localChainDifficultyWebWallet
     connectedPeers = connectedPeersWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
-
-instance HasConfiguration => MonadBalances WalletWebMode where
-    getOwnUtxos = getOwnUtxosDefault
-    getBalance = getBalanceDefault
 
 instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadTxHistory WalletSscType WalletWebMode where
     getBlockHistory = getBlockHistoryDefault @WalletSscType

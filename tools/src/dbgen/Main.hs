@@ -7,7 +7,6 @@ module Main where
 
 import           Universum
 
-<<<<<<< HEAD
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Mockable (Production, runProduction)
@@ -28,7 +27,7 @@ import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.SscType (WalletSscType)
 import           Pos.Wallet.Web.Mode (AddrCIdHashes (..), WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
-import           Pos.Wallet.Web.State.State (WalletState)
+import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.Util (sec)
 import           System.Wlog.LoggerName (LoggerName (..))
@@ -40,36 +39,6 @@ import           Rendering (bold, say)
 import           Stats (showStatsAndExit, showStatsData)
 import           Types (UberMonad)
 
-=======
-import           CLI
-import           Types
-import           Rendering                   (say, bold)
-import           Serokell.Util               (sec)
-import           Data.Default                (def)
-import           Data.Maybe                  (fromJust, isJust)
-import           Lib
-import           Mockable                    (Production, runProduction)
-import           Options.Generic
-import           Pos.Client.CLI              (CommonArgs (..), CommonNodeArgs (..),
-                                              NodeArgs (..), getNodeParams, gtSscParams)
-import           Pos.Core                    (Timestamp (..))
-import           Pos.DB.Rocks.Functions
-import           Pos.DB.Rocks.Types
-import           Pos.Launcher
-import           Pos.Network.CLI
-import           Pos.Network.Types
-import           Pos.Ssc.SscAlgo
-import           Pos.Util.JsonLog
-import           Pos.Util.UserSecret         (usVss)
-import           Pos.Wallet.SscType          (WalletSscType)
-import           Pos.Wallet.Web.Mode
-import           Pos.Wallet.Web.State.Acidic
-import           Pos.Wallet.Web.State.State  (WalletDB)
-import           Pos.WorkMode
-import           Stats                       (showStatsAndExit, showStatsData)
-import           System.Wlog.LoggerName
-import           System.Wlog.LoggerNameBox
->>>>>>> 0d010e21e3af8ff6213d7877d9bb8132764900ec
 
 newRealModeContext
     :: HasConfigurations

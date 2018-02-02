@@ -36,7 +36,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
-import           Pos.Wallet.Web.State.State (getWalletUtxo, setWalletUtxo,
+import           Pos.Wallet.Web.State.State (askWalletDB, askWalletSnapshot, getWalletSnapshot,
+                                             getWalletUtxo, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
 import           Test.QuickCheck (arbitrary, generate)
 import           Text.Printf (printf)
@@ -44,6 +45,7 @@ import           Text.Printf (printf)
 import           CLI (CLI (..))
 import           Rendering (green, renderAccountId, say)
 import           Types (UberMonad)
+
 
 --
 -- Types

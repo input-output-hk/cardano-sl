@@ -42,8 +42,9 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
     toTxType :: String -> JLMemPool -> String
     toTxType s JLMemPool{..} =
         let reason = case jlmReason of
-                ApplyBlock           -> "ApplyBlock"
-                ProcessTransaction   -> "ProcessTransaction"
+                ApplyBlock             -> "ApplyBlock"
+                ApplyBlockWithRollback -> "ApplyBlockWithRollback"
+                ProcessTransaction     -> "ProcessTransaction"
         in  "mp_" ++ reason ++ "_" ++ s
 
 focusToCSV :: FilePath -> [(Timestamp, NodeId, Focus)] -> IO ()

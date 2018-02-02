@@ -34,14 +34,13 @@ import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WalletSnapshot,
                                              doesWAddressExist, getAccountMeta)
 
 type AccountMode ctx m =
     ( MonadCatch m
     , WithLogger m
     , MonadKeys ctx m
-    , WebWalletModeDB ctx m
     )
 
 myRootAddresses :: MonadKeys ctx m => m [CId Wal]
@@ -122,7 +121,7 @@ type AddrGenSeed = GenSeed Word32   -- with derivation index
 
 generateUnique
     :: (MonadIO m, MonadThrow m)
-    => Text -> AddrGenSeed -> (Word32 -> m b) -> (Word32 -> b -> m Bool) -> m b
+    => Text -> AddrGenSeed -> (Word32 -> m b) -> (Word32 -> b -> Bool) -> m b
 generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
   where
     loop 0 = throwM . RequestError $
@@ -131,45 +130,46 @@ generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
     loop i = do
         rand  <- liftIO $ randomRIO (firstHardened, maxBound)
         value <- generator rand
-        isDup <- isDuplicate rand value
-        if isDup then
+        if isDuplicate rand value then
             loop (i - 1)
         else
             return value
 generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
-    whenM (notFit seed value) $
+    when (notFit seed value) $
         throwM . InternalError $
         sformat (build%": this index is already taken")
         desc
     return value
 
 genUniqueAccountId
-    :: AccountMode ctx m
-    => AddrGenSeed
+    :: (MonadIO m, MonadThrow m)
+    => WalletSnapshot
+    -> AddrGenSeed
     -> CId Wal
     -> m AccountId
-genUniqueAccountId genSeed wsCAddr =
+genUniqueAccountId ws genSeed wsCAddr =
     generateUnique
         "account generation"
         genSeed
         (return . AccountId wsCAddr)
         notFit
   where
-    notFit _idx addr = isJust <$> getAccountMeta addr
+    notFit _idx addr = isJust $ getAccountMeta ws addr
 
 genUniqueAddress
     :: AccountMode ctx m
-    => AddrGenSeed
+    => WalletSnapshot
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CWAddressMeta
-genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
+genUniqueAddress ws genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAddress notFit
   where
     mkAddress cwamAddressIndex =
         deriveAddress passphrase wCAddr cwamAddressIndex
-    notFit _idx addr = doesWAddressExist Ever addr
+    notFit _idx addr = doesWAddressExist ws Ever addr
 
 deriveAddressSK
     :: AccountMode ctx m

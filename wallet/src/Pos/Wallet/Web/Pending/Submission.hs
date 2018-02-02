@@ -29,6 +29,7 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..)
                                                PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
 import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
+                                               askWalletDB,
                                                addOnlyNewPendingTx, casPtxCondition,
                                                ptxUpdateMeta)
 
@@ -75,8 +76,9 @@ ptxResubmissionHandler PendingTx{..} =
         :: (MonadWalletWebMode m, Exception e, Buildable e)
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
+        db <- askWalletDB
         let newCond = PtxWontApply (sformat build e) poolInfo
-        void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+        void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
         reportCanceled
 
     reportPeerAppliedEarlier =
@@ -100,6 +102,7 @@ submitAndSavePtx
     :: MonadWalletWebMode m
     => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
+    db <- askWalletDB
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -109,17 +112,17 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
          Just creationTime <- poolInfo ^. thTimestamp,
          diffTimestamp now creationTime > hour 1 -> do
            let newCond = PtxWontApply "1h limit exceeded" poolInfo
-           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+           void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
            logInfo $
              sformat ("Pending transaction #"%build%" discarded becauce \
                       \the 1h time limit was exceeded")
                       _ptxTxId
        | otherwise -> do
            saveTx (_ptxTxId, _ptxTxAux) `catches` handlers
-           addOnlyNewPendingTx ptx
+           addOnlyNewPendingTx db ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack
-           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+           when ack $ ptxUpdateMeta db _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers =
         [ Handler $ \e ->

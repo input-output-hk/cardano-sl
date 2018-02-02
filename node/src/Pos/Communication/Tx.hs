@@ -18,8 +18,7 @@ import           Universum
 
 import           Pos.Binary                 ()
 import           Pos.Client.Txp.Addresses   (MonadAddresses (..))
-import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo,
-                                             getOwnUtxoForPk)
+import           Pos.Client.Txp.Balances    (getOwnUtxoForPk)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (InputSelectionPolicy, PendingAddresses (..),
                                              TxCreateMode, TxError (..), createMTx,
@@ -35,6 +34,7 @@ import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
 import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
                                              txaF)
+import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Txp.Network.Types      (TxMsgContents (..))
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
@@ -42,7 +42,6 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 
 type TxMode ssc m
     = ( MinWorkMode m
-      , MonadBalances m
       , MonadTxHistory ssc m
       , MonadMockable m
       , MonadMask m
@@ -62,14 +61,15 @@ submitAndSave enqueue txAux@TxAux {..} = do
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
     :: TxMode ssc m
-    => (Address -> SafeSigner)
+    => ([Address] -> m Utxo)
+    -> (Address -> SafeSigner)
     -> PendingAddresses
     -> InputSelectionPolicy
     -> NonEmpty Address
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-prepareMTx hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
+prepareMTx getOwnUtxos hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
     eitherToThrow =<< createMTx pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
 
@@ -77,26 +77,28 @@ prepareMTx hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData =
 submitTx
     :: TxMode ssc m
     => EnqueueMsg m
+    -> ([Address] -> m Utxo)
     -> PendingAddresses
     -> SafeSigner
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-submitTx enqueue pendingAddrs ss outputs addrData = do
+submitTx enqueue getOwnUtxos pendingAddrs ss outputs addrData = do
     let ourPk = safeToPublic ss
-    utxo <- getOwnUtxoForPk ourPk
+    utxo <- getOwnUtxoForPk getOwnUtxos ourPk
     txWSpendings <- eitherToThrow =<< createTx pendingAddrs utxo ss outputs addrData
     txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
     :: TxMode ssc m
-    => RedeemSecretKey
+    => ([Address] -> m Utxo)
+    -> RedeemSecretKey
     -> Address
     -> m (TxAux, Address, Coin)
-prepareRedemptionTx rsk output = do
+prepareRedemptionTx getOwnUtxos rsk output = do
     let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
-    utxo <- getOwnUtxo redeemAddress
+    utxo <- getOwnUtxos [redeemAddress]
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $

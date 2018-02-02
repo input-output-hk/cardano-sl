@@ -30,7 +30,7 @@ import           Pos.Util.UserSecret         (usVss)
 import           Pos.Wallet.SscType          (WalletSscType)
 import           Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.State.Acidic
-import           Pos.Wallet.Web.State.State  (WalletState)
+import           Pos.Wallet.Web.State.State  (WalletDB)
 import           Pos.WorkMode
 import           Stats                       (showStatsAndExit, showStatsData)
 import           System.Wlog.LoggerName
@@ -102,7 +102,7 @@ walletRunner
     => ConfigurationOptions
     -> NodeDBs
     -> FilePath
-    -> WalletState
+    -> WalletDB
     -> UberMonad a
     -> IO a
 walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
@@ -112,7 +112,7 @@ walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 
-newWalletState :: (MonadIO m, HasConfigurations) => Bool -> FilePath -> m WalletState
+newWalletState :: (MonadIO m, HasConfigurations) => Bool -> FilePath -> m WalletDB
 newWalletState recreate walletPath =
     -- If the user passed the `--add-to` option, it means we don't have
     -- to rebuild the DB, but rather append stuff into it.

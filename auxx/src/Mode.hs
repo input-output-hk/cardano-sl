@@ -15,6 +15,10 @@ module Mode
        -- * Helpers
        , getCmdCtx
        , realModeToAuxx
+
+       -- * Specialisations of utils
+       , getOwnUtxos
+       , getBalance
        ) where
 
 import           Universum
@@ -31,14 +35,14 @@ import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.Balances          (getBalanceFromUtxo)
 import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getBlockHistoryDefault,
                                                    getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication                (NodeId)
 import           Pos.Context                      (HasNodeContext (..), unGenesisUtxo)
-import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   IsHeader)
+import           Pos.Core                         (Address, Coin, HasConfiguration,
+                                                   HasPrimaryKey (..), IsHeader)
 import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
@@ -55,7 +59,7 @@ import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlo
 import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (filterUtxoByAddrs, genesisUtxo)
+import           Pos.Txp                          (Utxo, filterUtxoByAddrs, genesisUtxo)
 import           Pos.Util                         (Some (..))
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
@@ -197,9 +201,11 @@ instance HasConfiguration => MonadBListener AuxxMode where
 
 -- FIXME: I preserved the old behavior, but it most likely should be
 -- changed!
-instance HasConfiguration => MonadBalances AuxxMode where
-    getOwnUtxos addrs = pure $ filterUtxoByAddrs addrs $ unGenesisUtxo genesisUtxo
-    getBalance = getBalanceFromUtxo
+getOwnUtxos :: (HasConfiguration, Applicative m) => [Address] -> m Utxo
+getOwnUtxos addrs = pure $ filterUtxoByAddrs addrs $ unGenesisUtxo genesisUtxo
+
+getBalance :: (HasConfiguration, Applicative m) => Address -> m Coin
+getBalance = getBalanceFromUtxo getOwnUtxos
 
 instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) =>
          MonadTxHistory AuxxSscType AuxxMode where

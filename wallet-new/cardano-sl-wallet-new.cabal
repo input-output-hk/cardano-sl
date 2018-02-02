@@ -265,6 +265,7 @@ test-suite wallet-unit-tests
                     , lens
                     , log-warper
                     , mtl
+                    , QuickCheck
                     , serokell-util
                     , text
                     , text-format

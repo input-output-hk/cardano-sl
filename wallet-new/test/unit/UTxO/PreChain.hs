@@ -27,7 +27,7 @@ import UTxO.Translate
   Chain with some information still missing
 -------------------------------------------------------------------------------}
 
-newtype PreChain h = PreChain (Transaction h Addr -> [[Fee]] -> Blocks h Addr)
+newtype PreChain h m = PreChain (Transaction h Addr -> [[Fee]] -> m (Blocks h Addr))
 
 data FromPreChain h = FromPreChain {
       fpcBoot   :: Transaction h Addr
@@ -35,11 +35,11 @@ data FromPreChain h = FromPreChain {
     , fpcLedger :: Ledger      h Addr
     }
 
-fromPreChain :: Hash h Addr
-             => PreChain h -> Translate IntException (FromPreChain h)
+fromPreChain :: (Hash h Addr, Monad m)
+             => PreChain h m -> TranslateT IntException m (FromPreChain h)
 fromPreChain (PreChain f) = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot (f fpcBoot)
+    txs <- calcFees fpcBoot $ f fpcBoot
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
@@ -91,20 +91,20 @@ type Fee = Value
 -- TODO: We should check that the fees of the constructed transactions match the
 -- fees we calculuated. This ought to be true at the moment, but may break when
 -- the size of the fee might change the size of the the transaction.
-calcFees :: Hash h Addr
+calcFees :: forall h m. (Hash h Addr, Monad m)
          => Transaction h Addr
-         -> ([[Fee]] -> Blocks h Addr)
-         -> Translate IntException (Blocks h Addr)
+         -> ([[Fee]] -> m (Blocks h Addr))
+         -> TranslateT IntException m (Blocks h Addr)
 calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
-    let txToLinearFee' :: TxAux -> Translate IntException Value
+    let txToLinearFee' :: TxAux -> TranslateT IntException m Value
         txToLinearFee' = mapTranslateErrors IntExTx
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ f (repeat [0..])
+    (txs, _) <- runIntBoot boot =<< lift (f (repeat [0..]))
     fees     <- mapM (mapM txToLinearFee') txs
-    return $ f (unmarkOldestFirst fees)
+    lift (f (unmarkOldestFirst fees))
   where
     unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]
     unmarkOldestFirst = map toList . toList

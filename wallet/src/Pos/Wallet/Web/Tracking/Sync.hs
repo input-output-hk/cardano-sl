@@ -74,8 +74,7 @@ import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (HasLens (..))
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util (HasLens (..), getKeys)
 
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))

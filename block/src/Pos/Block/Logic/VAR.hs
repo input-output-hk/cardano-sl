@@ -19,7 +19,6 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
                                        withExceptT)
 import qualified Data.List.NonEmpty as NE
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (..),
@@ -43,6 +42,7 @@ import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
+import           Pos.Util.Util (HasLens (..))
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks

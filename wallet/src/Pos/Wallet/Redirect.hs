@@ -24,7 +24,6 @@ import           Universum
 import           Control.Lens (views)
 import qualified Data.HashMap.Strict as HM
 import           Data.Time.Units (Millisecond)
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
@@ -43,6 +42,7 @@ import           Pos.Txp (MonadTxpLocal (..), ToilVerFailure, TxpNormalizeMempoo
                           txProcessTransaction)
 import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)

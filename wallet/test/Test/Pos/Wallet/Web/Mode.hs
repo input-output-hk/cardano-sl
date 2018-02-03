@@ -25,7 +25,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import           Data.Default (def)
 import qualified Data.Text.Buildable
-import           Ether.Internal (HasLens (..))
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
@@ -38,8 +37,8 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
-                                  RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
+                                  RecoveryHeaderTag)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -80,6 +79,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,
@@ -88,7 +88,7 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes(..))
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (MonadWalletDB, WalletState, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,

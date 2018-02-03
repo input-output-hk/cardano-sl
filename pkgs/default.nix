@@ -388,8 +388,8 @@ self: {
           pname = "active";
           version = "0.2.0.13";
           sha256 = "5d9a141d58bcefbf699ed233a22309ded671c25ed64bcee11a663d00731280fb";
-          revision = "2";
-          editedCabalFile = "1ml42hbvfhqzpdi1y5q6dqp4wq6zqb30f15r34n9ip9iv44qjwwf";
+          revision = "3";
+          editedCabalFile = "0jm8kkqa5k9nppis3jdx11nmds6w0x62rmnv5bn5q3b75llhnlc1";
           libraryHaskellDepends = [
             base
             lens
@@ -5059,6 +5059,8 @@ self: {
           pname = "json-sop";
           version = "0.2.0.3";
           sha256 = "3065f11df636f9b72d988247bcc1273de9155255d8b31ed9105929e2ab67c22b";
+          revision = "1";
+          editedCabalFile = "1bvmfl6fqdr8fklv8zai5jgzlnv1jf9xy8i656lfz1ys95q9yr48";
           libraryHaskellDepends = [
             aeson
             base

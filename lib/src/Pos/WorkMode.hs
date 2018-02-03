@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP           #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE RankNTypes    #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 module Pos.WorkMode

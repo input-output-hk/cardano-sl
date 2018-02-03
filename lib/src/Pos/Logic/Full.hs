@@ -1,5 +1,5 @@
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Pos.Logic.Full
     ( logicLayerFull
@@ -8,37 +8,36 @@ module Pos.Logic.Full
 
 import           Universum
 
-import           Control.Monad.Trans.Except (runExceptT)
 import           Control.Lens (at, to)
+import           Control.Monad.Trans.Except (runExceptT)
 import           Data.Conduit (Source)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
-import           Ether.Internal (HasLens (..), lensOf)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Communication (NodeId)
-import           Pos.DB.Class (MonadGState (..), MonadBlockDBRead, MonadDBRead)
-import qualified Pos.DB.Class as DB (getBlock)
-import qualified Pos.DB.Block as DB (getTipBlock)
-import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Types (RecoveryHeaderTag, RecoveryHeader)
 import qualified Pos.Block.Logic as DB (getHeadersFromManyTo, getHeadersRange)
 import qualified Pos.Block.Network.Logic as Block (handleUnsolicitedHeader)
-import           Pos.Delegation.Listeners (DlgListenerConstraint)
-import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
-import           Pos.Core (HasConfiguration, HeaderHash, Block, BlockVersionData,
-                           BlockHeader, ProxySKHeavy, TxAux (..), StakeholderId,
-                           addressHash, getCertId, lookupVss)
+import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Communication (NodeId)
+import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
+                           ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
+                           lookupVss)
 import           Pos.Core.Context (HasPrimaryKey, getOurStakeholderId)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
+import qualified Pos.DB.Block as DB (getTipBlock)
+import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..))
+import qualified Pos.DB.Class as DB (getBlock)
+import           Pos.Delegation.Listeners (DlgListenerConstraint)
+import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import qualified Pos.GState.BlockExtra as DB (blocksSourceFrom)
-import           Pos.Logic.Types (LogicLayer (..), Logic (..), KeyVal (..),
-                                  GetBlockHeadersError (..))
+import           Pos.Logic.Types (GetBlockHeadersError (..), KeyVal (..), Logic (..),
+                                  LogicLayer (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
 import           Pos.Security.Params (SecurityParams)
@@ -46,14 +45,14 @@ import           Pos.Security.Util (shouldIgnorePkAddress)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate, sscProcessCommitment,
                                 sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.Mem (sscRunLocalQuery)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
-import           Pos.Ssc.Mem (sscRunLocalQuery)
-import           Pos.Ssc.Toss (TossModifier, tmCertificates, tmCommitments, tmOpenings,
-                               tmShares, SscTag (..))
+import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmCommitments, tmOpenings,
+                               tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (getMemPool, JLTxR)
+import           Pos.Txp.MemState (JLTxR, getMemPool)
 import           Pos.Txp.Network.Listeners (TxpMode)
 import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -61,7 +60,8 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
                                                    isProposalNeeded, isVoteNeeded)
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
-import           Pos.Util.Chrono (NewestFirst, OldestFirst, NE)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Util (HasLens (..), lensOf)
 
 
 

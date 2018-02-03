@@ -17,7 +17,6 @@ module Pos.Explorer.ExplorerMode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
@@ -38,6 +37,7 @@ import qualified Pos.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Util (postfixLFields)
+import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,

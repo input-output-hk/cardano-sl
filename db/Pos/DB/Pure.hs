@@ -47,12 +47,12 @@ import           Data.Default (Default (..))
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
-import           Ether.Internal (HasLens (..))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (HasConfiguration, HeaderHash)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType, iterKeyPrefix)
 import           Pos.DB.Functions (processIterEntry)
+import           Pos.Util.Util (HasLens (..))
 
 -- | Bytestring to Bytestring mapping mimicking rocks kv storage.
 type DBPureMap = Map ByteString ByteString

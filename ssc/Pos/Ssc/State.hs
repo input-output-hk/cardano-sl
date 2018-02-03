@@ -9,13 +9,13 @@ module Pos.Ssc.State
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (WithLogger)
 
 import           Pos.DB (MonadDBRead)
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Slotting.Class (MonadSlots)
 import           Pos.Ssc.Types (SscState (..))
+import           Pos.Util.Util (HasLens (..))
 
 -- Reexports
 import           Pos.Ssc.State.Global

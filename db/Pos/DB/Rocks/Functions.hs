@@ -36,7 +36,6 @@ import           Control.Lens (ASetter')
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Conduit (ConduitM, Source, bracketP, yield)
 import qualified Database.RocksDB as Rocks
-import           Ether.Internal (lensOf)
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                                    removeDirectoryRecursive)
 import           System.FilePath ((</>))
@@ -48,6 +47,7 @@ import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
 import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..), getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
+import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
 -- Opening/options

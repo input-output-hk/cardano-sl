@@ -20,7 +20,6 @@ import           Control.Monad.Morph (hoist)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Conduit (Source)
-import           Ether.Internal (HasLens (..))
 
 import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (Bi)
@@ -30,6 +29,7 @@ import           Pos.DB.Pure (DBPureVar)
 import qualified Pos.DB.Pure as DB
 import           Pos.DB.Rocks (NodeDBs)
 import qualified Pos.DB.Rocks as DB
+import           Pos.Util.Util (HasLens (..))
 
 data DBSum = RealDB NodeDBs | PureDB DBPureVar
 

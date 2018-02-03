@@ -19,7 +19,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Text.Buildable
-import           Ether.Internal (HasLens (..))
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
@@ -31,6 +30,7 @@ import           Pos.Core.Txp (TxpUndo)
 import           Pos.DB.Class (SerializedUndo)
 import           Pos.Delegation.Types (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
+import           Pos.Util.Util (HasLens (..))
 
 -- | Structure for undo block during rollback
 data Undo = Undo

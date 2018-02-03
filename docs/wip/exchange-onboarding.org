@@ -65,7 +65,7 @@
 ** Build and run
    By default the wallet's local state goes in
    =./state-wallet-mainnet=. If you prefer to have this sensitive data
-   outside the git repository, see the FAQ about [[*How%20do%20I%20customize%20the%20wallet%20configuration?][supported custom
+   outside the git repository, see the FAQ about [[#faq-custom-config][supported custom
    configuration settings]].
 
    Build the wallet and generate the shell script to connect to
@@ -80,6 +80,9 @@
    similar. Run that symlink as a script to start the wallet.
 ** Usage FAQs
 *** How do I customize the wallet configuration?
+    :PROPERTIES:
+    :CUSTOM_ID: faq-custom-config
+    :END:
     Before building the wallet copy =./sample-wallet-config.nix= to
     =./custom-wallet-config.nix= and edit as needed.
 

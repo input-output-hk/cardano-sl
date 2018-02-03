@@ -17,7 +17,7 @@ module NTP.Client
 
 import           Universum
 
-import           Control.Concurrent.STM (modifyTVar')
+import           Control.Concurrent.STM (check, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
 import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
 import           Control.Lens ((%=), (.=), _Just)
@@ -53,8 +53,7 @@ data NtpClientSettings m = NtpClientSettings
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
-      -- ^ delay between making requests and response collection;
-      -- it also means that handler will be invoked with this lag
+      -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how often to send responses to server
     , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
@@ -125,6 +124,14 @@ handleCollectedResponses cli = do
   where
     handleE = logError . sformat ("ntpMeanSelection: "%shown)
 
+allResponsesGathered :: NtpClient m -> STM Bool
+allResponsesGathered cli = do
+    responsesState <- readTVar $ ncState cli
+    let servers = ntpServers $ ncSettings cli
+    return $ case responsesState of
+        Nothing        -> False
+        Just responses -> length responses >= length servers
+
 doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO $ ncSockets cli
@@ -147,16 +154,20 @@ startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
 startSend addrs cli = do
     let timeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
-    logDebug "Sending requests"
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
-    let sendRequests = forConcurrently addrs (flip doSend cli)
-    withAsync sendRequests $ \_ ->
-        () <$ threadDelay timeout
 
-    logDebug "Collecting responses"
-    handleCollectedResponses cli
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
-    liftIO $ threadDelay (poll - timeout)
+    _ <- concurrently (threadDelay poll) $ do
+        logDebug "Sending requests"
+        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
+        let sendRequests = forConcurrently addrs (flip doSend cli)
+        let waitTimeout =
+                void $ race
+                    (threadDelay timeout)
+                    (atomically $ check =<< allResponsesGathered cli)
+        withAsync sendRequests $ \_ -> waitTimeout
+
+        logDebug "Collecting responses"
+        handleCollectedResponses cli
+        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
 
     startSend addrs cli
 

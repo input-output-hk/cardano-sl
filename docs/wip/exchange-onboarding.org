@@ -1,0 +1,109 @@
+#+TITLE: Exchange Onboarding
+#+DATE: January 2018
+* TODO general improvements					   :noexport:
+  - [ ] merge info from [[https://slack-files.com/files-pri-safe/T0779H80P-F72PQD0KZ/cardano-sl-getting-started.pdf?c%3D1517364775-8616ba0d8d557763494aff7267f5f0b02ad7131c][Cardano SL Getting Started]]
+* Requirements
+** TODO Hardware						   :noexport:
+** Nix
+   The wallet is built using [[https://nixos.org/nix/][nix package manager]]. To install it on
+   most Linux distros download and run the installation script.
+
+   #+BEGIN_SRC sh
+     curl https://nixos.org/nix/install > install-nix.sh
+     . install-nix.sh
+   #+END_SRC
+
+   Follow the directions and then log out and back in.
+*** Optional: Enable IOHK's binary cache
+    Skip this section if you prefer to build all code from IOHK
+    locally. When the binary cache is enabled build steps will tend
+    go faster.
+
+    #+BEGIN_SRC sh
+      sudo mkdir -p /etc/nix
+      cat <<EOF | sudo tee /etc/nix/nix.conf
+      binary-caches            = https://cache.nixos.org https://hydra.iohk.io
+      binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+      EOF
+    #+END_SRC
+** Miscellaneous Utilities
+   Use =nix= to install essential utilities.
+
+   #+BEGIN_SRC sh
+     nix-env -i git
+   #+END_SRC
+* Mainnet Wallet
+** Backup local state
+   Skip to the next section if this is target machine doesn't yet have
+   =cardano-sl= set up.
+
+   To avoid catastrophic data loss, stop the wallet and backup the
+   local databases, keys, certificates, and logs. By default, the
+   local state will be in =./state-wallet-mainnet=, but may be
+   elsewhere (see =stateDir= attribute in =./custom-wallet-config.nix=).
+** Fetch latest code
+   Clone the [[https://github.com/input-output-hk/cardano-sl][cardano-sl repository]] or =cd= into a preexisting copy.
+
+   #+BEGIN_SRC sh
+     git clone https://github.com/input-output-hk/cardano-sl.git
+     cd cardano-sl
+   #+END_SRC
+
+   Switch to the =master= branch and pull the latest code.
+
+   #+BEGIN_SRC sh
+     git checkout master
+     git pull
+   #+END_SRC
+
+   Dump the current revision and confirm with IOHK whether it is as
+   expected.
+
+   #+BEGIN_SRC sh
+     git rev-parse HEAD
+   #+END_SRC
+** Build and run
+   By default the wallet's local state goes in
+   =./state-wallet-mainnet=. If you prefer to have this sensitive data
+   outside the git repository, see the FAQ about [[*How%20do%20I%20customize%20the%20wallet%20configuration?][supported custom
+   configuration settings]].
+
+   Build the wallet and generate the shell script to connect to
+   mainnet.
+
+   #+BEGIN_SRC sh
+     nix-build -A connectScripts.mainnetWallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
+   #+END_SRC
+
+   After the build finishes the generated connection script is
+   available as a symlink called =./launch_2018-01-30_0d4f79eea=, or
+   similar. Run that symlink as a script to start the wallet.
+** Usage FAQs
+*** How do I customize the wallet configuration?
+    Before building the wallet copy =./sample-wallet-config.nix= to
+    =./custom-wallet-config.nix= and edit as needed.
+
+    Supported options include:
+
+    - =walletListen= :: Wallet API server
+    - =ekgListen= :: Runtime metrics server
+    - =stateDir= :: Directory for the wallet's local state. Must be
+                    enclosed in double quotes.
+    - =topologyFile= :: Used to connect to a custom set of nodes on
+                        the network. When unspecified an appropriate
+                        default topology is generated.
+*** How do I know when the wallet has fetched all the blocks?
+    Monitor the logs in the wallet's local state directory for lines
+    like
+
+    #+BEGIN_EXAMPLE
+    slot: 18262th slot of 25th epoch
+    #+END_EXAMPLE
+
+    If any of the recent matches are more than a slot lower than the
+    latest epoch and slot reported by [[https://cardanoexplorer.com/][Cardano Explorer]], the wallet is
+    still syncing.
+*** Where can I find the API documentation?
+    Run the latest wallet and go to [[https://127.0.0.1:8090/docs]].
+*** How can I inspect runtime metrics and statistics?
+    Current metrics and stats are available at http://127.0.0.1:8000/.

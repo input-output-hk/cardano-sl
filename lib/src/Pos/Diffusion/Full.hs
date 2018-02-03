@@ -73,7 +73,7 @@ import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 
 -- Orphan instance to get the adopted block version data through reflection.
 --
--- TODO: I rather dislike this instance phgvbpqsahgpsviqhaep
+-- TODO: I rather dislike this instance
 -- — @neongreen
 instance (Given (m BlockVersionData)) => HasAdoptedBlockVersionData m where
   adoptedBVData = given

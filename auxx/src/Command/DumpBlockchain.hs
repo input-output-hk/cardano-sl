@@ -16,7 +16,7 @@ import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
 import           System.FilePath ((</>))
 import           System.Wlog (logInfo, logWarning)
 
-import           Pos.Block.Dump (decodeBlockDump, encodeBlockDump)
+import           Pos.Block.Dump (decodeBlockDumpC, encodeBlockDumpC)
 import           Pos.Block.Logic.VAR (verifyAndApplyBlocksC)
 import           Pos.Core (Block, BlockHeader, EpochIndex (..), HeaderHash, difficultyL,
                            epochIndexL, genesisHash, getBlockHeader, headerHash, prevBlockL)
@@ -88,7 +88,7 @@ dumpBlockchain outFolder = withStateLock HighPriority "auxx" $ \_ -> do
             Just (blocks :: NewestFirst NonEmpty Block) -> do
                 runConduitRes $
                     C.yieldMany (toList (toOldestFirst blocks)) .|
-                    encodeBlockDump .|
+                    encodeBlockDumpC .|
                     C.sinkFile (getOutPath epochIndex)
                 whenJust maybePrev $ \prev -> do
                     maybeHeader <- DB.getHeader prev
@@ -149,7 +149,7 @@ applyEpoch path = do
              "difficulty is "+|difficulty|+"")
     result <- runConduitRes $
            C.sourceFile path
-        .| decodeBlockDump                            -- get a stream of blocks
+        .| decodeBlockDumpC                            -- get a stream of blocks
         .| (C.dropWhileC ((/= tip) . view prevBlockL) -- skip blocks until tip
         >> verifyAndApplyBlocksC True)                -- apply blocks w/ rollback
     whenLeft result throwM

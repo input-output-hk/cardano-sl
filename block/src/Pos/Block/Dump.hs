@@ -22,12 +22,12 @@ reconstruct those proofs.
 module Pos.Block.Dump
        (
        -- * Encoding
-         encodeBlockDump
-       , encodeBlockDump'
+         encodeBlockDumpC
+       , encodeBlockDump
 
        -- * Decoding
+       , decodeBlockDumpC
        , decodeBlockDump
-       , decodeBlockDump'
        , BlockDumpDecodeError (..)
 
        -- * Internals
@@ -38,12 +38,7 @@ module Pos.Block.Dump
        , decodeDumpHeader
        , decodeBlockStream
        -- ** Stripped blocks
-       , GenericBlockNoProof (..)
        , BlockNoProof
-       , GenesisBlockNoProof
-       , MainBlockNoProof
-       , stripProof
-       , addProof
        ) where
 
 import           Universum
@@ -73,19 +68,19 @@ import           Pos.Util.Util (eitherToFail)
 ----------------------------------------------------------------------------
 
 -- | Encode a block dump. The blocks should be coming oldest-first.
-encodeBlockDump
+encodeBlockDumpC
     :: (Bi BlockNoProof, Conduit.MonadResource m)
     => Conduit Block m ByteString
-encodeBlockDump = (encodeDumpHeader >> encodeBlockStream)
+encodeBlockDumpC = (encodeDumpHeader >> encodeBlockStream)
                .| Lzma.compress Nothing
 
--- | Like 'encodeBlockDump', but without conduits.
-encodeBlockDump'
+-- | Like 'encodeBlockDumpC', but without conduits.
+encodeBlockDump
     :: Bi BlockNoProof
     => OldestFirst [] Block -> IO LByteString
-encodeBlockDump' blocks = Conduit.runResourceT $ runConduit $
+encodeBlockDump blocks = Conduit.runResourceT $ runConduit $
     Conduit.yieldMany (toList blocks)
-    .| encodeBlockDump
+    .| encodeBlockDumpC
     .| Conduit.sinkLazy
 
 encodeDumpHeader :: Monad m => Producer m ByteString
@@ -145,10 +140,10 @@ instance Buildable BlockDumpDecodeError where
 -- | A conduit that decodes blocks from a CBOR-encoded LZMA-compressed list.
 --
 -- /Throws:/ 'BlockDumpDecodeError'
-decodeBlockDump
+decodeBlockDumpC
     :: (Bi BlockNoProof, Conduit.MonadResource m, MonadThrow m)
     => Conduit ByteString m Block
-decodeBlockDump =
+decodeBlockDumpC =
     Lzma.decompress memlimit .| do
         ver <- decodeDumpHeader
         when (ver /= 0) $ throwM (UnsupportedBlockVersion ver (one 0))
@@ -156,15 +151,15 @@ decodeBlockDump =
   where
     memlimit = Just (200*1024*1024)  -- 200 MB
 
--- | Like 'decodeBlockDump', but without conduits.
+-- | Like 'decodeBlockDumpC', but without conduits.
 --
 -- /Throws:/ 'BlockDumpDecodeError'
-decodeBlockDump'
+decodeBlockDump
     :: Bi BlockNoProof
     => LByteString -> IO (OldestFirst [] Block)
-decodeBlockDump' dump = fmap OldestFirst $ Conduit.runResourceT $ runConduit $
+decodeBlockDump dump = fmap OldestFirst $ Conduit.runResourceT $ runConduit $
     Conduit.sourceLazy dump
-    .| decodeBlockDump
+    .| decodeBlockDumpC
     .| Conduit.sinkList
 
 -- | Deserialize the header of a dump and return data decoded from the

@@ -15,7 +15,7 @@ import qualified Test.QuickCheck as QC
 import qualified Test.QuickCheck.Monadic as QC
 
 import           Pos.Arbitrary.Block ()
-import           Pos.Block.Dump (decodeBlockDump', encodeBlockDump')
+import           Pos.Block.Dump (decodeBlockDump, encodeBlockDump)
 import qualified Pos.Communication ()
 import qualified Pos.Core.Block as BT
 import           Pos.Core.Configuration (HasConfiguration)
@@ -38,8 +38,8 @@ decodeEncodeIdentity
     -> Int                   -- ^ Chunk size
     -> QC.Property
 decodeEncodeIdentity blocks chunkSize = QC.monadicIO $ do
-    enc <- QC.run $ encodeBlockDump' $ OldestFirst blocks
-    dec <- QC.run $ decodeBlockDump' $
+    enc <- QC.run $ encodeBlockDump $ OldestFirst blocks
+    dec <- QC.run $ decodeBlockDump $
         BSL.fromChunks $ chunkBS chunkSize $ BSL.toStrict enc
     pure (OldestFirst blocks === dec)
 

@@ -12,7 +12,6 @@ module Pos.NtpCheck
 import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Mockable (Async, Concurrently, CurrentTime, Delay, Mockable, Mockables,
                            currentTime, withAsync)
@@ -46,7 +45,7 @@ ntpSettings onStatus = NtpClientSettings
     , ntpLogName         = "ntp-check"
     , ntpResponseTimeout = sec 5
     , ntpPollDelay       = timeDifferenceWarnInterval
-    , ntpMeanSelection   = median . NE.fromList
+    , ntpMeanSelection   = median
     }
 
 data NtpStatus = NtpSyncOk | NtpDesync Microsecond

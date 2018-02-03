@@ -30,7 +30,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLenses)
-import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, delay)
@@ -246,5 +245,5 @@ ntpSettings var = NtpClientSettings
     -- how often to send responses to server
     , ntpPollDelay       = C.ntpPollDelay
     -- way to sumarize results received from different servers.
-    , ntpMeanSelection   = median . NE.fromList
+    , ntpMeanSelection   = median
     }

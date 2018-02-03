@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -56,7 +57,7 @@ data NtpClientSettings m = NtpClientSettings
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how often to send responses to server
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+    , ntpMeanSelection   :: NonEmpty (Microsecond, Microsecond) -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case some servers
       -- failed to respond in time, but never an empty list
@@ -89,8 +90,14 @@ instance Monad m => Default (NtpClientSettings m) where
         , ntpLogName         = "ntp-cli"
         , ntpResponseTimeout = 1000000
         , ntpPollDelay       = 3000000
-        , ntpMeanSelection   = \l -> let len = length l in (sortOn fst l) !! ((len - 1) `div` 2)
+        , ntpMeanSelection   = medianOnFst
         }
+      where
+        medianOnFst lne =
+            let l = toList lne
+                len = length l
+                med = (len - 1) `div` 2
+            in  sortOn fst l !! med
 
 data NoHostResolved = NoHostResolved
     deriving (Show, Typeable)
@@ -108,14 +115,14 @@ type NtpMonad m =
 
 handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
 handleCollectedResponses cli = do
-    mres <- liftIO $ readTVarIO (ncState cli)
+    responsesState <- liftIO $ readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
         handler   = ntpHandler (ncSettings cli)
-    case mres of
-        Nothing        -> logError "Protocol error: responses are not awaited"
-        Just []        -> logWarning "No servers responded"
-        Just responses -> handleE `handleAny` do
-            let time = selection responses
+    case responsesState of
+        Nothing -> logError "Protocol error: responses are not awaited"
+        Just [] -> logWarning "No servers responded"
+        Just (resp:resps) -> handleE `handleAny` do
+            let time = selection (resp :| resps)
             logInfo $ sformat ("Evaluated clock offset "%shown%
                 " mcs for request at "%shown%" mcs")
                 (toMicroseconds $ fst time)

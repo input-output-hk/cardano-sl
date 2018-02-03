@@ -39,7 +39,8 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race)
+import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race,
+                                      withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
@@ -148,7 +149,9 @@ startSend addrs cli = do
     let poll    = ntpPollDelay (ncSettings cli)
     logDebug "Sending requests"
     liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
-    () <$ threadDelay timeout `race` forConcurrently addrs (flip doSend cli)
+    let sendRequests = forConcurrently addrs (flip doSend cli)
+    withAsync sendRequests $ \_ ->
+        () <$ threadDelay timeout
 
     logDebug "Collecting responses"
     handleCollectedResponses cli

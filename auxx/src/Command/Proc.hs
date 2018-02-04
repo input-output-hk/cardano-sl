@@ -282,11 +282,13 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
-    , cpArgumentConsumer = getArg tyFilePath "file/directory"
+    , cpArgumentConsumer = getArg tyFilePath "path"
     , cpExec = \path -> do
         DumpBlockchain.applyBlockchainDump path
         return ValueUnit
-    , cpHelp = ""
+    , cpHelp = "take a single .cbor.lzma file containing a blockchain dump \
+               \(or a folder with such files), and apply all blocks from \
+               \those files as if they were received from the network"
     },
 
     return CommandProc
@@ -492,7 +494,9 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpExec = \DumpBlockchainParams{..} -> do
         DumpBlockchain.dumpBlockchain dumpOutFolder
         return ValueUnit
-    , cpHelp = ""
+    , cpHelp = "dump all available blocks as a number of .cbor.lzma files, \
+               \each corresponding to a single epoch (the last epoch might \
+               \be truncated"
     },
 
     let name = "listaddr" in

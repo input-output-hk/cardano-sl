@@ -18,11 +18,11 @@ committing new work.
 This will be made automatic as part of [this issue](https://iohk.myjetbrains.com/youtrack/issue/CSL-1939) but
 for now requires self-enforced discipline.
 
-Currently the only way to generate an updated `swagger.json` is to run the `wallet-new-server` node, so that
+Currently the only way to generate an updated `swagger.json` is to run the `cardano-node-new` node, so that
 the updated Swagger file will be written on disk. For example:
 
 ```
-stack exec wallet-new-server -- --topology=wallet-new/topology-examples/testnet.yaml \
+stack exec cardano-node-new -- --topology=wallet-new/topology-examples/testnet.yaml \
   --configuration-key mainnet_staging_short_epoch_full --wallet-debug --rebuild-db
 ```
 

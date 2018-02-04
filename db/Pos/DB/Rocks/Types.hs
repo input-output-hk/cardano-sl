@@ -36,11 +36,11 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Database.RocksDB as Rocks
-import           Ether.Internal (HasLens (..))
 
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class (DBTag (..))
 import           Pos.Util.Concurrent.RWLock (RWLock)
+import           Pos.Util.Util (HasLens (..))
 
 
 -- | This is the set of constraints necessary to operate on «real» DBs

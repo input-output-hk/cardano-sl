@@ -13,9 +13,8 @@ import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tr
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
-import           Data.List.NonEmpty (NonEmpty(..))
+import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, builder, int, sformat, (%))
 import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
@@ -40,6 +39,7 @@ import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (OldestFirst (..), _OldestFirst)
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
@@ -299,7 +299,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
               (blocks ^. _OldestFirst . to NE.length)
               (unitBuilder $ biSize blocks)
               (map (headerHash . view blockHeader) blocks)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncrecoveryheader, we're
           -- gracefully exiting recovery mode.

@@ -219,6 +219,7 @@ test-suite wallet-unit-tests
                       UTxO.PreChain
                       UTxO.Translate
                       UTxO.Verify
+                      Wallet.Spec
   default-language:   Haskell2010
   default-extensions: BangPatterns
                       ConstraintKinds
@@ -264,6 +265,7 @@ test-suite wallet-unit-tests
                     , lens
                     , log-warper
                     , mtl
+                    , QuickCheck
                     , serokell-util
                     , text
                     , text-format

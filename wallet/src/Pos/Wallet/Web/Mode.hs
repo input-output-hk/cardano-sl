@@ -27,7 +27,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Ether.Internal (HasLens (..))
 import           Mockable (LowLevelAsync, Mockable, Production)
 import           System.Wlog (HasLoggerName (..))
 
@@ -76,8 +75,9 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-import           Pos.WorkMode (MinWorkMode, RealModeContext (..), RealMode)
+import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..),
                                       applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,

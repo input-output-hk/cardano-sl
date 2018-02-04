@@ -6967,8 +6967,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-generator, cardano-sl-infra, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, constraints, containers, cpphs, data-default
-         , Earley, ether, formatting, generic-arbitrary, haskeline, hspec
-         , lens, loc, log-warper, megaparsec, mmorph, MonadRandom, mtl
+         , Earley, formatting, generic-arbitrary, haskeline, hspec, lens
+         , loc, log-warper, megaparsec, mmorph, MonadRandom, mtl
          , neat-interpolation, network-transport-tcp, optparse-applicative
          , parser-combinators, QuickCheck, quickcheck-instances, random
          , reflection, safe-exceptions, scientific, serokell-util, split
@@ -6987,7 +6987,7 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-generator
              cardano-sl-infra cardano-sl-networking cardano-sl-ssc
              cardano-sl-txp cardano-sl-update cardano-sl-util constraints
-             containers data-default Earley ether formatting generic-arbitrary
+             containers data-default Earley formatting generic-arbitrary
              haskeline lens loc log-warper megaparsec mmorph MonadRandom mtl
              neat-interpolation optparse-applicative parser-combinators
              QuickCheck quickcheck-instances random reflection safe-exceptions
@@ -7075,8 +7075,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, data-default, ether, formatting, hspec, lens, log-warper
-         , monad-control, MonadRandom, mtl, QuickCheck, serokell-util
-         , stdenv, stm, text-format, transformers, universum
+         , monad-control, MonadRandom, mtl, QuickCheck, safe-exceptions
+         , serokell-util, stdenv, stm, text-format, transformers, universum
          , unordered-containers, vector
          }:
          mkDerivation {
@@ -7096,7 +7096,8 @@ inherit (pkgs) mesa;};
              base bytestring cardano-sl cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-infra cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util containers formatting hspec
-             MonadRandom QuickCheck universum unordered-containers
+             MonadRandom QuickCheck safe-exceptions universum
+             unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7469,9 +7470,9 @@ inherit (pkgs) mesa;};
          , cardano-sl-db, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, Chart, Chart-diagrams, containers, cpphs
-         , cryptonite, data-default, directory, ed25519, ether, fgl
-         , filepath, foldl, formatting, Glob, graphviz, kademlia, lens
-         , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
+         , cryptonite, data-default, directory, ed25519, fgl, filepath
+         , foldl, formatting, Glob, graphviz, kademlia, lens, lifted-async
+         , log-warper, MonadRandom, mtl, neat-interpolation
          , optparse-applicative, parsec, pipes, pipes-bytestring
          , pipes-interleave, pipes-safe, process, QuickCheck, random
          , random-shuffle, safe-exceptions, serokell-util, silently, stdenv
@@ -7491,8 +7492,8 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-txp cardano-sl-update
              cardano-sl-util Chart Chart-diagrams containers cryptonite
-             data-default directory ed25519 ether fgl filepath foldl formatting
-             Glob graphviz kademlia lens lifted-async log-warper MonadRandom mtl
+             data-default directory ed25519 fgl filepath foldl formatting Glob
+             graphviz kademlia lens lifted-async log-warper MonadRandom mtl
              neat-interpolation optparse-applicative parsec pipes
              pipes-bytestring pipes-interleave pipes-safe process QuickCheck
              random random-shuffle safe-exceptions serokell-util silently stm

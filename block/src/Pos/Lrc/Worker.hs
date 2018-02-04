@@ -19,7 +19,6 @@ import           Data.Coerce (coerce)
 import           Data.Conduit (runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
 import qualified System.Metrics.Counter as Metrics
@@ -54,6 +53,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.TimeLimit (logWarningWaitLinear)
+import           Pos.Util.Util (HasLens (..))
 
 
 ----------------------------------------------------------------------------
@@ -225,7 +225,7 @@ leadersComputationDo epochId seed =
   where
     logLeaders :: SlotLeaders -> m ()
     logLeaders leaders = logInfo $
-        sformat ("Slot leaders for "%build%" are: "%slotLeadersF)
+        sformat ("Slot leaders for epoch "%build%" are: "%slotLeadersF)
         epochId (toList leaders)
 
 richmenComputationDo

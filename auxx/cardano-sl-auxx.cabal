@@ -61,7 +61,6 @@ library
                      , constraints
                      , containers
                      , data-default
-                     , ether
                      , formatting
                      , generic-arbitrary
                      , haskeline

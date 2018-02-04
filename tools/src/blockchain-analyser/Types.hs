@@ -17,7 +17,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal (HasLens (..))
 import           Mockable (Production)
 
 import           Pos.Core (HasConfiguration, HeaderHash, prevBlockL)
@@ -26,6 +25,7 @@ import           Pos.DB (MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
 import           Pos.Util (postfixLFields)
+import           Pos.Util.Util (HasLens (..))
 
 type DBFolderStat = (Text, Integer)
 

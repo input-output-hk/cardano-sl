@@ -28,10 +28,10 @@ import           Universum
 
 import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
+import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
 -- MonadSscMem

@@ -7,7 +7,6 @@ module Pos.Update.Mode
 
 import           Universum
 
-import           Ether.Internal (HasLens (..))
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
@@ -23,6 +22,7 @@ import           Pos.StateLock (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
+import           Pos.Util.Util (HasLens (..))
 
 type UpdateMode ctx m
     = ( WithLogger m

@@ -1,7 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module UTxO.Translate (
     -- * Monadic context for the translation from the DSL to Cardano
-    Translate
+    TranslateT
+  , Translate
+  , runTranslateT
   , runTranslate
   , runTranslateNoErrors
   , withConfig
@@ -58,27 +60,36 @@ data TranslateEnv = TranslateEnv {
     , teUpdate  :: Dict HasUpdateConfiguration
     }
 
-newtype Translate e a = Translate {
-      unTranslate :: ExceptT e (Reader TranslateEnv) a
+newtype TranslateT e m a = TranslateT {
+      unTranslateT :: ExceptT e (ReaderT TranslateEnv m) a
     }
-  deriving (Functor, Applicative, Monad, MonadError e)
+  deriving ( Functor
+           , Applicative
+           , Monad
+           , MonadError e
+           )
 
-instance MonadReader TransCtxt (Translate e) where
-  ask     = Translate $ asks teContext
-  local f = Translate . local f' . unTranslate
+instance MonadTrans (TranslateT e) where
+  lift = TranslateT . lift . lift
+
+type Translate e = TranslateT e Identity
+
+instance Monad m => MonadReader TransCtxt (TranslateT e m) where
+  ask     = TranslateT $ asks teContext
+  local f = TranslateT . local f' . unTranslateT
     where
       f' env = env { teContext = f (teContext env) }
 
 -- | Right now this always returns the genesis policy
-instance MonadGState (Translate e) where
+instance Monad m => MonadGState (TranslateT e m) where
   gsAdoptedBVData = withConfig $ return genesisBlockVersionData
 
 -- | Run translation
 --
 -- NOTE: This uses the default test configuration, and throws any errors as
 -- pure exceptions.
-runTranslate :: Exception e => Translate e a -> a
-runTranslate (Translate ma) =
+runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
+runTranslateT (TranslateT ta) =
     withDefConfiguration $
     withDefUpdateConfiguration $
       let env :: TranslateEnv
@@ -87,44 +98,56 @@ runTranslate (Translate ma) =
                   , teConfig  = Dict
                   , teUpdate  = Dict
                   }
-      in case runReader (runExceptT ma) env of
-           Left  e -> throw e
-           Right a -> a
+      in do ma <- runReaderT (runExceptT ta) env
+            case ma of
+              Left  e -> throw  e
+              Right a -> return a
+
+-- | Specialization of 'runTranslateT'
+runTranslate :: Exception e => Translate e a -> a
+runTranslate = runIdentity . runTranslateT
 
 -- | Specialised form of 'runTranslate' when there can be no errors
 runTranslateNoErrors :: Translate Void a -> a
 runTranslateNoErrors = runTranslate
 
 -- | Lift functions that want the configuration as type class constraints
-withConfig :: ((HasConfiguration, HasUpdateConfiguration) => Translate e a)
-           -> Translate e a
+withConfig :: Monad m
+           => ((HasConfiguration, HasUpdateConfiguration) => TranslateT e m a)
+           -> TranslateT e m a
 withConfig f = do
-    Dict <- Translate $ asks teConfig
-    Dict <- Translate $ asks teUpdate
+    Dict <- TranslateT $ asks teConfig
+    Dict <- TranslateT $ asks teUpdate
     f
 
 -- | Map errors
-mapTranslateErrors :: (e -> e') -> Translate e a -> Translate e' a
-mapTranslateErrors f (Translate ma) = Translate $ withExceptT f ma
+mapTranslateErrors :: Functor m
+                   => (e -> e') -> TranslateT e m a -> TranslateT e' m a
+mapTranslateErrors f (TranslateT ma) = TranslateT $ withExceptT f ma
 
-catchTranslateErrors :: Translate e a -> Translate e' (Either e a)
-catchTranslateErrors (Translate (ExceptT (ReaderT ma))) =
-    Translate $ ExceptT $ ReaderT $ \env -> fmap Right (ma env)
+-- | Catch and return errors
+catchTranslateErrors :: Functor m
+                     => TranslateT e m a -> TranslateT e' m (Either e a)
+catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
+    TranslateT $ ExceptT $ ReaderT $ \env -> fmap Right (ma env)
 
 {-------------------------------------------------------------------------------
   Interface to the verifier
 -------------------------------------------------------------------------------}
 
 -- | Run the verifier
-verify :: (HasConfiguration => Verify e a) -> Translate e' (Either e (a, Utxo))
+verify :: Monad m
+       => (HasConfiguration => Verify e a)
+       -> TranslateT e' m (Either e (a, Utxo))
 verify ma = withConfig $ do
     utxo <- asks (ccUtxo . tcCardano)
     return $ Verify.verify utxo ma
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
 verifyBlocksPrefix
-  :: OldestFirst NE Block
-  -> Translate e' (Either VerifyBlocksException (OldestFirst NE Undo, Utxo))
+  :: Monad m
+  => OldestFirst NE Block
+  -> TranslateT e' m (Either VerifyBlocksException (OldestFirst NE Undo, Utxo))
 verifyBlocksPrefix blocks = do
     CardanoContext{..} <- asks tcCardano
     let tip         = ccHash0

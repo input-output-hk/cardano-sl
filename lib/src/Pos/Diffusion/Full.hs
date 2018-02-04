@@ -72,6 +72,9 @@ import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- Orphan instance to get the adopted block version data through reflection.
+--
+-- TODO: I rather dislike this instance
+-- — @neongreen
 instance (Given (m BlockVersionData)) => HasAdoptedBlockVersionData m where
   adoptedBVData = given
 

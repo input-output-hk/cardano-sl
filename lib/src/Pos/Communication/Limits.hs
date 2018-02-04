@@ -29,9 +29,9 @@ import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHead
 import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (EpochIndex, VssCertificate, BlockVersionData (..),
-                           coinPortionToDouble)
-import           Pos.Core.Block (MainBlock, GenesisBlock, Block, MainBlockHeader, GenesisBlockHeader, BlockHeader)
+import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, coinPortionToDouble)
+import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, GenesisBlockHeader, MainBlock,
+                                 MainBlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)

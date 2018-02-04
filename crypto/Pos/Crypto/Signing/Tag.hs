@@ -5,14 +5,17 @@ module Pos.Crypto.Signing.Tag
 
 import           Universum
 
-import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.Class (Bi, serialize')
+import           Pos.Binary.Crypto ()
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..),
                                            protocolMagic)
 import           Pos.Crypto.Signing.Types.Tag
 
 -- | Get magic bytes corresponding to a 'SignTag'. Guaranteed to be different
 -- (and begin with a different byte) for different tags.
-signTag :: HasCryptoConfiguration => SignTag -> ByteString
+signTag
+    :: HasCryptoConfiguration
+    => SignTag -> ByteString
 signTag = \case
     SignForTestingOnly -> "\x00"
     SignTx             -> "\x01" <> network
@@ -26,4 +29,4 @@ signTag = \case
     SignMainBlockHeavy -> "\x09" <> network
     SignProxySK        -> "\x0a" <> network
   where
-    network = Bi.serialize' (getProtocolMagic protocolMagic)
+    network = serialize' protocolMagic

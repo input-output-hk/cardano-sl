@@ -47,8 +47,9 @@ library
                      , base
                      , bytestring
                      , cardano-sl-networking
-                     , containers
                      , concurrent-extra
+                     , conduit-combinators
+                     , containers
                      , cryptonite
                      , data-default
                      , deepseq
@@ -64,6 +65,7 @@ library
                      , mmorph
                      , mtl
                      , parsec
+                     , primitive
                      , process
                      , quickcheck-instances
                      , random

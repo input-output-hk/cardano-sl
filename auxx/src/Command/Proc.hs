@@ -34,6 +34,7 @@ import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usK
 import           Pos.Util.Util (eitherToFail)
 
 import           Command.BlockGen (generateBlocks)
+import qualified Command.DumpBlockchain as DumpBlockchain
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
@@ -48,9 +49,10 @@ import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
-import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
-                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), SendMode (..), Value (..))
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), DumpBlockchainParams (..),
+                             GenBlocksParams (..), ProposeUpdateParams (..),
+                             ProposeUpdateSystem (..), RollbackParams (..), SendMode (..),
+                             Value (..))
 import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
                        makePubKeyAddressAuxx)
 import           Repl (PrintAction)
@@ -275,6 +277,20 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
                \ using secret key #i"
     },
 
+    let name = "apply-blockchain-dump" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = getArg tyFilePath "path"
+    , cpExec = \path -> do
+        DumpBlockchain.applyBlockchainDump path
+        return ValueUnit
+    , cpHelp = "take a single .cbor.lzma file containing a blockchain dump \
+               \(or a folder with such files), and apply all blocks from \
+               \those files as if they were received from the network"
+    },
+
     return CommandProc
     { cpName = "bvm"
     , cpArgumentPrepare = identity
@@ -465,6 +481,22 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Rollback.rollbackAndDump rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
+    },
+
+    let name = "dump-blockchain" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        dumpOutFolder <- getArg tyFilePath "dump-folder"
+        pure DumpBlockchainParams{..}
+    , cpExec = \DumpBlockchainParams{..} -> do
+        DumpBlockchain.dumpBlockchain dumpOutFolder
+        return ValueUnit
+    , cpHelp = "dump all available blocks as a number of .cbor.lzma files, \
+               \each corresponding to a single epoch (the last epoch might \
+               \be truncated"
     },
 
     let name = "listaddr" in

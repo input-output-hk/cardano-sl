@@ -15,7 +15,8 @@ import           Data.Coerce (coerce)
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Binary.Crypto ()
+import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic)
 import           Pos.Crypto.Signing.Tag (SignTag, signTag)
 import           Pos.Crypto.Signing.Types.Redeem
 
@@ -54,8 +55,8 @@ redeemSign ::
 redeemSign tag k = coerce . redeemSignRaw (Just tag) k . Bi.serialize'
 
 -- | Alias for constructor.
-redeemSignRaw ::
-       HasCryptoConfiguration
+redeemSignRaw
+    :: HasCryptoConfiguration
     => Maybe SignTag
     -> RedeemSecretKey
     -> ByteString

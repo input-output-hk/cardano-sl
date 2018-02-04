@@ -25,6 +25,7 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Default (def)
 import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
@@ -245,6 +246,17 @@ instance (HasConfigurations) =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where
     txpNormalize = withCompileInfo def $ txNormalize
     txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+
+-- ResourceT instances
+
+instance HasAdoptedBlockVersionData AuxxMode =>
+         HasAdoptedBlockVersionData (ResourceT AuxxMode) where
+    adoptedBVData = lift adoptedBVData
+
+instance MonadTxpLocal AuxxMode =>
+         MonadTxpLocal (ResourceT AuxxMode) where
+    txpNormalize = lift txpNormalize
+    txpProcessTx = lift . txpProcessTx
 
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on

@@ -134,6 +134,7 @@ extra-deps:
 - servant-docs-0.11.1             # needed for servant-0.12
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
+- servant-blaze-0.7.1             # needed for servant-0.12
 - servant-quickcheck-0.0.4
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
@@ -154,6 +155,10 @@ extra-deps:
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
 - servant-generic-0.1.0.1
+- lzma-0.0.0.3
+- conduit-combinators-1.1.2
+- optparse-applicative-0.14.0.0   # to get nicer 'strOptions'
+- diagrams-svg-1.4.1.1            # because of optparse-applicative bump
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

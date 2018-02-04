@@ -35,6 +35,9 @@ module Pos.Util.Util
        , neZipWith4
        , spanSafe
 
+       -- * Conduit
+       , splitC
+
        -- * Misc
        , mconcatPair
        , microsecondsToUTC
@@ -52,9 +55,12 @@ module Pos.Util.Util
 
 import           Universum
 
+import           Conduit (Conduit, (.|))
+import qualified Conduit as C
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
+import           Control.Monad.Primitive (PrimMonad)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Aeson (FromJSON (..))
 import qualified Data.Aeson as A
@@ -187,6 +193,19 @@ neZipWith4 f (x :| xs) (y :| ys) (i :| is) (z :| zs) = f x y i z :| zipWith4 f x
 -- depends on the first element.
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
+
+----------------------------------------------------------------------------
+-- Conduit
+----------------------------------------------------------------------------
+
+-- | Break a stream into chunks of given size. (The last chunk may be
+-- smaller.)
+--
+-- Like 'C.conduitVector', but creates non-empty lists instead of vectors.
+splitC
+    :: forall a m base. (C.MonadBase base m, PrimMonad base)
+    => Int -> Conduit a m (NonEmpty a)
+splitC n = C.conduitVector n .| C.concatMapC (nonEmpty . toList @(Vector a))
 
 ----------------------------------------------------------------------------
 -- Misc

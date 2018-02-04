@@ -280,6 +280,7 @@ test-suite cardano-test
                        -- Pos.Block testing
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
+                       Test.Pos.Block.DumpSpec
 
                        -- Core
                        Test.Pos.Core.AddressSpec

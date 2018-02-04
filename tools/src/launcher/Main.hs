@@ -26,9 +26,9 @@ import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
 import           Formatting (int, sformat, shown, stext, (%))
 import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
-                                      fullDesc, header, help, helper, info, infoOption, long,
-                                      metavar, option, progDesc, short, strOption, switch)
+import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
+                                      helper, info, infoOption, long, metavar, option, progDesc,
+                                      short, strOption, switch)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (..))
@@ -102,15 +102,12 @@ data Executable = EWallet | ENode | EUpdater
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
-    let textOption :: IsString a => Mod OptionFields String -> Parser a
-        textOption = fmap fromString . strOption
-
     -- Node-related args
-    loNodePath <- textOption $
+    loNodePath <- strOption $
         long    "node" <>
         help    "Path to the node executable." <>
         metavar "PATH"
-    loNodeArgs <- many $ textOption $
+    loNodeArgs <- many $ strOption $
         short   'n' <>
         help    "An argument to be passed to the node." <>
         metavar "ARG"
@@ -118,21 +115,21 @@ optionsParser = do
         long    "db-path" <>
         metavar "FILEPATH" <>
         help    "Path to directory with all DBs used by the node."
-    loNodeLogConfig <- optional $ textOption $
+    loNodeLogConfig <- optional $ strOption $
         long    "node-log-config" <>
         help    "Path to log config that will be used by the node." <>
         metavar "PATH"
-    loNodeLogPath <- optional $ textOption $
+    loNodeLogPath <- optional $ strOption $
         long    "node-log-path" <>
         help    "File where node stdout/err will be redirected " <>
         metavar "PATH"
 
     -- Wallet-related args
-    loWalletPath <- optional $ textOption $
+    loWalletPath <- optional $ strOption $
         long    "wallet" <>
         help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
         metavar "PATH"
-    loWalletArgs <- many $ textOption $
+    loWalletArgs <- many $ strOption $
         short   'w' <>
         help    "An argument to be passed to the wallet frontend executable." <>
         metavar "ARG"
@@ -140,24 +137,24 @@ optionsParser = do
         long    "wlogging" <>
         help    "Bool that determines if wallet should log to stdout"
 
-    loWalletLogPath <- optional $ textOption $
+    loWalletLogPath <- optional $ strOption $
         long    "wallet-log-path" <>
         help    "File where wallet stdout/err will be redirected " <>
         metavar "PATH"
     -- Update-related args
-    loUpdaterPath <- textOption $
+    loUpdaterPath <- strOption $
         long    "updater" <>
         help    "Path to the updater executable." <>
         metavar "PATH"
-    loUpdaterArgs <- many $ textOption $
+    loUpdaterArgs <- many $ strOption $
         short   'u' <>
         help    "An argument to be passed to the updater." <>
         metavar "ARG"
-    loUpdateArchive <- optional $ textOption $
+    loUpdateArchive <- optional $ strOption $
         long    "update-archive" <>
         help    "Path to the update archive, it will be passed to the updater." <>
         metavar "PATH"
-    loUpdateWindowsRunner <- optional $ textOption $
+    loUpdateWindowsRunner <- optional $ strOption $
         long    "updater-windows-runner" <>
         help    "Path to write the Windows batch file executing updater" <>
         metavar "PATH"

@@ -388,8 +388,8 @@ self: {
           pname = "active";
           version = "0.2.0.13";
           sha256 = "5d9a141d58bcefbf699ed233a22309ded671c25ed64bcee11a663d00731280fb";
-          revision = "2";
-          editedCabalFile = "1ml42hbvfhqzpdi1y5q6dqp4wq6zqb30f15r34n9ip9iv44qjwwf";
+          revision = "3";
+          editedCabalFile = "0jm8kkqa5k9nppis3jdx11nmds6w0x62rmnv5bn5q3b75llhnlc1";
           libraryHaskellDepends = [
             base
             lens
@@ -4472,8 +4472,8 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.8";
-          sha256 = "4df739965d559e48a9b0044fa6140241c07e8f3c794c6c0a6323024fd7f0d3a0";
+          version = "1.19.9";
+          sha256 = "3e81a3e813acca3aae52721c412cde18b7b7c71ecbacfaeaa5c2f4b35abf1d8d";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [
@@ -4941,8 +4941,8 @@ self: {
           pname = "insert-ordered-containers";
           version = "0.2.1.0";
           sha256 = "d71d126bf455898492e1d2ba18b2ad04453f8b0e4daff3926a67f0560a712298";
-          revision = "3";
-          editedCabalFile = "0ik4n32rvamxvlp80ixjrbhskivynli7b89s4hk6401bcy3ykp3g";
+          revision = "4";
+          editedCabalFile = "0ls5rm5hg2lqp2m6bfssa30y72x8xyyl7izvwr3w804dpa9fvwrm";
           libraryHaskellDepends = [
             aeson
             base
@@ -4958,7 +4958,7 @@ self: {
           doHaddock = false;
           doCheck = false;
           homepage = "https://github.com/phadej/insert-ordered-containers#readme";
-          description = "Associative containers retating insertion order for traversals";
+          description = "Associative containers retaining insertion order for traversals";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       integer-gmp = callPackage ({ ghc-prim, mkDerivation, stdenv }:
@@ -5059,6 +5059,8 @@ self: {
           pname = "json-sop";
           version = "0.2.0.3";
           sha256 = "3065f11df636f9b72d988247bcc1273de9155255d8b31ed9105929e2ab67c22b";
+          revision = "1";
+          editedCabalFile = "1bvmfl6fqdr8fklv8zai5jgzlnv1jf9xy8i656lfz1ys95q9yr48";
           libraryHaskellDepends = [
             aeson
             base
@@ -5996,6 +5998,8 @@ self: {
           pname = "parsec";
           version = "3.1.11";
           sha256 = "6f87251cb1d11505e621274dec15972de924a9074f07f7430a18892064c2676e";
+          revision = "1";
+          editedCabalFile = "0prqjj2gxlwh2qhpcck5k6cgk4har9xqxc67yzjqd44mr2xgl7ir";
           libraryHaskellDepends = [
             base
             bytestring

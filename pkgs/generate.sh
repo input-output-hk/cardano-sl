@@ -10,6 +10,9 @@ function runInShell {
 set -xe
 set -v
 
+# temporary fix until the second half of DEVOPS-648 makes it thru stack2nix
+export GIT_QUIET=y
+
 # Get relative path to script directory
 scriptDir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 

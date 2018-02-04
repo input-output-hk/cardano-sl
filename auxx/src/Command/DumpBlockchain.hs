@@ -149,9 +149,9 @@ applyEpoch path = do
              "difficulty is "+|difficulty|+"")
     result <- runConduitRes $
            C.sourceFile path
-        .| decodeBlockDumpC                            -- get a stream of blocks
-        .| (C.dropWhileC ((/= tip) . view prevBlockL) -- skip blocks until tip
-        >> verifyAndApplyBlocksC True)                -- apply blocks w/ rollback
+        .| decodeBlockDumpC                               -- get stream of blocks
+        .| (C.dropWhileC ((/= tip) . view prevBlockL)     -- skip blocks until tip
+        >> C.transPipe lift (verifyAndApplyBlocksC True)) -- apply w/ rollback
     whenLeft result throwM
 
     (newTip, newDifficulty) <- getTipAndDifficulty

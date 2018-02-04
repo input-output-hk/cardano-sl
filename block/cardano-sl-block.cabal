@@ -100,8 +100,10 @@ library
                       , ether
                       , exceptions
                       , filepath
+                      , fmt
                       , formatting
                       , generic-arbitrary
+                      , http-conduit
                       , lens
                       , log-warper
                       , lzma-conduit
@@ -113,6 +115,7 @@ library
                       , safe-exceptions
                       , serokell-util
                       , stm
+                      , stm-conduit
                       , text
                       , text-format
                       , time-units

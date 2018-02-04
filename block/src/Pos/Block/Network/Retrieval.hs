@@ -8,24 +8,30 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
+import           Conduit ((.|))
+import qualified Conduit as C
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
 import           Control.Lens (to, _Wrapped)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM (retry)
+import qualified Data.Conduit.Async as Conduit.Async
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Ether.Internal (HasLens (..))
+import           Fmt (format, (+|), (|+))
 import           Formatting (build, builder, int, sformat, stext, (%))
 import           Mockable (delay, handleAll)
+import qualified Network.HTTP.Simple as Http
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (listJson, sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader)
+import           Pos.Block.Dump (decodeBlockDumpC)
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, verifyAndApplyBlocksC)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
                                           MkHeadersRequestResult (..), handleBlocks,
@@ -39,11 +45,15 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              SendActions (..), WorkerSpec, convH, toOutSpecs,
                                              waitForConversations, worker)
-import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult, prevBlockL)
+import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, epochIndexL, epochSlots,
+                           getEpochOrSlot, isMoreDifficult, prevBlockL, siSlotL, unEpochOrSlot)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Slotting.Class (getCurrentSlot)
+import           Pos.StateLock (Priority (HighPriority), modifyStateLock)
+import           Pos.Util ((<//>), _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
@@ -51,8 +61,9 @@ import           Pos.Util.Timer (Timer, startTimer)
 retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> (WorkerSpec m, OutSpecs)
-retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer)
+    => Timer -> Maybe Text -> (WorkerSpec m, OutSpecs)
+retrievalWorker keepAliveTimer blockStorageMirror =
+    worker outs (retrievalWorkerImpl keepAliveTimer blockStorageMirror)
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
@@ -72,16 +83,67 @@ retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer
 --
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
+-- Note: if we haven't caught up with the blockchain yet, the worker will
+-- try to download and apply blockchain dumps, and only if it fails it'll
+-- switch to requesting headers/blocks.
+--
 retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> SendActions m -> m ()
-retrievalWorkerImpl keepAliveTimer SendActions {..} =
-    handleAll mainLoopE $ do
-        logInfo "Starting retrievalWorker loop"
-        mainLoop
+    => Timer -> Maybe Text -> SendActions m -> m ()
+retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
+    handleAll tryDownloadE $ do
+        epoch <- view epochIndexL <$> DB.getTipHeader
+        whenJust blockStorageMirror $ \dumpUrl ->
+            tryDownload epoch (toString dumpUrl)
+    handleAll recoveryLoopE $ do
+        logInfo "Starting recovery loop"
+        recoveryLoop
   where
-    mainLoop = do
+    -- | Try to download and apply a blockchain dump, starting from the
+    -- given epoch.
+    tryDownload epoch dumpUrl = whenNothingM_ getCurrentSlot $ do
+        let epochUrl = dumpUrl <//> format "epoch{}.cbor.lzma"
+                                           (toInteger epoch)
+        logInfo ("Downloading blockchain dump for epoch "+|epoch|+
+                 " from "+|epochUrl|+"")
+        isSuccess <- modifyStateLock HighPriority "tryDownload" $ \tip -> do
+            slot <- getEpochOrSlot <$> DB.getTipHeader
+            -- When we're already in the epoch we're going to be downloading
+            -- blocks from, it's possible that we're in slot 10000 or
+            -- something and we'll have to skip 10000 blocks before we can
+            -- show any progress. In this case let's warn about it.
+            whenRight (unEpochOrSlot slot) $ \slotId ->
+                when (slotId ^. epochIndexL == epoch) $
+                    logDebug ("Going to download blocks and skip until slot "
+                              +|view siSlotL slotId|+", this may take " <>
+                              "some time")
+            let applyDump
+                    = decodeBlockDumpC
+                   .| (C.dropWhileC ((/= tip) . view prevBlockL)
+                   >> C.transPipe lift (verifyAndApplyBlocksC True))
+            -- We use Data.Conduit.Async to keep a buffer of downloaded
+            -- blocks and apply them in parallel with downloading them. The
+            -- buffer has size 'epochSlots' because that's the maximum
+            -- amount of blocks we can have in an epoch
+            request <- Http.parseRequest epochUrl
+            res <- C.runResourceT $
+                Conduit.Async.buffer (fromIntegral epochSlots)
+                    (Http.httpSource request Http.getResponseBody)
+                    applyDump
+            -- TODO: abort if downloading is too slow and we haven't gotten
+            -- any blocks in e.g. last minute
+            case res of
+                Left err -> do
+                    logError ("Failed to apply the dump: "+|err|+"")
+                    pure (tip, False)
+                Right newTip ->
+                    pure (newTip, True)
+        when isSuccess $ tryDownload (succ epoch) dumpUrl
+    tryDownloadE e =
+        reportOrLogE "retrievalWorker tryDownloadE: error caught " e
+
+    recoveryLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -103,12 +165,12 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                     pure (handleRecoveryWithHandler nodeId rHeader)
         startTimer keepAliveTimer
         thingToDoNext
-        mainLoop
-    mainLoopE e = do
+        recoveryLoop
+    recoveryLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
-        reportOrLogE "retrievalWorker mainLoopE: error caught " e
+        reportOrLogE "retrievalWorker recoveryLoopE: error caught " e
         delay $ sec 1
-        mainLoop
+        recoveryLoop
 
     -----------------
 
@@ -175,7 +237,7 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                  \ so we will request more headers and blocks"
         mkHeadersRequest (headerHash header) >>= \case
             MhrrBlockAdopted ->
-                -- How did we even got into recovery then?
+                -- How did we even get into recovery then?
                 throwM $ DialogUnexpected "handleRecovery: got MhrrBlockAdopted"
             MhrrWithCheckpoints mgh -> do
                 logDebug "handleRecovery: asking for headers"

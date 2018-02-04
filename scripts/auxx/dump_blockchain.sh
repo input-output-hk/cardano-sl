@@ -54,6 +54,7 @@ stack exec -- cardano-auxx                                \
   --keyfile ./secret-$CLUSTER.key                         \
   --configuration-file ./lib/configuration.yaml           \
   --configuration-key mainnet_full                        \
+  --block-storage-mirror http://127.0.0.1:8080            \
 "
 
 echo $EXECCMD

@@ -14,7 +14,7 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second)
 import           Formatting (Format)
-import           Mockable (withAsync)
+import           Mockable (withAsync, link)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
 import           Network.Transport.Abstract (Transport)
@@ -323,8 +323,9 @@ runDiffusionLayerFull
     -> d x
 runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
-        timeWarpNode transport ourVerInfo listeners $ \nd converse -> do
-            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
+        timeWarpNode transport ourVerInfo listeners $ \nd converse ->
+            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
+                link dthread
                 case mEkgNodeMetrics of
                     Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
                     Nothing -> pure ()
@@ -332,7 +333,8 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
                 -- send actions directly.
                 let sendActions :: SendActions d
                     sendActions = makeSendActions ourVerInfo oqEnqueue converse
-                withAsync (subscriptionThread networkConfig' sendActions) $ \_ -> do
+                withAsync (subscriptionThread networkConfig' sendActions) $ \sthread -> do
+                    link sthread
                     joinKademlia networkConfig'
                     action
   where

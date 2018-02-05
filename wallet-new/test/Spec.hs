@@ -1,11 +1,4 @@
-{-# LANGUAGE CPP #-}
 module Main where
-
-#if defined(mingw32_HOST_OS)
-import Prelude
-main :: IO ()
-main = return ()
-#else
 
 import           Universum
 
@@ -20,4 +13,3 @@ main = hspec $ do
     Marshalling.spec
     API.spec
     Swagger.spec
-#endif

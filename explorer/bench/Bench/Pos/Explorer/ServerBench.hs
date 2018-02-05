@@ -13,7 +13,7 @@ import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Arbitrary.Txp.Unsafe ()
 
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)

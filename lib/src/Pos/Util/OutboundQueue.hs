@@ -1,7 +1,7 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- | Utilities related to the OutboundQueue (time-warp-nt) and its place here
 -- in cardano-sl.
-
-{-# LANGUAGE RankNTypes #-}
 
 module Pos.Util.OutboundQueue
     ( OQ

@@ -17,7 +17,9 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.Arbitrary
+                       Pos.Util.QuickCheck
+                       Pos.Util.QuickCheck.Arbitrary
+                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
@@ -58,6 +60,7 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
@@ -116,6 +119,7 @@ library
                        TemplateHaskell
                        ScopedTypeVariables
                        MonadFailDesugaring
+                       GADTs
 
   ghc-options:         -Wall
                        -fno-warn-orphans

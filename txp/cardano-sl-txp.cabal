@@ -38,8 +38,8 @@ library
     Pos.Txp.Logic.Local
 
     Pos.Txp.Network
-    Pos.Txp.Network.Listeners
     Pos.Txp.Network.Types
+    Pos.Txp.Network.Listeners
 
     Pos.Txp.MemState
     Pos.Txp.MemState.Class

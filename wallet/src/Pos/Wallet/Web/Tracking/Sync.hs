@@ -48,7 +48,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, sformat, (%))
 import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
                               modifyLoggerName)
@@ -75,7 +74,7 @@ import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util (HasLens (..), getKeys)
 
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))

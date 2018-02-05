@@ -88,7 +88,6 @@ dev: &dev
     kademliaDumpInterval: 4
     enhancedMessageTimeout: 360 # 6 mins
     enhancedMessageBroadcast: 2
-    networkWaitLogInterval: 1 # 1s
 
     maxReqSize: 102 # 102 bytes
     maxInvSize: 102 # 102 bytes
@@ -280,7 +279,6 @@ mainnet_base: &mainnet_base
     kademliaDumpInterval: 4
     enhancedMessageTimeout: 360 # 6 mins
     enhancedMessageBroadcast: 2
-    networkWaitLogInterval: 32 # 1s
 
     maxReqSize: 102 # 102 bytes
     maxInvSize: 102 # 102 bytes

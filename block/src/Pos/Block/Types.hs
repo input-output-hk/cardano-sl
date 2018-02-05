@@ -1,5 +1,4 @@
--- | Types used for block processing.  I suppose this module is
--- temporary, I expect us to have a meeting in near future.
+-- | Types used for block processing: most importantly, 'Undo' and 'Blund'.
 
 module Pos.Block.Types
        ( SlogUndo (..)
@@ -11,10 +10,6 @@ module Pos.Block.Types
        , LastKnownHeaderTag
        , MonadLastKnownHeader
 
-       , ProgressHeader
-       , ProgressHeaderTag
-       , MonadProgressHeader
-
        , RecoveryHeaderTag
        , RecoveryHeader
        , MonadRecoveryHeader
@@ -24,7 +19,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Text.Buildable
-import           Ether.Internal (HasLens (..))
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
@@ -36,6 +30,7 @@ import           Pos.Core.Txp (TxpUndo)
 import           Pos.DB.Class (SerializedUndo)
 import           Pos.Delegation.Types (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
+import           Pos.Util.Util (HasLens (..))
 
 -- | Structure for undo block during rollback
 data Undo = Undo
@@ -73,11 +68,6 @@ data LastKnownHeaderTag
 type LastKnownHeader = TVar (Maybe BlockHeader)
 type MonadLastKnownHeader ctx m
      = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
-
-data ProgressHeaderTag
-type ProgressHeader = STM.TMVar BlockHeader
-type MonadProgressHeader ctx m
-     = (MonadReader ctx m, HasLens ProgressHeaderTag ctx ProgressHeader)
 
 data RecoveryHeaderTag
 type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)

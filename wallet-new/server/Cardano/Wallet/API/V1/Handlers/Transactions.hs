@@ -4,6 +4,7 @@ module Cardano.Wallet.API.V1.Handlers.Transactions where
 
 import           Universum
 
+import           Pos.Core (TxAux)
 import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
                                                   migrate)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -26,22 +27,23 @@ import           Servant
 handlers :: ( HasConfigurations
             , HasCompileInfo
             )
-         => ServerT Transactions.API MonadV1
+         => (TxAux -> MonadV1 Bool) -> ServerT Transactions.API MonadV1
 
-handlers = newTransaction
+handlers submitTx =
+             newTransaction submitTx
         :<|> allTransactions
         :<|> estimateFees
 
 newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
-    => Payment -> m (WalletResponse Transaction)
-newTransaction Payment {..} = do
+    => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
+newTransaction submitTx Payment {..} = do
     let spendingPw = fromMaybe mempty pmtSpendingPassword
     cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
     addrCoinList <- migrate $ NE.toList pmtDestinations
     policy <- migrate $ fromMaybe def pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
-    cTx <- V0.newPaymentBatch spendingPw batchPayment
+    cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
 -- | The conclusion is that we want just the walletId for now, the details
@@ -56,7 +58,10 @@ allTransactions walletId requestParams = do
 
     -- TODO(ks): We need the type signature, fix this?
     let transactions :: m [Transaction]
-        transactions = V0.getHistory cIdWallet mempty Nothing >>= migrate
+        transactions = do
+            (V0.WalletHistory wh, V0.WalletHistorySize whs) <-
+                V0.getHistory cIdWallet mempty Nothing
+            migrate (wh, whs)
 
     respondWith requestParams (NoFilters :: FilterOperations Transaction)
                               (NoSorts :: SortOperations Transaction)

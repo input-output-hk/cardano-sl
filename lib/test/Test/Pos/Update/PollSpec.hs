@@ -22,9 +22,10 @@ import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.BlockVersion (applyBVM)
 import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.QuickCheck.Property (formsMonoid)
 
-import           Test.Pos.Helpers (formsMonoid)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Helpers ()
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Poll" $ do

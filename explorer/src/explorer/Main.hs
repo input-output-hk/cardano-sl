@@ -20,17 +20,20 @@ import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs, WorkerSpec)
+import           Pos.Communication (OutSpecs)
+import           Pos.Context (NodeContext (..))
+import           Pos.Worker.Types (WorkerSpec)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Txp (ExplorerExtra, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, liftToExplorerProd, notifierPlugin,
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
                                    runExplorerProd)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, hoistNodeResources,
-                               loggerBracket, runNode, runRealBasedMode, withConfigurations)
-import           Pos.Update (updateTriggerWorker)
+                               NodeResources (..), bracketNodeResources,
+                               loggerBracket, runNode, withConfigurations, elimRealMode, runServer)
+import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
+import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException, mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
@@ -70,10 +73,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         bracketNodeResources currentParams sscParams
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
-            let extraCtx = makeExtraCtx
-            in runExplorerRealMode
-                (hoistNodeResources (liftToExplorerProd . runExplorerProd extraCtx) nr)
-                (runNode nr plugins)
+                runExplorerRealMode nr (runNode nr plugins)
   where
 
     conf :: ConfigurationOptions
@@ -81,12 +81,19 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => NodeResources ExplorerExtra ExplorerProd
+        => NodeResources ExplorerExtra
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
-    runExplorerRealMode nr@NodeResources{..} =
-        let extraCtx = makeExtraCtx
-        in runRealBasedMode (runExplorerProd extraCtx) liftToExplorerProd nr
+    runExplorerRealMode nr@NodeResources{..} (go, outSpecs) =
+        let NodeContext {..} = nrContext
+            extraCtx = makeExtraCtx
+            explorerModeToRealMode  = runExplorerProd extraCtx
+            elim = elimRealMode nr
+            ekgNodeMetrics = EkgNodeMetrics
+                nrEkgStore
+                (runProduction . elim . explorerModeToRealMode)
+            serverRealMode = explorerModeToRealMode (runServer ncNodeParams ekgNodeMetrics outSpecs go)
+        in  elim serverRealMode
 
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

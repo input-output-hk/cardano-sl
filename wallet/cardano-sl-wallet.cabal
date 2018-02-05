@@ -58,7 +58,6 @@ library
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Methods.Txp
-                      Pos.Wallet.Web.Networking
                       Pos.Wallet.Web.Pending
                       Pos.Wallet.Web.Pending.Types
                       Pos.Wallet.Web.Pending.Submission

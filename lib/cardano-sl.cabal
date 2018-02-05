@@ -28,7 +28,6 @@ library
                         Pos.DB.DB
 
                         -- Diffusion layer
-                        Pos.Diffusion.Types
                         Pos.Diffusion.Full
                         Pos.Diffusion.Full.Block
                         Pos.Diffusion.Full.Delegation
@@ -36,15 +35,14 @@ library
                         Pos.Diffusion.Full.Types
                         Pos.Diffusion.Full.Txp
                         Pos.Diffusion.Full.Update
-                        Pos.Diffusion.Subscription.Common
-                        Pos.Diffusion.Subscription.Dns
-                        Pos.Diffusion.Subscription.Dht
 
                         -- GState
                         Pos.GState
 
                         -- Logic layer
                         Pos.Logic.Types
+                        Pos.Logic.Full
+                        Pos.Logic.Pure
 
                         -- Behavior
                         Pos.Behavior
@@ -60,11 +58,9 @@ library
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
+                        Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
-
-                        -- Statistics
-                        Pos.Statistics
 
                         -- Recovery
                         Pos.Recovery
@@ -79,7 +75,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Config
-                        Pos.Util.Monitor
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
@@ -103,10 +98,10 @@ library
                         Test.Pos.Cbor.RefImpl
 
                         -- Util code for tests
-                        Test.Pos.Util
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+
 
   other-modules:        Pos.Aeson.Types
 
@@ -130,13 +125,6 @@ library
                         Pos.Communication.Server
 
                         Pos.Recovery.Instance
-
-                        -- Health Checks
-                        Pos.HealthCheck.Route53
-
-                        -- Statistics
-                        Pos.Statistics.Ekg
-                        Pos.Statistics.Statsd
 
   build-depends:        MonadRandom
                       , QuickCheck
@@ -183,6 +171,7 @@ library
                       , half
                       , hashable
                       , hspec
+                      , kademlia
                       , lens
                       , log-warper >= 1.1.1
                       , lrucache

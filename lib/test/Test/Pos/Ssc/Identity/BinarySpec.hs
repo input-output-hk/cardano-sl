@@ -10,14 +10,15 @@ import           Data.Tagged (Tagged)
 import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Infra ()
+import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core (StakeholderId)
 import qualified Pos.Core.Ssc as Ssc
 import qualified Pos.Ssc as Ssc
 
+import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $

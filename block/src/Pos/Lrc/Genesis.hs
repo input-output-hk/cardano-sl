@@ -1,4 +1,4 @@
--- | LRC genesis data.
+-- | Computation of LRC genesis data.
 
 module Pos.Lrc.Genesis
     ( genesisLeaders
@@ -9,7 +9,7 @@ import           Pos.Lrc.FtsPure (followTheSatoshiUtxo)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..))
 
--- | Compute leaders of the 0-th epoch from stake distribution.
+-- | Compute leaders of the 0-th epoch from initial shared seed and stake distribution.
 genesisLeaders :: HasConfiguration => SlotLeaders
 genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
   where

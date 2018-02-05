@@ -1,4 +1,4 @@
--- | This module defines an instance of 'MonadRecoveryInfo'.
+-- | An instance of 'MonadRecoveryInfo'.
 
 module Pos.Recovery.Instance
        (

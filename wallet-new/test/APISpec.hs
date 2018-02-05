@@ -13,11 +13,11 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
-import           Pos.Communication (SendActions)
+import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
-import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..))
+import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletState)
 import           Pos.WorkMode (RealModeContext (..))
@@ -26,7 +26,7 @@ import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
@@ -118,20 +118,20 @@ predicates = not500
 -- | "Lowers" V0 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v0Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            ) => IO (Server V0.API)
-v0Server = do
+            ) => D.Diffusion Migration.MonadV1 -> IO (Server V0.API)
+v0Server diffusion = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  return (V0.handlers (Migration.v1MonadNat ctx))
+  return (V0.handlers (Migration.v1MonadNat ctx) diffusion)
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            ) => IO (Server V1.API)
-v1Server = do
+            ) => D.Diffusion Migration.MonadV1 -> IO (Server V1.API)
+v1Server diffusion = do
   ctx <- testV1Context
-  return (V1.handlers (Migration.v1MonadNat ctx))
+  return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
 
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
@@ -140,7 +140,6 @@ testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
                          <*> testAddrCIdHashes
-                         <*> testSendActions
                          <*> testRealModeContext
   where
     testStorage :: IO WalletState
@@ -151,9 +150,6 @@ testV1Context =
 
     testAddrCIdHashes :: IO AddrCIdHashes
     testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
-
-    testSendActions :: IO (STM.TMVar (SendActions WalletWebMode))
-    testSendActions = STM.newEmptyTMVarIO
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.
@@ -168,8 +164,8 @@ spec = withCompileInfo def $ do
     withDefConfigurations $ do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V0.API) v0Server $ \burl ->
+          withServantServer (Proxy @V0.API) (v0Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V1.API) v1Server $ \burl ->
+          withServantServer (Proxy @V1.API) (v1Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
             serverSatisfies (Proxy @V1.API) burl stdArgs predicates

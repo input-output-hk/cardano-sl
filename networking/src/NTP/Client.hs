@@ -166,6 +166,8 @@ startSend addrs cli = do
         logDebug "Sending requests"
         atomically . modifyTVarS (ncState cli) $ identity .= Just []
         let sendRequests = forConcurrently addrs (flip doSend cli)
+        -- here we do only "send" part, so need to wait for some time
+        -- or till receiving all responses
         let waitTimeout =
                 void $ race
                     (threadDelay timeout)

@@ -70,6 +70,8 @@ infraConfiguration = given
 
 ntpServers :: [String]
 ntpServers =
-    [ "time.windows.com"
-    , "clock.isc.org"
-    , "ntp5.stratum2.ru" ]
+    [ "0.pool.ntp.org"
+    , "2.pool.ntp.org"
+    , "3.pool.ntp.org"
+    ]
+    -- need only 3 servers :shrug:

@@ -62,7 +62,6 @@ import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              askWalletSnapshot, getWalletSnapshot,
                                              isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU)
 import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
@@ -285,12 +284,7 @@ createWalletSafe cid wsMeta isReady = do
 deleteWallet :: MonadWalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
     db <- askWalletDB
-    -- XXX Transaction
-    accounts <- getAccounts (Just wid)
-    mapM_ (removeAccount db <=< decodeCTypeOrFail . caId) accounts
     removeWallet db wid
-    removeTxMetas db wid
-    removeHistoryCache db wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: MonadWalletWebMode m => AccountId -> m ()

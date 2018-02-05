@@ -70,7 +70,6 @@ module Pos.Wallet.Web.State.State
        , addOnlyNewTxMeta
        , removeWallet
        , removeWalletTxMetas
-       , removeTxMetas
        , removeHistoryCache
        , removeAccount
        , removeWAddress
@@ -369,13 +368,20 @@ addOnlyNewTxMeta :: MonadIO m
 addOnlyNewTxMeta db walletId txId txMeta =
     updateDisk (A.AddOnlyNewTxMeta walletId txId txMeta) db
 
+-- | Remove a wallet and all associated data:
+--   - Associated accounts
+--   - Transaction metadata
+--   - History cache
+--
+--   Note that this functionality has changed - the old version of
+--   'removeWallet' did not used to remove the associated data.
+--   This functionality was not used anywhere and was therefore
+--   removed. Should it be needed again, one should add 'removeWallet'
+--   to the set of acidic updates and add a suitable function in this
+--   module to invoke it.
 removeWallet :: MonadIO m
              => WalletDB -> CId Wal  -> m ()
-removeWallet db walletId = updateDisk (A.RemoveWallet walletId) db
-
-removeTxMetas :: MonadIO m
-              => WalletDB -> CId Wal  -> m ()
-removeTxMetas db walletId = updateDisk (A.RemoveTxMetas walletId) db
+removeWallet db walletId = updateDisk (A.RemoveWallet2 walletId) db
 
 removeWalletTxMetas :: MonadIO m
                     => WalletDB -> CId Wal -> [CTxId]  -> m ()

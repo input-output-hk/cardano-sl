@@ -268,6 +268,7 @@ if [[ $ram == true ]];
     if   [[ $limit_ram_2G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M2G -RTS"
     elif [[ $limit_ram_4G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M4G -RTS"
     elif [[ $limit_ram_6G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M6G -RTS"
+    else ghc_opts="$ghc_opts +RTS -N2 -RTS"
     fi
 fi
 

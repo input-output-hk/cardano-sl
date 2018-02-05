@@ -16,7 +16,6 @@ import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), Complete
                                                     WalletAccount (..), WalletsConfig (..),
                                                     Response, ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom,
-                                                    pickTwoRandomElementsFrom,
                                                     pickRandomValueBetween)
 import           Pos.Wallet.Web.ClientTypes        (Addr, CId (..), CTx (..))
 import           Pos.Client.Txp.Util               (InputSelectionPolicy (..))
@@ -28,13 +27,12 @@ newPaymentIO :: CompleteConfig -> IO ()
 newPaymentIO conf@CompleteConfig {..} = do
     let passPhrase = Nothing
         policy     = OptimizeForSecurity
-        minAmount  = 1000000  :: Word64 -- In Lovelaces
-        maxAmount  = 10000000 :: Word64 -- In Lovelaces
-    -- In real life we send money from one wallet to another.
-    -- So we want be sure that 'fromWallet' and 'toWallet' are
-    -- different wallets.
-    (fromWallet,
-     toWallet)  <- pickTwoRandomElementsFrom $ wallets walletsConfig
+        minAmount  = 500000  :: Word64 -- In Lovelaces
+        maxAmount  = 1000000 :: Word64 -- In Lovelaces
+    -- Wallets 'fromWallet' and 'toWallet' can be the same one,
+    -- it's valid situation.
+    fromWallet  <- pickRandomElementFrom $ wallets walletsConfig
+    toWallet    <- pickRandomElementFrom $ wallets walletsConfig
     fromAccount <- pickRandomElementFrom $ accounts fromWallet
     toAccount   <- pickRandomElementFrom $ accounts toWallet
     toAddress   <- pickRandomElementFrom $ addresses toAccount

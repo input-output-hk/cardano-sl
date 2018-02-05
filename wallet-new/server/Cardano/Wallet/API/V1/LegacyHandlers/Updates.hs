@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Updates where
+module Cardano.Wallet.API.V1.LegacyHandlers.Updates where
 
 import           Universum
 

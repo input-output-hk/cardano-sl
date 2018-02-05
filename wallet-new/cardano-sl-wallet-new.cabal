@@ -15,6 +15,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.TypeLits
+                       Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.Diffusion
+                       Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary
@@ -68,6 +71,7 @@ library
                      , json-sop
                      , ixset-typed
                      , lens
+                     , log-warper
                      , memory
                      , mtl
                      , network-uri
@@ -88,8 +92,10 @@ library
                      , serokell-util
                      , wai
                      , warp
+                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-db
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-networking
@@ -128,15 +134,17 @@ executable cardano-node-new
                        -O2
   other-modules:       Cardano.Wallet.API.V0.Handlers
                        Cardano.Wallet.API.V1.Handlers
-                       Cardano.Wallet.API.V1.Handlers.Accounts
-                       Cardano.Wallet.API.V1.Handlers.Addresses
-                       Cardano.Wallet.API.V1.Handlers.Transactions
-                       Cardano.Wallet.API.V1.Handlers.Settings
-                       Cardano.Wallet.API.V1.Handlers.Info
-                       Cardano.Wallet.API.V1.Handlers.Wallets
-                       Cardano.Wallet.API.V1.Handlers.Updates
+                       Cardano.Wallet.API.V1.LegacyHandlers
+                       Cardano.Wallet.API.V1.LegacyHandlers.Accounts
+                       Cardano.Wallet.API.V1.LegacyHandlers.Addresses
+                       Cardano.Wallet.API.V1.LegacyHandlers.Transactions
+                       Cardano.Wallet.API.V1.LegacyHandlers.Settings
+                       Cardano.Wallet.API.V1.LegacyHandlers.Info
+                       Cardano.Wallet.API.V1.LegacyHandlers.Wallets
+                       Cardano.Wallet.API.V1.LegacyHandlers.Updates
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.API.V1.Swagger.Example
+                       Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Server
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Plugins
@@ -257,6 +265,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-txp
                     , cardano-sl-update
                     , cardano-sl-util
+                    , cardano-sl-wallet-new
                     , constraints
                     , containers
                     , data-default
@@ -284,14 +293,14 @@ test-suite wallet-new-specs
                     MarshallingSpec
 
                     Cardano.Wallet.API.V0.Handlers
-                    Cardano.Wallet.API.V1.Handlers
-                    Cardano.Wallet.API.V1.Handlers.Accounts
-                    Cardano.Wallet.API.V1.Handlers.Addresses
-                    Cardano.Wallet.API.V1.Handlers.Transactions
-                    Cardano.Wallet.API.V1.Handlers.Settings
-                    Cardano.Wallet.API.V1.Handlers.Info
-                    Cardano.Wallet.API.V1.Handlers.Wallets
-                    Cardano.Wallet.API.V1.Handlers.Updates
+                    Cardano.Wallet.API.V1.LegacyHandlers
+                    Cardano.Wallet.API.V1.LegacyHandlers.Accounts
+                    Cardano.Wallet.API.V1.LegacyHandlers.Addresses
+                    Cardano.Wallet.API.V1.LegacyHandlers.Transactions
+                    Cardano.Wallet.API.V1.LegacyHandlers.Settings
+                    Cardano.Wallet.API.V1.LegacyHandlers.Info
+                    Cardano.Wallet.API.V1.LegacyHandlers.Wallets
+                    Cardano.Wallet.API.V1.LegacyHandlers.Updates
                     Cardano.Wallet.API.V1.Swagger
                     Cardano.Wallet.API.V1.Swagger.Example
 

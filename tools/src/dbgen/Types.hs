@@ -1,11 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
+
 module Types where
 
-import           Prelude
-import           Data.Map            (Map)
-import           Pos.Wallet.Web.Mode
+import           Universum
+
+import           Data.Map (Map)
+import           Pos.Wallet.Web.Mode (MonadWalletWebMode, WalletWebMode)
 
 type UberMonad a = MonadWalletWebMode WalletWebMode => WalletWebMode a
 

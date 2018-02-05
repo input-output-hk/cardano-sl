@@ -38,6 +38,7 @@ executable dbgen
                      , ansi-terminal
                      , unordered-containers
                      , containers
+                     , cryptonite
                      , serokell-util
                      , text
                      , time
@@ -48,7 +49,6 @@ executable dbgen
                      , lens
                      , optparse-generic
                      , optparse-applicative
-                     , haskoin-core
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db

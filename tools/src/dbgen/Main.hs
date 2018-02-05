@@ -7,34 +7,38 @@ module Main where
 
 import           Universum
 
-import           CLI
-import           Types
-import           Rendering                   (say, bold)
-import           Serokell.Util               (sec)
-import           Data.Default                (def)
-import           Data.Maybe                  (fromJust, isJust)
-import           Lib
-import           Mockable                    (Production, runProduction)
-import           Options.Generic
-import           Pos.Client.CLI              (CommonArgs (..), CommonNodeArgs (..),
-                                              NodeArgs (..), getNodeParams, gtSscParams)
-import           Pos.Core                    (Timestamp (..))
-import           Pos.DB.Rocks.Functions
-import           Pos.DB.Rocks.Types
-import           Pos.Launcher
-import           Pos.Network.CLI
-import           Pos.Network.Types
-import           Pos.Ssc.SscAlgo
-import           Pos.Util.JsonLog
-import           Pos.Util.UserSecret         (usVss)
-import           Pos.Wallet.SscType          (WalletSscType)
-import           Pos.Wallet.Web.Mode
-import           Pos.Wallet.Web.State.Acidic
-import           Pos.Wallet.Web.State.State  (WalletDB)
-import           Pos.WorkMode
-import           Stats                       (showStatsAndExit, showStatsData)
-import           System.Wlog.LoggerName
-import           System.Wlog.LoggerNameBox
+import           Data.Default (def)
+import           Data.Maybe (fromJust, isJust)
+import           Mockable (Production, runProduction)
+import           Options.Generic (getRecord)
+import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
+                                 gtSscParams)
+import           Pos.Core (Timestamp (..))
+import           Pos.DB.Rocks.Functions (openNodeDBs)
+import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
+                               bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
+                               npUserSecret, withConfigurations)
+import           Pos.Network.CLI (NetworkConfigOpts (..))
+import           Pos.Network.Types (Topology (..), defaultNetworkConfig, initQueue)
+import           Pos.Ssc.SscAlgo (SscAlgo (..))
+import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.Wallet.SscType (WalletSscType)
+import           Pos.Wallet.Web.Mode (AddrCIdHashes (..), WalletWebModeContext (..))
+import           Pos.Wallet.Web.State.Acidic (closeState, openState)
+import           Pos.Wallet.Web.State.State (WalletDB)
+import           Pos.WorkMode (RealModeContext (..))
+import           Serokell.Util (sec)
+import           System.Wlog.LoggerName (LoggerName (..))
+import           System.Wlog.LoggerNameBox (HasLoggerName (..))
+
+import           CLI (CLI (..))
+import           Lib (generateWalletDB, loadGenSpec)
+import           Rendering (bold, say)
+import           Stats (showStatsAndExit, showStatsData)
+import           Types (UberMonad)
+
 
 newRealModeContext
     :: HasConfigurations

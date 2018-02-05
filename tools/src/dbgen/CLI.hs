@@ -1,16 +1,17 @@
-
 module CLI where
 
-import           Prelude
-import           Data.Monoid
-import           Data.String.Conv
-import           Options.Applicative
-import           Options.Generic
-import           Pos.Util.Servant
+import           Universum
+
+import           Data.String.Conv (toS)
+import           Options.Applicative (auto, eitherReader, help, long, metavar, option, strOption,
+                                      switch)
+import           Options.Generic (ParseRecord (..))
+import           Pos.Util.Servant (decodeCType)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.ClientTypes.Types
-import           Text.Read                            (readMaybe)
-import           Types                                (Method (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId, CAccountId (..))
+import           Text.Read (readMaybe)
+
+import           Types (Method (..))
 
 data CLI = CLI
     { config            :: FilePath
@@ -72,3 +73,4 @@ readAccountId :: String -> Either String AccountId
 readAccountId str' = case decodeCType (CAccountId (toS str')) of
   Left e  -> Left (toS e)
   Right x -> Right x
+

@@ -15,7 +15,7 @@ import qualified Pos.Communication ()
 import qualified Pos.Core.Block as BT
 
 import           Test.Pos.Helpers (binaryTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block types" $ do

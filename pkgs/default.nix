@@ -7572,7 +7572,7 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, autoexporter, base, bytestring
          , cardano-sl-networking, cborg, cereal, concurrent-extra
          , containers, cpphs, cryptonite, data-default, deepseq, directory
-         , ether, exceptions, filepath, formatting, hashable, lens
+         , ether, exceptions, filepath, formatting, hashable, hspec, lens
          , log-warper, lrucache, megaparsec, mmorph, mtl, parsec, process
          , QuickCheck, quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
@@ -7587,7 +7587,7 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              aeson autoexporter base bytestring cardano-sl-networking cborg
              cereal concurrent-extra containers cryptonite data-default deepseq
-             directory ether exceptions filepath formatting hashable lens
+             directory ether exceptions filepath formatting hashable hspec lens
              log-warper lrucache megaparsec mmorph mtl parsec process QuickCheck
              quickcheck-instances random reflection resourcet safe-exceptions
              semigroups serokell-util stm tagged template-haskell text

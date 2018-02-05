@@ -14,16 +14,6 @@ module Test.Pos.Helpers
 
        -- * Message length
        , msgLenLimitedTest
-
-       -- * Helpers
-       , (.=.)
-       , (>=.)
-       , shouldThrowException
-
-       -- * Semigroup/monoid laws
-       , formsSemigroup
-       , formsMonoid
-       , formsCommutativeMonoid
        ) where
 
 import           Universum
@@ -33,12 +23,11 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Functor.Identity (Identity (..))
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup as Semigroup
 import           Data.Serialize (runGet, runPut)
 import           Data.Typeable (typeRep)
 import           Formatting (formatToString, int, (%))
 import           Prelude (read)
-import           Test.Hspec (Expectation, Selector, Spec, describe, shouldThrow)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, counterexample, forAll,
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
@@ -48,7 +37,7 @@ import           Pos.Core.Genesis (SchemaError)
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
 import           Pos.Communication (Limit (..), MessageLimited (..))
-import           Pos.Util.Arbitrary (SmallGenerator (..))
+import           Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
 
@@ -198,71 +187,6 @@ msgLenLimitedTest
     :: forall a. (IdTestingRequiredClasses Bi a, MessageLimited a Identity)
     => Spec
 msgLenLimitedTest = msgLenLimitedTest' @a (runIdentity (getMsgLenLimit Proxy)) "" (const True)
-
-----------------------------------------------------------------------------
--- Monoid/Semigroup laws
-----------------------------------------------------------------------------
-
-isAssociative :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
-isAssociative m1 m2 m3 =
-    let assoc1 = (m1 Semigroup.<> m2) Semigroup.<> m3
-        assoc2 = m1 Semigroup.<> (m2 Semigroup.<> m3)
-    in assoc1 === assoc2
-
-formsSemigroup :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
-formsSemigroup = isAssociative
-
-hasIdentity :: (Eq m, Semigroup m, Monoid m) => m -> Property
-hasIdentity m =
-    let id1 = mempty Semigroup.<> m
-        id2 = m Semigroup.<> mempty
-    in (m == id1) .&&. (m == id2)
-
-formsMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
-formsMonoid m1 m2 m3 =
-    (formsSemigroup m1 m2 m3) .&&. (hasIdentity m1)
-
-isCommutative :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> Property
-isCommutative m1 m2 =
-    let comm1 = m1 <> m2
-        comm2 = m2 <> m1
-    in comm1 === comm2
-
-formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
-formsCommutativeMonoid m1 m2 m3 =
-    (formsMonoid m1 m2 m3) .&&. (isCommutative m1 m2)
-
-----------------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------------
-
--- | Extensional equality combinator. Useful to express function properties as functional
--- equations.
-(.=.) :: (Eq b, Show b, Arbitrary a) => (a -> b) -> (a -> b) -> a -> Property
-(.=.) f g a = f a === g a
-
-infixr 5 .=.
-
--- | Monadic extensional equality combinator.
-(>=.)
-    :: (Show (m b), Arbitrary a, Monad m, Eq (m b))
-    => (a -> m b)
-    -> (a -> m b)
-    -> a
-    -> Property
-(>=.) f g a = f a === g a
-
-infixr 5 >=.
-
-shouldThrowException
-    :: (Show a, Eq a, Exception e)
-    => (a -> b)
-    -> Selector e
-    -> a
-    -> Expectation
-shouldThrowException action exception arg =
-    (return $! action arg) `shouldThrow` exception
-
 
 ----------------------------------------------------------------------------
 -- Orphans

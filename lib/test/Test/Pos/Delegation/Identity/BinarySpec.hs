@@ -15,7 +15,7 @@ import           Pos.Core (ProxySKHeavy)
 import           Pos.Delegation (DlgPayload)
 
 import           Test.Pos.Helpers (binaryTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Delegation types" $ do

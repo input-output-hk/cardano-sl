@@ -24,7 +24,7 @@ import qualified Pos.Ssc.Toss.Class                as Toss
 import qualified Pos.Ssc.Toss.Pure                 as Toss
 import qualified Pos.Ssc.Types                     as Toss
 
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Toss" $ do

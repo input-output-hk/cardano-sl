@@ -30,6 +30,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
@@ -102,6 +103,7 @@ mustDataBeKnown adoptedBV =
 type MonadSlogBase ctx m =
     ( MonadSlots ctx m
     , MonadIO m
+    , MonadUnliftIO m
     , MonadDBRead m
     , WithLogger m
     , HasConfiguration
@@ -117,19 +119,16 @@ type MonadSlogVerify ctx m =
 
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
-slogVerifyBlocks
-    :: forall ctx m.
-    ( MonadSlogVerify ctx m
-    , MonadError Text m
-    )
+slogVerifyBlocks ::
+       forall ctx m. (MonadSlogVerify ctx m)
     => OldestFirst NE Block
-    -> m (OldestFirst NE SlogUndo)
-slogVerifyBlocks blocks = do
+    -> m (Either Text (OldestFirst NE SlogUndo))
+slogVerifyBlocks blocks = runExceptT $ do
     curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- GS.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    leaders <-
+    leaders <- lift $
         lrcActionOnEpochReason
             headEpoch
             (sformat
@@ -149,7 +148,7 @@ slogVerifyBlocks blocks = do
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
-    lastSlots <- GS.getLastSlots
+    lastSlots <- lift GS.getLastSlots
     let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)

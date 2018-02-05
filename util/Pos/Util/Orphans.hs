@@ -30,6 +30,7 @@ module Pos.Util.Orphans
 import           Universum
 
 import           Control.Monad.Base (MonadBase)
+import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -230,3 +231,15 @@ type instance Distribution (Ether.TaggedTrans tag t m) = Distribution m
 type instance SharedExclusiveT (Ether.TaggedTrans tag t m) = SharedExclusiveT m
 type instance Gauge (Ether.TaggedTrans tag t m) = Gauge m
 type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
+
+instance MonadUnliftIO (t m) => MonadUnliftIO (Ether.TaggedTrans tag t m) where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO =
+        Ether.TaggedTrans $
+        withUnliftIO $ \u ->
+        return (UnliftIO (unliftIO u . \case Ether.TaggedTrans trans -> trans))
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+        Ether.TaggedTrans $
+        withRunInIO $ \run ->
+        inner (run . \case Ether.TaggedTrans trans -> trans)

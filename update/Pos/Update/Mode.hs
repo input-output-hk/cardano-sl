@@ -9,6 +9,7 @@ import           Universum
 
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
@@ -28,6 +29,7 @@ type UpdateMode ctx m
     = ( WithLogger m
       , MonadMockable m
       , MonadIO m
+      , MonadUnliftIO m
       , MonadMask m
       , MonadGState m
       , MonadDB m

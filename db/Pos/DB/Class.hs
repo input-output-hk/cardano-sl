@@ -51,9 +51,8 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Monad.Trans (MonadTrans (..))
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (ResourceT, transResourceT)
-import           Data.Conduit (Source, transPipe)
+import           Data.Conduit (ConduitT, transPipe)
 import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -97,7 +96,7 @@ type SerializedBlock = Serialized SerBlock
 type SerializedUndo = Serialized SerUndo
 
 -- | Pure read-only interface to the database.
-class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
+class (HasConfiguration, MonadThrow m) => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
     -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
@@ -107,7 +106,7 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
         ( DBIteratorClass i
         , Bi (IterKey i)
         , Bi (IterValue i)
-        ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
+        ) => DBTag -> Proxy i -> ConduitT () (IterType i) (ResourceT m) ()
 
     -- | Get block by header hash
     dbGetSerBlock :: HeaderHash -> m (Maybe SerializedBlock)
@@ -116,7 +115,7 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
     dbGetSerUndo :: HeaderHash -> m (Maybe SerializedUndo)
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
+    (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
         MonadDBRead (t m)
   where
     dbGet tag = lift . dbGet tag
@@ -167,7 +166,7 @@ class MonadDBRead m => MonadDB m where
     dbPutSerBlund :: (Block, SerializedUndo) -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
+    (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
         MonadDB (t m)
   where
     dbPut = lift ... dbPut

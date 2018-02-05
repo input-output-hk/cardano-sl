@@ -17,6 +17,7 @@ import qualified Control.Exception.Safe as Exception
 import           Control.Monad (forever)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.IO.Unlift (MonadUnliftIO (..))
 import qualified Crypto.Random as Rand
 import           Data.Time.Units (Hour)
 import qualified GHC.IO as GHC
@@ -42,6 +43,7 @@ newtype Production t = Production
     } deriving (Functor, Applicative, Monad)
 
 deriving instance MonadIO Production
+deriving instance MonadUnliftIO Production
 deriving instance MonadFix Production
 deriving instance MonadThrow Production
 deriving instance MonadCatch Production

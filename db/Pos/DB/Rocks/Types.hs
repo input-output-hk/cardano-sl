@@ -34,7 +34,6 @@ module Pos.DB.Rocks.Types
 import           Universum
 
 import           Control.Lens (makeLenses)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Core.Configuration (HasConfiguration)
@@ -52,7 +51,6 @@ type MonadRealDB ctx m =
     ( MonadReader ctx m
     , HasLens NodeDBs ctx NodeDBs
     , MonadIO m
-    , MonadBaseControl IO m
     , MonadCatch m
     , HasConfiguration
     )

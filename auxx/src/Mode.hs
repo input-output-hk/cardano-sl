@@ -23,8 +23,9 @@ module Mode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Trans.Resource (transResourceT)
+import           Data.Conduit (transPipe)
 import           Data.Default (def)
 import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
@@ -182,7 +183,8 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
-    dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
+    dbIterSource tag p =
+        transPipe (transResourceT realModeToAuxx) (dbIterSource tag p)
     dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
     dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 

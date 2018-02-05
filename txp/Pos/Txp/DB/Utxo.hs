@@ -30,7 +30,7 @@ module Pos.Txp.DB.Utxo
 import           Universum
 
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Sink, Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
@@ -39,6 +39,7 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Core ()
 import           Pos.Core (Address, Coin, HasConfiguration, coinF, mkCoin, sumCoins, unsafeAddCoin,
@@ -102,14 +103,14 @@ instance DBIteratorClass UtxoIter where
     iterKeyPrefix = iterationUtxoPrefix
 
 -- | 'Source' corresponding to the whole utxo (inputs and outputs).
-utxoSource :: (MonadDBRead m) => Source (ResourceT m) (TxIn, TxOutAux)
+utxoSource :: (MonadDBRead m) => ConduitT () (TxIn, TxOutAux) (ResourceT m) ()
 utxoSource = dbIterSource GStateDB (Proxy @UtxoIter)
 
-utxoSink :: (MonadDBRead m) => Sink (IterType UtxoIter) m Utxo
+utxoSink :: (MonadDBRead m) => ConduitT (IterType UtxoIter) Void m Utxo
 utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
 
 -- | Retrieves only portion of UTXO related to given addresses list.
-getFilteredUtxo :: MonadDBRead m => [Address] -> m Utxo
+getFilteredUtxo :: (MonadDBRead m, MonadUnliftIO m) => [Address] -> m Utxo
 getFilteredUtxo addrs =
     runConduitRes $
     utxoSource .|
@@ -120,7 +121,7 @@ getFilteredUtxo addrs =
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).
-getAllPotentiallyHugeUtxo :: MonadDBRead m => m Utxo
+getAllPotentiallyHugeUtxo :: (MonadDBRead m, MonadUnliftIO m) => m Utxo
 getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 
 ----------------------------------------------------------------------------
@@ -128,7 +129,7 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m)
+    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     let stakesSource =

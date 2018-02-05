@@ -67,6 +67,7 @@ library
                      , time-units
                      , transformers-base
                      , universum
+                     , unliftio
                      , unordered-containers
                      , vector
 

@@ -41,7 +41,7 @@ import           Universum
 
 import           Control.Lens (at)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import           Data.Time.Units (Microsecond, convertUnit)
 import qualified Database.RocksDB as Rocks
@@ -203,7 +203,9 @@ instance DBIteratorClass PropIter where
     type IterValue PropIter = ProposalState
     iterKeyPrefix = iterationPrefix
 
-proposalSource :: (HasConfiguration, MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
+proposalSource ::
+       (HasConfiguration, MonadDBRead m)
+    => ConduitT () (IterType PropIter) (ResourceT m) ()
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
 -- TODO: it can be optimized by storing some index sorted by
@@ -277,7 +279,7 @@ instance DBIteratorClass BVIter where
     type IterValue BVIter = BlockVersionState
     iterKeyPrefix = bvStateIterationPrefix
 
-bvSource :: (MonadDBRead m) => Source (ResourceT m) (IterType BVIter)
+bvSource :: (MonadDBRead m) => ConduitT () (IterType BVIter) (ResourceT m) ()
 bvSource = dbIterSource GStateDB (Proxy @BVIter)
 
 -- | Get all proposed 'BlockVersion's.

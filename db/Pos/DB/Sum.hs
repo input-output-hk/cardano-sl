@@ -18,7 +18,7 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Conduit (Source, transPipe)
+import           Data.Conduit (ConduitT, transPipe)
 import           Ether.Internal (HasLens (..))
 
 import qualified Database.RocksDB as Rocks
@@ -61,7 +61,7 @@ dbIterSourceSumDefault
        , Bi (IterKey i)
        , Bi (IterValue i)
        )
-    => DBTag -> Proxy i -> Source m (IterType i)
+    => DBTag -> Proxy i -> ConduitT () (IterType i) m ()
 dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
     RealDB dbs -> transPipe (flip runReaderT dbs) (DB.dbIterSourceDefault tag proxy)
     PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)

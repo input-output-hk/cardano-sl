@@ -127,7 +127,7 @@ processSkeleton payload =
     withUSLock $
     runExceptT $
     modifyMemState $ \ms@MemState {..} -> do
-        dbTip <- DB.getTip
+        dbTip <- lift DB.getTip
         -- We must check tip here, because we can't be sure that tip
         -- in DB is the same as the tip in memory. Normally it will be
         -- the case, but if normalization fails, it won't be true.
@@ -138,20 +138,23 @@ processSkeleton payload =
         unless (dbTip == msTip) $ do
             let err = PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
             throwError err
-        maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
+        maxBlockSize <- bvdMaxBlockSize <$> lift DB.getAdoptedBVData
         msIntermediate <-
             -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
-            if | maxBlockSize * 2 <= mpSize msPool -> refreshMemPool ms
+            if | maxBlockSize * 2 <= mpSize msPool -> lift (refreshMemPool ms)
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where
     processSkeletonDo ms@MemState {..} = do
-        modifier <-
-            runDBPoll . evalPollT msModifier . execPollT def $
+        modifierOrFailure <-
+            lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $
             verifyAndApplyUSPayload True (Left msSlot) payload
-        let newModifier = modifyPollModifier msModifier modifier
-        let newPool = addToMemPool payload msPool
-        pure $ ms {msModifier = newModifier, msPool = newPool}
+        case modifierOrFailure of
+            Left failure -> throwError failure
+            Right modifier -> do
+                let newModifier = modifyPollModifier msModifier modifier
+                let newPool = addToMemPool payload msPool
+                pure $ ms {msModifier = newModifier, msPool = newPool}
 
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool

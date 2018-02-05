@@ -98,7 +98,7 @@ sscRelay
     => SscTag
     -> (contents -> StakeholderId)
     -> (StakeholderId -> TossModifier -> Maybe contents)
-    -> (contents -> ExceptT err m ())
+    -> (contents -> m (Either err ()))
     -> Relay m
 sscRelay sscTag contentsToKey toContents processData =
     InvReqData NoMempool $
@@ -126,9 +126,9 @@ sscRelay sscTag contentsToKey toContents processData =
 
 sscProcessMessage
     :: (SscMode ctx m, Buildable err)
-    => (a -> ExceptT err m ()) -> a -> m Bool
+    => (a -> m (Either err ())) -> a -> m Bool
 sscProcessMessage sscProcessMessageDo dat =
-    runExceptT (sscProcessMessageDo dat) >>= \case
+    sscProcessMessageDo dat >>= \case
         Left err ->
             False <$ logDebug (sformat ("Data is rejected, reason: " %build) err)
         Right () -> return True

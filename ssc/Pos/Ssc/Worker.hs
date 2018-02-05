@@ -265,9 +265,9 @@ onNewSlotShares params SlotId {..} sendActions = do
 
 sscProcessOurMessage
     :: (Buildable err, SscMode ctx m)
-    => ExceptT err m () -> m ()
+    => m (Either err ()) -> m ()
 sscProcessOurMessage action =
-    runExceptT action >>= logResult
+    action >>= logResult
   where
     logResult (Right _) = logDebugS "We have accepted our message"
     logResult (Left er) =

@@ -41,7 +41,7 @@ import           Control.Lens (at, makeLenses)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString as BS
-import           Data.Conduit (Source)
+import           Data.Conduit (ConduitT)
 import qualified Data.Conduit.List as CL
 import           Data.Default (Default (..))
 import qualified Data.Map as M
@@ -124,7 +124,7 @@ dbIterSourcePureDefault ::
        , Bi (IterValue i))
     => DBTag
     -> Proxy i
-    -> Source m (IterType i)
+    -> ConduitT () (IterType i) m ()
 dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
     (dbPureVar :: DBPureVar) <- lift $ view (lensOf @DBPureVar)

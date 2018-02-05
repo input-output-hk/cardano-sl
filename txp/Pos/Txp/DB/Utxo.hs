@@ -30,7 +30,7 @@ module Pos.Txp.DB.Utxo
 import           Universum
 
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Sink, Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
@@ -102,10 +102,10 @@ instance DBIteratorClass UtxoIter where
     iterKeyPrefix = iterationUtxoPrefix
 
 -- | 'Source' corresponding to the whole utxo (inputs and outputs).
-utxoSource :: (MonadDBRead m) => Source (ResourceT m) (TxIn, TxOutAux)
+utxoSource :: (MonadDBRead m) => ConduitT () (TxIn, TxOutAux) (ResourceT m) ()
 utxoSource = dbIterSource GStateDB (Proxy @UtxoIter)
 
-utxoSink :: (MonadDBRead m) => Sink (IterType UtxoIter) m Utxo
+utxoSink :: (MonadDBRead m) => ConduitT (IterType UtxoIter) Void m Utxo
 utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
 
 -- | Retrieves only portion of UTXO related to given addresses list.

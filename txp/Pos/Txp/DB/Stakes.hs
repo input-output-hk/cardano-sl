@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Lens (at)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
@@ -90,7 +90,7 @@ initGStateStakes (GenesisUtxo genesisUtxo) = do
 -- | Run iterator over stakes.
 stakeSource ::
        forall m. (MonadDBRead m)
-    => Source (ResourceT m) (IterType StakeIter)
+    => ConduitT () (IterType StakeIter) (ResourceT m) ()
 stakeSource = dbIterSource GStateDB (Proxy @StakeIter)
 
 -- | Get stakes of all stakeholders. Use with care – the resulting map

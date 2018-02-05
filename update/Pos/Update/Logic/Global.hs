@@ -28,8 +28,8 @@ import           Pos.Slotting (MonadSlotsData, slottingVar)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Update.DB (UpdateOp (..))
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, MonadPoll,
-                                  PollModifier (..), PollVerFailure, ProposalState, USUndo,
+import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBPoll, MonadPoll,
+                                  PollModifier (..), PollT, PollVerFailure, ProposalState, USUndo,
                                   canCreateBlockBV, execPollT, execRollT, processGenesisBlock,
                                   recordBlockIssuance, reportUnexpectedError, rollbackUS, runDBPoll,
                                   runPollT, verifyAndApplyUSPayload)
@@ -50,7 +50,6 @@ type UpdateBlock = ComponentBlock UpdatePayload
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
     , MonadIO m
-    , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLrcContext ctx
     , HasConfiguration
@@ -59,6 +58,7 @@ type USGlobalVerifyMode ctx m =
 
 type USGlobalApplyMode ctx m =
     ( USGlobalVerifyMode ctx m
+    , DB.MonadDBRead m
     , MonadSlotsData ctx m
     , MonadReporting ctx m
     )
@@ -145,16 +145,22 @@ processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
 usVerifyBlocks
-    :: (USGlobalVerifyMode ctx m, MonadReporting ctx m)
+    :: (USGlobalVerifyMode ctx m, DB.MonadDBRead m, MonadReporting ctx m)
     => Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
 usVerifyBlocks verifyAllIsKnown blocks =
     withUSLogger $
     reportUnexpectedError $
-    runExceptT (swap <$> run (mapM (verifyBlock verifyAllIsKnown) blocks))
+    processRes <$> run (runExceptT $ mapM (verifyBlock verifyAllIsKnown) blocks)
   where
+    run :: forall m a . PollT (DBPoll m) a -> m (a, PollModifier)
     run = runDBPoll . runPollT def
+    processRes ::
+           (Either PollVerFailure (OldestFirst NE USUndo), PollModifier)
+        -> Either PollVerFailure (PollModifier, OldestFirst NE USUndo)
+    processRes (Left failure, _)       = Left failure
+    processRes (Right undos, modifier) = Right (modifier, undos)
 
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)

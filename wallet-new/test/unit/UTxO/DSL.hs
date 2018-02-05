@@ -28,6 +28,7 @@ module UTxO.DSL (
   , inpVal'
     -- * Ledger
   , Ledger(..)
+  , ledgerToNewestFirst
   , ledgerEmpty
   , ledgerSingleton
   , ledgerAdd
@@ -106,10 +107,16 @@ data Address a =
 
 data Transaction h a = Transaction {
       trFresh :: Value
+    -- ^ The money that is created by this transaction. This money
+    -- implicitly comes from the treasury.
     , trIns   :: Set (Input h a)
+    -- ^ The set of input transactions that feed this transaction.
     , trOuts  :: [Output a]
+    -- ^ The list of outputs for this transaction.
     , trFee   :: Value
-    , trHash  :: Int -- Must be unique
+    -- ^ The fee charged to this transaction.
+    , trHash  :: Int
+    -- ^ The hash of this transaction. Must be unique in the entire chain.
     }
 
 deriving instance (Hash h a, Eq  a) => Eq  (Transaction h a)
@@ -340,7 +347,7 @@ findHash' h l = fromJust err (findHash h l)
   Additional: UTxO
 -------------------------------------------------------------------------------}
 
--- | Unspent transaciton outputs
+-- | Unspent transaction outputs
 newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
 
 deriving instance (Hash h a, Eq a) => Eq (Utxo h a)

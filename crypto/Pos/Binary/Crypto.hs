@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Control.Lens (_Left)
-import           Crypto.Hash (digestFromByteString, byteStringFromDigest)
+import           Crypto.Hash (digestFromByteString)
 import qualified Crypto.PVSS as Pvss
 import qualified Crypto.SCRAPE as Scrape
 import qualified Crypto.Sign.Ed25519 as EdStandard
@@ -47,7 +47,7 @@ instance Bi a => Bi (WithHash a) where
 instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
     -- byteStringFromDigest is actually a misnomer, it produces any
     -- ByteArray from a Digest, and ByteString is one specialization.
-    encode (AbstractHash digest) = encode (byteStringFromDigest digest :: BS.ByteString)
+    encode (AbstractHash digest) = encode (ByteArray.convert digest :: BS.ByteString)
     -- FIXME bad decode: it reads an arbitrary-length byte string.
     -- Better instance: know the hash algorithm up front, read exactly that
     -- many bytes, fail otherwise. Then convert to a digest.
@@ -227,7 +227,6 @@ instance (Typeable a, Bi w, HasCryptoConfiguration) =>
           <*> decodeXSignature
 
 instance Bi PassPhrase where
-    -- FIXME convert is slow.
     encode pp = encode (ByteArray.convert pp :: ByteString)
     -- FIXME do not validate here...
     decode = do

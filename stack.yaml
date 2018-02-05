@@ -92,8 +92,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/avieth/cryptonite
-    commit: 2b68d1e9cfd23d4c00ca35a600ebbcfc9891101b
+    git: https://github.com/haskell-crypto/cryptonite
+    commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
   extra-dep: true
 # Required for explorer
 - location:
@@ -193,9 +193,9 @@ extra-deps:
 - unliftio-core-0.1.1.0
 - http-conduit-2.3.0
 - simple-sendfile-0.2.27
-- basement-0.0.5
-- foundation-0.0.18
-- memory-0.14.12
+- basement-0.0.6
+- foundation-0.0.19
+- memory-0.14.14
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

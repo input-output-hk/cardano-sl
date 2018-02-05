@@ -16,9 +16,8 @@ module Pos.Merkle
 
 import           Universum
 
-import           Crypto.Hash (byteStringFromDigest)
 import           Data.Bits (Bits (..))
-import           Data.ByteArray (ByteArrayAccess)
+import           Data.ByteArray (ByteArrayAccess, convert)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
@@ -98,7 +97,7 @@ mkBranch a b =
     }
   where
     merkleRootToBuilder :: MerkleRoot a -> Builder
-    merkleRootToBuilder (MerkleRoot (AbstractHash d)) = byteString (byteStringFromDigest d)
+    merkleRootToBuilder (MerkleRoot (AbstractHash d)) = byteString (convert d)
 
 -- | Smart constructor for 'MerkleTree'.
 mkMerkleTree :: Bi a => [a] -> MerkleTree a

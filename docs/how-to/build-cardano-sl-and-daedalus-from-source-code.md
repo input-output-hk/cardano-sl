@@ -43,6 +43,9 @@ Switch to the `master` branch:
 
 ## Nix build mode (recommended)
 
+IMPORTANT: this mode is for Linux/macOS. For Windows please see the next section ["Stack with
+Nix for system libraries (mixed mode)"](#stack-with-nix-for-system-libraries-mixed-mode).
+
 First, prerequisite: install Nix (full instructions at https://nixos.org/nix/download.html):
 
     curl https://nixos.org/nix/install | sh
@@ -89,9 +92,21 @@ statically-linked variation.
 
 ## Stack with Nix for system libraries (mixed mode)
 
+IMPORTANT: this mode is for Windows only. For Linux/macOS please see the previous section
+["Nix build mode (recommended)"](#nix-build-mode-recommended).
+
 Please, see the previous section on how to enable use of the IOHK binary cache.
 
-Enter `nix-shell`:
+Open this configuration file:
+
+    ~/.stack/config.yaml
+
+And add these lines in it:
+
+    nix:
+      enable: true
+
+Then enter `nix-shell`:
 
     $ nix-shell
 
@@ -111,57 +126,6 @@ build process is high. Please make sure you have enough free disk space as well.
 
 After the project is built - it can take quite a long time -  the built binaries can be launched using
 the `stack exec` command. Let's discuss important binaries briefly before proceeding to the next step.
-
-## Stack build mode (for developers)
-
-It is possible to build Cardano node with Stack only, without Nix.
-Please note that in this case you have to install external dependencies
-by yourself (see below).
-
-### Install Stack
-
-[Stack](https://docs.haskellstack.org/en/stable/README/) is a cross-platform program
-for developing Haskell projects.
-
-Recommended way, for all Unix-systems:
-
-    $ curl -ssl https://get.haskellstack.org/ | sh
-
-On macOS it is possible to install it with `brew`:
-
-    $ brew install haskell-stack
-
-### Setup Environment and Dependencies
-
-To install Haskell compiler of required version run:
-
-    $ stack setup
-
-Then install C-preprocessor for Haskell:
-
-    $ stack install cpphs
-
-Finally install C-library for RocksDB.
-
-On Ubuntu:
-
-    $ sudo apt-get install librocksdb-dev
-
-On macOS:
-
-    $ brew install rocksdb
-
-### Jemalloc Notice
-
-Please make sure that you have [jemalloc](http://jemalloc.net/) package, version `4.5.0`.
-If you have newer version of it - you will probably get linker errors during building.
-
-### Building
-
-Run the building script:
-
-    $ cd cardano-sl
-    [~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
 ## Daedalus Wallet
 

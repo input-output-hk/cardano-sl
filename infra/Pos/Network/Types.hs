@@ -433,7 +433,7 @@ initQueue NetworkConfig{..} mStore = do
                  ncEnqueuePolicy
                  ncDequeuePolicy
                  ncFailurePolicy
-                 (maybe (OQ.BucketSizeMax 0) identity . topologyMaxBucketSize ncTopology)
+                 (fromMaybe (OQ.BucketSizeMax 0) . topologyMaxBucketSize ncTopology)
                  (topologyUnknownNodeType ncTopology)
 
     case mStore of

@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Accounts (
+module Cardano.Wallet.API.V1.LegacyHandlers.Accounts (
       handlers
     ) where
 

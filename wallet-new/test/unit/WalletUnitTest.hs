@@ -1,3 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 -- | Wallet unit tests
 --
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
@@ -13,6 +16,7 @@ import Prelude (Show(..))
 import Serokell.Util (mapJson)
 import qualified Data.Text.Buildable
 import qualified Data.Set as Set
+import Control.Lens hiding (use)
 
 import Pos.Util.Chrono
 import qualified Pos.Block.Error as Cardano
@@ -27,6 +31,7 @@ import UTxO.DSL
 import UTxO.Interpreter
 import UTxO.PreChain
 import UTxO.Translate
+import UTxO.BlockGen
 
 import Wallet.Abstract
 import qualified Wallet.Spec        as Spec
@@ -168,6 +173,14 @@ bracketWallet test =
           walletSendTx = \_tx -> return False
         }
 
+quickcheckSanityChecks :: Spec
+quickcheckSanityChecks = describe "QuickCheck sanity checks" $ do
+    prop "can construct and verify block with one arbitrary transaction" $
+      expectValid <$> intAndVerifyGen genOneTrans
+    prop "randomly generated transactions are all valid" $
+        forAll (intAndVerifyGen (toPreChain newChain)) $ \a ->
+            expectValid a
+
 {-------------------------------------------------------------------------------
   Example QuickCheck generated chains
 -------------------------------------------------------------------------------}
@@ -178,8 +191,8 @@ genOneTrans :: Hash h Addr => PreChain h Gen
 genOneTrans = PreChain $ \boot -> do
     -- TODO: The actual range we can use here is @(0, initR0 - fee)@ where
     -- @fee@ is the fee of the transaction. Sadly, however, we don't know
-    -- this fee in advantage. Hence, any QuickCheck generators for transactions
-    -- will need to be a little bit conversative (possibly using some kind of
+    -- this fee in advance. Hence, any QuickCheck generators for transactions
+    -- will need to be a little bit conservative (possibly using some kind of
     -- @maxFee@ upper bound).
     value <- choose (0, 1000)
     return $ \((fee : _) : _) ->

@@ -28,7 +28,7 @@ getWalletIO conf@CompleteConfig {..} = do
         let ResponseReport report = analyze response anId
         case extractEndpointConfigFor GetWalletBench conf of
             Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
+            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
     return ()
 
 -- | Analyze response with wallet information.

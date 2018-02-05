@@ -30,7 +30,7 @@ newAddressIO conf@CompleteConfig {..} = do
         let ResponseReport report = analyze response account
         case extractEndpointConfigFor NewAddressBench conf of
             Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
+            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
     return ()
 
 -- | Analyze response with new address.

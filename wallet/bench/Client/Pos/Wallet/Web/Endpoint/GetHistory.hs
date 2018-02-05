@@ -39,7 +39,7 @@ getHistoryIO conf@CompleteConfig {..} = do
         let ResponseReport report = analyze response wallet address
         case extractEndpointConfigFor GetHistoryBench conf of
             Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
+            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
     return ()
 
 -- | Analyze response with transactions history on

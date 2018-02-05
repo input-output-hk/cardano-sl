@@ -48,7 +48,7 @@ newPaymentIO conf@CompleteConfig {..} = do
         let ResponseReport report = analyze response fromAccount toAddress amount
         case extractEndpointConfigFor NewPaymentBench conf of
             Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports report
+            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
     return ()
 
 -- | Analyze response with new transaction.

@@ -56,8 +56,8 @@ import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
-                                    topologySubscriptionWorker, topologyMaxBucketSize,
-                                    topologyRunKademlia)
+                                    topologySubscriptionWorker, topologyRunKademlia,
+                                    topologyHealthStatus)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
@@ -291,16 +291,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             -- Amazon Route53 health check support (stopgap measure, see note
             -- in Pos.Diffusion.Types, above 'healthStatus' record field).
             healthStatus :: d HealthStatus
-            healthStatus = do
-                let maxCapacityText :: Text
-                    maxCapacityText = case topologyMaxBucketSize (ncTopology networkConfig) BucketSubscriptionListener of
-                        OQ.BucketSizeUnlimited -> fromString "unlimited"
-                        OQ.BucketSizeMax x -> fromString (show x)
-                spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
-                pure $ case spareCapacity of
-                    OQ.SpareCapacity sc | sc == 0 -> HSUnhealthy (fromString "0/" <> maxCapacityText)
-                    OQ.SpareCapacity sc           -> HSHealthy $ fromString (show sc) <> "/" <> maxCapacityText
-                    OQ.UnlimitedCapacity          -> HSHealthy maxCapacityText
+            healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
 
             formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
             formatPeers formatter = Just <$> OQ.dumpState oq formatter

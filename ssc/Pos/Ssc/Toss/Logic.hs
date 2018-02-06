@@ -9,7 +9,7 @@ module Pos.Ssc.Toss.Logic
        ) where
 
 import           Control.Lens (at)
-import           Control.Monad.Except (MonadError, runExceptT)
+import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
@@ -21,7 +21,8 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, IsMai
                            getVssCertificatesMap, headerSlotL, mkCoin,
                            mkVssCertificatesMapSingleton, slotSecurityParam)
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
-                               SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss)
+                               SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
+                               checkSscPayload)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
@@ -41,6 +42,8 @@ verifyAndApplySscPayload
         MonadError SscVerifyError m, MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
+    -- Check the payload for internal consistency.
+    either (throwError . SscInvalidPayload) pure =<< runExceptT (checkSscPayload payload)
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
     whenLeft eoh $ const $ verifySscPayload eoh payload

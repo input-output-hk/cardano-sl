@@ -21,15 +21,11 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 import           Data.Time.Units (toMicroseconds)
--- TODO hopefully we can get rid of this import. It's needed for the
--- security workers stuff and peeking into some reader context which contains
--- it (part of WorkMode).
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
--- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
 import           Pos.Block.Configuration (recoveryHeadersMessage)
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
@@ -483,7 +479,8 @@ handleBlockHeaders
     -> OQ.OutboundQ pack NodeId Bucket
     -> Timer
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders logic oq keepaliveTimer =
+  listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
@@ -493,7 +490,8 @@ handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \_
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.
             -- slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
-            slotDuration <- fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
+            slotDuration <-
+                fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
             setTimerDuration keepaliveTimer $ 3 * slotDuration
             startTimer keepaliveTimer
             handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId

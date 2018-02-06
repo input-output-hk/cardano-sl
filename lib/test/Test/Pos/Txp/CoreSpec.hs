@@ -136,6 +136,8 @@ txGen size = do
     inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo h 0) <$> arbitrary)
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
-    case checkTx (UnsafeTx inputs outputs (mkAttributes ())) of
+    let tx = UnsafeTx inputs outputs (mkAttributes ())
+    -- FIXME can't we convince ourselves that the Tx we made is valid?
+    case checkTx tx of
         Left e   -> error $ "txGen: something went wrong: " <> e
-        Right tx -> pure tx
+        Right () -> pure tx

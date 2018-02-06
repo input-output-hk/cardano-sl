@@ -60,6 +60,8 @@ type ETxpLocalWorkMode ctx m =
     , MonadReporting ctx m
     )
 
+type ETxpLocalDataPure = (UtxoModifier, MemPool, UndoMap, HeaderHash, ExplorerExtra)
+
 -- Base context for tx processing in explorer.
 data EProcessTxContext = EProcessTxContext
     { _eptcExtraBase     :: !ExplorerExtraTxp
@@ -177,8 +179,8 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
         -> HeaderHash
         -> (TxId, TxAux)
         -> Maybe Timestamp
-        -> (UtxoModifier, MemPool, UndoMap, HeaderHash, ExplorerExtra)
-        -> Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, ExplorerExtra)
+        -> ETxpLocalDataPure
+        -> Either ToilVerFailure ETxpLocalDataPure
     processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp (uv, mp, undo, tip, extra)
         | tipBefore /= tip = Left $ ToilTipsMismatch tipBefore tip
         | otherwise =

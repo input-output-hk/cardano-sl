@@ -74,12 +74,10 @@ import           Pos.Slotting                     (MonadSlots (..), MonadSlotsDa
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
 import           Pos.Txp                          (GenesisUtxo (..), Tx (..), TxAux (..),
-                                                   TxIn (..), TxOut, TxOutAux (..),
-                                                   TxUndo, flattenTxPayload, genesisUtxo,
-                                                   toaOut, topsortTxs, txOutAddress,
-                                                   utxoToModifier)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxs,
-                                                   getLocalUndos, withTxpLocalData)
+                                                   TxId, TxIn (..), TxOut, TxOutAux (..),
+                                                   TxUndo, UndoMap, flattenTxPayload,
+                                                   genesisUtxo, toaOut, topsortTxs,
+                                                   txOutAddress, utxoToModifier)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
@@ -114,7 +112,6 @@ type BlockLockMode ssc ctx m =
 
 type WalletTrackingEnv ext ctx m =
      ( BlockLockMode WalletSscType ctx m
-     , MonadTxpMem ext ctx m
      , WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
      , WithLogger m
@@ -125,16 +122,16 @@ syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState @WalletSscType . one
 
 txMempoolToModifier :: WalletTrackingEnv ext ctx m
-                    => WalletSnapshot -> EncryptedSecretKey -> m CAccModifier
-txMempoolToModifier ws encSK = do
+                    => WalletSnapshot
+                    -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
+                    -> EncryptedSecretKey
+                    -> m CAccModifier
+txMempoolToModifier ws (txs, undoMap) encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
         getDiff       = const Nothing  -- no difficulty (mempool txs)
         getTs         = const Nothing  -- don't give any timestamp
         getPtxBlkInfo = const Nothing  -- no slot of containing block
-    (txs, undoMap) <- withTxpLocalData $ \txpData -> (,)
-        <$> getLocalTxs txpData
-        <*> getLocalUndos txpData
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)

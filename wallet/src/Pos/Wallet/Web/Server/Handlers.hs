@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Server.Handlers
 import           Universum
 
 import           Pos.Communication          (SendActions (..))
+import           Pos.Txp                    (getLocalTxs, getLocalUndos, withTxpLocalData)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Wallet.WalletMode      (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account     (GenSeed (RandomSeed))
@@ -55,8 +56,11 @@ servantHandlers sendActions =
     :<|>
      M.deleteAccount
     :<|> (\passPhrase accId -> do
-             ws <- askWalletSnapshot
-             M.newAddress ws RandomSeed passPhrase accId
+            ws <- askWalletSnapshot
+            mps <- withTxpLocalData $ \txpData -> (,)
+                <$> getLocalTxs txpData
+                <*> getLocalUndos txpData
+            M.newAddress ws mps RandomSeed passPhrase accId
          )
     :<|>
      M.isValidAddress

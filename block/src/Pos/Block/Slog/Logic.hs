@@ -35,7 +35,7 @@ import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Pure (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots)
+import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
@@ -144,11 +144,12 @@ slogVerifyBlocks blocks = do
             when (block ^. genBlockLeaders /= leaders) $
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    -- Do pure block verification.
     verResToMonadError formatAllErrors $
         verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
-    -- Here we need to compute 'SlogUndo'. When we add apply a block,
-    -- we can remove one of the last slots stored in
-    -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
+    -- Here we need to compute 'SlogUndo'. When we apply a block,
+    -- we can remove one of the last slots stored in 'BlockExtra'.
+    -- This removed slot must be put into 'SlogUndo'.
     lastSlots <- GS.getLastSlots
     let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
@@ -186,14 +187,6 @@ type MonadSlogApply ctx m =
     , HasSlogGState ctx
     )
 
--- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
--- {-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ I reduced duplication by introducing 'slogCommon', but it wants
--- more and I don't.
-
 -- | Flag determining whether to call BListener callback.
 newtype ShouldCallBListener = ShouldCallBListener Bool
 
@@ -211,8 +204,8 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- before we update GState, this invariant won't be violated. If
     -- we update GState first, this invariant may be violated.
     mapM_ putBlund blunds
-    -- If the program is interrupted at this point (after putting on
-    -- block), we will have a garbage block in BlockDB, but it's not a
+    -- If the program is interrupted at this point (after putting blunds
+    -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
     bListenerBatch <- if callBListener then onApplyBlocks blunds
                       else pure mempty
@@ -221,7 +214,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
         SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
                         | newestDifficulty > x]
@@ -288,7 +281,7 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     return $
         SomeBatchOp
             [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -321,11 +314,3 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
-
--- Common actions for rollback and apply.
-slogCommon
-    :: MonadSlogApply ctx m
-    => LastBlkSlots
-    -> m ()
-slogCommon newLastSlots = do
-    slogPutLastSlots newLastSlots

@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -17,7 +18,7 @@ module NTP.Client
 
 import           Universum
 
-import           Control.Concurrent.STM (modifyTVar')
+import           Control.Concurrent.STM (check, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
 import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
 import           Control.Lens ((%=), (.=), _Just)
@@ -39,7 +40,8 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race)
+import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race,
+                                      withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
@@ -52,11 +54,10 @@ data NtpClientSettings m = NtpClientSettings
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
-      -- ^ delay between making requests and response collection;
-      -- it also means that handler will be invoked with this lag
+      -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how often to send responses to server
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+    , ntpMeanSelection   :: NonEmpty (Microsecond, Microsecond) -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case some servers
       -- failed to respond in time, but never an empty list
@@ -74,7 +75,7 @@ data NtpClient m = NtpClient
     }
 
 mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (NtpClient m)
-mkNtpClient ncSettings sock = liftIO $ do
+mkNtpClient ncSettings sock = do
     ncSockets <- newTVarIO sock
     ncState  <- newTVarIO Nothing
     return NtpClient{..}
@@ -89,8 +90,14 @@ instance Monad m => Default (NtpClientSettings m) where
         , ntpLogName         = "ntp-cli"
         , ntpResponseTimeout = 1000000
         , ntpPollDelay       = 3000000
-        , ntpMeanSelection   = \l -> let len = length l in (sortOn fst l) !! ((len - 1) `div` 2)
+        , ntpMeanSelection   = medianOnFst
         }
+      where
+        medianOnFst lne =
+            let l = toList lne
+                len = length l
+                med = (len - 1) `div` 2
+            in  sortOn fst l !! med
 
 data NoHostResolved = NoHostResolved
     deriving (Show, Typeable)
@@ -108,14 +115,14 @@ type NtpMonad m =
 
 handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
 handleCollectedResponses cli = do
-    mres <- liftIO $ readTVarIO (ncState cli)
+    responsesState <- readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
         handler   = ntpHandler (ncSettings cli)
-    case mres of
-        Nothing        -> logError "Protocol error: responses are not awaited"
-        Just []        -> logWarning "No servers responded"
-        Just responses -> handleE `handleAny` do
-            let time = selection responses
+    case responsesState of
+        Nothing -> logError "Protocol error: responses are not awaited"
+        Just [] -> logWarning "No servers responded"
+        Just (resp:resps) -> handleE `handleAny` do
+            let time = selection (resp :| resps)
             logInfo $ sformat ("Evaluated clock offset "%shown%
                 " mcs for request at "%shown%" mcs")
                 (toMicroseconds $ fst time)
@@ -124,9 +131,17 @@ handleCollectedResponses cli = do
   where
     handleE = logError . sformat ("ntpMeanSelection: "%shown)
 
+allResponsesGathered :: NtpClient m -> STM Bool
+allResponsesGathered cli = do
+    responsesState <- readTVar $ ncState cli
+    let servers = ntpServers $ ncSettings cli
+    return $ case responsesState of
+        Nothing        -> False
+        Just responses -> length responses >= length servers
+
 doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
-    sock   <- liftIO $ readTVarIO $ ncSockets cli
+    sock   <- readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
     handleAny handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
   where
@@ -146,14 +161,22 @@ startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
 startSend addrs cli = do
     let timeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
-    logDebug "Sending requests"
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
-    () <$ threadDelay timeout `race` forConcurrently addrs (flip doSend cli)
 
-    logDebug "Collecting responses"
-    handleCollectedResponses cli
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
-    liftIO $ threadDelay (poll - timeout)
+    _ <- concurrently (threadDelay poll) $ do
+        logDebug "Sending requests"
+        atomically . modifyTVarS (ncState cli) $ identity .= Just []
+        let sendRequests = forConcurrently addrs (flip doSend cli)
+        -- here we do only "send" part, so need to wait for some time
+        -- or till receiving all responses
+        let waitTimeout =
+                void $ race
+                    (threadDelay timeout)
+                    (atomically $ check =<< allResponsesGathered cli)
+        withAsync sendRequests $ \_ -> waitTimeout
+
+        logDebug "Collecting responses"
+        handleCollectedResponses cli
+        atomically . modifyTVarS (ncState cli) $ identity .= Nothing
 
     startSend addrs cli
 
@@ -169,7 +192,7 @@ mkSockets settings = do
         (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
         (_, _)                   -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
-            liftIO $ threadDelay (5 :: Second)
+            threadDelay (5 :: Second)
             mkSockets settings
   where
     logging (_, addrInfo) = logInfo $
@@ -184,7 +207,7 @@ mkSockets settings = do
         logWarning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay (5 :: Second)
         doMkSockets
 
 handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
@@ -196,7 +219,7 @@ handleNtpPacket cli packet = do
     logDebug $ sformat ("Received time delta "%shown%" mcs")
         (toMicroseconds clockOffset)
 
-    late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
+    late <- atomically . modifyTVarS (ncState cli) $ do
         _Just %= ((clockOffset, ntpOriginTime packet) :)
         gets isNothing
     when late $
@@ -216,7 +239,7 @@ doReceive sock cli = forever $ do
 
 startReceive :: NtpMonad m => NtpClient m -> m ()
 startReceive cli = do
-    sockets <- liftIO . atomically . readTVar $ ncSockets cli
+    sockets <- atomically . readTVar $ ncSockets cli
     case sockets of
         BothSock sIPv4 sIPv6 ->
             () <$ runDoReceive True sIPv4 `concurrently` runDoReceive False sIPv6
@@ -229,7 +252,7 @@ startReceive cli = do
         logDebug $ sformat ("doReceive failed on socket"%shown%
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay (5 :: Second)
         serveraddrs <- liftIO udpLocalAddresses
         newSockMB <- liftIO $
             if isIPv4 then
@@ -240,8 +263,7 @@ startReceive cli = do
             Nothing      -> logWarning "Recreating of socket failed" >> handleE isIPv4 sock e
             Just newSock -> runDoReceive isIPv4 newSock
     overwriteSocket constr sock = sock <$
-        (liftIO .
-         atomically .
+        (atomically .
          modifyTVar' (ncSockets cli) .
          flip mergeSockets .
          constr $ sock)

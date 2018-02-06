@@ -2,6 +2,7 @@
 
 module Pos.Diffusion.Full.Ssc
     ( sscListeners
+    , sscOutSpecs
       -- TODO move the conversation starters here too (they're defined inline
       -- in Pos.Diffusion.Full).
     ) where
@@ -23,9 +24,9 @@ import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
-                                          relayListeners)
+                                          relayListeners, relayPropagateOut)
 import           Pos.Communication.Types.Protocol (MsgType (..), NodeId, EnqueueMsg,
-                                                   MkListeners)
+                                                   MkListeners, OutSpecs)
 import           Pos.Core (StakeholderId)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Network.Types (Bucket)
@@ -60,6 +61,18 @@ sscRelays logic =
     , sharesRelay (postSscShares logic)
     , vssCertRelay (postSscVssCert logic)
     ]
+
+-- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
+-- motif required for communication.
+-- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
+sscOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       , HasAdoptedBlockVersionData m
+       )
+    => Logic m
+    -> OutSpecs
+sscOutSpecs logic = relayPropagateOut (sscRelays logic)
 
 commitmentRelay
     :: ( SscMessageConstraints m

@@ -94,7 +94,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
     -- they are killed automatically.
     void
       (race
-           (void (mapConcurrently (unpackPlugin) $ workers' ++ plugins'))
+           (mapConcurrently (unpackPlugin) $ workers' ++ plugins')
            waitForShutdown)
 
     exitWith (ExitFailure 20)

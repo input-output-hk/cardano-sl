@@ -21,7 +21,7 @@ module Pos.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Except (MonadError (..), runExceptT)
 import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog (WithLogger)
 
@@ -32,7 +32,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
-                               txInputs, txOutAddress)
+                               txInputs, txOutAddress, checkTxAux)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
@@ -142,6 +142,7 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
+    either (throwError . ToilInconsistentTxAux) pure =<< runExceptT (checkTxAux txAux)
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx

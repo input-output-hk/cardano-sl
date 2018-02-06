@@ -22,6 +22,7 @@ module Pos.Core.Txp
        , Tx (..)
        , TxAux (..)
        , checkTx
+       , checkTxAux
        , txInputs
        , txOutputs
        , txAttributes
@@ -223,15 +224,14 @@ txaF = later $ \(TxAux tx w) ->
 instance Bi Tx => Buildable TxAux where
     build = bprint txaF
 
--- | Create valid Tx or fail.
--- Verify inputs and outputs are non empty; have enough coins.
+-- | Verify inputs and outputs are non empty; have enough coins.
 checkTx
     :: MonadError Text m
     => Tx
-    -> m Tx
+    -> m ()
 checkTx it =
     case verRes of
-        VerSuccess -> pure it
+        VerSuccess -> pure ()
         failure    -> throwError $ sformat verResSingleF failure
   where
     verRes =
@@ -249,6 +249,14 @@ checkTx it =
                 i
           )
         ]
+
+-- | Check that a 'TxAux' is internally valid (checks that its 'Tx' is valid
+-- via 'checkTx'). Does not check the witness.
+checkTxAux
+    :: MonadError Text m
+    => TxAux
+    -> m ()
+checkTxAux TxAux{..} = checkTx taTx
 
 ----------------------------------------------------------------------------
 -- Payload and proof

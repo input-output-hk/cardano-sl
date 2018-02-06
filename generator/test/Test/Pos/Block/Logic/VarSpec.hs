@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RankNTypes      #-}
 
 -- | Specification of 'Pos.Block.Logic.VAR'.
 
@@ -16,7 +17,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Ratio as Ratio
 import           Data.Semigroup ((<>))
 import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre)
 import           Test.QuickCheck.Random (QCGen)
@@ -38,16 +39,25 @@ import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmp
                                   _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Delegation (HasDlgConfiguration)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                                              DbNotEquivalentToSnapshot (..), runBlockScenario)
-import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode, blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks, bpGoToArbitraryState, getAllSecrets,
                                             satisfySlotCheck)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
-import           Test.Pos.Helpers (blockPropertySpec)
 
+-- | Specialized version of 'prop' function from 'hspec'.
+blockPropertySpec ::
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+    => String
+    -> (HasConfiguration => BlockProperty a)
+    -> Spec
+blockPropertySpec description bp = prop description (blockPropertyTestable bp)
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
 spec :: Spec

@@ -27,6 +27,7 @@ module Pos.Wallet.Web.Tracking.Sync
        , WalletTrackingEnv
 
        , restoreWalletHistory
+       , restoreGenesisAddresses
        , txMempoolToModifier
 
        , fixingCachedAccModifier
@@ -328,18 +329,11 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
                      pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
                | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") walletId)
 
-    whenNothing_ wTipHeader $ do
-        let ownGenesisData =
-                selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
-                M.toList $ unGenesisUtxo genesisUtxo
-            ownGenesisAddrs = map snd ownGenesisData
-        mapM_ WS.addWAddress ownGenesisAddrs
+    whenNothing_ wTipHeader $ restoreGenesisAddresses credentials
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet walletId (headerHash gstateH) mapModifier
-    -- Mark the wallet as ready, so it will be available from api endpoints.
-    WS.setWalletReady walletId True
     logInfoS $
         sformat ("Wallet "%build%" has been synced with tip "
                 %shortHashF%", "%build)
@@ -350,6 +344,15 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
     firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
+
+-- | Restores the genesis addresses for a wallet, given its 'WalletDecrCredentials'.
+restoreGenesisAddresses :: (HasConfiguration, MonadWalletDB ctx m, Monad m) => WalletDecrCredentials -> m ()
+restoreGenesisAddresses credentials =
+    let ownGenesisData =
+            selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
+            M.toList $ unGenesisUtxo genesisUtxo
+        ownGenesisAddrs = map snd ownGenesisData
+    in mapM_ WS.addWAddress ownGenesisAddrs
 
 constructAllUsed
     :: [(CId Addr, HeaderHash)]

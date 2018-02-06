@@ -5,7 +5,7 @@
 module Pos.Wallet.Web.Methods.Restore
        ( newWalletHandler
        , importWallet
-       , restoreWalletHandler
+       , restoreWalletFromSeed
        , restoreWalletFromBackup
        , addInitialRichAccount
 
@@ -46,11 +46,13 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), 
                                              CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
+import           Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, createAccount,
                                        getAccountWAddresses, getWalletMeta, removeHistoryCache,
                                        setWalletSyncTip, updateWalletBalancesAndUtxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (decryptAddress, eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (restoreWalletHistory)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
+                                                  eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (restoreGenesisAddresses, restoreWalletHistory)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 
@@ -92,30 +94,44 @@ newWalletHandler passphrase cwInit = do
 -- 1. Recover this wallet balance from the global Utxo (fast, and synchronous);
 -- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
 -}
-restoreWalletHandler :: ( L.MonadWalletLogic ctx m
+restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
                         , Mockable Async m
                         ) => PassPhrase -> CWalletInit -> m CWallet
-restoreWalletHandler passphrase cwInit = do
-    (sk, wId) <- newWallet passphrase cwInit True -- TODO(adn) readyness must be changed into richer type.
-    restoredWallet <- restoreWalletBalance sk wId
+restoreWalletFromSeed passphrase cwInit = do
+    (sk, _) <- newWallet passphrase cwInit False -- TODO(adn) readyness must be changed into richer type.
+    restoreWallet sk
+
+-- | Restores a Wallet by fetching by:
+-- 1. Restoring the genesis addresses
+-- 2. Restoring the balance (via Utxo)
+-- 3. Restore (asynchronously) the histrory.
+restoreWallet :: ( L.MonadWalletLogic ctx m
+                 , Mockable Async m
+                 ) => EncryptedSecretKey ->  m CWallet
+restoreWallet sk = do
+    let credentials@(_, wId) = eskToWalletDecrCredentials sk
+    restoreGenesisAddresses credentials
+    restoreWalletBalance credentials
     -- TODO(adn) Make restoreWalletHistory async.
     _ <- restoreWalletHistory sk
-    return restoredWallet
+    WS.setWalletReady wId True
+    -- TODO(adn) We can set the wallet ready much sooner, after 'restoreWalletHistory'
+    -- is properly async.
+    L.getWallet wId
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.
 restoreWalletBalance :: ( L.MonadWalletLogicRead ctx m
                         , MonadWalletDB ctx m
                         , MonadDBRead m
-                        ) => EncryptedSecretKey -> CId Wal -> m CWallet
-restoreWalletBalance sk wId = do
+                        ) => WalletDecrCredentials -> m ()
+restoreWalletBalance credentials = do
     utxo <- filterUtxo walletUtxo
     updateWalletBalancesAndUtxo (utxoToModifier utxo)
-    L.getWallet wId
     where
       walletUtxo :: (TxIn, TxOutAux) -> Bool
       walletUtxo (_, TxOutAux (TxOut addr _)) =
-          isJust (decryptAddress (eskToWalletDecrCredentials sk) addr)
+          isJust (decryptAddress credentials addr)
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , Mockable Async m
@@ -159,10 +175,7 @@ restoreWalletFromBackup WalletBackup {..} = do
                 Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
                 Just _  -> pure ()
 
-            restoredWallet <- restoreWalletBalance wbSecretKey wId
-            -- TODO(adn) Kick-off the TxHistory rebuilding.
-            _ <- restoreWalletHistory wbSecretKey
-            pure restoredWallet
+            restoreWallet wbSecretKey
 
 importWallet
     :: ( L.MonadWalletLogic ctx m
@@ -221,10 +234,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    restoredWallet <- restoreWalletBalance key wid
-    -- TODO(adinapoli) Kick-off the TxHistory rebuilding.
-    _ <- restoreWalletHistory key
-    return restoredWallet
+    restoreWallet key
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes

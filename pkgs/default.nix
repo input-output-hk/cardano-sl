@@ -7018,7 +7018,7 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-binary" = callPackage
         ({ mkDerivation, autoexporter, base, binary, bytestring, cborg
-         , containers, cpphs, digest, formatting, hashable, lens, mtl
+         , containers, cpphs, digest, formatting, half, hashable, lens, mtl
          , parsec, process, QuickCheck, quickcheck-instances
          , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
          , template-haskell, text, th-lift-instances, th-utilities, time
@@ -7031,7 +7031,7 @@ inherit (pkgs) mesa;};
            src = ./../binary;
            libraryHaskellDepends = [
              autoexporter base binary bytestring cborg containers digest
-             formatting hashable lens mtl parsec process QuickCheck
+             formatting half hashable lens mtl parsec process QuickCheck
              quickcheck-instances safe-exceptions semigroups serokell-util stm
              tagged template-haskell text th-lift-instances th-utilities time
              time-units transformers transformers-base transformers-lift

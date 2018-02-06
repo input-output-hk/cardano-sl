@@ -19,6 +19,7 @@ module Pos.Aeson.Genesis
 
 import           Universum
 
+import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..))
 import           Data.Aeson.TH (deriveFromJSON)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -36,22 +37,21 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          ProtocolConstants, TestnetBalanceOptions)
 import           Pos.Core.Ssc (VssCertificatesMap (..), validateVssCertificatesMap)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError)
 
 instance FromJSONKey RedeemPublicKey where
-    fromJSONKey = FromJSONKeyTextParser fromAvvmPk
-    fromJSONKeyList = FromJSONKeyTextParser (fmap pure . fromAvvmPk)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . over _Left pretty . fromAvvmPk)
+    fromJSONKeyList = FromJSONKeyTextParser (toAesonError . bimap pretty pure . fromAvvmPk)
 
 deriving instance FromJSON GenesisAvvmBalances
 deriving instance FromJSON GenesisWStakeholders
 
 instance FromJSON GenesisNonAvvmBalances where
-    parseJSON = convertNonAvvmDataToBalances <=< parseJSON
+    parseJSON = toAesonError . convertNonAvvmDataToBalances <=< parseJSON
 
 instance FromJSON VssCertificatesMap where
-    parseJSON = parseJSON >=> \mE ->
-        eitherToFail $
-        validateVssCertificatesMap (UnsafeVssCertificatesMap mE)
+    parseJSON = parseJSON >=>
+        toAesonError . validateVssCertificatesMap . UnsafeVssCertificatesMap
 
 instance FromJSON GenesisVssCertificatesMap where
     parseJSON val = GenesisVssCertificatesMap <$> parseJSON val
@@ -59,7 +59,7 @@ instance FromJSON GenesisVssCertificatesMap where
 instance FromJSON GenesisDelegation where
     parseJSON = parseJSON >=> \v -> do
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
-        eitherToFail $ recreateGenesisDelegation elems
+        toAesonError $ recreateGenesisDelegation elems
 
 deriveFromJSON defaultOptions ''FakeAvvmOptions
 deriveFromJSON defaultOptions ''TestnetBalanceOptions

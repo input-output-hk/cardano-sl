@@ -48,8 +48,7 @@ import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Vector (Vector)
 import           Fmt (genericF)
-import           Formatting (Format, bprint, build, builder, formatToString, int, later, sformat,
-                             (%))
+import           Formatting (Format, bprint, build, builder, int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson, listJsonIndent)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
@@ -221,13 +220,11 @@ instance Bi Tx => Buildable TxAux where
 
 -- | Create valid Tx or fail.
 -- Verify inputs and outputs are non empty; have enough coins.
-mkTx
-    :: MonadFail m
-    => NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes -> m Tx
+mkTx :: NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes -> Either Text Tx
 mkTx inputs outputs attrs =
     case verRes of
-        VerSuccess -> pure $ UnsafeTx inputs outputs attrs
-        failure    -> fail $ formatToString verResSingleF failure
+        VerSuccess -> Right $ UnsafeTx inputs outputs attrs
+        failure    -> Left $ sformat verResSingleF failure
   where
     verRes =
         verifyGeneric $

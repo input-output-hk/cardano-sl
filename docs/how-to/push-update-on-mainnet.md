@@ -137,7 +137,7 @@ RELAY_PEER=<IP>:3000            # A host of any relay node.
 
 COMMONOPTS="--system-start 0 --configuration-file ../cardano-sl/lib/configuration.yaml --configuration-key ${CONFIG_KEY} --mode=with-config"
 
-AUXXOPTS="--log-config ../cardano-sl/scripts/log-templates/log-config-qa.yaml --logs-prefix logs/aux-update.1.0.1 --db-path aux-update-1.0.1 --peer ${RELAY_PEER}"
+AUXXOPTS="--log-config ../cardano-sl/log-configs/connect-to-cluster.yaml --logs-prefix logs/aux-update.1.0.1 --db-path aux-update-1.0.1 --peer ${RELAY_PEER}"
 ```
 
 Feel free to change the paths above (ending with `aux-update-1.0.1`)

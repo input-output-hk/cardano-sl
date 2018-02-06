@@ -58,7 +58,6 @@ library
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Methods.Txp
-                      Pos.Wallet.Web.Networking
                       Pos.Wallet.Web.Pending
                       Pos.Wallet.Web.Pending.Types
                       Pos.Wallet.Web.Pending.Submission
@@ -104,6 +103,7 @@ library
   build-depends:        QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
+                      , async
                       , base
                       , base58-bytestring
                       , bytestring
@@ -192,6 +192,7 @@ library
                         TemplateHaskell
                         TypeOperators
                         GADTs
+                        MonadFailDesugaring
 
 
   build-tools: cpphs >= 1.19
@@ -245,28 +246,10 @@ executable cardano-node
                         BangPatterns
                         TemplateHaskell
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-
-executable cardano-wallet-hs2purs
-  hs-source-dirs:      purescript
-  main-is:             Main.hs
-  other-modules:       PSTypes
-  build-depends:       base
-                     , cardano-sl-core
-                     , cardano-sl
-                     , cardano-sl-wallet
-                     , cardano-sl-client
-                     , optparse-applicative
-                     , purescript-bridge
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
 
   -- linker speed up for linux
   if os(linux)
@@ -293,6 +276,7 @@ executable cardano-wallet-hs2purs
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -335,6 +319,7 @@ executable cardano-swagger
                         NoImplicitPrelude
                         TypeApplications
                         TypeOperators
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -432,6 +417,7 @@ test-suite cardano-wallet-test
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

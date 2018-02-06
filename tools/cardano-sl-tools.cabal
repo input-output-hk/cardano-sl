@@ -84,6 +84,7 @@ executable cardano-dht-keygen
                         BangPatterns
                         ApplicativeDo
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -125,6 +126,7 @@ executable cardano-genupdate
                        ApplicativeDo
                        RecordWildCards
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -195,6 +197,7 @@ executable cardano-keygen
                         UndecidableInstances
                         BangPatterns
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   if flag(for-installer)
     buildable: False
@@ -205,7 +208,8 @@ executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
 
-  build-depends:       ansi-wl-pprint
+  build-depends:       aeson
+                     , ansi-wl-pprint
                      , async
                      , base
                      , bytestring
@@ -227,10 +231,13 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , safe-exceptions
+                     , serokell-util
                      , silently
                      , text
                      , time-units
                      , universum
+                     , unordered-containers
+                     , yaml
   if !os(windows)
     build-depends:     unix
   default-language:    Haskell2010
@@ -249,6 +256,7 @@ executable cardano-launcher
                        TypeApplications
                        BangPatterns
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   if os(windows)
     LD-Options:     -mwindows
@@ -261,6 +269,7 @@ executable cardano-addr-convert
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-util
                      , neat-interpolation
                      , optparse-applicative
                      , text
@@ -296,6 +305,7 @@ executable cardano-addr-convert
                         UndecidableInstances
                         ApplicativeDo
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
 executable cardano-cli-docs
   hs-source-dirs:      src/cli-docs
@@ -328,6 +338,7 @@ executable cardano-cli-docs
                         OverloadedStrings
                         ApplicativeDo
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -416,6 +427,7 @@ executable cardano-post-mortem
                         ScopedTypeVariables
                         ScopedTypeVariables
                         BangPatterns
+                        MonadFailDesugaring
 
 executable cardano-blockchain-analyser
   hs-source-dirs:      src/blockchain-analyser
@@ -439,7 +451,6 @@ executable cardano-blockchain-analyser
                      , cardano-sl-util
                      , data-default
                      , directory
-                     , ether
                      , formatting
                      , lens
                      , mtl
@@ -466,6 +477,7 @@ executable cardano-blockchain-analyser
                         TypeApplications
                         ScopedTypeVariables
                         FlexibleContexts
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

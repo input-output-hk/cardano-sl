@@ -31,6 +31,9 @@ module Pos.Core.Update.Types
 
          -- * UpdateVote and related
        , UpdateVote (..)
+       , mkUpdateVote
+       , mkUpdateVoteSafe
+       , validateUpdateVote
        , VoteId
        , formatVoteShort
        , shortVoteF
@@ -42,6 +45,7 @@ module Pos.Core.Update.Types
 
 import           Universum
 
+import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
 import           Data.Default (Default (..))
 import           Data.Hashable (Hashable)
@@ -61,7 +65,9 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Crypto (Hash, PublicKey, Signature, hash, shortHashF)
+import           Pos.Crypto (HasCryptoConfiguration, Hash, PublicKey, SafeSigner, SecretKey,
+                             SignTag (SignUSVote), Signature, checkSig, hash, safeSign,
+                             safeToPublic, shortHashF, sign, toPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Orphans ()
 
@@ -81,13 +87,13 @@ newtype ApplicationName = ApplicationName
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
 
 -- | Smart constructor of 'ApplicationName'.
-mkApplicationName :: MonadFail m => Text -> m ApplicationName
+mkApplicationName :: Text -> Either Text ApplicationName
 mkApplicationName appName
     | length appName > applicationNameMaxLength =
-        fail "ApplicationName: too long string passed"
+        Left "ApplicationName: too long string passed"
     | T.any (not . isAscii) appName =
-        fail "ApplicationName: not ascii string passed"
-    | otherwise = pure $ ApplicationName appName
+        Left "ApplicationName: not ascii string passed"
+    | otherwise = Right $ ApplicationName appName
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
@@ -288,13 +294,13 @@ newtype SystemTag = SystemTag { getSystemTag :: Text }
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
 
-mkSystemTag :: MonadFail m => Text -> m SystemTag
+mkSystemTag :: Text -> Either Text SystemTag
 mkSystemTag tag | T.length tag > systemTagMaxLength
-                    = fail "SystemTag: too long string passed"
+                    = Left "SystemTag: too long string passed"
                 | T.any (not . isAscii) tag
-                    = fail "SystemTag: not ascii string passed"
+                    = Left "SystemTag: not ascii string passed"
                 | otherwise
-                    = pure $ SystemTag tag
+                    = Right $ SystemTag tag
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal
@@ -404,8 +410,11 @@ instance Buildable UpdateData where
 
 type VoteId = (UpId, PublicKey, Bool)
 
--- | Vote for update proposal
-data UpdateVote = UpdateVote
+-- | Vote for update proposal.
+--
+-- Invariants:
+--   * The signature is valid.
+data UpdateVote = UnsafeUpdateVote
     { -- | Public key of stakeholder, who votes
       uvKey        :: !PublicKey
     , -- | Proposal to which this vote applies
@@ -420,7 +429,7 @@ data UpdateVote = UpdateVote
 instance NFData UpdateVote
 
 instance Buildable UpdateVote where
-    build UpdateVote {..} =
+    build UnsafeUpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
@@ -429,9 +438,46 @@ instance Buildable VoteId where
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
 
+-- | A safe constructor for 'UnsafeVote'.
+mkUpdateVote
+    :: HasCryptoConfiguration
+    => SecretKey           -- ^ The voter
+    -> UpId                -- ^ Proposal which is voted for
+    -> Bool                -- ^ Approval/rejection bit
+    -> UpdateVote
+mkUpdateVote sk uvProposalId uvDecision =
+    let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
+        uvKey       = toPublic sk
+    in  UnsafeUpdateVote{..}
+
+-- | Same as 'mkUpdateVote', but uses 'SafeSigner'.
+mkUpdateVoteSafe
+    :: HasCryptoConfiguration
+    => SafeSigner          -- ^ The voter
+    -> UpId                -- ^ Proposal which is voted for
+    -> Bool                -- ^ Approval/rejection bit
+    -> UpdateVote
+mkUpdateVoteSafe sk uvProposalId uvDecision =
+    let uvSignature = safeSign SignUSVote sk (uvProposalId, uvDecision)
+        uvKey       = safeToPublic sk
+    in  UnsafeUpdateVote{..}
+
+-- | Return the vote if it's valid, and throw an error otherwise.
+validateUpdateVote
+    :: (HasCryptoConfiguration, MonadError Text m)
+    => UpdateVote
+    -> m UpdateVote
+validateUpdateVote uv@UnsafeUpdateVote{..} = do
+    let sigValid = checkSig SignUSVote
+                     uvKey
+                     (uvProposalId, uvDecision)
+                     uvSignature
+    unless sigValid $ throwError "an UpdateVote has an invalid signature"
+    pure uv
+
 -- | Format 'UpdateVote' compactly.
 formatVoteShort :: UpdateVote -> Builder
-formatVoteShort UpdateVote {..} =
+formatVoteShort UnsafeUpdateVote {..} =
     bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
         (addressHash uvKey)
         (bool "against" "for" uvDecision)

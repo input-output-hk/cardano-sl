@@ -31,9 +31,10 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                              redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
-import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Pos.Util.QuickCheck.Property (stopProperty)
 import           Pos.Util.Util (leftToPanic)
-import           Test.Pos.Util (stopProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
@@ -110,7 +111,7 @@ testCreateMTx
     :: HasTxpConfigurations
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
-testCreateMTx CreateMTxParams{..} =
+testCreateMTx CreateMTxParams{..} = lift $
     createMTx mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
@@ -310,14 +311,13 @@ data CreateRedemptionTxParams = CreateRedemptionTxParams
     , crpOutputs :: !TxOutputs
     } deriving Show
 
-getSignerFromList :: NonEmpty (SafeSigner, Address) -> (Address -> SafeSigner)
+getSignerFromList :: NonEmpty (SafeSigner, Address) -> Address -> Maybe SafeSigner
 getSignerFromList (HM.fromList . map swap . toList -> hm) =
-    \addr -> fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
+    \addr -> HM.lookup addr hm
 
 makeManyUtxoTo1Params :: InputSelectionPolicy -> Int -> Integer -> Integer -> Gen CreateMTxParams
 makeManyUtxoTo1Params inputSelectionPolicy numFrom amountEachFrom amountTo = do
-    [skFrom, skTo] <- nonrepeating 2
-
+    ~[skFrom, skTo] <- nonrepeating 2
     let txOutAuxInput  = generateTxOutAux amountEachFrom skFrom
         txOutAuxOutput = generateTxOutAux amountTo skTo
         cmpInputSelectionPolicy = inputSelectionPolicy

@@ -8,29 +8,41 @@ import           Unsafe (unsafeFromJust)
 import           Control.Exception.Safe (handle)
 import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import           Mockable (Production, runProduction)
+import           JsonLog (jsonLog)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
+import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
+
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (ConfigurationError, Timestamp (..), gdStartTime, genesisData)
+import           Pos.Communication (OutSpecs)
+import           Pos.Communication.Util (ActionSpec (..))
+import           Pos.Core (ConfigurationError)
+import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
+import           Pos.Diffusion.Types (DiffusionLayer (..))
+import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Logic.Full (logicLayerFull)
+import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               runRealBasedMode, withConfigurations)
+                               elimRealMode, withConfigurations)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
+import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.Worker.Types (WorkerSpec)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
+import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..))
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (WithCommandAction (..), withAuxxRepl)
 
@@ -70,7 +82,7 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources EmptyMempoolExt AuxxMode
+    => NodeResources EmptyMempoolExt
     -> (WorkerSpec AuxxMode, OutSpecs)
     -> (WorkerSpec AuxxMode, OutSpecs)
 runNodeWithSinglePlugin nr (plugin, plOuts) =
@@ -78,7 +90,6 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
-    CLI.printFlags
     let runWithoutNode = rawExec Nothing opts Nothing command
     printAction <- either getPrintAction (const $ return putText) command
 
@@ -99,9 +110,7 @@ action opts@AuxxOptions {..} command = do
     case hasConfigurations of
       Nothing -> runWithoutNode
       Just Dict -> do
-          logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
-          t <- currentTime
-          logInfo $ sformat ("Current time is "%shown) (Timestamp t)
+          CLI.printInfoOnStart aoCommonNodeArgs
           (nodeParams, tempDbUsed) <-
               correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
           let
@@ -117,9 +126,14 @@ action opts@AuxxOptions {..} command = do
           let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
           let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-              runRealBasedMode toRealMode realModeToAuxx nr $
-                  (if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity)
-                  (auxxPlugin opts command)
+              elimRealMode nr $ toRealMode $
+                  logicLayerFull jsonLog defaultConnectionChangeAction $ \logicLayer ->
+                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
+                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
+                              diffusionLayer <- withLogic (logic logicLayer)
+                              let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                                  (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                              runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

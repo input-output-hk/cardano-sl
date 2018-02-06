@@ -11,15 +11,14 @@ module Pos.Wallet.Web.Server.Runner
        , runWRealMode
        , walletWebModeContext
        , convertHandler
+       , notifierPlugin
        ) where
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal (HasLens (..))
 import           Mockable (Production, runProduction)
 import           Network.Wai (Application)
 import           Servant.Server (Handler)
@@ -28,62 +27,68 @@ import           System.Wlog (logInfo)
 import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs)
-import           Pos.Communication.Protocol (SendActions)
+import           Pos.Context (NodeContext (..))
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Resource (NodeResources)
-import           Pos.Launcher.Runner (runRealBasedMode)
+import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Launcher.Runner (elimRealMode, runServer)
+import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..), addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
-                                      WalletWebModeContextTag)
+                                      WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
-import           Pos.Wallet.Web.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletState)
 import           Pos.Web (TlsParams)
+import           Pos.WorkMode (RealMode)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: ( HasConfigurations
+    :: forall a .
+       ( HasConfigurations
        , HasCompileInfo
        )
     => WalletState
     -> ConnectionsVar
-    -> NodeResources WalletMempoolExt WalletWebMode
+    -> AddrCIdHashes
+    -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn res spec = do
-    saVar <- atomically STM.newEmptyTMVar
-    ref <- newIORef mempty
-    runRealBasedMode
-        (Mtl.withReaderT (WalletWebModeContext db conn (AddrCIdHashes ref) saVar))
-        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ _ rmc) -> rmc))
-        res
-        spec
-        defaultConnectionChangeAction
+runWRealMode db conn ref res (action, outSpecs) =
+    elimRealMode res serverRealMode
+  where
+    NodeContext {..} = nrContext res
+    ekgNodeMetrics = EkgNodeMetrics
+        (nrEkgStore res)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+    serverWalletWebMode :: WalletWebMode a
+    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs defaultConnectionChangeAction action
+    serverRealMode :: RealMode WalletMempoolExt a
+    serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
 
 walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => SendActions WalletWebMode
-    -> Bool              -- whether to include genesis keys
-    -> NetworkAddress    -- ^ IP and Port to listen
+    => Diffusion WalletWebMode
+    -> Bool                    -- whether to include genesis keys
+    -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull sendActions debug = walletServeImpl action
+walletServeWebFull diffusion debug = walletServeImpl action
   where
     action :: WalletWebMode Application
     action = do
-        logInfo "DAEDALUS has STARTED!"
-        saVar <- asks wwmcSendActions
-        atomically $ STM.putTMVar saVar sendActions
+        logInfo "Wallet Web API has STARTED!"
         when debug $ addInitialRichAccount 0
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode diffusion (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)
@@ -102,3 +107,8 @@ convertHandler wwmc handler =
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
+
+notifierPlugin :: (HasConfigurations, HasCompileInfo) => WalletWebMode ()
+notifierPlugin = do
+    wwmc <- walletWebModeContext
+    launchNotifier (convertHandler wwmc)

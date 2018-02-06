@@ -2,6 +2,7 @@
 
 module Pos.Client.CLI.Util
        ( printFlags
+       , printInfoOnStart
        , attackTypeParser
        , attackTargetParser
        , defaultLoggerConfig
@@ -14,25 +15,42 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
+import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
                               productionB)
-import           Text.Parsec (try)
+import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
 
 import           Pos.Binary.Core ()
-import           Pos.Core (StakeholderId)
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
+import           Pos.Client.CLI.Options (configurationOptions)
+import           Pos.Core (StakeholderId, Timestamp (..))
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson, genesisData,
                                          prettyGenesisJson)
+import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
-import           Pos.Util (eitherToFail)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.TimeWarp (addrParser)
 
 printFlags :: WithLogger m => m ()
 printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
+
+printInfoOnStart ::
+       (HasConfiguration, WithLogger m, Mockable CurrentTime m)
+    => CommonNodeArgs
+    -> m ()
+printInfoOnStart cArgs = do
+    printFlags
+    t <- currentTime
+    mapM_ logInfo $
+        [ sformat ("System start time is " % shown) $ gdStartTime genesisData
+        , sformat ("Current time is "%shown) (Timestamp t)
+        , sformat ("Using configs and genesis:\n"%shown)
+                  (configurationOptions (commonArgs cArgs))
+        ]
 
 attackTypeParser :: P.Parser AttackType
 attackTypeParser = P.string "No" >>
@@ -42,7 +60,8 @@ attackTypeParser = P.string "No" >>
 stakeholderIdParser :: P.Parser StakeholderId
 stakeholderIdParser = do
     token <- some P.alphaNum
-    eitherToFail $ decodeAbstractHash (toText token)
+    either (parserFail . toString) return $
+        decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget
 attackTargetParser =

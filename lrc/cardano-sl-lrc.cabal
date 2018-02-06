@@ -44,7 +44,7 @@ library
                      , lens
                      , log-warper
                      , reflection
-                     , rocksdb-haskell
+                     , rocksdb-haskell-ng
                      , text-format
                      , universum
                      , unordered-containers
@@ -71,6 +71,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   default-language:    Haskell2010
 

@@ -7,12 +7,14 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 import           Universum
 
 import           Control.Lens (ix, mapped, (?~))
+import           Data.Aeson (toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
                                genericDeclareNamedSchema, minItems, name, properties, required,
                                sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
+import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
@@ -72,7 +74,6 @@ instance ToSchema      CT.SyncProgress
 instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
-instance ToSchema      InputSelectionPolicy
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
@@ -81,6 +82,11 @@ instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.ApiVersion
 instance ToSchema      Version
 instance ToSchema      CT.ClientInfo
+
+instance ToSchema InputSelectionPolicy where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped.Swagger.schema.example ?~ toJSON OptimizeForHighThroughput
 
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty

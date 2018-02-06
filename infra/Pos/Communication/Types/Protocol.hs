@@ -5,9 +5,7 @@
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
-       ( Action
-       , ActionSpec (..)
-       , checkInSpecs
+       ( checkInSpecs
        , Conversation (..)
        , convH
        , HandlerSpec (..)
@@ -27,13 +25,10 @@ module Pos.Communication.Types.Protocol
        , N.Converse (..)
        , SendActions (..)
        , EnqueueMsg
-       , immediateConcurrentConversations
        , enqueueMsg'
        , waitForConversations
        , toOutSpecs
        , VerInfo (..)
-       , Worker
-       , WorkerSpec
        , NodeType (..)
        , MsgType (..)
        , Origin (..)
@@ -48,15 +43,12 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base64 as B64 (decode, encode)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M
 import qualified Data.Text.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
-import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, async, wait)
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode)
@@ -67,15 +59,12 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Update (BlockVersion)
 import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
+import           Pos.Util.Util (toAesonError)
 
 type PackingType = BiP
 type PeerData = VerInfo
 
 type Listener = N.Listener PackingType PeerData
-type Worker m = Action m ()
-type Action m a = SendActions m -> m a
-newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
-type WorkerSpec m = ActionSpec m ()
 
 type Msg = MsgType NodeId
 
@@ -99,21 +88,6 @@ data SendActions m = SendActions {
           -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
           -> m (Map NodeId (m t))
     }
-
--- | An 'EnqueueMsg m' which concurrently converses with a list of nodes.
--- This will spawn a conversation against each of them and then return.
---
--- You probably do not want to use this. Use 'enqueueMsg' instead.
-immediateConcurrentConversations
-    :: ( Mockable Async m )
-    => SendActions m
-    -> [NodeId]
-    -> EnqueueMsg m
-immediateConcurrentConversations sendActions peers _ k = do
-    lst <- forM peers $ \peer -> do
-        it <- async $ withConnectionTo sendActions peer $ \pd -> k peer pd
-        return (peer, wait it)
-    return $ M.fromList lst
 
 type EnqueueMsg m =
        forall t .
@@ -170,9 +144,7 @@ instance FromJSON NodeId where
 fromJSONBS :: (ByteString -> a) -> Value -> Parser a
 fromJSONBS f v = do
     bs <- Text.encodeUtf8 <$> parseJSON v
-    case B64.decode bs of
-        Left err      -> fail err
-        Right decoded -> pure $ f decoded
+    toAesonError . bimap fromString f $ B64.decode bs
 
 instance Buildable PeerId where
     build (PeerId bs) = buildBS bs

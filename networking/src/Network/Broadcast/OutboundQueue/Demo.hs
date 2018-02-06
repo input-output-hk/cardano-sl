@@ -11,7 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
-import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow)
+import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow, Exception, throwM)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function
@@ -58,6 +58,7 @@ newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
            , Applicative
            , Monad
            , MonadIO
+           , MonadThrow
            , CanLog
            , HasLoggerName
            )
@@ -282,28 +283,10 @@ simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
 data Sync = Synchronous | Asynchronous
 
-sendImpl :: Bool
-         -> Sync
-         -> Node
-         -> MsgType NodeId
-         -> MsgId
-         -> OutQ.ConnectionChangeAction Enqueue NodeId
-         -> Enqueue [NodeId]
-sendImpl success sync from msgType msgId onConnChange = do
-    logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
-    True <- addToMsgPool (nodeMsgPool from) msgData
-    enq (nodeOutQ from) msgType msgObj
-  where
-    msgData = MsgData (nodeId from) msgType msgId
-    msgObj  = MsgObj msgData
-                $ if success
-                    then \nid -> sendNodeId nid msgData
-                    else error "connection error"
-    enq = \oq mt conv -> case sync of
-                Synchronous
-                    -> map fst <$> OutQ.enqueueSync' oq mt conv onConnChange
-                Asynchronous
-                    -> map fst <$> OutQ.enqueue oq mt conv onConnChange
+data SendFailed = SendFailedAddToPool
+    deriving (Show)
+
+instance Exception SendFailed
 
 -- | Send a message from the specified node
 send :: Sync
@@ -311,17 +294,18 @@ send :: Sync
      -> MsgType NodeId
      -> MsgId
      -> OutQ.ConnectionChangeAction Enqueue NodeId
-     -> Enqueue [NodeId]
-send = sendImpl True
-
--- | Error when seding a message from the specified node
-sendError :: Sync
-          -> Node
-          -> MsgType NodeId
-          -> MsgId
-          -> OutQ.ConnectionChangeAction Enqueue NodeId
-          -> Enqueue [NodeId]
-sendError = sendImpl False
+     -> Enqueue ()
+send sync from msgType msgId onConnChange = do
+    logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    added <- addToMsgPool (nodeMsgPool from) msgData
+    unless added $ throwM SendFailedAddToPool
+    enqueue (nodeOutQ from) msgType msgObj
+  where
+    msgData = MsgData (nodeId from) msgType msgId
+    msgObj  = mkMsgObj msgData
+    enqueue = \oq mt conv -> case sync of
+                Synchronous  -> void $ OutQ.enqueueSync oq mt conv onConnChange
+                Asynchronous -> void $ OutQ.enqueue oq mt conv onConnChange
 
 {-------------------------------------------------------------------------------
   Message pool
@@ -373,12 +357,6 @@ mkMsgObj msgData = MsgObj{..}
   where
     msgSend :: NodeId -> IO ()
     msgSend nid = sendNodeId nid msgData
-
-mkMsgObjErr :: MsgData -> MsgObj
-mkMsgObjErr msgData = MsgObj{..}
-  where
-    msgSend :: NodeId -> IO ()
-    msgSend _ = error "send error"
 
 {-------------------------------------------------------------------------------
   Node IDs

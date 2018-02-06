@@ -33,9 +33,6 @@ data InfraConfiguration = InfraConfiguration
     -- ^ We consider node as known if it was pinged at most @ccEnhancedMessageTimeout@ sec ago
     , ccEnhancedMessageBroadcast    :: !Word
       -- ^ Number of nodes from batch for enhanced bessage broadcast
-    , ccNetworkWaitLogInterval      :: !Int
-      -- ^ Network wait logging interval in seconds
-      --   (logging that some recv/send takes significant amount of time)
 
     --------------------------------------------------------------------------
     -- -- Relay

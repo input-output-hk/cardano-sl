@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pending transactions resubmition logic.
+-- | Pending transactions resubmission logic.
 
 module Pos.Wallet.Web.Pending.Worker
     ( startPendingTxsResubmitter
@@ -13,15 +13,15 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (has)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
-import           Mockable (delay, fork)
-import           Serokell.Util.Text (listJson)
+import           Mockable (delay, forConcurrently)
+import           Serokell.Util (enumerate, listJson)
 import           System.Wlog (logDebug, logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPeriod,
                                     walletTxCreationDisabled)
-import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
+import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL, TxAux)
 import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
@@ -31,7 +31,6 @@ import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
 import           Pos.Util.Chrono (getOldestFirst)
 import           Pos.Util.LogSafe (logDebugS, logInfoS)
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,
@@ -49,7 +48,6 @@ type MonadPendings ctx m =
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadSlots ctx m
-    , MonadWalletSendActions m
     , MonadWalletDB ctx m
     , HasConfiguration
     , HasNodeConfiguration
@@ -69,12 +67,12 @@ processPtxInNewestBlocks PendingTx{..} = do
      longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
          ptxDiff + depth <= tipDiff
 
-resubmitTx :: MonadPendings ctx m => PendingTx -> m ()
-resubmitTx ptx =
+resubmitTx :: MonadPendings ctx m => (TxAux -> m Bool) -> PendingTx -> m ()
+resubmitTx submitTx ptx =
     handleAny (\_ -> pass) $ do
         logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
-        submitAndSavePtx submissionH ptx
+        submitAndSavePtx submitTx submissionH ptx
         updateTiming
   where
     reportNextCheckTime =
@@ -90,12 +88,14 @@ resubmitTx ptx =
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
     :: MonadPendings ctx m
-    => [PendingTx] -> m ()
-resubmitPtxsDuringSlot ptxs = do
+    => (TxAux -> m Bool)
+    -> [PendingTx]
+    -> m ()
+resubmitPtxsDuringSlot submitTx ptxs = do
     interval <- evalSubmitDelay (length ptxs)
-    forM_ ptxs $ \ptx -> do
-        delay interval
-        fork $ resubmitTx ptx
+    void . forConcurrently (enumerate ptxs) $ \(i, ptx) -> do
+        delay (interval * i)
+        resubmitTx submitTx ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -106,8 +106,11 @@ resubmitPtxsDuringSlot ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings ctx m
-    => SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit _curSlot ptxs = do
+    => (TxAux -> m Bool)
+    -> SlotId
+    -> [PendingTx]
+    -> m ()
+processPtxsToResubmit submitTx _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
@@ -120,7 +123,7 @@ processPtxsToResubmit _curSlot ptxs = do
         logInfoS $ sformat fmt (map _ptxTxId toResubmit)
     when (null toResubmit) $
         logDebugS "There are no transactions to resubmit"
-    resubmitPtxsDuringSlot toResubmit
+    resubmitPtxsDuringSlot submitTx toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
@@ -136,28 +139,32 @@ processPtxsToResubmit _curSlot ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings ctx m
-    => SlotId -> [PendingTx] -> m ()
-processPtxs curSlot ptxs = do
+    => (TxAux -> m Bool)
+    -> SlotId
+    -> [PendingTx]
+    -> m ()
+processPtxs submitTx curSlot ptxs = do
     mapM_ processPtxInNewestBlocks ptxs
     if walletTxCreationDisabled
     then logDebug "Transaction resubmission is disabled"
-    else processPtxsToResubmit curSlot ptxs
+    else processPtxsToResubmit submitTx curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings ctx m
-    => SlotId -> m ()
-processPtxsOnSlot curSlot = do
+    => (TxAux -> m Bool)
+    -> SlotId
+    -> m ()
+processPtxsOnSlot submitTx curSlot = do
     ptxs <- getPendingTxs
     let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
-    processPtxs curSlot sortedPtxs
+    processPtxs submitTx curSlot sortedPtxs
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.
 startPendingTxsResubmitter
     :: MonadPendings ctx m
-    => m ()
-startPendingTxsResubmitter =
-    void . fork . setLogger $
-    onNewSlot False processPtxsOnSlot
+    => (TxAux -> m Bool)
+    -> m ()
+startPendingTxsResubmitter submitTx = setLogger $ onNewSlot False (processPtxsOnSlot submitTx)
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")

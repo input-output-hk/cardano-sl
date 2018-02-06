@@ -36,12 +36,13 @@ library
                        Pos.Crypto.Encryption
                        Pos.Crypto.Scrypt
 
+                       Pos.Crypto.Signing.Check
                        Pos.Crypto.Signing.Tag
                        Pos.Crypto.Signing.Types
-                       Pos.Crypto.Signing.Types.Tag
                        Pos.Crypto.Signing.Types.Redeem
                        Pos.Crypto.Signing.Types.Safe
                        Pos.Crypto.Signing.Types.Signing
+                       Pos.Crypto.Signing.Types.Tag
 
   build-depends:       QuickCheck
                      , aeson
@@ -66,6 +67,7 @@ library
                      , pvss
                      , quickcheck-instances
                      , reflection
+                     , safe-exceptions
                      , scrypt
                      , serokell-util
                      , stm
@@ -100,6 +102,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

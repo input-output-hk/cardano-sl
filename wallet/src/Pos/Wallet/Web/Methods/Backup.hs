@@ -5,8 +5,8 @@
 module Pos.Wallet.Web.Methods.Backup
        ( importWalletJSON
        , exportWalletJSON
-       , restoreWalletFromBackup
-       -- ^ just for testing
+       , -- | just for testing
+         restoreWalletFromBackup
        ) where
 
 import           Universum

@@ -50,7 +50,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
@@ -66,7 +66,6 @@ import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
-import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
@@ -213,11 +212,8 @@ instance (HasConfiguration, HasInfraConfiguration, HasSscConfiguration, HasCompi
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance MonadKnownPeers AuxxMode where
-    updatePeersBucket = realModeToAuxx ... updatePeersBucket
-
 instance MonadFormatPeers AuxxMode where
-    formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
+    formatKnownPeers formatter = withReaderT acRealModeContext (formatKnownPeers formatter)
 
 instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pure functions related to blocks and headers.
+-- | Pure functions related to blocks and headers, mostly their verification.
 
 module Pos.Block.Pure
        (
@@ -58,9 +58,6 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Eq, Show)
 
-maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
-maybeMempty = maybe mempty
-
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
@@ -72,9 +69,9 @@ verifyHeader VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ maybeMempty relatedToPrevHeader vhpPrevHeader
-            , maybeMempty relatedToCurrentSlot vhpCurrentSlot
-            , maybeMempty relatedToLeaders vhpLeaders
+            [ maybe mempty relatedToPrevHeader vhpPrevHeader
+            , maybe mempty relatedToCurrentSlot vhpCurrentSlot
+            , maybe mempty relatedToLeaders vhpLeaders
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]

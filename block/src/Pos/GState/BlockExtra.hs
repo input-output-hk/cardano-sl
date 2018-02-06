@@ -15,10 +15,12 @@ module Pos.GState.BlockExtra
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
+       , blocksSourceFrom
        ) where
 
 import           Universum
 
+import           Data.Conduit (Source, yield)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
@@ -31,9 +33,8 @@ import           Pos.Core (FlatSlotId, HasConfiguration, HasHeaderHash, HeaderHa
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
-                         dbSerializeValue)
-import           Pos.DB.BlockIndex (getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, getBlock)
+                         dbSerializeValue, getHeader)
+import           Pos.DB.Class (MonadBlockDBRead, getBlock) 
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.Util (maybeThrow)
@@ -175,6 +176,26 @@ loadBlocksUpWhile
     -> (Block -> Int -> Bool)
     -> m (OldestFirst [] Block)
 loadBlocksUpWhile = loadUpWhile getBlock
+
+-- | Produce blocks from a database (MonadBlockDBRead) beginning at a hash.
+-- Forward links are resolved after each block is yielded, and the source
+-- ends when that forward link does not determine another block.
+-- Semantics depend upon the MonadBlockDBRead instance, of course. If the
+-- underlying database is changed while streaming, what happens?
+blocksSourceFrom
+    :: ( MonadBlockDBRead m )
+    => HeaderHash -> Source m Block
+blocksSourceFrom fromH = do
+    mBlk <- lift $ getBlock fromH
+    case mBlk of
+        Nothing -> pure ()
+        Just blk -> yield blk >> continue blk
+  where
+    continue blk = do
+        mNextH <- lift $ resolveForwardLink blk
+        case mNextH of
+            Nothing -> pure ()
+            Just nextH -> blocksSourceFrom nextH
 
 ----------------------------------------------------------------------------
 -- Initialization

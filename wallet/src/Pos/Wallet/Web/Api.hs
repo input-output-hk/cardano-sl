@@ -56,10 +56,9 @@ import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReq
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo,
-                                             NewBatchPayment, ScrollLimit, ScrollOffset,
-                                             SyncProgress, Wal)
+                                             CTxId, CUpdateInfo, CWallet, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, ClientInfo, NewBatchPayment,
+                                             ScrollLimit, ScrollOffset, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
@@ -350,14 +349,6 @@ data WTxsApiRecord route = WTxsApiRecord
         \reset them to CPtxApplying condition so that they will \
         \be passed to resubmition"
     :> WRes Get NoContent
-
-  , _updateTx :: route
-    :- "payments"
-    :> Summary "Update payment transaction."
-    :> CCapture "address" CAccountId
-    :> Capture "transaction" CTxId
-    :> ReqBody '[JSON] CTxMeta
-    :> WRes Post NoContent
 
   , _cancelApplyingPtxs :: route
     :- "resubmission"

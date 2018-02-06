@@ -62,8 +62,8 @@ library
                      , mtl
                      , reflection
                      , resourcet
-                     , rocksdb-haskell
                      , safe-exceptions
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , text-format
                      , time
@@ -93,6 +93,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   hs-source-dirs:      src
   default-language:    Haskell2010

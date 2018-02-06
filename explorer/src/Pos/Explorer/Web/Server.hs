@@ -47,11 +47,12 @@ import           Servant.Generic (AsServerT, toServant)
 import           Servant.Server (Server, ServerT, serve)
 import           System.Wlog (logDebug)
 
-import           Pos.Communication (SendActions)
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
 import           Pos.DB.Block (getBlund)
 import           Pos.DB.Class (MonadDBRead)
+
+import           Pos.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
@@ -114,8 +115,8 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers
     :: forall ctx m. ExplorerMode ctx m
-    => SendActions m -> ServerT ExplorerApi m
-explorerHandlers _sendActions =
+    => Diffusion m -> ServerT ExplorerApi m
+explorerHandlers _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage
@@ -827,8 +828,8 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
     in case mDecodedBase64 of
         Just addr -> do
             -- the decoded address can be both the RSCoin address and the Cardano address.
-            -- * RSCoin address == 32 bytes
-            -- * Cardano address >= 34 bytes
+            -- > RSCoin address == 32 bytes
+            -- > Cardano address >= 34 bytes
             if (BS.length addr == 32)
                 then pure $ makeRedeemAddress $ redeemPkBuild addr
                 else either badCardanoAddress pure (fromCAddress cAddr)

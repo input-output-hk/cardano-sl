@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Server launcher
+-- | Server launcher.
 
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
@@ -22,6 +22,7 @@ import           Data.Time.Units (Millisecond)
 import           Ether.TaggedTrans ()
 import           Formatting (int, sformat, (%))
 import qualified GHC.Exts as Exts
+import           Mockable (withAsync)
 import           Network.EngineIO (SocketId)
 import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
 import           Network.HTTP.Types.Status (status404)
@@ -29,7 +30,7 @@ import           Network.SocketIO (RoutingTable, Socket, appendDisconnectHandler
                                    socketId)
 import           Network.Wai (Application, Middleware, Request, Response, pathInfo, responseLBS)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setPort)
-import           Network.Wai.Middleware.Cors (CorsResourcePolicy, cors, corsOrigins,
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors, corsOrigins,
                                               simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
@@ -54,8 +55,7 @@ import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..)
                                               subscribeEpochsLastPage, subscribeTxs,
                                               unsubscribeAddr, unsubscribeBlocksLastPage,
                                               unsubscribeEpochsLastPage, unsubscribeTxs)
-import           Pos.Explorer.Socket.Util (emitJSON, forkAccompanion, on, on_, regroupBySnd,
-                                           runPeriodicallyUnless)
+import           Pos.Explorer.Socket.Util (emitJSON, on, on_, regroupBySnd, runPeriodically)
 import           Pos.Explorer.Web.ClientTypes (cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server (getMempoolTxs)
 
@@ -132,14 +132,17 @@ notifierServer notifierSettings connVar = do
       where
         addCORSHeader :: Request -> Maybe CorsResourcePolicy
         addCORSHeader _ = Just $ simpleCorsResourcePolicy
-                                    -- HTTP origins that are allowed in CORS requests.
-                                    -- Add more resources to the following list if needed.
-                                    { corsOrigins = Just ([ "https://cardanoexplorer.com"
-                                                          , "https://explorer.iohkdev.io"
-                                                          , "http://cardano-explorer.cardano-mainnet.iohk.io"
-                                                          , "http://localhost:3100"
-                                                          ], True)
+                                    { corsOrigins = Just (origins, True)
                                     }
+        -- HTTP origins that are allowed in CORS requests.
+        -- Add more resources to the following list if needed.
+        origins :: [Origin]
+        origins =
+            [ "https://cardanoexplorer.com"
+            , "https://explorer.iohkdev.io"
+            , "http://cardano-explorer.cardano-mainnet.iohk.io"
+            , "http://localhost:3100"
+            ]
 
     app :: WaiMonad () -> Application
     app sHandle req respond
@@ -157,10 +160,10 @@ notifierServer notifierSettings connVar = do
 periodicPollChanges
     :: forall ctx m.
        (ExplorerMode ctx m)
-    => ConnectionsVar -> m Bool -> m ()
-periodicPollChanges connVar closed =
+    => ConnectionsVar -> m ()
+periodicPollChanges connVar =
     -- Runs every 5 seconds.
-    runPeriodicallyUnless (5000 :: Millisecond) closed (Nothing, mempty) $ do
+    runPeriodically (5000 :: Millisecond) (Nothing, mempty) $ do
         curBlock   <- DB.getTip
         mempoolTxs <- lift $ S.fromList <$> getMempoolTxs @ctx
 
@@ -217,5 +220,5 @@ notifierApp
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    forkAccompanion (periodicPollChanges connVar)
-                    (notifierServer settings connVar)
+    withAsync (periodicPollChanges connVar)
+              (\_async -> notifierServer settings connVar)

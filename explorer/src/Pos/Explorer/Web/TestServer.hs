@@ -236,10 +236,7 @@ testGenesisSummary = pure CGenesisSummary
 -- mock CGenesisAddressInfo
 gAddressInfoA :: CGenesisAddressInfo
 gAddressInfoA = CGenesisAddressInfo
-    -- Commenting out RSCoin addresses until they can actually be displayed.
-    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
     { cgaiCardanoAddress   = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
-    -- , cgaiRSCoinAddress = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
     , cgaiGenesisAmount    = mkCCoin $ mkCoin 2225295000000
     , cgaiIsRedeemed       = True
     }
@@ -247,10 +244,7 @@ gAddressInfoA = CGenesisAddressInfo
 -- mock another CGenesisAddressInfo
 gAddressInfoB :: CGenesisAddressInfo
 gAddressInfoB = CGenesisAddressInfo
-    -- Commenting out RSCoin addresses until they can actually be displayed.
-    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
     { cgaiCardanoAddress   = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
-    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
     , cgaiGenesisAmount    = mkCCoin $ mkCoin 15000000
     , cgaiIsRedeemed       = False
     }
@@ -258,10 +252,7 @@ gAddressInfoB = CGenesisAddressInfo
 -- mock another CGenesisAddressInfo
 gAddressInfoC :: CGenesisAddressInfo
 gAddressInfoC = CGenesisAddressInfo
-    -- Commenting out RSCoin addresses until they can actually be displayed.
-    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
     { cgaiCardanoAddress   = CAddress "LaVWbkFegK1TUNHMc3Fads2cG6ivPb2gJUxXBxNtumLtbG"
-    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-LtbG="
     , cgaiGenesisAmount    = mkCCoin $ mkCoin 333000000
     , cgaiIsRedeemed       = False
     }

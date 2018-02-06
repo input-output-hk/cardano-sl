@@ -98,7 +98,7 @@ getOptions :: IO CLIOptions
 getOptions = execParser programInfo
   where
     programInfo = info (helper <*> optionsParser) $
-        fullDesc <> progDesc "Analyse a blockchain and spit out useful metrics."
+        fullDesc <> progDesc "Analyze a blockchain and spit out useful metrics."
                  <> header "Cardano SL blockchain generator"
                  <> footerDoc usageExample
 

@@ -1,14 +1,23 @@
-{-# LANGUAGE PolyKinds  #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PolyKinds     #-}
+{-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Pos.Util.Util
        (
        -- * Exceptions/errors
          maybeThrow
-       , eitherToFail
        , eitherToThrow
        , leftToPanic
-       , logException
+       , toAesonError
+       , aesonError
+       , toCborError
+       , cborError
+       , toTemplateHaskellError
+       , templateHaskellError
+       , toParsecError
+       , parsecError
+       , toCerealError
+       , cerealError
 
        -- * Ether
        , ether
@@ -39,6 +48,8 @@ module Pos.Util.Util
        -- * Logging helpers
        , buildListBounds
        , multilineBounds
+       , logException
+       , bracketWithLogging
 
        -- * Misc
        , mconcatPair
@@ -57,6 +68,7 @@ module Pos.Util.Util
 
 import           Universum
 
+import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
@@ -70,6 +82,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
+import qualified Data.Serialize as Cereal
 import           Data.Time.Clock (NominalDiffTime, UTCTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
@@ -80,7 +93,8 @@ import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, logError, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, logError, logInfo, usingLoggerName)
+import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
 -- Exceptions/errors
@@ -88,10 +102,6 @@ import           System.Wlog (LoggerName, logError, usingLoggerName)
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
-
--- | Fail or return result depending on what is stored in 'Either'.
-eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
-eitherToFail = either (fail . toString) pure
 
 -- | Throw exception or return result depending on what is stored in 'Either'
 eitherToThrow
@@ -105,12 +115,55 @@ eitherToThrow = either throwM pure
 leftToPanic :: Buildable a => Text -> Either a b -> b
 leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 
--- | Catch and log an exception, then rethrow it
-logException :: LoggerName -> IO a -> IO a
-logException name = E.handleAsync (\e -> handler e >> E.throw e)
-  where
-    handler :: E.SomeException -> IO ()
-    handler = usingLoggerName name . logError . pretty
+type f ~> g = forall x. f x -> g x
+
+-- | This unexported helper is used to define conversions to 'MonadFail'
+-- forced on us by external APIs. I also used underscores in its name, so don't
+-- you think about exporting it -- define a specialized helper instead.
+--
+-- This must be the only place in our codebase where we allow 'MonadFail'.
+external_api_fail :: MonadFail m => Either Text ~> m
+external_api_fail = either (fail . toString) return
+
+-- | Convert an 'Either'-encoded failure to an 'aeson' parser failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toAesonError :: Either Text ~> A.Parser
+toAesonError = external_api_fail
+
+aesonError :: Text -> A.Parser a
+aesonError = toAesonError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'cborg' decoder failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toCborError :: Either Text ~> CBOR.Decoder s
+toCborError = external_api_fail
+
+cborError :: Text -> CBOR.Decoder s a
+cborError = toCborError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'TH' Q-monad failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toTemplateHaskellError :: Either Text ~> TH.Q
+toTemplateHaskellError = external_api_fail
+
+templateHaskellError :: Text -> TH.Q a
+templateHaskellError = toTemplateHaskellError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'cereal' failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toCerealError :: Either Text ~> Cereal.Get
+toCerealError = external_api_fail
+
+cerealError :: Text -> Cereal.Get a
+cerealError = toCerealError . Left
+
+-- | Convert an 'Either'-encoded failure to a 'megaparsec' failure. The
+-- return monad is intentionally specialized because we avoid 'MonadFail'.
+toParsecError :: P.Stream s => Either Text ~> P.ParsecT e s m
+toParsecError = external_api_fail
+
+parsecError :: P.Stream s => Text -> P.ParsecT e s m a
+parsecError = toParsecError . Left
 
 ----------------------------------------------------------------------------
 -- Ether
@@ -170,7 +223,7 @@ minMaxOf l = view _MinMax . foldMapOf l mkMinMax
 -- | Parse a value represented as a 'show'-ed string in JSON.
 parseJSONWithRead :: Read a => A.Value -> A.Parser a
 parseJSONWithRead =
-    either (fail . toString) pure . readEither @String <=<
+    toAesonError . readEither @String <=<
     parseJSON
 
 ----------------------------------------------------------------------------
@@ -227,6 +280,29 @@ multilineBounds maxSize = F.later formatList
    maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
    half = maxSize' `div` 2
    remaining = maxSize' - half
+
+-- | Catch and log an exception, then rethrow it
+logException :: LoggerName -> IO a -> IO a
+logException name = E.handleAsync (\e -> handler e >> E.throw e)
+  where
+    handler :: E.SomeException -> IO ()
+    handler = usingLoggerName name . logError . pretty
+
+-- | 'bracket' which logs given message after acquiring the resource
+-- and before calling the callback with 'Info' severity.
+bracketWithLogging ::
+       (MonadMask m, WithLogger m)
+    => Text
+    -> m a
+    -> (a -> m b)
+    -> (a -> m c)
+    -> m c
+bracketWithLogging msg acquire release = bracket acquire release . addLogging
+  where
+    addLogging callback resource = do
+        logInfo $ "<bracketWithLogging:before> " <> msg
+        callback resource <*
+            logInfo ("<bracketWithLogging:after> " <> msg)
 
 ----------------------------------------------------------------------------
 -- Misc

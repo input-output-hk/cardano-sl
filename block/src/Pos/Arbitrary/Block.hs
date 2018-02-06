@@ -20,7 +20,6 @@ import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
 import qualified Pos.Block.Base as T
-import           Pos.Block.Network as T
 import qualified Pos.Block.Pure as T
 import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
@@ -28,7 +27,7 @@ import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 import           Pos.Util.Util (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
@@ -186,36 +185,6 @@ instance ( Arbitrary SscPayload
             pure extraHeaderData
         return $ leftToPanic "arbitrary @MainBlock: " $
             T.recreateGenericBlock header body extraBodyData
-    shrink = genericShrink
-
-------------------------------------------------------------------------------------------
--- Block network types
-------------------------------------------------------------------------------------------
-
-instance Arbitrary T.MsgGetHeaders where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary T.MsgGetBlocks where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Bi Raw
-         , HasConfiguration
-         ) =>
-         Arbitrary T.MsgHeaders where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
-         ) =>
-         Arbitrary T.MsgBlock where
-    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where

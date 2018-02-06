@@ -17,7 +17,6 @@ module Pos.Explorer.ExplorerMode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
@@ -38,6 +37,7 @@ import qualified Pos.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Util (postfixLFields)
+import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
@@ -65,21 +65,21 @@ import           Test.Pos.Block.Logic.Mode (TestParams (..))
 -- testing (and running).
 type ExplorerMode ctx m =
     ( MonadDBRead m
-    -- ^ Database operations
+    -- Database operations
     , MonadSlots ctx m
-    -- ^ Slotting
+    -- Slotting
     , MonadThrow m
     , MonadCatch m
     , MonadMask m
-    -- ^ General utility operations
+    -- General utility operations
     , HasExplorerCSLInterface m
-    -- ^ For mocking external functions
+    -- For mocking external functions
     , HasGenesisRedeemAddressInfo m
-    -- ^ Genesis operations
+    -- Genesis operations
     , MonadTxpMem (MempoolExt m) ctx m
-    -- ^ Txp, could be @TxpLocalWorkMode@
+    -- Txp, could be @TxpLocalWorkMode@
     , MinWorkMode m
-    -- ^ The rest of the constraints - logger, mockable, configurations
+    -- The rest of the constraints - logger, mockable, configurations
     )
 
 ----------------------------------------------------------------------------

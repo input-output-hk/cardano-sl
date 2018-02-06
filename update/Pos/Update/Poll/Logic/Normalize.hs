@@ -80,20 +80,21 @@ refreshPoll slot proposals votes = do
         case votes ^. at (hash up) of
             Nothing         -> pure (mkCoin 0)
             Just votesForUP -> foldM step (mkCoin 0) (toList votesForUP)
-    step accum uv@UpdateVote {..}
-        | not uvDecision = pure accum
-        | otherwise = unsafeAddCoin accum <$> evaluateVoteStake uv
+    step accum vote
+        | not (uvDecision vote) = pure accum
+        | otherwise = unsafeAddCoin accum <$> evaluateVoteStake vote
     propToVotes up =
         let id = hash up
         in (id, ) <$> votes ^. at id
-    evaluateVoteStake UpdateVote {..} =
+    evaluateVoteStake vote =
         fromMaybe (mkCoin 0) <$>
-        getRichmanStake (siEpoch slot) (addressHash uvKey)
+        getRichmanStake (siEpoch slot) (addressHash (uvKey vote))
     groupVotes :: [UpdateVote] -> [(UpId, HashMap PublicKey UpdateVote)]
     groupVotes = HM.toList . foldl' groupVotesStep mempty
     groupVotesStep :: LocalVotes -> UpdateVote -> LocalVotes
-    groupVotesStep curVotes uv@UpdateVote {..} =
-        curVotes & at uvProposalId . non mempty . at uvKey .~ Just uv
+    groupVotesStep curVotes vote =
+        curVotes & at (uvProposalId vote) . non mempty . at (uvKey vote)
+                     .~ Just vote
 
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.

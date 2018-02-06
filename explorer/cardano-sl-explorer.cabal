@@ -66,7 +66,7 @@ library
                       , log-warper
                       , memory
                       , resourcet
-                      , rocksdb-haskell
+                      , rocksdb-haskell-ng
                       , safe-exceptions
                       , serokell-util
                       , servant-generic
@@ -140,6 +140,7 @@ library
                         ConstraintKinds
                         UndecidableInstances
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -153,7 +154,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       NodeOptions
+  other-modules:       ExplorerNodeOptions
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-core
@@ -190,6 +191,7 @@ executable cardano-explorer
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -233,6 +235,7 @@ executable cardano-explorer-hs2purs
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -267,6 +270,7 @@ executable cardano-explorer-swagger
   default-extensions:   NoImplicitPrelude
                         BangPatterns
                         OverloadedStrings
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -308,6 +312,7 @@ executable cardano-explorer-mock
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -390,6 +395,7 @@ test-suite cardano-explorer-test
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -444,6 +450,7 @@ benchmark cardano-explorer-bench
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

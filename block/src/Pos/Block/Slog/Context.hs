@@ -1,10 +1,7 @@
 -- | Functions operation on 'SlogContext' and its subtypes.
 
 module Pos.Block.Slog.Context
-       ( SlogGState (..)
-       , SlogContext (..)
-
-       , mkSlogGState
+       ( mkSlogGState
        , mkSlogContext
        , cloneSlogGState
        , slogGetLastSlots

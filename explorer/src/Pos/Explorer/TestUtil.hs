@@ -47,7 +47,7 @@ import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, convertToPagedMap)

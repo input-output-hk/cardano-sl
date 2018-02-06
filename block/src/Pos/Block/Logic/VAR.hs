@@ -19,7 +19,6 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
                                        withExceptT)
 import qualified Data.List.NonEmpty as NE
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (..),
@@ -43,6 +42,7 @@ import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
+import           Pos.Util.Util (HasLens (..))
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks
@@ -161,7 +161,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         let prefixHead = prefix ^. _Wrapped . _neHead
         when (isLeft prefixHead) $ do
             let epochIndex = prefixHead ^. epochIndexL
-            logDebug $ "Rolling: Calculating LRC if needed for "
+            logDebug $ "Rolling: Calculating LRC if needed for epoch "
                        <> pretty epochIndex
             lift $ lrcSingleShot epochIndex
         logDebug "Rolling: verifying"

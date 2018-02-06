@@ -19,10 +19,6 @@ module Pos.DB.Rocks.Functions
        , rocksDelete
        , rocksPutBi
 
-       -- * Snapshot
-       , Snapshot (..)
-       , usingSnapshot
-
        -- * Iteration
        , rocksIterSource
 
@@ -39,9 +35,7 @@ import           Universum
 import           Control.Lens (ASetter')
 import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Conduit (ConduitM, Source, bracketP, yield)
-import           Data.Default (def)
 import qualified Database.RocksDB as Rocks
-import           Ether.Internal (lensOf)
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                                    removeDirectoryRecursive)
 import           System.FilePath ((</>))
@@ -53,17 +47,19 @@ import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
 import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..), getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
+import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
 -- Opening/options
 ----------------------------------------------------------------------------
 
 openRocksDB :: MonadIO m => FilePath -> m DB
-openRocksDB fp = DB def def def
-                   <$> Rocks.open fp def
-                        { Rocks.createIfMissing = True
-                        , Rocks.compression     = Rocks.NoCompression
-                        }
+openRocksDB fp = DB Rocks.defaultReadOptions Rocks.defaultWriteOptions options
+                   <$> Rocks.open options
+  where options = (Rocks.defaultOptions fp)
+          { Rocks.optionsCreateIfMissing = True
+          , Rocks.optionsCompression     = Rocks.NoCompression
+          }
 
 closeRocksDB :: MonadIO m => DB -> m ()
 closeRocksDB = Rocks.close . rocksDB
@@ -150,6 +146,11 @@ rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
 -- Snapshot
 ----------------------------------------------------------------------------
 
+-- The following is not used in the project yet. So the
+-- rocksdb-haskell-ng binding doesn't include it yet, and we simply
+-- comment it out here, to be added back at a later stage when needed.
+
+{-
 newtype Snapshot = Snapshot Rocks.Snapshot
 
 usingSnapshot
@@ -160,6 +161,7 @@ usingSnapshot DB {..} action =
         (Rocks.createSnapshot rocksDB)
         (Rocks.releaseSnapshot rocksDB)
         (action . Snapshot)
+-}
 
 ----------------------------------------------------------------------------
 -- Iteration

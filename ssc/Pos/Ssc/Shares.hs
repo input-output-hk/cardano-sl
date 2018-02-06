@@ -12,7 +12,7 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 import           Universum
 
-import           Pos.Binary.Class (AsBinary, asBinary, fromBinaryM)
+import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Ssc (Commitment (..), getCommitmentsMap)
 import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey, decryptShare,
@@ -32,7 +32,7 @@ getOurShares ourKey = do
     let drg = drgNewSeed randSeed
     res <- launchNamedPureLog (return . fst . withDRG drg) $
            forM (HM.toList encSharesM) $ \(id, lEncSh) -> do
-              let mEncSh = traverse fromBinaryM lEncSh
+              let mEncSh = traverse (rightToMaybe . fromBinary) lEncSh
               case mEncSh of
                 Just encShares ->
                     lift $ Just . (id,) <$> mapM (decryptShare ourKey) encShares

@@ -1,0 +1,90 @@
+# Example config for cardano-launcher.
+# Use like so:
+#     stack exec -- cardano-launcher --config /path/to/launcher-config.yaml
+
+# Path to the node executable.
+nodePath: binaries/cardano-node
+
+# For development with Stack you can use something like:
+# nodePath: .stack-work/install/x86_64-linux-nopie/lts-9.1/8.0.2/bin/cardano-node
+
+# Arguments to be passed to the node.
+nodeArgs:
+  - "--tlscert"
+  - "./scripts/tls-files/server.crt"
+  - "--tlskey"
+  - "./scripts/tls-files/server.key"
+  - "--tlsca"
+  - "./scripts/tls-files/ca.crt"
+  - "--web"
+  - "--no-ntp"
+  - "--topology"
+  - "docs/network/example-topologies/mainnet-staging.yaml"
+  - "--logs-prefix"
+  - "logs/test"
+  - "--wallet-db-path"
+  - "wdb-mainnet-staging"
+  - "--keyfile"
+  - "secret-mainnet-staging.key"
+  - "--configuration-file"
+  - "lib/configuration.yaml"
+  - "--configuration-key"
+  - "mainnet_dryrun_full"
+
+# Path to directory with all DBs used by the node. The launcher
+# needs it to record information about installed updates.
+nodeDbPath: db-mainnet-staging
+
+# Path to log config that will be used by the node. The launcher
+# attaches it to crash reports.
+nodeLogConfig: scripts/log-templates/log-config-qa.yaml
+
+# File where node stdout/err will be redirected (def: no redirection).
+# nodeLogPath: node.log
+
+# Path to the wallet frontend executable (e. g. Daedalus).
+# If it is provided, the launcher runs in client scenario;
+# otherwise, in server scenario.
+# walletPath: binaries/daedalus
+
+# Arguments to be passed to the wallet frontend executable.
+# walletArgs: []
+
+# Bool that determines if wallet should log to stdout.
+# walletLogging: true
+
+# File where wallet stdout/err will be redirected.
+# walletLogPath: /tmp/wallet-log
+
+# Path to the updater executable. Should be specified only when
+# there is an update available.
+updaterPath: binaries/cardano-updater
+
+# Arguments to be passed to the updater.
+updaterArgs:
+  - "dir"
+  - "binaries"
+
+# Path to the update archive, it will be passed to the updater.
+updateArchive: updateDownloaded.tar
+
+# Path to write the Windows batch file executing updater.
+# updateWindowsRunner:
+
+# The time (in seconds) to wait for graceful shutdown of the
+# node in case the wallet exits with code 20.
+nodeTimeoutSec: 5
+
+# Where to send logs in case of failure.
+# reportServer: localhost:8080
+
+# Where to put launcher logs (def: console only).
+# launcherLogsPrefix:
+
+# Global constant configuration.
+configuration:
+  filePath: lib/configuration.yaml
+  key: default
+  systemStart: 1512847931
+  # Leaving a field empty is equivalent to not specifying it at all.
+  seed:

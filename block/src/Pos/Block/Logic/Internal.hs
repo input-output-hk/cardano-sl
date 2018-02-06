@@ -27,7 +27,6 @@ import           Universum
 
 import           Control.Lens (each, _Wrapped)
 import qualified Crypto.Random as Rand
-import           Ether.Internal (lensOf)
 import           Formatting (sformat, (%))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
@@ -59,8 +58,9 @@ import           Pos.Update (UpdateBlock)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
-import           Pos.Util (HasLens', Some (..), spanSafe)
+import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ctx m

@@ -1,5 +1,6 @@
 {-# LANGUAGE ApplicativeDo         #-}
 {-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -11,27 +12,34 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+import qualified Prelude (show)
 import           Universum
 
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Lens (makeLensesWith)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
+import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
+import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
-import           Formatting (int, sformat, shown, stext, (%))
+import qualified Data.Yaml as Y
+import           Formatting (int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
-                                      fullDesc, header, help, helper, info, infoOption, long,
-                                      metavar, option, progDesc, short, strOption, switch)
+import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
+                                      execParserPure, footerDoc, fullDesc, handleParseResult,
+                                      header, help, helper, info, infoOption, long, metavar,
+                                      progDesc, renderFailure, short, strOption)
+import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getExecutablePath)
+import           System.Environment (getEnv, getExecutablePath, getProgName)
 import           System.Exit (ExitCode (..))
-import           System.FilePath ((</>))
+import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
@@ -42,9 +50,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
 import qualified System.IO.Silently as Silently
-#endif
-
-#ifndef mingw32_HOST_OS
+#else
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
@@ -55,7 +61,7 @@ import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
-import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
+import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
                                dbPutSerBlundRealDefault)
@@ -92,7 +98,22 @@ data LauncherOptions = LO
     -- console, except on Windows where we don't output anything to console
     -- because it crashes).
     , loLauncherLogsPrefix  :: !(Maybe FilePath)
-    }
+    } deriving (Generic)
+
+instance FromJSON LauncherOptions where
+    parseJSON = withObject "LauncherOptions" $ \o ->
+        genericParseJSON defaultOptions $ Object $
+            -- This provides default values for some keys and
+            -- allows not specifying them in the configuration
+            -- file at all. @<>@ for hashmaps is left-biased,
+            -- so it only adds new keys if there are aren't
+            -- any yet.
+            o <> HM.fromList
+                [ ("walletLogging", Bool False)
+                , ("nodeArgs",      Array mempty)
+                , ("walletArgs",    Array mempty)
+                , ("updaterArgs",   Array mempty)
+                ]
 
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
@@ -115,91 +136,75 @@ data UpdaterData = UpdaterData
     , udArchivePath :: Maybe FilePath
     }
 
-optionsParser :: Parser LauncherOptions
-optionsParser = do
-    let textOption :: IsString a => Mod OptionFields String -> Parser a
-        textOption = fmap fromString . strOption
+data LauncherArgs = LauncherArgs
+    { maybeConfigPath  :: !(Maybe FilePath)
+    }
 
-    -- Node-related args
-    loNodePath <- textOption $
-        long    "node" <>
-        help    "Path to the node executable." <>
-        metavar "PATH"
-    loNodeArgs <- many $ textOption $
-        short   'n' <>
-        help    "An argument to be passed to the node." <>
-        metavar "ARG"
-    loNodeDbPath <- strOption $
-        long    "db-path" <>
-        metavar "FILEPATH" <>
-        help    "Path to directory with all DBs used by the node."
-    loNodeLogConfig <- optional $ textOption $
-        long    "node-log-config" <>
-        help    "Path to log config that will be used by the node." <>
-        metavar "PATH"
-    loNodeLogPath <- optional $ textOption $
-        long    "node-log-path" <>
-        help    "File where node stdout/err will be redirected " <>
-        metavar "PATH"
+data LauncherError =
+      ConfigParseError !FilePath !(Y.ParseException)
 
-    -- Wallet-related args
-    loWalletPath <- optional $ textOption $
-        long    "wallet" <>
-        help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
-        metavar "PATH"
-    loWalletArgs <- many $ textOption $
-        short   'w' <>
-        help    "An argument to be passed to the wallet frontend executable." <>
-        metavar "ARG"
-    loWalletLogging <- switch $
-        long    "wlogging" <>
-        help    "Bool that determines if wallet should log to stdout"
+instance Show LauncherError where
+    show (ConfigParseError configPath yamlException) = toString $
+        sformat ("Failed to parse config at "%string%": "%shown) configPath yamlException
 
-    loWalletLogPath <- optional $ textOption $
-        long    "wallet-log-path" <>
-        help    "File where wallet stdout/err will be redirected " <>
-        metavar "PATH"
-    -- Update-related args
-    loUpdaterPath <- textOption $
-        long    "updater" <>
-        help    "Path to the updater executable." <>
-        metavar "PATH"
-    loUpdaterArgs <- many $ textOption $
-        short   'u' <>
-        help    "An argument to be passed to the updater." <>
-        metavar "ARG"
-    loUpdateArchive <- optional $ textOption $
-        long    "update-archive" <>
-        help    "Path to the update archive, it will be passed to the updater." <>
-        metavar "PATH"
-    loUpdateWindowsRunner <- optional $ textOption $
-        long    "updater-windows-runner" <>
-        help    "Path to write the Windows batch file executing updater" <>
-        metavar "PATH"
+instance Exception LauncherError
 
-    -- Other args
-    loNodeTimeoutSec <- option auto $
-        long    "node-timeout" <>
-        help    ("How much to wait for the node to exit before killing it " <>
-                 "(and then how much to wait after that).") <>
-        metavar "SEC"
-    loReportServer <- optional $ strOption $
-        long    "report-server" <>
-        help    "Where to send logs in case of failure." <>
-        metavar "URL"
-    loLauncherLogsPrefix <- optional $ strOption $
-        long    "launcher-logs-prefix" <>
-        help    "Where to put launcher logs (def: console only)." <>
-        metavar "DIR"
+launcherArgsParser :: Parser LauncherArgs
+launcherArgsParser = do
+    maybeConfigPath <- optional $ strOption $
+        short   'c' <>
+        long    "config" <>
+        help    "Path to the launcher configuration file." <>
+        metavar "PATH"
+    pure $ LauncherArgs {..}
 
-    loConfiguration <- configurationOptionsParser
+getDefaultLogDir :: IO FilePath
+getDefaultLogDir =
+#ifdef mingw32_HOST_OS
+    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
+#else
+    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
+#endif
 
-    pure LO{..}
+-- | Write @contents@ into @filename@ under default logging directory.
+--
+-- This function is only intended to be used before normal logging
+-- is initialized. Its purpose is to provide at least some information
+-- in cases where normal reporting methods don't work yet.
+reportErrorDefault :: FilePath -> Text -> IO ()
+reportErrorDefault filename contents = do
+    logDir <- getDefaultLogDir
+    createDirectoryIfMissing True logDir
+    writeFile (logDir </> filename) contents
 
 getLauncherOptions :: IO LauncherOptions
-getLauncherOptions = execParser programInfo
+getLauncherOptions = do
+    LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    configPath <- maybe defaultConfigPath pure maybeConfigPath
+    decoded <- Y.decodeFileEither configPath
+    case decoded of
+        Left err -> do
+            reportErrorDefault "config-parse-error.log" $ show err
+            throwM $ ConfigParseError configPath err
+        Right op -> expandVars op
   where
-    programInfo = info (helper <*> versionOption <*> optionsParser) $
+    execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
+    execParserEither pinfo = do
+        args <- getArgs
+        case execParserPure defaultPrefs pinfo args of
+            Success a -> pure $ Right a
+            Failure failure -> do
+                progn <- getProgName
+                let (msg, exitCode) = renderFailure failure progn
+                pure $ Left (toText msg, exitCode)
+            CompletionInvoked compl -> handleParseResult $ CompletionInvoked compl
+
+    parseErrorHandler :: (Text, ExitCode) -> IO a
+    parseErrorHandler (msg, exitCode) = do
+        reportErrorDefault "cli-parse-error.log" msg
+        exitWith exitCode
+
+    programInfo = info (helper <*> versionOption <*> launcherArgsParser) $
         fullDesc <> progDesc ""
                  <> header "Tool to launch Cardano SL."
                  <> footerDoc usageExample
@@ -208,33 +213,56 @@ getLauncherOptions = execParser programInfo
         ("cardano-launcher-" <> showVersion version)
         (long "version" <> help "Show version.")
 
+    defaultConfigPath :: IO FilePath
+    defaultConfigPath = do
+        launcherDir <- takeDirectory <$> getExecutablePath
+        pure $ launcherDir </> "launcher-config.yaml"
+
+    -- Poor man's environment variable expansion.
+    expandVars :: LauncherOptions -> IO LauncherOptions
+#ifdef mingw32_HOST_OS
+    expandVars lo@(LO {..}) = do
+        -- %APPDATA%: nodeArgs, nodeDbPath,
+        --     nodeLogPath, updaterPath,
+        --     updateWindowsRunner, launcherLogsPrefix
+        -- %DAEDALUS_DIR%: nodePath, walletPath
+        appdata <- toText <$> getEnv "APPDATA"
+        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
+        let replaceAppdata = replace "%APPDATA%" appdata
+            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+        pure lo
+            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
+            , loNodeDbPath          = replaceAppdata loNodeDbPath
+            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
+            , loUpdaterPath         = replaceAppdata loUpdaterPath
+            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
+            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
+            , loNodePath            = replaceDaedalusDir loNodePath
+            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
+            }
+#else
+    expandVars lo@(LO {..}) = do
+        home <- toText <$> getEnv "HOME"
+        let replaceHome = replace "$HOME" home
+        pure lo
+            { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
+            , loNodeDbPath         = replaceHome loNodeDbPath
+            , loNodeLogPath        = replaceHome <$> loNodeLogPath
+            , loUpdateArchive      = replaceHome <$> loUpdateArchive
+            , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
+            }
+#endif
+    replace :: Text -> Text -> FilePath -> FilePath
+    replace from to = toString . T.replace from to . toText
+
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
 Command example:
 
-  stack exec -- cardano-launcher                            \
-    --node binaries_v000/cardano-node                       \
-    --node-log-config scripts/log-templates/log-config.yaml \
-    -n "--update-server"                                    \
-    -n "http://localhost:3001"                              \
-    -n "--update-latest-path"                               \
-    -n "updateDownloaded.tar"                               \
-    -n "--listen"                                           \
-    -n "127.0.0.1:3004"                                     \
-    -n "--kademlia-id"                                      \
-    -n "a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA="       \
-    -n "--rebuild-db"                                       \
-    -n "--wallet"                                           \
-    -n "--web-port"                                         \
-    -n 8080                                                 \
-    -n "--wallet-port"                                      \
-    -n 8090                                                 \
-    -n "--wallet-rebuild-db"                                \
-    --updater cardano-updater                               \
-    -u "dir"                                                \
-    -u "binaries_v000"                                      \
-    --node-timeout 5                                        \
-    --update-archive updateDownloaded.tar|]
+  stack exec -- cardano-launcher --config launcher-config.yaml
+
+See tools/src/launcher/launcher-config.yaml for
+an example of the config file.|]
 
 data LauncherModeContext = LauncherModeContext { lmcNodeDBs :: NodeDBs }
 
@@ -273,7 +301,8 @@ main =
 #endif
   do
     LO {..} <- getLauncherOptions
-    let realNodeArgs = addConfigurationOptions loConfiguration $
+    -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
+    let realNodeArgs = propagateOptions loNodeDbPath loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -314,19 +343,22 @@ main =
                     loReportServer
                     loWalletLogging
   where
-    -- We propagate configuration options to the node executable,
-    -- because we almost certainly want to use the same configuration
-    -- and don't want to pass the same options twice.  However, if
-    -- user passes these options to the node explicitly, then we leave
-    -- their choice. It doesn't cover all cases
+    -- We propagate some options to the node executable, because
+    -- we almost certainly want to use the same configuration and
+    -- don't want to pass the same options twice.  However, if the
+    -- user passes these options to the node explicitly, then we
+    -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
-    addConfigurationOptions (ConfigurationOptions path key systemStart seed) =
+    propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
+        addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed
 
+    addNodeDbPath nodeDbPath =
+        maybeAddOption "--db-path" (toText nodeDbPath)
     addConfFileOption filePath =
         maybeAddOption "--configuration-file" (toText filePath)
     addConfKeyOption key = maybeAddOption "--configuration-key" key
@@ -377,7 +409,7 @@ serverScenario ndbp logConf node updater report = do
 clientScenario
     :: NodeDbPath
     -> Maybe FilePath    -- ^ Logger config
-    -> NodeData          -- ^ Node, args, wallet log path
+    -> NodeData          -- ^ Node, args, node log path
     -> NodeData          -- ^ Wallet, args, wallet log path
     -> UpdaterData       -- ^ Updater, args, updater runner, archive path
     -> Int               -- ^ Node timeout, in seconds
@@ -458,19 +490,27 @@ runUpdater ndbp ud = do
                 -- this will throw an exception if the file doesn't exist but
                 -- hopefully if the updater has succeeded it *does* exist
                 whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
-                    updateArchive <- BS.L.readFile updateArchivePath
-                    bracketNodeDBs ndbp $ \lmcNodeDBs ->
-                        usingReaderT LauncherModeContext{..} $
-                        affirmUpdateInstalled (installerHash updateArchive)
-                    removeFile updateArchivePath
+                    let affirmInstalled = do
+                            updateArchive <- BS.L.readFile updateArchivePath
+                            bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                                usingReaderT LauncherModeContext{..} $
+                                affirmUpdateInstalled (installerHash updateArchive)
+                        removeInstaller = removeFile updateArchivePath
+                    -- Even if we fail to affirm that update was
+                    -- installed, we still want to remove installer to
+                    -- avoid infinite loop. If we don't remove it, we
+                    -- will launch it again and again.
+                    affirmInstalled `finally` removeInstaller
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
-runUpdaterProc path args = liftIO $ do
-    let cr = createProc Process.CreatePipe path args
-    phvar <- newEmptyMVar
-    system' phvar cr mempty EUpdater
+runUpdaterProc path args = do
+    logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
+    liftIO $ do
+        let cr = createProc Process.CreatePipe path args
+        phvar <- newEmptyMVar
+        system' phvar cr mempty EUpdater
 
 writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do
@@ -487,8 +527,6 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]
-  where
-    quote str = "\"" <> str <> "\""
 
 ----------------------------------------------------------------------------
 -- Running stuff
@@ -503,6 +541,7 @@ spawnNode nd doesWalletLogToConsole = do
         args = ndArgs nd
         mLogPath = ndLogPath nd
     logNotice "Starting the node"
+    logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later in `system'`:
@@ -698,3 +737,10 @@ maybeTrySIGKILL _h = do
         Process.OpenHandle pid -> signalProcess sigKILL pid
         _                      -> pass
 #endif
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+quote :: Text -> Text
+quote str = "\"" <> str <> "\""

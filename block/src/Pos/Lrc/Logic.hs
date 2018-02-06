@@ -1,5 +1,5 @@
-
--- | Logic related to eligibility threshold.
+-- | Auxiliary functions for retrieval of richmen
+-- (with and without considering delegation) from the DB.
 
 module Pos.Lrc.Logic
        ( findRichmenStakes

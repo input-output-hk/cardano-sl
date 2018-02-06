@@ -22,8 +22,6 @@ library
     Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
     Pos.Txp.Toil.Stakes
-    Pos.Txp.Toil.Stakes.Functions
-    Pos.Txp.Toil.Stakes.Pure
     Pos.Txp.Toil.Class
     Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
@@ -40,8 +38,8 @@ library
     Pos.Txp.Logic.Local
 
     Pos.Txp.Network
-    Pos.Txp.Network.Listeners
     Pos.Txp.Network.Types
+    Pos.Txp.Network.Listeners
 
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
@@ -97,7 +95,7 @@ library
                      , neat-interpolation
                      , plutus-prototype
                      , resourcet
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , safe-exceptions
                      , serokell-util
                      , stm
@@ -134,6 +132,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

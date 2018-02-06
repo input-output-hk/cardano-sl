@@ -17,6 +17,15 @@ library
                         Pos.Arbitrary.Slotting
                         Pos.Arbitrary.Infra
 
+                        -- Diffusion layer
+                        Pos.Diffusion.Transport.TCP
+                        Pos.Diffusion.Types
+                        Pos.Diffusion.Subscription.Common
+                        Pos.Diffusion.Subscription.Dns
+                        Pos.Diffusion.Subscription.Dht
+
+                        Pos.DHT.Workers
+
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.Exceptions
@@ -51,7 +60,6 @@ library
                         Pos.DHT.Real.Types
                         Pos.DHT.Real.Param
                         Pos.DHT.Real.CLI
-                        Pos.DHT.Workers
 
                         -- Pos.Communication
                         Pos.Communication.Configuration
@@ -70,6 +78,9 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
+
                         -- Configuration
                         Pos.Infra.Configuration
 
@@ -86,16 +97,21 @@ library
                         -- Recovery
                         Pos.Recovery.Info
 
+                        -- Reporting
+                        Pos.Reporting.Health.Types
+                        Pos.Reporting.Ekg
+                        Pos.Reporting.Statsd
+
                         -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
                         Pos.Shutdown.Types
 
-                        -- Subscription
-                        Pos.Subscription.Common
-                        Pos.Subscription.Dns
-                        Pos.Subscription.Dht
+                        -- Statistics
+                        Pos.Statistics
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
 
                         -- NTP
                         Pos.NtpCheck
@@ -108,8 +124,12 @@ library
 
                         -- Pos.Util
                         Pos.Util.LogSafe
+                        Pos.Util.Monitor
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
+
+                        -- Pos.Worker
+                        Pos.Worker.Types
 
   other-modules:        Paths_cardano_sl_infra
 
@@ -130,6 +150,8 @@ library
                       , directory
                       , dns
                       , ekg-core
+                      , ekg-statsd
+                      , ekg-wai
                       , ether >= 0.5
                       , exceptions
                       , filepath
@@ -194,6 +216,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

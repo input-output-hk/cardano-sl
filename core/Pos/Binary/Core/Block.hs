@@ -17,6 +17,7 @@ import qualified Pos.Core.Block.Main.Types as BC
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (Hash)
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -35,7 +36,7 @@ instance Bi (Core.BodyProof BC.MainBlockchain) where
                          decode <*>
                          decode
 
-instance Bi BC.BlockSignature where
+instance HasConfiguration => Bi BC.BlockSignature where
     encode input = case input of
         BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
         BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
@@ -47,7 +48,7 @@ instance Bi BC.BlockSignature where
           0 -> BC.BlockSignature <$> decode
           1 -> BC.BlockPSignatureLight <$> decode
           2 -> BC.BlockPSignatureHeavy <$> decode
-          _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
+          _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
 
 instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
     encode cd =  encodeListLen 4

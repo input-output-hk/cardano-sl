@@ -107,6 +107,7 @@ Library
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
                         RecordWildCards
+                        MonadFailDesugaring
 
 executable discovery
   main-is:              Discovery.hs
@@ -128,6 +129,7 @@ executable discovery
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
                         RecordWildCards
+                        MonadFailDesugaring
 
 executable ping-pong
   main-is:             PingPong.hs
@@ -137,6 +139,7 @@ executable ping-pong
                      , cardano-sl-networking
                      , network-transport-tcp
                      , random
+                     , safe-exceptions
                      , time-units
 
   hs-source-dirs:      examples
@@ -147,6 +150,7 @@ executable ping-pong
                        GeneralizedNewtypeDeriving
                        OverloadedStrings
                        RecordWildCards
+                       MonadFailDesugaring
 
 executable bench-sender
   main-is:             Main.hs
@@ -160,6 +164,7 @@ executable bench-sender
                      , network-transport-tcp
                      , optparse-simple >= 0.0.3
                      , random
+                     , safe-exceptions
                      , serokell-util
                      , time-units
   hs-source-dirs:      bench/Sender
@@ -173,6 +178,7 @@ executable bench-sender
                        RecordWildCards
                        DeriveDataTypeable
                        GeneralizedNewtypeDeriving
+                       MonadFailDesugaring
 
 executable bench-receiver
   main-is:             Main.hs
@@ -183,6 +189,7 @@ executable bench-receiver
                      , network-transport-tcp
                      , optparse-simple
                      , random
+                     , safe-exceptions
                      , serokell-util
                      , time-units
   hs-source-dirs:      bench/Receiver
@@ -196,6 +203,7 @@ executable bench-receiver
                      , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
 
 executable bench-log-reader
   main-is:             Main.hs
@@ -213,6 +221,7 @@ executable bench-log-reader
                      , mtl
                      , optparse-simple
                      , resourcet
+                     , safe-exceptions
                      , text
                      , text-format
   hs-source-dirs:      bench/LogReader
@@ -226,6 +235,7 @@ executable bench-log-reader
                      , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
 
 test-suite cardano-sl-networking-test
   main-is:             Test.hs
@@ -263,6 +273,7 @@ test-suite cardano-sl-networking-test
                      , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
 
 benchmark qdisc-simulation
   type:           exitcode-stdio-1.0

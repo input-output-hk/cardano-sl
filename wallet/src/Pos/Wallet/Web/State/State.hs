@@ -59,7 +59,6 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
-       , setWalletTxMeta
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -86,10 +85,10 @@ module Pos.Wallet.Web.State.State
        , flushWalletStorage
        ) where
 
+import           Universum
+
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
-import           Ether.Internal (lensOf)
-import           Universum
 
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core (HeaderHash, SlotId)
@@ -97,7 +96,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxId)
 import           Pos.Txp (Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (HasLens')
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CId, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWAddressMeta, CWalletMeta,
                                              PassPhraseLU, Wal)
@@ -208,7 +207,7 @@ getWalletTxHistory = queryDisk . A.GetWalletTxHistory
 getNextUpdate :: MonadWalletDBRead ctx m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
+getHistoryCache :: MonadWalletDBRead ctx m => CId Wal -> m (Map TxId TxHistoryEntry)
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [(CId Addr, HeaderHash)]
@@ -258,9 +257,6 @@ setProfile = updateDisk . A.SetProfile
 
 doesAccountExist :: MonadWalletDBRead ctx m => AccountId -> m Bool
 doesAccountExist = queryDisk . A.DoesAccountExist
-
-setWalletTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
 addOnlyNewTxMetas :: MonadWalletDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
 addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)

@@ -33,8 +33,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
     Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
@@ -54,6 +52,8 @@ library
     Pos.Ssc.Toss.Class
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
+
+    Pos.Ssc.Worker
 
     Pos.Arbitrary.Ssc
 
@@ -95,7 +95,7 @@ library
                      , mtl
                      , parsec
                      , reflection
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , stm
                      , tagged
@@ -130,6 +130,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

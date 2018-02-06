@@ -10,10 +10,12 @@ module Pos.Crypto.Signing.Types.Redeem
        , redeemToPublic
        ) where
 
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable as B
+import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Formatting (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
@@ -79,19 +81,35 @@ instance B.Buildable (RedeemSignature a) where
 redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
 redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
 
+data AvvmPkError
+    = ApeAddressFormat Text
+    | ApeAddressLength Int
+    deriving (Show)
+
+instance Buildable AvvmPkError where
+    build = \case
+        ApeAddressFormat addrText ->
+            "Address " <> Builder.fromText addrText <>
+            " is not base64(url) format"
+        ApeAddressLength len ->
+            "Address' length is " <> B.build len <>
+            ", expected 32, can't be redeeming pk"
+
+instance Exception AvvmPkError where
+    displayException = toString . pretty
+
 -- | Read the text into a redeeming public key. The key should be in
 -- AVVM format which is base64(url). This function must be inverse of
 -- redeemPkB64UrlF formatter.
-fromAvvmPk :: (MonadFail m) => Text -> m RedeemPublicKey
+fromAvvmPk :: Text -> Either AvvmPkError RedeemPublicKey
 fromAvvmPk addrText = do
     let base64rify = T.replace "-" "+" . T.replace "_" "/"
     let parsedM = B64.decode $ base64rify addrText
-    addrParsed <-
-        maybe (fail $ "Address " <> toString addrText <> " is not base64(url) format")
-        pure
-        (rightToMaybe parsedM)
-    unless (BS.length addrParsed == 32) $
-        fail "Address' length is not equal to 32, can't be redeeming pk"
+    addrParsed <- case parsedM of
+        Left _ -> Left (ApeAddressFormat addrText)
+        Right a -> Right a
+    let len = BS.length addrParsed
+    unless (len == 32) $ Left (ApeAddressLength len)
     pure $ redeemPkBuild addrParsed
 
 -- | Creates a public key from 32 byte bytestring, fails with 'error'

@@ -125,7 +125,7 @@ packHDAddressAttr (HDPassphrase passphrase) path = do
         CryptoPassed p  -> HDAddressPayload p
 
 -- | Try to decrypt HDAddressPayload using HDPassphrase.
-unpackHDAddressAttr :: MonadFail m => HDPassphrase -> HDAddressPayload -> m [Word32]
+unpackHDAddressAttr :: HDPassphrase -> HDAddressPayload -> Maybe [Word32]
 unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     let !unpackCF =
           decryptChaChaPoly
@@ -134,11 +134,9 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
               ""
               payload
     case unpackCF of
-        Left er ->
-            fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
+        Left _ -> Nothing
         Right p -> case decodeFull p of
-            Left er ->
-                fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
+            Left _ -> Nothing
             Right path -> pure path
 
 -- | Take HDPassphrase as symmetric key and serialized derivation path

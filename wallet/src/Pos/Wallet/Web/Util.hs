@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | Different utils for wallets
+-- | Various utilities for Wallet.
 
 module Pos.Wallet.Web.Util
     ( getAccountMetaOrThrow

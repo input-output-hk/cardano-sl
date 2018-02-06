@@ -31,8 +31,9 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
                                             redeemKeyGen, redeemSign)
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
 import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
-import           Pos.Util.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen, sublistN)
 import           Pos.Util.Orphans ()
+import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
+                                                sublistN)
 
 deriving instance Arbitrary ProtocolMagic
 

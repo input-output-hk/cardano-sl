@@ -133,11 +133,16 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 
             workerOuts :: HandlerSpecs
             OutSpecs workerOuts = mconcat
-                [ sscWorkerOutSpecs
-                , securityWorkerOutSpecs
-                , usWorkerOutSpecs
+                [ -- First: the relay system out specs.
+                  Diffusion.Txp.txOutSpecs logic
+                , Diffusion.Update.updateOutSpecs logic
+                , Diffusion.Delegation.delegationOutSpecs logic
+                , Diffusion.Ssc.sscOutSpecs logic
+                  -- Relay system for blocks is ad-hoc.
                 , blockWorkerOutSpecs
-                , delegationWorkerOutSpecs
+                  -- SSC has non-relay out specs, defined below.
+                , sscWorkerOutSpecs
+                , securityWorkerOutSpecs
                 , slottingWorkerOutSpecs
                 , subscriptionWorkerOutSpecs
                 , dhtWorkerOutSpecs
@@ -159,9 +164,6 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                         (Proxy :: Proxy MsgHeaders)
                 ]
 
-            -- Definition of usWorkers plainly shows the out specs = mempty.
-            usWorkerOutSpecs = mempty
-
             -- announceBlockHeaderOuts from blkCreatorWorker
             -- announceBlockHeaderOuts from blkMetricCheckerWorker
             -- along with the retrieval worker outs which also include
@@ -177,9 +179,6 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                          (Proxy :: Proxy MsgGetHeaders)
                                                  ]
-
-            -- It's a local worker, no out specs.
-            delegationWorkerOutSpecs = mempty
 
             -- Plainly mempty from the definition of allWorkers.
             slottingWorkerOutSpecs = mempty

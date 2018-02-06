@@ -109,7 +109,6 @@ test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec
-                       Test.Pos.Helpers
 
                        Test.Pos.Lrc.WorkerSpec
                        Test.Pos.Block.Logic.CreationSpec

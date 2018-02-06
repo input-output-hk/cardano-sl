@@ -94,8 +94,6 @@ library
 
                         -- Exposed for tests
                         Test.Pos.Helpers
-                        Test.Pos.Cbor.Canonicity
-                        Test.Pos.Cbor.RefImpl
 
                         -- Util code for tests
                         Test.Pos.Configuration

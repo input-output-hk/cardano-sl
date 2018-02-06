@@ -28,7 +28,7 @@ import           Pos.Explorer.Txp.Local    (eTxProcessTransaction)
 #else
 import           Pos.Txp.Logic             (txProcessTransaction)
 #endif
-import           Pos.Txp.MemState          (getMemPool)
+import           Pos.Txp.MemState          (getMemPool, withTxpLocalData)
 import           Pos.Txp.Network.Types     (TxMsgContents (..))
 import           Pos.Txp.Toil.Types        (MemPool (..))
 import           Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
@@ -48,9 +48,9 @@ txInvReqDataParams =
   where
     txContentsToKey = pure . Tagged . hash . taTx . getTxMsgContents
     txHandleInv (Tagged txId) =
-        not . HM.member txId  . _mpLocalTxs <$> getMemPool
+        not . HM.member txId  . _mpLocalTxs <$> withTxpLocalData getMemPool
     txHandleReq (Tagged txId) =
-        fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+        fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
     txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
 txRelays
@@ -58,7 +58,7 @@ txRelays
     => [Relay m]
 txRelays = pure $
     InvReqData (KeyMempool (Proxy :: Proxy TxMsgContents)
-                           (map tag . HM.keys . _mpLocalTxs <$> getMemPool)) $
+                           (map tag . HM.keys . _mpLocalTxs <$> withTxpLocalData getMemPool)) $
                txInvReqDataParams
   where
     tag = tagWith (Proxy :: Proxy TxMsgContents)

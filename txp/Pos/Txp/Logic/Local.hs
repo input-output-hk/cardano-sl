@@ -12,35 +12,38 @@ module Pos.Txp.Logic.Local
 
 import           Universum
 
-import           Control.Lens         (makeLenses)
-import           Control.Monad.Except (MonadError (..), runExceptT)
-import           Data.Default         (Default (def))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Map             as M (fromList)
-import           Formatting           (build, sformat, (%))
-import           Mockable             (CurrentTime, Mockable)
-import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens           (makeLenses)
+import           Control.Monad.Except   (MonadError (..), runExceptT)
+import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.List.NonEmpty     as NE
+import qualified Data.Map               as M (fromList)
+import           Formatting             (build, sformat, (%))
+import           Mockable               (CurrentTime, Mockable)
+import           System.Wlog            (WithLogger, logDebug, logError, logWarning)
 
-import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
-                                       HeaderHash, siEpoch)
-import           Pos.Crypto           (WithHash (..))
-import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
-import qualified Pos.DB.GState.Common as GS
-import           Pos.Reporting        (MonadReporting, reportError)
-import           Pos.Slotting         (MonadSlots (..))
-import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
-                                       withStateLock)
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
-                                       TxpLocalDataPure, askTxpMem, getLocalTxs,
-                                       getUtxoModifier, modifyTxpLocalData,
-                                       setTxpLocalData)
-import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
-                                       ToilModifier, ToilT, ToilVerFailure (..), Utxo,
-                                       execToilTLocal, mpLocalTxs, normalizeToil,
-                                       processTx, runDBToil, runToilTLocal, utxoGetReader)
-import           Pos.Util.Util        (HasLens (..), HasLens')
+import           Pos.Core               (BlockVersionData, EpochIndex, HasConfiguration,
+                                         HeaderHash, siEpoch)
+import           Pos.Crypto             (WithHash (..))
+import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
+import qualified Pos.DB.GState.Common   as GS
+import           Pos.Reporting          (MonadReporting, reportError)
+import           Pos.Slotting           (MonadSlots (..))
+import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
+                                         withStateLock)
+import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
+import           Pos.Txp.MemState       (GenericTxpLocalData (..), MonadTxpMem,
+                                         getLocalTxs, getLocalUndos, getMemPool,
+                                         getUtxoModifier, setTxpLocalData,
+                                         withTxpLocalData)
+import           Pos.Txp.Toil           (GenericToilModifier (..), MemPool,
+                                         MonadUtxoRead (..), ToilModifier, ToilT,
+                                         ToilVerFailure (..), UndoMap, Utxo, UtxoModifier,
+                                         execToilTLocal, mpLocalTxs, normalizeToil,
+                                         processTx, runDBToil, runToilTLocal,
+                                         utxoGetReader)
+import           Pos.Util.Util          (HasLens (..), HasLens')
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m
@@ -109,7 +112,7 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    localUM <- lift $ getUtxoModifier @()
+    localUM <- withTxpLocalData getUtxoModifier
     let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
@@ -123,10 +126,20 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
             { _ptcAdoptedBVData = bvd
             , _ptcUtxoBase = resolved
             }
-    pRes <-
-        lift $
-        modifyTxpLocalData $
-        processTxDo epoch ctx tipDB itw
+    pRes <- withTxpLocalData $ \txpData -> do
+        -- Note that we now have a (potentially) different UtxoModifier to the one
+        -- we have been working with. Could this cause problems?
+        uv <- getUtxoModifier txpData
+        mp <- getMemPool txpData
+        undo <- getLocalUndos txpData
+        tip <- STM.readTVar (txpTip txpData)
+        forM (processTxDo epoch ctx tipDB itw (uv, mp, undo, tip))
+          $ \(uv', mp', undo', tip') -> do
+            STM.writeTVar (txpUtxoModifier txpData) uv'
+            STM.writeTVar (txpMemPool txpData) mp'
+            STM.writeTVar (txpUndos txpData) undo'
+            STM.writeTVar (txpTip txpData) tip'
+
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
@@ -142,10 +155,10 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
         -> ProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
-        -> TxpLocalDataPure
-        -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo curEpoch ctx tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
+        -> (UtxoModifier, MemPool, UndoMap, HeaderHash)
+        -> (Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash))
+    processTxDo curEpoch ctx tipDB tx (uv, mp, undo, tip)
+        | tipDB /= tip = Left $ ToilTipsMismatch tipDB tip
         | otherwise =
             let action :: ExceptT ToilVerFailure (ToilT () ProcessTxMode) TxUndo
                 action = processTx curEpoch tx
@@ -154,10 +167,9 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
                     usingReader ctx $
                     runToilTLocal uv mp undo $ runExceptT action
             in case res of
-                   (Left er, _) -> (Left er, txld)
+                   (Left er, _) -> Left er
                    (Right _, ToilModifier {..}) ->
-                       ( Right ()
-                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+                       Right (_tmUtxo, _tmMemPool, _tmUndos, tip)
     -- REPORT:ERROR Tips mismatch in txp.
     reportTipMismatch action = do
         res <- action
@@ -176,13 +188,13 @@ txNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData (mempty, def, mempty, tip, def)
+        withTxpLocalData $ flip setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
-        localTxs <- getLocalTxs
+        localTxs <- withTxpLocalData getLocalTxs
         ToilModifier {..} <-
             runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
-        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        withTxpLocalData $ flip setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
 
 -- | Get 'TxPayload' from mempool to include into a new block which
 -- will be based on the given tip. In something goes wrong, empty
@@ -195,9 +207,8 @@ txNormalize = getCurrentSlot >>= \case
 -- that either none or both of them will be done.
 txGetPayload :: (MonadIO m, MonadTxpMem ext ctx m, WithLogger m) => HeaderHash -> m [TxAux]
 txGetPayload neededTip = do
-    TxpLocalData {..} <- askTxpMem
-    (view mpLocalTxs -> memPool, memPoolTip) <-
-        atomically $ (,) <$> readTVar txpMemPool <*> readTVar txpTip
+    (view mpLocalTxs -> memPool, memPoolTip) <- withTxpLocalData $ \(TxpLocalData{..}) ->
+        (,) <$> readTVar txpMemPool <*> readTVar txpTip
     let tipMismatchMsg =
             sformat
                 ("txGetPayload: tip mismatch (in DB: )"%build%

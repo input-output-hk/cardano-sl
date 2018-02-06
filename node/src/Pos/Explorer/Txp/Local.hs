@@ -29,11 +29,13 @@ import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotSta
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
 import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
-                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
-                                         modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
-                                         ToilT, ToilVerFailure (..), Utxo, runDBToil,
+import           Pos.Txp.MemState       (MonadTxpMem, getLocalTxsMap, getLocalUndos,
+                                         getMemPool, getTxpExtra, getTxpTip,
+                                         getUtxoModifier, setTxpLocalData,
+                                         withTxpLocalData)
+import           Pos.Txp.Toil           (GenericToilModifier (..), MemPool,
+                                         MonadUtxoRead (..), ToilT, ToilVerFailure (..),
+                                         UndoMap, Utxo, UtxoModifier, runDBToil,
                                          runDBToil, runToilTLocalExtra, utxoGet,
                                          utxoGetReader)
 import           Pos.Util.Chrono        (NewestFirst (..))
@@ -57,8 +59,6 @@ type ETxpLocalWorkMode ctx m =
     , MonadMask m
     , MonadReporting ctx m
     )
-
-type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
 -- Base context for tx processing in explorer.
 data EProcessTxContext = EProcessTxContext
@@ -118,7 +118,7 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
-    localUM <- lift getUtxoModifier
+    localUM <- withTxpLocalData getUtxoModifier
     bvd <- gsAdoptedBVData
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
@@ -152,10 +152,15 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
             , _eptcAdoptedBVData = bvd
             , _eptcUtxoBase = resolved
             }
-    pRes <-
-        lift $
-        modifyTxpLocalData $
-        processTxDo epoch ctx tipBefore itw mTxTimestamp
+    pRes <- withTxpLocalData $ \txpData -> do
+        uv <- getUtxoModifier txpData
+        mp <- getMemPool txpData
+        undo <- getLocalUndos txpData
+        tip <- getTxpTip txpData
+        extra <- getTxpExtra txpData
+        forM (processTxDo epoch ctx tipBefore itw mTxTimestamp (uv, mp, undo, tip, extra))
+            $ \x -> setTxpLocalData txpData x $> x
+
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
@@ -172,10 +177,10 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
         -> HeaderHash
         -> (TxId, TxAux)
         -> Maybe Timestamp
-        -> ETxpLocalDataPure
-        -> (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp txld@(uv, mp, undo, tip, extra)
-        | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
+        -> (UtxoModifier, MemPool, UndoMap, HeaderHash, ExplorerExtra)
+        -> Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, ExplorerExtra)
+    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp (uv, mp, undo, tip, extra)
+        | tipBefore /= tip = Left $ ToilTipsMismatch tipBefore tip
         | otherwise =
             let runToil ::
                        Functor m
@@ -193,10 +198,9 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
                        , GenericToilModifier ExplorerExtra)
                 res = usingReader ctx $ runToil $ runExceptT action
             in case res of
-                   (Left er, _) -> (Left er, txld)
+                   (Left er, _) -> Left er
                    (Right (), ToilModifier {..}) ->
-                       ( Right ()
-                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+                       Right (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra)
     runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
     buildMap keys maybeValues =
@@ -221,15 +225,16 @@ eTxNormalize = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
-        setTxpLocalData (mempty, def, mempty, tip, def)
+        withTxpLocalData $ flip setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
-        localTxs <- getLocalTxsMap
-        extra <- getTxpExtra
+        (localTxs, extra) <- withTxpLocalData $ \txpData -> (,)
+          <$> getLocalTxsMap txpData
+          <*> getTxpExtra txpData
         let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
         let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras
         ToilModifier {..} <-
             runDBToil $
             snd <$>
             runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
-        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        withTxpLocalData $ flip setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

@@ -17,7 +17,7 @@ import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (.
 import           Pos.Crypto           (PublicKey)
 import           Pos.DB               (MonadDBRead)
 import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
-                                       getUtxoModifier)
+                                       getUtxoModifier, withTxpLocalData)
 import qualified Pos.Txp.DB           as DB
 import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
 import qualified Pos.Util.Modifier    as MM
@@ -29,7 +29,7 @@ getOwnUtxos :: (MonadIO m, MonadDBRead m, MonadTxpMem ext ctx m)
 getOwnUtxos ws addrs = do
     let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
 
-    updates <- getUtxoModifier
+    updates <- withTxpLocalData getUtxoModifier
     let commonUtxo = if null commonAddrs then mempty
                      else WS.getWalletUtxo ws
     redeemUtxo <- if null redeemAddrs then pure mempty

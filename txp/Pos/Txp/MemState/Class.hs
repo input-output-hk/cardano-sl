@@ -5,15 +5,15 @@
 
 module Pos.Txp.MemState.Class
        ( MonadTxpMem
-       , askTxpMem
        , TxpHolderTag
+       , withTxpLocalData
        , getUtxoModifier
-       , getLocalTxsNUndo
+       , getLocalUndos
        , getMemPool
        , getLocalTxs
        , getLocalTxsMap
        , getTxpExtra
-       , modifyTxpLocalData
+       , getTxpTip
        , setTxpLocalData
        , clearTxpMemPool
        ) where
@@ -21,14 +21,14 @@ module Pos.Txp.MemState.Class
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Data.Default           (Default (def))
+import           Data.Default           (Default(..))
 import qualified Data.HashMap.Strict    as HM
 import           Ether.Internal         (HasLens (..))
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
-import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
-                                         GenericTxpLocalDataPure)
-import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
+import           Pos.Core.Types         (HeaderHash)
+import           Pos.Txp.Core.Types     (TxAux, TxId)
+import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))
+import           Pos.Txp.Toil.Types     (MemPool (..), UndoMap, UtxoModifier)
 
 data TxpHolderTag
 
@@ -41,73 +41,62 @@ type MonadTxpMem ext ctx m
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
 askTxpMem = view (lensOf @TxpHolderTag)
 
-getTxpLocalData
+-- | Operate with some or all of the TXP local data.
+--
+--   Since this function takes an STM action, it can be used to
+--   read or modify the components.
+withTxpLocalData
     :: (MonadIO m, MonadTxpMem e ctx m)
     => (GenericTxpLocalData e -> STM.STM a) -> m a
-getTxpLocalData getter = askTxpMem >>= \ld -> atomically (getter ld)
+withTxpLocalData f = askTxpMem >>= \ld -> atomically (f ld)
 
+-- | Read the UTXO modifier from the local TXP data.
 getUtxoModifier
-    :: (MonadTxpMem e ctx m, MonadIO m)
-    => m UtxoModifier
-getUtxoModifier = getTxpLocalData (STM.readTVar . txpUtxoModifier)
+    :: GenericTxpLocalData e -> STM.STM UtxoModifier
+getUtxoModifier = STM.readTVar . txpUtxoModifier
 
 getLocalTxsMap
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m (HashMap TxId TxAux)
-getLocalTxsMap = _mpLocalTxs <$> getMemPool
+    :: GenericTxpLocalData e -> STM.STM (HashMap TxId TxAux)
+getLocalTxsMap = fmap _mpLocalTxs . getMemPool
 
 getLocalTxs
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m [(TxId, TxAux)]
-getLocalTxs = HM.toList <$> getLocalTxsMap
+    :: GenericTxpLocalData e -> STM.STM [(TxId, TxAux)]
+getLocalTxs = fmap HM.toList . getLocalTxsMap
 
-getLocalTxsNUndo
-    :: (MonadIO m, MonadTxpMem e ctx m)
-    => m ([(TxId, TxAux)], HashMap TxId TxUndo)
-getLocalTxsNUndo =
-    getTxpLocalData $ \TxpLocalData {..} ->
-        (,) <$>
-        (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>
-        STM.readTVar txpUndos
+getLocalUndos
+    :: GenericTxpLocalData e -> STM.STM UndoMap
+getLocalUndos = STM.readTVar . txpUndos
 
-getMemPool :: (MonadIO m, MonadTxpMem e ctx m) => m MemPool
-getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
+getMemPool
+    :: GenericTxpLocalData e -> STM.STM MemPool
+getMemPool = STM.readTVar . txpMemPool
 
-getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
-getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
+getTxpTip
+    :: GenericTxpLocalData e -> STM.STM HeaderHash
+getTxpTip = STM.readTVar . txpTip
 
-modifyTxpLocalData
-    :: (MonadIO m, MonadTxpMem ext ctx m)
-    => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
-    -> m a
-modifyTxpLocalData f =
-    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
-        curUM <- STM.readTVar txpUtxoModifier
-        curMP <- STM.readTVar txpMemPool
-        curUndos <- STM.readTVar txpUndos
-        curTip <- STM.readTVar txpTip
-        curExtra <- STM.readTVar txpExtra
-        let (res,(newUM,newMP,newUndos,newTip,newExtra)) =
-                f (curUM, curMP, curUndos, curTip, curExtra)
-        STM.writeTVar txpUtxoModifier newUM
-        STM.writeTVar txpMemPool newMP
-        STM.writeTVar txpUndos newUndos
-        STM.writeTVar txpTip newTip
-        STM.writeTVar txpExtra newExtra
-        pure res
+getTxpExtra
+    :: GenericTxpLocalData e -> STM.STM e
+getTxpExtra = STM.readTVar . txpExtra
 
-setTxpLocalData ::
-       (MonadIO m, MonadTxpMem ext ctx m)
-    => GenericTxpLocalDataPure ext
-    -> m ()
-setTxpLocalData x = modifyTxpLocalData (const ((), x))
+-- | Helper function to set all components of the TxpLocalData.
+setTxpLocalData
+    :: GenericTxpLocalData e
+    -> (UtxoModifier, MemPool, UndoMap, HeaderHash, e)
+    -> STM.STM ()
+setTxpLocalData txpData (um, mp, un, hh, e) = do
+    STM.writeTVar (txpUtxoModifier txpData) um
+    STM.writeTVar (txpMemPool txpData) mp
+    STM.writeTVar (txpUndos txpData) un
+    STM.writeTVar (txpTip txpData) hh
+    STM.writeTVar (txpExtra txpData) e
 
-clearTxpMemPool ::
-       ( MonadIO m
-       , MonadTxpMem ext ctx m
-       , Default ext
-       )
-    => m ()
-clearTxpMemPool = modifyTxpLocalData clearF
-  where
-    clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))
+-- | Clear everything in local data with the exception of the
+--   header tip.
+clearTxpMemPool
+    :: Default e
+    => GenericTxpLocalData e
+    -> STM ()
+clearTxpMemPool txpData = do
+  tip <- getTxpTip txpData
+  setTxpLocalData txpData (mempty, def, mempty, tip, def)

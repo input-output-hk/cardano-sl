@@ -38,7 +38,7 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import qualified Data.Map.Strict              as M (lookup, insert, fromList)
+import qualified Data.Map.Strict              as M (fromList, insert, lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
@@ -74,7 +74,7 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                applyTxToUtxo, evalToilTEmpty,
                                                flattenTxPayload, genesisUtxo, getLocalTxs,
                                                runDBToil, topsortTxs, txOutAddress,
-                                               unGenesisUtxo, utxoGet)
+                                               unGenesisUtxo, utxoGet, withTxpLocalData)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -277,7 +277,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
             (WithHash taTx txid, taWitness)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
-    ltxs <- lift $ map mapper <$> getLocalTxs
+    ltxs <- lift $ map mapper <$> withTxpLocalData getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ txs

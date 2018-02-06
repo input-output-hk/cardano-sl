@@ -78,7 +78,8 @@ import           Pos.Txp                          (GenesisUtxo (..), Tx (..), Tx
                                                    TxUndo, flattenTxPayload, genesisUtxo,
                                                    toaOut, topsortTxs, txOutAddress,
                                                    utxoToModifier)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
+import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxs,
+                                                   getLocalUndos, withTxpLocalData)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
@@ -131,7 +132,9 @@ txMempoolToModifier ws encSK = do
         getDiff       = const Nothing  -- no difficulty (mempool txs)
         getTs         = const Nothing  -- don't give any timestamp
         getPtxBlkInfo = const Nothing  -- no slot of containing block
-    (txs, undoMap) <- getLocalTxsNUndo
+    (txs, undoMap) <- withTxpLocalData $ \txpData -> (,)
+        <$> getLocalTxs txpData
+        <*> getLocalUndos txpData
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)

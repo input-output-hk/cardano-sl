@@ -7519,7 +7519,7 @@ inherit (pkgs) mesa;};
          , formatting, generic-arbitrary, hashable, lens, log-warper, memory
          , mmorph, mtl, neat-interpolation, plutus-prototype, QuickCheck
          , resourcet, rocksdb-haskell-ng, safe-exceptions, serokell-util
-         , stdenv, stm, tagged, template-haskell, text, text-format
+         , stdenv, stm, tagged, template-haskell, text, text-format, th-lift
          , transformers, universum, unordered-containers, vector
          }:
          mkDerivation {
@@ -7534,7 +7534,7 @@ inherit (pkgs) mesa;};
              generic-arbitrary hashable lens log-warper memory mmorph mtl
              neat-interpolation plutus-prototype QuickCheck resourcet
              rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
-             template-haskell text text-format transformers universum
+             template-haskell text text-format th-lift transformers universum
              unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
@@ -7582,9 +7582,9 @@ inherit (pkgs) mesa;};
          , log-warper, lrucache, megaparsec, mmorph, mtl, parsec, process
          , QuickCheck, quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
-         , template-haskell, text, text-format, th-lift-instances, time
-         , time-units, transformers, transformers-base, transformers-lift
-         , universum, unordered-containers, vector
+         , template-haskell, text, text-format, th-lift, th-lift-instances
+         , time, time-units, transformers, transformers-base
+         , transformers-lift, universum, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-util";
@@ -7597,7 +7597,7 @@ inherit (pkgs) mesa;};
              log-warper lrucache megaparsec mmorph mtl parsec process QuickCheck
              quickcheck-instances random reflection resourcet safe-exceptions
              semigroups serokell-util stm tagged template-haskell text
-             text-format th-lift-instances time time-units transformers
+             text-format th-lift th-lift-instances time time-units transformers
              transformers-base transformers-lift universum unordered-containers
              vector
            ];

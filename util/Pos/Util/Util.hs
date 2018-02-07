@@ -18,6 +18,7 @@ module Pos.Util.Util
        , parsecError
        , toCerealError
        , cerealError
+       , liftE
 
        -- * Ether
        , ether
@@ -90,6 +91,7 @@ import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Lift as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
@@ -164,6 +166,9 @@ toParsecError = external_api_fail
 
 parsecError :: P.Stream s => Text -> P.ParsecT e s m a
 parsecError = toParsecError . Left
+
+liftE :: TH.Lift a => Either Text a -> TH.ExpQ
+liftE = TH.lift <=< toTemplateHaskellError
 
 ----------------------------------------------------------------------------
 -- Ether

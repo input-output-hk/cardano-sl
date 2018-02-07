@@ -68,18 +68,22 @@ stripStdlib (PL.Program xs) = PL.Program (filter (not . std) xs)
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
-parseValidator :: Bi Script_v0 => Text -> Either String Script
+parseValidator :: Bi Script_v0 => Text -> Either Text Script
 parseValidator t = do
-    scr <- stripStdlib <$> PL.loadValidator stdlib (toString t)
+    scr <-
+        over _Left fromString $
+        stripStdlib <$> PL.loadValidator stdlib (toString t)
     return Script {
         scrScript = Bi.serialize' scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
-parseRedeemer :: Bi Script_v0 => Text -> Either String Script
+parseRedeemer :: Bi Script_v0 => Text -> Either Text Script
 parseRedeemer t = do
-    scr <- stripStdlib <$> PL.loadRedeemer stdlib (toString t)
+    scr <-
+        over _Left fromString $
+        stripStdlib <$> PL.loadRedeemer stdlib (toString t)
     return Script {
         scrScript = Bi.serialize' scr,
         scrVersion = 0 }

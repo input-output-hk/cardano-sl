@@ -35,11 +35,11 @@ import qualified Pos.Lrc as Lrc
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util (getKeys)
 
+import           Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks)
-import           Test.Pos.Configuration (defaultTestBlockVersionData)
-import           Test.Pos.Util (maybeStopProperty, stopProperty, withStaticConfigurations)
+import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 
 
 spec :: Spec

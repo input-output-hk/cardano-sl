@@ -23,10 +23,11 @@ import qualified Pos.Crypto as Crypto
 import           Pos.SafeCopy ()
 import           Pos.Ssc ()
 
+import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 import           Test.Pos.Cbor.CborSpec (U)
+import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
 import           Test.Pos.Helpers (binaryEncodeDecode, binaryTest, msgLenLimitedTest,
-                                   safeCopyEncodeDecode, safeCopyTest, serDeserId, (.=.))
-import           Test.Pos.Util (qcIsLeft, withDefConfiguration, withDefInfraConfiguration)
+                                   safeCopyEncodeDecode, safeCopyTest, serDeserId)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

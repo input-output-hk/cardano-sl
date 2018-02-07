@@ -33,7 +33,7 @@ import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util (SmallGenerator (..), makeSmall)
 
-import           Test.Pos.Util (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ withDefUpdateConfiguration $

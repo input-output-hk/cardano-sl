@@ -25,7 +25,7 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Util (leftToPanic)
 
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block properties" $ do

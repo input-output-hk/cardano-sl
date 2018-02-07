@@ -72,6 +72,7 @@ module Network.Broadcast.OutboundQueue (
   , simplePeers
   , peersFromList
   , updatePeersBucket
+  , getAllPeers
     -- * Debugging
   , registerQueueMetrics
   , dumpState

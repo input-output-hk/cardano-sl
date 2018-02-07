@@ -54,14 +54,14 @@ import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAdd
 import           Pos.Wallet.Web.State       (WalletSnapshot, AddressLookupMode (Existing), AddressInfo (..),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              askWalletDB,
-                                             addWAddress, createAccount, createWallet,
+                                             addWAddress, createAccountWithAddress,
+                                             createWallet,
                                              getAccountIds, doesAccountExist,
                                              getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              askWalletSnapshot, getWalletSnapshot,
                                              isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU)
 import           Pos.Wallet.Web.Tracking     (CAccModifier (..), CachedCAccModifier,
@@ -241,18 +241,19 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
     accMod <- txMempoolToModifier ws =<< findKey caInitWId
+
     -- check wallet exists
     _ <- getWalletIncludeUnready ws includeUnready caInitWId
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
-    -- XXX Transaction
-    () <- createAccount db cAddr caInitMeta
+    cAddrMeta <- genUniqueAddress ws addGenSeed passphrase cAddr
+
+    createAccountWithAddress db cAddr caInitMeta cAddrMeta
+
     ws' <- askWalletSnapshot
-    _ <- newAddress ws' addGenSeed passphrase cAddr
-    ws'' <- askWalletSnapshot
 
     -- Re-read DB after the update.
-    getAccountMod ws'' accMod cAddr
+    getAccountMod ws' accMod cAddr
 
 newAccount
     :: MonadWalletWebMode m
@@ -283,12 +284,7 @@ createWalletSafe cid wsMeta isReady = do
 deleteWallet :: MonadWalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
     db <- askWalletDB
-    -- XXX Transaction
-    accounts <- getAccounts (Just wid)
-    mapM_ (removeAccount db <=< decodeCTypeOrFail . caId) accounts
     removeWallet db wid
-    removeTxMetas db wid
-    removeHistoryCache db wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: MonadWalletWebMode m => AccountId -> m ()

@@ -53,6 +53,7 @@ module Pos.Wallet.Web.State.State
        -- * Setters
        , testReset
        , createAccount
+       , createAccountWithAddress
        , createWallet
        , addRemovedAccount
        , addWAddress
@@ -69,7 +70,6 @@ module Pos.Wallet.Web.State.State
        , addOnlyNewTxMeta
        , removeWallet
        , removeWalletTxMetas
-       , removeTxMetas
        , removeHistoryCache
        , removeAccount
        , removeWAddress
@@ -87,6 +87,8 @@ module Pos.Wallet.Web.State.State
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
        , flushWalletStorage
+       , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
 
 import           Data.Acid                       (EventResult, EventState, QueryEvent,
@@ -266,6 +268,15 @@ createAccount :: MonadIO m
 createAccount db accId accMeta =
     updateDisk (A.CreateAccount accId accMeta) db
 
+createAccountWithAddress :: MonadIO m
+                         => WalletDB
+                         -> AccountId
+                         -> CAccountMeta
+                         -> CWAddressMeta
+                         -> m ()
+createAccountWithAddress db accId accMeta addrMeta =
+    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
+
 createWallet :: MonadIO m
              => WalletDB
              -> CId Wal
@@ -359,13 +370,20 @@ addOnlyNewTxMeta :: MonadIO m
 addOnlyNewTxMeta db walletId txId txMeta =
     updateDisk (A.AddOnlyNewTxMeta walletId txId txMeta) db
 
+-- | Remove a wallet and all associated data:
+--   - Associated accounts
+--   - Transaction metadata
+--   - History cache
+--
+--   Note that this functionality has changed - the old version of
+--   'removeWallet' did not used to remove the associated data.
+--   This functionality was not used anywhere and was therefore
+--   removed. Should it be needed again, one should add 'removeWallet'
+--   to the set of acidic updates and add a suitable function in this
+--   module to invoke it.
 removeWallet :: MonadIO m
              => WalletDB -> CId Wal  -> m ()
-removeWallet db walletId = updateDisk (A.RemoveWallet walletId) db
-
-removeTxMetas :: MonadIO m
-              => WalletDB -> CId Wal  -> m ()
-removeTxMetas db walletId = updateDisk (A.RemoveTxMetas walletId) db
+removeWallet db walletId = updateDisk (A.RemoveWallet2 walletId) db
 
 removeWalletTxMetas :: MonadIO m
                     => WalletDB -> CId Wal -> [CTxId]  -> m ()
@@ -490,3 +508,50 @@ flushWalletStorage :: (MonadIO m)
                    => WalletDB
                    -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
+
+applyModifierToWallet
+  :: MonadIO m
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Wallet addresses to add
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+  -> UtxoModifier
+  -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
+  -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
+  -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+applyModifierToWallet db walId wAddrs custAddrs utxoMod
+                      txMetas historyEntries ptxConditions
+                      syncTip =
+    updateDisk
+      ( A.ApplyModifierToWallet
+          walId wAddrs custAddrs utxoMod
+          txMetas historyEntries ptxConditions syncTip
+      )
+      db
+
+rollbackModifierFromWallet
+  :: (MonadIO m, HasProtocolConstants)
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Addresses to remove
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+  -> UtxoModifier
+     -- We use this odd representation because Data.Map does not get 'withoutKeys'
+     -- until 5.8.1
+  -> Map TxId a -- ^ Entries to remove from history cache.
+  -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
+                           historyEntries ptxConditions
+                           syncTip =
+    updateDisk
+      ( A.RollbackModifierFromWallet
+          walId wAddrs custAddrs utxoMod
+          historyEntries' ptxConditions syncTip
+      )
+      db
+  where
+    historyEntries' = Map.map (const ()) historyEntries

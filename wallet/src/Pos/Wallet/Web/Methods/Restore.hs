@@ -71,7 +71,6 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
 newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
-    -- XXX Transaction
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
@@ -123,7 +122,6 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
     importedWallet <- L.createWalletSafe wid wMeta False
 
-    -- XXX Transaction
     db <- askWalletDB
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }

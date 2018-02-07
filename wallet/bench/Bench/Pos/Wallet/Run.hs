@@ -36,5 +36,5 @@ runBench endpointClient completeConfig EndpointConfig {..} =
                                                               maxDelayForCalls)
     config = defaultConfig {
         minSamples = Just numberOfMeasures,
-        csvRawFile = Just pathToReportFile
+        csvFile    = Just pathToReportFile
     }

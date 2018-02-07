@@ -260,14 +260,11 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     fakeTxs   <- liftIO $ replicateM txsNumber genTxHistoryEntry
 
     let fakeMapTxs :: Map TxId TxHistoryEntry
-        fakeMapTxs = fromList $ zip (map getTxId fakeTxs) fakeTxs
+        fakeMapTxs = fromList $ zip (map _thTxId fakeTxs) fakeTxs
 
     -- Insert into the @WalletStorage@.
     insertIntoHistoryCache db walletId fakeMapTxs
   where
-
-    getTxId :: TxHistoryEntry -> TxId
-    getTxId (THEntry txId _ _ _ _ _) = txId
 
     genCoins :: Gen Coin
     genCoins = mkCoin <$> choose (1, 1000)

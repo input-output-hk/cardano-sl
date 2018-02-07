@@ -109,7 +109,9 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
         avvmSum = sumCoins realAvvmMultiplied
         maxTnBalance =
             case coinToInteger (maxBound @Coin) - avvmSum of
-                v | v < 0 -> error "avvmSum exceeds maximal value"
+                v | v < 0 ->
+                    -- TODO [CSL-2173]: Clarify
+                    error "avvmSum exceeds maximal value"
                   | otherwise -> fromIntegral $! v
         tnBalance = min maxTnBalance tboTotalBalance
 
@@ -136,6 +138,7 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
                  createPsk issuerSk (toPublic rsPrimaryKey) 0) <$>
             zip dlgIssuersSecrets richmenSecrets
         genesisDlg =
+            -- TODO [CSL-2173]: Clarify
             leftToPanic "generateGenesisData: genesisDlg" $
             mkGenesisDelegation genesisDlgList
 
@@ -150,7 +153,9 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
 
     -- VSS certificates
     vssCertsList <- mapM generateVssCert richmenSecrets
-    let toVss = either error identity . mkVssCertificatesMap
+    let toVss =
+            -- TODO [CSL-2173]: Clarify
+            either error identity . mkVssCertificatesMap
         vssCerts = GenesisVssCertificatesMap $ toVss vssCertsList
 
     -- Non AVVM balances
@@ -160,6 +165,7 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
     let createAddressPoor :: PoorSecret -> Address
         createAddressPoor (PoorEncryptedSecret hdwSk) =
             fst $
+            -- TODO [CSL-2173]: Clarify
             fromMaybe (error "generateGenesisData: pass mismatch") $
             deriveFirstHDAddress
                 (IsBootstrapEraAddr True)
@@ -172,6 +178,7 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
     ---- Balances
     let safeZip s a b =
             if length a /= length b
+            -- TODO [CSL-2173]: Clarify
             then error $ s <> " :lists differ in size, " <> show (length a) <>
                          " and " <> show (length b)
             else zip a b
@@ -290,7 +297,9 @@ genTestnetDistribution TestnetBalanceOptions {..} testBalance =
     checkConsistency =
         case verifyGeneric everythingIsConsistent of
             VerSuccess        -> identity
-            VerFailure errors -> error $ formatAllErrors errors
+            VerFailure errors ->
+                -- TODO [CSL-2173]: Clarify
+                error $ formatAllErrors errors
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n

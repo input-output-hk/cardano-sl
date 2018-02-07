@@ -56,7 +56,9 @@ type instance Element InvAddrSpendingData = AddrSpendingData
 mkInvAddrSpendingData :: [(Address, AddrSpendingData)] -> InvAddrSpendingData
 mkInvAddrSpendingData pairs
     | check pairs = InvAddrSpendingData (HM.fromList pairs)
-    | otherwise = error "mkInvAddrSpendingData: check failed"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "mkInvAddrSpendingData: check failed"
   where
     check = all checkPair
     checkPair :: (Address, AddrSpendingData) -> Bool

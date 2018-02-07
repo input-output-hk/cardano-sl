@@ -235,7 +235,9 @@ classifyHeaders inRecovery headers = do
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
             | hash lca == hash tipHeader -> CHsValid lcaChild
-            | depthDiff < 0 -> error "classifyHeaders@depthDiff is negative"
+            | depthDiff < 0 ->
+                -- TODO [CSL-2173]: Clarify
+                error "classifyHeaders@depthDiff is negative"
             | depthDiff > blkSecurityParam ->
                   CHsUseless $
                   sformat ("Difficulty difference of (tip,lca) is "%int%
@@ -314,8 +316,10 @@ getHeadersOlderExp upto = do
         -- pass depth 0 (we pass k+1). It throws if upToReal is
         -- absent. So it either throws or returns nonempty.
         DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
-    let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
-               nonEmpty
+    let toNE =
+            -- TODO [CSL-2173]: Clarify
+            fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
+            nonEmpty
     let selectedHashes :: NewestFirst [] HeaderHash
         selectedHashes =
             fmap headerHash allHeaders &
@@ -332,7 +336,9 @@ getHeadersOlderExp upto = do
     -- λ> twoPowers 7 ⇒ [0,1,3,6]
     -- λ> twoPowers 19 ⇒ [0,1,3,7,15,18]
     twoPowers n
-        | n < 0 = error $ "getHeadersOlderExp#twoPowers called w/" <> show n
+        | n < 0 =
+            -- TODO [CSL-2173]: Clarify
+            error $ "getHeadersOlderExp#twoPowers called w/" <> show n
     twoPowers 0 = []
     twoPowers 1 = [0]
     twoPowers n = (takeWhile (< (n - 1)) $ map pred $ 1 : iterate (* 2) 2) ++ [n - 1]
@@ -439,6 +445,7 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
 
     -- We append last element and convert to nonempty.
     let conv =
+           -- TODO [CSL-2173]: Clarify
            fromMaybe (error "getHeadersRange: can't happen") .
            nonEmpty .
            (++ [newer])

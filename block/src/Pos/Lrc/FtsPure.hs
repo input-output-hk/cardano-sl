@@ -38,10 +38,13 @@ import           Pos.Txp.Toil (Utxo, utxoToStakes)
 followTheSatoshi :: HasConfiguration => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
 followTheSatoshi seed stakes
     | totalCoins > coinToInteger maxBound =
+        -- TODO [CSL-2173]: Clarify
         error $ sformat
         ("followTheSatoshi: total stake exceeds limit ("%int%" > "%int%")")
         totalCoins (coinToInteger maxBound)
-    | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
+    | totalCoinsCoin == minBound =
+        -- TODO [CSL-2173]: Clarify
+        error "followTheSatoshi: no stake"
     | otherwise =
           runConduitPure $ CL.sourceList stakes .|
                            followTheSatoshiM seed totalCoinsCoin

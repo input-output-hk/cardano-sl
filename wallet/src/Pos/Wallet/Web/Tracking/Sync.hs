@@ -193,7 +193,9 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
             else pure wTipH
         withStateLockNoMetrics HighPriority $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
-            tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
+            tipH <-
+                -- TODO [CSL-2173]: Clarify
+                maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
             syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
@@ -294,7 +296,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
   where
     firstGenesisHeader :: m BlockHeader
     firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
+        -- TODO [CSL-2173]: Clarify
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
+            -- TODO [CSL-2173]: Clarify
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 
 constructAllUsed

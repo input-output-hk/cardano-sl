@@ -124,6 +124,8 @@ mkGenesisHeader
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail
+    -- TODO [CSL-2173]: update comment above, it must explain WHY the failure
+    -- cannot happpen
     leftToPanic "mkGenesisHeader: " $
     mkGenericHeader
         prevHeader
@@ -143,6 +145,7 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
+    -- TODO [CSL-2173]: Clarify
     leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body

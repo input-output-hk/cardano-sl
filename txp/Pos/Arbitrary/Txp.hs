@@ -72,7 +72,9 @@ instance Arbitrary Tx where
     arbitrary =
         mkTx <$> arbitrary <*> arbitrary <*>
         pure (mkAttributes ()) <&> \case
-            Left err -> error $ "Arbitrary Tx: " <> err
+            Left err ->
+              -- TODO [CSL-2173]: Clarify
+                error $ "Arbitrary Tx: " <> err
             Right res -> res
     shrink = genericShrink
 
@@ -120,7 +122,8 @@ buildProperTx inputList (inCoin, outCoin) =
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
     newTx =
-        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
+        -- TODO [CSL-2173]: Describe why we are certain that 'mkTx' cannot fail
+        -- here.
         either (error "buildProperTx: can't create tx") identity $
         mkTx ins outs def
     newTxHash = hash newTx
@@ -144,7 +147,8 @@ goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
     tx =
-        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
+        -- TODO [CSL-2173]: Describe why we are certain that 'mkTx' cannot fail
+        -- here.
         either (error "goodTxToTxAux created malformed tx") identity $
         mkTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
@@ -213,6 +217,7 @@ txOutDistGen =
         txOuts <- arbitrary
         let tx =
                 either
+                    -- TODO [CSL-2173]: Clarify
                     (error . mappend "failed to create tx in txOutDistGen: ")
                     identity $
                 mkTx txIns txOuts (mkAttributes ())

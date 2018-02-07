@@ -186,6 +186,7 @@ instance Monad m => ToJSON m TxFeePolicy where
         mkObject
             [("summand", toJSON summand), ("multiplier", toJSON multiplier)]
     toJSON (TxFeePolicyUnknown {}) =
+        -- TODO [CSL-2173]: Clarify
         error "Having TxFeePolicyUnknown in genesis is likely a bug"
 
 instance Monad m => ToJSON m GenesisWStakeholders where

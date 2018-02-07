@@ -293,7 +293,9 @@ maxCoinVal = 45000000000000000
 mkCoin :: Word64 -> Coin
 mkCoin c
     | c <= maxCoinVal = Coin c
-    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
+    | otherwise       =
+        -- TODO [CSL-2173]: Clarify
+        error $ "mkCoin: " <> show c <> " is too large"
 {-# INLINE mkCoin #-}
 
 -- | Coin formatter which restricts type.
@@ -346,7 +348,9 @@ mkCoinPortion x
 unsafeCoinPortionFromDouble :: Double -> CoinPortion
 unsafeCoinPortionFromDouble x
     | 0 <= x && x <= 1 = CoinPortion v
-    | otherwise = error "unsafeCoinPortionFromDouble: double not in [0, 1]"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "unsafeCoinPortionFromDouble: double not in [0, 1]"
   where
     v = round $ realToFrac coinPortionDenominator * x
 {-# INLINE unsafeCoinPortionFromDouble #-}

@@ -32,7 +32,9 @@ instance Arbitrary SystemTag where
         map (pure . fromMaybe onFail . rightToMaybe . mkSystemTag) $
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
       where
-        onFail = error "instance Arbitrary SystemTag: disaster"
+        onFail =
+            -- TODO [CSL-2173]: Clarify
+            error "instance Arbitrary SystemTag: disaster"
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary UpdateVote where

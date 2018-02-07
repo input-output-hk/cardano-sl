@@ -76,7 +76,9 @@ genCommitmentAndOpening
     :: Rand.MonadRandom m
     => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening t pks
-    | t <= 1 = error $ sformat
+    | t <= 1 =
+        -- TODO [CSL-2173]: Clarify
+        error $ sformat
         ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
     | t >= n - 1 = error $ sformat
         ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%

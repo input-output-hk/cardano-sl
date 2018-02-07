@@ -39,7 +39,9 @@ import           Pos.Util.Config (embedYamlConfigCT)
 -- in tests.
 defaultTestConf :: Configuration
 defaultTestConf = case J.fromJSON $ J.Object jobj of
-              J.Error str    -> error $ toText str
+              J.Error str    ->
+                  -- TODO [CSL-2173]: Clarify
+                  error $ toText str
               J.Success conf -> conf
   where
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
@@ -48,7 +50,9 @@ defaultTestGenesisSpec :: GenesisSpec
 defaultTestGenesisSpec =
     case ccGenesis (ccCore defaultTestConf) of
         GCSpec spec -> spec
-        _           -> error "unexpected genesis type in test"
+        _           ->
+            -- TODO [CSL-2173]: Clarify
+            error "unexpected genesis type in test"
 
 defaultTestBlockVersionData :: BlockVersionData
 defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec

@@ -196,7 +196,9 @@ combineBalanceUpdates BalanceUpdate {..} =
             hm2' = HM.map (\x -> (Nothing, Just x)) hm2
         in HM.unionWith joiner hm1' hm2'
     joiner (Just plus, Nothing) (Nothing, Just minus) = (Just plus, Just minus)
-    joiner _ _ = error "combineBalanceUpdates: HashMap.map is broken"
+    joiner _ _ =
+        -- TODO [CSL-2173]: Clarify
+        error "combineBalanceUpdates: HashMap.map is broken"
     reducer (Just plus, Just minus)
         | plus > minus = Just (Plus,  unsafeSubCoin plus minus)
         | plus < minus = Just (Minus, unsafeSubCoin minus plus)

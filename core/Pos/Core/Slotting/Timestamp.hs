@@ -86,4 +86,6 @@ addTimeDiffToTimestamp = addMicrosecondsToTimestamp . getTimeDiff
 subTimeDiffSafe :: TimeDiff -> TimeDiff -> TimeDiff
 subTimeDiffSafe (TimeDiff t1) (TimeDiff t2)
     | t1 >= t2  = TimeDiff (t1 - t2)
-    | otherwise = error "subTimeDiffSafe: first TimeDiff must be more or equal second TimeDiff"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "subTimeDiffSafe: first TimeDiff must be more or equal second TimeDiff"

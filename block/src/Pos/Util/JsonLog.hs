@@ -75,7 +75,9 @@ fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
 fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
 fromJLSlotIdUnsafe x = case fromJLSlotId x of
     Right y -> y
-    Left  _ -> error "illegal slot id"
+    Left  _ ->
+        -- TODO [CSL-2173]: Clarify
+        error "illegal slot id"
 
 -- | Json log of one mempool modification.
 data JLMemPool = JLMemPool
@@ -134,7 +136,9 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
     slot = case block of
         Left  gB -> let slotZero = case mkLocalSlotIndex 0 of
                                         Right sz -> sz
-                                        Left _   -> error "impossible branch"
+                                        Left _   ->
+                                            -- TODO [CSL-2173]: Clarify
+                                            error "impossible branch"
                     in SlotId (gB ^. genBlockEpoch) slotZero
         Right mB -> mB ^. mainBlockSlot
     fromTx = sformat hashHexF . hash

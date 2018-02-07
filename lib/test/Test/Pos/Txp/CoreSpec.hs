@@ -137,5 +137,7 @@ txGen size = do
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
     case mkTx inputs outputs (mkAttributes ()) of
-        Left e   -> error $ "txGen: something went wrong: " <> e
+        Left e   ->
+            -- TODO [CSL-2173]: Clarify
+            error $ "txGen: something went wrong: " <> e
         Right tx -> pure tx

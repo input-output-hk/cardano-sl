@@ -361,6 +361,7 @@ waitUntilSend
     => SscTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
+            -- TODO [CSL-2173]: Clarify
             leftToPanic "waitUntilSend: " $
             mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
     Timestamp beginning <-

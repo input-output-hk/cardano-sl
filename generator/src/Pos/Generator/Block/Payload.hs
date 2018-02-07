@@ -46,11 +46,15 @@ import qualified Pos.Txp.Toil.Utxo as Utxo
 -- | Generates list of distinct ints in the given range [a,b].
 selectDistinct :: forall m. (MonadRandom m) => Int -> (Int,Int) -> m [Int]
 selectDistinct n0 p@(a, b)
-    | b - a < 0 = error $ "selectDistinct: b < a " <> show p
+    | b - a < 0 =
+        -- TODO [CSL-2173]: Clarify
+        error $ "selectDistinct: b < a " <> show p
     | otherwise = do
           res <- reverse <$> selectDistinct' [] n (a, b)
           if fromIntegral (length res) /= n
-              then error $ "selectDistinct is broken: " <> show res <> " " <> show n
+              then
+                  -- TODO [CSL-2173]: Clarify
+                  error $ "selectDistinct is broken: " <> show res <> " " <> show n
               else pure res
   where
     n :: Int
@@ -66,11 +70,17 @@ selectDistinct n0 p@(a, b)
 -- taken from given range [a, b]
 selectSomeFromList :: MonadRandom m => (Int, Int) -> [a] -> m [a]
 selectSomeFromList p@(a, b0) ls
-    | l == 0 = error "selectSomeFromList: empty list passed"
-    | l < a = error $
+    | l == 0 =
+        -- TODO [CSL-2173]: Clarify
+        error "selectSomeFromList: empty list passed"
+    | l < a =
+        -- TODO [CSL-2173]: Clarify
+        error $
               "selectSomeFromList: list length < a (" <>
               show l <> " < " <> show a <> ")"
-    | b - a < 0 = error $ "selectSomeFromList: b < a " <> show p
+    | b - a < 0 =
+        -- TODO [CSL-2173]: Clarify
+        error $ "selectSomeFromList: b < a " <> show p
     | otherwise = do
           n <- getRandomR (a, b)
           idxs <- selectDistinct n (0, l - 1)
@@ -83,8 +93,12 @@ selectSomeFromList p@(a, b0) ls
 -- are nonzero.
 splitCoins :: (MonadRandom m) => Int -> Coin -> m [Coin]
 splitCoins n c0
-    | c == (0::Int) = error "splitCoins, c = 0"
-    | c < n = error $ "splitCoins: can't split " <> pretty c0 <>
+    | c == (0::Int) =
+        -- TODO [CSL-2173]: Clarify
+        error "splitCoins, c = 0"
+    | c < n =
+        -- TODO [CSL-2173]: Clarify
+        error $ "splitCoins: can't split " <> pretty c0 <>
                       " on " <> show n <> " parts"
     | c == (1::Int) = pure [c0]
     | otherwise = do
@@ -161,11 +175,15 @@ genTxPayload = do
                         "addrToSk: resolved sk using invAddrSpendingData " <>
                         "but cant using invSecretsMap"
                 let spendingData =
+                        -- TODO [CSL-2173]: Clarify
                         fromMaybe (error cantResolve) $ invAddrSpendingData ^. at addr
                 case spendingData of
                     PubKeyASD pk ->
+                        -- TODO [CSL-2173]: Clarify
                         fromMaybe (error inconsistent) (HM.lookup (addressHash pk) secrets)
-                    another -> error $
+                    another ->
+                        -- TODO [CSL-2173]: Clarify
+                        error $
                         sformat ("addrToSk: ound an address with non-pubkey spending data: "
                                     %build) another
 
@@ -228,7 +246,9 @@ genTxPayload = do
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
         res <- lift . lift $ txpProcessTx (txId, txAux)
         case res of
-            Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
+            Left e  ->
+                -- TODO [CSL-2173]: Clarify
+                error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
                 Utxo.applyTxToUtxo (WithHash tx txId)
                 gtdUtxoKeys %= V.filter (`notElem` txIns)

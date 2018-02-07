@@ -97,6 +97,7 @@ timeout str us m = do
             putSharedExclusive var t
     let timeoutAction = do
             delay us
+            -- TODO [CSL-2173]: Clarify
             putSharedExclusive var (Left . error $ str ++ " : timeout after " ++ show us)
     withAsync action $ \_ -> do
         withAsync timeoutAction $ \_ -> do
@@ -265,7 +266,9 @@ makeTCPTransport bind hostAddr port qdisc mtu = do
             }
     choice <- TCP.createTransport (TCP.Addressable (TCP.TCPAddrInfo bind port ((,) hostAddr))) tcpParams
     case choice of
-        Left err        -> error (show err)
+        Left err        ->
+            -- TODO [CSL-2173]: Clarify
+            error (show err)
         Right transport -> return transport
 
 -- * Test template

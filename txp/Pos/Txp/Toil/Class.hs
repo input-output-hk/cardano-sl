@@ -75,13 +75,17 @@ instance (HasConfiguration, Monad m) => MonadUtxo (Ether.StateT' Utxo m) where
 utxoPut :: MonadUtxo m => TxIn -> TxOutAux -> m ()
 utxoPut id aux = utxoGet id >>= \case
     Nothing -> utxoPutUnchecked id aux
-    Just _  -> error ("utxoPut: "+|id|+" is already in utxo")
+    Just _  ->
+        -- TODO [CSL-2173]: Clarify
+        error ("utxoPut: "+|id|+" is already in utxo")
 
 -- | Delete an unspent input from UTXO. If it's not there, throw an 'error'.
 utxoDel :: MonadUtxo m => TxIn -> m ()
 utxoDel id = utxoGet id >>= \case
     Just _  -> utxoDelUnchecked id
-    Nothing -> error ("utxoDel: "+|id|+" is not in the utxo")
+    Nothing ->
+        -- TODO [CSL-2173]: Clarify
+        error ("utxoDel: "+|id|+" is not in the utxo")
 
 ----------------------------------------------------------------------------
 -- MonadStakes

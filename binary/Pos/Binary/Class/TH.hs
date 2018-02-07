@@ -301,6 +301,7 @@ matchAllConstrs (map cName -> passedNames) realCons@(map dcName -> realNames)
     | otherwise =
         let ret = mapMaybe (\x -> find ((x==) . dcName) realCons) passedNames in
         if length ret /= length passedNames then
+            -- TODO [CSL-2173]: Clarify
             error "Something went wrong. Matched list of constructors has different length"
         else
             MatchedCons ret

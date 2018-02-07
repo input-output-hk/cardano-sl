@@ -153,7 +153,9 @@ txScriptCheck sigData validator redeemer = case spoon result of
 stdlib :: PL.DeclContext
 stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of
     Right x  -> x
-    Left err -> error $ toText
+    Left err ->
+        -- TODO [CSL-2173]: Clarify
+        error $ toText
                   ("stdlib: error while parsing Plutus prelude: " ++ err)
   where
     prelude = $(lift . toString =<< runIO PL.preludeString)

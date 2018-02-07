@@ -54,7 +54,9 @@ getDlgMempool
     => m DlgPayload
 getDlgMempool = do
     sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
-    pure $ leftToPanic "getDlgMempool: " $ mkDlgPayload sks
+    pure $
+        -- TODO [CSL-2173]: Clarify
+        leftToPanic "getDlgMempool: " $ mkDlgPayload sks
 
 -- | Clears delegation mempool.
 clearDlgMemPool
@@ -173,6 +175,7 @@ processProxySKHeavyInternal psk = do
     let cedeModifier = CedeModifier {..}
     (verificationError, pskValid) <-
         fmap (either (,False)
+                     -- TODO [CSL-2173]: Clarify
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
         runExceptT $

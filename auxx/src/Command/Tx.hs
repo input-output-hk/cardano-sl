@@ -87,7 +87,9 @@ sendToAllGenesis
     -> m ()
 sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
-        keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
+        keysToSend  =
+            -- TODO [CSL-2173]: Clarify
+            fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -177,6 +179,7 @@ send diffusion idx outputs = do
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
+            -- TODO [CSL-2173]: Clarify
             (\ibea -> fromMaybe (error "send: pass mismatch") $
                     deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses
@@ -195,7 +198,9 @@ send diffusion idx outputs = do
     takeSecret
         | idx == -1 = do
             _userSecret <- view userSecret >>= atomically . readTVar
-            pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
+            pure $
+                -- TODO [CSL-2173]: Clarify
+                maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
         | otherwise = (!! idx) <$> getSecretKeysPlain
 
 ----------------------------------------------------------------------------

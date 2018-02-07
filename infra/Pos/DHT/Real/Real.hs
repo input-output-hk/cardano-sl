@@ -99,6 +99,7 @@ startDHTInstance kconf@KademliaParams {..} defaultBind = do
             logInfo "Restoring DHT Instance from snapshot"
             catchErrors $
                 createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
+                -- TODO [CSL-2173]: Clarify
                 (either error identity . decodeFull . BS.toStrict) <$> BS.readFile dumpFile
         Nothing -> do
             logInfo "Creating new DHT instance"

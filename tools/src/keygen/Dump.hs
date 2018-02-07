@@ -70,6 +70,7 @@ dumpGeneratedGenesisData
     -> m ()
 dumpGeneratedGenesisData (dir, pat) = do
     let GeneratedSecrets {..} =
+            -- TODO [CSL-2173]: Clarify
             fromMaybe (error "GeneratedSecrets are unknown") generatedSecrets
     dumpKeyfiles (dir, pat) gsDlgIssuersSecrets gsRichSecrets gsPoorSecrets
     dumpFakeAvvmSeeds dir gsFakeAvvmSeeds

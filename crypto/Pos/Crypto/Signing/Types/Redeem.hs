@@ -117,6 +117,7 @@ fromAvvmPk addrText = do
 redeemPkBuild :: ByteString -> RedeemPublicKey
 redeemPkBuild bs
     | BS.length bs /= 32 =
+        -- TODO [CSL-2173]: Clarify
         error $
         "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
         ", when should be 32"

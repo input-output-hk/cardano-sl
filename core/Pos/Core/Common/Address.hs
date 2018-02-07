@@ -418,7 +418,9 @@ largestHDAddressBoot =
              encSK
              maxBound
              maxBound of
-        Nothing        -> error "largestHDAddressBoot failed"
+        Nothing        ->
+            -- TODO [CSL-2173]: Clarify
+            error "largestHDAddressBoot failed"
         Just (addr, _) -> addr
   where
     encSK = noPassEncrypt goodSk

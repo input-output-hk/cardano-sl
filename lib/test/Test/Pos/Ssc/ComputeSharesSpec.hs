@@ -116,6 +116,7 @@ isDistrFair (HM.map unsafeGetCoin -> rs) sd = do
 
     findStk :: StakeholderId -> (Word64, Word16)
     findStk stId = do
+        -- TODO [CSL-2173]: Clarify
         let r = fromMaybe (error "Real stake isn't found") (HM.lookup stId rs)
         let g = fromMaybe (error "Distribution isn't found") (HM.lookup stId sd)
         (r, g)

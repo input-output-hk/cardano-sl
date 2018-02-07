@@ -148,6 +148,7 @@ tokenize :: Text -> [(Span, Token)]
 tokenize = fromMaybe noTokenErr . tokenize'
   where
     noTokenErr =
+        -- TODO [CSL-2173]: Comment
         error "tokenize: no token could be consumed. This is a bug"
 
 tokenize' :: Text -> Maybe [(Span, Token)]

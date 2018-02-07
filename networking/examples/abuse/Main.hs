@@ -63,11 +63,17 @@ main = do
         "server" -> case rest of
             [serverPort, "unbounded"] -> runProduction $ server serverPort Unbounded
             [serverPort, "one_place"] -> runProduction $ server serverPort OnePlace
-            _ -> error "Second argument for a server must be a port, third must be 'unbounded' or 'one_place'"
+            _ ->
+                -- TODO [CSL-2173]: Refactor
+                error "Second argument for a server must be a port, third must be 'unbounded' or 'one_place'"
         "client" -> case rest of
             [serverPort, clientPort] -> runProduction $ client serverPort clientPort
-            _ -> error "Arguments for a client must be the server port followed by client port"
-        _ -> error "First argument must be server or client"
+            _ ->
+                -- TODO [CSL-2173]: Refactor
+                error "Arguments for a client must be the server port followed by client port"
+        _ ->
+            -- TODO [CSL-2173]: Refactor
+            error "First argument must be server or client"
 
 data QDiscChoice = OnePlace | Unbounded
 

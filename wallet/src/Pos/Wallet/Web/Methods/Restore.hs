@@ -144,7 +144,9 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAny wSetExistsHandler $ do
-        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
+        let hdwSecretKeys =
+                -- TODO [CSL-2173]: Clarify
+                fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key

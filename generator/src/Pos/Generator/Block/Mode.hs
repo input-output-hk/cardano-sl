@@ -166,7 +166,9 @@ mkBlockGenContext
     => BlockGenParams
     -> m (BlockGenContext ext)
 mkBlockGenContext bgcParams@BlockGenParams{..} = do
-    let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
+    let bgcPrimaryKey =
+          -- TODO [CSL-2173]: Clarify
+          error "bgcPrimaryKey was forced before being set"
     bgcGState <- if _bgpInplaceDB
                  then view GS.gStateContext
                  else GS.cloneGStateContext =<< view GS.gStateContext

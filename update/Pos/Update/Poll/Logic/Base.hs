@@ -297,6 +297,7 @@ calcSoftforkThreshold ::
     -> Coin
 calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag -> confirmedEpoch)
     | curEpoch < confirmedEpoch =
+        -- TODO [CSL-2173]: Clarify
         error
             "calcSoftforkThreshold: logical error, curEpoch < confirmedEpoch, can't happen"
     | otherwise = applyCoinPortionUp portion totalStake
@@ -329,6 +330,7 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
         -- • the value can't be greater than max possible one, because
         --   minuend represents a valid coin portion.
         | minuend > subtrahend + getCoinPortion srMinThd =
+            -- TODO [CSL-2173]: Clarify
             leftToPanic @Text "calcSoftforkThreshold " $
             mkCoinPortion (minuend - subtrahend)
         | otherwise = srMinThd

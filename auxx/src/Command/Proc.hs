@@ -409,7 +409,9 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
-        let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+        let secrets =
+                -- TODO [CSL-2173]: Clarify
+                fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i
             addSecretKey $ noPassEncrypt key
@@ -429,7 +431,9 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpExec = \AddKeyParams {..} -> do
         secret <- readUserSecret akpFile
         if akpPrimary then do
-            let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+            let primSk =
+                  -- TODO [CSL-2173]: Clarify
+                  fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk
         else do
             let ks = secret ^. usKeys

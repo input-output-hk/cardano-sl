@@ -68,7 +68,9 @@ cloneGStateContext ::
     => GStateContext
     -> m GStateContext
 cloneGStateContext GStateContext {..} = case _gscDB of
-    RealDB _ -> error "You may not copy RealDB" -- TODO maybe exception?
+    RealDB _ ->
+        -- TODO [CSL-2173]: Clarify
+        error "You may not copy RealDB" -- TODO maybe exception?
     PureDB pdb -> GStateContext <$>
         (PureDB <$> cloneDBPure pdb) <*>
         cloneLrcContext _gscLrcContext <*>

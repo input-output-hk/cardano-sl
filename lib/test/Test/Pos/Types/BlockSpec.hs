@@ -96,6 +96,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     correctSigner (Left _)        = True
     correctSigner (Right (i,d,_)) = i /= d
     header =
+        -- TODO [CSL-2173]: Clarify
         leftToPanic "mainHeaderFormation: " $
         T.mkGenericHeader prevHeader body consensus extra
     manualHeader =

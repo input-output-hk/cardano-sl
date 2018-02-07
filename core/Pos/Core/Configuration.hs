@@ -155,7 +155,9 @@ withGenesisSpec
     -> (HasConfiguration => r)
     -> r
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
-    GCSrc {} -> error "withGenesisSpec called with GCSrc"
+    GCSrc {} ->
+        -- TODO [CSL-2173]: Clarify
+        error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
         withProtocolConstants (gsProtocolConstants spec) $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
@@ -167,6 +169,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation
                 finalHeavyDelegation =
+                    -- TODO [CSL-2173]: Clarify
                     leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
                     (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
 

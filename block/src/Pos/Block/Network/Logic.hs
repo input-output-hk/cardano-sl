@@ -507,6 +507,7 @@ applyWithoutRollback diffusion blocks = do
                      "newer were considered invalid")
                     newTip
             let toRelay =
+                    -- TODO [CSL-2173]: Clarify
                     fromMaybe (error "Listeners#applyWithoutRollback is broken") $
                     find (\b -> headerHash b == newTip) blocks
                 prefix = blocks

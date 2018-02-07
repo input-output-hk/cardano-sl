@@ -162,17 +162,39 @@ dummyLogicLayer = LogicLayer
 
     dummyLogic :: Applicative m => Logic m
     dummyLogic = Logic
-        { ourStakeholderId   = error "dummy: no stakeholder id"
-        , getBlock           = \_ -> pure (error "dummy: can't get block")
-        , getChainFrom       = \_ -> error "dummy: can't get chain"
-        , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
-        , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
-        , getTip             = pure (error "dummy: can't get tip")
-        , getTipHeader       = pure (error "dummy: can't get tip header")
-        , getAdoptedBVData   = pure (error "dummy: can't get block version data")
-        , postBlockHeader    = \_ _ -> pure ()
-        , postPskHeavy       = \_ -> pure False
+        { ourStakeholderId   =
+            -- TODO [CSL-2173]: Clarify
+            error "dummy: no stakeholder id"
+        , getBlock           = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get block")
+        , getChainFrom       = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            error "dummy: can't get chain"
+        , getBlockHeader     = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get header")
+        , getBlockHeaders    = \_ _ ->
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get headers")
+        , getBlockHeaders'   = \_ _ ->
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get headers")
+        , getTip             =
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get tip")
+        , getTipHeader       =
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get tip header")
+        , getAdoptedBVData   =
+            -- TODO [CSL-2173]: Clarify
+            pure (error "dummy: can't get block version data")
+        , postBlockHeader    = \_ _ ->
+            -- TODO [CSL-2173]: Clarify
+            pure ()
+        , postPskHeavy       = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            pure False
         , postTx             = dummyKeyVal
         , postUpdate         = dummyKeyVal
         , postVote           = dummyKeyVal
@@ -186,7 +208,9 @@ dummyLogicLayer = LogicLayer
 
     dummyKeyVal :: Applicative m => KeyVal key val m
     dummyKeyVal = KeyVal
-        { toKey      = \_ -> error "dummy: can't make key"
+        { toKey      = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            error "dummy: can't make key"
         , handleInv  = \_ -> pure False
         , handleReq  = \_ -> pure Nothing
         , handleData = \_ -> pure False

@@ -218,6 +218,7 @@ genBlocksInStructure secrets bootStakeholders annotations s = do
     let
         getBlock :: Path -> Blund
         getBlock path = Map.findWithDefault
+            -- TODO [CSL-2173]: Clarify
             (error "genBlocksInStructure: impossible happened")
             path
             (flattenBlockchainForest' blockForest)

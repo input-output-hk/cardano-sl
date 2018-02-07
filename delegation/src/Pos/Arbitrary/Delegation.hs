@@ -19,6 +19,7 @@ import           Pos.Util.Util (leftToPanic)
 
 genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
 genDlgPayload epoch =
+    -- TODO [CSL-2173]: Clarify
     leftToPanic "genDlgPayload: " .
     mkDlgPayload . toList . HM.fromList . map convert <$>
     listOf genPSK

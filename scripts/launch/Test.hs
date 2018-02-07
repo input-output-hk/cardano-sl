@@ -65,7 +65,9 @@ walletAppName = "csl-daedalus"
 main :: IO ()
 main = do
   c@Config {..} <- options "Helper CLI around NixOps to run experiments" parser
-  config <- fromMaybe (error "No config key found") . M.lookup cKey . either (error . show) id
+  config <-
+      -- TODO [CSL-2173]: Refactor
+      fromMaybe (error "No config key found") . M.lookup cKey . either (error . show) id
               <$> Y.decodeFileEither (F.encodeString cFile)
   case cCmd of
     Update -> updateTest config c
@@ -126,7 +128,8 @@ updateTest config (Config{..}) = do
     let config' = config & appNameL .~ walletAppName & svL +~ 1
         showF = T.pack . show @Int . round
         cFile' = T.pack $ F.encodeString cFile
-        (proposeUpdStr, cNodes) = fromMaybe (error "Failed to form update proposal cmd") $ do
+        (proposeUpdStr, cNodes) = -- TODO [CSL-2173]: Clarify
+                                  fromMaybe (error "Failed to form update proposal cmd") $ do
             tag <- config ^? tagL
             bvAlt <- config ^? bvAltL
             bvMinor <- config ^? bvMinorL

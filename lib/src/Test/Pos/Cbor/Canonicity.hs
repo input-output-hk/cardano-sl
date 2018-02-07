@@ -44,7 +44,9 @@ traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
         TBigInt zs n -> case zs of
             -- Canonical representation doesn't have leading zeroes.
             0 -> uncurry TBigInt <$> tbigint (zs, n)
-            k -> error $ "Unexpected TBigInt with " <> show k
+            k ->
+                -- TODO [CSL-2173]: Clarify
+                error $ "Unexpected TBigInt with " <> show k
                       <> " leading zeroes: " <> show n
         -- Order of term pairs can be changed or duplicates added.
         TMap terms -> mapM (\(k, v) -> (,) <$> go k <*> go v) terms
@@ -57,20 +59,30 @@ traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
         TFloat16 f
             | not $ isNaN f -> pure $ TFloat16 f
             | getHalf f == getHalf canonicalNaN -> TFloat16 <$> tnan16 f
-            | otherwise -> error "Unexpected 16bit representation of NaN"
+            | otherwise ->
+                -- TODO [CSL-2173]: Clarify
+                error "Unexpected 16bit representation of NaN"
         -- Tag representation can be widen.
         TTagged tag t -> if tag == UInt8 24 -- cbor-in-cbor
                          then TTagged <$> ttag tag <*> pure t
-                         else error "Unexpected TTagged"
+                         else
+                             -- TODO [CSL-2173]: Clarify
+                             error "Unexpected TTagged"
 
         -- Terms that are unexpected.
         TFloat32 f  -> if not $ isNaN f
                        then pure $ TFloat32 f
-                       else error "Unexpected 32bit representation of NaN"
+                       else
+                          -- TODO [CSL-2173]: Clarify
+                          error "Unexpected 32bit representation of NaN"
         TFloat64 f  -> if not $ isNaN f
                        then pure $ TFloat64 f
-                       else error "Unexpected 64bit representation of NaN"
-        TMapI _     -> error "Unexpected TMapI"
+                       else
+                          -- TODO [CSL-2173]: Clarify
+                          error "Unexpected 64bit representation of NaN"
+        TMapI _     ->
+            -- TODO [CSL-2173]: Clarify
+            error "Unexpected TMapI"
 
         -- Do not change anything, just go deeper.
         TArray terms  -> TArray  <$> mapM go terms

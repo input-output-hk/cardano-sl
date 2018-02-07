@@ -143,6 +143,7 @@ doSend addr cli = do
     sendDo a@(SockAddrInet6 _ _ _ _) (IPv6Sock sock) = sendTo' sock a
     sendDo a@(SockAddrInet6 _ _ _ _) (BothSock _ sock)  = sendTo' sock a
     sendDo a sks                                           =
+        -- TODO [CSL-2173]: Clarify
         error $ "SockAddr is " <> show a <> ", but sockets: " <> show sks
     sendTo' sock = flip (sendTo sock)
 

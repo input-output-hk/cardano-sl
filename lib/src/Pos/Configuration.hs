@@ -91,6 +91,7 @@ defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
   where
     parsePeer :: Text -> NetworkAddress
     parsePeer =
+        -- TODO [CSL-2173]: Clarify
         either (error . show) identity .
         P.parse addrParser "Compile time config"
 

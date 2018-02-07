@@ -34,6 +34,7 @@ prepareUserSecret CommonNodeArgs {devGenesisSecretI} userSecret = do
     fillPrimaryKey (rsPrimaryKey <$> predefinedRichKeys) userSecretWithVss
   where
     onUnknownGeneratedSecrets =
+        -- TODO [CSL-2173]: Clarify
         error $
         "devGenesisSecretI is specified, but no generatedSecrets is present.\n" <>
         "Try to change initializer in genesis spec"

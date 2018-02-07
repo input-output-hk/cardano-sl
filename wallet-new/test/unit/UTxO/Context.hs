@@ -80,7 +80,9 @@ initCardanoContext = CardanoContext{..}
     ccBlock0   = genesisBlock0
     ccData     = genesisData
     ccUtxo     = unGenesisUtxo genesisUtxo
-    ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
+    ccSecrets  =
+        -- TODO [CSL-2173]: Clarify
+        fromMaybe (error "initCardanoContext: secrets unavailable") $
                  generatedSecrets
 
     ccBalances = utxoToAddressCoinPairs ccUtxo
@@ -306,7 +308,9 @@ initActors CardanoContext{..} = Actors{..}
                              (IsBootstrapEraAddr True)
                              emptyPassphrase
                              poorSec of
-                        Nothing          -> error "impossible"
+                        Nothing          ->
+                            -- TODO [CSL-2173]: Clarify
+                            error "impossible"
                         Just (addr, key) -> (encKeyPair key, addr)
                     ]
 
@@ -321,12 +325,14 @@ initActors CardanoContext{..} = Actors{..}
 
         delTo :: Rich
         delTo = Map.findWithDefault
+                     -- TODO [CSL-2173]: Clarify
                      (error ("initActors: delegate not found"))
                      (pskDelegatePk delPSK)
                      actorsRich
 
         delPSK :: ProxySKHeavy
         delPSK = HM.lookupDefault
+                   -- TODO [CSL-2173]: Clarify
                    (error ("initActors: issuer not found"))
                    (regKpHash stkKey)
                    (unGenesisDelegation $ gdHeavyDelegation ccData)
@@ -432,6 +438,7 @@ initContext tcCardano = TransCtxt{..}
 resolveAddr :: Addr -> TransCtxt -> (SomeKeyPair, Address)
 resolveAddr addr TransCtxt{..} =
     fromMaybe
+      -- TODO [CSL-2173]: Clarify
       (error $ sformat ("resolveAddr: " % build % " not found") addr)
       (Map.lookup addr addrMap)
   where

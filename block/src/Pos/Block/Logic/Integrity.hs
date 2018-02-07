@@ -242,15 +242,13 @@ data VerifyBlockParams = VerifyBlockParams
 verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
-verifyBlock VerifyBlockParams {..} blk =
-       verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
-    <> otherChecks
+verifyBlock VerifyBlockParams {..} blk = mconcat
+    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
+    , verifyHeader vbpVerifyHeader (getBlockHeader blk)
+    , checkSize vbpMaxSize
+    , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
+    ]
   where
-    otherChecks = mconcat
-        [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
-        , checkSize vbpMaxSize
-        , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
-        ]
     -- Oh no! Verification involves re-searilizing the thing!
     -- What a tragic waste.
     -- What shall we do about this?

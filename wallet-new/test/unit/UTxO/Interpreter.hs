@@ -313,8 +313,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
         -- if none specified, use genesis block
         prev <-
           case mPrev of
-            Just prev -> (Right . view gbHeader) <$> return prev
-            Nothing   -> (Left  . view gbHeader) <$> asks (ccBlock0 . tcCardano)
+            Just prev -> (BlockHeaderMain . view gbHeader) <$> return prev
+            Nothing   -> (BlockHeaderGenesis . view gbHeader) <$> asks (ccBlock0 . tcCardano)
 
         -- figure out who needs to sign the block
         BlockSignInfo{..} <- asks $ blockSignInfoForSlot slotId

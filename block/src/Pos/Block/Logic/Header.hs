@@ -31,7 +31,7 @@ import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, Heade
                            blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
                            epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
                            headerHashG, headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader)
+import           Pos.Core.Block (BlockHeader (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
@@ -80,8 +80,8 @@ classifyNewHeader
     )
     => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
-classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
-classifyNewHeader (Right header) = fmap (either identity identity) <$> runExceptT $ do
+classifyNewHeader (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
+classifyNewHeader (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot
     tipHeader <- DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
@@ -124,7 +124,7 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     }
-            case verifyHeader vhp (Right header) of
+            case verifyHeader vhp (BlockHeaderMain header) of
                 VerFailure errors -> throwError $ mkCHRinvalid errors
                 _                 -> pass
 

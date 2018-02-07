@@ -75,7 +75,7 @@ allTransactions walletId mAccId mTextAddr requestParams = do
 
     -- get all `[Transaction]`'s
     let transactions = do
-            (wh, _) <- V0.getHistory cIdWallet accIds mV0Addr
+            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet accIds mV0Addr
             migrate wh
 
     -- Paginate result

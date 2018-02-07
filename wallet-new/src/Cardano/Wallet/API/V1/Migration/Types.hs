@@ -10,6 +10,7 @@ import           Universum
 
 import qualified Data.List.NonEmpty as NE
 import           Data.Map (elems)
+import           Data.Time.Clock.POSIX (POSIXTime)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -17,11 +18,11 @@ import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
+import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.History as V0
 
 import qualified Control.Monad.Catch as Catch
 
@@ -206,10 +207,9 @@ instance Migrate V0.CTx V1.Transaction where
 
         pure V1.Transaction{..}
 
--- | The migration instance for migrating history to a list of transactions
-instance Migrate V0.WalletHistory [V1.Transaction] where
-    eitherMigrate (V0.WalletHistory txs) = do
-        mapM (eitherMigrate . fst) (elems txs)
+-- | The migration instance for migrating history to a list of transactions 
+instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
+    eitherMigrate txsMap = mapM (eitherMigrate . fst) (elems txsMap)
 
 instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
     eitherMigrate policy =

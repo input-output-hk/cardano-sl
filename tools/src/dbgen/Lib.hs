@@ -12,6 +12,7 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
 import qualified Data.ByteString as B
+import qualified Data.List.NonEmpty as NE
 import           Data.Function (id)
 import           Data.Map (fromList, union)
 import           Data.String.Conv (toS)
@@ -22,8 +23,9 @@ import           Crypto.Random.Entropy (getEntropy)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Types (Address, Coin, mkCoin)
 import           Pos.DB.GState.Common (getTip)
+import           Pos.Data.Attributes (mkAttributes)
 import           Pos.StateLock (StateLock (..))
-import           Pos.Txp.Core.Types (TxId, TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core.Types (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
 import           Pos.Util.BackupPhrase (BackupPhrase, mkBackupPhrase12)
 import           Pos.Util.Mnemonics (toMnemonic)
@@ -40,7 +42,7 @@ import           Pos.Wallet.Web.Methods.Restore (newWallet)
 import           Pos.Wallet.Web.State.State (askWalletDB, askWalletSnapshot, getWalletSnapshot,
                                              getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
-import           Test.QuickCheck (Gen, arbitrary, choose, generate)
+import           Test.QuickCheck (Gen, arbitrary, choose, generate, frequency, vectorOf)
 import           Text.Printf (printf)
 
 import           CLI (CLI (..))
@@ -209,8 +211,8 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
             if (checkIfAddTo fakeUtxoSpec fakeTxs) then
                 addAddressesTo spec accId
             else do
-                generateFakeUtxo fakeUtxoSpec accId
-                generateFakeTxs fakeTxs accId
+                timed $ generateFakeUtxo fakeUtxoSpec accId
+                timed $ generateFakeTxs fakeTxs accId
 
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
@@ -227,13 +229,23 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 generateFakeTxs :: FakeTxsHistory -> AccountId -> UberMonad ()
 generateFakeTxs NoHistory _                = pure ()
 generateFakeTxs SimpleTxsHistory{..} aId   = do
-
-    db <- askWalletDB
-
     -- Get the number of txs we need to generate.
     let txsNumber = fromIntegral txsCount
 
-    accounts <- getAccounts Nothing -- aId
+    let batchSize = 100
+    let batches   = txsNumber `mod` batchSize
+    let remainder = txsNumber - (batches * batchSize)
+
+    void $ replicateM batches (generateNFakeTxs batchSize aId)
+    generateNFakeTxs remainder aId
+
+-- | Se we can run it in batches so we don't run out of memory. Denis.
+generateNFakeTxs :: Int -> AccountId -> UberMonad ()
+generateNFakeTxs txsNumber aId = do
+
+    db <- askWalletDB
+
+    accounts <- getAccounts Nothing
 
     let accountsAddrs :: [Address]
         accountsAddrs = rights . map unwrapCAddress $ concatMap caAddresses accounts
@@ -247,7 +259,7 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     let genTxHistoryEntry :: IO TxHistoryEntry
         genTxHistoryEntry = generate $ THEntry
                                 <$> arbitrary
-                                <*> arbitrary -- TODO(ks): Maybe use txOut as well?
+                                <*> genTxs
                                 <*> arbitrary
                                 <*> genTxOut
                                 <*> pure outputAddresses
@@ -265,6 +277,25 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     -- Insert into the @WalletStorage@.
     insertIntoHistoryCache db walletId fakeMapTxs
   where
+    -- | Generate sensible @Tx@.
+    genTxs :: Gen Tx
+    genTxs = do
+
+        -- Generate a more realistic distribution. @Martoon said:
+        -- After release we have limit - ~76 inputs in transaction,
+        -- and bittrex worked for a month or two before hitting that bound.
+        -- In other words, it should be pretty rare to see that stuff.
+        numInputs     <- frequency
+            [ (70, choose (1, 10))
+            , (25, choose (20, 50))
+            , (5 , choose (50, 76))
+            ]
+
+        _txInputs     <- NE.fromList <$> vectorOf numInputs arbitrary
+        _txOutputs    <- arbitrary -- TODO(ks): Good enough for now.
+        _txAttributes <- pure (mkAttributes ())
+
+        pure $ UnsafeTx {..}
 
     genCoins :: Gen Coin
     genCoins = mkCoin <$> choose (1, 1000)

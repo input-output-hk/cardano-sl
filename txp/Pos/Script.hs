@@ -36,6 +36,7 @@ import qualified PlutusCore.EvaluatorTypes as PLCore
 import qualified PlutusCore.Program as PL
 import           System.IO.Unsafe (unsafePerformIO)
 import qualified Utils.Names as PL
+import qualified Language.Haskell.TH.Lift as TH
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
@@ -68,18 +69,22 @@ stripStdlib (PL.Program xs) = PL.Program (filter (not . std) xs)
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
-parseValidator :: Bi Script_v0 => Text -> Either String Script
+parseValidator :: Bi Script_v0 => Text -> Either Text Script
 parseValidator t = do
-    scr <- stripStdlib <$> PL.loadValidator stdlib (toString t)
+    scr <-
+        over _Left fromString $
+        stripStdlib <$> PL.loadValidator stdlib (toString t)
     return Script {
         scrScript = Bi.serialize' scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
-parseRedeemer :: Bi Script_v0 => Text -> Either String Script
+parseRedeemer :: Bi Script_v0 => Text -> Either Text Script
 parseRedeemer t = do
-    scr <- stripStdlib <$> PL.loadRedeemer stdlib (toString t)
+    scr <-
+        over _Left fromString $
+        stripStdlib <$> PL.loadRedeemer stdlib (toString t)
     return Script {
         scrScript = Bi.serialize' scr,
         scrVersion = 0 }
@@ -153,6 +158,8 @@ stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of
                   ("stdlib: error while parsing Plutus prelude: " ++ err)
   where
     prelude = $(lift . toString =<< runIO PL.preludeString)
+
+deriving instance TH.Lift Script
 
 ----------------------------------------------------------------------------
 -- Error catching

@@ -103,6 +103,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift
                      , transformers
                      , universum
                      , unordered-containers
@@ -112,6 +113,7 @@ library
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
+                       DeriveLift
                        GeneralizedNewtypeDeriving
                        StandaloneDeriving
                        FlexibleContexts

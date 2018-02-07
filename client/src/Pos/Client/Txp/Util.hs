@@ -17,12 +17,10 @@ module Pos.Client.Txp.Util
        , makePubKeyTx
        , makeMPubKeyTx
        , makeMPubKeyTxAddrs
-       , makeMOfNTx
        , makeRedemptionTx
        , createGenericTx
        , createTx
        , createMTx
-       , createMOfNTx
        , createRedemptionTx
 
        -- * Fees logic
@@ -69,7 +67,6 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx,
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Script (Script)
-import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
                           TxOutAux (..), TxSigData (..), Utxo)
 import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
@@ -257,15 +254,6 @@ makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
 makePubKeyTx ss txInputs txOutputs = either absurd identity $
     makeMPubKeyTx (\_ -> Right ss) (map ((), ) txInputs) txOutputs
-
-makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
-makeMOfNTx validator sks txInputs txOutputs = either absurd identity $
-    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
-  where
-    mkWit _ sigData = Right $ ScriptWitness
-            { twValidator = validator
-            , twRedeemer = multisigRedeemer sigData sks
-            }
 
 makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
 makeRedemptionTx rsk txInputs txOutputs = either absurd identity $
@@ -552,24 +540,6 @@ createTx
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
     OptimizeForSecurity utxo outputs addrData
-
--- | Make a transaction, using M-of-N script as a source
-createMOfNTx
-    :: TxCreateMode m
-    => PendingAddresses
-    -> Utxo
-    -> [(StakeholderId, Maybe SafeSigner)]
-    -> TxOutputs
-    -> AddrData m
-    -> m (Either TxError TxWithSpendings)
-createMOfNTx pendingTx utxo keys outputs addrData =
-    createGenericTxSingle pendingTx (\i o -> Right $ makeMOfNTx validator sks i o)
-    OptimizeForSecurity utxo outputs addrData
-  where
-    ids = map fst keys
-    sks = map snd keys
-    m = length $ filter isJust sks
-    validator = multisigValidator m ids
 
 -- | Make a transaction for retrieving money from redemption address
 createRedemptionTx

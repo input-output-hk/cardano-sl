@@ -175,7 +175,6 @@ data SyncResult = SyncSucceeded
 
 -- | TODO(adn): Process the exceptions rather than just logging them.
 processSyncResult :: ( WithLogger m
-                     , MonadThrow m
                      , MonadIO m
                      ) => SyncResult -> m ()
 processSyncResult sr = case sr of

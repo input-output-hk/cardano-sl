@@ -43,7 +43,7 @@ newWallet NewWallet{..} = do
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
-  single <$> (V0.newWallet spendingPassword walletInit >>= migrate)
+  single <$> (V0.newWalletHandler spendingPassword walletInit >>= migrate)
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)

@@ -1,23 +1,22 @@
 -- | Core delegation types.
 module Pos.Core.Delegation
        (
+       -- * Heavy/light delegation
          LightDlgIndices (..)
        , ProxySigLight
        , ProxySKLight
-
        , HeavyDlgIndex (..)
        , ProxySigHeavy
        , ProxySKHeavy
 
+       -- * Payload/proof
        , DlgPayload (..)
        , DlgProof
        , mkDlgProof
-       , checkDlgPayload
        ) where
 
 import           Universum
 
-import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, (%))
@@ -26,7 +25,8 @@ import           Serokell.Util (allDistinct, listJson, pairF)
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Crypto (HasCryptoConfiguration, Hash, ProxySecretKey (..), ProxySignature,
-                             hash, validateProxySecretKey)
+                             hash)
+import           Pos.Util.Verification (PVerifiable (..), PVerifiableSub (..), pverFail)
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and signing keys
@@ -77,7 +77,7 @@ type ProxySigHeavy a = ProxySignature HeavyDlgIndex a
 type ProxySKHeavy = ProxySecretKey HeavyDlgIndex
 
 ----------------------------------------------------------------------------
--- Payload
+-- Payload/proof
 ----------------------------------------------------------------------------
 
 -- | 'DlgPayload' is put into 'MainBlock' and is a set of heavyweight
@@ -95,14 +95,13 @@ instance Buildable DlgPayload where
             ("proxy signing keys ("%int%" items): "%listJson%"\n")
             (length psks) psks
 
-checkDlgPayload ::
-       (HasCryptoConfiguration, MonadError Text m, Bi HeavyDlgIndex)
-    => DlgPayload
-    -> m ()
-checkDlgPayload (UnsafeDlgPayload proxySKs) = do
-    unless (allDistinct $ map pskIssuerPk proxySKs) $
-        throwError "Some of block's PSKs have the same issuer, which is prohibited"
-    forM_ proxySKs validateProxySecretKey
+instance (HasCryptoConfiguration, Bi HeavyDlgIndex) => PVerifiable DlgPayload where
+    pverifySelf (UnsafeDlgPayload proxySKs) =
+        unless (allDistinct $ map pskIssuerPk proxySKs) $
+            pverFail "Some of block's PSKs have the same issuer, which is prohibited"
+    pverifyFields (UnsafeDlgPayload certs) =
+        map (\(c,(i::Integer)) -> PVerifiableSub ("dlgPayload#" <> show i) c)
+            (certs `zip` [0..])
 
 -- | Proof of delegation payload.
 type DlgProof = Hash DlgPayload

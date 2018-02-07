@@ -254,7 +254,7 @@ softwareVersion = SoftwareVersion
     , svNumber  = 0
     }
   where
-    appName = ApplicationName (mempty :: Text)
+    appName = UnsafeApplicationName (mempty :: Text)
 
 blockHeaderAttributes :: BlockHeaderAttributes
 blockHeaderAttributes = Attributes

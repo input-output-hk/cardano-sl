@@ -24,7 +24,7 @@ import           Pos.Crypto (Hash)
 
 instance Bi U.ApplicationName where
     encode appName = encode (U.getApplicationName appName)
-    decode = U.ApplicationName <$> decode
+    decode = U.UnsafeApplicationName <$> decode
 
 deriveSimpleBi ''U.BlockVersion [
     Cons 'U.BlockVersion [
@@ -84,7 +84,7 @@ deriveSimpleBi ''U.BlockVersionModifier [
 
 instance Bi U.SystemTag where
     encode = encode . U.getSystemTag
-    decode = U.SystemTag <$> decode
+    decode = U.UnsafeSystemTag <$> decode
 
 deriveSimpleBi ''U.UpdateData [
     Cons 'U.UpdateData [

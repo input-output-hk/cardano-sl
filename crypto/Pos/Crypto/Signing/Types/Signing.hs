@@ -139,7 +139,8 @@ instance B.Buildable (ProxyCert w) where
     build _ = "<proxy_cert>"
 
 -- | Convenient wrapper for secret key, that's basically ω plus
--- certificate.
+-- certificate. It is unsafe -- 'pskCert' can be invalid with respect
+-- to other fields.
 data ProxySecretKey w = UnsafeProxySecretKey
     { pskOmega      :: w
     , pskIssuerPk   :: PublicKey

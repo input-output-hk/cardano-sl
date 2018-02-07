@@ -2,23 +2,20 @@
 
 module Pos.Core.Ssc.Vss
        (
-         -- * Types
+       -- * Types
          VssCertificate (..)
        , VssCertificatesMap (..)
+
        -- * Certificates
        , mkVssCertificate
-       , checkVssCertificate
-       , checkCertSign
        , getCertId
 
        -- * Certificate maps
        -- ** Creating maps
-       , checkVssCertificatesMap
        , mkVssCertificatesMap
        , mkVssCertificatesMapLossy
        , mkVssCertificatesMapSingleton
        -- ** Working with maps
-       , validateVssCertificatesMap
        , memberVss
        , lookupVss
        , insertVss
@@ -27,7 +24,6 @@ module Pos.Core.Ssc.Vss
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Data.List.Extra (nubOrdOn)
 import           Formatting (build, sformat, (%))
@@ -37,8 +33,13 @@ import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (HasCryptoConfiguration, SecretKey, SignTag (SignVssCert),
-                             VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Crypto (HasCryptoConfiguration, SecretKey, SignTag (SignVssCert), VssPublicKey,
+                             checkSig, sign, toPublic)
+import           Pos.Util.Verification (PVerifiable (..), PVerifiableSub (..), pverFail)
+
+----------------------------------------------------------------------------
+-- Certificates
+----------------------------------------------------------------------------
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
@@ -53,14 +54,6 @@ mkVssCertificate sk vk expiry =
   where
     signature = sign SignVssCert sk (vk, expiry)
 
--- | Check a 'VssCertificate' for validity.
-checkVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
-    => VssCertificate
-    -> m ()
-checkVssCertificate it =
-    unless (checkCertSign it) $ throwError "checkVssCertificate: invalid sign"
-
 -- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
@@ -69,6 +62,15 @@ checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bo
 checkCertSign UnsafeVssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
+instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable VssCertificate where
+    pverifySelf vssCert =
+        unless (checkCertSign vssCert) $
+        pverFail "VssCertificate: invalid sign"
+
+----------------------------------------------------------------------------
+-- Certificate maps creation/validation
+----------------------------------------------------------------------------
+
 getCertId :: VssCertificate -> StakeholderId
 getCertId = addressHash . vcSigningKey
 
@@ -76,26 +78,28 @@ getCertId = addressHash . vcSigningKey
 toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
 toCertPair vc = (getCertId vc, vc)
 
+-- | Guard against certificates with duplicate signing keys or with
+-- duplicate 'vcVssKey's.
+instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable VssCertificatesMap where
+    pverifySelf (UnsafeVssCertificatesMap vm) = do
+        let certs = HM.elems vm
+        unless (allDistinct (map vcSigningKey certs)) $
+            pverFail "VssCertificatesMap: two certs have the same signing key"
+        unless (allDistinct (map vcVssKey certs)) $
+            pverFail "VssCertificatesMap: two certs have the same VSS key"
+        forM_ (HM.toList vm) $ \(k, v) ->
+            when (getCertId v /= k) $
+                pverFail $ sformat
+                    ("wrong issuerPk set as key for delegation map: "%
+                     "issuer id = "%build%", cert id = "%build)
+                    k (getCertId v)
+    pverifyFields (UnsafeVssCertificatesMap vm) =
+        map (PVerifiableSub "vssCertMap.elem") $ HM.elems vm
+
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
-
--- | Guard against certificates with duplicate signing keys or with duplicate
--- 'vcVssKey's. Also checks every VssCertificate in the map (see
--- 'checkVssCertificate').
-checkVssCertificatesMap
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
-    => VssCertificatesMap
-    -> m ()
-checkVssCertificatesMap vssCertsMap = do
-    forM_ certs checkVssCertificate
-    unless (allDistinct (map vcSigningKey certs))
-        (throwError "VssCertificatesMap: two certs have the same signing key")
-    unless (allDistinct (map vcVssKey certs))
-        (throwError "VssCertificatesMap: two certs have the same VSS key")
-  where
-    certs = HM.elems (getVssCertificatesMap vssCertsMap)
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.
@@ -111,22 +115,9 @@ mkVssCertificatesMapSingleton :: VssCertificate -> VssCertificatesMap
 mkVssCertificatesMapSingleton =
     UnsafeVssCertificatesMap . uncurry HM.singleton . toCertPair
 
--- | Return given 'VssCertificatesMap' if it's valid or an error if
--- it's not.
-validateVssCertificatesMap ::
-       MonadError Text m
-    => VssCertificatesMap
-    -> m VssCertificatesMap
-validateVssCertificatesMap (UnsafeVssCertificatesMap certs) = do
-    forM_ (HM.toList certs) $ \(k, v) ->
-        when (getCertId v /= k) $
-            throwError $ sformat
-                ("wrong issuerPk set as key for delegation map: "%
-                 "issuer id = "%build%", cert id = "%build)
-                k (getCertId v)
-    unless (allDistinct (map vcVssKey (toList certs))) $
-        throwError "two certs have the same VSS key"
-    pure (UnsafeVssCertificatesMap certs)
+----------------------------------------------------------------------------
+-- Operations on maps
+----------------------------------------------------------------------------
 
 memberVss :: StakeholderId -> VssCertificatesMap -> Bool
 memberVss id (UnsafeVssCertificatesMap m) = HM.member id m

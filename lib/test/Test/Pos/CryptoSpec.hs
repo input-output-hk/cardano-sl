@@ -9,6 +9,7 @@ import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat)
 import           Prelude ((!!))
+import           Serokell.Util (isVerFailure, isVerSuccess)
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, specify)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, property, vector,
@@ -22,11 +23,12 @@ import           Pos.Core (HasConfiguration)
 import qualified Pos.Crypto as Crypto
 import           Pos.SafeCopy ()
 import           Pos.Ssc ()
+import           Pos.Util.Verification (runPVerify)
 
 import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
-import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode,
-                                   safeCopyTest, serDeserId)
+import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
+                                   serDeserId)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -261,7 +263,7 @@ signThenVerifyDifferentData t sk a b =
 proxySecretKeyCheckCorrect
     :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
 proxySecretKeyCheckCorrect issuerSk delegateSk w =
-    isRight (Crypto.validateProxySecretKey proxySk)
+    isVerSuccess (runPVerify proxySk)
   where
     proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
 
@@ -272,7 +274,7 @@ proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
             Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
         wrongPsk = Crypto.UnsafeProxySecretKey { Crypto.pskIssuerPk = pk2, ..}
     (Crypto.toPublic issuerSk /= pk2) ==>
-        isLeft (Crypto.validateProxySecretKey wrongPsk)
+        isVerFailure (runPVerify wrongPsk)
 
 proxySignVerify
     :: (HasConfiguration, Bi a, Bi w, Eq w)

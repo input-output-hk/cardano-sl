@@ -38,7 +38,6 @@ import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (
                                          ProtocolConstants (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
 import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
@@ -367,20 +366,16 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
             }
 
 instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
-    fromJSON val = do
-        m <- UnsafeVssCertificatesMap <$> fromJSON val
-        wrapConstructor (validateVssCertificatesMap m)
+    fromJSON = fmap UnsafeVssCertificatesMap . fromJSON
 
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
 
 instance ReportSchemaErrors m => FromJSON m Coin where
-    fromJSON = fmap Coin . fromJSON
+    fromJSON = fmap UnsafeCoin . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
-    fromJSON val = do
-        number <- fromJSON val
-        pure $ CoinPortion number
+    fromJSON = fmap UnsafeCoinPortion . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =

@@ -6,22 +6,21 @@ module Pos.Core.Ssc.Util
        (
          getCommShares
        , mkSscProof
-
-       , checkSscPayload
        ) where
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (Bi (..), fromBinary)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration ()
+import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap, Opening, SscPayload (..),
                                      SscProof (..), VssCertificate, VssCertificatesMap (..))
-import           Pos.Core.Ssc.Vss (checkVssCertificatesMap)
-import           Pos.Crypto (EncShare, VssPublicKey, hash, HasCryptoConfiguration)
+import           Pos.Core.Ssc.Vss ()
+import           Pos.Crypto (EncShare, HasCryptoConfiguration, VssPublicKey, hash)
+import           Pos.Util.Verification (PVerifiable (..), PVerifiableSub (..))
 
 -- | Get commitment shares.
 getCommShares :: Commitment -> Maybe [(VssPublicKey, NonEmpty EncShare)]
@@ -32,7 +31,7 @@ getCommShares =
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
 mkSscProof
-    :: ( HasConfiguration
+    :: ( HasCryptoConfiguration
        , Bi VssCertificatesMap
        , Bi CommitmentsMap
        , Bi Opening
@@ -52,8 +51,5 @@ mkSscProof payload =
     proof constr hm (getVssCertificatesMap -> certs) =
         constr (hash hm) (hash certs)
 
-checkSscPayload
-    :: ( HasCryptoConfiguration, MonadError Text m )
-    => SscPayload
-    -> m ()
-checkSscPayload payload = checkVssCertificatesMap (spVss payload)
+instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable SscPayload where
+    pverifyFields = one . PVerifiableSub "spVss" . spVss

@@ -311,7 +311,9 @@ getNoLongerRichmen newEpoch =
 --   end of prev. epoch
 -- * Delegation payload plus database state doesn't produce cycles.
 --
--- It's assumed blocks are correct from Slog perspective.
+--
+-- It's assumed blocks are purely verified and correct from Slog
+-- perspective.
 dlgVerifyBlocks ::
        forall ctx m.
        ( MonadDBRead m

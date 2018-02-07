@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 import           Universum
 
@@ -28,6 +29,7 @@ import           Pos.Core.Common (CoinPortion, SharedSeed (..))
 import           Pos.Core.Configuration
 import           Pos.Core.Genesis
 import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Util.Verification
 
 -- We need configurations in order to get Arbitrary and Bi instances for
 -- Block stuff.
@@ -187,7 +189,7 @@ benchMain :: ( HasConfiguration ) => Int -> Int -> IO ()
 benchMain seed size = defaultMain
     [ env (return (testSubject seed size) >>= printSizes) $ \ts -> bgroup "block" $
           [ bgroup "verify" $
-                [ bench "all" (nf (either (Prelude.error "invalid") identity . Verify.verifyMainBlock :: MainBlock -> ()) (fst . tsBlock $ ts))
+                [ bench "all" (nf (runPVerifyPanic "benchMain" :: MainBlock -> MainBlock) (fst . tsBlock $ ts))
                 ]
           , bgroup "serialize" $
                 [ bench "all" (nf serialize (fst . tsBlock $ ts))

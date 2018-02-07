@@ -39,6 +39,7 @@ library
                        Pos.Util.Some
                        Pos.Util.Timer
                        Pos.Util.Util
+                       Pos.Util.Verification
 
   other-modules:
 

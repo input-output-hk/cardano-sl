@@ -6,7 +6,7 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
-import           Control.Monad.Except (MonadError, runExceptT, throwError)
+import           Control.Monad.Except (MonadError, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
@@ -21,8 +21,7 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, I
                            headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
-                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
-                                  checkUpdatePayload)
+                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd)
 import           Pos.Crypto (hash, shortHashF)
 import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
@@ -36,6 +35,7 @@ import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProp
                                         DpsExtra (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..), psProposal)
 import           Pos.Util.Some (Some (..))
+import           Pos.Util.Verification (runPVerifyText)
 
 type ApplyMode m =
     ( MonadError PollVerFailure m
@@ -66,7 +66,8 @@ verifyAndApplyUSPayload ::
     -> m ()
 verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
-    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload upp)
+    whenJust (runPVerifyText upp) $ throwError . PollInvalidUpdatePayload
+
     whenRight slotOrHeader $ verifyHeader lastAdopted
 
     unless isEmptyPayload $ do

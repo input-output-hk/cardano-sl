@@ -172,6 +172,7 @@ Benchmark bench-block
                    , cardano-sl-update
                    , cardano-sl-ssc
                    , cardano-sl-delegation
+                   , cardano-sl-util
                    , formatting
                    , universum
                    , deepseq

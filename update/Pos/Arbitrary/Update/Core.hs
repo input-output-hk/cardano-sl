@@ -17,8 +17,8 @@ import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
-                                  UpdateProposalToSign (..), UpdateVote (..),
-                                  mkUpdateProposalWSign, mkUpdateVote)
+                                  UpdateProposalToSign (..), UpdateVote (..), mkUpdateProposalWSign,
+                                  mkUpdateVote)
 import           Pos.Crypto (fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
@@ -29,7 +29,7 @@ instance Arbitrary BlockVersionModifier where
 
 instance Arbitrary SystemTag where
     arbitrary =
-        oneof . map (pure . SystemTag) $
+        oneof . map (pure . UnsafeSystemTag) $
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
     shrink = genericShrink
 

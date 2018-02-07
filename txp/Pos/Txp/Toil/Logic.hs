@@ -32,7 +32,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
-                               txInputs, txOutAddress, checkTxAux)
+                               txInputs, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
@@ -43,6 +43,7 @@ import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo as Utxo
 import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.Verification (runPVerifyText)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -142,7 +143,7 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    either (throwError . ToilInconsistentTxAux) pure (checkTxAux txAux)
+    whenJust (runPVerifyText txAux) $ throwError . ToilInconsistentTxAux
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx

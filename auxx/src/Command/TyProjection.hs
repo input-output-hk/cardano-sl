@@ -35,20 +35,20 @@ import           Data.Time.Units (TimeUnit, convertUnit)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util (sec)
 
-import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin,
-                           CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
-                           mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin, CoinPortion,
+                           EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId, mkCoin,
+                           unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
-import           Pos.Update (BlockVersionModifier (..), ApplicationName (..), SystemTag (..))
+import           Pos.Update (ApplicationName (..), BlockVersionModifier (..), SystemTag (..))
 
 import           Lang.Argument (TyProjection (..), TypeName (..))
-import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..),
-                             Value (..), _ValueAddrDistrPart, _ValueAddrStakeDistribution,
-                             _ValueAddress, _ValueBlockVersion, _ValueBlockVersionModifier,
-                             _ValueBool, _ValueFilePath, _ValueHash, _ValueNumber,
-                             _ValueProposeUpdateSystem, _ValuePublicKey,
-                             _ValueSoftwareVersion, _ValueStakeholderId, _ValueString, _ValueTxOut)
+import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..), Value (..),
+                             _ValueAddrDistrPart, _ValueAddrStakeDistribution, _ValueAddress,
+                             _ValueBlockVersion, _ValueBlockVersionModifier, _ValueBool,
+                             _ValueFilePath, _ValueHash, _ValueNumber, _ValueProposeUpdateSystem,
+                             _ValuePublicKey, _ValueSoftwareVersion, _ValueStakeholderId,
+                             _ValueString, _ValueTxOut)
 
 tyValue :: TyProjection Value
 tyValue = TyProjection "Value" Just
@@ -149,10 +149,10 @@ tyProposeUpdateSystem :: TyProjection ProposeUpdateSystem
 tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValueProposeUpdateSystem)
 
 tySystemTag :: TyProjection SystemTag
-tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (SystemTag . fromString) (preview _ValueString))
+tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (UnsafeSystemTag . fromString) (preview _ValueString))
 
 tyApplicationName :: TyProjection ApplicationName
-tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationName . fromString) (preview _ValueString))
+tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (UnsafeApplicationName . fromString) (preview _ValueString))
 
 tyString :: TyProjection String
 tyString = TyProjection "String" (preview _ValueString)

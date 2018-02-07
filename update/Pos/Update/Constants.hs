@@ -31,4 +31,4 @@ genesisSoftwareVersions = map f genesisAppNames
 genesisAppNames :: [(Text, ApplicationName)]
 genesisAppNames = map f ["cardano-sl", "csl-daedalus"]
   where
-    f name = (name, ApplicationName name)
+    f name = (name, UnsafeApplicationName name)

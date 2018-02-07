@@ -7,12 +7,14 @@ module Test.Pos.Core.CoinSpec
 import           Universum
 
 
+import           Serokell.Util (isVerFailure)
 import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 
 import qualified Pos.Arbitrary.Core as C
 import qualified Pos.Core.Common as C
+import           Pos.Util.Verification (runPVerify)
 
 import           Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
@@ -134,7 +136,8 @@ wordToCoinToWord :: Word64 -> Property
 wordToCoinToWord c = c > C.maxCoinVal .||. C.unsafeGetCoin (C.mkCoin c) === c
 
 overflowInCheckCoinError :: Expectation
-overflowInCheckCoinError = shouldSatisfy (C.checkCoin (C.Coin (C.maxCoinVal + 1)) :: Either Text ()) isLeft
+overflowInCheckCoinError =
+    shouldSatisfy (runPVerify (C.UnsafeCoin (C.maxCoinVal + 1))) isVerFailure
 
 coinToIntegerToCoin :: C.Coin -> Property
 coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity

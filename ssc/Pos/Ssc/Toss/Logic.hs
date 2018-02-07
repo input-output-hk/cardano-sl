@@ -9,7 +9,7 @@ module Pos.Ssc.Toss.Logic
        ) where
 
 import           Control.Lens (at)
-import           Control.Monad.Except (MonadError, throwError, runExceptT)
+import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
@@ -21,8 +21,7 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, IsMai
                            getVssCertificatesMap, headerSlotL, mkCoin,
                            mkVssCertificatesMapSingleton, slotSecurityParam)
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
-                               SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
-                               checkSscPayload)
+                               SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
@@ -33,6 +32,7 @@ import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)
+import           Pos.Util.Verification (runPVerifyText)
 
 -- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -43,7 +43,7 @@ verifyAndApplySscPayload
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
     -- Check the payload for internal consistency.
-    either (throwError . SscInvalidPayload) pure (checkSscPayload payload)
+    whenJust (runPVerifyText payload) $ throwError . SscInvalidPayload
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
     whenLeft eoh $ const $ verifySscPayload eoh payload

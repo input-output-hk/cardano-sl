@@ -49,8 +49,8 @@ import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, s
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Arbitrary.Core ()
-import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
-                           decodeTextAddress, ApplicationName (..))
+import           Pos.Core (Address, ApplicationName (..), BlockVersion (..), SoftwareVersion (..),
+                           StakeholderId, decodeTextAddress)
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
                              parseFullPublicKey, unsafeCheatingHashCoerce)
 import           Pos.Util.Util (toParsecError)
@@ -241,7 +241,7 @@ pBlockVersion = do
 pSoftwareVersion :: Lexer SoftwareVersion
 pSoftwareVersion = do
     appName <- manyTill (satisfy isAlphaNum <|> char '-') (char ':')
-    let svAppName = ApplicationName (toText appName)
+    let svAppName = UnsafeApplicationName (toText appName)
     svNumber <- decimal
     notFollowedBy $ char '.'
     return SoftwareVersion {..}

@@ -32,8 +32,6 @@ module Pos.Core.Block.Blockchain
 import           Universum
 
 import           Control.Lens (makeLenses)
-import           Control.Monad.Except (MonadError (throwError))
-import           Formatting (build, sformat, (%))
 
 import           Pos.Core.Class (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Common (HeaderHash)
@@ -71,19 +69,6 @@ class Blockchain p where
 
     mkBodyProof :: Body p -> BodyProof p
 
-    -- | Check whether 'BodyProof' corresponds to 'Body.
-    checkBodyProof :: MonadError Text m => Body p -> BodyProof p -> m ()
-    default checkBodyProof ::
-        (MonadError Text m, Buildable (BodyProof p), Eq (BodyProof p)) =>
-        Body p -> BodyProof p -> m ()
-    checkBodyProof body proof = do
-        let calculatedProof = mkBodyProof body
-        let errMsg =
-                sformat ("Incorrect proof of body. "%
-                         "Proof in header: "%build%
-                         ", calculated proof: "%build)
-                proof calculatedProof
-        unless (calculatedProof == proof) $ throwError errMsg
 
 ----------------------------------------------------------------------------
 -- Generic types
@@ -155,13 +140,6 @@ deriving instance
     , Eq (ExtraBodyData b)
     , Eq (ExtraHeaderData b)
     ) => Eq (GenericBlock b)
-
--- Derived partially in Instances
---instance
---    ( NFData (GenericBlockHeader b)
---    , NFData (Body b)
---    , NFData (ExtraBodyData b)
---    ) => NFData (GenericBlock b)
 
 ----------------------------------------------------------------------------
 -- Smart constructors

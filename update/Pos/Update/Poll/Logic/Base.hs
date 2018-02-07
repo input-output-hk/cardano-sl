@@ -39,10 +39,10 @@ import           Formatting (build, int, sformat, (%))
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update ()
-import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HasConfiguration, HeaderHash,
-                           IsMainHeader (..), SlotId, SoftforkRule (..), TimeDiff (..), addressHash,
-                           applyCoinPortionUp, coinPortionDenominator, coinToInteger, difficultyL,
-                           epochSlots, getCoinPortion, headerHashG, isBootstrapEra, CoinPortion (..),
+import           Pos.Core (BlockVersion (..), Coin, CoinPortion (..), EpochIndex, HasConfiguration,
+                           HeaderHash, IsMainHeader (..), SlotId, SoftforkRule (..), TimeDiff (..),
+                           addressHash, applyCoinPortionUp, coinPortionDenominator, coinToInteger,
+                           difficultyL, epochSlots, getCoinPortion, headerHashG, isBootstrapEra,
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
                                   UpdateProposal (..), UpdateVote (..))
@@ -328,7 +328,7 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
         -- • the value can't be greater than max possible one, because
         --   minuend represents a valid coin portion.
         | minuend > subtrahend + getCoinPortion srMinThd =
-            CoinPortion (minuend - subtrahend)
+            UnsafeCoinPortion (minuend - subtrahend)
         | otherwise = srMinThd
 
 ----------------------------------------------------------------------------

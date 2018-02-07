@@ -42,6 +42,7 @@ import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
+import           Pos.Util.Verification (runPVerifyText)
 
 ----------------------------------------------------------------------------
 -- Delegation mempool
@@ -171,8 +172,9 @@ processProxySKHeavyInternal psk = do
         fmap (either (,False)
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
-        runExceptT $
-        dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
+        runExceptT $ do
+            ExceptT $ pure $ maybeToLeft () $ runPVerifyText psk
+            dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
 
     -- Here the memory state is the same.
     runDelegationStateAction $ do

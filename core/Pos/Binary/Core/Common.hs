@@ -3,7 +3,6 @@ module Pos.Binary.Core.Common () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Common.Types (Coin (..), unsafeGetCoin)
 import qualified Pos.Core.Common.Types as T
 import qualified Pos.Data.Attributes as A
 import           Pos.Util.Orphans ()
@@ -17,7 +16,7 @@ instance Bi (A.Attributes ()) where
 
 instance Bi T.CoinPortion where
     encode = encode . T.getCoinPortion
-    decode = T.CoinPortion <$> decode
+    decode = T.UnsafeCoinPortion <$> decode
 
 instance Bi T.BlockCount where
     encode = encode . T.getBlockCount
@@ -52,6 +51,6 @@ deriveSimpleBi ''T.ChainDifficulty [
 -- 45*10^9 * 10^6 (maxbound)     |      72 bits      |
 -- maxbound - 1                  |      72 bits      |
 
-instance Bi Coin where
-    encode = encode . unsafeGetCoin
-    decode = Coin <$> decode
+instance Bi T.Coin where
+    encode = encode . T.unsafeGetCoin
+    decode = T.UnsafeCoin <$> decode

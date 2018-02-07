@@ -6,11 +6,11 @@ module Test.Pos.ConstantsSpec
 
 import           Universum
 
-import           Pos.Core                 (SystemTag (..))
+import           Pos.Core (SystemTag (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourSystemTag)
 
-import           Test.Hspec               (Expectation, Spec, describe, it, shouldSatisfy)
-import           Test.Pos.Configuration   (withDefUpdateConfiguration)
+import           Test.Hspec (Expectation, Spec, describe, it, shouldSatisfy)
+import           Test.Pos.Configuration (withDefUpdateConfiguration)
 
 -- | @currentSystemTag@ is a value obtained at compile time with TemplateHaskell
 -- that represents that current system's platform (i.e. where it was compiled).
@@ -20,7 +20,7 @@ import           Test.Pos.Configuration   (withDefUpdateConfiguration)
 -- @cardano-sl-1.0.4@, something has gone wrong.
 systemTagCheck :: HasUpdateConfiguration => Expectation
 systemTagCheck = do
-    let sysTags = map SystemTag ["linux64", "macos64", "win64"]
+    let sysTags = map UnsafeSystemTag ["linux64", "macos64", "win64"]
         felem = flip elem
     ourSystemTag `shouldSatisfy` felem sysTags
 

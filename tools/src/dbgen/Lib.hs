@@ -281,9 +281,8 @@ generateNFakeTxs txsNumber aId = do
     genTxs :: Gen Tx
     genTxs = do
 
-        -- Generate a more realistic distribution. @Martoon said:
-        -- After release we have limit - ~76 inputs in transaction,
-        -- and bittrex worked for a month or two before hitting that bound.
+        -- Generate a more realistic distribution. After release we have limit 
+        -- - ~76 inputs in transaction, and it can take up to a month to reach that limit.
         -- In other words, it should be pretty rare to see that stuff.
         numInputs     <- frequency
             [ (70, choose (1, 10))

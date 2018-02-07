@@ -209,8 +209,8 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
             if (checkIfAddTo fakeUtxoSpec fakeTxs) then
                 addAddressesTo spec accId
             else do
-                void $ generateFakeUtxo fakeUtxoSpec accId
-                void $ generateFakeTxs fakeTxs accId
+                generateFakeUtxo fakeUtxoSpec accId
+                generateFakeTxs fakeTxs accId
 
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
@@ -257,18 +257,17 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
         walletId = aiWId aId
 
     -- Generate arbitrary tx ids and txs for the fake history.
-    fakeTxIds <- liftIO $ replicateM txsNumber genTxId
     fakeTxs   <- liftIO $ replicateM txsNumber genTxHistoryEntry
 
     let fakeMapTxs :: Map TxId TxHistoryEntry
-        fakeMapTxs = fromList $ zip fakeTxIds fakeTxs
+        fakeMapTxs = fromList $ zip (map getTxId fakeTxs) fakeTxs
 
     -- Insert into the @WalletStorage@.
     insertIntoHistoryCache db walletId fakeMapTxs
   where
 
-    genTxId :: IO TxId
-    genTxId = generate arbitrary
+    getTxId :: TxHistoryEntry -> TxId
+    getTxId (THEntry txId _ _ _ _ _) = txId
 
     genCoins :: Gen Coin
     genCoins = mkCoin <$> choose (1, 1000)

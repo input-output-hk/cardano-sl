@@ -14,7 +14,7 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second)
 import           Formatting (Format)
-import           Mockable (withAsync)
+import           Mockable (withAsync, link)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..))
 import           Network.Transport.Abstract (Transport)
@@ -56,8 +56,8 @@ import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
-                                    topologySubscriptionWorker, topologyMaxBucketSize,
-                                    topologyRunKademlia)
+                                    topologySubscriptionWorker, topologyRunKademlia,
+                                    topologyHealthStatus)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
@@ -133,11 +133,16 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 
             workerOuts :: HandlerSpecs
             OutSpecs workerOuts = mconcat
-                [ sscWorkerOutSpecs
-                , securityWorkerOutSpecs
-                , usWorkerOutSpecs
+                [ -- First: the relay system out specs.
+                  Diffusion.Txp.txOutSpecs logic
+                , Diffusion.Update.updateOutSpecs logic
+                , Diffusion.Delegation.delegationOutSpecs logic
+                , Diffusion.Ssc.sscOutSpecs logic
+                  -- Relay system for blocks is ad-hoc.
                 , blockWorkerOutSpecs
-                , delegationWorkerOutSpecs
+                  -- SSC has non-relay out specs, defined below.
+                , sscWorkerOutSpecs
+                , securityWorkerOutSpecs
                 , slottingWorkerOutSpecs
                 , subscriptionWorkerOutSpecs
                 , dhtWorkerOutSpecs
@@ -159,9 +164,6 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                         (Proxy :: Proxy MsgHeaders)
                 ]
 
-            -- Definition of usWorkers plainly shows the out specs = mempty.
-            usWorkerOutSpecs = mempty
-
             -- announceBlockHeaderOuts from blkCreatorWorker
             -- announceBlockHeaderOuts from blkMetricCheckerWorker
             -- along with the retrieval worker outs which also include
@@ -177,9 +179,6 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                          (Proxy :: Proxy MsgGetHeaders)
                                                  ]
-
-            -- It's a local worker, no out specs.
-            delegationWorkerOutSpecs = mempty
 
             -- Plainly mempty from the definition of allWorkers.
             slottingWorkerOutSpecs = mempty
@@ -291,16 +290,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             -- Amazon Route53 health check support (stopgap measure, see note
             -- in Pos.Diffusion.Types, above 'healthStatus' record field).
             healthStatus :: d HealthStatus
-            healthStatus = do
-                let maxCapacityText :: Text
-                    maxCapacityText = case topologyMaxBucketSize (ncTopology networkConfig) BucketSubscriptionListener of
-                        OQ.BucketSizeUnlimited -> fromString "unlimited"
-                        OQ.BucketSizeMax x -> fromString (show x)
-                spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
-                pure $ case spareCapacity of
-                    OQ.SpareCapacity sc | sc == 0 -> HSUnhealthy (fromString "0/" <> maxCapacityText)
-                    OQ.SpareCapacity sc           -> HSHealthy $ fromString (show sc) <> "/" <> maxCapacityText
-                    OQ.UnlimitedCapacity          -> HSHealthy maxCapacityText
+            healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
 
             formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
             formatPeers formatter = Just <$> OQ.dumpState oq formatter
@@ -332,8 +322,9 @@ runDiffusionLayerFull
     -> d x
 runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
-        timeWarpNode transport ourVerInfo listeners $ \nd converse -> do
-            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
+        timeWarpNode transport ourVerInfo listeners $ \nd converse ->
+            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
+                link dthread
                 case mEkgNodeMetrics of
                     Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
                     Nothing -> pure ()
@@ -341,7 +332,8 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
                 -- send actions directly.
                 let sendActions :: SendActions d
                     sendActions = makeSendActions ourVerInfo oqEnqueue converse
-                withAsync (subscriptionThread networkConfig' sendActions) $ \_ -> do
+                withAsync (subscriptionThread networkConfig' sendActions) $ \sthread -> do
+                    link sthread
                     joinKademlia networkConfig'
                     action
   where

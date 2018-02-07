@@ -4,6 +4,7 @@
 module Pos.Diffusion.Full.Txp
        ( sendTx
        , txListeners
+       , txOutSpecs
        ) where
 
 import           Universum
@@ -16,10 +17,11 @@ import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), NodeId,
-                                             MkListeners)
+                                             MkListeners, OutSpecs)
 import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode,
                                           InvReqDataParams (..), invReqMsgType, Relay (..),
-                                          relayListeners, MempoolParams (..))
+                                          relayListeners, MempoolParams (..),
+                                          relayPropagateOut)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -61,6 +63,18 @@ txListeners
     -> EnqueueMsg m
     -> MkListeners m
 txListeners logic oq enqueue = relayListeners oq enqueue (txRelays logic)
+
+-- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
+-- motif required for communication.
+-- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
+txOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       , HasAdoptedBlockVersionData m
+       )
+    => Logic m
+    -> OutSpecs
+txOutSpecs logic = relayPropagateOut (txRelays logic)
 
 txInvReqDataParams
     :: DiffusionWorkMode m

@@ -7691,16 +7691,16 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
-             cardano-sl-core cardano-sl-crypto cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
-             data-default exceptions formatting generics-sop http-api-data
-             http-client http-types ixset-typed json-sop lens memory mtl
-             network-uri QuickCheck safe-exceptions serokell-util servant
-             servant-client servant-quickcheck servant-server string-conv
-             template-haskell text text-format time transformers universum
-             unordered-containers vector wai warp
+             aeson aeson-pretty base bytestring cardano-sl cardano-sl-block
+             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
+             cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
+             containers data-default exceptions formatting generics-sop
+             http-api-data http-client http-types ixset-typed json-sop lens
+             log-warper memory mtl network-uri QuickCheck safe-exceptions
+             serokell-util servant servant-client servant-quickcheck
+             servant-server string-conv template-haskell text text-format time
+             transformers universum unordered-containers vector wai warp
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

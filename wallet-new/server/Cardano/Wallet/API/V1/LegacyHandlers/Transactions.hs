@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Cardano.Wallet.API.V1.Handlers.Transactions where
+module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 

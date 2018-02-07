@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
-module Cardano.Wallet.API.V1.Handlers.Addresses where
+module Cardano.Wallet.API.V1.LegacyHandlers.Addresses where
 
 import           Universum
 

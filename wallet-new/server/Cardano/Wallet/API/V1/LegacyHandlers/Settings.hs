@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Settings where
+module Cardano.Wallet.API.V1.LegacyHandlers.Settings where
 
 import           Universum
 

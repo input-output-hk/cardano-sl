@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Wallets where
+module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 
 import           Universum
 
@@ -7,7 +7,7 @@ import qualified Pos.Wallet.Web.Methods as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
+import qualified Cardano.Wallet.API.V1.LegacyHandlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets

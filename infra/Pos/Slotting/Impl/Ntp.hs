@@ -241,8 +241,7 @@ ntpSettings var = NtpClientSettings
     , ntpHandler         = ntpHandlerDo var
     -- logger name modifier
     , ntpLogName         = "ntp"
-    -- delay between making requests and response collection;
-    -- it also means that handler will be invoked with this lag
+    -- delay between making requests and response collection
     , ntpResponseTimeout = C.ntpResponseTimeout
     -- how often to send responses to server
     , ntpPollDelay       = C.ntpPollDelay

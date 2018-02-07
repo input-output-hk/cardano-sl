@@ -7120,7 +7120,7 @@ inherit (pkgs) mesa;};
          , generic-arbitrary, hashable, lens, log-warper, memory, mtl
          , parsec, plutus-prototype, QuickCheck, quickcheck-instances
          , random, reflection, safe-exceptions, scrypt, serokell-util
-         , stdenv, tagged, template-haskell, text, text-format
+         , stdenv, tagged, template-haskell, text, text-format, th-lift
          , th-lift-instances, time, time-units, universum
          , unordered-containers, vector
          }:
@@ -7137,7 +7137,7 @@ inherit (pkgs) mesa;};
              generic-arbitrary hashable lens log-warper memory mtl parsec
              plutus-prototype QuickCheck quickcheck-instances random reflection
              safe-exceptions scrypt serokell-util tagged template-haskell text
-             text-format th-lift-instances time time-units universum
+             text-format th-lift th-lift-instances time time-units universum
              unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];

@@ -36,7 +36,6 @@ import qualified PlutusCore.EvaluatorTypes as PLCore
 import qualified PlutusCore.Program as PL
 import           System.IO.Unsafe (unsafePerformIO)
 import qualified Utils.Names as PL
-import qualified Language.Haskell.TH.Lift as TH
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
@@ -158,8 +157,6 @@ stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of
                   ("stdlib: error while parsing Plutus prelude: " ++ err)
   where
     prelude = $(lift . toString =<< runIO PL.preludeString)
-
-deriving instance TH.Lift Script
 
 ----------------------------------------------------------------------------
 -- Error catching

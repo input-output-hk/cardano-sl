@@ -65,6 +65,7 @@ import           Data.Hashable (Hashable (..))
 import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, int, later, sformat, (%))
+import qualified Language.Haskell.TH.Lift as TH
 import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 import           Serokell.Util.Base16 (formatBase16)
@@ -361,7 +362,7 @@ type ScriptVersion = Word16
 data Script = Script
     { scrVersion :: ScriptVersion -- ^ Version
     , scrScript  :: ByteString   -- ^ Serialized script
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable, TH.Lift)
 
 instance NFData Script
 instance Hashable Script

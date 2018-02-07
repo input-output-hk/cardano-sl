@@ -28,7 +28,7 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
                                mkTxPayload)
 import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 
 ----------------------------------------------------------------------------
@@ -187,10 +187,6 @@ instance Arbitrary (MerkleRoot Tx) where
 
 instance Arbitrary (MerkleNode Tx) where
     arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary (MerkleTree Tx) where
-    arbitrary = mkMerkleTree <$> arbitrary
     shrink = genericShrink
 
 instance Arbitrary TxProof where

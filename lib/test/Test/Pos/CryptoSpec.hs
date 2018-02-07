@@ -25,7 +25,7 @@ import           Pos.Ssc ()
 
 import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
-import           Test.Pos.Helpers (binaryEncodeDecode, msgLenLimitedTest, safeCopyEncodeDecode,
+import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode,
                                    safeCopyTest, serDeserId)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -47,7 +47,6 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Crypto" $ do
 
     describe "Hashing" $ do
         describe "Hash instances" $ do
-            prop "Bi" (binaryEncodeDecode @(Crypto.Hash Word64))
             prop "SafeCopy" (safeCopyEncodeDecode @(Crypto.Hash Word64))
         describe "hashes of different values are different" $ do
             prop "Bool" (hashInequality @Bool)

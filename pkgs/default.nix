@@ -6911,22 +6911,22 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, ansi-terminal, ansi-wl-pprint, base, binary
          , bytestring, canonical-json, cardano-crypto, cardano-sl-binary
          , cardano-sl-block, cardano-sl-core, cardano-sl-crypto
-         , cardano-sl-db, cardano-sl-delegation, cardano-sl-infra
-         , cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc
-         , cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, cereal
-         , conduit, constraints, containers, cpphs, cryptonite, data-default
-         , deepseq, directory, dns, ed25519, ekg-core, ekg-statsd, ekg-wai
-         , ether, exceptions, extra, filelock, filepath, fmt, formatting
-         , generic-arbitrary, half, hashable, hspec, kademlia, lens
-         , log-warper, lrucache, memory, mmorph, monad-control, MonadRandom
-         , mtl, neat-interpolation, network-transport, network-transport-tcp
-         , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
-         , random, reflection, resourcet, rocksdb-haskell-ng
-         , safe-exceptions, safecopy, serokell-util, servant, servant-server
-         , servant-swagger, stdenv, stm, systemd, tagged, template-haskell
-         , text, text-format, time, time-units, transformers
-         , transformers-base, universum, unix, unordered-containers, vector
-         , wai, warp, warp-tls, yaml
+         , cardano-sl-db, cardano-sl-delegation, cardano-sl-explorer
+         , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
+         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
+         , cardano-sl-util, cborg, cereal, conduit, constraints, containers
+         , cpphs, cryptonite, data-default, deepseq, directory, dns, ed25519
+         , ekg-core, ekg-statsd, ekg-wai, ether, exceptions, extra, filelock
+         , filepath, fmt, formatting, generic-arbitrary, half, hashable
+         , hspec, kademlia, lens, log-warper, lrucache, memory, mmorph
+         , monad-control, MonadRandom, mtl, neat-interpolation
+         , network-transport, network-transport-tcp, optparse-applicative
+         , parsec, plutus-prototype, pvss, QuickCheck, random, reflection
+         , resourcet, rocksdb-haskell-ng, safe-exceptions, safecopy
+         , serokell-util, servant, servant-server, servant-swagger, stdenv
+         , stm, systemd, tagged, template-haskell, text, text-format, time
+         , time-units, transformers, transformers-base, universum, unix
+         , unordered-containers, vector, wai, warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6954,8 +6954,8 @@ inherit (pkgs) mesa;};
            testHaskellDepends = [
              base bytestring canonical-json cardano-sl-binary cardano-sl-block
              cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
+             cardano-sl-delegation cardano-sl-explorer cardano-sl-infra
+             cardano-sl-lrc cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cborg cereal containers
              cryptonite data-default extra fmt formatting generic-arbitrary half
              hspec lens MonadRandom mtl pvss QuickCheck random reflection

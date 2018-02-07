@@ -74,4 +74,5 @@ explorer.log
 socket-io.log
 
 # Results of wallet benchmarking.
-wallet/bench/results/*
+wallet/bench/results/*.csv
+wallet/bench/results/*.txt

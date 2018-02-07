@@ -1,2 +1,4 @@
 BenchName,NumberOfMeasures,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile,PathToResponseReportsFile
-IsValidAddressBench,10,0.0,0.0,/home/denis/Code/cardano-sl/wallet/bench/results/IsValidAddressBenchReport.csv,/home/denis/Code/cardano-sl/wallet/bench/results/IsValidAddressResponseReports.txt
+NewPaymentBench,10,0.0,0.0,/home/denis/Code/cardano-sl/wallet/bench/results/NewPaymentBenchReport.csv,/home/denis/Code/cardano-sl/wallet/bench/results/NewPaymentResponseReports.txt
+GetWalletsBench,10,55.0,59.0,/home/denis/Code/cardano-sl/wallet/bench/results/GetWalletsBenchReport.csv,/home/denis/Code/cardano-sl/wallet/bench/results/GetWalletsResponseReports.txt
+GetHistoryBench,10,0.0,0.0,/home/denis/Code/cardano-sl/wallet/bench/results/GetHistoryBenchReport.csv,/home/denis/Code/cardano-sl/wallet/bench/results/GetHistoryResponseReports.txt

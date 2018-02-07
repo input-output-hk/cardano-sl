@@ -88,7 +88,8 @@ sendToAllGenesis
 sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  =
-            -- TODO [CSL-2173]: Clarify
+            -- TODO [CSL-2173]: Refactor. This error can happen depending
+            -- on external configuration.
             fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
@@ -179,7 +180,8 @@ send diffusion idx outputs = do
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
-            -- TODO [CSL-2173]: Clarify
+            -- TODO [CSL-2173]: Refactor. The 'skey' is an external
+            -- input, all possible values must be handled.
             (\ibea -> fromMaybe (error "send: pass mismatch") $
                     deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses

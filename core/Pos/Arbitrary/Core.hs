@@ -451,7 +451,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
-        -- TODO [CSL-2173]: Clarify
+        -- TODO [CSL-2173]: Comment. Cannot happen by construction.
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
         U.mkApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>

@@ -98,7 +98,8 @@ instance HasLens DBSum AuxxContext DBSum where
         let getter ctx = RealDB (ctx ^. (lensOf @NodeDBs))
             setter ctx (RealDB db') = ctx & (lensOf @NodeDBs) .~ db'
             setter _ (PureDB _)     =
-                -- TODO [CSL-2173]: Clarify
+                -- TODO: Refactor. This 'error' is a shortcoming of our old
+                -- approach to monads.
                 error "Auxx: tried to set pure db insteaf of nodedb"
         in lens getter setter
 

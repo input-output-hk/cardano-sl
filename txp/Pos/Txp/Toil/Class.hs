@@ -76,7 +76,7 @@ utxoPut :: MonadUtxo m => TxIn -> TxOutAux -> m ()
 utxoPut id aux = utxoGet id >>= \case
     Nothing -> utxoPutUnchecked id aux
     Just _  ->
-        -- TODO [CSL-2173]: Clarify
+        -- TODO [CSL-2173]: Comment
         error ("utxoPut: "+|id|+" is already in utxo")
 
 -- | Delete an unspent input from UTXO. If it's not there, throw an 'error'.
@@ -84,7 +84,7 @@ utxoDel :: MonadUtxo m => TxIn -> m ()
 utxoDel id = utxoGet id >>= \case
     Just _  -> utxoDelUnchecked id
     Nothing ->
-        -- TODO [CSL-2173]: Clarify
+        -- TODO [CSL-2173]: Comment
         error ("utxoDel: "+|id|+" is not in the utxo")
 
 ----------------------------------------------------------------------------

@@ -410,7 +410,8 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
         let secrets =
-                -- TODO [CSL-2173]: Clarify
+                -- TODO [CSL-2173]: Refactor. This error can happen depending
+                -- on external configuration.
                 fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i
@@ -432,7 +433,8 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         secret <- readUserSecret akpFile
         if akpPrimary then do
             let primSk =
-                  -- TODO [CSL-2173]: Clarify
+                  -- TODO [CSL-2173]: Refactor. The 'secret' is an external
+                  -- input, all possible values must be handled.
                   fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk
         else do

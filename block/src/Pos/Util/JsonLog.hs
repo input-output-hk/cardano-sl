@@ -76,7 +76,7 @@ fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
 fromJLSlotIdUnsafe x = case fromJLSlotId x of
     Right y -> y
     Left  _ ->
-        -- TODO [CSL-2173]: Clarify
+        -- TODO [CSL-2173]: Comment
         error "illegal slot id"
 
 -- | Json log of one mempool modification.
@@ -137,7 +137,8 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
         Left  gB -> let slotZero = case mkLocalSlotIndex 0 of
                                         Right sz -> sz
                                         Left _   ->
-                                            -- TODO [CSL-2173]: Clarify
+                                            -- TODO [CSL-2173]: Refactor. @gromak
+                                            -- proposes to change to 'minBound'.
                                             error "impossible branch"
                     in SlotId (gB ^. genBlockEpoch) slotZero
         Right mB -> mB ^. mainBlockSlot

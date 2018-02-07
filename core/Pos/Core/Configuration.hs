@@ -156,7 +156,8 @@ withGenesisSpec
     -> r
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
     GCSrc {} ->
-        -- TODO [CSL-2173]: Clarify
+        -- TODO [CSL-2173]: Comment. The caller is responsible not to pass
+        -- 'GCSrc' (document the precondition).
         error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
         withProtocolConstants (gsProtocolConstants spec) $

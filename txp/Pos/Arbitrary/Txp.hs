@@ -73,7 +73,7 @@ instance Arbitrary Tx where
         mkTx <$> arbitrary <*> arbitrary <*>
         pure (mkAttributes ()) <&> \case
             Left err ->
-              -- TODO [CSL-2173]: Clarify
+                -- TODO [CSL-2173]: Clarify
                 error $ "Arbitrary Tx: " <> err
             Right res -> res
     shrink = genericShrink

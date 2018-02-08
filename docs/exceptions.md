@@ -246,9 +246,6 @@ with simple `Either`, we should do this replacement. For instance,
 -> m AddrStakeDistribution` becomes `mkMultiKeyDistr :: Map
 StakeholderId CoinPortion -> Either Text AddrStakeDistribution`
 
-We should locate all usages of `forkIO` and replace with appropriate functions
-from `async`.
-
 We should find where errors which are not programmer mistakes are thrown with
 `error`, `undefined`, or `impureThrow`, and rewrite them to use correct error
 handling method. This includes usages of partial functions, such as `read`.

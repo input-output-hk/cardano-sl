@@ -41,7 +41,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import           Mockable (Async, Delay, Mockables, MonadMockable, async, delay)
+import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
 import           Serokell.Util (listJson, sec)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
@@ -128,7 +128,7 @@ requestShutdown ::
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
-       , Mockables m [Async, Delay]
+       , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
 requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)

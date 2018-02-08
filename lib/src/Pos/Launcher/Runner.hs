@@ -16,8 +16,8 @@ module Pos.Launcher.Runner
 
 import           Universum
 
-import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Fix (MonadFix)
+import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           JsonLog (jsonLog)
 import           Mockable.Production (Production (..))
@@ -27,19 +27,19 @@ import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
+import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (DiffusionLayer (..), Diffusion (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
-import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
-import           Pos.Logic.Full (logicLayerFull, LogicWorkMode)
+import           Pos.Logic.Full (LogicWorkMode, logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
+import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
 import           Pos.Reporting.Statsd (withStatsd)
-import           Pos.Reporting.Ekg (withEkgServer, registerEkgMetrics, EkgNodeMetrics (..))
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -111,7 +111,7 @@ elimRealMode NodeResources {..} action = do
 -- | "Batteries-included" server.
 -- Bring up a full diffusion layer over a TCP transport and use it to run some
 -- action. Also brings up ekg monitoring, route53 health check, statds,
--- according to parameters. 
+-- according to parameters.
 runServer
     :: forall ctx m t .
        ( DiffusionWorkMode m
@@ -139,14 +139,14 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     tcpAddr = ncTcpAddr npNetworkConfig
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of
-        Nothing -> ("127.0.0.1", 3030)
+        Nothing         -> ("127.0.0.1", 3030)
         Just (hst, prt) -> (decodeUtf8 hst, fromIntegral prt)
     maybeWithRoute53 mStatus = case topologyRoute53HealthCheckEnabled (ncTopology npNetworkConfig) of
-        True -> withRoute53HealthCheckApplication mStatus hcHost hcPort
+        True  -> withRoute53HealthCheckApplication mStatus hcHost hcPort
         False -> identity
     maybeWithEkg = case (npEnableMetrics, npEkgParams) of
         (True, Just ekgParams) -> withEkgServer ekgParams ekgStore
-        _ -> identity
+        _                      -> identity
     maybeWithStatsd = case (npEnableMetrics, npStatsdParams) of
         (True, Just sdParams) -> withStatsd sdParams ekgStore
-        _ -> identity
+        _                     -> identity

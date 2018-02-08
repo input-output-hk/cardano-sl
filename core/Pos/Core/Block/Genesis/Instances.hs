@@ -19,7 +19,7 @@ import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeade
 import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBlockchain)
-import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
+import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
 import           Pos.Core.Common (HeaderHash)
@@ -45,7 +45,7 @@ instance Bi BlockHeader => Buildable GenesisBlockHeader where
             _gcdDifficulty
       where
         gbhHeaderHash :: HeaderHash
-        gbhHeaderHash = blockHeaderHash $ Left gbh
+        gbhHeaderHash = blockHeaderHash $ BlockHeaderGenesis gbh
         GenesisConsensusData {..} = _gbhConsensus
 
 instance Bi BlockHeader => Buildable GenesisBlock where
@@ -86,11 +86,11 @@ instance HasEpochOrSlot GenesisBlock where
 
 instance Bi BlockHeader =>
          HasHeaderHash GenesisBlockHeader where
-    headerHash = blockHeaderHash . Left
+    headerHash = blockHeaderHash . BlockHeaderGenesis
 
 instance Bi BlockHeader =>
          HasHeaderHash GenesisBlock where
-    headerHash = blockHeaderHash . Left . _gbHeader
+    headerHash = blockHeaderHash . BlockHeaderGenesis . _gbHeader
 
 instance HasDifficulty (ConsensusData GenesisBlockchain) where
     difficultyL = gcdDifficulty

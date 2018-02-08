@@ -13,6 +13,9 @@ module Pos.Core.Common.Types
        , mkMultiKeyDistr
        , Address (..)
 
+       -- * Forward-declared BlockHeader
+       , BlockHeader
+
        -- * Stakeholders
        , StakeholderId
        , StakesMap
@@ -22,7 +25,6 @@ module Pos.Core.Common.Types
        , ChainDifficulty (..)
 
        -- * HeaderHash related types and functions
-       , BlockHeaderStub
        , HeaderHash
        , headerHashF
 
@@ -215,13 +217,22 @@ newtype ChainDifficulty = ChainDifficulty
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
+-- BlockHeader (forward-declaration)
+----------------------------------------------------------------------------
+
+-- We use a data family instead of a data type solely to avoid a module
+-- cycle. Grep for @data instance BlockHeader@ to find the definition.
+--
+-- | Forward-declaration of block headers. See the corresponding type instance
+-- for the actual definition.
+data family BlockHeader
+
+----------------------------------------------------------------------------
 -- HeaderHash
 ----------------------------------------------------------------------------
 
--- | 'Hash' of block header. This should be @Hash BlockHeader@
--- but 'BlockHeader' is not defined in core.
-type HeaderHash = Hash BlockHeaderStub
-data BlockHeaderStub
+-- | 'Hash' of block header.
+type HeaderHash = Hash BlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash -> r)

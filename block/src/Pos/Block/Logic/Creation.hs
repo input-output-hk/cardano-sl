@@ -31,7 +31,7 @@ import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
                            HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
                            flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader, GenesisBlock, MainBlock, MainBlockchain)
+import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
@@ -173,11 +173,11 @@ needCreateGenesisBlock ::
     -> m Bool
 needCreateGenesisBlock epoch tipHeader = do
     case tipHeader of
-        Left _ -> pure False
+        BlockHeaderGenesis _ -> pure False
         -- This is true iff tip is from 'epoch' - 1 and last
         -- 'blkSecurityParam' blocks fully fit into last
         -- 'slotSecurityParam' slots from 'epoch' - 1.
-        Right mb ->
+        BlockHeaderMain mb ->
             if mb ^. epochIndexL /= epoch - 1
                 then pure False
                 else calcChainQualityM (flattenSlotId $ SlotId epoch minBound) <&> \case

@@ -14,8 +14,8 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
 import           Pos.Core.Block.Main ()
-import           Pos.Core.Block.Union.Types (Block, BlockHeader, ComponentBlock (..),
-                                             blockHeaderHash)
+import           Pos.Core.Block.Union.Types (Block, BlockHeader (..), ComponentBlock (..),
+                                             blockHeaderHash, choosingBlockHeader)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), HasPrevBlock (..), IsHeader, IsMainHeader (..))
 import           Pos.Core.Slotting.Types (EpochOrSlot (..))
@@ -26,7 +26,9 @@ import           Pos.Core.Slotting.Types (EpochOrSlot (..))
 
 instance Bi BlockHeader =>
          Buildable BlockHeader where
-    build = either Buildable.build Buildable.build
+    build = \case
+        BlockHeaderGenesis bhg -> Buildable.build bhg
+        BlockHeaderMain    bhm -> Buildable.build bhm
 
 ----------------------------------------------------------------------------
 -- HasHeaderHash
@@ -42,7 +44,9 @@ instance Bi BlockHeader =>
 
 -- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
 getBlockHeader :: Block -> BlockHeader
-getBlockHeader = bimap _gbHeader _gbHeader
+getBlockHeader = \case
+    Left  gb -> BlockHeaderGenesis (_gbHeader gb)
+    Right mb -> BlockHeaderMain    (_gbHeader mb)
 
 blockHeader :: Getter Block BlockHeader
 blockHeader = to getBlockHeader
@@ -56,10 +60,17 @@ instance HasHeaderHash (ComponentBlock a) where
 ----------------------------------------------------------------------------
 
 instance HasDifficulty BlockHeader where
-    difficultyL = choosing difficultyL difficultyL
+    difficultyL = choosingBlockHeader difficultyL difficultyL
 
 instance HasDifficulty Block where
     difficultyL = choosing difficultyL difficultyL
+
+-----------------------------------------------------------------------------
+--- HasEpochIndex
+-----------------------------------------------------------------------------
+
+instance HasEpochIndex BlockHeader where
+    epochIndexL = choosingBlockHeader epochIndexL epochIndexL
 
 ----------------------------------------------------------------------------
 -- IsHeader
@@ -70,6 +81,9 @@ instance Bi BlockHeader => IsHeader BlockHeader
 ----------------------------------------------------------------------------
 -- HasPrevBlock
 ----------------------------------------------------------------------------
+
+instance HasPrevBlock BlockHeader where
+    prevBlockL = choosingBlockHeader prevBlockL prevBlockL
 
 instance HasPrevBlock (ComponentBlock a) where
     prevBlockL = lens getter setter
@@ -98,6 +112,9 @@ instance HasEpochIndex (ComponentBlock a) where
 ----------------------------------------------------------------------------
 -- HasEpochOrSlot
 ----------------------------------------------------------------------------
+
+instance HasEpochOrSlot BlockHeader where
+    getEpochOrSlot = view (choosingBlockHeader (to getEpochOrSlot) (to getEpochOrSlot))
 
 instance HasEpochOrSlot (ComponentBlock a) where
     getEpochOrSlot (ComponentBlockMain a _)  = EpochOrSlot $ Right $ a ^. headerSlotL

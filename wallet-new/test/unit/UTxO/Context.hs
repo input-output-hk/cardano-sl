@@ -31,22 +31,22 @@ module UTxO.Context (
   , blockSignInfoForSlot
   ) where
 
-import Universum
-import Formatting (sformat, bprint, build, (%))
-import Serokell.Util (listJson, mapJson, pairF)
-import Serokell.Util.Base16 (base16F)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty  as NE
-import qualified Data.Map.Strict     as Map
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
 import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, (%))
+import           Serokell.Util (listJson, mapJson, pairF)
+import           Serokell.Util.Base16 (base16F)
+import           Universum
 
-import Pos.Block.Genesis
-import Pos.Core
-import Pos.Crypto
-import Pos.Lrc.Genesis
-import Pos.Txp
+import           Pos.Block.Genesis
+import           Pos.Core
+import           Pos.Crypto
+import           Pos.Lrc.Genesis
+import           Pos.Txp
 
-import UTxO.Crypto
+import           UTxO.Crypto
 
 {-------------------------------------------------------------------------------
   Summary of the information we get about the genesis block from Cardano core
@@ -69,7 +69,7 @@ data CardanoContext = CardanoContext {
       -- | Hash of block0
       --
       -- NOTE: Derived from 'ccBlock0', /not/ the same as 'genesisHash'.
-    , ccHash0 :: HeaderHash
+    , ccHash0    :: HeaderHash
     }
 
 initCardanoContext :: HasConfiguration => CardanoContext
@@ -84,7 +84,7 @@ initCardanoContext = CardanoContext{..}
                  generatedSecrets
 
     ccBalances = utxoToAddressCoinPairs ccUtxo
-    ccHash0    = (blockHeaderHash . Left . _gbHeader) ccBlock0
+    ccHash0    = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block
@@ -414,9 +414,9 @@ initAddrMap Actors{..} = AddrMap{
 -------------------------------------------------------------------------------}
 
 data TransCtxt = TransCtxt {
-      tcCardano  :: CardanoContext
-    , tcActors   :: Actors
-    , tcAddrMap  :: AddrMap
+      tcCardano :: CardanoContext
+    , tcActors  :: Actors
+    , tcAddrMap :: AddrMap
     }
 
 initContext :: CardanoContext -> TransCtxt

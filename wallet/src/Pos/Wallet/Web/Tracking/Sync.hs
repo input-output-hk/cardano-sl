@@ -54,10 +54,10 @@ import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logW
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (BlockHeaderStub, ChainDifficulty, HasConfiguration, HasDifficulty (..),
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
                            HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
                            headerSlotL, timestampToPosix)
-import           Pos.Core.Block (BlockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
@@ -226,7 +226,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         mainBlkHeaderTs mBlkH =
           getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
-        blkHeaderTs = either (const Nothing) mainBlkHeaderTs
+        blkHeaderTs = \case
+            BlockHeaderGenesis _ -> Nothing
+            BlockHeaderMain h -> mainBlkHeaderTs h
 
         -- assuming that transactions are not created until syncing is complete
         ptxBlkInfo = const Nothing
@@ -293,7 +295,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                 wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
   where
     firstGenesisHeader :: m BlockHeader
-    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
+    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeader) >>=
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 

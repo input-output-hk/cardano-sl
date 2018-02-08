@@ -192,8 +192,10 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
+                       RankNTypes
                        RecordWildCards
                        TypeApplications
+                       TypeFamilies
                        TupleSections
                        ViewPatterns
                        LambdaCase

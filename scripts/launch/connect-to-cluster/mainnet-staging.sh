@@ -23,7 +23,6 @@ stack exec -- cardano-node                                 \
     --web                                                  \
     --no-ntp                                               \
     --topology "${TOPOLOGY_YAML}"                          \
-    --log-config scripts/log-templates/log-config-qa.yaml  \
     --log-config log-configs/connect-to-cluster.yaml       \
     --logs-prefix "logs/${CLUSTER}"                        \
     --db-path db-${CLUSTER}                                \

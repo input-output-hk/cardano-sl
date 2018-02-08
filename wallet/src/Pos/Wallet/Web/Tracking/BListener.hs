@@ -35,6 +35,7 @@ import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -84,6 +85,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
     -- something a bit more reasonable.
     pure mempty
   where
+    -- TODO(adn): Revisit this bit.
     syncWallet
         :: HeaderHash
         -> BlockHeader
@@ -95,7 +97,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         dbUsed <- WS.getCustomAddresses WS.UsedAddr
         encSK <- getSKById wAddr
         let mapModifier =
-                trackingApplyTxs encSK dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
+                trackingApplyTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
@@ -126,6 +128,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     -- something a bit more reasonable.
     pure mempty
   where
+    -- TODO(adn): Revisit this bit.
     syncWallet
         :: HeaderHash
         -> HeaderHash
@@ -136,7 +139,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
         dbUsed <- WS.getCustomAddresses WS.UsedAddr
-        let mapModifier = trackingRollbackTxs encSK dbUsed gbDiff blkHeaderTs txs
+        let mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
         rollbackModifierFromWallet wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 

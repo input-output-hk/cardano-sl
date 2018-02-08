@@ -5,7 +5,8 @@
 module Pos.Wallet.Web.Methods.Restore
        ( newWalletHandler
        , importWallet
-       , restoreWalletHandler
+       , restoreWalletFromSeed
+       , restoreWalletFromBackup
        , addInitialRichAccount
 
        -- For testing
@@ -15,12 +16,15 @@ module Pos.Wallet.Web.Methods.Restore
 import           Universum
 
 import qualified Control.Exception.Safe as E
-import           Control.Lens (ix, traversed)
+import           Control.Lens (each, ix, traversed)
 import           Data.Default (Default (def))
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
 import           System.Wlog (logDebug)
 
+import qualified Data.HashMap.Strict as HM
+import           Mockable (Mockable (..))
+import           Mockable.Concurrent (Async)
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
@@ -35,15 +39,21 @@ import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSe
                                       mkGenesisWalletUserSecret, readUserSecret, usWallet,
                                       wusAccounts, wusWalletName)
 import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), WalletBackup (..),
+                                        WalletMetaBackup (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
                                              CFilePath (..), CId, CWallet (..), CWalletInit (..),
                                              CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.State (MonadWalletDB, createAccount, removeHistoryCache,
+import           Pos.Wallet.Web.State as WS
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, createAccount,
+                                       getAccountWAddresses, getWalletMeta, removeHistoryCache,
                                        setWalletSyncTip, updateWalletBalancesAndUtxo)
-import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
-import           Pos.Wallet.Web.Tracking.Decrypt (decryptAddress, eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
+                                                  eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (restoreGenesisAddresses, restoreWalletHistory)
+import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 
 -- | Which index to use to create initial account and address on new wallet
@@ -84,30 +94,93 @@ newWalletHandler passphrase cwInit = do
 -- 1. Recover this wallet balance from the global Utxo (fast, and synchronous);
 -- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
 -}
-restoreWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-restoreWalletHandler passphrase cwInit = do
-    (sk, wId) <- newWallet passphrase cwInit True -- TODO(adinapoli) readyness must be changed into richer type.
-    restoredWallet <- restoreWalletBalance sk wId
-    -- TODO(adinapoli) Kick-off the TxHistory rebuilding.
-    return restoredWallet
+restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
+                        , Mockable Async m
+                        ) => PassPhrase -> CWalletInit -> m CWallet
+restoreWalletFromSeed passphrase cwInit = do
+    (sk, _) <- newWallet passphrase cwInit False -- TODO(adn) readyness must be changed into richer type.
+    restoreWallet sk
+
+-- | Restores a Wallet by fetching by:
+-- 1. Restoring the genesis addresses
+-- 2. Restoring the balance (via Utxo)
+-- 3. Restore (asynchronously) the histrory.
+restoreWallet :: ( L.MonadWalletLogic ctx m
+                 , Mockable Async m
+                 ) => EncryptedSecretKey ->  m CWallet
+restoreWallet sk = do
+    let credentials@(_, wId) = eskToWalletDecrCredentials sk
+    restoreGenesisAddresses credentials
+    restoreWalletBalance credentials
+    -- TODO(adn) Make restoreWalletHistory async.
+    _ <- restoreWalletHistory sk
+    WS.setWalletReady wId True
+    -- TODO(adn) We can set the wallet ready much sooner, after 'restoreWalletHistory'
+    -- is properly async.
+    L.getWallet wId
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.
 restoreWalletBalance :: ( L.MonadWalletLogicRead ctx m
                         , MonadWalletDB ctx m
                         , MonadDBRead m
-                        ) => EncryptedSecretKey -> CId Wal -> m CWallet
-restoreWalletBalance sk wId = do
+                        ) => WalletDecrCredentials -> m ()
+restoreWalletBalance credentials = do
     utxo <- filterUtxo walletUtxo
     updateWalletBalancesAndUtxo (utxoToModifier utxo)
-    L.getWallet wId
     where
       walletUtxo :: (TxIn, TxOutAux) -> Bool
       walletUtxo (_, TxOutAux (TxOut addr _)) =
-          isJust (decryptAddress (eskToWalletDecrCredentials sk) addr)
+          isJust (decryptAddress credentials addr)
+
+restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
+                           , Mockable Async m
+                           ) => WalletBackup -> m CWallet
+restoreWalletFromBackup WalletBackup {..} = do
+    let wId = encToCId wbSecretKey
+    wExists <- isJust <$> getWalletMeta wId
+
+    if wExists
+        then do
+            throwM $ RequestError "Wallet with id already exists"
+
+        else do
+            let (WalletMetaBackup wMeta) = wbMeta
+                accList = HM.toList wbAccounts
+                          & each . _2 %~ \(AccountMetaBackup am) -> am
+                defaultAccAddrIdx = DeterminedSeed firstHardened
+
+            addSecretKey wbSecretKey
+            -- If there are no existing accounts, then create one
+            if null accList
+                then do
+                    let accMeta = CAccountMeta { caName = "Initial account" }
+                        accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
+                    () <$ L.newAccountIncludeUnready True defaultAccAddrIdx emptyPassphrase accInit
+                else for_ accList $ \(idx, meta) -> do
+                    let aIdx = fromInteger $ fromIntegral idx
+                        seedGen = DeterminedSeed aIdx
+                    accId <- genUniqueAccountId seedGen wId
+                    createAccount accId meta
+
+            -- TODO(adn): Review the readyness story.
+            void $ L.createWalletSafe wId wMeta False
+
+            -- Get wallet accounts and create default address for each account
+            -- without any existing address
+            wAccIds <- getWalletAccountIds wId
+            for_ wAccIds $ \accId -> getAccountWAddresses Ever accId >>= \case
+                Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
+                                                  \an existing account of newly imported wallet"
+                Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
+                Just _  -> pure ()
+
+            restoreWallet wbSecretKey
 
 importWallet
-    :: L.MonadWalletLogic ctx m
+    :: ( L.MonadWalletLogic ctx m
+       , Mockable Async m
+       )
     => PassPhrase
     -> CFilePath
     -> m CWallet
@@ -125,7 +198,9 @@ importWallet passphrase (CFilePath (toString -> fp)) = do
 
 -- Do the all concrete logic of importing here.
 importWalletDo
-    :: L.MonadWalletLogic ctx m
+    :: ( L.MonadWalletLogic ctx m
+       , Mockable Async m
+       )
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -135,7 +210,9 @@ importWalletDo passphrase wSecret = do
     L.getWallet wId
 
 importWalletSecret
-    :: L.MonadWalletLogic ctx m
+    :: ( L.MonadWalletLogic ctx m
+       , Mockable Async m
+       )
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -144,9 +221,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
-    -- Importing a wallet may take a long time.
-    -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
-    importedWallet <- L.createWalletSafe wid wMeta False
+    -- TODO(adinapoli): Review the readiness story.
+    void $ L.createWalletSafe wid wMeta False
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
@@ -158,14 +234,13 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    -- `syncWalletOnImport` automatically marks a wallet as "ready".
-    void $ syncWalletOnImport key
-
-    return importedWallet
+    restoreWallet key
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
+addInitialRichAccount :: (L.MonadWalletLogic ctx m
+                         , Mockable Async m
+                         ) => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAny wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor

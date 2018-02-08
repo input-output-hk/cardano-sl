@@ -23,7 +23,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode, syncWalletsWithGState)
+                                 processSyncResult, runWRealMode, syncWalletsFromGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (flushWalletStorage)
 import           System.Wlog (LoggerName, logInfo)
@@ -73,7 +73,8 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     syncWallets :: WalletWebMode ()
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
-        syncWalletsWithGState sks
+        results <- syncWalletsFromGState sks
+        mapM_ processSyncResult results
 
     plugins :: HasConfigurations => Plugins.Plugin WalletWebMode
     plugins = mconcat [ Plugins.conversation wArgs

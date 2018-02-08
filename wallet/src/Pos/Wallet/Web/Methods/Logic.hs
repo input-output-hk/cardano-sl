@@ -197,7 +197,7 @@ getWalletIncludeUnready includeUnready cAddr = do
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU
   where
     noWallet = RequestError $
-        sformat ("No wallet with address "%build%" found") cAddr
+        sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
 
 getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
 getWallet = getWalletIncludeUnready False
@@ -280,7 +280,7 @@ markWalletReady cid isReady = do
     return NoContent
   where
     noWallet = RequestError $
-        sformat ("No wallet with that id "%build%" found") cid
+        sformat ("markWalletReady: No wallet with that id "%build%" found") cid
 
 
 ----------------------------------------------------------------------------

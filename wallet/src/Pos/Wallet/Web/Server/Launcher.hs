@@ -38,7 +38,7 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, get
                                          initWSConnections, upgradeApplicationWS)
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Tracking (syncWalletsWithGState)
+import           Pos.Wallet.Web.Tracking (processSyncResult, syncWalletsFromGState)
 import           Pos.Web (TlsParams, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
@@ -65,7 +65,9 @@ walletServer
     => (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
 walletServer nat = do
-    syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
+    syncResults <- syncWalletsFromGState =<< mapM findKey =<< myRootAddresses
+    -- TODO(adn): Make sure re-throwing potential failures is not disruptive here.
+    mapM_ processSyncResult syncResults
     return $ servantHandlersWithSwagger nat
 
 bracketWalletWebDB

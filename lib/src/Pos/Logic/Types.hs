@@ -43,13 +43,19 @@ data Logic m = Logic
       -- Inspired by 'getHeadersFromManyTo'.
       -- Included here because that function is quite complicated; it's not
       -- clear whether it can be expressed simply in terms of getBlockHeader.:q
-    , getBlockHeaders    :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
+    , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> NonEmpty HeaderHash
+                         -> Maybe HeaderHash
+                         -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
       -- Inspired by 'getHeadersFromToIncl', which is apparently distinct from
       -- 'getHeadersFromManyTo' (getBlockHeaders without the tick above).
       -- FIXME we must unify these.
       -- May want to think about giving a streaming-IO interface (pipes, conduit
       -- or similar).
-    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
+    , getBlockHeaders'   :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> HeaderHash
+                         -> HeaderHash
+                         -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
@@ -166,8 +172,8 @@ dummyLogicLayer = LogicLayer
         , getBlock           = \_ -> pure (error "dummy: can't get block")
         , getChainFrom       = \_ -> error "dummy: can't get chain"
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
-        , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders'   = \_ _ _ -> pure (error "dummy: can't get headers")
         , getTip             = pure (error "dummy: can't get tip")
         , getTipHeader       = pure (error "dummy: can't get tip header")
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")

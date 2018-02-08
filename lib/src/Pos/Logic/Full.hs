@@ -124,19 +124,21 @@ logicLayerFull jsonLogTx k = do
         getBlockHeader = DB.getHeader
 
         getBlockHeaders
-            :: NonEmpty HeaderHash
+            :: Maybe Word -- ^ Optional limit on how many to pull in.
+            -> NonEmpty HeaderHash
             -> Maybe HeaderHash
             -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
-        getBlockHeaders checkpoints start = do
-            result <- runExceptT (DB.getHeadersFromManyTo checkpoints start)
+        getBlockHeaders mLimit checkpoints start = do
+            result <- runExceptT (DB.getHeadersFromManyTo mLimit checkpoints start)
             either (pure . Left . GetBlockHeadersError) (pure . Right) result
 
         getBlockHeaders'
-            :: HeaderHash
+            :: Maybe Word -- ^ Optional limit on how many to pull in.
+            -> HeaderHash
             -> HeaderHash
             -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
-        getBlockHeaders' older newer = do
-            outcome <- DB.getHeadersRange Nothing older newer
+        getBlockHeaders' mLimit older newer = do
+            outcome <- DB.getHeadersRange mLimit older newer
             case outcome of
                 Left txt -> pure (Left (GetBlockHeadersError txt))
                 Right it -> pure (Right it)

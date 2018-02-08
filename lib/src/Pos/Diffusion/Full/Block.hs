@@ -31,6 +31,7 @@ import           System.Wlog (logDebug, logWarning)
 
 -- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
+import           Pos.Block.Configuration (recoveryHeadersMessage)
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
@@ -355,7 +356,7 @@ handleHeadersCommunication logic conv = do
                 -- NB: if the limiting hash is Nothing, getBlockHeaders will
                 -- substitute our current tip.
                 (c1:cxs, _)   -> do
-                    headers <- getBlockHeaders logic (c1:|cxs) mghTo
+                    headers <- getBlockHeaders logic (Just recoveryHeadersMessage) (c1:|cxs) mghTo
                     case headers of
                         Left (GetBlockHeadersError txt) -> pure (Left txt)
                         Right hs                        -> pure (Right hs)
@@ -444,7 +445,7 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
         -- necessary: the streaming thing (probably a conduit) can determine
         -- whether the DB is malformed. Really, this listener has no business
         -- deciding that the database is malformed.
-        mHashes <- getBlockHeaders' logic mgbFrom mgbTo
+        mHashes <- getBlockHeaders' logic (Just recoveryHeadersMessage) mgbFrom mgbTo
         case mHashes of
             Right hashes -> do
                 logDebug $ sformat

@@ -221,7 +221,7 @@ newtype ChainDifficulty = ChainDifficulty
 ----------------------------------------------------------------------------
 
 -- We use a data family instead of a data type solely to avoid a module
--- cycle.
+-- cycle. Grep for @data instance BlockHeader@ to find the definition.
 --
 -- | Forward-declaration of block headers. See the corresponding type instance
 -- for the actual definition.
@@ -231,8 +231,7 @@ data family BlockHeader
 -- HeaderHash
 ----------------------------------------------------------------------------
 
--- | 'Hash' of block header. This should be @Hash BlockHeader@
--- but 'BlockHeader' is not defined in core.
+-- | 'Hash' of block header.
 type HeaderHash = Hash BlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.

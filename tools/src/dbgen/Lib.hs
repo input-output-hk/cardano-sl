@@ -233,13 +233,16 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     let txsNumber = fromIntegral txsCount
 
     let batchSize = 100
-    let batches   = txsNumber `mod` batchSize
-    let remainder = txsNumber - (batches * batchSize)
+    let batches   = txsNumber `div` batchSize
+    let remainder = txsNumber `mod` batchSize
 
+    -- We don't generate all txs at once since we could run out of memory.
+    -- That's why we use batching so GC can clear the memory behind us in
+    -- batches.
     void $ replicateM batches (generateNFakeTxs batchSize aId)
     generateNFakeTxs remainder aId
 
--- | Se we can run it in batches so we don't run out of memory. Denis.
+-- | Se we can run it in batches so we don't run out of memory.
 generateNFakeTxs :: Int -> AccountId -> UberMonad ()
 generateNFakeTxs txsNumber aId = do
 

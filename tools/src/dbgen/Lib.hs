@@ -250,7 +250,7 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
 
 -- | Se we can run it in batches so we don't run out of memory.
 generateNFakeTxs
-    :: NumberOfBatches
+    :: Int
     -> NumOfOutgoingAddresses
     -> AccountId
     -> UberMonad ()

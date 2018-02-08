@@ -19,6 +19,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , WalletOperation (..)
   , SpendingPassword
   -- * Addresses
   , AddressValidity (..)
@@ -120,6 +121,18 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
+data WalletOperation =
+    CreateWallet
+  | RestoreWallet
+  deriving (Eq, Show, Enum, Bounded)
+
+instance Arbitrary WalletOperation where
+    arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Wallet@ suffix.
+deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
+                                    } ''WalletOperation
+
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !BackupPhrase
@@ -128,6 +141,8 @@ data NewWallet = NewWallet {
     -- ^ The spending password to encrypt the private keys.
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName
+    , newwalOperation        :: !WalletOperation
+    -- ^ Operation to create or to restore a wallet
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
@@ -137,6 +152,7 @@ instance Arbitrary NewWallet where
                         <*> pure Nothing
                         <*> arbitrary
                         <*> pure "My Wallet"
+                        <*> arbitrary
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {

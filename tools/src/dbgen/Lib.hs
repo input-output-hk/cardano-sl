@@ -61,7 +61,7 @@ _exampleSpec = GenSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
         , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
-        , fakeTxsHistory = SimpleTxsHistory { txsCount = 100 }
+        , fakeTxsHistory = SimpleTxsHistory { txsCount = 100, numOutgoingAddress = 3 }
         }
     , wallets = 1
     }
@@ -132,14 +132,19 @@ instance FromJSON FakeUtxoCoinDistribution where
 
 instance ToJSON FakeUtxoCoinDistribution
 
+type NumOfOutgoingAddresses = Int
+type NumberOfBatches = Int
+
 -- TODO(ks): As with @FakeUtxoCoinDistribution@, we may have different strategies
 -- to generate @FakeTxsHistory@.
 data FakeTxsHistory
     = NoHistory
     -- ^ Do not generate fake history.
     | SimpleTxsHistory
-        { txsCount :: !Integer
+        { txsCount           :: !Integer
         -- ^ Number of txs we want to generate.
+        , numOutgoingAddress :: !NumOfOutgoingAddresses
+        -- ^ Number of outgoing addreses of a single @Tx@.
         }
     -- ^ Simple tx history generation.
     -- TODO(ks): For now KISS, we can add more generation strategies.
@@ -150,7 +155,7 @@ instance FromJSON FakeTxsHistory where
         distrType <- o .: "type"
         case distrType of
           "none"   -> pure NoHistory
-          "simple" -> SimpleTxsHistory <$> o .: "txsCount"
+          "simple" -> SimpleTxsHistory <$> o .: "txsCount" <*> o .: "numOutgoingAddress"
           _        -> fail ("Unknown type: " ++ distrType)
 
 instance ToJSON FakeTxsHistory
@@ -239,52 +244,71 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     -- We don't generate all txs at once since we could run out of memory.
     -- That's why we use batching so GC can clear the memory behind us in
     -- batches.
-    void $ replicateM batches (generateNFakeTxs batchSize aId)
-    generateNFakeTxs remainder aId
+    void $ replicateM batches (generateNFakeTxs batchSize numOutgoingAddress aId)
+    generateNFakeTxs remainder numOutgoingAddress aId
+
 
 -- | Se we can run it in batches so we don't run out of memory.
-generateNFakeTxs :: Int -> AccountId -> UberMonad ()
-generateNFakeTxs txsNumber aId = do
+generateNFakeTxs
+    :: NumberOfBatches
+    -> NumOfOutgoingAddresses
+    -> AccountId
+    -> UberMonad ()
+generateNFakeTxs txsNumber numOfAddresses aId = do
 
     db <- askWalletDB
 
     accounts <- getAccounts Nothing
 
-    let accountsAddrs :: [Address]
-        accountsAddrs = rights . map unwrapCAddress $ concatMap caAddresses accounts
-
-    let outputAddresses :: [Address]
-        outputAddresses = take txsNumber accountsAddrs
-
-    let genTxOut :: Gen [TxOut]
-        genTxOut = forM outputAddresses $ \address -> TxOut address <$> genCoins
-
-    let genTxHistoryEntry :: IO TxHistoryEntry
-        genTxHistoryEntry = generate $ THEntry
-                                <$> arbitrary
-                                <*> genTxs
-                                <*> arbitrary
-                                <*> genTxOut
-                                <*> pure outputAddresses
-                                <*> arbitrary
-
     let walletId :: CId Wal
         walletId = aiWId aId
 
-    -- Generate arbitrary tx ids and txs for the fake history.
-    fakeTxs   <- liftIO $ replicateM txsNumber genTxHistoryEntry
+    -- These are all the addresses from the accounts.
+    let accountsAddrs :: [Address]
+        accountsAddrs = rights . map unwrapCAddress $ concatMap caAddresses accounts
+
+    -- We take just the number of @Address@ we require. It might not
+    -- be that realistic that we always grab the first N, but KISS.
+    let outputAddresses :: [Address]
+        outputAddresses = take numOfAddresses accountsAddrs
+
+    fakeTxs        <- liftIO $ replicateM txsNumber (generateRealTxHistE outputAddresses)
 
     let fakeMapTxs :: Map TxId TxHistoryEntry
         fakeMapTxs = fromList $ zip (map _thTxId fakeTxs) fakeTxs
 
     -- Insert into the @WalletStorage@.
     insertIntoHistoryCache db walletId fakeMapTxs
-  where
-    -- | Generate sensible @Tx@.
-    genTxs :: Gen Tx
-    genTxs = do
 
-        -- Generate a more realistic distribution. After release we have limit 
+
+-- | Generate "realistic" @TxHistoryEntry@ from a list of @Address@ that
+-- we will use as outputs.
+generateRealTxHistE :: [Address] -> IO TxHistoryEntry
+generateRealTxHistE outputAddresses = do
+
+    -- Generate a list of @TxOut@.
+    let genTxOut :: Gen [TxOut]
+        genTxOut = forM outputAddresses $ \address -> TxOut address <$> genCoins
+
+    -- Generate fields required for @TxHistoryEntry@.
+    fakeTxIds <- liftIO $ generate arbitrary
+    fakeChain <- liftIO $ generate arbitrary
+    fakeTxOut <- liftIO $ generate genTxOut
+    fakeTime  <- liftIO $ generate arbitrary
+    fakeTx    <- liftIO $ generate $ genTxs fakeTxOut
+
+    pure $ THEntry
+        { _thTxId        = fakeTxIds
+        , _thTx          = fakeTx
+        , _thDifficulty  = fakeChain
+        , _thInputs      = fakeTxOut
+        , _thOutputAddrs = outputAddresses
+        , _thTimestamp   = fakeTime
+        }
+  where
+    genTxIn :: Gen [TxIn]
+    genTxIn = do
+        -- Generate a more realistic distribution. After release we have limit
         -- - ~76 inputs in transaction, and it can take up to a month to reach that limit.
         -- In other words, it should be pretty rare to see that stuff.
         numInputs     <- frequency
@@ -293,12 +317,20 @@ generateNFakeTxs txsNumber aId = do
             , (5 , choose (50, 76))
             ]
 
-        _txInputs     <- NE.fromList <$> vectorOf numInputs arbitrary
-        _txOutputs    <- arbitrary -- TODO(ks): Good enough for now.
+        vectorOf numInputs arbitrary
+
+
+    -- | Generate sensible @Tx@.
+    genTxs :: [TxOut] -> Gen Tx
+    genTxs txOut = do
+
+        _txInputs     <- NE.fromList <$> genTxIn
+        _txOutputs    <- pure $ NE.fromList txOut
         _txAttributes <- pure (mkAttributes ())
 
         pure $ UnsafeTx {..}
 
+    -- | Generate sensible amount of coins.
     genCoins :: Gen Coin
     genCoins = mkCoin <$> choose (1, 1000)
 

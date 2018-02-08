@@ -82,7 +82,7 @@ For example, you can use this configuration:
       "accounts":1,
       "accountSpec":{"addresses":100},
       "fakeUtxoCoinDistr":{"type":"range","range":100,"amount":1000},
-      "fakeTxsHistory":{"type":"simple", "txsCount":1000}
+      "fakeTxsHistory":{"type":"simple","txsCount":10015,"numOutgoingAddress":3}
    }
 }
 ```

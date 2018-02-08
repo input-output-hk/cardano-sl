@@ -6,6 +6,9 @@ module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
        , HasWalletStorage (..)
+       , WAddressMeta (..)
+       , HasWAddressMeta (..)
+       , wamAccount
        , WalletInfo (..)
        , AccountInfo (..)
        , AddressInfo (..)
@@ -89,20 +92,24 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                    (at, ix, makeClassy, makeLenses, non', to,
-                                                  toListOf, traversed, (%=), (+=), (.=),
-                                                  (<<.=), (?=), _Empty, _head)
+import           Control.Lens                    (at, ix, lens, makeClassy, makeLenses,
+                                                  non', to, toListOf, traversed, (%=),
+                                                  (+=), (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class       (put)
 import           Data.Default                    (Default, def)
+import           Data.Hashable                   (Hashable)
 import qualified Data.HashMap.Strict             as HM
 import qualified Data.Map                        as M
-import           Data.SafeCopy                   (Migrate (..), base, deriveSafeCopySimple,
-                                                  extension)
+import           Data.SafeCopy                   (Migrate (..), base,
+                                                  deriveSafeCopySimple, extension)
 import           Data.Time.Clock.POSIX           (POSIXTime)
 
+import qualified Data.Text.Buildable
+import           Formatting                      ((%))
+import qualified Formatting                      as F
 import           Pos.Client.Txp.History          (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Core.Types                  (SlotId, Timestamp)
+import           Pos.Core.Types                  (Address, SlotId, Timestamp)
 import           Pos.Txp                         (AddrCoinMap, TxAux, TxId, Utxo,
                                                   UtxoModifier, applyUtxoModToAddrCoinMap,
                                                   utxoToAddressCoinMap)
@@ -118,14 +125,36 @@ import           Pos.Wallet.Web.Pending.Updates  (cancelApplyingPtx,
                                                   mkPtxSubmitTiming,
                                                   ptxMarkAcknowledgedPure)
 
+-- | Address with associated metadata locating it in an account in a wallet.
+data WAddressMeta = WAddressMeta
+    { _wamWalletId     :: WebTypes.CId WebTypes.Wal
+    , _wamAccountIndex :: Word32
+    , _wamAddressIndex :: Word32
+    , _wamAddress      :: Address
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+makeClassy ''WAddressMeta
+instance Hashable WAddressMeta
+instance Buildable WAddressMeta where
+    build WAddressMeta{..} =
+        F.bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
+        _wamWalletId _wamAccountIndex _wamAddressIndex _wamAddress
+
+-- | Lens to extract the account from an 'AddressMeta'
+wamAccount :: Lens' WAddressMeta WebTypes.AccountId
+wamAccount = lens
+    (WebTypes.AccountId <$> view wamWalletId <*> view wamAccountIndex)
+    (\am (WebTypes.AccountId wid accIdx) -> set wamWalletId wid
+                                            . set wamAccountIndex accIdx $ am)
+
 type AddressSortingKey = Int
 
 data AddressInfo = AddressInfo
-    { adiCWAddressMeta :: !WebTypes.CWAddressMeta
-    , adiSortingKey    :: !AddressSortingKey
+    { adiWAddressMeta :: !WAddressMeta
+    , adiSortingKey   :: !AddressSortingKey
     }
 
-type CAddresses = HashMap (WebTypes.CId WebTypes.Addr) AddressInfo
+type CAddresses = HashMap Address AddressInfo
 
 data AccountInfo = AccountInfo
     { _aiMeta             :: !WebTypes.CAccountMeta
@@ -155,7 +184,7 @@ data WalletInfo = WalletInfo
 makeLenses ''WalletInfo
 
 -- | Maps addresses to their first occurrence in the blockchain
-type CustomAddresses = HashMap (WebTypes.CId WebTypes.Addr) HeaderHash
+type CustomAddresses = HashMap Address HeaderHash
 type WalletBalances = AddrCoinMap
 type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
@@ -290,15 +319,15 @@ getWAddresses mode wid =
       accs <- HM.filterWithKey (\k _ -> WebTypes.aiWId k == wid) <$> view wsAccountInfos
       return $ HM.elems =<< accs ^.. traverse . which
 
-doesWAddressExist :: AddressLookupMode -> WebTypes.CWAddressMeta -> Query Bool
-doesWAddressExist mode addrMeta@(WebTypes.addrMetaToAccount -> wAddr) =
+doesWAddressExist :: AddressLookupMode -> WAddressMeta -> Query Bool
+doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
     getAny <$>
         withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
   where
     exists :: Lens' AccountInfo CAddresses -> Query Any
     exists which =
         Any . isJust <$>
-        preview (wsAccountInfos . ix wAddr . which . ix (WebTypes.cwamId addrMeta))
+        preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
 
 getTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> Query (Maybe WebTypes.CTxMeta)
 getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
@@ -332,10 +361,10 @@ getNextUpdate = preview (wsReadyUpdates . _head)
 getHistoryCache :: WebTypes.CId WebTypes.Wal -> Query (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
-getCustomAddresses :: CustomAddressType -> Query [WebTypes.CId WebTypes.Addr]
+getCustomAddresses :: CustomAddressType -> Query [Address]
 getCustomAddresses t = HM.keys <$> view (customAddressL t)
 
-getCustomAddress :: CustomAddressType -> WebTypes.CId WebTypes.Addr -> Query (Maybe HeaderHash)
+getCustomAddress :: CustomAddressType -> Address -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
 getPendingTxs :: Query [PendingTx]
@@ -348,10 +377,10 @@ getWalletPendingTxs wid =
 getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
-addCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+addCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
-removeCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+removeCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 removeCustomAddress t (addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
@@ -369,26 +398,28 @@ createWallet cWalId cWalMeta isReady curTime = do
     let info = WalletInfo cWalMeta curTime curTime NotSynced mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
-addWAddress :: WebTypes.CWAddressMeta -> Update ()
-addWAddress addrMeta@WebTypes.CWAddressMeta{..} = do
+addWAddress :: WAddressMeta -> Update ()
+addWAddress addrMeta = do
     let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (WebTypes.addrMetaToAccount addrMeta)
+        accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
+        addr = addrMeta ^. wamAddress
     whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at cwamId
+        let mAddr = info ^. aiAddresses . at addr
         when (isNothing mAddr) $ do
             accInfo . aiUnusedKey += 1
             let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
+            accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
 
 -- see also 'removeWAddress'
-addRemovedAccount :: WebTypes.CWAddressMeta -> Update ()
-addRemovedAccount addrMeta@WebTypes.CWAddressMeta{..} = do
+addRemovedAccount :: WAddressMeta -> Update ()
+addRemovedAccount addrMeta = do
     let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (WebTypes.addrMetaToAccount addrMeta)
+        accInfo = wsAccountInfos . ix (view wamAccount addrMeta)
+        addr = addrMeta ^. wamAddress
     whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
         accInfo . aiUnusedKey += 1
-        accInfo . aiAddresses        . at cwamId .= Nothing
-        accInfo . aiRemovedAddresses . at cwamId ?= AddressInfo addrMeta key
+        accInfo . aiAddresses        . at addr .= Nothing
+        accInfo . aiRemovedAddresses . at addr ?= AddressInfo addrMeta key
 
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
 setAccountMeta accId cAccMeta = wsAccountInfos . ix accId . aiMeta .= cAccMeta
@@ -443,9 +474,9 @@ removeAccount :: WebTypes.AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
 -- see also 'addRemovedAccount'
-removeWAddress :: WebTypes.CWAddressMeta -> Update ()
-removeWAddress addrMeta@(WebTypes.addrMetaToAccount -> accId) = do
-    let addrId = WebTypes.cwamId addrMeta
+removeWAddress :: WAddressMeta -> Update ()
+removeWAddress addrMeta@(view wamAccount -> accId) = do
+    let addrId = addrMeta ^. wamAddress
     -- If the address exists, move it to 'addressesRemoved'
     whenJustM (preuse (accAddresses accId . ix addrId)) $ \addressInfo -> do
         accAddresses        accId . at addrId .= Nothing
@@ -454,10 +485,10 @@ removeWAddress addrMeta@(WebTypes.addrMetaToAccount -> accId) = do
     accAddresses        accId' = wsAccountInfos . ix accId' . aiAddresses
     accRemovedAddresses accId' = wsAccountInfos . ix accId' . aiRemovedAddresses
 
-totallyRemoveWAddress :: WebTypes.CWAddressMeta -> Update ()
-totallyRemoveWAddress addrMeta@(WebTypes.addrMetaToAccount -> accId) = do
-    wsAccountInfos . ix accId . aiAddresses        . at (WebTypes.cwamId addrMeta) .= Nothing
-    wsAccountInfos . ix accId . aiRemovedAddresses . at (WebTypes.cwamId addrMeta) .= Nothing
+totallyRemoveWAddress :: WAddressMeta -> Update ()
+totallyRemoveWAddress addrMeta@(view wamAccount -> accId) = do
+    wsAccountInfos . ix accId . aiAddresses        . at (addrMeta ^. wamAddress) .= Nothing
+    wsAccountInfos . ix accId . aiRemovedAddresses . at (addrMeta ^. wamAddress) .= Nothing
 
 addUpdate :: WebTypes.CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
@@ -576,6 +607,7 @@ deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
+deriveSafeCopySimple 0 'base ''WAddressMeta
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip

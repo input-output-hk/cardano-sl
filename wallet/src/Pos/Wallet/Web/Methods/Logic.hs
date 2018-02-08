@@ -48,25 +48,24 @@ import           Pos.Wallet.Web.Account     (AddrGenSeed, findKey, genUniqueAcco
                                              genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
-                                             CAddress (..), CCoin, CId,
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletMeta (..), Wal, addrMetaToAccount,
+                                             CAddress (..), CCoin, CId, CWallet (..),
+                                             CWalletMeta (..), Wal, addressToCId,
                                              encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddr)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressInfo (..),
                                              AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
+                                             HasWAddressMeta (..), WAddressMeta,
                                              WalletSnapshot, addWAddress, askWalletDB,
-                                             askWalletSnapshot,
-                                             createWallet, createAccountWithAddress,
-                                             doesAccountExist,
+                                             askWalletSnapshot, createAccountWithAddress,
+                                             createWallet, doesAccountExist,
                                              getAccountIds, getWalletAddresses,
                                              getWalletBalancesAndUtxo,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              getWalletSnapshot, isCustomAddress,
                                              removeAccount, removeWallet, setAccountMeta,
-                                             setWalletMeta, setWalletPassLU)
+                                             setWalletMeta, setWalletPassLU, wamAccount)
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
                                              sortedInsertions, txMempoolToModifier)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
@@ -89,33 +88,25 @@ getBalanceWithMod ws accMod addr =
   where
     balancesAndUtxo = getWalletBalancesAndUtxo ws
 
-getWAddressBalanceWithMod
-    :: MonadWalletWebMode m
-    => WalletSnapshot
-    -> CachedCAccModifier
-    -> CWAddressMeta
-    -> m Coin
-getWAddressBalanceWithMod ws accMod addr =
-    getBalanceWithMod ws accMod
-        <$> convertCIdTOAddr (cwamId addr)
-
 -- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
-    :: MonadWalletWebMode m
-    => WalletSnapshot
-    -> CachedCAccModifier -> CWAddressMeta -> m CAddress
-getWAddress ws cachedAccModifier cAddr = do
-    let aId = cwamId cAddr
-    balance <- getWAddressBalanceWithMod ws cachedAccModifier cAddr
+    :: WalletSnapshot
+    -> CachedCAccModifier
+    -> WAddressMeta
+    -> CAddress
+getWAddress ws cachedAccModifier wam = let
+    addr = wam ^. wamAddress
+    aId = addressToCId addr
+    balance = getBalanceWithMod ws cachedAccModifier addr
 
-    let getFlag customType accessMod =
-            let checkDB = isCustomAddress ws customType (cwamId cAddr)
-                checkMempool = elem aId . map (fst . fst) . toList $
-                               MM.insertions $ accessMod cachedAccModifier
-             in checkDB || checkMempool
-        isUsed   = getFlag UsedAddr camUsed
-        isChange = getFlag ChangeAddr camChange
-    return $ CAddress aId (mkCCoin balance) isUsed isChange
+    getFlag customType accessMod =
+        let checkDB = isCustomAddress ws customType addr
+            checkMempool = elem addr . map (fst . fst) $
+                            MM.insertions $ accessMod cachedAccModifier
+          in checkDB || checkMempool
+    isUsed   = getFlag UsedAddr camUsed
+    isChange = getFlag ChangeAddr camChange
+  in CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountMod
     :: MonadWalletWebMode m
@@ -124,9 +115,9 @@ getAccountMod
     -> AccountId
     -> m CAccount
 getAccountMod ws accMod accId = do
-    dbAddrs    <- map adiCWAddressMeta . sortOn adiSortingKey <$> getAccountAddrsOrThrow ws Existing accId
+    dbAddrs    <- map adiWAddressMeta . sortOn adiSortingKey <$> getAccountAddrsOrThrow ws Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
-    allAddrs <- mapM (getWAddress ws accMod) allAddrIds
+        allAddrs = map (getWAddress ws accMod) allAddrIds
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                mapM (decodeCTypeOrFail . cadAmount) allAddrs
     meta <- getAccountMetaOrThrow ws accId
@@ -135,7 +126,7 @@ getAccountMod ws accMod accId = do
     gatherAddresses addrModifier dbAddrs = do
         let memAddrs = sortedInsertions addrModifier
             dbAddrsSet = S.fromList dbAddrs
-            relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
+            relatedMemAddrs = filter ((== accId) . view wamAccount) memAddrs
             unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
@@ -213,7 +204,7 @@ newAddress_
     -> AddrGenSeed
     -> PassPhrase
     -> AccountId
-    -> m CWAddressMeta
+    -> m WAddressMeta
 newAddress_ ws addGenSeed passphrase accId = do
     -- check whether account exists
     let parentExists = doesAccountExist ws accId
@@ -240,7 +231,7 @@ newAddress
 newAddress ws mps addGenSeed passphrase accId = do
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
     accMod <- txMempoolToModifier ws mps =<< findKey accId
-    getWAddress ws accMod cwAddrMeta
+    return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletWebMode m

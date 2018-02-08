@@ -23,7 +23,7 @@ import           Pos.Util.Util                (eitherToFail)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CHash (..), CId (..),
                                                CTxId (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx, PtxCondition, PtxSubmitTiming)
-import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WalletInfo,
+import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WalletInfo, WAddressMeta,
                                                WalletStorage, WalletTip)
 
 instance FromJSON (CId a) => FromJSONKey (CId a) where
@@ -62,5 +62,6 @@ deriveJSON defaultOptions ''WalletTip
 deriveJSON defaultOptions ''AddressInfo
 deriveJSON defaultOptions ''AccountInfo
 deriveJSON defaultOptions ''AccountId
+deriveJSON defaultOptions ''WAddressMeta
 deriveJSON defaultOptions ''WalletInfo
 deriveJSON defaultOptions ''WalletStorage

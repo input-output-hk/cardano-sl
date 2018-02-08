@@ -100,12 +100,11 @@ import           Universum
 import           Pos.Client.Txp.History          (TxHistoryEntry)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Txp                         (TxId, Utxo, UtxoModifier)
-import           Pos.Types                       (HeaderHash)
+import           Pos.Types                       (Address, HeaderHash)
 import           Pos.Util.Servant                (encodeCType)
-import           Pos.Wallet.Web.ClientTypes      (AccountId, Addr, CAccountMeta, CId,
-                                                  CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                                  CWAddressMeta, CWalletMeta,
-                                                  PassPhraseLU, Wal)
+import           Pos.Wallet.Web.ClientTypes      (AccountId, CAccountMeta, CId, CProfile,
+                                                  CTxId, CTxMeta, CUpdateInfo,
+                                                  CWalletMeta, PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types    (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic     (WalletDB, closeState, openMemState,
                                                   openState)
@@ -207,7 +206,7 @@ getWAddresses :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [AddressInfo]
 getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 
 doesWAddressExist
-    :: WalletSnapshot -> AddressLookupMode -> CWAddressMeta -> Bool
+    :: WalletSnapshot -> AddressLookupMode -> S.WAddressMeta -> Bool
 doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist mode addr)
 
 getProfile :: WalletSnapshot -> CProfile
@@ -228,15 +227,15 @@ getNextUpdate ws = queryValue ws S.getNextUpdate
 getHistoryCache :: WalletSnapshot -> CId Wal -> Maybe (Map TxId TxHistoryEntry)
 getHistoryCache ws wid = queryValue ws (S.getHistoryCache wid)
 
-getCustomAddresses :: WalletSnapshot -> CustomAddressType -> [CId Addr]
+getCustomAddresses :: WalletSnapshot -> CustomAddressType -> [Address]
 getCustomAddresses ws addrtype = queryValue ws (S.getCustomAddresses addrtype)
 
 getCustomAddress
-    :: WalletSnapshot -> CustomAddressType -> CId Addr -> Maybe HeaderHash
+    :: WalletSnapshot -> CustomAddressType -> Address -> Maybe HeaderHash
 getCustomAddress ws addrtype addrid =
     queryValue ws (S.getCustomAddress addrtype addrid)
 
-isCustomAddress :: WalletSnapshot -> CustomAddressType -> CId Addr -> Bool
+isCustomAddress :: WalletSnapshot -> CustomAddressType -> Address -> Bool
 isCustomAddress ws addrtype addrid =
     isJust (getCustomAddress ws addrtype addrid)
 
@@ -272,7 +271,7 @@ createAccountWithAddress :: MonadIO m
                          => WalletDB
                          -> AccountId
                          -> CAccountMeta
-                         -> CWAddressMeta
+                         -> S.WAddressMeta
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
     updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
@@ -289,21 +288,21 @@ createWallet db cWalId cwMeta isReady lastUpdate =
 
 addWAddress :: MonadIO m
             => WalletDB
-            -> CWAddressMeta
+            -> S.WAddressMeta
             -> m ()
 addWAddress db addr = updateDisk (A.AddWAddress addr) db
 
 addCustomAddress :: MonadIO m
                  => WalletDB
                  -> CustomAddressType
-                 -> (CId Addr, HeaderHash)
+                 -> (Address, HeaderHash)
                  -> m Bool
 addCustomAddress db customAddrType addrAndHash =
     updateDisk (A.AddCustomAddress customAddrType addrAndHash) db
 
 addRemovedAccount :: MonadIO m
                   => WalletDB
-                  -> CWAddressMeta
+                  -> S.WAddressMeta
                   -> m ()
 addRemovedAccount db addrMeta =
     updateDisk (A.AddRemovedAccount addrMeta) db
@@ -404,13 +403,13 @@ removeAccount db accountId = updateDisk (A.RemoveAccount accountId) db
 
 removeWAddress :: MonadIO m
                => WalletDB
-               -> CWAddressMeta
+               -> S.WAddressMeta
                -> m ()
 removeWAddress db addrMeta = updateDisk (A.RemoveWAddress addrMeta) db
 
 totallyRemoveWAddress :: MonadIO m
                       => WalletDB
-                      -> CWAddressMeta
+                      -> S.WAddressMeta
                       -> m ()
 totallyRemoveWAddress db addrMeta =
     updateDisk (A.TotallyRemoveWAddress addrMeta) db
@@ -418,7 +417,7 @@ totallyRemoveWAddress db addrMeta =
 removeCustomAddress :: MonadIO m
                     => WalletDB
                     -> CustomAddressType
-                    -> (CId Addr, HeaderHash)
+                    -> (Address, HeaderHash)
                     -> m Bool
 removeCustomAddress db customAddrType aIdAndHeaderHash =
     updateDisk (A.RemoveCustomAddress customAddrType aIdAndHeaderHash) db
@@ -513,8 +512,8 @@ applyModifierToWallet
   :: MonadIO m
   => WalletDB
   -> CId Wal
-  -> [CWAddressMeta] -- ^ Wallet addresses to add
-  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+  -> [S.WAddressMeta] -- ^ Wallet addresses to add
+  -> [(S.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to add
   -> UtxoModifier
   -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
   -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
@@ -535,8 +534,8 @@ rollbackModifierFromWallet
   :: (MonadIO m, HasProtocolConstants)
   => WalletDB
   -> CId Wal
-  -> [CWAddressMeta] -- ^ Addresses to remove
-  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+  -> [S.WAddressMeta] -- ^ Addresses to remove
+  -> [(S.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
   -> UtxoModifier
      -- We use this odd representation because Data.Map does not get 'withoutKeys'
      -- until 5.8.1

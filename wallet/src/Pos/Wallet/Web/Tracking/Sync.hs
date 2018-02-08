@@ -32,6 +32,7 @@ module Pos.Wallet.Web.Tracking.Sync
 import           Universum
 import           Unsafe                           (unsafeLast)
 
+import qualified Data.Set                         as S
 import           Control.Lens                     (to)
 import           Control.Monad.Catch              (handleAll)
 import qualified Data.DList                       as DL
@@ -85,9 +86,8 @@ import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.SscType               (WalletSscType)
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
-                                                   CWAddressMeta (..), Wal, addressToCId,
-                                                   encToCId, isTxLocalAddress)
+import           Pos.Wallet.Web.ClientTypes       (CId, CTxMeta (..), Wal,
+                                                   addressToCId, encToCId)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
@@ -243,12 +243,12 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         -- assuming that transactions are not created until syncing is complete
         ptxBlkInfo = const Nothing
 
-        rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
+        rollbackBlock :: [WS.WAddressMeta] -> Blund ssc -> CAccModifier
         rollbackBlock allAddresses (b, u) =
             trackingRollbackTxs encSK allAddresses mDiff blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
-        applyBlock :: [CWAddressMeta] -> Blund ssc -> m CAccModifier
+        applyBlock :: [WS.WAddressMeta] -> Blund ssc -> m CAccModifier
         applyBlock allAddresses (b, u) = pure $
             trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
@@ -311,7 +311,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 trackingApplyTxs
     :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey                          -- ^ Wallet's secret key
-    -> [CWAddressMeta]                             -- ^ All addresses in wallet
+    -> [WS.WAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
     -> (BlockHeader ssc -> Maybe PtxBlockInfo)     -- ^ Function to determine pending tx's block info
@@ -336,8 +336,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
                 then DL.cons thEntry camAddedHistory
                 else camAddedHistory
 
-            usedAddrs = map (cwamId . snd) ownOutputs
-            changeAddrs = evalChange allAddresses (map (cwamId . snd) ownInputs) usedAddrs
+            usedAddrs = map (WS._wamAddress . snd) ownOutputs
+            changeAddrs = evalChange allAddresses (map (WS._wamAddress . snd) ownInputs) usedAddrs
 
             mPtxBlkInfo = getPtxBlkInfo blkHeader
             addedPtxCandidates =
@@ -360,7 +360,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
 trackingRollbackTxs
     :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey -- ^ Wallet's secret key
-    -> [CWAddressMeta]    -- ^ All addresses
+    -> [WS.WAddressMeta]    -- ^ All addresses
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader ssc -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
     -> [(TxAux, TxUndo, BlockHeader ssc)] -- ^ Txs of blocks and corresponding header hash
@@ -387,8 +387,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress getDiff getTs txs =
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
-        let usedAddrs = map (cwamId . snd) ownOutputs
-            changeAddrs = evalChange allAddress (map (cwamId . snd) ownInputs) usedAddrs
+        let usedAddrs = map (WS._wamAddress . snd) ownOutputs
+            changeAddrs = evalChange allAddress (map (WS._wamAddress . snd) ownInputs) usedAddrs
         CAccModifier
             (deleteAndInsertIMM (map snd ownOutputs) [] camAddresses)
             (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
@@ -399,7 +399,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress getDiff getTs txs =
             camAddedPtxCandidates
             deletedPtxCandidates
 
-type OwnTxInOuts = [((TxIn, TxOutAux), CWAddressMeta)]
+type OwnTxInOuts = [((TxIn, TxOutAux), WS.WAddressMeta)]
 
 selectOwnTxInsAndOuts
     :: (HDPassphrase, CId Wal)
@@ -415,9 +415,9 @@ selectOwnTxInsAndOuts encInfo (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs
         txOutgoings = map txOutAddress outs
         txInputs = map (toaOut . snd) resolvedInputs
 
-        ownInputs :: [((TxIn, TxOutAux), CWAddressMeta)]
+        ownInputs :: [((TxIn, TxOutAux), WS.WAddressMeta)]
         ownInputs = selectOwnAddresses encInfo (txOutAddress . toaOut . snd) resolvedInputs
-        ownOutputs :: [((Word32, TxOut), CWAddressMeta)]
+        ownOutputs :: [((Word32, TxOut), WS.WAddressMeta)]
         ownOutputs = selectOwnAddresses encInfo (txOutAddress . snd) (enumerate outs)
 
         th = THEntry txId tx mDiff txInputs txOutgoings mTs in
@@ -480,13 +480,54 @@ rollbackModifierFromWallet db wid newTip CAccModifier{..} = do
       newTip
 
 evalChange
-    :: [CWAddressMeta] -- ^ All adresses
-    -> [CId Addr]      -- ^ Own input addresses of tx
-    -> [CId Addr]      -- ^ Own outputs addresses of tx
-    -> [CId Addr]
+    :: [WS.WAddressMeta] -- ^ All adresses
+    -> [Address]      -- ^ Own input addresses of tx
+    -> [Address]      -- ^ Own outputs addresses of tx
+    -> [Address]
 evalChange allAddresses inputs outputs
     | null inputs || null outputs = []
     | otherwise = filter (isTxLocalAddress allAddresses (NE.fromList inputs)) outputs
+  where
+    -- | Produces a function which for a given address says whether this address
+    -- belongs to the same account as the addresses which are the sources
+    -- of a given transaction. This assumes that the source addresses belong
+    -- to the same account.
+    -- Note that if you apply this function to the outputs of a transaction,
+    -- you will effectively get /change/ addresses.
+    isTxLocalAddress
+        :: [WS.WAddressMeta]      -- ^ All addresses in wallet
+        -> NonEmpty Address  -- ^ Input addresses of transaction
+        -> (Address -> Bool)
+    isTxLocalAddress wAddrMetas inputs' = do
+        let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs'
+        case mLocalAddrs of
+          Just changeAddrs -> do
+              -- if given wallet is source of tx, /local addresses/
+              -- can be fetched according to definition
+              let changeAddrsSet = S.fromList changeAddrs
+              flip S.member changeAddrsSet
+          Nothing -> do
+              -- if given wallet is *not* source of tx, then it's incoming
+              -- transaction, and only addresses of given wallet are *not*
+              -- local addresses
+              -- [CSM-309] This may work until transaction have multiple
+              -- destination addresses
+              let nonLocalAddrsSet = S.fromList $ WS._wamAddress <$> wAddrMetas
+              not . flip S.member nonLocalAddrsSet
+
+    -- [CSM-309] This may work until transaction have multiple source accounts
+    -- | Get all addresses of source account of given transaction.
+    getTxSourceAccountAddresses
+        :: [WS.WAddressMeta]      -- ^ All addresses in wallet
+        -> NonEmpty Address  -- ^ Input addresses of transaction
+        -> Maybe [Address]     -- ^ `Just` addrs if the wallet is source of
+                                --   transaction, `Nothing` otherwise
+    getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
+        someSrcAddrMeta <- find ((== someInputAddr) . WS._wamAddress) walAddrMetas
+        let srcAccount = someSrcAddrMeta ^. WS.wamAccount
+        return $
+            map WS._wamAddress $
+            filter ((srcAccount ==) . view WS.wamAccount) walAddrMetas
 
 getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
@@ -499,16 +540,16 @@ selectOwnAddresses
     :: (HDPassphrase, CId Wal)
     -> (a -> Address)
     -> [a]
-    -> [(a, CWAddressMeta)]
+    -> [(a, WS.WAddressMeta)]
 selectOwnAddresses encInfo getAddr =
     mapMaybe (\a -> (a,) <$> decryptAddress encInfo (getAddr a))
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
-decryptAddress :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
+decryptAddress :: (HDPassphrase, CId Wal) -> Address -> Maybe WS.WAddressMeta
 decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
-    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
+    pure $ WS.WAddressMeta wCId (derPath !! 0) (derPath !! 1) addr

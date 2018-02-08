@@ -23,23 +23,24 @@ import           System.Wlog                (WithLogger, logDebug, logInfo, logW
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core                   (ChainDifficulty, timestampToPosix)
+import           Pos.Core                   (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
 import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..),
-                                             ScrollLimit, ScrollOffset, Wal, mkCTx)
+                                             CTxMeta (..), ScrollLimit, ScrollOffset, Wal,
+                                             addressToCId, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
+import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State       (AddressInfo (..), AddressLookupMode (Ever),
                                              WalletDB, WalletSnapshot, addOnlyNewTxMetas,
                                              askWalletDB, getHistoryCache, getPendingTx,
                                              getTxMeta, getWalletPendingTxs,
-                                             getWalletSnapshot, setWalletTxMeta)
+                                             getWalletSnapshot, setWalletTxMeta,
+                                             wamAddress)
 import           Pos.Wallet.Web.Util        (getAccountAddrsOrThrow, getWalletAccountIds,
                                              getWalletAddrs, getWalletAddrsDetector)
 
@@ -97,7 +98,8 @@ getHistory cWalId getAccIds mAddrId = do
         accIds = getAccIds ws
 
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
+    accAddrs  <- S.fromList . map (addressToCId . view wamAddress . adiWAddressMeta)
+                 <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
 
     let filterFn :: Map TxId (CTx, POSIXTime) -> Map TxId (CTx, POSIXTime)
         !filterFn = case mAddrId of
@@ -113,7 +115,7 @@ getHistory cWalId getAccIds mAddrId = do
 
     let cAddrs = getWalletAddrs ws Ever cWalId
 
-    unfilteredLocalHistory <- getLocalHistory =<< convertCIdTOAddrs cAddrs
+    unfilteredLocalHistory <- getLocalHistory cAddrs
     diff        <- getCurChainDifficulty
 
     res <- first filterFn <$> getFullWalletHistory db cWalId unfilteredLocalHistory diff
@@ -200,7 +202,7 @@ constructCTx
     :: (MonadIO m, MonadThrow m)
     => WalletSnapshot
     -> CId Wal
-    -> (CId Addr -> Bool)
+    -> (Address -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)

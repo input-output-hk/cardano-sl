@@ -16,7 +16,10 @@ Slog is responsible for the following (see explanations below):
     -   `inMainChain` flags
 -   Calling callbacks (`BListener`)
 
-Pure verification is *TODO DESCRIBE*
+Pure verification is a set of checks in `Pos.Block.Pure` that operate on
+arbitrary sequences of blocks and verify in a pure context whether these blocks
+constitute a valid chain. For more information, see Haddock comments in
+`Pos.Block.Pure`
 
 Genesis blocks contain no information that cannot be derived from preceding main
 blocks, but we still store them as physical entities for convenience. Here we

@@ -51,7 +51,7 @@ data VerifyHeaderParams = VerifyHeaderParams
     , vhpCurrentSlot     :: !(Maybe SlotId)
       -- ^ Current slot is used to check whether header is not from future.
     , vhpLeaders         :: !(Maybe SlotLeaders)
-      -- ^ Set of leaders for the epoch related block is from
+      -- ^ Set of leaders for the epoch related block is from.
     , vhpMaxSize         :: !(Maybe Byte)
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
@@ -61,6 +61,21 @@ data VerifyHeaderParams = VerifyHeaderParams
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
+--
+-- Supported checks:
+-- 1.  Checks with respect to the preceding block:
+--     1.  If the new block is a genesis one, difficulty does not increase.
+--         Otherwise, it increases by one.
+--     2.  Hashing the preceding block's header yields the same value as the one
+--         stored in the new block's header.
+--     3.  Corresponding `EpochOrSlot`s strictly increase.
+--     4.  If the new block is a main one, its epoch is equal to the epoch of the
+--         preceding block.
+-- 2.  The block's slot does not exceed the current slot.
+-- 3.  The block's leader is expected (matches either the corresponding leader from
+--     the initial leaders or a leader from one of the preceding genesis blocks).
+-- 4.  Header size does not exceed `bvdMaxHeaderSize`.
+-- 5.  (Optional) Header has no unknown attributes.
 verifyHeader
     :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
@@ -208,6 +223,12 @@ data VerifyBlockParams = VerifyBlockParams
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
+--
+-- Supported checks:
+--
+-- 1.  All checks related to the header.
+-- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
+-- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
@@ -244,6 +265,9 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 -- | Verify a sequence of blocks.
+--
+-- Block verification consists of header verification and body verification.
+-- See 'verifyHeader' and 'verifyBlock' for more information.
 --
 -- foldl' is used here which eliminates laziness of triple. It doesn't affect
 -- laziness of 'VerificationRes' which is good because laziness for this data

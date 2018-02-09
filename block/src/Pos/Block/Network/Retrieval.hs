@@ -257,12 +257,16 @@ downloadBlockDump epoch dumpUrl = whenNothingM_ getCurrentSlot $ do
                >> C.transPipe lift (verifyAndApplyBlocksC True))
         -- We use Data.Conduit.Async to keep a buffer of downloaded data and
         -- apply blocks in parallel with downloading them. The buffer size
-        -- is 16k * 512 = 8 megabytes.
+        -- is 32 kB * 320 = 10 MB.
+        --
+        -- (32 kB is the default chunk size from Data.ByteString.Lazy and 10
+        -- MB is approximate epoch size. Also, 10 MB is one order of
+        -- magnitude less than the memory usually used by the node.)
         request <- Http.parseRequest epochUrl
         (mbErr, newTip) <- C.runResourceT $
-            Conduit.Async.buffer 512
+            Conduit.Async.buffer 320
                 (Http.httpSource request Http.getResponseBody
-                 .| C.chunksOfCE 16384)
+                 .| C.chunksOfCE 32768)
                 applyDump
         updateRecoveryHeader Nothing =<< DB.getTipHeader
         -- TODO: abort if downloading is too slow and we haven't gotten

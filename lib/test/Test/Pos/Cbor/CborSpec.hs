@@ -53,6 +53,7 @@ import qualified Pos.Crypto as Crypto
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import           Pos.Delegation (DlgPayload)
 import qualified Pos.DHT.Model as DHT
+import           Pos.Merkle (MerkleTree)
 import           Pos.Slotting.Types (SlottingData)
 import qualified Pos.Ssc as Ssc
 import qualified Pos.Txp as T
@@ -502,7 +503,11 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @C.MessageCode
             describe "Bi extension" $ do
                 prop "HandlerSpec" (extensionProperty @C.HandlerSpec)
+        describe "Merkle" $ do
+            binaryTest @(MerkleTree Int32)
         describe "Crypto" $ do
+            describe "Hashing" $ do
+                binaryTest @(Crypto.Hash Word64)
             describe "Signing" $ do
                 describe "Bi instances" $ do
                     binaryTest @Crypto.SecretKey

@@ -29,7 +29,7 @@ import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHe
                                       MainBlockchain, MainToSign (..), mainBlockEBDataProof,
                                       MainExtraHeaderData (..))
 import           Pos.Core.Block.Genesis (GenesisBlockchain)
-import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..))
+import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Delegation (checkDlgPayload)
@@ -49,7 +49,8 @@ verifyBlockHeader
     :: (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))
     => BlockHeader
     -> m ()
-verifyBlockHeader = either (const (pure ())) verifyMainBlockHeader
+verifyBlockHeader (BlockHeaderGenesis _) = pure ()
+verifyBlockHeader (BlockHeaderMain bhm)    = verifyMainBlockHeader bhm
 
 -- | Verify a Block in isolation.
 verifyBlock

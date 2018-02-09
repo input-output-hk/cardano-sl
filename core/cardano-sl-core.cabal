@@ -102,10 +102,6 @@ library
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
-                       -- Delegation
-                       Pos.Core.Delegation.Types
-                       Pos.Core.Delegation.Util
-
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate

@@ -25,7 +25,8 @@ import           Pos.Crypto (PublicKey)
 data DlgUndo = DlgUndo
     { duPsks            :: ![ProxySKHeavy]
       -- ^ PSKs we've modified when applying the block (by deleting or
-      -- overwriting).
+      -- overwriting). There should be no duplicates, every psk must
+      -- have a unique issuer.
     , duPrevEpochPosted :: !(HashSet StakeholderId)
       -- ^ Set of stakeholders that posted in epoch i. This field
       -- should be present only for genesis block of epoch i+1.

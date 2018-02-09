@@ -27,7 +27,7 @@ import           Pos.Delegation.Helpers (isRevokePsk)
 data DlgEdgeAction
     = DlgEdgeAdd !ProxySKHeavy
     | DlgEdgeDel !StakeholderId
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Ord, Generic)
 
 instance Hashable DlgEdgeAction
 

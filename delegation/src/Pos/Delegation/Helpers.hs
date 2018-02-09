@@ -15,7 +15,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Data.List (partition)
 
-import           Pos.Core (EpochIndex)
+import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
 import           Pos.Core.Block.Main (MainBlock, mainBlockDlgPayload)
 import           Pos.Crypto (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Delegation.Types (DlgMemPool, DlgPayload (getDlgPayload))
@@ -26,9 +26,9 @@ import           Pos.Delegation.Types (DlgMemPool, DlgPayload (getDlgPayload))
 dlgVerifyPayload :: MonadError Text m => EpochIndex -> DlgPayload -> m ()
 dlgVerifyPayload epoch (getDlgPayload -> proxySKs) =
     unless (null notMatchingEpochs) $
-    throwError "Block contains psk(s) that have non-matching epoch index"
+        throwError "Block contains psk(s) that have non-matching epoch index"
   where
-    notMatchingEpochs = filter ((/= epoch) . pskOmega) proxySKs
+    notMatchingEpochs = filter ((/= epoch) . getHeavyDlgIndex . pskOmega) proxySKs
 
 -- | Checks if given PSK revokes delegation (issuer == delegate).
 isRevokePsk :: ProxySecretKey w -> Bool

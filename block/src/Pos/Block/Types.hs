@@ -80,6 +80,6 @@ type MonadProgressHeader ctx m
      = (MonadReader ctx m, HasLens ProgressHeaderTag ctx ProgressHeader)
 
 data RecoveryHeaderTag
-type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
+type RecoveryHeader = STM.TMVar (Maybe NodeId, BlockHeader)
 type MonadRecoveryHeader ctx m
      = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)

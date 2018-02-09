@@ -70,11 +70,11 @@ import           Pos.Util.TimeWarp (CanJsonLog (..))
 -- | All workers specific to block processing.
 blkWorkers
     :: BlockWorkMode ctx m
-    => Timer -> ([WorkerSpec m], OutSpecs)
-blkWorkers keepAliveTimer =
+    => Timer -> Maybe Text -> ([WorkerSpec m], OutSpecs)
+blkWorkers keepAliveTimer blockStorageMirror =
     merge $ [ blkCreatorWorker
             , informerWorker
-            , retrievalWorker keepAliveTimer
+            , retrievalWorker keepAliveTimer blockStorageMirror
             , recoveryTriggerWorker
             ]
   where
@@ -254,7 +254,7 @@ recoveryTriggerWorkerImpl SendActions{..} = do
     repeatOnInterval action = void $ do
         delay $ sec 1
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
-        void $ action `catchAny` \e -> do 
+        void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
             delay $ sec 15
         repeatOnInterval action

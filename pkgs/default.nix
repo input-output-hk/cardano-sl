@@ -1476,7 +1476,7 @@ self: {
           description = "Cardano SL - binary serialization";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, conduit, conduit-combinators, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, lens, log-warper, lzma-conduit, mkDerivation, mmorph, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, text, text-format, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-block = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-binary, cardano-sl-core, cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cborg, conduit, conduit-combinators, containers, cpphs, cryptonite, data-default, directory, ekg-core, ether, exceptions, filepath, fmt, formatting, generic-arbitrary, http-conduit, lens, log-warper, lzma-conduit, mkDerivation, mmorph, mtl, random, reflection, rocksdb-haskell, safe-exceptions, serokell-util, stdenv, stm, stm-conduit, text, text-format, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-block";
           version = "1.0.3";
@@ -1508,8 +1508,10 @@ self: {
             ether
             exceptions
             filepath
+            fmt
             formatting
             generic-arbitrary
+            http-conduit
             lens
             log-warper
             lzma-conduit
@@ -1522,6 +1524,7 @@ self: {
             safe-exceptions
             serokell-util
             stm
+            stm-conduit
             text
             text-format
             time-units
@@ -2831,6 +2834,25 @@ self: {
           doCheck = false;
           homepage = "https://github.com/GaloisInc/cereal";
           description = "A binary serialization library";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      cereal-conduit = callPackage ({ base, bytestring, cereal, conduit, mkDerivation, resourcet, stdenv, transformers }:
+      mkDerivation {
+          pname = "cereal-conduit";
+          version = "0.7.3";
+          sha256 = "05bf926a6292ad6e17f2667c248c33f820266ea8a703749923cc936a824c00a2";
+          libraryHaskellDepends = [
+            base
+            bytestring
+            cereal
+            conduit
+            resourcet
+            transformers
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/snoyberg/conduit";
+          description = "Turn Data.Serialize Gets and Puts into Sources, Sinks, and Conduits";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       cereal-vector = callPackage ({ base, bytestring, cereal, mkDerivation, stdenv, vector }:
@@ -4474,6 +4496,8 @@ self: {
           pname = "happy";
           version = "1.19.9";
           sha256 = "3e81a3e813acca3aae52721c412cde18b7b7c71ecbacfaeaa5c2f4b35abf1d8d";
+          revision = "1";
+          editedCabalFile = "1lm706nv64cvfi3ccg7hc3217642sg0z9f9xz2ivbpzvzwwn8gj6";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [
@@ -7237,6 +7261,54 @@ self: {
           description = "Software Transactional Memory";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      stm-chans = callPackage ({ base, mkDerivation, stdenv, stm }:
+      mkDerivation {
+          pname = "stm-chans";
+          version = "3.0.0.4";
+          sha256 = "2344fc5bfa33d565bad7b009fc0e2c5a7a595060ba149c661f44419fc0d54738";
+          libraryHaskellDepends = [
+            base
+            stm
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://code.haskell.org/~wren/";
+          description = "Additional types of channels for STM";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      stm-conduit = callPackage ({ async, base, cereal, cereal-conduit, conduit, conduit-combinators, conduit-extra, directory, ghc-prim, lifted-async, lifted-base, mkDerivation, monad-control, monad-loops, resourcet, stdenv, stm, stm-chans, transformers, void }:
+      mkDerivation {
+          pname = "stm-conduit";
+          version = "3.0.0";
+          sha256 = "cf6f663c069fb8991831ed792e5d22b8786966740797306c9391e610651da809";
+          revision = "1";
+          editedCabalFile = "0wmjqypqjw9irmpsmra6zbj1sa4l14xnx5xpaz2zvfsk4x90qyyg";
+          libraryHaskellDepends = [
+            async
+            base
+            cereal
+            cereal-conduit
+            conduit
+            conduit-combinators
+            conduit-extra
+            directory
+            ghc-prim
+            lifted-async
+            lifted-base
+            monad-control
+            monad-loops
+            resourcet
+            stm
+            stm-chans
+            transformers
+            void
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/cgaebel/stm-conduit";
+          description = "Introduces conduits to channels, and promotes using conduits concurrently";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       stm-delay = callPackage ({ base, mkDerivation, stdenv, stm }:
       mkDerivation {
           pname = "stm-delay";
@@ -7315,8 +7387,8 @@ self: {
       stringbuilder = callPackage ({ base, mkDerivation, stdenv }:
       mkDerivation {
           pname = "stringbuilder";
-          version = "0.5.0";
-          sha256 = "8966882622fc06fd4e588da626a558b54daa313f2328c188d9305b0c6f2fe9aa";
+          version = "0.5.1";
+          sha256 = "d878bdc4da806dbce5ab684ef13d2634c17c15b991d0ed3bb25a331eba6603ba";
           libraryHaskellDepends = [
             base
           ];

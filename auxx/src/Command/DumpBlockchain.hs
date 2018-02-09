@@ -144,21 +144,21 @@ applyEpoch
     => FilePath -> m ()
 applyEpoch path = do
     (tip, difficulty) <- getTipAndDifficulty
-
     logInfo ("Applying blocks from "+|path|+", tip is "+|tip|+", " <>
              "difficulty is "+|difficulty|+"")
-    result <- runConduitRes $
-           C.sourceFile path
-        .| decodeBlockDumpC                            -- get a stream of blocks
-        .| (C.dropWhileC ((/= tip) . view prevBlockL) -- skip blocks until tip
-        >> verifyAndApplyBlocksC True)                -- apply blocks w/ rollback
-    whenLeft result throwM
-
+    (mbErr, _) <- runConduitRes
+           -- get a stream of blocks
+         $ C.sourceFile path .| decodeBlockDumpC
+        .| do -- skip all blocks that we have (i.e. up to and including the tip)
+              C.dropWhileC ((/= tip) . view prevBlockL)
+              -- apply the rest of the blocks, with rollback
+              C.transPipe lift (verifyAndApplyBlocksC True)
     (newTip, newDifficulty) <- getTipAndDifficulty
     if tip == newTip
         then logInfo ("All blocks were skipped because they can't " <>
                       "be applied to the current tip")
         else logInfo ("Applied blocks: "+|newDifficulty - difficulty|+". " <>
                       "The current tip is "+|newTip|+"")
+    whenJust mbErr throwM
   where
     getTipAndDifficulty = (headerHash &&& view difficultyL) <$> DB.getTipHeader

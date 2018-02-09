@@ -200,17 +200,22 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
 -- it'll do for now.
 --
 -- If there are no blocks, 'verifyAndApplyBlocksC' returns the current tip.
+--
+-- Unlike 'verifyAndApplyBlocks', this function can only do /partial/
+-- rollback – if an error happens during application of the second batch of
+-- blocks, the first batch won't be rolled back. Therefore we always return
+-- the current tip, and optionally an exception (if it happened).
 verifyAndApplyBlocksC
     :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
-    => Bool -> Consumer Block m (Either ApplyBlocksException HeaderHash)
+    => Bool -> Consumer Block m (Maybe ApplyBlocksException, HeaderHash)
 verifyAndApplyBlocksC rollback = do
     tip <- lift GS.getTip
     splitC 1000 .| Conduit.mapC OldestFirst .| processBatches tip
   where
     processBatches tip = Conduit.await >>= \case
-        Nothing     -> pure (Right tip)
+        Nothing     -> pure (Nothing, tip)
         Just blocks -> lift (verifyAndApplyBlocks rollback blocks) >>= \case
-            Left err     -> pure (Left err)
+            Left err     -> (Just err,) <$> lift GS.getTip
             Right newTip -> processBatches newTip
 
 -- | Apply definitely valid sequence of blocks. At this point we must

@@ -12,7 +12,7 @@ import           Universum
 import           Pos.Block.Worker (blkWorkers)
 import           Pos.Communication (OutSpecs, Relay, WorkerSpec, localWorker, relayPropagateOut,
                                     wrapActionSpec)
-import           Pos.Context (NodeContext (..))
+import           Pos.Context (NodeContext (..), NodeParams (..))
 import           Pos.Delegation.Listeners (delegationRelays)
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.DHT.Workers (dhtWorkers)
@@ -46,7 +46,9 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
+    , wrap' "block"      $ blkWorkers
+                               ncSubscriptionKeepAliveTimer
+                               (npBlockStorageMirror ncNodeParams)
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 

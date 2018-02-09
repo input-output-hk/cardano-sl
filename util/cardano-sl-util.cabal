@@ -88,6 +88,7 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio-core
                      , unordered-containers
                      , vector
 

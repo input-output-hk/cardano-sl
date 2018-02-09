@@ -26,12 +26,13 @@ import           Mockable (Async, Channel, ChannelT, Concurrently, CurrentTime (
                            ThreadId)
 import qualified Mockable.Metrics as Metrics
 import           System.Wlog (CanLog (..))
+import           UnliftIO (MonadUnliftIO)
 
 newtype ClockVar = ClockVar (IORef Microsecond)
 
 newtype Emulation a = Emulation { unEmulation :: ReaderT ClockVar IO a }
   deriving
-    (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadMask)
+    (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadMask, MonadUnliftIO)
 
 instance Rand.MonadRandom Emulation where
     getRandomBytes = Emulation . lift . Rand.getRandomBytes

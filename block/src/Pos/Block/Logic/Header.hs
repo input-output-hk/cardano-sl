@@ -23,6 +23,7 @@ import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           System.Wlog (WithLogger, logDebug)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
@@ -75,6 +76,7 @@ classifyNewHeader
     ( HasConfiguration
     , MonadSlots ctx m
     , MonadDBRead m
+    , MonadUnliftIO m
     , MonadSlots ctx m
     , HasLrcContext ctx
     )
@@ -83,13 +85,13 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot
-    tipHeader <- DB.getTipHeader
+    tipHeader <- lift DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
     let newHeaderEpoch = header ^. epochIndexL
     let tip = headerHash tipHeader
-    maxBlockHeaderSize <- bvdMaxHeaderSize . snd <$> GS.getAdoptedBVFull
+    maxBlockHeaderSize <- bvdMaxHeaderSize . snd <$> lift GS.getAdoptedBVFull
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     when (maybe False (newHeaderSlot >) curSlot) $
@@ -128,7 +130,7 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
                 VerFailure errors -> throwError $ mkCHRinvalid errors
                 _                 -> pass
 
-            dlgHeaderValid <- runDBCede $ runExceptT $ dlgVerifyHeader header
+            dlgHeaderValid <- lift $ runDBCede $ dlgVerifyHeader header
             whenLeft dlgHeaderValid $ throwError . CHInvalid
 
             pure CHContinues
@@ -252,25 +254,24 @@ classifyHeaders inRecovery headers = do
 getHeadersFromManyTo ::
        ( MonadDBRead m
        , WithLogger m
-       , MonadError Text m
        , HasConfiguration
        , HasBlockConfiguration
        )
     => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
-    -> m (NewestFirst NE BlockHeader)
-getHeadersFromManyTo checkpoints startM = do
+    -> m (Either Text (NewestFirst NE BlockHeader))
+getHeadersFromManyTo checkpoints startM = runExceptT $ do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    tip <- DB.getTipHeader
+    tip <- lift DB.getTipHeader
     let tipHash = headerHash tip
     let startHash = maybe tipHash headerHash startM
 
     -- This filters out invalid/unknown checkpoints also.
     inMainCheckpoints <-
-        noteM "no checkpoints are in the main chain" $
+        noteM "no checkpoints are in the main chain" $ lift $
         nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints)
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $
@@ -286,10 +287,10 @@ getHeadersFromManyTo checkpoints startM = do
         else do
             newestCheckpoint <-
                 maximumBy (comparing getEpochOrSlot) . catMaybes <$>
-                mapM DB.getHeader (toList inMainCheckpoints)
+                lift (mapM DB.getHeader (toList inMainCheckpoints))
             let loadUpCond (headerHash -> curH) h =
                     curH /= startHash && h < recoveryHeadersMessage
-            up <- GS.loadHeadersUpWhile newestCheckpoint loadUpCond
+            up <- lift $ GS.loadHeadersUpWhile newestCheckpoint loadUpCond
             res <-
                 note "loadHeadersUpWhile returned empty list" $
                 _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
@@ -364,7 +365,7 @@ getHeadersRange ::
     -> HeaderHash
     -> m (Either Text (OldestFirst NE HeaderHash))
 getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
-    unlessM (isJust <$> DB.getHeader newer) $
+    unlessM (isJust <$> lift (DB.getHeader newer)) $
         throwError "getHeadersRange: can't find newer-older header"
     whenJust depthLimitM $ \depthLimit ->
         when (depthLimit < 1) $
@@ -415,7 +416,7 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
     let cond curHash _depth = curHash /= newer
 
     -- This is [oldest..newest) headers, oldest first
-    allExceptNewest <- GS.loadHashesUpWhile older cond
+    allExceptNewest <- lift $ GS.loadHashesUpWhile older cond
 
     -- Sometimes we will get an empty list, if we've just switched the
     -- branch (after first checks are performed here) and olderHd is

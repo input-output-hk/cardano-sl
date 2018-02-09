@@ -9,8 +9,7 @@ module Pos.Logic.Full
 import           Universum
 
 import           Control.Lens (at, to)
-import           Control.Monad.Trans.Except (runExceptT)
-import           Data.Conduit (Source)
+import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
@@ -105,7 +104,7 @@ logicLayerFull jsonLogTx k = do
         getBlock :: HeaderHash -> m (Maybe Block)
         getBlock = DB.getBlock
 
-        getChainFrom :: HeaderHash -> Source m Block
+        getChainFrom :: HeaderHash -> ConduitT () Block m ()
         getChainFrom = DB.blocksSourceFrom
 
         getTip :: m Block
@@ -127,9 +126,9 @@ logicLayerFull jsonLogTx k = do
             :: NonEmpty HeaderHash
             -> Maybe HeaderHash
             -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
-        getBlockHeaders checkpoints start = do
-            result <- runExceptT (DB.getHeadersFromManyTo checkpoints start)
-            either (pure . Left . GetBlockHeadersError) (pure . Right) result
+        getBlockHeaders checkpoints start =
+            first GetBlockHeadersError <$>
+            DB.getHeadersFromManyTo checkpoints start
 
         getBlockHeaders'
             :: HeaderHash
@@ -201,7 +200,7 @@ logicLayerFull jsonLogTx k = do
             => SscTag
             -> (contents -> StakeholderId)
             -> (StakeholderId -> TossModifier -> Maybe contents)
-            -> (contents -> ExceptT err m ())
+            -> (contents -> m (Either err ()))
             -> KeyVal (Tagged contents StakeholderId) contents m
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
@@ -223,7 +222,7 @@ logicLayerFull jsonLogTx k = do
                 | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
                 | otherwise = sscProcessMessage processData dat
             sscProcessMessage sscProcessMessageDo dat =
-                runExceptT (sscProcessMessageDo dat) >>= \case
+                sscProcessMessageDo dat >>= \case
                     Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
 

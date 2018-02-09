@@ -250,7 +250,7 @@ createMainBlockInternal sId pske = do
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
-        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
         block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
@@ -263,7 +263,7 @@ canCreateBlock ::
     -> m (Either Text ())
 canCreateBlock sId tipHeader =
     runExceptT $ do
-        unlessM usCanCreateBlock $
+        unlessM (lift usCanCreateBlock) $
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"

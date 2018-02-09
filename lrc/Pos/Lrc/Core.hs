@@ -8,7 +8,7 @@ module Pos.Lrc.Core
 
 import           Universum
 
-import           Data.Conduit (Sink, await)
+import           Data.Conduit (ConduitT, await)
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -30,15 +30,19 @@ findDelegationStakes
     => (StakeholderId -> m Bool)                   -- ^ Check if user is issuer?
     -> (StakeholderId -> m (Maybe Coin))           -- ^ Gets effective stake.
     -> Coin                                        -- ^ Coin threshold
-    -> Sink (StakeholderId, HashSet StakeholderId)
-            m
-            (RichmenSet, RichmenStakes)            -- ^ Old richmen, new richmen
+    -> ConduitT (StakeholderId, HashSet StakeholderId)
+                Void
+                m
+                (RichmenSet, RichmenStakes)            -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)
   where
     step :: (RichmenSet, RichmenStakes)
-         -> Sink (StakeholderId, HashSet StakeholderId) m (RichmenSet, RichmenStakes)
+         -> ConduitT (StakeholderId, HashSet StakeholderId)
+                     Void
+                     m
+                     (RichmenSet, RichmenStakes)
     step richmen = do
         v <- await
         maybe (pure richmen) (onItem richmen >=> step) v
@@ -67,7 +71,7 @@ findDelegationStakes isIssuer stakeResolver t = do
 findRichmenStakes
     :: forall m . Monad m
     => Coin  -- ^ Eligibility threshold
-    -> Sink (StakeholderId,Coin) m RichmenStakes
+    -> ConduitT (StakeholderId, Coin) Void m RichmenStakes
 findRichmenStakes t = CL.fold tryAdd mempty
   where
     tryAdd :: HashMap StakeholderId Coin

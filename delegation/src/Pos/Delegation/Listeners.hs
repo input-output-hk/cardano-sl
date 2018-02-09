@@ -13,6 +13,7 @@ import           Universum
 import           Formatting (build, sformat, shown, (%))
 import           Mockable (CurrentTime, Delay, Mockable)
 import           System.Wlog (WithLogger, logDebug, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Delegation ()
 import           Pos.Communication.Limits.Types (MessageLimited)
@@ -36,6 +37,7 @@ type DlgMessageConstraint m
 -- | This is a subset of 'WorkMode'.
 type DlgListenerConstraint ctx m
      = ( MonadIO m
+       , MonadUnliftIO m
        , MonadDelegation ctx m
        , MonadMask m
        , Mockable Delay m
@@ -46,7 +48,8 @@ type DlgListenerConstraint ctx m
        , HasLrcContext ctx
        , WithLogger m
        , DlgMessageConstraint m
-       , HasDlgConfiguration)
+       , HasDlgConfiguration
+       )
 
 handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
 handlePsk pSk = do

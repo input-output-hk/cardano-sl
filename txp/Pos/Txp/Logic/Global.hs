@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeOperators #-}
+
 -- | Logic for global processing of transactions.
 -- Global transaction is a transaction which has already been added to the blockchain.
 
@@ -12,12 +14,12 @@ module Pos.Txp.Logic.Global
        , runToilAction
        ) where
 
-import           Control.Monad.Except (runExceptT)
+import           Universum
+
 import           Data.Default (Default)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
-import           Universum
 
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Class (epochIndexL)
@@ -31,8 +33,8 @@ import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
 import           Pos.Txp.Toil (DBToil, GenericToilModifier (..), GlobalApplyToilMode,
-                               StakesView (..), ToilModifier, ToilT, applyToil, rollbackToil,
-                               runDBToil, runToilTGlobal, verifyToil)
+                               StakesView (..), ToilModifier, ToilT, ToilVerFailure, applyToil,
+                               rollbackToil, runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier as MM
@@ -47,13 +49,14 @@ txpGlobalSettings =
     , tgsRollbackBlocks = rollbackBlocks
     }
 
-verifyBlocks
-    :: forall m.
-       TxpGlobalVerifyMode m
-    => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+verifyBlocks ::
+       forall m. TxpGlobalVerifyMode m
+    => Bool
+    -> OldestFirst NE TxpBlock
+    -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
 verifyBlocks verifyAllIsKnown newChain = do
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
-    fst <$> runToilAction @_ @() (mapM (verifyDo epoch) newChain)
+    fst <$> runToilAction @_ @() (runExceptT $ mapM (verifyDo epoch) newChain)
   where
     verifyDo epoch = verifyToil epoch verifyAllIsKnown . convertPayload
     convertPayload :: TxpBlock -> [TxAux]
@@ -82,7 +85,7 @@ applyBlocksWith
 applyBlocksWith ApplyBlocksSettings {..} blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- runExceptT $ verifyBlocks False blocks
+        verdict <- verifyBlocks False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)

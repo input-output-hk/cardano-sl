@@ -33,7 +33,7 @@ instance ( Monad m
                 False -> pass
                 True -> throwError SSDoingRecovery
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
-            tipHeader <- DB.getTipHeader
+            tipHeader <- lift DB.getTipHeader
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
             unless (tipSlot <= curSlot) $
                 throwError

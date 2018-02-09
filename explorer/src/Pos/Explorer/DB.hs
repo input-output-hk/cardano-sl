@@ -30,7 +30,7 @@ import           Universum
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Conduit, Sink, Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import           Data.List (groupBy)
 import           Data.Map (fromList)
@@ -39,6 +39,7 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%))
 import           Serokell.Util (Color (Red), colorize, mapJson)
 import           System.Wlog (WithLogger, logError)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
@@ -62,6 +63,7 @@ import           Pos.Util.Util (maybeThrow)
 explorerInitDB
     :: forall ctx m.
        ( MonadReader ctx m
+       , MonadUnliftIO m
        , MonadDB m
        , HasConfiguration
        , HasSscConfiguration
@@ -166,7 +168,7 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: MonadDB m => m ()
+prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => m ()
 prepareExplorerDB = do
     unlessM balancesInitializedM $ do
         let GenesisUtxo utxo = genesisUtxo
@@ -194,7 +196,7 @@ prepareExplorerDB = do
 
     -- | This is where we convert the old format of @Epoch@ which has 21600 blocks to the
     -- new and shiny one with @Page@s added.
-    convertOldEpochBlocksFormat :: (MonadDB m) => m ()
+    convertOldEpochBlocksFormat :: (MonadDB m, MonadUnliftIO m) => m ()
     convertOldEpochBlocksFormat =
         runConduitRes  $ epochsSource
                       .| epochPagesConduit
@@ -202,7 +204,7 @@ prepareExplorerDB = do
       where
         -- 'Source' corresponding to the old @Epoch@ format that contained all
         -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
-        epochsSource :: (MonadDBRead m) => Source (ResourceT m) (Epoch, [HeaderHash])
+        epochsSource :: (MonadDBRead m) => ConduitT () (Epoch, [HeaderHash]) (ResourceT m) ()
         epochsSource = dbIterSource GStateDB (Proxy @EpochsIter)
 
         -- 'Conduit' to turn the old @Epoch@ format that contained all
@@ -211,13 +213,13 @@ prepareExplorerDB = do
         -- load - performance reasons.
         epochPagesConduit
             :: (MonadDBRead m)
-            => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
+            => ConduitT (Epoch, [HeaderHash]) (Map EpochPagedBlocksKey [HeaderHash]) m ()
         epochPagesConduit = CL.map convertToPagedMap
 
         -- | Finally, we persist the map with the new format.
         epochPagesExplorerOpSink
             :: (MonadDB m)
-            => Sink (Map EpochPagedBlocksKey [HeaderHash]) m ()
+            => ConduitT (Map EpochPagedBlocksKey [HeaderHash]) Void m ()
         epochPagesExplorerOpSink = CL.mapM_ persistEpochBlocks
           where
             -- | Persist atomically, all the operations together.
@@ -271,12 +273,12 @@ putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
 utxoSumInitializedM :: MonadDBRead m => m Bool
 utxoSumInitializedM = isJust <$> dbGet GStateDB utxoSumPrefix
 
-putCurrentUtxoSum :: MonadDB m => m ()
+putCurrentUtxoSum :: (MonadDB m, MonadUnliftIO m) => m ()
 putCurrentUtxoSum = do
     utxoSum <- computeUtxoSum
     writeBatchGState [PutUtxoSum utxoSum]
   where
-    computeUtxoSum :: MonadDBRead m => m Integer
+    computeUtxoSum :: (MonadDBRead m, MonadUnliftIO m) => m Integer
     computeUtxoSum = do
         let txOutValueSource =
                 mapOutput (coinToInteger . txOutValue . toaOut . snd) utxoSource
@@ -351,11 +353,11 @@ instance DBIteratorClass BalancesIter where
     iterKeyPrefix = addrBalancePrefix
 
 -- 'Source' corresponding to the whole balances mapping (for all addresses).
-balancesSource :: (MonadDBRead m) => Source (ResourceT m) (Address, Coin)
+balancesSource :: (MonadDBRead m) => ConduitT () (Address, Coin) (ResourceT m) ()
 balancesSource = dbIterSource GStateDB (Proxy @BalancesIter)
 
 -- 'Sink' to turn balances source to a map.
-balancesSink :: (MonadDBRead m) => Sink (Address, Coin) m (HashMap Address Coin)
+balancesSink :: (MonadDBRead m) => ConduitT (Address, Coin) Void m (HashMap Address Coin)
 balancesSink =
     CL.fold
         (\res (addr, coin) -> res & at addr . non minBound %~ unsafeAddCoin coin)
@@ -382,7 +384,7 @@ instance DBIteratorClass EpochsIter where
 -- WARNING: this is potentially expensive operation, it shouldn't be
 -- used in production.
 sanityCheckBalances
-    :: (MonadDBRead m, WithLogger m)
+    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
     => m ()
 sanityCheckBalances = do
     let utxoBalancesSource =

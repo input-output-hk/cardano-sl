@@ -105,6 +105,7 @@ library
                      , text-format
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
                      , vector
 

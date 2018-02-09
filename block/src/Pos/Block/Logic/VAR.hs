@@ -63,21 +63,22 @@ verifyBlocksPrefix
 verifyBlocksPrefix blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
-    adoptedBV <- GS.getAdoptedBV
+    adoptedBV <- lift GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
 
     -- And then we run verification of each component.
-    slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
+    slogUndos <- withExceptT VerifyBlocksError $
+        ExceptT $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
+        ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
@@ -108,7 +109,7 @@ verifyAndApplyBlocks
     :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
     => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
 verifyAndApplyBlocks rollback blocks = runExceptT $ do
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
@@ -128,7 +129,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
     applyAMAP e (OldestFirst []) True                   = throwError e
-    applyAMAP _ (OldestFirst []) False                  = GS.getTip
+    applyAMAP _ (OldestFirst []) False                  = lift GS.getTip
     applyAMAP e (OldestFirst (block:xs)) nothingApplied =
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
@@ -179,7 +180,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
                 logDebug "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe (ShouldCallBListener True) newBlunds (Just pModifier)
                 case getOldestFirst suffix of
-                    [] -> GS.getTip
+                    [] -> lift GS.getTip
                     (genesis:xs) -> do
                         logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
@@ -234,7 +235,7 @@ applyWithRollback
     -> OldestFirst NE Block        -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
 applyWithRollback toRollback toApply = runExceptT $ do
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
 

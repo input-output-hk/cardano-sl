@@ -241,6 +241,7 @@ downloadBlockDump epoch dumpUrl = whenNothingM_ getCurrentSlot $ do
     logInfo ("Downloading blockchain dump for epoch "+|epoch|+
              " from "+|epochUrl|+"")
     isSuccess <- modifyStateLock HighPriority "tryDownload" $ \tip -> do
+        updateRecoveryHeader Nothing =<< DB.getTipHeader
         slot <- getEpochOrSlot <$> DB.getTipHeader
         -- When we're already in the epoch we're going to be downloading
         -- blocks from, it's possible that we're in slot 10000 or
@@ -263,6 +264,7 @@ downloadBlockDump epoch dumpUrl = whenNothingM_ getCurrentSlot $ do
                 (Http.httpSource request Http.getResponseBody
                  .| C.chunksOfCE 16384)
                 applyDump
+        updateRecoveryHeader Nothing =<< DB.getTipHeader
         -- TODO: abort if downloading is too slow and we haven't gotten
         -- any blocks in e.g. last minute
         case mbErr of

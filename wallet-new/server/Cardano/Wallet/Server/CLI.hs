@@ -154,7 +154,9 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                                      <*> disabledParser
   where
     constructTlsParams tpCertPath tpKeyPath tpCaPath disabled =
-        guard (not disabled) $> TlsParams{..}
+        -- modified depending on @--wallet-debug@ flag
+        let tpAllowInsecure = False
+        in  guard (not disabled) $> TlsParams{..}
 
     certPathParser :: Parser FilePath
     certPathParser = strOption (CLI.templateParser

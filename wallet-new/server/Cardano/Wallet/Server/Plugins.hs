@@ -15,15 +15,15 @@ module Cardano.Wallet.Server.Plugins (
 
 import           Universum
 
-import           Cardano.Wallet.API              as API
-import qualified Cardano.Wallet.Kernel           as Kernel
+import           Cardano.Wallet.API as API
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
-import qualified Cardano.Wallet.Kernel.Mode      as Kernel
-import qualified Cardano.Wallet.LegacyServer     as LegacyServer
-import qualified Cardano.Wallet.Server           as Server
-import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..), isDebugMode,
-                                            walletAcidInterval, walletDbOptions,
-                                            NewWalletBackendParams(..) )
+import qualified Cardano.Wallet.Kernel.Mode as Kernel
+import qualified Cardano.Wallet.LegacyServer as LegacyServer
+import qualified Cardano.Wallet.Server as Server
+import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
+                                            WalletBackendParams (..), isDebugMode,
+                                            walletAcidInterval, walletDbOptions)
 
 import           Formatting (build, sformat, (%))
 import           Mockable
@@ -48,9 +48,9 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
-import           Pos.Web (serveWeb)
+import           Pos.Web (TlsParams (tpAllowInsecure), serveWeb)
+import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
-import           Pos.Worker.Types (worker, WorkerSpec)
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = ([WorkerSpec m], OutSpecs)
@@ -89,8 +89,9 @@ legacyWalletBackend WalletBackendParams {..} =
       walletServeImpl
         (getApplication diffusion)
         walletAddress
-        -- Disable TLS if in debug mode.
-        (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+        -- Make TLS optional in debug mode.
+        (walletTLSParams <&>
+          \params -> params { tpAllowInsecure = isDebugMode walletRunMode })
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -118,8 +119,9 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
         walletServeImpl
           (getApplication active)
           walletAddress
-          -- Disable TLS if in debug modeit .
-          (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+          -- Make TLS optional in debug mode.
+          (walletTLSParams <&>
+            \params -> params { tpAllowInsecure = isDebugMode walletRunMode })
   where
     getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
     getApplication active = do

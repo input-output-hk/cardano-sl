@@ -19,9 +19,9 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -33,13 +33,13 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 notifierPlugin, runWRealMode, syncWalletsWithGState,
-                                 walletServeWebFull, walletServerOuts, AddrCIdHashes (..),
-                                 startPendingTxsResubmitter)
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
+                                 startPendingTxsResubmitter, syncWalletsWithGState,
+                                 walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
-import           Pos.Web (serveWeb)
+import           Pos.Web (TlsParams (tpAllowInsecure), serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
 
@@ -120,7 +120,7 @@ walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \diffusion ->
         diffusion
         walletDebug
         walletAddress
-        (Just walletTLSParams)
+        (Just walletTLSParams{ tpAllowInsecure = walletDebug })
 
 plugins ::
     ( WorkMode ctx m

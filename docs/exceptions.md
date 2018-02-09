@@ -201,7 +201,7 @@ define it.
 
 We disallow the use of `throwIO` only because it is redundant in the presence of
 `throwM` and requires a stronger constraint (`MonadIO` rather than
-`MonadThrow`).
+`MonadThrow`). In code which lives directly in `IO` usage of `throwIO` is fine.
 
 Derive prisms for exception types with multiple constructors, so it's convenient
 to use them with `catchJust`.

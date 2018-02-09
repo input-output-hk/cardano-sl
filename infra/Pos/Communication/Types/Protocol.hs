@@ -228,6 +228,7 @@ instance Semigroup InSpecs where
           InSpecs $ HM.unionWithKey merger a b
       where
         merger name h1 h2 =
+          -- TODO [CSL-2173]: Clarify
           error $ sformat
               ("Conflicting key in input spec: "%build%" "%build)
               (name, h1) (name, h2)
@@ -255,7 +256,9 @@ toOutSpecs :: [(MessageCode, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
   where
     merge = foldr (HM.unionWithKey merger) mempty
-    merger name h1 h2 = error $ sformat
+    merger name h1 h2 =
+        -- TODO [CSL-2173]: Clarify
+        error $ sformat
         ("Conflicting key output spec in toOutSpecs: "%build%" at "%build%" "%build)
         name h1 h2
 

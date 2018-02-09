@@ -131,6 +131,7 @@ slotFromTimestamp approxCurTime = do
 
         localSlot :: LocalSlotIndex
         localSlot =
+            -- TODO [CSL-2173]: Clarify
             leftToPanic "computeSlotUsingEpoch: " $
             mkLocalSlotIndex localSlotNumeric
 

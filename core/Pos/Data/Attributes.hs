@@ -161,7 +161,9 @@ encodeAttributes encs Attributes{..} =
     go (k, f) = M.alter (insertCheck $ f attrData) k
         where
           insertCheck v Nothing   = Just v
-          insertCheck _ (Just v') = error $ "encodeAttributes: impossible: field no. "
+          insertCheck _ (Just v') =
+              -- TODO [CSL-2173]: Clarify
+              error $ "encodeAttributes: impossible: field no. "
               <> show k <> " is already encoded as unparsed field: " <> show v'
 
 decodeAttributes

@@ -75,10 +75,14 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 let attempts = 1
 
                 let listener = Listener $ \pd _ cactions -> do
-                        unless (pd == ("client", 24)) (error "bad pd")
+                        unless (pd == ("client", 24))
+                            -- TODO [CSL-2173]: Clarify
+                            (error "bad pd")
                         initial <- timeout "server waiting for request" 30000000 (recv cactions maxBound)
                         case initial of
-                            Nothing -> error "got no initial message"
+                            Nothing ->
+                                -- TODO [CSL-2173]: Clarify
+                                error "got no initial message"
                             Just (Parcel i (Payload _)) -> do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
@@ -93,13 +97,19 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         NodeAction (const [listener]) $ \converse -> do
                             serverAddress <- readSharedExclusive serverAddressVar
                             forM_ [1..attempts] $ \i -> converseWith converse serverAddress $ \peerData -> Conversation $ \cactions -> do
-                                unless (peerData == ("server", 42)) (error "bad peer data")
+                                unless (peerData == ("server", 42))
+                                    -- TODO [CSL-2173]: Clarify
+                                    (error "bad peer data")
                                 _ <- timeout "client sending" 30000000 (send cactions (Parcel i (Payload 32)))
                                 response <- timeout "client waiting for response" 30000000 (recv cactions maxBound)
                                 case response of
-                                    Nothing -> error "got no response"
+                                    Nothing ->
+                                        -- TODO [CSL-2173]: Clarify
+                                        error "got no response"
                                     Just (Parcel j (Payload _)) -> do
-                                        when (j /= i) (error "parcel number mismatch")
+                                        when (j /= i)
+                                            -- TODO [CSL-2173]: Clarify
+                                            (error "parcel number mismatch")
                                         return ()
                             putSharedExclusive clientFinished ()
                             takeSharedExclusive serverFinished
@@ -120,10 +130,14 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                 let attempts = 100
 
                 let listener = Listener $ \pd _ cactions -> do
-                        unless (pd == ("some string", 42)) (error "bad pd")
+                        unless (pd == ("some string", 42))
+                            -- TODO [CSL-2173]: Clarify
+                            (error "bad pd")
                         initial <- recv cactions maxBound
                         case initial of
-                            Nothing -> error "got no initial message"
+                            Nothing ->
+                                -- TODO [CSL-2173]: Clarify
+                                error "got no initial message"
                             Just (Parcel i (Payload _)) -> do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()

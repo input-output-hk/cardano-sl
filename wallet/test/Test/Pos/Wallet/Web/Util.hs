@@ -100,6 +100,7 @@ importWallets
 importWallets numLimit passGen = do
     let secrets =
             map poorSecretToEncKey $
+            -- TODO [CSL-2173]: Clarify
             fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
@@ -121,6 +122,7 @@ importSingleWallet
     :: (HasConfigurations, HasCompileInfo)
     => Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
+    -- TODO [CSL-2173]: Clarify
     fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen
 
 mostlyEmptyPassphrases :: Gen PassPhrase

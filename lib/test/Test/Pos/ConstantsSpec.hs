@@ -21,6 +21,7 @@ import           Test.Pos.Configuration   (withDefUpdateConfiguration)
 -- @cardano-sl-1.0.4@, something has gone wrong.
 systemTagCheck :: HasUpdateConfiguration => Expectation
 systemTagCheck = do
+    -- TODO [CSL-2173]: Refactor
     sysTags <- mapM (either error return . mkSystemTag) ["linux64", "macos64", "win64"]
     let felem = flip elem
     ourSystemTag `shouldSatisfy` felem sysTags

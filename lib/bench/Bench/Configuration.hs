@@ -11,7 +11,9 @@ import           Pos.Util.Config (embedYamlConfigCT)
 
 benchConf :: Configuration
 benchConf = case J.fromJSON $ J.Object jobj of
-              J.Error str    -> error $ toText str
+              J.Error str    ->
+                  -- TODO [CSL-2173]: Clarify
+                  error $ toText str
               J.Success conf -> conf
   where
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")

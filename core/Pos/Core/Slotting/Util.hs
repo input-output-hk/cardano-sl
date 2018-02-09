@@ -50,7 +50,9 @@ unflattenSlotId :: HasProtocolConstants => FlatSlotId -> SlotId
 unflattenSlotId n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
             n `divMod` fromIntegral epochSlots
-        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
+        siSlot =
+            -- TODO [CSL-2173]: Clarify
+            leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
     in SlotId {..}
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
@@ -83,6 +85,7 @@ crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
 crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
   where
     siSlot =
+        -- TODO [CSL-2173]: Clarify
         leftToPanic "crucialSlot: " $
         mkLocalSlotIndex (fromIntegral (fromIntegral epochSlots - slotSecurityParam - 1))
 
@@ -98,11 +101,15 @@ instance HasProtocolConstants => Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
         EpochOrSlot (Right SlotId {siEpoch = e, siSlot = minBound})
     succ e@(EpochOrSlot (Right si@SlotId {..}))
-        | e == maxBound = error "succ@EpochOrSlot: maxBound"
+        | e == maxBound =
+            -- TODO [CSL-2173]: Clarify
+            error "succ@EpochOrSlot: maxBound"
         | siSlot == maxBound = EpochOrSlot (Left (siEpoch + 1))
         | otherwise = EpochOrSlot $ Right si {siSlot = succ siSlot}
     pred eos@(EpochOrSlot (Left e))
-        | eos == minBound = error "pred@EpochOrSlot: minBound"
+        | eos == minBound =
+            -- TODO [CSL-2173]: Clarify
+            error "pred@EpochOrSlot: minBound"
         | otherwise =
             EpochOrSlot (Right SlotId {siEpoch = e - 1, siSlot = maxBound})
     pred (EpochOrSlot (Right si@SlotId {..}))
@@ -112,6 +119,7 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         let res = toInteger e * toInteger (epochSlots + 1)
             maxIntAsInteger = toInteger (maxBound :: Int)
         in if | res > maxIntAsInteger ->
+                  -- TODO [CSL-2173]: Clarify
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     fromEnum (EpochOrSlot (Right SlotId {..})) =
@@ -126,6 +134,7 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         let (fromIntegral -> epoch, fromIntegral -> slot) =
                 x `divMod` (fromIntegral epochSlots + 1)
             slotIdx =
+                -- TODO [CSL-2173]: Clarify
                 leftToPanic "toEnum @EpochOrSlot" $ mkLocalSlotIndex (slot - 1)
         in if | x < 0 -> error "toEnum @EpochOrSlot: Negative argument"
               | slot == 0 -> EpochOrSlot (Left epoch)
@@ -173,6 +182,7 @@ addLocalSlotIndex x (UnsafeLocalSlotIndex i)
 -- | Unsafe constructor of 'LocalSlotIndex'.
 unsafeMkLocalSlotIndex :: HasProtocolConstants => Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndex =
+    -- TODO [CSL-2173]: Clarify
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts

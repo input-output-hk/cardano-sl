@@ -136,7 +136,9 @@ instance Default (ExplorerMockableMode) where
         emmGetEpochPages          = errorImpl
       }
     where
-      errorImpl = error "Cannot be used, please implement this function!"
+      errorImpl =
+          -- TODO [CSL-2173]: Clarify
+          error "Cannot be used, please implement this function!"
 
 
 -------------------------------------------------------------------------------------

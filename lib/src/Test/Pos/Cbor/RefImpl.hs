@@ -49,8 +49,12 @@ deserialise :: LBS.ByteString -> Term
 deserialise bytes =
     case runDecoder decodeTerm (LBS.unpack bytes) of
       Just (term, []) -> term
-      Just _          -> error "ReferenceImpl.deserialise: trailing data"
-      Nothing         -> error "ReferenceImpl.deserialise: decoding failed"
+      Just _          ->
+          -- TODO [CSL-2173]: Clarify
+          error "ReferenceImpl.deserialise: trailing data"
+      Nothing         ->
+          -- TODO [CSL-2173]: Clarify
+          error "ReferenceImpl.deserialise: decoding failed"
 
 ------------------------------------------------------------------------
 
@@ -105,8 +109,9 @@ encodeInitialByte mt ai
     | ai < 2^(5 :: Int)
     = fromIntegral (fromIntegral (fromEnum mt) `shiftL` 5 .|. ai)
 
-    | otherwise
-    = error "encodeInitialByte: invalid additional info value"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "encodeInitialByte: invalid additional info value"
 
 decodeInitialByte :: Word8 -> (MajorType, Word)
 decodeInitialByte ib = ( toEnum $ fromIntegral $ ib `shiftR` 5
@@ -193,7 +198,9 @@ encodeAdditionalInfo = enc
   where
     enc (AiValue (UIntSmall n))
       | n < 24               = (n, [])
-      | otherwise            = error "invalid UIntSmall value"
+      | otherwise            =
+          -- TODO [CSL-2173]: Clarify
+          error "invalid UIntSmall value"
     enc (AiValue (UInt8  w)) = (24, [w])
     enc (AiValue (UInt16 w)) = (25, [w1, w0])
                                where (w1, w0) = word16ToNet w

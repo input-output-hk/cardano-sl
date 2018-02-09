@@ -179,7 +179,9 @@ basicBlockGenericUnsafe
     -> SlotId
     -> Block
 basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk slotId) of
-    Left e      -> error e
+    Left e      ->
+        -- TODO [CSL-2173]: Clarify
+        error e
     Right block -> Right block
 
 basicBlock
@@ -237,7 +239,9 @@ produceBlocksByBlockNumberAndSlots
 produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders secretKeys = do
 
     -- This is just plain wrong and we need to check for it.
-    when (blockNumber < slotsNumber) $ error "Illegal argument."
+    when (blockNumber < slotsNumber) $
+        -- TODO [CSL-2173]: Clarify
+        error "Illegal argument."
 
     concatForM [0..totalEpochs] $ \currentEpoch -> do
         generateGenericEpochBlocks
@@ -321,7 +325,9 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             generateBlocks previousBlockHeader blockNumber' =
 
                 case basicBlock previousBlockHeader currentSecretKey slotId of
-                    Left _      -> error "Block creation error!"
+                    Left _      ->
+                        -- TODO [CSL-2173]: Clarify
+                        error "Block creation error!"
                     Right block ->
                         block & difficultyL .~ (ChainDifficulty currentBlockCount)
               where

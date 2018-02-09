@@ -55,7 +55,9 @@ spec = describe "Address" $ do
                             esk
                             accIdx
                             addrIdx of
-                    Nothing        -> error "genHDAddrBoot' failed in tests"
+                    Nothing        ->
+                        -- TODO [CSL-2173]: Clarify
+                        error "genHDAddrBoot' failed in tests"
                     Just (addr, _) -> addr
 
             genHDAddrBootEmptyPass sk =

@@ -100,7 +100,9 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Generating fake avvm data into " <> fromString dasPath
     liftIO $ createDirectoryIfMissing True dasPath
 
-    when (dasNumber <= 0) $ error $
+    when (dasNumber <= 0) $
+        -- TODO [CSL-2173]: Clarify
+        error $
         "number of seeds should be positive, but it's " <> show dasNumber
 
     (fakeAvvmPubkeys, seeds) <-
@@ -120,6 +122,7 @@ generateKeysByGenesis
 generateKeysByGenesis GenKeysOptions{..} = do
     case ccGenesis coreConfiguration of
         GCSrc {} ->
+            -- TODO [CSL-2173]: Clarify
             error $ "Launched source file conf"
         GCSpec {} -> do
             dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
@@ -130,8 +133,12 @@ genVssCert
     => FilePath -> m ()
 genVssCert path = do
     us <- readUserSecret path
-    let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
-        vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
+    let primKey =
+            -- TODO [CSL-2173]: Clarify
+            fromMaybe (error "No primary key") (us ^. usPrimKey)
+        vssKey  =
+            -- TODO [CSL-2173]: Clarify
+            fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
                  primKey
                  (asBinary (toVssPublicKey vssKey))

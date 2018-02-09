@@ -97,7 +97,10 @@ instance HasLens DBSum AuxxContext DBSum where
     lensOf =
         let getter ctx = RealDB (ctx ^. (lensOf @NodeDBs))
             setter ctx (RealDB db') = ctx & (lensOf @NodeDBs) .~ db'
-            setter _ (PureDB _)     = error "Auxx: tried to set pure db insteaf of nodedb"
+            setter _ (PureDB _)     =
+                -- TODO: Refactor. This 'error' is a shortcoming of our old
+                -- approach to monads.
+                error "Auxx: tried to set pure db insteaf of nodedb"
         in lens getter setter
 
 instance HasGStateContext AuxxContext where
@@ -247,5 +250,7 @@ deriveHDAddressAuxx ::
 deriveHDAddressAuxx hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
-    pure $ fst $ fromMaybe (error "makePubKeyHDAddressAuxx: pass mismatch") $
+    pure $ fst $
+        -- TODO [CSL-2173]: Clarify
+        fromMaybe (error "makePubKeyHDAddressAuxx: pass mismatch") $
         deriveFirstHDAddress ibea emptyPassphrase hdwSk

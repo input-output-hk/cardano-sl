@@ -35,11 +35,16 @@ deriveSimpleBi ''T.ChainDifficulty [
         Field [| T.getChainDifficulty :: T.BlockCount |]
     ]]
 
+
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
 instance Bi T.BlockHeaderStub where
-    encode = error "somebody tried to binary encode BlockHeaderStub"
-    decode = error "somebody tried to binary decode BlockHeaderStub"
+    encode =
+        -- TODO [CSL-2173]: Refactor. We should remove BlockHeaderStub.
+        error "somebody tried to binary encode BlockHeaderStub"
+    decode =
+        -- TODO [CSL-2173]: Refactor. We should remove BlockHeaderStub.
+        error "somebody tried to binary decode BlockHeaderStub"
 
 ----------------------------------------------------------------------------
 -- Coin

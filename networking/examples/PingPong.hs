@@ -73,7 +73,9 @@ worker anId generator peerIds = pingWorker generator
                     received <- recv cactions maxBound
                     case received of
                         Just (Pong _) -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
-                        Nothing -> error "Unexpected end of input"
+                        Nothing ->
+                            -- TODO [CSL-2173]: Clarify
+                            error "Unexpected end of input"
             _ <- forConcurrently peerIds $ \peerId ->
                 converseWith converse peerId (\_ -> Conversation (pong peerId))
             loop gen'

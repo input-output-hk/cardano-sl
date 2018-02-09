@@ -37,7 +37,9 @@ strToAssurance s        = Left $ "Unknown assurance type: " <> s
 unitToStr :: Int -> Text
 unitToStr 0 = "ADA"
 unitToStr 1 = "Lovelace"
-unitToStr _ = error "Units >1 are not currently used in Cardano!"
+unitToStr _ =
+    -- TODO [CSL-2173]: Clarify
+    error "Units >1 are not currently used in Cardano!"
 
 assuranceToStr :: CWalletAssurance -> Text
 assuranceToStr CWANormal = "normal"
@@ -118,7 +120,9 @@ instance ToJSON IndexedAccountMeta where
     toJSON (IndexedAccountMeta idx meta) =
         case toJSON meta of
             Object v -> Object $ HM.insert "index" (toJSON idx) v
-            _        -> error "Account metadata isn't encoded as JSON object"
+            _        ->
+                -- TODO [CSL-2173]: Clarify
+                error "Account metadata isn't encoded as JSON object"
 
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object

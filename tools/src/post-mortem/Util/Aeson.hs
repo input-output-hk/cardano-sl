@@ -15,4 +15,6 @@ parseJSONP = parseP json >-> map (fromResult . fromJSON)
   where
     fromResult :: Result a -> a
     fromResult (Success a) = a
-    fromResult (Error e)   = error $ toText e
+    fromResult (Error e)   =
+        -- TODO [CSL-2173]: Clarify
+        error $ toText e

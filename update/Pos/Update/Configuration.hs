@@ -92,7 +92,9 @@ currentSystemTag =
     $(do let st :: Either Text SystemTag
              st = mkSystemTag (toText (osHelper buildOS ++ archHelper buildArch))
              color c s = "\n" <> colorize c s <> "\n"
-         case st of Left e -> error . color Red . T.concat $
+         case st of Left e ->
+                      -- TODO [CSL-2173]: Clarify
+                      error . color Red . T.concat $
                                   ["Current system tag could not be calculated: ", e]
                     Right tag -> do runIO . putStrLn . color Blue . T.concat $
                                         ["Current system tag is: ", show tag]

@@ -18,7 +18,9 @@ parseP p = go (parse p)
 
     consume :: (ByteString -> Result a) -> ByteString -> Pipe ByteString a m b
     consume p' chunk = case p' chunk of
-        Fail _ _ e    -> error $ toText e
+        Fail _ _ e    ->
+            -- TODO [CSL-2173]: Clarify
+            error $ toText e
         Done chunk' a -> yield a >> consume (parse p) chunk'
         Partial p''   -> go p''
 

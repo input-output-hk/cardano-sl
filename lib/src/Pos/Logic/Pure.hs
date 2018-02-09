@@ -65,7 +65,9 @@ pureLogic = Logic
   where
     dummyKeyVal :: Applicative m => KeyVal key val m
     dummyKeyVal = KeyVal
-        { toKey      = \_ -> error "dummy: can't make key"
+        { toKey      = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            error "dummy: can't make key"
         , handleInv  = \_ -> pure False
         , handleReq  = \_ -> pure Nothing
         , handleData = \_ -> pure False

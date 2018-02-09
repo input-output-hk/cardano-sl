@@ -41,7 +41,9 @@ integerToBS :: Integer -> ByteString
 integerToBS 0 = BS.pack [0]
 integerToBS i
     | i > 0     = BS.reverse $ BS.unfoldr f i
-    | otherwise = error "integerToBS not defined for negative values"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "integerToBS not defined for negative values"
   where
     f 0 = Nothing
     f x = Just (fromInteger x :: Word8, x `shiftR` 8)

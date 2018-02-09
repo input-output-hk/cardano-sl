@@ -170,7 +170,9 @@ defaultDequeuePolicyCore = go
     go :: DequeuePolicy
     go NodeCore  = Dequeue NoRateLimiting (MaxInFlight 3)
     go NodeRelay = Dequeue NoRateLimiting (MaxInFlight 2)
-    go NodeEdge  = error "defaultDequeuePolicy: core to edge not applicable"
+    go NodeEdge  =
+        -- TODO [CSL-2173]: Clarify
+        error "defaultDequeuePolicy: core to edge not applicable"
 
 -- | Dequeueing policy for relay nodes
 defaultDequeuePolicyRelay :: DequeuePolicy
@@ -186,7 +188,9 @@ defaultDequeuePolicyEdgeBehindNat :: DequeuePolicy
 defaultDequeuePolicyEdgeBehindNat = go
   where
     go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
+    go NodeCore  =
+        -- TODO [CSL-2173]: Clarify
+        error "defaultDequeuePolicy: edge to core not applicable"
     go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
     go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
 
@@ -204,9 +208,13 @@ defaultDequeuePolicyEdgeP2P :: DequeuePolicy
 defaultDequeuePolicyEdgeP2P = go
   where
     go :: DequeuePolicy
-    go NodeCore  = error "defaultDequeuePolicy: edge to core not applicable"
+    go NodeCore  =
+        -- TODO [CSL-2173]: Clarify
+        error "defaultDequeuePolicy: edge to core not applicable"
     go NodeRelay = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
-    go NodeEdge  = error "defaultDequeuePolicy: edge to edge not applicable"
+    go NodeEdge  =
+        -- TODO [CSL-2173]: Clarify
+        error "defaultDequeuePolicy: edge to edge not applicable"
 
 -- | Default failure policy
 --

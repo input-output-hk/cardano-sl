@@ -70,6 +70,7 @@ data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
 -- | Parameters used to evaluate hash of passphrase.
 passScryptParam :: S.ScryptParams
 passScryptParam =
+    -- TODO [CSL-2173]: Clarify
     fromMaybe (error "Bad passphrase scrypt parameters") $
     S.mkScryptParams def
         { S.spHashLen = 32  -- maximal passphrase length

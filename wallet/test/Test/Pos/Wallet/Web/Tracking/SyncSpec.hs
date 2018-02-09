@@ -55,7 +55,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     after1ApplyDB <- lift WS.getWalletStorage
     blunds2 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt2) (EnableTxPayload True) (InplaceDB True)
     after2ApplyDB <- lift WS.getWalletStorage
-    let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
+    let toNE =
+            -- TODO [CSL-2173]: Clarify
+            fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
     lift $ rollbackBlocks to1Rollback

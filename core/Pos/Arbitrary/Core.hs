@@ -102,6 +102,7 @@ instance Arbitrary Types.EpochIndex where
 
 instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
     arbitrary =
+        -- TODO [CSL-2173]: Clarify
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink
@@ -131,6 +132,7 @@ instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
             maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
         leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
+            -- TODO [CSL-2173]: Clarify
             leftToPanic "arbitrary@EoSToIntOverflow" .
             Types.mkLocalSlotIndex .
             fromIntegral <$> choose (minMod, toInteger epochSlots)
@@ -194,7 +196,9 @@ instance Arbitrary Types.AddrStakeDistribution where
         oneof
             [ pure Types.BootstrapEraDistr
             , Types.SingleKeyDistr <$> arbitrary
-            , leftToPanic "arbitrary @AddrStakeDistribution: " .
+            ,
+              -- TODO [CSL-2173]: Clarify
+              leftToPanic "arbitrary @AddrStakeDistribution: " .
               Types.mkMultiKeyDistr <$>
               genMultiKeyDistr
             ]
@@ -217,6 +221,7 @@ instance Arbitrary Types.AddrStakeDistribution where
                     foldl' (-) Types.coinPortionDenominator $
                     map Types.getCoinPortion res
             let unsafeMkCoinPortion =
+                    -- TODO [CSL-2173]: Clarify
                     leftToPanic @Text "genPortions" . Types.mkCoinPortion
             case (n, limit) of
                 -- Limit is exhausted, can't create more.
@@ -446,6 +451,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
+        -- TODO [CSL-2173]: Comment. Cannot happen by construction.
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
         U.mkApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>

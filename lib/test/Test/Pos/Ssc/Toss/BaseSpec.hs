@@ -247,8 +247,10 @@ checksBadCommsPayload
         someRichman =
             case res of
                 Just s -> s
-                _ -> error "Test.Pos.Ssc.Toss.BaseSpec.checkBadCommsPayload:\
-                           \ empty commitments payload"
+                _ ->
+                    -- TODO [CSL-2173]: Clarify
+                    error "Test.Pos.Ssc.Toss.BaseSpec.checkBadCommsPayload:\
+                          \ empty commitments payload"
           where holders = HM.keys . getCommitmentsMap $ commsMap
                 randomIndex = fst $ randomR (0, length holders - 1) $ mkStdGen seed
                 res = holders ^? ix randomIndex

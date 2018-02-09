@@ -28,6 +28,7 @@ genesisSoftwareVersions :: [SoftwareVersion]
 genesisSoftwareVersions = map f genesisAppNames
   where
     f (nameStr, Left err) =
+        -- TODO [CSL-2173]: Clarify
         error $
         "Failed to create ApplicationName for " <> nameStr <> ": " <> err
     f (_, Right appName) = SoftwareVersion {svAppName = appName, svNumber = 0}

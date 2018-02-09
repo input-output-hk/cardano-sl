@@ -30,7 +30,7 @@ import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHe
                                       MainBlockchain, MainExtraHeaderData (..), MainToSign (..),
                                       mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
-import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
+import           Pos.Core.Class (IsMainHeader (..))
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
@@ -39,7 +39,6 @@ import           Pos.Core.Txp (checkTxPayload)
 import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
 import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
                              proxyVerify)
-import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 
@@ -99,7 +98,6 @@ verifyMainBlock block@UnsafeGenericBlock {..} = do
         verifySscPayload
             (Right (Some _gbHeader))
             (_mbSscPayload _gbBody)
-    dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
 
 -- | Verify the body of a block. There are no internal consistency checks,
 -- it's just a verification of its sub-components (payloads).

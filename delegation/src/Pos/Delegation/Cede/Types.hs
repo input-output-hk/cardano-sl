@@ -20,7 +20,7 @@ import           Universum
 
 import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Crypto (pskIssuerPk)
-import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Types (isRevokePsk)
 
 -- | Action on delegation database, used commonly. Generalizes
 -- applications and rollbacks.

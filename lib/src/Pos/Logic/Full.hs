@@ -130,6 +130,9 @@ logicLayerFull jsonLogTx k = do
             -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
         getBlockHeaders = Block.getHeadersFromManyTo
 
+        getLcaMainChain :: OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
+        getLcaMainChain = Block.lcaWithMainChain
+
         postBlockHeader :: BlockHeader -> NodeId -> m ()
         postBlockHeader = Block.handleUnsolicitedHeader
 

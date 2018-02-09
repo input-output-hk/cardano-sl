@@ -45,6 +45,8 @@ data Logic m = Logic
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
+      -- | Compute LCA with the main chain.
+    , getLcaMainChain    :: OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
       -- | Cheaper version of 'headerHash <$> getTip'.
@@ -147,7 +149,8 @@ dummyLogicLayer = LogicLayer
         , getBlock           = \_ -> pure (error "dummy: can't get block")
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
         , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-        , getHashesRange    = \_ _ _ -> pure (error "dummy: can't get hashes range")
+        , getLcaMainChain    = \_ -> pure Nothing
+        , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
         , getTip             = pure (error "dummy: can't get tip")
         , getTipHeader       = pure (error "dummy: can't get tip header")
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")

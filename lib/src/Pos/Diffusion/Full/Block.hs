@@ -50,7 +50,7 @@ import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAt
                                       SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
-                                  _NewestFirst)
+                                  toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
@@ -120,10 +120,29 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
     -- then you can skip requesting the headers and go straight to requesting
     -- the block itself.
     blocks <- if singleBlockHeader
-              then requestBlocks (NewestFirst (pure tipHeader))
-              else requestHeaders >>= requestBlocks
+              then requestBlocks (OldestFirst (one tipHeader))
+              else requestAndClassifyHeaders >>= requestBlocks
     pure (OldestFirst (reverse (toList blocks)))
   where
+
+    requestAndClassifyHeaders :: d (OldestFirst NE BlockHeader)
+    requestAndClassifyHeaders = do
+        headers <- toOldestFirst <$> requestHeaders
+        getLcaMainChain logic headers >>= \case
+            Nothing -> throwM $ DialogUnexpected $ "Got headers, but couldn't compute " <>
+                                                   "LCA to ask for blocks"
+            Just (lca :: HeaderHash) -> do
+                -- Headers list is (oldest to newest)
+                -- [n1,n2,...nj,lca,nj+2,...nk] we drop [n1..lca] and
+                -- return [nj+2..nk], as we already have lca in our
+                -- local db. Usually this function does 1 iterations
+                -- as it's a common case that [n1..nj] is absent and
+                -- lca is the oldest header.
+                let dropUntilLca = NE.dropWhile (\h -> h ^. prevBlockL /= lca)
+                case nonEmpty (dropUntilLca $ getOldestFirst headers) of
+                    Nothing -> throwM $ DialogUnexpected $
+                                   "All headers are older than LCA, nothing to query"
+                    Just headersSuffix -> pure (OldestFirst headersSuffix)
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
@@ -184,22 +203,22 @@ getBlocks logic enqueue nodeId tipHeader checkpoints = do
                     nodeId
                 return headers
 
-    requestBlocks :: NewestFirst NE BlockHeader -> d (NewestFirst NE Block)
+    requestBlocks :: OldestFirst NE BlockHeader -> d (NewestFirst NE Block)
     requestBlocks headers = enqueueMsgSingle
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
         (Conversation $ requestBlocksConversation headers)
 
     requestBlocksConversation
-        :: NewestFirst NE BlockHeader
+        :: OldestFirst NE BlockHeader
         -> ConversationActions MsgGetBlocks MsgBlock d
         -> d (NewestFirst NE Block)
     requestBlocksConversation headers conv = do
         -- Preserved behaviour from existing logic code: all of the headers
         -- except for the first and last are tossed away.
         -- TODO don't be so wasteful [CSL-2148]
-        let oldestHeader = headers ^. _NewestFirst . _neLast
-            newestHeader = headers ^. _NewestFirst . _neHead
+        let oldestHeader = headers ^. _OldestFirst . _neHead
+            newestHeader = headers ^. _OldestFirst . _neLast
             numBlocks = length headers
             lcaChild = oldestHeader
             newestHash = headerHash newestHeader

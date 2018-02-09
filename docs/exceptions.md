@@ -6,6 +6,9 @@ answer these questions:
 1. Is this a programmer mistake or a regular error?
 2. Is the code 100% pure or potentially impure?
 
+*Comment:* why regular error? What about a non-regular error? I propose simpler
+terminology to help things along: bug or exception.
+
 Depending on the answers, an appropriate approach can be selected.
 
 ## Is this a programmer mistake or a regular error?
@@ -50,6 +53,11 @@ It is always a tradeoff whether to allow programmer mistakes, or do type-level
 trickery to avoid them. The decision process for this is out of scope of this
 document.
 
+*Comment:* calling `zipSameLen` with lists of different length is a mistake
+by the programmer which manifests as a bug. This has nothing to do with
+exception handling. A program should never "catch" this bug and recover from
+it. A program with this bug built-in should crash.
+
 ### Regular error
 
 Consider a function like `readFile`. It is entirely possible that the path
@@ -61,8 +69,17 @@ scenarios.
 Another example is parsing user input. We might expect the user to enter a
 number, but we have to consider the case that the user enters something else.
 
+*Comment:* a user giving input which does not parse isn't an error or an
+exception, it's a completely normal thing, well-described by the typical
+`Either ParseError` type. What we're dealing with here is a partial function
+from the input type to the type of the parsed thing, which we make total via the
+sum type. This has nothing at all to do with exception handling.
+
 In cases when the erroneous scenarios are out of our control, we consider
 these to be regular errors.
+
+*Comment:* this is a good definition of "exception". In cases when the scenario
+is out of our control, we consider these to be exceptions.
 
 ### Identifying error class
 
@@ -79,6 +96,9 @@ verification (more precise types?)
 The code is considered impure when it's an `IO` action, a function that returns
 an `IO` action, or similar. The code can be _potentially_ impure when it is
 written in an abstract monad that can be instantiated to `IO`.
+
+*Comment:* bad definition. `foo = return 42` can be instantiated to `IO Int`
+but it can never do any effects.
 
 Definitely impure:
 
@@ -137,10 +157,16 @@ you're not aware of. Always make this trade-off conciously and responsibly.
 (On the other hand, if static guarantees require GADTs or type families, perhaps
 it's better to not overcomplicate code. Use your judgement.)
 
+*Comment:* this is a good section. But I'd remove the first bullet point from
+"Do not". The advice should be "try to avoid this, if possible" but that's
+already conveyed by the rest of the section.
+
 DISCUSSION: Should we create a synonym `bug = impureThrow` in Universum? This
 would make the intention more clear.
 
 ### Pure code, regular errors
+
+*Comment:* there are no regular errors (exceptions) in pure programs.
 
 Do *not*:
 
@@ -155,6 +181,11 @@ Do:
 * use `MonadError` or `MonadThrow` (methods of these classes). Note
   that if you define `f :: MonadError m => m ()`, it won't be pure
 
+*Comment:* I disagree with the last "Do not". Why is this ruled out? Sometimes
+giving `Either Text` is legit. Giving `Maybe` is ok, so it must also ok to
+give `Either ()`, so why not `Either Text`, which contains even more
+information?
+
 Consider parsing: it is pure, but we cannot make assumptions about the input. In
 this case we might want to use `ExceptT ParseError`. Or consider a lookup in a
 `Map`, where we don't know whether the key is present -- in this case we'd like
@@ -164,12 +195,28 @@ to return `Maybe v`. In 100% pure code, use one of these ways to handle errors:
 * `MaybeT`, `ExceptT e`
 * `CatchT`
 
+*Comment:* neither of these examples are of errors or exceptions! They are
+examples of normal values in the images of pure functions. The `Map` does not
+make any guarantee to that any particular key is in the map! Nor does the parser
+guarantee that every input will be recognized! These facts are reflected in the
+types. This has *nothing at all* to do with errors or exceptions. We need to
+strike this section out.
+
 Avoid using `Text` with the error message in place of `e` -- create a
 proper ADT. In case creating a proper ADT feels too cumbersome, use
 `CatchT`, which is equivalent to `ExceptT SomeException`. Note,
 however, that using `SomeException` in pure code is not the best
 practice, because the set of all possible exceptions is statically
 known. Use it only if you are lazy to define yet another ADT.
+
+*Comment:* nor is overusing exceptions the best practice, not the least because
+they do not appear in types, so we're essentially throwing away one of the
+strongest features of Haskell. Instead of conjuring up a new exception type and
+throwing it in the case of a completely normal condition, think about the
+contract that your function gives to its caller. Does the caller have a
+guarantee that this header hash picks out a block in the database? Of course
+not! So don't promise to give back a block for every input. That's not
+exceptional, that's not an error, that's a new point in the image type.
 
 Be careful not to use `MaybeT`, `ExceptT`, and `CatchT` in potentially impure
 code. When in doubt whether the code is potentially impure, use `MonadThrow`.
@@ -192,12 +239,20 @@ Do:
 * create a custom exception type
 * use `throwM` (`MonadThrow`)
 
+*Comment:* the last bullet in "Do not" is a silly rule and should be struck.
+If the `Left` case is a normal outcome, then leave it be! Making it into an
+exception and throwing it is unambiguously worse. The type is less descriptive,
+and the normal case is mixed in with every truly exceptional case. It's simply
+a lot harder for a caller to use the function properly.
+
 If you want to return `m (Either e a)` from a function, it's
 recommended to define `instance TypeError "NOT AN EXC" => Exception e`
 for your type `e`. If the meaning of `e` type is not related to
 exceptional situations at all, it's not needed to define such
 instance. But for example if `e` denotes a `ParseError`, please do
 define it.
+
+*Comment:* why? What's the value of this?
 
 We disallow the use of `throwIO` only because it is redundant in the presence of
 `throwM` and requires a stronger constraint (`MonadIO` rather than
@@ -217,6 +272,9 @@ two reasons for this:
 * when in an abstract (but potentially impure) monad, using `throwM` might
   add an additional constraint
 
+*Comment:* why should there be a distinction between a bug in a pure program
+and a bug in an effectful one?
+
 ## Packages and modules
 
 Do not import `Control.Exception` or `Control.Monad.Catch`! We use the
@@ -229,6 +287,12 @@ Use `bracket` or to guarantee the release of resources. In case of concurrent
 code, avoid `forkIO` or `forkProcess` in favor of the `async` package, as it
 rethrows exceptions from the child threads. (Do not use the function `async`
 itself when you can use `withAsync`, `race`, or `concurrently`).
+
+*Comment:* and when `async` is the only option, be aware of `link` and use it
+if appropriate.
+
+*Comment:* beware useing `withAsync` recursively. It essentially does a bracket,
+so you can't get tail recursion.
 
 When resource usage is non-linear, it's okay to use `ResourceT`, but
 prefer `bracket` whenever possible. Non-linear resource usage is

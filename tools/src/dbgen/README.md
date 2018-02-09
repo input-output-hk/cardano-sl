@@ -1,5 +1,7 @@
 # dbgen
 
+Original version from https://github.com/adinapoli-iohk/dbgen, written by Alfredo Di Napoli.
+
 This is a simple program to generate valid `wallet-db` databases, starting from a specification
 stored in a `json` config file.
 
@@ -14,14 +16,13 @@ A typical usage is to run the tool from the branch/commit your wallet is on.
 The properties file should look something like this:
 ```
 {
-   "wallets":1,
-   "walletSpec":{
-      "accounts":1,
-      "accountSpec":{
-         "addresses":100
-      },
-      "fakeUtxoCoinDistr":{"type":"none"}
-   }
+    "wallets":1,
+    "walletSpec":{
+        "accounts":1,
+        "accountSpec":{"addresses":100},
+        "fakeUtxoCoinDistr":{"type":"none"},
+        "fakeTxsHistory":{"type":"none"}
+    }
 }
 ```
 
@@ -52,18 +53,36 @@ configuration and call `dbgen` with something like(we presume that the `add-to` 
 stack exec dbgen -- --config ./tools/src/dbgen/config.json --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full --add-to Ae2tdPwUPEZJHA8wEbVWoT4zgDGuWkXT9vLW6RzLvMt8kYCefkBQ1nixzpX@2147483648
 ```
 
-If you define the field `fromAddress` then the wallet will generate additional N addresses from which each will 
-contain `amount` which is useful for benchmarking/testing. If you don't want to generate fake UTxO, 
-then you can provide the empty value `[]`:
+For example you can use this configuration:
 ```
 {
    "wallets":1,
    "walletSpec":{
       "accounts":1,
-      "accountSpec":{
-         "addresses":100
-      },
-      "fakeUtxoCoinDistr":{"type":"range","range":100,"amount":1000}
+      "accountSpec":{"addresses":100},
+      "fakeUtxoCoinDistr":{"type":"range","range":100,"amount":1000},
+      "fakeTxsHistory":{"type":"none"}
+   }
+}
+```
+
+## Generate fake txs history
+
+If we want to generate fake txs history in order to test how the wallet behaves like a "real" wallet, you can modify the 
+configuration and call `dbgen` with something like(we presume that the `add-to` account exists?):
+```
+stack exec dbgen -- --config ./tools/src/dbgen/config.json --nodeDB db-mainnet --walletDB wdb-mainnet --configPath node/configuration.yaml --secretKey secret-mainnet.key --configProf mainnet_full --add-to Ae2tdPwUPEZJHA8wEbVWoT4zgDGuWkXT9vLW6RzLvMt8kYCefkBQ1nixzpX@2147483648
+```
+
+For example, you can use this configuration:
+```
+{
+   "wallets":1,
+   "walletSpec":{
+      "accounts":1,
+      "accountSpec":{"addresses":100},
+      "fakeUtxoCoinDistr":{"type":"range","range":100,"amount":1000},
+      "fakeTxsHistory":{"type":"simple","txsCount":10015,"numOutgoingAddress":3}
    }
 }
 ```

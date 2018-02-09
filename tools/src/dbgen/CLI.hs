@@ -42,7 +42,7 @@ data CLI = CLI
 instance ParseRecord CLI where
   parseRecord = CLI
               <$> (strOption (long "config" <> metavar "CONFIG.DHALL"
-                             <> help "A path to a Dhall file."
+                             <> help "A path to a config file."
                                       ))
               <*> (strOption (long "nodeDB" <> metavar "rocksdb-path"
                              <> help "A path to a valid rocksdb database."

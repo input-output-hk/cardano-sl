@@ -13,9 +13,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (mapConcurrently, race)
+import           Mockable (mapConcurrently)
 import           Serokell.Util (listJson)
-import           System.Exit (ExitCode (..))
 import           System.Wlog (WithLogger, askLoggerName, logDebug, logInfo, logWarning)
 
 import           Pos.Communication (OutSpecs)
@@ -30,7 +29,6 @@ import qualified Pos.GState as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.NtpCheck (NtpStatus (..), ntpSettings, withNtpCheck)
 import           Pos.Reporting (reportError)
-import           Pos.Shutdown (waitForShutdown)
 import           Pos.Slotting (waitSystemStart)
 import           Pos.Txp (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
@@ -89,15 +87,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
     let unpackPlugin (ActionSpec action) =
             action diffusion `catch` reportHandler
 
-    -- Either all the plugins are cancelled in the case one of them
-    -- throws an error, or otherwise when the shutdown signal comes,
-    -- they are killed automatically.
-    void
-      (race
-           (void (mapConcurrently (unpackPlugin) $ workers' ++ plugins'))
-           waitForShutdown)
+    void (mapConcurrently (unpackPlugin) $ workers' ++ plugins')
 
-    exitWith (ExitFailure 20)
+    exitFailure
+
   where
     -- FIXME shouldn't this kill the whole program?
     -- FIXME: looks like something bad.

@@ -7,7 +7,7 @@ module Pos.Binary.Core.Block
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                                   enforceSize)
+                                   encodeListLen, enforceSize)
 import           Pos.Binary.Core.Txp ()
 import qualified Pos.Core.Block.Blockchain as Core
 import qualified Pos.Core.Block.Genesis.Chain as BC

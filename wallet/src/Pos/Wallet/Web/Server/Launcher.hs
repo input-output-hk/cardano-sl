@@ -25,6 +25,7 @@ import           System.Wlog (WithLogger, logInfo)
 import qualified Data.ByteString.Char8 as BS8
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (bracketWithLogging)
@@ -45,7 +46,7 @@ import           Pos.Web (TlsParams, serveImpl)
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
-    :: MonadWalletWebMode ctx m
+    :: (HasConfiguration, MonadIO m)
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams

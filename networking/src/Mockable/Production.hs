@@ -31,7 +31,8 @@ import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Mockable.Channel (Channel (..), ChannelT)
 import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..), Promise,
+import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..),
+                                      LowLevelAsync (..), MyThreadId (..), Promise,
                                       RunInUnboundThread (..), ThreadId)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
@@ -56,7 +57,6 @@ instance Mockable Fork Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Fork Production t -> Production t #-}
     liftMockable (Fork m)        = Production $ Conc.forkIO (runProduction m)
-    liftMockable (MyThreadId)    = Production $ Conc.myThreadId
     liftMockable (ThrowTo tid e) = Production $ Conc.throwTo tid e
 
 instance Mockable Delay Production where
@@ -64,6 +64,11 @@ instance Mockable Delay Production where
     {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
     liftMockable (Delay time) = Production $ Serokell.threadDelay time
     liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
+
+instance Mockable MyThreadId Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: MyThreadId Production t -> Production t #-}
+    liftMockable (MyThreadId)    = Production $ Conc.myThreadId
 
 instance Mockable RunInUnboundThread Production where
     {-# INLINABLE liftMockable #-}
@@ -81,16 +86,20 @@ type instance Promise Production = Conc.Async
 instance Mockable Async Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Async Production t -> Production t #-}
-    liftMockable (Async m)              = Production $ Conc.async (runProduction m)
     liftMockable (WithAsync m k)        = Production $ Conc.withAsync (runProduction m) (runProduction . k)
+    liftMockable (AsyncThreadId p)      = Production $ return (Conc.asyncThreadId p)
+    liftMockable (Race a b)             = Production $ Conc.race (runProduction a) (runProduction b)
+    liftMockable (UnsafeUnmask act)     = Production $
+        GHC.unsafeUnmask (runProduction act)
+
+instance Mockable LowLevelAsync Production where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: LowLevelAsync Production t -> Production t #-}
+    liftMockable (Async m)              = Production $ Conc.async (runProduction m)
+    liftMockable (Link p)               = Production $ Conc.link p
     liftMockable (Wait promise)         = Production $ Conc.wait promise
     liftMockable (WaitAny promises)     = Production $ Conc.waitAny promises
     liftMockable (CancelWith promise e) = Production $ Conc.cancelWith promise e
-    liftMockable (AsyncThreadId p)      = Production $ return (Conc.asyncThreadId p)
-    liftMockable (Race a b)             = Production $ Conc.race (runProduction a) (runProduction b)
-    liftMockable (Link p)               = Production $ Conc.link p
-    liftMockable (UnsafeUnmask act)     = Production $
-        GHC.unsafeUnmask (runProduction act)
 
 instance Mockable Concurrently Production where
     {-# INLINABLE liftMockable #-}

@@ -10,7 +10,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Servant
 
 type API =
-         "wallets" :> Summary "Creates a new Wallet."
+         "wallets" :> Summary "Creates a new or restores an existing Wallet."
                    :> ReqBody '[ValidJSON] (New Wallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."

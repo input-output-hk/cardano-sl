@@ -48,6 +48,7 @@ instance Example PaymentDistribution
 instance Example AccountUpdate
 instance Example Wallet
 instance Example WalletUpdate
+instance Example WalletOperation
 instance Example PasswordUpdate
 instance Example EstimatedFees
 instance Example Transaction
@@ -77,6 +78,7 @@ instance Example NewWallet where
                         <*> example -- Note: will produce `Just a`
                         <*> example
                         <*> pure "My Wallet"
+                        <*> example
 
 instance Example NodeInfo where
     example = NodeInfo <$> example

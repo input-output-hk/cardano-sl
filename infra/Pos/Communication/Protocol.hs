@@ -29,7 +29,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic)
+import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
@@ -211,7 +211,7 @@ type LocalOnNewSlotComm ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockables m [Fork, Delay]
+    , Mockables m [Async, Delay]
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m

@@ -27,8 +27,8 @@ import           Pos.Communication.Types.Protocol (MsgSubscribe (..), MsgSubscri
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, coinPortionToDouble)
-import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, GenesisBlockHeader, MainBlock,
-                                 MainBlockHeader)
+import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
+                                 MainBlock, MainBlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)
@@ -309,6 +309,17 @@ instance (HasAdoptedBlockVersionData m, Applicative m) => MessageLimited Genesis
 instance (HasAdoptedBlockVersionData m, Applicative m) => MessageLimited MainBlock m where
     -- FIXME Integer -> Word32
     getMsgLenLimit _ = Limit . fromIntegral <$> maxBlockSize
+
+instance ( HasAdoptedBlockVersionData m
+         , Applicative m
+         )
+         => MessageLimited BlockHeader m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+      maxLimit (Limit l1) (Limit l2) = Limit (max l1 l2)
+      f limA limB = 1 +
+          maxLimit (BlockHeaderGenesis <$> limA)
+                   (BlockHeaderMain <$> limB)
 
 -- TODO this is probably wrong, but we need it in order to get
 --   MessageLimited Block m ~ MessageLimited (Either GenesisBlock MainBlock) m

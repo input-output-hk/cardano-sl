@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.V1.Handlers.Wallets where
+module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 
 import           Universum
 
@@ -7,7 +7,7 @@ import qualified Pos.Wallet.Web.Methods as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
+import qualified Cardano.Wallet.API.V1.LegacyHandlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -33,17 +33,19 @@ handlers =   newWallet
                 :<|> Accounts.handlers walletId
              )
 
--- | Creates a new @wallet@ given a 'NewWallet' payload.
--- Returns to the client the representation of the created
+-- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
+-- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
 newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
+  let newWalletHandler CreateWallet = V0.newWallet
+      newWalletHandler RestoreWallet = V0.restoreWallet
   let spendingPassword = fromMaybe mempty newwalSpendingPassword
   initMeta <- V0.CWalletMeta <$> pure newwalName
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0
   let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
-  single <$> (V0.newWallet spendingPassword walletInit >>= migrate)
+  single <$> (newWalletHandler newwalOperation spendingPassword walletInit >>= migrate)
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)

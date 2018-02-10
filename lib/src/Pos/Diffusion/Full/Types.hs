@@ -12,7 +12,7 @@ module Pos.Diffusion.Full.Types
 import           Universum
 
 import qualified Crypto.Random as Rand
-import           Mockable (Mockable, MonadMockable)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable)
 import qualified Mockable.Metrics as Mockable
 import qualified System.Metrics.Counter as Metrics
 import qualified System.Metrics.Distribution as Metrics
@@ -28,6 +28,7 @@ import           Pos.Infra.Configuration (HasInfraConfiguration)
 type DiffusionWorkMode m
     = ( WithLogger m
       , MonadMockable m
+      , Mockable LowLevelAsync m
       , MonadIO m
       -- Unfortunately we need HasConfigurations because so much of the core
       -- program depends upon it (serialization, message limits, smart

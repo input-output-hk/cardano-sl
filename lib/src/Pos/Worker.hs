@@ -17,12 +17,14 @@ import           Pos.Communication.Message ()
 import           Pos.Context (NodeContext (..))
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Network.CLI (launchStaticConfigMonitoring)
+import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
 import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Update.Worker (usWorkers)
 import           Pos.Util (mconcatPair)
-import           Pos.WorkMode (WorkMode)
 import           Pos.Worker.Types (WorkerSpec, localWorker)
+import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -41,8 +43,13 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "block"      $ blkWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
+    , wrap' "StaticConfigMonitoring" $
+      first one $
+      localWorker $
+      launchStaticConfigMonitoring topology
     ]
   where
+    topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
     properSlottingWorkers =
        fst (localWorker logNewSlotWorker) :

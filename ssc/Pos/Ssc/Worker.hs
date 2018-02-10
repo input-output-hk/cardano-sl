@@ -29,8 +29,8 @@ import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), Stakeholde
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
                            vssMaxTTL)
-import           Pos.Core.Ssc (Commitment (..), SignedCommitment, getCommitmentsMap,
-                               InnerSharesMap, Opening)
+import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
+                               getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
@@ -39,7 +39,8 @@ import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Reporting (reportMisbehaviour)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Slotting (getCurrentSlot, getSlotStartEmpatically, onNewSlot)
+import           Pos.Slotting (defaultOnNewSlotParams, getCurrentSlot, getSlotStartEmpatically,
+                               onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
@@ -85,7 +86,7 @@ shouldParticipate epoch = do
 onNewSlotSsc
     :: (SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker True mempty $ \slotId diffusion ->
+onNewSlotSsc = onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId diffusion ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
@@ -393,7 +394,7 @@ checkForIgnoredCommitmentsWorker
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
-    onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
+    onNewSlot defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl counter)
 
 -- This worker checks whether our commitments appear in blocks. This check
 -- is done only if we actually should participate in SSC. It's triggered if

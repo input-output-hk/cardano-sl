@@ -27,7 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Mockable (Production)
+import           Mockable (LowLevelAsync, Mockable, Production)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
@@ -216,6 +216,7 @@ type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
+    , Mockable LowLevelAsync m
     )
 
 ----------------------------------------------------------------------------

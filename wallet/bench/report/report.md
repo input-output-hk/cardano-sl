@@ -107,6 +107,12 @@ where:
 | 1       | 1        | 1         | **101.1**    | **101.8**    |
 | 1       | 2        | 80k       | **637**      | **641.2**    |
 
+## Non-empty tx history, 20k addresses
+
+| Wallets | Accounts | Transactions | **Time, ms**             | **Mean, ms**             | **Variance, %** |
+|---------|----------|--------------|-------------------------:|-------------------------:|----------------:|
+| 1       | 2        | 3k           | **864.3** (8134 .. 9395) | **853.6** (8311 .. 8770) | 82              |
+
 ## Non-empty tx history, 81k addresses
 
 | Wallets | Accounts | Transactions | **Time, ms**            | **Mean, ms**            | **Variance, %** |
@@ -188,6 +194,12 @@ where:
 | Wallets | Accounts | Addresses | **Time, ms** | **Mean, ms** |
 |---------|----------|-----------|-------------:|-------------:|
 | 1       | 2        | 80k       | **7680**     | **8115**     |
+
+## Non-empty tx history, 20k addresses
+
+| Wallets | Accounts | Transactions | **Time, ms**            | **Mean, ms**            | **Variance, %** |
+|---------|----------|--------------|------------------------:|------------------------:|----------------:|
+| 1       | 2        | 3k           | **6203** (6195 .. 6209) | **6189** (6181 .. 6194) | none            |
 
 ## Non-empty tx history, 80k addresses
 

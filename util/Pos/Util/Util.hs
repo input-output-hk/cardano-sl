@@ -7,6 +7,7 @@ module Pos.Util.Util
        -- * Exceptions/errors
          maybeThrow
        , eitherToThrow
+       , liftEither
        , leftToPanic
        , toAesonError
        , aesonError
@@ -74,6 +75,7 @@ import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
+import           Control.Monad.Except (MonadError, throwError)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Aeson (FromJSON (..))
 import qualified Data.Aeson as A
@@ -105,11 +107,19 @@ import qualified Text.Megaparsec as P
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
--- | Throw exception or return result depending on what is stored in 'Either'
+-- | Throw exception (in 'MonadThrow') or return result depending on
+-- what is stored in 'Either'
 eitherToThrow
     :: (MonadThrow m, Exception e)
     => Either e a -> m a
 eitherToThrow = either throwM pure
+
+-- | 'liftEither' from mtl-2.2.2.
+-- TODO: use mtl version after we start using 2.2.2.
+liftEither
+    :: (MonadError e m)
+    => Either e a -> m a
+liftEither = either throwError pure
 
 -- | Partial function which calls 'error' with meaningful message if
 -- given 'Left' and returns some value if given 'Right'.

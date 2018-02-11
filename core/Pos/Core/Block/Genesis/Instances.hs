@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
-
 {-# LANGUAGE TypeOperators #-}
 
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.

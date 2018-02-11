@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
-
 -- | Types used for block processing: most importantly, 'Undo' and 'Blund'.
 
 module Pos.Block.Types
@@ -24,6 +22,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Block.BHelpers ()
 import           Pos.Block.Slog.Types (SlogUndo (..))
 import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
@@ -61,8 +60,7 @@ instance HasConfiguration => Buildable Undo where
 instance HasDifficulty Blund where
     difficultyL = _1 . difficultyL
 
--- TODO: warning here, doesn't work w/o constraint
-instance HasHeaderHash Block => HasHeaderHash Blund where
+instance HasConfiguration => HasHeaderHash Blund where
     headerHash = headerHash . fst
 
 -- | For a description of what these types mean,

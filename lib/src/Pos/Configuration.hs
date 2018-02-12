@@ -10,7 +10,6 @@ module Pos.Configuration
 
        -- * Other constants
        , networkConnectionTimeout
-       , networkConnectionTimeouts
        , conversationEstablishTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
@@ -25,8 +24,6 @@ module Pos.Configuration
 import           Universum
 
 import           Data.Aeson (FromJSON (..), genericParseJSON)
-import           Data.List.NonEmpty (NonEmpty)
-import qualified Data.List.NonEmpty as NE
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -48,10 +45,8 @@ data NodeConfiguration = NodeConfiguration
     {
       ccDefaultPeers                 :: ![Text]
       -- ^ List of default peers
-    , ccNetworkConnectionTimeouts    :: !(NonEmpty Int)
-      -- ^ Network connection timeouts in milliseconds.  It must be an
-      -- increasing sequence.  If a timeout will happen to be too small the next
-      -- one will be used.
+    , ccNetworkConnectionTimeout     :: !Int
+      -- ^ Network connection timeout in milliseconds
     , ccConversationEstablishTimeout :: !Int
       -- ^ Conversation acknowledgement timeout in milliseconds.
       -- Default 30 seconds.
@@ -75,11 +70,8 @@ instance FromJSON NodeConfiguration where
 -- Miscellaneous constants
 ----------------------------------------------------------------------------
 
-networkConnectionTimeouts :: HasNodeConfiguration => NonEmpty Microsecond
-networkConnectionTimeouts = map (ms . fromIntegral) . ccNetworkConnectionTimeouts $ nodeConfiguration
-
 networkConnectionTimeout :: HasNodeConfiguration => Microsecond
-networkConnectionTimeout = NE.head networkConnectionTimeouts
+networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ nodeConfiguration
 
 -- | Default is 30 seconds.
 conversationEstablishTimeout :: HasNodeConfiguration => Microsecond

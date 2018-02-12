@@ -11,7 +11,6 @@ module Pos.Diffusion.Full.Types
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (LowLevelAsync, Mockable, MonadMockable)
 import qualified Mockable.Metrics as Mockable
@@ -43,7 +42,6 @@ type DiffusionWorkMode m
       -- Needed for message size limits, but shouldn't be [CSL-2242].
       , HasInfraConfiguration
       , HasNodeConfiguration
-      , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
       -- TODO should not need HasAdoptedBlockVersionData

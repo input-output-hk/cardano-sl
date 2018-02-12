@@ -11,10 +11,11 @@ module Pos.Lrc.Logic
 
 import           Universum
 
-import           Data.Conduit (Sink, runConduitPure, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, runConduitPure, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (Coin, CoinPortion, StakeholderId, applyCoinPortionUp, sumCoins,
                            unsafeIntegerToCoin)
@@ -24,7 +25,7 @@ import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Types (FullRichmenData, RichmenStakes)
 
-type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
+type MonadDBReadFull m = (MonadDBRead m, MonadGState m, MonadUnliftIO m)
 
 -- Can it be improved using conduits?
 -- | Find delegated richmen using precomputed usual richmen.
@@ -45,7 +46,7 @@ findDelRichUsingPrecomp precomputed thr = do
 -- | Find delegated richmen.
 findDelegatedRichmen
     :: (MonadDBReadFull m)
-    => Coin -> Sink (StakeholderId, Coin) m RichmenStakes
+    => Coin -> ConduitT (StakeholderId, Coin) Void m RichmenStakes
 findDelegatedRichmen thr = do
     st <- findRichmenStakes thr
     lift $ findDelRichUsingPrecomp st thr
@@ -57,7 +58,7 @@ findAllRichmenMaybe
        (MonadDBReadFull m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
-    -> Sink (StakeholderId, Coin) m (RichmenStakes, RichmenStakes)
+    -> ConduitT (StakeholderId, Coin) Void m (RichmenStakes, RichmenStakes)
 findAllRichmenMaybe maybeT maybeTD
     | Just t <- maybeT
     , Just tD <- maybeTD = do

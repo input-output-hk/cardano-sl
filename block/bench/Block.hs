@@ -14,7 +14,7 @@ import           System.Environment (lookupEnv)
 
 import           Pos.Arbitrary.Block.Generate (generateBlock)
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import qualified Pos.Block.BHelpers as Verify
+import qualified Pos.Block.Verification as Verify
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, BodyProof,
                            CoinPortion (..), ConsensusData, DlgPayload, EpochIndex (..),
                            ExtraBodyData, ExtraHeaderData, MainBlock, MainBlockHeader,

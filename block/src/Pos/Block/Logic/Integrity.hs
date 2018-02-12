@@ -26,7 +26,7 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
-import qualified Pos.Block.BHelpers as BHelpers
+import qualified Pos.Block.Verification as V
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                            HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
@@ -86,7 +86,7 @@ verifyHeader
     :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader h)
+       verifyFromEither "internal header consistency" (V.verifyBlockHeader h)
     <> verifyGeneric checks
   where
     checks =
@@ -243,7 +243,7 @@ verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk = mconcat
-    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
+    [ verifyFromEither "internal block consistency" (V.verifyBlock blk)
     , verifyHeader vbpVerifyHeader (getBlockHeader blk)
     , checkSize vbpMaxSize
     , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown

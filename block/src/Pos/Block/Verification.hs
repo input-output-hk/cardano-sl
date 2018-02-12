@@ -1,11 +1,9 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
--- | Definition of 'BlockchainHelpers' for the main blockchain.
---
--- FIXME rename this module to something to do with verification.
+-- | Pure verification for block. See "Pos.Util.Verification" for more info.
 
-module Pos.Block.BHelpers
+module Pos.Block.Verification
        ( verifyBlockHeader
        , verifyBlock
        , verifyGenesisBlock

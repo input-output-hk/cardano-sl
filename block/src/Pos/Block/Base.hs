@@ -14,14 +14,13 @@ import           Universum
 
 import           Data.Default (Default (def))
 
-import           Pos.Block.BHelpers ()
 import           Pos.Core (EpochIndex, HasConfiguration, HasDifficulty (..), LocalSlotIndex, SlotId,
                            SlotLeaders)
-import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock, GenesisBlockHeader,
-                                 GenesisBlockchain, GenesisExtraBodyData (..),
+import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
+                                 GenesisBlockHeader, GenesisBlockchain, GenesisExtraBodyData (..),
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
                                  MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainToSign (..), mkGenericHeader, GenericBlock (..))
+                                 MainToSign (..), mkGenericHeader)
 import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)

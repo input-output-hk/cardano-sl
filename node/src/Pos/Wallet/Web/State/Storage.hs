@@ -92,6 +92,7 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
+import           Control.Arrow                   ((***))
 import           Control.Lens                    (at, ix, lens, makeClassy, makeLenses,
                                                   non', to, toListOf, traversed, (%=),
                                                   (+=), (.=), (<<.=), (?=), _Empty, _head)
@@ -608,40 +609,107 @@ deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''WAddressMeta
-deriveSafeCopySimple 0 'base ''AddressInfo
-deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
 
 -- Legacy versions, for migrations
 
+data AddressInfo_v0 = AddressInfo_v0
+    { _v0_adiCWAddressMeta :: !WebTypes.CWAddressMeta
+    , _v0_adiSortingKey    :: !AddressSortingKey
+    }
+
+type CAddresses_v0 = HashMap (WebTypes.CId WebTypes.Addr) AddressInfo_v0
+type CustomAddresses_v0 = HashMap (WebTypes.CId WebTypes.Addr) HeaderHash
+
+data AccountInfo_v0 = AccountInfo_v0
+    { _v0_aiMeta             :: !WebTypes.CAccountMeta
+    , _v0_aiAddresses        :: !CAddresses_v0
+    , _v0_aiRemovedAddresses :: !CAddresses_v0
+    , _v0_aiUnusedKey        :: !AddressSortingKey
+    }
+
 data WalletStorage_v0 = WalletStorage_v0
     { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
-    , _v0_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
+    , _v0_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v0_wsProfile         :: !WebTypes.CProfile
     , _v0_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
     , _v0_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
     , _v0_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) [TxHistoryEntry])
     , _v0_wsUtxo            :: !Utxo
-    , _v0_wsUsedAddresses   :: !CustomAddresses
-    , _v0_wsChangeAddresses :: !CustomAddresses
+    , _v0_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v0_wsChangeAddresses :: !CustomAddresses_v0
     }
 
 data WalletStorage_v1 = WalletStorage_v1
     { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
-    , _v1_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
+    , _v1_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v1_wsProfile         :: !WebTypes.CProfile
     , _v1_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
     , _v1_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
     , _v1_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
     , _v1_wsUtxo            :: !Utxo
-    , _v1_wsUsedAddresses   :: !CustomAddresses
-    , _v1_wsChangeAddresses :: !CustomAddresses
+    , _v1_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v1_wsChangeAddresses :: !CustomAddresses_v0
     }
+
+data WalletStorage_v2 = WalletStorage_v2
+    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    , _v2_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
+    , _v2_wsProfile         :: !WebTypes.CProfile
+    , _v2_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v2_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v2_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
+    , _v2_wsUtxo            :: !Utxo
+    -- @_wsBalances@ depends on @_wsUtxo@,
+    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
+    , _v2_wsBalances        :: !WalletBalances
+    , _v2_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v2_wsChangeAddresses :: !CustomAddresses_v0
+    }
+
+
+deriveSafeCopySimple 0 'base ''AddressInfo_v0
+deriveSafeCopySimple 1 'extension ''AddressInfo
+
+deriveSafeCopySimple 0 'base ''AccountInfo_v0
+deriveSafeCopySimple 1 'extension ''AccountInfo
 
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
 deriveSafeCopySimple 1 'extension ''WalletStorage_v1
-deriveSafeCopySimple 2 'extension ''WalletStorage
+deriveSafeCopySimple 2 'extension ''WalletStorage_v2
+deriveSafeCopySimple 3 'extension ''WalletStorage
+
+-- | Unsafe address conversion for use in migration. This will throw an error if
+--   the address cannot be migrated.
+unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
+unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
+    Left err -> error $ "unsafeCIdToAddress: " <> err
+    Right x  -> x
+
+instance Migrate AddressInfo where
+    type MigrateFrom AddressInfo = AddressInfo_v0
+    migrate AddressInfo_v0{..} = AddressInfo
+        { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
+        , adiSortingKey = _v0_adiSortingKey
+        }
+      where
+        cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+            WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
+
+instance Migrate AccountInfo where
+    type MigrateFrom AccountInfo = AccountInfo_v0
+    migrate AccountInfo_v0{..} = AccountInfo
+        { _aiMeta = _v0_aiMeta
+        , _aiAddresses = mapAddrs _v0_aiAddresses
+        , _aiRemovedAddresses = mapAddrs _v0_aiRemovedAddresses
+        , _aiUnusedKey = _v0_aiUnusedKey
+        }
+      where
+        mapAddrs =
+            HM.fromList
+          . fmap (unsafeCIdToAddress *** migrate)
+          . HM.toList
 
 instance Migrate WalletStorage_v1 where
     type MigrateFrom WalletStorage_v1 = WalletStorage_v0
@@ -657,17 +725,34 @@ instance Migrate WalletStorage_v1 where
         , _v1_wsChangeAddresses = _v0_wsChangeAddresses
         }
 
-instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v1
-    migrate WalletStorage_v1{..} = WalletStorage
-        { _wsWalletInfos     = _v1_wsWalletInfos
-        , _wsAccountInfos    = _v1_wsAccountInfos
-        , _wsProfile         = _v1_wsProfile
-        , _wsReadyUpdates    = _v1_wsReadyUpdates
-        , _wsTxHistory       = _v1_wsTxHistory
-        , _wsHistoryCache    = _v1_wsHistoryCache
-        , _wsUtxo            = _v1_wsUtxo
-        , _wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
-        , _wsUsedAddresses   = _v1_wsUsedAddresses
-        , _wsChangeAddresses = _v1_wsChangeAddresses
+instance Migrate WalletStorage_v2 where
+    type MigrateFrom WalletStorage_v2 = WalletStorage_v1
+    migrate WalletStorage_v1{..} = WalletStorage_v2
+        { _v2_wsWalletInfos     = _v1_wsWalletInfos
+        , _v2_wsAccountInfos    = _v1_wsAccountInfos
+        , _v2_wsProfile         = _v1_wsProfile
+        , _v2_wsReadyUpdates    = _v1_wsReadyUpdates
+        , _v2_wsTxHistory       = _v1_wsTxHistory
+        , _v2_wsHistoryCache    = _v1_wsHistoryCache
+        , _v2_wsUtxo            = _v1_wsUtxo
+        , _v2_wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
+        , _v2_wsUsedAddresses   = _v1_wsUsedAddresses
+        , _v2_wsChangeAddresses = _v1_wsChangeAddresses
         }
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v2
+    migrate WalletStorage_v2{..} = WalletStorage
+        { _wsWalletInfos     = _v2_wsWalletInfos
+        , _wsAccountInfos    = fmap migrate _v2_wsAccountInfos
+        , _wsProfile         = _v2_wsProfile
+        , _wsReadyUpdates    = _v2_wsReadyUpdates
+        , _wsTxHistory       = _v2_wsTxHistory
+        , _wsHistoryCache    = _v2_wsHistoryCache
+        , _wsUtxo            = _v2_wsUtxo
+        , _wsBalances        = _v2_wsBalances
+        , _wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
+        , _wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
+        }
+      where
+        mapAddrKeys = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList

@@ -294,7 +294,7 @@ mkCoin :: Word64 -> Coin
 mkCoin c
     | c <= maxCoinVal = Coin c
     | otherwise       =
-        -- TODO [CSL-2173]: Clarify
+        -- Unsafe constructor.
         error $ "mkCoin: " <> show c <> " is too large"
 {-# INLINE mkCoin #-}
 
@@ -349,8 +349,7 @@ unsafeCoinPortionFromDouble :: Double -> CoinPortion
 unsafeCoinPortionFromDouble x
     | 0 <= x && x <= 1 = CoinPortion v
     | otherwise =
-        -- TODO [CSL-2173]: Clarify
-        error "unsafeCoinPortionFromDouble: double not in [0, 1]"
+      error $ "unsafeCoinPortionFromDouble: double not in [0, 1]: " <> show x
   where
     v = round $ realToFrac coinPortionDenominator * x
 {-# INLINE unsafeCoinPortionFromDouble #-}

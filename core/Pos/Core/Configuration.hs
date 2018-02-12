@@ -170,7 +170,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation
                 finalHeavyDelegation =
-                    -- TODO [CSL-2173]: Clarify
+                    -- We couldn't create the genesis delegation, so we panic.
                     leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
                     (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
 

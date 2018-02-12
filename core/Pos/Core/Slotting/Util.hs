@@ -51,7 +51,8 @@ unflattenSlotId n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
             n `divMod` fromIntegral epochSlots
         siSlot =
-            -- TODO [CSL-2173]: Clarify
+            -- Remainder can't be greater than 'epochSlots', which
+            -- is definitely lower than localSlot limit.
             leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
     in SlotId {..}
 
@@ -85,7 +86,8 @@ crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
 crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
   where
     siSlot =
-        -- TODO [CSL-2173]: Clarify
+        -- epochSlots < maxBound and positive, slotSecurityParam < epochSlots.
+        -- so expression is inside localSlotIndex bounds
         leftToPanic "crucialSlot: " $
         mkLocalSlotIndex (fromIntegral (fromIntegral epochSlots - slotSecurityParam - 1))
 
@@ -102,13 +104,13 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         EpochOrSlot (Right SlotId {siEpoch = e, siSlot = minBound})
     succ e@(EpochOrSlot (Right si@SlotId {..}))
         | e == maxBound =
-            -- TODO [CSL-2173]: Clarify
+            -- We've reached EpochOrSlot max bound and can't increase it
             error "succ@EpochOrSlot: maxBound"
         | siSlot == maxBound = EpochOrSlot (Left (siEpoch + 1))
         | otherwise = EpochOrSlot $ Right si {siSlot = succ siSlot}
     pred eos@(EpochOrSlot (Left e))
         | eos == minBound =
-            -- TODO [CSL-2173]: Clarify
+            -- We've reached EpochOrSlot min bound and can't decrease it
             error "pred@EpochOrSlot: minBound"
         | otherwise =
             EpochOrSlot (Right SlotId {siEpoch = e - 1, siSlot = maxBound})
@@ -119,7 +121,7 @@ instance HasProtocolConstants => Enum EpochOrSlot where
         let res = toInteger e * toInteger (epochSlots + 1)
             maxIntAsInteger = toInteger (maxBound :: Int)
         in if | res > maxIntAsInteger ->
-                  -- TODO [CSL-2173]: Clarify
+                  -- We can't convert to Int, because value is bigger than it
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     fromEnum (EpochOrSlot (Right SlotId {..})) =
@@ -128,6 +130,7 @@ instance HasProtocolConstants => Enum EpochOrSlot where
                   1
             maxIntAsInteger = toInteger (maxBound :: Int)
         in if | res > maxIntAsInteger ->
+                  -- We can't convert to Int, because value is bigger than it
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
     toEnum x =
@@ -182,7 +185,7 @@ addLocalSlotIndex x (UnsafeLocalSlotIndex i)
 -- | Unsafe constructor of 'LocalSlotIndex'.
 unsafeMkLocalSlotIndex :: HasProtocolConstants => Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndex =
-    -- TODO [CSL-2173]: Clarify
+    -- That's exactly the point of the function -- to panic.
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts

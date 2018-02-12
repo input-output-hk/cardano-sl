@@ -451,7 +451,6 @@ executable cardano-blockchain-analyser
                      , cardano-sl-util
                      , data-default
                      , directory
-                     , ether
                      , formatting
                      , lens
                      , mtl

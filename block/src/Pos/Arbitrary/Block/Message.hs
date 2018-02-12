@@ -6,10 +6,10 @@ module Pos.Arbitrary.Block.Message
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
 import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
-import           Pos.Arbitrary.Block ()
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasConfiguration)
@@ -19,11 +19,11 @@ import           Pos.Core.Ssc (SscPayload, SscProof)
 -- Block network types
 ------------------------------------------------------------------------------------------
 
-instance Arbitrary T.MsgGetHeaders where
+instance HasConfiguration => Arbitrary T.MsgGetHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary T.MsgGetBlocks where
+instance HasConfiguration => Arbitrary T.MsgGetBlocks where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

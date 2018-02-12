@@ -35,8 +35,9 @@ import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, go
 import           Pos.Txp (MonadUtxoRead (utxoGet), ToilVerFailure (..), Utxo, VTxContext (..),
                           WitnessVerFailure (..), applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util (SmallGenerator (..), nonrepeating, runGen)
+import           Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
-import           Test.Pos.Util (qcIsLeft, qcIsRight, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 ----------------------------------------------------------------------------
 -- Spec

@@ -41,7 +41,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import           Mockable (Async, Delay, Mockables, MonadMockable, async, delay)
+import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
 import           Serokell.Util (listJson, sec)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
@@ -50,7 +50,7 @@ import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
-import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
+import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), getNtpStatusOnce)
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Txp (TxId, TxIn, TxOut)
@@ -128,7 +128,7 @@ requestShutdown ::
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
-       , Mockables m [Async, Delay]
+       , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
 requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)
@@ -150,7 +150,7 @@ syncProgress =
 
 localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
 localTimeDifference =
-    diff <$> (mkNtpStatusVar >>= readMVar)
+    diff <$> getNtpStatusOnce
   where
     diff :: NtpStatus -> Word
     diff = \case

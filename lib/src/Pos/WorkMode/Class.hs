@@ -1,9 +1,8 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-| 'WorkMode' constraint. It is widely used in almost every our code.
-    Simple alias for bunch of useful constraints. This module also
-    contains new monads to extend functional capabilities inside do-block.
+{-| The 'WorkMode' constraint, which is widely used throughout the codebase.
+    It is a simple alias for a bunch of other useful constraints.
 -}
 
 module Pos.WorkMode.Class
@@ -17,6 +16,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
@@ -98,6 +98,7 @@ type MinWorkMode m
       , CanJsonLog m
       , MonadMockable m
       , MonadIO m
+      , MonadUnliftIO m
       , HasConfiguration
       , HasInfraConfiguration
       , HasUpdateConfiguration

@@ -12,7 +12,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
                            SlotId (..), mkCoin)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Util.Arbitrary (ArbitraryUnsafe (..))
+import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex

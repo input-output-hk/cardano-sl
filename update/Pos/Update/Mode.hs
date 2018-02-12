@@ -7,9 +7,9 @@ module Pos.Update.Mode
 
 import           Universum
 
-import           Ether.Internal (HasLens (..))
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
@@ -23,11 +23,13 @@ import           Pos.StateLock (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
+import           Pos.Util.Util (HasLens (..))
 
 type UpdateMode ctx m
     = ( WithLogger m
       , MonadMockable m
       , MonadIO m
+      , MonadUnliftIO m
       , MonadMask m
       , MonadGState m
       , MonadDB m

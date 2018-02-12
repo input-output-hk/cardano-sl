@@ -23,6 +23,7 @@ import           Control.Lens (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU as LRU
 import qualified Data.HashMap.Strict as HM
 import           Mockable (CurrentTime, Mockable, currentTime)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
@@ -116,6 +117,7 @@ data PskHeavyVerdict
 
 type ProcessHeavyConstraint ctx m =
        ( MonadIO m
+       , MonadUnliftIO m
        , MonadMask m
        , MonadDBRead m
        , MonadGState m

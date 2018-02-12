@@ -26,7 +26,7 @@ import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
                                           getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 
 ----------------------------------------------------------------

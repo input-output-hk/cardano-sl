@@ -98,7 +98,6 @@ library
                         Test.Pos.Cbor.RefImpl
 
                         -- Util code for tests
-                        Test.Pos.Util
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
@@ -207,6 +206,7 @@ library
                       , transformers
                       , transformers-base
                       , universum >= 0.1.11
+                      , unliftio
                       , unordered-containers
                       , vector
                       , wai

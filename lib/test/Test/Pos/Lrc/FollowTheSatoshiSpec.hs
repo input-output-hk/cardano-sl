@@ -18,8 +18,9 @@ import           Pos.Core (Coin, HasConfiguration, SharedSeed, StakeholderId, St
                            unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto (PublicKey)
 import           Pos.Lrc (followTheSatoshi)
+import           Pos.Util.QuickCheck.Property (qcNotElem)
 
-import           Test.Pos.Util (qcNotElem, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ do

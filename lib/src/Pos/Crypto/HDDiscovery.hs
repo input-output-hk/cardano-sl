@@ -10,6 +10,7 @@ import           Universum
 
 import           Data.Conduit (mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (AddrAttributes (..), Address (..), addrAttributesUnwrapped)
 import           Pos.Core.Txp (toaOut, txOutAddress)
@@ -17,14 +18,20 @@ import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, unpackHDAddressA
 import           Pos.DB.Class (DBTag (GStateDB), MonadDBRead, dbIterSource)
 import           Pos.Txp.DB (UtxoIter)
 
-discoverHDAddress :: MonadDBRead m => HDPassphrase -> m [(Address, [Word32])]
+discoverHDAddress ::
+       (MonadDBRead m, MonadUnliftIO m)
+    => HDPassphrase
+    -> m [(Address, [Word32])]
 discoverHDAddress walletPassphrase =
     safeHead <$> discoverHDAddresses [walletPassphrase]
   where
     safeHead [x] = x
     safeHead _   = []
 
-discoverHDAddresses :: MonadDBRead m => [HDPassphrase] -> m [[(Address, [Word32])]]
+discoverHDAddresses ::
+       (MonadDBRead m, MonadUnliftIO m)
+    => [HDPassphrase]
+    -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =
     runConduitRes $ mapOutput outAddr utxoSource .| CL.fold step initWallets
   where

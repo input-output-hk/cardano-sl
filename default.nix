@@ -87,14 +87,18 @@ let
       });
     };
   });
-  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  connect = let
+      walletConfigFile = ./custom-wallet-config.nix;
+      walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
+    in
+      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
   other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "3b1807dc5011704ae6a045e612a679c6fbf9ceb3";
-      sha256 = "0p545wbfrg569hspcdpw9v6zd9ngifdj2wsvxpxsdypw124j3jdl";
+      rev = "486a88f161a08df8af42cb4c84f44e99fa9a98d8";
+      sha256 = "0nskf1s51np320ijlf38sxmksk68xmg14cnarg1p9rph03y81m7w";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {

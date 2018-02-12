@@ -69,6 +69,7 @@ library
                      , time
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable

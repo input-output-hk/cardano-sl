@@ -41,7 +41,7 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import Test.Pos.Util (
+import Test.Pos.Configuration (
     withDefConfiguration
   , withDefUpdateConfiguration
   )

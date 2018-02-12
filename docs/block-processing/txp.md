@@ -39,7 +39,7 @@
 * [Block structure](https://cardanodocs.com/technical/blocks/#design).
   Specifically, you need to know about how transactions are stored in blocks.
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).
-* [Block processing](block-processing.md).
+* [Block processing](overall.md).
 
 ## Overview
 

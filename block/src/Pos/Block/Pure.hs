@@ -30,8 +30,9 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, 
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                            HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
                            gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader, gebAttributes, gehAttributes, genBlockLeaders,
-                                 getBlockHeader, mainHeaderLeaderKey, mebAttributes, mehAttributes)
+import           Pos.Core.Block (Block, BlockHeader (..), gebAttributes, gehAttributes,
+                                 genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
+                                 mebAttributes, mehAttributes)
 import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
 
@@ -41,8 +42,8 @@ import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
 
 -- Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader -> ChainDifficulty
-headerDifficultyIncrement (Left _)  = 0
-headerDifficultyIncrement (Right _) = 1
+headerDifficultyIncrement (BlockHeaderGenesis _) = 0
+headerDifficultyIncrement (BlockHeaderMain _)    = 1
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams = VerifyHeaderParams
@@ -51,7 +52,7 @@ data VerifyHeaderParams = VerifyHeaderParams
     , vhpCurrentSlot     :: !(Maybe SlotId)
       -- ^ Current slot is used to check whether header is not from future.
     , vhpLeaders         :: !(Maybe SlotLeaders)
-      -- ^ Set of leaders for the epoch related block is from
+      -- ^ Set of leaders for the epoch related block is from.
     , vhpMaxSize         :: !(Maybe Byte)
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
@@ -61,6 +62,21 @@ data VerifyHeaderParams = VerifyHeaderParams
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
+--
+-- Supported checks:
+-- 1.  Checks with respect to the preceding block:
+--     1.  If the new block is a genesis one, difficulty does not increase.
+--         Otherwise, it increases by one.
+--     2.  Hashing the preceding block's header yields the same value as the one
+--         stored in the new block's header.
+--     3.  Corresponding `EpochOrSlot`s strictly increase.
+--     4.  If the new block is a main one, its epoch is equal to the epoch of the
+--         preceding block.
+-- 2.  The block's slot does not exceed the current slot.
+-- 3.  The block's leader is expected (matches either the corresponding leader from
+--     the initial leaders or a leader from one of the preceding genesis blocks).
+-- 4.  Header size does not exceed `bvdMaxHeaderSize`.
+-- 5.  (Optional) Header has no unknown attributes.
 verifyHeader
     :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
@@ -126,21 +142,24 @@ verifyHeader VerifyHeaderParams {..} h =
               (h ^. prevBlockL)
         , checkSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
         , case h of
-              Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
-              Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
+              BlockHeaderGenesis _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
+              BlockHeaderMain _    -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
 
     -- CHECK: Verifies that the slot does not lie in the future.
     relatedToCurrentSlot curSlotId =
-        [ ( either (const True) ((<= curSlotId) . view headerSlotL) h
-          , "block is from slot which hasn't happened yet")
+        [ ( case h of
+              BlockHeaderGenesis _ -> True
+              BlockHeaderMain bh   -> (bh ^. headerSlotL) <= curSlotId
+          , "block is from slot which hasn't happened yet"
+          )
         ]
 
     -- CHECK: Checks that the block leader is the expected one.
     relatedToLeaders leaders =
         case h of
-            Left _ -> []
-            Right mainHeader ->
+            BlockHeaderGenesis _ -> []
+            BlockHeaderMain mainHeader ->
                 [ ( (Just (addressHash $ mainHeader ^. mainHeaderLeaderKey) ==
                      leaders ^?
                      ix (fromIntegral $ getSlotIndex $
@@ -148,12 +167,12 @@ verifyHeader VerifyHeaderParams {..} h =
                   , "block's leader is different from expected one")
                 ]
 
-    verifyNoUnknown (Left genH) =
+    verifyNoUnknown (BlockHeaderGenesis genH) =
         let attrs = genH ^. gbhExtra . gehAttributes
         in  [ ( areAttributesKnown attrs
               , sformat ("genesis header has unknown attributes: "%build) attrs)
             ]
-    verifyNoUnknown (Right mainH) =
+    verifyNoUnknown (BlockHeaderMain mainH) =
         let attrs = mainH ^. gbhExtra . mehAttributes
         in [ ( areAttributesKnown attrs
              , sformat ("main header has unknown attributes: "%build) attrs)
@@ -174,8 +193,8 @@ verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
     foldFoo (cur,prev) (prevLeaders,res) =
         let curLeaders = case cur of
                              -- we don't know leaders for the next epoch
-                             (Left _) -> Nothing
-                             _        -> prevLeaders
+                             BlockHeaderGenesis _ -> Nothing
+                             _                    -> prevLeaders
 
         in (curLeaders, verifyHeader (toVHP curLeaders prev) cur <> res)
     toVHP l p =
@@ -208,6 +227,12 @@ data VerifyBlockParams = VerifyBlockParams
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
+--
+-- Supported checks:
+--
+-- 1.  All checks related to the header.
+-- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
+-- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
@@ -244,6 +269,9 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- Verifies a sequence of blocks.
 -- #verifyBlock
 -- | Verify a sequence of blocks.
+--
+-- Block verification consists of header verification and body verification.
+-- See 'verifyHeader' and 'verifyBlock' for more information.
 --
 -- foldl' is used here which eliminates laziness of triple. It doesn't affect
 -- laziness of 'VerificationRes' which is good because laziness for this data

@@ -26,7 +26,7 @@ import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
@@ -34,8 +34,8 @@ import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
-import qualified Cardano.Wallet.API.V1.Handlers as V0
-import qualified Cardano.Wallet.API.V1.Handlers as V1
+import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
+import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
 

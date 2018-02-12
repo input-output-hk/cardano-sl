@@ -17,7 +17,7 @@ module NTP.Client
 
 import           Universum
 
-import           Control.Concurrent.STM (modifyTVar')
+import           Control.Concurrent.STM (check, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
 import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
 import           Control.Lens ((%=), (.=), _Just)
@@ -39,7 +39,8 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race)
+import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, forConcurrently,
+                                      timeout, withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
@@ -52,8 +53,7 @@ data NtpClientSettings m = NtpClientSettings
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
-      -- ^ delay between making requests and response collection;
-      -- it also means that handler will be invoked with this lag
+      -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how often to send responses to server
     , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
@@ -104,6 +104,7 @@ type NtpMonad m =
     , WithLogger m
     , Mockable Concurrently m
     , Mockable Async m
+    , Mockable Delay m
     )
 
 handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
@@ -123,6 +124,14 @@ handleCollectedResponses cli = do
             handler time
   where
     handleE = logError . sformat ("ntpMeanSelection: "%shown)
+
+allResponsesGathered :: NtpClient m -> STM Bool
+allResponsesGathered cli = do
+    responsesState <- readTVar $ ncState cli
+    let servers = ntpServers $ ncSettings cli
+    return $ case responsesState of
+        Nothing        -> False
+        Just responses -> length responses >= length servers
 
 doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
 doSend addr cli = do
@@ -144,16 +153,20 @@ doSend addr cli = do
 
 startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
 startSend addrs cli = do
-    let timeout = ntpResponseTimeout (ncSettings cli)
+    let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
-    logDebug "Sending requests"
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
-    () <$ threadDelay timeout `race` forConcurrently addrs (flip doSend cli)
 
-    logDebug "Collecting responses"
-    handleCollectedResponses cli
-    liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
-    liftIO $ threadDelay (poll - timeout)
+    _ <- concurrently (threadDelay poll) $ do
+        logDebug "Sending requests"
+        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
+        let sendRequests = forConcurrently addrs (flip doSend cli)
+        let waitTimeout = void $ timeout respTimeout
+                    (atomically $ check =<< allResponsesGathered cli)
+        withAsync sendRequests $ \_ -> waitTimeout
+
+        logDebug "Collecting responses"
+        handleCollectedResponses cli
+        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
 
     startSend addrs cli
 
@@ -279,8 +292,7 @@ ntpSingleShot
     :: (NtpMonad m)
     => NtpClientSettings m -> m ()
 ntpSingleShot settings =
-    () <$ threadDelay (ntpResponseTimeout settings) `race`
-          spawnNtpClient settings
+    () <$ timeout (ntpResponseTimeout settings) (spawnNtpClient settings)
 
 -- Store created sockets.
 -- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.

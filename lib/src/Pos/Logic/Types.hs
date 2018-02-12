@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Logic.Types
@@ -10,21 +10,19 @@ module Pos.Logic.Types
     ) where
 
 import           Universum
-import           Data.Conduit              (Source)
-import           Data.Default              (def)
-import           Data.Tagged               (Tagged)
 
-import           Pos.Communication         (NodeId, TxMsgContents)
-import           Pos.Core.Block            (Block, BlockHeader)
-import           Pos.Core                  (HeaderHash, StakeholderId,
-                                            ProxySKHeavy)
-import           Pos.Core.Txp              (TxId)
-import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData,
-                                            VoteId)
-import           Pos.Security.Params       (SecurityParams (..))
-import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
-                                            MCVssCertificate)
-import           Pos.Util.Chrono           (NewestFirst, OldestFirst, NE)
+import           Data.Conduit (ConduitT)
+import           Data.Default (def)
+import           Data.Tagged (Tagged)
+
+import           Pos.Communication (NodeId, TxMsgContents)
+import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core.Txp (TxId)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
+import           Pos.Security.Params (SecurityParams (..))
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
@@ -37,7 +35,7 @@ data Logic m = Logic
       -- Conduit is chosen mainly due to precedent: it's already used in
       -- cardano-sl.
     , getChainFrom       :: HeaderHash
-                         -> Source m Block
+                         -> ConduitT () Block m ()
       -- Get a block header.
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
@@ -45,13 +43,19 @@ data Logic m = Logic
       -- Inspired by 'getHeadersFromManyTo'.
       -- Included here because that function is quite complicated; it's not
       -- clear whether it can be expressed simply in terms of getBlockHeader.:q
-    , getBlockHeaders    :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
+    , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> NonEmpty HeaderHash
+                         -> Maybe HeaderHash
+                         -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
       -- Inspired by 'getHeadersFromToIncl', which is apparently distinct from
       -- 'getHeadersFromManyTo' (getBlockHeaders without the tick above).
       -- FIXME we must unify these.
       -- May want to think about giving a streaming-IO interface (pipes, conduit
       -- or similar).
-    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
+    , getBlockHeaders'   :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> HeaderHash
+                         -> HeaderHash
+                         -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
@@ -69,7 +73,7 @@ data Logic m = Logic
       -- NodeId is needed for first iteration, but will be removed later.
     , postBlockHeader    :: BlockHeader -> NodeId -> m ()
 
-      -- Tx, update, ssc... 
+      -- Tx, update, ssc...
       -- Common pattern is:
       --   - What to do with it when we receive it (key and data).
       --   - How to get it when it's requested (key).
@@ -81,19 +85,19 @@ data Logic m = Logic
       -- system minimal, so the logic layer must define how to do all of
       -- these things for every relayed piece of data.
       -- See comment on the 'KeyVal' type.
-    , postTx            :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
-    , postUpdate        :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
-    , postVote          :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
-    , postSscCommitment :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
-    , postSscOpening    :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
-    , postSscShares     :: KeyVal (Tagged MCShares StakeholderId) MCShares m
-    , postSscVssCert    :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
+    , postTx             :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
+    , postUpdate         :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
+    , postVote           :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
+    , postSscCommitment  :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
+    , postSscOpening     :: KeyVal (Tagged MCOpening StakeholderId) MCOpening m
+    , postSscShares      :: KeyVal (Tagged MCShares StakeholderId) MCShares m
+    , postSscVssCert     :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
 
       -- Give a heavy delegation certificate. Returns False if something
       -- went wrong.
       --
       -- NB light delegation is apparently disabled in master.
-    , postPskHeavy      :: ProxySKHeavy -> m Bool
+    , postPskHeavy       :: ProxySKHeavy -> m Bool
 
       -- Recovery mode related stuff.
       -- TODO get rid of this eventually.
@@ -133,9 +137,9 @@ data Logic m = Logic
 --     I do not believe we ever make a mempool request (MempoolMsg).
 --     Ok we can probably dump this.
 data KeyVal key val m = KeyVal
-    { toKey :: val -> m key
-    , handleInv :: key -> m Bool
-    , handleReq :: key -> m (Maybe val)
+    { toKey      :: val -> m key
+    , handleInv  :: key -> m Bool
+    , handleReq  :: key -> m (Maybe val)
     , handleData :: val -> m Bool
     }
 
@@ -151,7 +155,7 @@ data LogicLayer m = LogicLayer
     , logic         :: Logic m
     }
 
--- | A diffusion layer that does nothing, and probably crahes the program.
+-- | A diffusion layer that does nothing, and probably crashes the program.
 dummyLogicLayer
     :: ( Applicative m )
     => LogicLayer m
@@ -168,8 +172,8 @@ dummyLogicLayer = LogicLayer
         , getBlock           = \_ -> pure (error "dummy: can't get block")
         , getChainFrom       = \_ -> error "dummy: can't get chain"
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
-        , getBlockHeaders'   = \_ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders'   = \_ _ _ -> pure (error "dummy: can't get headers")
         , getTip             = pure (error "dummy: can't get tip")
         , getTipHeader       = pure (error "dummy: can't get tip header")
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")

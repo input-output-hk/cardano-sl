@@ -7,13 +7,14 @@ import           Universum
 import           Data.Default (def)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Wallet.Web.ClientTypes (CWallet(..))
+import           Pos.Util.QuickCheck.Property (assertProperty)
+import           Pos.Wallet.Web.ClientTypes (CWallet (..))
 import           Pos.Wallet.Web.Methods.Backup (restoreWalletFromBackup)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.Pos.Util (assertProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
-import           Test.QuickCheck (Arbitrary(..))
+import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec

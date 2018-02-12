@@ -29,7 +29,6 @@ import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
-import           Ether.Internal (lensOf)
 import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text (listJson)
@@ -49,8 +48,8 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQu
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Limits.Types (recvLimited)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId,
-                                             OutSpecs, convH, toOutSpecs)
+import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs, convH,
+                                             toOutSpecs)
 import           Pos.Core (EpochOrSlot (..), HasConfiguration, HasHeaderHash (..), HeaderHash,
                            SlotId (..), criticalForkThreshold, crucialSlot, epochIndexL,
                            epochOrSlotG, gbHeader, headerHashG, isMoreDifficult, prevBlockL)
@@ -59,10 +58,10 @@ import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (requestTip, announceBlockHeader))
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc (lrcSingleShot)
+import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
 import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
@@ -73,6 +72,7 @@ import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _Newes
                                   _OldestFirst)
 import           Pos.Util.JsonLog (jlAdoptedBlock)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
 -- Exceptions

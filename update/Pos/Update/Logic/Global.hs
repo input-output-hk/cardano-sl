@@ -14,6 +14,7 @@ import           Universum
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
 import           System.Wlog (WithLogger, modifyLoggerName)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasConfiguration,
                            NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash,
@@ -28,8 +29,8 @@ import           Pos.Slotting (MonadSlotsData, slottingVar)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Update.DB (UpdateOp (..))
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, MonadPoll,
-                                  PollModifier (..), PollVerFailure, ProposalState, USUndo,
+import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBPoll, MonadPoll,
+                                  PollModifier (..), PollT, PollVerFailure, ProposalState, USUndo,
                                   canCreateBlockBV, execPollT, execRollT, processGenesisBlock,
                                   recordBlockIssuance, reportUnexpectedError, rollbackUS, runDBPoll,
                                   runPollT, verifyAndApplyUSPayload)
@@ -50,7 +51,6 @@ type UpdateBlock = ComponentBlock UpdatePayload
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
     , MonadIO m
-    , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLrcContext ctx
     , HasConfiguration
@@ -59,6 +59,8 @@ type USGlobalVerifyMode ctx m =
 
 type USGlobalApplyMode ctx m =
     ( USGlobalVerifyMode ctx m
+    , DB.MonadDBRead m
+    , MonadUnliftIO m
     , MonadSlotsData ctx m
     , MonadReporting ctx m
     )
@@ -144,17 +146,27 @@ processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
 -- known. Currently it only means that 'UpdateProposal's must have
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
-usVerifyBlocks
-    :: (USGlobalVerifyMode ctx m, MonadReporting ctx m)
+usVerifyBlocks ::
+       ( USGlobalVerifyMode ctx m
+       , DB.MonadDBRead m
+       , MonadUnliftIO m
+       , MonadReporting ctx m
+       )
     => Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
 usVerifyBlocks verifyAllIsKnown blocks =
     withUSLogger $
     reportUnexpectedError $
-    runExceptT (swap <$> run (mapM (verifyBlock verifyAllIsKnown) blocks))
+    processRes <$> run (runExceptT $ mapM (verifyBlock verifyAllIsKnown) blocks)
   where
+    run :: forall m a . PollT (DBPoll m) a -> m (a, PollModifier)
     run = runDBPoll . runPollT def
+    processRes ::
+           (Either PollVerFailure (OldestFirst NE USUndo), PollModifier)
+        -> Either PollVerFailure (PollModifier, OldestFirst NE USUndo)
+    processRes (Left failure, _)       = Left failure
+    processRes (Right undos, modifier) = Right (modifier, undos)
 
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)
@@ -183,6 +195,7 @@ verifyBlock verifyAllIsKnown (ComponentBlockMain header payload) =
 usCanCreateBlock ::
        ( WithLogger m
        , MonadIO m
+       , MonadUnliftIO m
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLrcContext ctx

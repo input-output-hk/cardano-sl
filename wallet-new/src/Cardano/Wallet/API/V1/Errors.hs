@@ -14,6 +14,8 @@ import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsend)
+import           Test.QuickCheck.Gen
+import           Test.QuickCheck.Random
 
 --
 -- Error handling
@@ -71,14 +73,7 @@ instance Exception WalletError where
 
 -- TODO: generate `Arbitrary` instance with TH too?
 instance Arbitrary WalletError where
-    arbitrary = oneof
-        [ NotEnoughMoney <$> arbitrary
-        , OutputIsRedeem <$> pure "address"
-        , SomeOtherError <$> pure "blah" <*> arbitrary
-        , MigrationFailed <$> pure "migration"
-        , JSONValidationFailed <$> pure "Expected String, found Null."
-        , pure WalletNotFound
-        ]
+    arbitrary = oneof allErrorsConstructors
 
 --
 -- Helpers
@@ -87,6 +82,25 @@ instance Arbitrary WalletError where
 -- | List of all existing error tags. Populates automatically
 allErrorsList :: [Text]
 allErrorsList = gconsNames (Proxy :: Proxy WalletError)
+
+-- | Needed for error table in swagger documentation
+-- TODO:
+--  * consider using class Example for this use case
+--  * consider using genExample from V1/Swagger.hs
+allErrorsExamples :: [WalletError]
+allErrorsExamples = map genExample allErrorsConstructors
+  where genExample e = (unGen (resize 3 e)) (mkQCGen 42) 42
+
+-- | List of all existing error constructors
+allErrorsConstructors :: [Gen WalletError]
+allErrorsConstructors =
+    [ NotEnoughMoney <$> arbitrary
+    , OutputIsRedeem <$> pure "address"
+    , SomeOtherError <$> pure "blah" <*> arbitrary
+    , MigrationFailed <$> pure "migration"
+    , JSONValidationFailed <$> pure "Expected String, found Null."
+    , pure WalletNotFound
+    ]
 
 -- | Function which determines which HTTP error corresponds to each
 -- `WalletError`.

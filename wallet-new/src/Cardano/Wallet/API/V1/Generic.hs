@@ -4,6 +4,7 @@ module Cardano.Wallet.API.V1.Generic
        ( gtoJsend
        , gparseJsend
        , gconsNames
+       , gcons
        ) where
 
 import           Universum hiding (All, Generic)
@@ -160,3 +161,23 @@ gconsNames
     :: forall a. (HasDatatypeInfo a, SListI (Code a))
     => Proxy a -> [Text]
 gconsNames = map toText . hcollapse . hliftA gconsName' . gconsInfos
+
+-- | Get the names of all constructors of a type
+constructors ::
+  (Generic a, HasDatatypeInfo a) =>
+  Proxy a -> NP (K ConstructorName) (Code a)
+constructors p =
+  hmap
+    (K . constructorName)
+    (constructorInfo (datatypeInfo p))
+
+-- | Get the name of the constructor of a value
+gcons ::
+  forall a .
+  (Generic a, HasDatatypeInfo a) => a -> Text
+gcons a =
+  toText . hcollapse $
+  hzipWith
+    (\ conName _args -> conName) -- or: const
+    (constructors (Proxy @a))
+    (unSOP $ from a)

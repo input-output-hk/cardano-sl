@@ -17,6 +17,7 @@ import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
+import           Cardano.Wallet.API.V1.Generic (gcons)
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
@@ -42,6 +43,7 @@ import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
 import           NeatInterpolation
+import           Servant (ServantErr (..))
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -525,11 +527,17 @@ api = toSwagger walletAPI
       deErrorExample = toS $ encodePretty Errors.WalletNotFound
     , deDefaultPerPage = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
-    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
+    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsExamples
     , deGitRevision = ctiGitRevision compileInfo
     , deSoftwareVersion = fromString $ show curSoftwareVersion
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
   where
-    makeRow err = [surroundedBy "`" err, "-", "-"]
+    makeRow err =
+        [ surroundedBy "`" $ gcons err
+        , fromString $ show $ errorCode $ Errors.walletHTTPError err
+        , surroundedBy "`" $ toSingleLine $ toS $ encodePretty err
+        ]
     surroundedBy wrap context = wrap <> context <> wrap
+    errorCode ServantErr{..} = errHTTPCode
+    toSingleLine = T.unwords . T.lines

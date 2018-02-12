@@ -1,8 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
 
--- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
--- lrc requires to apply and rollback blocks, but applying many blocks
+-- | Unsafe functions for block application/rollback, some constraint sets
+-- and some utilities. Mostly needed for use in 'Pos.Lrc' -- using lrc
+-- requires applying and rolling back blocks, but applying many blocks
 -- requires triggering lrc recalculations.
 
 module Pos.Block.Logic.Internal

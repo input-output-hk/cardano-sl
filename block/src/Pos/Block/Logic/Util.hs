@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
 
--- | Some utility functions necessary to implement block processing logic.
+-- | Utilities for finding LCA and calculating chain quality.
 
 module Pos.Block.Logic.Util
        (

@@ -2,7 +2,7 @@
 # call: Rscript ../plots.r 2018-02-03_053826
 # (curr. workdir is where the run-???.csv is)
 #
-# packages to install: dplyr, ggplot2, svglite, gplots
+# packages to install: dplyr, ggplot2, svglite, gplots, anytime
 # (e.g. install.packages('svglite'))
 #
 
@@ -12,21 +12,23 @@ INTERACTIVE <- FALSE
 library(dplyr)
 library(ggplot2)
 library(gplots)
+library(anytime)
 
 if (INTERACTIVE) {
-  library('ggedit')    # only if interactive editing
+  #library('ggedit')    # only if interactive editing
   fnames <- file.choose()
   fname <- fnames[1]
   RUN <- sub('.*run-([-_0-9]+).csv', '\\1', fname)
   bp <- dirname(fname)
   fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
+  fname3 <- paste(bp, '/bench-settings', sep='')
 } else {
   args = commandArgs(trailingOnly=TRUE)
   RUN <- args[1]
   fname <- paste('run-', RUN, '.csv', sep='')
   fname2 <- paste('report_', RUN, '.txt', sep='')
+  fname3 <- 'bench-settings'
 }
-#RUN <- '2018-02-03_053826' # Select run to plot
 
 DESC=''                    # Add custom text to titles
 k <- 6                     # Protocol parameters determining
@@ -39,6 +41,18 @@ relays <- c('r-a-1', 'r-a-2', 'r-a-3'
           , 'r-c-1', 'r-c-2'
           , 'u-a-1', 'u-b-1', 'u-c-1'
             )
+
+# prep and read in benchmark parameters
+system(paste("sed -e 's/, /\\\n/g' ", fname3, " > ", fname3, "2", sep=''))
+params <- read.csv(paste(fname3, "2", sep=''), header=FALSE, 
+                   col.names = c("parameter","value"), sep="=",
+                   stringsAsFactor=FALSE)
+
+maxparam <- length(params[,2])
+if (params[maxparam,1]=="systemstart") {
+  params[maxparam+1,1] <- "time UTC"
+  params[maxparam+1,2] <- paste("", anytime(as.numeric(params[maxparam,2]), tz="UTC"), sep='')
+}
 
 # read the report of the benchmark run
 readReport <- function(filename, run=RUN) {
@@ -81,50 +95,51 @@ readData <- function(filename, run=RUN) {
 # dashed vertical lines at the epoch boundaries
 epochs <- function(d) {
     epochs <- data.frame(start=seq(from=0, to=max(d$t), by=EPOCHLENGTH))
-    geom_vline( data=epochs
-              , aes(xintercept = start)
-              , color="red"
-              , linetype='dashed'
-              )
+    geom_vline(data=epochs,
+               aes(xintercept = start, alpha=0.65)
+             , colour='red'
+             , linetype='dashed'
+               )
     }
 
 # dotted vertical lines every k slots
 kslots <- function(d) {
     kslots <- data.frame(start=seq(from=0, to=max(d$t), by=k*SLOTLENGTH))
-    geom_vline(data=kslots
-              , aes(xintercept = start)
-              , color="green"
-              , linetype='dotted'
-              )
+    geom_vline(data=kslots,
+               aes(xintercept = start, alpha=0.40)
+             , colour='red'
+             , linetype='dotted'
+               )
     }
 
 
 # histograms the rate of sent and written transactions
 histTxs <- function(d, run=RUN, desc=DESC) {
-#  dd <- d %>%
-#    filter(txType %in% c("submitted", "written"))
-#  ggplot(dd, aes(txCount)) +
-#    geom_histogram(breaks=seq(0,max(dd$txCount), by=1)) +
-#    ggtitle(paste(
-#      'Histogram of transaction count per slot, run at '
-#      , run, desc, sep = ' ')) +
-#    ylab("count") +
-#    xlab("tx per slot") +
-#    facet_grid(txType ~ run) +
-#    guides(size = "none", colour = "legend", alpha = "none")
   dd <- d %>%
     filter(txType %in% c("submitted", "written"))
   maxtx <- max(dd$txCount)
   crit <- "submitted"
   dd <- d %>%
     filter(txType %in% c(crit))
+#  ggplot(dd, aes(txCount)) + stat_ecdf(geom="step") +
+#      ggtitle(paste(crit, 'transactions', desc, sep = ' ')) +
+#      ylab("") + xlab(paste("tx", crit, sep=" "))
+
+#  qqplot(x=1:length(dd$txCount), y=dd$txCount, xlab="", ylab="tx/slot", main=paste(crit, 'transactions', desc, sep = ' '))
+
   hist(dd$txCount, main=paste('transaction count per slot', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
        , xlab = crit )
   crit <- "written"
   dd <- d %>%
-  filter(txType %in% c(crit))
+    filter(txType %in% c(crit))
+#  ggplot(dd, aes(txCount)) + stat_ecdf(geom="step") +
+#      ggtitle(paste(crit, 'transactions', desc, sep = ' ')) +
+#      ylab("") + xlab(paste("tx", crit, sep=" "))
+
+#  qqplot(x=1:length(dd$txCount), y=dd$txCount, xlab="", ylab="tx/slot", main=paste(crit, 'transactions', desc, sep = ' '))
+
   hist(dd$txCount, main=paste('transaction count per slot', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
@@ -168,7 +183,7 @@ plotMempools <- function(d, run=RUN, desc=DESC) {
 
 # plot the wait and hold times for the local state lock
 plotTimes <- function(d, run=RUN, desc=DESC) {
-        dd <- d %>%
+    dd <- d %>%
             filter(txType %in% c("hold tx"
                                , "wait tx"
                                , "hold block"
@@ -176,6 +191,7 @@ plotTimes <- function(d, run=RUN, desc=DESC) {
                                , "hold rollback"
                                , "wait rollback"
                                  ))
+        #dd$t <- dd$t %/% 1000
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
@@ -189,19 +205,28 @@ plotTimes <- function(d, run=RUN, desc=DESC) {
         guides(size = "none", colour = "legend", alpha = "none")
 }
 
-layout(matrix(c(1,3,2,4), 2, 2, byrow = FALSE))
+plotOverview <- function(d, report, run=RUN, desc=DESC) {
+  def.par <- par(no.readonly = TRUE)
+  layout(mat = matrix(c(1,1,1,1,2,3,4,4,5,5,6,6), 3, 4, byrow = TRUE), heights=c(2,3,4))
+  
+  textplot(paste("\nBenchmark of ", run), cex = 2, valign = "top")
+  bp <- barplot(as.matrix(report[,2]), col=c("green", "blue", "red"))
+  textplot(report, show.rownames = FALSE)
+  textplot(params, show.rownames = FALSE)
+  
+  histTxs(data)
+
+  par(def.par)
+  #layout(matrix(c(1,1), 1, 1, byrow = TRUE))
+}
 
 report <- readReport(fname2)
-bp <- barplot(as.matrix(report[,2]), main=paste("Benchmark result of ", RUN), col=c("green", "blue", "red"))
-textplot(report, show.rownames = FALSE)
 data <- readData(fname)
 
-histTxs(data)
-
-#ggsave(paste('hist-', RUN, '.svg', sep=''))
-#ggsave(paste('hist-', RUN, '.png', sep=''))
-
-layout(matrix(c(1,1), 1, 1, byrow = TRUE))
+png(filename=paste('overview-', RUN, '.png', sep=''))
+plotOverview(data, report)
+dev.off()
+plotOverview(data, report)
 
 plotTxs(data)
 ggsave(paste('txs-', RUN, '.svg', sep=''))
@@ -218,3 +243,4 @@ ggsave(paste('times-', RUN, '.png', sep=''))
 # example: observe only core nodes:
 plotMempools(data %>% filter(!(node %in% relays)))
 plotTimes(data %>% filter(!(node %in% relays)))
+

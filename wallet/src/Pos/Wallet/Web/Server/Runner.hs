@@ -31,7 +31,7 @@ import           Pos.Launcher.Runner            (runRealBasedMode)
 import           Pos.Util.TimeWarp              (NetworkAddress)
 import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
-import           Pos.Wallet.Web.Mode            (AddrCIdHashes (..), WalletWebMode,
+import           Pos.Wallet.Web.Mode            (WalletWebMode,
                                                  WalletWebModeContext (..),
                                                  WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl,
@@ -49,10 +49,9 @@ runWRealMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn res acts = do
-    ref <- newIORef mempty
     runRealBasedMode
-        (Mtl.withReaderT (WalletWebModeContext db conn $ AddrCIdHashes ref))
-        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ rmc) -> rmc))
+        (Mtl.withReaderT (WalletWebModeContext db conn))
+        (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
         res
         acts
 

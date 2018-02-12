@@ -37,7 +37,7 @@ nodeDbPath: db-mainnet-staging
 
 # Path to log config that will be used by the node. The launcher
 # attaches it to crash reports.
-nodeLogConfig: scripts/log-templates/log-config-qa.yaml
+nodeLogConfig: log-configs/connect-to-cluster.yaml
 
 # File where node stdout/err will be redirected (def: no redirection).
 # nodeLogPath: node.log

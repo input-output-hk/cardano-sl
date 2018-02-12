@@ -7,4 +7,4 @@ import Cardano.Wallet.Kernel
 import qualified Cardano.Wallet.API.V1 as V1
 
 handlers :: ActiveWallet -> Server V1.API
-handlers _w = undefined
+handlers _w = error "TODO"

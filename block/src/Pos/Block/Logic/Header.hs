@@ -24,14 +24,13 @@ import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
 import           Pos.Block.Pure (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
 import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, HeaderHash, SlotId (..),
                            blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
                            epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
                            headerHashG, headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader)
+import           Pos.Core.Block (BlockHeader (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
@@ -80,8 +79,8 @@ classifyNewHeader
     )
     => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
-classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
-classifyNewHeader (Right header) = fmap (either identity identity) <$> runExceptT $ do
+classifyNewHeader (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
+classifyNewHeader (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot
     tipHeader <- DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
@@ -124,7 +123,7 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     }
-            case verifyHeader vhp (Right header) of
+            case verifyHeader vhp (BlockHeaderMain header) of
                 VerFailure errors -> throwError $ mkCHRinvalid errors
                 _                 -> pass
 
@@ -246,21 +245,21 @@ classifyHeaders inRecovery headers = do
 -- | Given a set of checkpoints @c@ to stop at and a terminating
 -- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
 -- and fetch the blocks until one of checkpoints is encountered. In
--- case we got deeper than 'recoveryHeadersMessage', we return
--- 'recoveryHeadersMessage' headers starting from the the newest
+-- case we got deeper than the limit (if given) we return
+-- that number of headers starting from the the newest
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo ::
        ( MonadDBRead m
        , WithLogger m
        , MonadError Text m
        , HasConfiguration
-       , HasBlockConfiguration
        )
-    => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
+    => Maybe Word -- ^ Optional limit on how many to bring in.
+    -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
     -> m (NewestFirst NE BlockHeader)
-getHeadersFromManyTo checkpoints startM = do
+getHeadersFromManyTo mLimit checkpoints startM = do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
@@ -288,7 +287,7 @@ getHeadersFromManyTo checkpoints startM = do
                 maximumBy (comparing getEpochOrSlot) . catMaybes <$>
                 mapM DB.getHeader (toList inMainCheckpoints)
             let loadUpCond (headerHash -> curH) h =
-                    curH /= startHash && h < recoveryHeadersMessage
+                    curH /= startHash && maybe True ((<) h) mLimitInt
             up <- GS.loadHeadersUpWhile newestCheckpoint loadUpCond
             res <-
                 note "loadHeadersUpWhile returned empty list" $
@@ -298,6 +297,8 @@ getHeadersFromManyTo checkpoints startM = do
   where
     noteM :: (MonadError e n) => e -> n (Maybe a) -> n a
     noteM reason action = note reason =<< action
+    mLimitInt :: Maybe Int
+    mLimitInt = fromIntegral <$> mLimit
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed

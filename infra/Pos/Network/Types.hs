@@ -46,11 +46,10 @@ module Pos.Network.Types
        , NodeId (..)
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import           Data.IP (IPv4)
 import qualified Data.Set as Set (null)
-import           GHC.Show (Show (..))
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -58,8 +57,9 @@ import           Network.DNS (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
+import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog.CanLog (WithLogger)
+import           System.Wlog (LoggerNameBox, WithLogger)
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains
@@ -119,12 +119,16 @@ showableNetworkConfig NetworkConfig {..} =
 --
 -- Although the peers are statically configured, this is nonetheless stateful
 -- because we re-read the file on SIGHUP.
-data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
+data StaticPeers = StaticPeers {
       -- | Register a handler to be invoked whenever the static peers change
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
+      staticPeersOnChange   :: (Peers NodeId -> LoggerNameBox IO ()) -> IO ()
+    , -- | Monitoring worker which is supposed to be started in a
+      -- separate thread. This worker processes handlers registered by
+      -- 'staticPeersOnChange'.
+      staticPeersMonitoring :: LoggerNameBox IO ()
     }
 
 instance Show StaticPeers where
@@ -322,12 +326,12 @@ topologyMaxBucketSize topology bucket =
 
 topologyHealthStatus :: MonadIO m => Topology kademlia -> OutboundQ msg nid Bucket -> m HealthStatus
 topologyHealthStatus topology = case topology of
-    TopologyCore{} -> const (pure topologyHealthStatusCore)
-    TopologyRelay{..} -> topologyHealthStatusRelay topologyMaxSubscrs
-    TopologyBehindNAT{} -> topologyHealthStatusNAT
-    TopologyP2P{} -> topologyHealthStatusP2P
+    TopologyCore{}        -> const (pure topologyHealthStatusCore)
+    TopologyRelay{..}     -> topologyHealthStatusRelay topologyMaxSubscrs
+    TopologyBehindNAT{}   -> topologyHealthStatusNAT
+    TopologyP2P{}         -> topologyHealthStatusP2P
     TopologyTraditional{} -> topologyHealthStatusTraditional
-    TopologyAuxx{} -> topologyHealthStatusAuxx
+    TopologyAuxx{}        -> topologyHealthStatusAuxx
 
 -- | Core nodes are always healthy.
 topologyHealthStatusCore :: HealthStatus
@@ -343,12 +347,12 @@ topologyHealthStatusRelay mbs oq = do
     let maxCapacityText :: Text
         maxCapacityText = case mbs of
             OQ.BucketSizeUnlimited -> fromString "unlimited"
-            OQ.BucketSizeMax x -> fromString (show x)
+            OQ.BucketSizeMax x     -> fromString (show x)
     spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
     pure $ case spareCapacity of
-        OQ.SpareCapacity sc | sc == 0 -> HSUnhealthy (fromString "0/" <> maxCapacityText)
-        OQ.SpareCapacity sc           -> HSHealthy $ fromString (show sc) <> "/" <> maxCapacityText
-        OQ.UnlimitedCapacity          -> HSHealthy maxCapacityText
+        OQ.SpareCapacity sc  | sc == 0 -> HSUnhealthy (fromString "0/" <> maxCapacityText)
+        OQ.SpareCapacity sc  -> HSHealthy $ fromString (show sc) <> "/" <> maxCapacityText
+        OQ.UnlimitedCapacity -> HSHealthy maxCapacityText
 
 -- | Health of a behind-NAT node is good iff it is connected to some other node.
 topologyHealthStatusNAT

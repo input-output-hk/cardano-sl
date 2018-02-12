@@ -23,11 +23,11 @@ import           Universum
 import           Control.Lens.TH (makeLensesWith)
 import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Random.Strict (RandT)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
 import           Mockable (MonadMockable, Promise)
 import           System.Wlog (WithLogger, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
@@ -75,7 +75,7 @@ type MonadBlockGenBase m
      = ( WithLogger m
        , MonadMask m
        , MonadIO m
-       , MonadBaseControl IO m
+       , MonadUnliftIO m
        , MonadFormatPeers m
        , MonadMockable m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?

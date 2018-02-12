@@ -47,6 +47,7 @@ library
                      , rocksdb-haskell-ng
                      , text-format
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable

@@ -39,8 +39,8 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race,
-                                      withAsync)
+import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, forConcurrently,
+                                      timeout, withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
@@ -104,6 +104,7 @@ type NtpMonad m =
     , WithLogger m
     , Mockable Concurrently m
     , Mockable Async m
+    , Mockable Delay m
     )
 
 handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
@@ -153,16 +154,14 @@ doSend addr cli = do
 
 startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
 startSend addrs cli = do
-    let timeout = ntpResponseTimeout (ncSettings cli)
+    let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
 
     _ <- concurrently (threadDelay poll) $ do
         logDebug "Sending requests"
         liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
         let sendRequests = forConcurrently addrs (flip doSend cli)
-        let waitTimeout =
-                void $ race
-                    (threadDelay timeout)
+        let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
         withAsync sendRequests $ \_ -> waitTimeout
 
@@ -294,8 +293,7 @@ ntpSingleShot
     :: (NtpMonad m)
     => NtpClientSettings m -> m ()
 ntpSingleShot settings =
-    () <$ threadDelay (ntpResponseTimeout settings) `race`
-          spawnNtpClient settings
+    () <$ timeout (ntpResponseTimeout settings) (spawnNtpClient settings)
 
 -- Store created sockets.
 -- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.

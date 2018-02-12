@@ -7,6 +7,7 @@ module Pos.GState.SanityCheck
 import           Universum
 
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
@@ -17,6 +18,7 @@ sanityCheckDB ::
        ( MonadMask m
        , WithLogger m
        , MonadDBRead m
+       , MonadUnliftIO m
        , MonadReader ctx m
        )
     => m ()
@@ -26,6 +28,7 @@ sanityCheckDB = inAssertMode sanityCheckGStateDB
 sanityCheckGStateDB ::
        forall ctx m.
        ( MonadDBRead m
+       , MonadUnliftIO m
        , MonadMask m
        , WithLogger m
        , MonadReader ctx m

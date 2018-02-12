@@ -11,7 +11,7 @@ module Pos.Logic.Types
 
 import           Universum
 
-import           Data.Conduit (Source)
+import           Data.Conduit (ConduitT)
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
@@ -35,7 +35,7 @@ data Logic m = Logic
       -- Conduit is chosen mainly due to precedent: it's already used in
       -- cardano-sl.
     , getChainFrom       :: HeaderHash
-                         -> Source m Block
+                         -> ConduitT () Block m ()
       -- Get a block header.
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
@@ -43,13 +43,19 @@ data Logic m = Logic
       -- Inspired by 'getHeadersFromManyTo'.
       -- Included here because that function is quite complicated; it's not
       -- clear whether it can be expressed simply in terms of getBlockHeader.:q
-    , getBlockHeaders    :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
+    , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> NonEmpty HeaderHash
+                         -> Maybe HeaderHash
+                         -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
       -- Inspired by 'getHeadersFromToIncl', which is apparently distinct from
       -- 'getHeadersFromManyTo' (getBlockHeaders without the tick above).
       -- FIXME we must unify these.
       -- May want to think about giving a streaming-IO interface (pipes, conduit
       -- or similar).
-    , getBlockHeaders'   :: HeaderHash -> HeaderHash -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
+    , getBlockHeaders'   :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> HeaderHash
+                         -> HeaderHash
+                         -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
@@ -162,39 +168,27 @@ dummyLogicLayer = LogicLayer
 
     dummyLogic :: Applicative m => Logic m
     dummyLogic = Logic
-        { ourStakeholderId   =
-            -- TODO [CSL-2173]: Clarify
-            error "dummy: no stakeholder id"
-        , getBlock           = \_ ->
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get block")
-        , getChainFrom       = \_ ->
-            -- TODO [CSL-2173]: Clarify
-            error "dummy: can't get chain"
-        , getBlockHeader     = \_ ->
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ ->
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get headers")
-        , getBlockHeaders'   = \_ _ ->
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get headers")
-        , getTip             =
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get tip")
-        , getTipHeader       =
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get tip header")
-        , getAdoptedBVData   =
-            -- TODO [CSL-2173]: Clarify
-            pure (error "dummy: can't get block version data")
-        , postBlockHeader    = \_ _ ->
-            -- TODO [CSL-2173]: Clarify
-            pure ()
-        , postPskHeavy       = \_ ->
-            -- TODO [CSL-2173]: Clarify
-            pure False
+        {
+          -- TODO [CSL-2173]: Clarify
+          ourStakeholderId   = error "dummy: no stakeholder id"
+          -- TODO [CSL-2173]: Clarify
+        , getBlock           = \_ -> pure (error "dummy: can't get block")
+          -- TODO [CSL-2173]: Clarify
+        , getChainFrom       = \_ -> error "dummy: can't get chain"
+          -- TODO [CSL-2173]: Clarify
+        , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
+          -- TODO [CSL-2173]: Clarify
+        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get headers")
+          -- TODO [CSL-2173]: Clarify
+        , getBlockHeaders'   = \_ _ _ -> pure (error "dummy: can't get headers")
+          -- TODO [CSL-2173]: Clarify
+        , getTip             = pure (error "dummy: can't get tip")
+          -- TODO [CSL-2173]: Clarify
+        , getTipHeader       = pure (error "dummy: can't get tip header")
+          -- TODO [CSL-2173]: Clarify
+        , getAdoptedBVData   = pure (error "dummy: can't get block version data")
+        , postBlockHeader    = \_ _ -> pure ()
+        , postPskHeavy       = \_ -> pure False
         , postTx             = dummyKeyVal
         , postUpdate         = dummyKeyVal
         , postVote           = dummyKeyVal

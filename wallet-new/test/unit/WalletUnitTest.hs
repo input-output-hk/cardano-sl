@@ -10,13 +10,16 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 import Test.QuickCheck
 import Prelude (Show(..))
+import Serokell.Util (mapJson)
 import qualified Data.Text.Buildable
 import qualified Data.Set as Set
 
 import Pos.Util.Chrono
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil    as Cardano
-import Serokell.Util (mapJson)
+
+import qualified Cardano.Wallet.Kernel           as Kernel
+import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 
 import UTxO.Bootstrap
 import UTxO.Context
@@ -50,30 +53,78 @@ _showContext = do
 
 tests :: Spec
 tests = describe "Wallet unit tests" $ do
-    testSanityChecks
-    quickcheckSanityChecks
+    sanityCheckTranslation
+    quickCheckTranslation
+    sanityCheckPassiveWallet
+    sanityCheckActiveWallet
 
-testSanityChecks :: Spec
-testSanityChecks = describe "Test sanity checks" $ do
-    it "can construct and verify empty block" $
-      intAndVerifyPure emptyBlock `shouldSatisfy` expectValid
+{-------------------------------------------------------------------------------
+  UTxO->Cardano translation tests
+-------------------------------------------------------------------------------}
 
-    it "can construct and verify block with one transaction" $
-      intAndVerifyPure oneTrans `shouldSatisfy` expectValid
+sanityCheckTranslation :: Spec
+sanityCheckTranslation =
+    describe "Test sanity checks" $ do
+      it "can construct and verify empty block" $
+        intAndVerifyPure emptyBlock `shouldSatisfy` expectValid
 
-    it "can construct and verify example 1 from the UTxO paper" $
-      intAndVerifyPure example1 `shouldSatisfy` expectValid
+      it "can construct and verify block with one transaction" $
+        intAndVerifyPure oneTrans `shouldSatisfy` expectValid
 
-    it "can reject overspending" $
-      intAndVerifyPure overspend `shouldSatisfy` expectInvalid
+      it "can construct and verify example 1 from the UTxO paper" $
+        intAndVerifyPure example1 `shouldSatisfy` expectValid
 
-    it "can reject double spending" $
-      intAndVerifyPure doublespend `shouldSatisfy` expectInvalid
+      it "can reject overspending" $
+        intAndVerifyPure overspend `shouldSatisfy` expectInvalid
 
-quickcheckSanityChecks :: Spec
-quickcheckSanityChecks = describe "QuickCheck sanity checks" $ do
-    prop "can construct and verify block with one arbitrary transaction" $
-      expectValid <$> intAndVerifyGen genOneTrans
+      it "can reject double spending" $
+        intAndVerifyPure doublespend `shouldSatisfy` expectInvalid
+
+quickCheckTranslation :: Spec
+quickCheckTranslation =
+    describe "QuickCheck sanity checks" $ do
+      prop "can construct and verify block with one arbitrary transaction" $
+        expectValid <$> intAndVerifyGen genOneTrans
+
+{-------------------------------------------------------------------------------
+  Passive wallet tests
+-------------------------------------------------------------------------------}
+
+sanityCheckPassiveWallet  :: Spec
+sanityCheckPassiveWallet = around bracketPassiveWallet $
+    describe "Passive wallet sanity checks" $ do
+      it "can be initialized" $ \w ->
+        Kernel.init w
+
+-- | Initialize passive wallet in a manner suitable for the unit tests
+bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
+  where
+   -- TODO: Decide what to do with logging
+    logMessage _sev _txt = return ()
+
+{-------------------------------------------------------------------------------
+  Active wallet tests
+-------------------------------------------------------------------------------}
+
+sanityCheckActiveWallet :: Spec
+sanityCheckActiveWallet = around bracketWallet $
+    describe "Active wallet sanity checks" $ do
+      it "initially has no pending transactions" $ \w ->
+        Kernel.hasPending w `shouldReturn` False
+
+-- | Initialize active wallet in a manner suitable for unit testing
+bracketWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
+bracketWallet test =
+    bracketPassiveWallet $ \passive ->
+      Kernel.bracketActiveWallet passive diffusion $ \active ->
+        test active
+  where
+    -- TODO: Decide what we want to do with submitted transactions
+    diffusion :: Kernel.WalletDiffusion
+    diffusion =  Kernel.WalletDiffusion {
+          walletSendTx = \_tx -> return False
+        }
 
 {-------------------------------------------------------------------------------
   Example QuickCheck generated chains

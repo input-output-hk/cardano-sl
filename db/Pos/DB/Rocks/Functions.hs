@@ -34,7 +34,7 @@ import           Universum
 
 import           Control.Lens (ASetter')
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Conduit (ConduitM, Source, bracketP, yield)
+import           Data.Conduit (ConduitT, bracketP, yield)
 import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                                    removeDirectoryRecursive)
@@ -178,7 +178,7 @@ rocksIterSource ::
        )
     => DBTag
     -> Proxy i
-    -> Source m (IterType i)
+    -> ConduitT () (IterType i) m ()
 rocksIterSource tag _ = do
     DB{..} <- lift $ getDBByTag tag
     let createIter = Rocks.createIter rocksDB rocksReadOpts
@@ -188,7 +188,7 @@ rocksIterSource tag _ = do
             produce iter
     bracketP createIter releaseIter action
   where
-    produce :: Rocks.Iterator -> Source m (IterType i)
+    produce :: Rocks.Iterator -> ConduitT () (IterType i) m ()
     produce it = do
         entryStr <- processRes =<< Rocks.iterEntry it
         case entryStr of
@@ -200,7 +200,7 @@ rocksIterSource tag _ = do
     processRes ::
            (Bi (IterKey i), Bi (IterValue i))
         => Maybe (ByteString, ByteString)
-        -> ConduitM () (IterType i) m (Maybe (IterType i))
+        -> ConduitT () (IterType i) m (Maybe (IterType i))
     processRes Nothing   = pure Nothing
     processRes (Just kv) = processIterEntry @i kv
 
@@ -230,5 +230,5 @@ dbIterSourceDefault ::
        )
     => DBTag
     -> Proxy i
-    -> Source m (IterType i)
+    -> ConduitT () (IterType i) m ()
 dbIterSourceDefault = rocksIterSource

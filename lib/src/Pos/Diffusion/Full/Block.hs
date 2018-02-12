@@ -31,17 +31,18 @@ import           System.Wlog (logDebug, logWarning)
 
 -- MsgGetHeaders Bi instance etc.
 import           Pos.Binary.Communication ()
+import           Pos.Block.Configuration (recoveryHeadersMessage)
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
-                                             waitForConversations, OutSpecs, ListenerSpec,
-                                             MkListeners (..), constantListeners)
-import           Pos.Core (HeaderHash, headerHash, prevBlockL, bvdSlotDuration)
-import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
+                                             EnqueueMsg, ListenerSpec, MkListeners (..),
+                                             MsgType (..), NodeId, Origin (..), OutSpecs,
+                                             constantListeners, waitForConversations)
+import           Pos.Core (HeaderHash, bvdSlotDuration, headerHash, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -49,13 +50,13 @@ import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionT
 import           Pos.Logic.Types (GetBlockHeadersError (..), Logic (..))
 import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackType (..), NodeAttackedError (..),
-                                      AttackTarget (..), SecurityParams (..))
+import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
+                                      SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, OldestFirst (..),
-                                  NE, nonEmptyNewestFirst)
-import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+                                  _NewestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
+import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -320,7 +321,7 @@ announceBlockHeader logic enqueue header =  do
                 ("Announcing block"%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
-        send cA $ MsgHeaders (one (Right header))
+        send cA $ MsgHeaders (one (BlockHeaderMain header))
         -- After we announce, the peer is given an opportunity to request more
         -- headers within the same conversation.
         handleHeadersCommunication logic cA
@@ -338,7 +339,7 @@ handleHeadersCommunication
 handleHeadersCommunication logic conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
-        -- FIXME 
+        -- FIXME
         -- Diffusion layer is entirely capable of serving blocks even if the
         -- logic layer is in recovery mode.
         ifM (recoveryInProgress logic) onRecovery $ do
@@ -355,7 +356,7 @@ handleHeadersCommunication logic conv = do
                 -- NB: if the limiting hash is Nothing, getBlockHeaders will
                 -- substitute our current tip.
                 (c1:cxs, _)   -> do
-                    headers <- getBlockHeaders logic (c1:|cxs) mghTo
+                    headers <- getBlockHeaders logic (Just recoveryHeadersMessage) (c1:|cxs) mghTo
                     case headers of
                         Left (GetBlockHeadersError txt) -> pure (Left txt)
                         Right hs                        -> pure (Right hs)
@@ -444,7 +445,7 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
         -- necessary: the streaming thing (probably a conduit) can determine
         -- whether the DB is malformed. Really, this listener has no business
         -- deciding that the database is malformed.
-        mHashes <- getBlockHeaders' logic mgbFrom mgbTo
+        mHashes <- getBlockHeaders' logic (Just recoveryHeadersMessage) mgbFrom mgbTo
         case mHashes of
             Right hashes -> do
                 logDebug $ sformat

@@ -17,6 +17,8 @@ import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Shutdown (triggerShutdown)
+import           Pos.Slotting.Util (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                                    defaultOnNewSlotParams)
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB (getConfirmedProposals)
@@ -33,18 +35,17 @@ usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
   where
     -- These are two separate workers. We want them to run in parallel
     -- and not affect each other.
-    --
-    -- TODO [CSL-1606] If for some reason this action doesn't finish
-    -- before the next slot starts, we should probably cancel this
-    -- action. It can be achieved using timeout or by explicitly
-    -- cancelling it when never slot begins.
+    processNewSlotParams = defaultOnNewSlotParams
+        { onspTerminationPolicy =
+              NewSlotTerminationPolicy "Update.processNewSlot"
+        }
     processNewSlotWorker =
-        localOnNewSlotWorker True $ \s ->
+        localOnNewSlotWorker processNewSlotParams $ \s ->
             recoveryCommGuard "processNewSlot in US" $ do
                 logDebug "Updating slot for US..."
                 processNewSlot s
     checkForUpdateWorker =
-        localOnNewSlotWorker True $ \_ ->
+        localOnNewSlotWorker defaultOnNewSlotParams $ \_ ->
             recoveryCommGuard "checkForUpdate" (checkForUpdate @ctx @m)
 
 checkForUpdate ::

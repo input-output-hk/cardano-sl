@@ -373,12 +373,14 @@ executable cardano-post-mortem
                        , aeson
                        , attoparsec
                        , base
+                       , bytestring
                        , cardano-sl
                        , cardano-sl-block
                        , cardano-sl-core
                        , cardano-sl-txp
                        , cardano-sl-util
                        , containers
+                       , cassava
                        , directory
                        , fgl
                        , filepath

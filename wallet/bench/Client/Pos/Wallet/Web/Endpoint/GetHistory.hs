@@ -6,15 +6,13 @@ module Client.Pos.Wallet.Web.Endpoint.GetHistory
 
 import           Universum
 
-import qualified Data.Text.IO                      as TIO
-
 import           Client.Pos.Wallet.Web.Api         (getHistory)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
-import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Client.Pos.Wallet.Web.Analyze     (analyzeResponseIfNeeded, checkResponse)
 import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                    EndpointConfig (..), Wallet (..),
-                                                    WalletAccount (..), WalletsConfig (..),
-                                                    Response, ResponseReport (..))
+                                                    Wallet (..), WalletAccount (..),
+                                                    WalletsConfig (..), Response,
+                                                    ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
 
 import           Pos.Wallet.Web.ClientTypes        (Addr, CHash (..), CId (..), CTx (..))
@@ -35,12 +33,7 @@ getHistoryIO conf@CompleteConfig {..} = do
                                                     (Just address)
                                                     offset
                                                     limit
-    when needResponseAnalysis $ do
-        let ResponseReport report = analyze response wallet address
-        case extractEndpointConfigFor GetHistoryBench conf of
-            Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
-    return ()
+    analyzeResponseIfNeeded GetHistoryBench conf $ analyze response wallet address
 
 -- | Analyze response with transactions history on
 -- particular wallet/account/address.
@@ -52,13 +45,6 @@ analyze
 analyze response
         (Wallet (CId (CHash walletId)) _)
         (CId (CHash addr)) =
-    case response of
-        Left problem ->
-            ResponseReport $
-                "Cannot get history for wallet '" <> walletId <> "', address '" <> addr <> "': " <> problem
-        Right (Left walletError) ->
-            ResponseReport $
-                "Server returned an error, for wallet '" <> walletId <> "', address '" <> addr <> "': " <> pretty walletError
-        Right (Right (transactions, _)) -> do
-            ResponseReport $
-                show transactions
+    checkResponse response
+                  ("Cannot get history for wallet '" <> walletId <> "', address '" <> addr <> "'")
+                  $ \(transactions, _) -> ResponseReport $ show transactions

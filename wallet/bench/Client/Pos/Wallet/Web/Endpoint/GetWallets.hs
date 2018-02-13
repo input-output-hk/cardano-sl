@@ -6,13 +6,10 @@ module Client.Pos.Wallet.Web.Endpoint.GetWallets
 
 import           Universum
 
-import qualified Data.Text.IO                      as TIO
-
 import           Client.Pos.Wallet.Web.Api         (getWallets)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
-import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Client.Pos.Wallet.Web.Analyze     (analyzeResponseIfNeeded, checkResponse)
 import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                    EndpointConfig (..),
                                                     Response, ResponseReport (..))
 
 import           Pos.Wallet.Web.ClientTypes        (CWallet (..))
@@ -21,25 +18,13 @@ import           Pos.Wallet.Web.ClientTypes        (CWallet (..))
 getWalletsIO :: CompleteConfig -> IO ()
 getWalletsIO conf@CompleteConfig {..} = do
     response <- runEndpointClient conf getWallets
-    when needResponseAnalysis $ do
-        let ResponseReport report = analyze response
-        case extractEndpointConfigFor GetWalletsBench conf of
-            Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
-    return ()
+    analyzeResponseIfNeeded GetWalletsBench conf $ analyze response
 
 -- | Analyze response with list of wallets.
 analyze
     :: Response [CWallet]
     -> ResponseReport
 analyze response =
-    case response of
-        Left problem ->
-            ResponseReport $
-                "Cannot get list of wallets: " <> problem
-        Right (Left walletError) ->
-            ResponseReport $
-                "Server returned an error: " <> pretty walletError
-        Right (Right listOfWallets) -> do
-            ResponseReport $
-                show listOfWallets
+    checkResponse response
+                  "Cannot get list of wallets"
+                  $ \wallets -> ResponseReport $ show wallets

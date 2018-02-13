@@ -6,15 +6,13 @@ module Client.Pos.Wallet.Web.Endpoint.IsValidAddress
 
 import           Universum
 
-import qualified Data.Text.IO                      as TIO
-
 import           Client.Pos.Wallet.Web.Api         (isValidAddress)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
-import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Client.Pos.Wallet.Web.Analyze     (analyzeResponseIfNeeded, checkResponse)
 import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                    EndpointConfig (..), Wallet (..),
-                                                    WalletAccount (..), WalletsConfig (..),
-                                                    Response, ResponseReport (..))
+                                                    Wallet (..), WalletAccount (..),
+                                                    WalletsConfig (..), Response,
+                                                    ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
 
 import           Pos.Wallet.Web.ClientTypes        (Addr, CId (..), CHash (..))
@@ -26,12 +24,7 @@ isValidAddressIO conf@CompleteConfig {..} = do
     account <- pickRandomElementFrom $ accounts wallet
     address <- pickRandomElementFrom $ addresses account
     response <- runEndpointClient conf $ isValidAddress address
-    when needResponseAnalysis $ do
-        let ResponseReport report = analyze response address
-        case extractEndpointConfigFor IsValidAddressBench conf of
-            Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
-    return ()
+    analyzeResponseIfNeeded IsValidAddressBench conf $ analyze response address
 
 -- | Analyze response with information about address.
 analyze
@@ -39,12 +32,7 @@ analyze
     -> CId Addr
     -> ResponseReport
 analyze response (CId (CHash anAddress)) =
-    case response of
-        Left problem ->
-            ResponseReport $
-                "Cannot check an address '" <> anAddress <> "': " <> problem
-        Right (Left walletError) ->
-            ResponseReport $
-                "Server returned an error for address '" <> anAddress <> "': " <> pretty walletError
-        Right (Right isValid) ->
-            ResponseReport $ "Address '" <> anAddress <> "' is " <> if isValid then "valid" else "invalid"
+    checkResponse response
+                  ("Cannot check an address '" <> anAddress <> "'")
+                  $ \isValid -> ResponseReport $ "Address '" <> anAddress <> "' is " <>
+                                    if isValid then "valid" else "invalid"

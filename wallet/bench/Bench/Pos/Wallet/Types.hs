@@ -95,7 +95,7 @@ data BenchEndpoint
 type EndpointClient = CompleteConfig -> IO ()
 
 -- | Response from the server. All endpoints return this type.
-type Response r = Either Text (Either WalletError r)
+type Response dataWeNeed = Either Text (Either WalletError dataWeNeed)
 
 -- | Report about correctness of response from the server.
 newtype ResponseReport = ResponseReport Text

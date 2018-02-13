@@ -6,15 +6,13 @@ module Client.Pos.Wallet.Web.Endpoint.NewPayment
 
 import           Universum
 
-import qualified Data.Text.IO                      as TIO
-
 import           Client.Pos.Wallet.Web.Api         (newPayment)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
-import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Client.Pos.Wallet.Web.Analyze     (analyzeResponseIfNeeded, checkResponse)
 import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                    EndpointConfig (..), Wallet (..),
-                                                    WalletAccount (..), WalletsConfig (..),
-                                                    Response, ResponseReport (..))
+                                                    Wallet (..), WalletAccount (..),
+                                                    WalletsConfig (..), Response,
+                                                    ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom,
                                                     -- pickTwoRandomElementsFrom,
                                                     pickRandomValueBetween)
@@ -45,12 +43,10 @@ newPaymentIO conf@CompleteConfig {..} = do
                                                     toAddress
                                                     (mkCoin amount)
                                                     (Just policy)
-    when needResponseAnalysis $ do
-        let ResponseReport report = analyze response fromAccount toAddress amount
-        case extractEndpointConfigFor NewPaymentBench conf of
-            Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
-    return ()
+    analyzeResponseIfNeeded NewPaymentBench conf $ analyze response
+                                                           fromAccount
+                                                           toAddress
+                                                           amount
 
 -- | Analyze response with new transaction.
 analyze
@@ -59,17 +55,7 @@ analyze
     -> CId Addr
     -> Word64
     -> ResponseReport
-analyze response
-        WalletAccount {..}
-        _
-        _ =
-    case response of
-        Left problem ->
-            ResponseReport $
-                "Cannot create new payment: " <> problem
-        Right (Left walletError) ->
-            ResponseReport $
-                "Server returned an error: " <> pretty walletError
-        Right (Right newTransaction) -> do
-            ResponseReport $
-                show newTransaction
+analyze response WalletAccount {..} _ _ =
+    checkResponse response
+                  "Cannot create new payment"
+                  $ \newTransaction -> ResponseReport $ show newTransaction

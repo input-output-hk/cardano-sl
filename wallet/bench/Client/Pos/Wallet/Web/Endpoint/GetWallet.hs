@@ -6,14 +6,11 @@ module Client.Pos.Wallet.Web.Endpoint.GetWallet
 
 import           Universum
 
-import qualified Data.Text.IO                      as TIO
-
 import           Client.Pos.Wallet.Web.Api         (getWallet)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
-import           Bench.Pos.Wallet.Config.Endpoints (extractEndpointConfigFor)
+import           Client.Pos.Wallet.Web.Analyze     (analyzeResponseIfNeeded, checkResponse)
 import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), CompleteConfig (..),
-                                                    EndpointConfig (..), Wallet (..),
-                                                    WalletsConfig (..),
+                                                    Wallet (..), WalletsConfig (..),
                                                     Response, ResponseReport (..))
 import           Bench.Pos.Wallet.Random           (pickRandomElementFrom)
 
@@ -24,12 +21,7 @@ getWalletIO :: CompleteConfig -> IO ()
 getWalletIO conf@CompleteConfig {..} = do
     Wallet anId _ <- pickRandomElementFrom $ wallets walletsConfig
     response <- runEndpointClient conf $ getWallet anId
-    when needResponseAnalysis $ do
-        let ResponseReport report = analyze response anId
-        case extractEndpointConfigFor GetWalletBench conf of
-            Nothing -> return ()
-            Just (EndpointConfig {..}) -> TIO.appendFile pathToResponseReports $ report <> "\n"
-    return ()
+    analyzeResponseIfNeeded GetWalletBench conf $ analyze response anId
 
 -- | Analyze response with wallet information.
 analyze
@@ -37,13 +29,6 @@ analyze
     -> CId Wal
     -> ResponseReport
 analyze response (CId (CHash anId)) =
-    case response of
-        Left problem ->
-            ResponseReport $
-                "Cannot get a wallet '" <> anId <> "': " <> problem
-        Right (Left walletError) ->
-            ResponseReport $
-                "Server returned an error for wallet '" <> anId <> "': " <> pretty walletError
-        Right (Right wallet) -> do
-            ResponseReport $
-                show wallet
+    checkResponse response
+                  ("Cannot get a wallet '" <> anId <> "'")
+                  $ \wallet -> ResponseReport $ show wallet

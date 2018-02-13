@@ -36,7 +36,7 @@ import           Pos.Core                   (Address, Coin, mkCoin, sumCoins,
                                              unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
-import           Pos.Txp                    (TxAux, TxId, UndoMap,
+import           Pos.Txp                    (GenericTxpLocalData, TxAux, TxId, UndoMap,
                                              applyUtxoModToAddrCoinMap, getLocalTxs,
                                              getLocalUndos, withTxpLocalData)
 import           Pos.Util                   (maybeThrow)
@@ -142,9 +142,7 @@ getAccountMod ws accMod accId = do
 getAccount :: MonadWalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
     ws <- askWalletSnapshot
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
+    mps <- withTxpLocalData getMempoolSnapshot
     accMod <- txMempoolToModifier ws mps =<< findKey accId
     getAccountMod ws accMod accId
 
@@ -174,9 +172,7 @@ getAccounts
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
     ws <- askWalletSnapshot
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
+    mps <- withTxpLocalData getMempoolSnapshot
     getAccountsIncludeUnready ws mps False mCAddr
 
 getWalletIncludeUnready :: MonadWalletWebMode m
@@ -198,17 +194,13 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
 getWallet :: MonadWalletWebMode m => CId Wal -> m CWallet
 getWallet wid = do
     ws <- askWalletSnapshot
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
+    mps <- withTxpLocalData getMempoolSnapshot
     getWalletIncludeUnready ws mps False wid
 
 getWallets :: MonadWalletWebMode m => m [CWallet]
 getWallets = do
     ws <- askWalletSnapshot
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
+    mps <- withTxpLocalData getMempoolSnapshot
     mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
 
 ----------------------------------------------------------------------------
@@ -254,12 +246,9 @@ newAccountIncludeUnready
     :: MonadWalletWebMode m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
+    mps <- withTxpLocalData getMempoolSnapshot
     db <- askWalletDB
     ws <- getWalletSnapshot db
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
-
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
@@ -289,9 +278,7 @@ createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     db <- askWalletDB
     ws <- getWalletSnapshot db
-    mps <- withTxpLocalData $ \txpData -> (,)
-         <$> getLocalTxs txpData
-         <*> getLocalUndos txpData
+    mps <- withTxpLocalData getMempoolSnapshot
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
     when wSetExists $
         throwM $ RequestError "Wallet with that mnemonics already exists"
@@ -353,3 +340,17 @@ changeWalletPassphrase wid oldPass newPass = do
         idx  <- RequestError "No key with such address and pass found"
                 `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)
+
+----------------------------------------------------------------------------
+-- Helper functions
+----------------------------------------------------------------------------
+
+-- | Get local transactions and undos from the mempool.
+--   We define this function here rather than in 'Pos.Txp.MemState.Class'
+--   because it is less composable than the functions defined there - it
+--   obfuscates the underlying structure. But hlint complains if we refuse
+--   to unroll each of the uses in this module.
+getMempoolSnapshot :: GenericTxpLocalData e -> STM ([(TxId, TxAux)], UndoMap)
+getMempoolSnapshot txpData =  (,)
+    <$> getLocalTxs txpData
+    <*> getLocalUndos txpData

@@ -94,7 +94,7 @@ let
       args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
   other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
-    stack2nix = import (pkgs.fetchFromGitHub {
+    stack2nix = import (localLib.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
       rev = "486a88f161a08df8af42cb4c84f44e99fa9a98d8";

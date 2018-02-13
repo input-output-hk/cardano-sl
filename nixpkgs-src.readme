@@ -1,0 +1,16 @@
+due to conflicts within nix and fetch-nixpkgs.nix, we currently need 2 hashes
+tarsha256 is the `nix-hash --flat --type sha256 --base32` over the raw .tar.gz, from a URL like https://github.com/NixOS/nixpkgs/archive/5c09cdc187b014143302551e62d4973b5bf52814.tar.gz
+unpackedsha256 is the `nix-hash --type sha256 --base32` over the directory that results from unpacking the previous tar
+
+builtins.fetchTarball wont tell you the correct unpackedsha256 if its wrong
+but <nix/fetchurl.nix> will give the correct tarsha256 if that is wrong
+
+DEVOPS-675 will simplify this
+
+an example:
+```
+store path mismatch in file downloaded from 'https://github.com/NixOS/nixpkgs/archive/61fbdb47a69f78998f55207e64122a0798047b5d.tar.gz'
+[clever@amd-nixos:/tmp]$ curl -L https://github.com/NixOS/nixpkgs/archive/61fbdb47a69f78998f55207e64122a0798047b5d.tar.gz | tar -xz
+[clever@amd-nixos:/tmp]$ nix-hash --type sha256 --base32 nixpkgs-61fbdb47a69f78998f55207e64122a0798047b5d/
+14kl3g27hapfmnzjclhdc4aglyg4dhmz09syzx4ab1mfyfw7d06n
+```

@@ -15,9 +15,9 @@ import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import qualified Data.Map                         as M
 import           Data.Time.Units                  (Second)
-import           Mockable                         (concurrently, delay)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
+import           Mockable                         (concurrently, delay)
 import           Servant.Server                   (err405, errReasonPhrase)
 import           System.Wlog                      (logDebug)
 
@@ -38,7 +38,9 @@ import           Pos.Crypto                       (PassPhrase, ShouldCheckPassph
                                                    withSafeSignerUnsafe)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
+import           Pos.Txp                          (TxFee (..), Utxo, UtxoModifier,
+                                                   getUtxoModifier, withTxpLocalData,
+                                                   _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
@@ -46,10 +48,10 @@ import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr,
-                                                   CCoin, CId, CTx (..),
-                                                   CWAddressMeta (..), NewBatchPayment (..),
-                                                   Wal, addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
+                                                   CTx (..), CWAddressMeta (..),
+                                                   NewBatchPayment (..), Wal,
+                                                   addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
@@ -60,9 +62,10 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
                                                    convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (WalletSnapshot, askWalletDB, askWalletSnapshot,
-                                                   getWalletSnapshot,
-                                                   AddressLookupMode (Ever, Existing), AddressInfo (..))
+import           Pos.Wallet.Web.State             (AddressInfo (..),
+                                                   AddressLookupMode (Ever, Existing),
+                                                   WalletSnapshot, askWalletDB,
+                                                   askWalletSnapshot, getWalletSnapshot)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds,
@@ -115,8 +118,9 @@ getTxFee
      -> m CCoin
 getTxFee srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
+    updates <- withTxpLocalData getUtxoModifier
     let pendingAddrs = getPendingAddresses ws policy
-    utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
+    utxo <- getMoneySourceUtxo ws updates (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator policy (computeTxFee pendingAddrs utxo outputs)
@@ -153,11 +157,15 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-getMoneySourceUtxo :: MonadWalletWebMode m => WalletSnapshot -> MoneySource -> m Utxo
-getMoneySourceUtxo ws =
+getMoneySourceUtxo :: MonadWalletWebMode m
+                   => WalletSnapshot
+                   -> UtxoModifier
+                   -> MoneySource
+                   -> m Utxo
+getMoneySourceUtxo ws updates =
     getMoneySourceAddresses ws >=>
     mapM (decodeCTypeOrFail . cwamId) >=>
-    getOwnUtxos ws
+    getOwnUtxos ws updates
 
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
@@ -189,6 +197,7 @@ sendMoney
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     ws <- askWalletSnapshot
+    updates <- withTxpLocalData getUtxoModifier
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
@@ -224,7 +233,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     (th, dstAddrs) <-
         rewrapTxError "Cannot send transaction" $ do
             (txAux, inpTxOuts') <-
-                prepareMTx (getOwnUtxos ws) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+                prepareMTx (getOwnUtxos ws updates) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
             ts <- Just <$> getCurrentTimestamp
             let tx = taTx txAux

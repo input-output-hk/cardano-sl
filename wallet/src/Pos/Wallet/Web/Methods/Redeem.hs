@@ -21,6 +21,8 @@ import           Pos.Communication              (SendActions (..), prepareRedemp
 import           Pos.Core                       (getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen)
+import           Pos.Txp                        (getLocalTxs, getLocalUndos,
+                                                 getUtxoModifier, withTxpLocalData)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
@@ -36,8 +38,10 @@ import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (askWalletDB, askWalletSnapshot, AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsDetector)
+import           Pos.Wallet.Web.State           (AddressLookupMode (Ever), askWalletDB,
+                                                 askWalletSnapshot)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
+                                                 getWalletAddrsDetector)
 
 
 redeemAda
@@ -89,14 +93,19 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
     db <- askWalletDB
+    (updates, localTxs, undoMap) <- withTxpLocalData $ \txpData -> (,,)
+        <$> getUtxoModifier txpData
+        <*> getLocalTxs txpData
+        <*> getLocalUndos txpData
+
     -- new redemption wallet
     _ <- L.getAccount accId
 
     ws  <- askWalletSnapshot
-    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress ws RandomSeed passphrase accId
+    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress ws (localTxs, undoMap) RandomSeed passphrase accId
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-
-                prepareRedemptionTx (getOwnUtxos ws) redeemSK dstAddr
+                prepareRedemptionTx (getOwnUtxos ws updates) redeemSK dstAddr
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux

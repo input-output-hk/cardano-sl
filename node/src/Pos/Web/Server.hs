@@ -43,8 +43,7 @@ import           Pos.Network.Types               (Bucket (BucketSubscriptionList
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Ssc.GodTossing              (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
-import           Pos.Txp.MemState                (GenericTxpLocalData, askTxpMem,
-                                                  getLocalTxs)
+import           Pos.Txp.MemState                (GenericTxpLocalData, getLocalTxs, withTxpLocalData)
 import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (TxpExtra_TMP, WorkMode)
@@ -126,7 +125,7 @@ nat :: forall ssc ctx m . MyWorkMode ssc ctx m => m (WebMode ssc :~> Handler)
 nat = do
     nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
-    txpLocalData <- askTxpMem
+    txpLocalData <- withTxpLocalData return
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
 servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
@@ -167,7 +166,7 @@ getUtxo :: HasConfiguration => WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word
-getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers

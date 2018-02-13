@@ -42,6 +42,9 @@ relays <- c('r-a-1', 'r-a-2', 'r-a-3'
           , 'u-a-1', 'u-b-1', 'u-c-1'
             )
 
+# names of unprivileged relay nodes
+uRelays <- c('u-a-1', 'u-b-1', 'u-c-1')
+
 # prep and read in benchmark parameters
 system(paste("sed -e 's/, /\\\n/g' ", fname3, " > ", fname3, "2", sep=''))
 params <- read.csv(paste(fname3, "2", sep=''), header=FALSE, 
@@ -164,7 +167,7 @@ plotTxs <- function(d, run=RUN, desc=DESC) {
     }
 
 # plot the mempool residency for core and relay nodes
-plotMempools <- function(d, run=RUN, desc=DESC) {
+plotMempools <- function(d, str='core and relay', run=RUN, desc=DESC) {
     dd <- d %>%
         filter(txType %in% c("size after block"
                            , "size after rollback"
@@ -172,7 +175,7 @@ plotMempools <- function(d, run=RUN, desc=DESC) {
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
-            'Mempool sizes for core and relay nodes, run at '
+            'Mempool sizes for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
         xlab("t [s]") +
         ylab("Mempool size [# of transactions]") +
@@ -182,7 +185,7 @@ plotMempools <- function(d, run=RUN, desc=DESC) {
 }
 
 # plot the wait and hold times for the local state lock
-plotTimes <- function(d, run=RUN, desc=DESC) {
+plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC) {
     dd <- d %>%
             filter(txType %in% c("hold tx"
                                , "wait tx"
@@ -195,7 +198,7 @@ plotTimes <- function(d, run=RUN, desc=DESC) {
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
-            'Wait and work times for core and relay nodes, run at '
+            'Wait and work times for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
         xlab("t [s]") +
         ylab("Times waiting for/holding the lock [microseconds]") +
@@ -229,18 +232,27 @@ dev.off()
 plotOverview(data, report)
 
 plotTxs(data)
-ggsave(paste('txs-', RUN, '.svg', sep=''))
-ggsave(paste('txs-', RUN, '.png', sep=''))
+#ggsave(paste('txs-', RUN, '.svg', sep=''))
+#ggsave(paste('txs-', RUN, '.png', sep=''))
 
 plotMempools(data)
-ggsave(paste('mempools-', RUN, '.svg', sep=''))
-ggsave(paste('mempools-', RUN, '.png', sep=''))
+#ggsave(paste('mempools-', RUN, '.svg', sep=''))
+#ggsave(paste('mempools-', RUN, '.png', sep=''))
 
 plotTimes(data)
-ggsave(paste('times-', RUN, '.svg', sep=''))
-ggsave(paste('times-', RUN, '.png', sep=''))
+#ggsave(paste('times-', RUN, '.svg', sep=''))
+#ggsave(paste('times-', RUN, '.png', sep=''))
 
-# example: observe only core nodes:
-plotMempools(data %>% filter(!(node %in% relays)))
-plotTimes(data %>% filter(!(node %in% relays)))
+#observe only core nodes:
+plotMempools(data %>% filter(!(node %in% relays)), 'core')
+
+#observe only unprivileged relays:
+plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
+
+#observe only privileged relays:
+plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
+
+plotTimes(data %>% filter(!(node %in% relays)), 'core')
+
+
 

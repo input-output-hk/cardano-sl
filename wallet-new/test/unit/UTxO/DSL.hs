@@ -51,10 +51,11 @@ module UTxO.DSL (
   , utxoToList
   , utxoDomain
   , utxoRange
-  , utxoRemove
   , utxoUnion
   , utxoUnions
-  , utxoFilterByAddr
+  , utxoRestrictToAddr
+  , utxoRestrictToInputs
+  , utxoRemoveInputs
     -- ** Chain
   , Block
   , Blocks
@@ -298,7 +299,7 @@ ledgerUtxo l = go (ledgerToNewestFirst l)
   where
     go :: [Transaction h a] -> Utxo h a
     go []     = utxoEmpty
-    go (t:ts) = go ts `utxoRemove` trSpentOutputs t `utxoUnion` trUtxo t
+    go (t:ts) = utxoRemoveInputs (trSpentOutputs t) (go ts) `utxoUnion` trUtxo t
 
 -- | Ledger validity
 ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Bool
@@ -362,17 +363,20 @@ utxoDomain = Map.keysSet . utxoToMap
 utxoRange :: Utxo h a -> [Output a]
 utxoRange = Map.elems . utxoToMap
 
-utxoRemove :: Hash h a => Utxo h a -> Set (Input h a) -> Utxo h a
-utxoRemove (Utxo utxo) inps = Utxo (utxo `withoutKeys` inps)
-
 utxoUnion :: Hash h a => Utxo h a -> Utxo h a -> Utxo h a
 utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 
 utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
 utxoUnions = Utxo . Map.unions . map utxoToMap
 
-utxoFilterByAddr :: (a -> Bool) -> Utxo h a -> Utxo h a
-utxoFilterByAddr p = Utxo . Map.filter (p . outAddr) . utxoToMap
+utxoRestrictToAddr :: (a -> Bool) -> Utxo h a -> Utxo h a
+utxoRestrictToAddr p = Utxo . Map.filter (p . outAddr) . utxoToMap
+
+utxoRestrictToInputs :: Hash h a => Set (Input h a) -> Utxo h a -> Utxo h a
+utxoRestrictToInputs inps (Utxo utxo) = Utxo (utxo `restrictKeys` inps)
+
+utxoRemoveInputs :: Hash h a => Set (Input h a) -> Utxo h a -> Utxo h a
+utxoRemoveInputs inps (Utxo utxo) = Utxo (utxo `withoutKeys` inps)
 
 {-------------------------------------------------------------------------------
   Additional: chain
@@ -499,6 +503,9 @@ at (_:xs) i = at xs (i - 1)
 
 withoutKeys :: Ord k => Map k a -> Set k -> Map k a
 m `withoutKeys` s = m `Map.difference` Map.fromSet (const ()) s
+
+restrictKeys :: Ord k => Map k a -> Set k -> Map k a
+m `restrictKeys` s = m `Map.intersection` Map.fromSet (const ()) s
 
 data UtxoException = UtxoException CallStack Text
 

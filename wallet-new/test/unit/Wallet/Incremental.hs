@@ -1,6 +1,10 @@
--- | Pure specification of the wallet
-module Wallet.Spec (
-    Wallet -- TODO: Not sure if we want to keep this opaque or not
+-- | Incremental yet pure version of the wallet
+--
+-- This is intended to be one step between the spec and the implementation.
+-- We provide it here so that we can quickcheck this, and then base the
+-- real implementation on this incremental version.
+module Wallet.Incremental (
+    Wallet
   , walletEmpty
   ) where
 
@@ -15,12 +19,17 @@ import Wallet.Abstract
 -------------------------------------------------------------------------------}
 
 -- | Wallet state
+--
+-- Invariant:
+--
+-- > stateUtxoBalance == balance stateUtxo
 data State h a = State {
-      stateUtxo    :: Utxo h a
-    , statePending :: Pending h a
+      stateUtxo        :: Utxo h a
+    , stateUtxoBalance :: Value
+    , statePending     :: Pending h a
     }
 
--- | Wallet is wallet configuration and wallet state
+-- | Wallet
 data Wallet h a = Wallet {
       walletOurs  :: Ours a
     , walletState :: State h a
@@ -31,8 +40,9 @@ walletEmpty :: Ours a -> Wallet h a
 walletEmpty walletOurs = Wallet {..}
   where
     walletState = State {
-        stateUtxo    = utxoEmpty
-      , statePending = Set.empty
+        stateUtxo        = utxoEmpty
+      , stateUtxoBalance = 0
+      , statePending     = Set.empty
       }
 
 -- | Internal helper function for updating wallet state
@@ -60,9 +70,17 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
     where
      aux :: State h a -> Identity (State h a)
      aux State{..} = return State {
-           stateUtxo    = updateUtxo (ours w) b stateUtxo
-         , statePending = updatePending       b statePending
+           stateUtxo        = utxo'
+         , stateUtxoBalance = balance'
+         , statePending     = pending'
          }
+       where
+         pending' = updatePending b statePending
+         utxoNew  = utxoRestrictToOurs (ours w) (txOuts b)
+         unionNew = stateUtxo `utxoUnion` utxoNew
+         utxoRem  = utxoRestrictToInputs (txIns b) unionNew
+         utxo'    = utxoRemoveInputs     (txIns b) unionNew
+         balance' = stateUtxoBalance + balance utxoNew - balance utxoRem
 
   newPending :: Transaction h a -> Wallet h a -> Maybe (Wallet h a)
   newPending tx w = updateState aux w
@@ -71,14 +89,19 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
       aux State{..} = do
           guard $ trIns tx `Set.isSubsetOf` utxoDomain (available w)
           return State {
-              stateUtxo    = stateUtxo
-            , statePending = Set.insert tx statePending
+              stateUtxo        = stateUtxo
+            , stateUtxoBalance = stateUtxoBalance
+            , statePending     = Set.insert tx statePending
             }
 
-updateUtxo :: forall h a. Hash h a
-           => Ours a -> Block h a -> Utxo h a -> Utxo h a
-updateUtxo p b = remSpent . addNew
-  where
-    addNew, remSpent :: Utxo h a -> Utxo h a
-    addNew   = utxoUnion (utxoRestrictToOurs p (txOuts b))
-    remSpent = utxoRemoveInputs (txIns b)
+  -- We can also replace some default methods with more efficient versions
+
+  availableBalance :: Wallet h a -> Value
+  availableBalance Wallet{..} =
+        stateUtxoBalance
+      - balance (utxoRestrictToInputs (txIns statePending) stateUtxo)
+    where
+      State{..} = walletState
+
+  totalBalance :: Wallet h a -> Value
+  totalBalance w = availableBalance w + balance (change w)

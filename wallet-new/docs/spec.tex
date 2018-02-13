@@ -7,15 +7,18 @@
 \usepackage{url}
 \usepackage{natbib}
 \usepackage{parskip}
-
+\usepackage{todonotes}
+\usepackage{slashed}
 
 \newcommand{\powerset}[1]{\mathbb{P}(#1)}
 \newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
 \DeclareMathOperator{\dom}{dom}
 \DeclareMathOperator{\range}{range}
 \newcommand{\restrictdom}{\lhd}
-\newcommand{\subtractdom}{\unlhd}
+\newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
 \newcommand{\restrictrange}{\rhd}
+
+\newtheorem{proofobligation}{Proof Obligation}
 
 \floatstyle{boxed}
 \restylefloat{figure}
@@ -25,28 +28,29 @@
 \begin{document}
 
 \title{Cardano wallet specification (DRAFT)}
-\author{Duncan Coutts}
-\date{February 2\textsuperscript{nd} 2018}
+\author{Duncan Coutts \and Edsko de Vries}
+\date{February 18, 2018}
 
 \maketitle
 
 \section*{Status}
 
 \begin{description}
-\item[Draft 0, Jan 18, 2018] Various scraps of paper
-\item[Draft 1, Jan 24, 2018] Presented to Alfredo Di Napoli, Philipp Kant,
+\item[Draft 0, Jan 18, 2018 (Duncan)] Various scraps of paper
+\item[Draft 1, Jan 24, 2018 (Duncan)] Presented to Alfredo Di Napoli, Philipp Kant,
      Edsko de Vries and Bruno Woltzenlogel Paleo.
-\item[Draft 2, Jan 25, 2018] Incorporated feedback from Edsko de Vries,
+\item[Draft 2, Jan 25, 2018 (Duncan)] Incorporated feedback from Edsko de Vries,
      Bruno Woltzenlogel Paleo and Kristijan \v{S}ari\'{c}. Fixed UTxO
      definition. Presented to Edsko de Vries.
-\item[Draft 3, Jan 26, 2018] Incorporated feedback from Edsko de Vries.
+\item[Draft 3, Jan 26, 2018 (Duncan)] Incorporated feedback from Edsko de Vries.
      Simplified presentation of change and txins/txouts. Described updateUTxO.
-\item[Draft 4, Jan 31, 2018] Added section on efficiency and incrementally
+\item[Draft 4, Jan 31, 2018 (Duncan)] Added section on efficiency and incrementally
      maintaining the balances. Presented at the Well-Typed weekly seminar and
      incorporated feedback from Andres L\"oh and Edsko de Vries.
-\item[Draft 5, Feb 2, 2018] Completed section on incrementally maintaining the
+\item[Draft 5, Feb 2, 2018 (Duncan)] Completed section on incrementally maintaining the
      balances. Slight notation change. Lemmas, invariants and assumptions
      clarified. Next steps updated.
+\item[Draft 6, Feb 12, 2018 (Edsko)] Added section on prefiltering.
 \end{description}
 
 \section{Introduction}
@@ -112,7 +116,7 @@ a partial function that returns the keypair as evidence
 $\mathsf{ours} \in \mathsf{Addr} \mapsto (\mathsf{PubKey} \times \mathsf{PrivKey})$.
 
 Equivalent to the predicate $\mathsf{ours}$, we define a set
-$\mathsf{Addr_{ours}} = \{ a ~|~ a \in Addr, ~ \mathsf{ours} ~ a \}$ and 
+$\mathsf{Addr_{ours}} = \{ a ~|~ a \in Addr, ~ \mathsf{ours} ~ a \}$ and
 similarly a set
 $\mathsf{TxOut_{ours}} = \mathsf{Addr_{ours}} \times \mathsf{Coin}$. These are
 the total range of addresses or transaction outputs that our wallet is
@@ -192,6 +196,8 @@ $\mathsf{applyBlock}$. We will revisit this operation later.
 
 \subsection{Notation}
 
+\subsubsection{Domain and Range Restriction}
+
 We make use of the somewhat-standard notation for domain and range restriction
 operators on functions (or more generally relations).
 
@@ -206,6 +212,8 @@ The more common notation for a function domain restriction $a \restrictdom f$
 is $f \restriction a$, but we use this notation for symmetry with the range
 restriction $f \restrictrange a$.
 
+\subsubsection{Domain Exclusion}
+
 It is convenient to use an operator $f \restrictdom s$, that restricts the
 domain of the function to \emph{exclude} elements of a given set. This is a
 normal function domain restriction but with the membership condition inverted.
@@ -217,6 +225,36 @@ a \subtractdom f  & = ( \dom f \setminus a ) \restrictdom f \\
 a \subtractdom f  & = \{ x \mapsto y ~|~ x \mapsto y \in f, ~ x \notin a \}
 \end{split}
 \end{equation*}
+
+\subsubsection{Properties}
+
+Domain restriction distributions over union:
+%
+\begin{equation} \label{restrictdom_union}
+\begin{split}
+& a \restrictdom (u \cup v) \\
+= & \{ x \mapsto y ~|~ x \mapsto y \in (u \cup v), x \in a \} \\
+= & \{ x \mapsto y ~|~ (x \mapsto y \in u) \vee (x \mapsto y \in v), x \in a \} \\
+= & \{ x \mapsto y ~|~ (x \mapsto y \in u, x \in a) \vee (x \mapsto y \in v, x \in a) \} \\
+= & \{ x \mapsto y ~|~ x \mapsto y \in u, x \in a \} \cup \{ x \mapsto y ~|~ x \mapsto y \in v, x \in a \} \\
+= & (a \restrictdom u) \cup (a \restrictdom v)
+\end{split}
+\end{equation}
+%
+and similarly for domain exclusion
+%
+\begin{equation} \label{subtractdom_union}
+a \subtractdom (u \cup v) = (a \subtractdom u) \cup (a \subtractdom v)
+\end{equation}
+
+Both domain restriction and exclusion affect the domain only:
+%
+\begin{align}
+(a \cap \dom u) \restrictdom u & = a \restrictdom u \label{restrictdom_dom} \\
+(a \cap \dom u) \subtractdom u & = a \subtractdom u \label{subtractdom_dom}
+\end{align}
+
+\todo[inline]{Use consistent variable naming.}
 
 \subsection{Helpful operations}
 
@@ -262,6 +300,7 @@ extra operations.
 \end{equation}
 
 \subsection{Main operations}
+\label{sec:main_operations}
 
 \begin{equation}
 \begin{split}
@@ -273,7 +312,7 @@ extra operations.
 These two are nice and simple once we define the available and total UTxO. It
 is simply the available coins in those two UTxOs.
 
-\begin{equation}
+\begin{equation} \label{applyBlock_spec}
 \begin{split}
 \mathsf{applyBlock} & ~ b ~ (utxo, pending) = \\
                     & (\mathsf{updateUTxO} ~ b ~ utxo, ~~ \mathsf{updatePending} ~ b ~ pending)
@@ -325,6 +364,7 @@ Note from the definitions of $\mathsf{applyBlock}$ and $\mathsf{newPending}$
 blocks and not the pending transactions.
 
 
+
 \section{Assumptions and properties}
 
 \subsection{Assumptions}
@@ -361,7 +401,7 @@ other operators.
 
 We would hope to prove the following invariants are true for all wallet values
 
-\begin{equation}
+\begin{equation} \label{txins_in_dom_utxo}
 \mathsf{txins} ~ pending \subseteq \dom utxo
 \end{equation}
 
@@ -537,6 +577,7 @@ Of course we could cache more, but each extra value we cache adds complexity to
 the design, and additional proof obligations.
 
 \subsection{Incrementally maintaining the UTxO balance}
+\label{sec:applyBlock_incr}
 
 Let us define a new state $w_\sigma = (utxo, pending, \sigma)$ that contains the UTxO
 balance directly. The invariant is of course that $\sigma = \mathsf{balance} ~ utxo$.
@@ -632,6 +673,119 @@ Putting everything back together, and defining $utxo^-$ for symmetry, we get
 \end{split}
 \end{equation*}
 
+\section{Prefiltering}
+
+The $\mathsf{applyBlock} ~ b$ operation is problematic in a setting where it is
+implemented as an operation on the local database of the wallet and those
+operations are stored in a log. The log would contain the full blocks received
+by the wallet, which at current constants of a maximum block of 2 MB and a slot
+length of 20 seconds would mean a worst-case log growth rate of 360 MB/hour.
+
+Let's start by applying Lemmas~\ref{restrictdom_union}
+and~\ref{subtractdom_union} to distribute domain restriction/exclusion over
+union in the definition of $\mathsf{applyBlock}_\sigma$ from
+Section~\ref{sec:applyBlock_incr}:
+
+\begin{equation*}
+\begin{split}
+\mathsf{applyBlock}_\sigma & ~ b ~ (utxo, pending, \sigma) = (utxo^\prime, pending^\prime, \sigma^\prime) \\
+\text{where} \quad \\
+    pending^\prime & = \mathsf{updatePending} ~ b ~ pending \\
+    utxo^+ & = \mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}} \\
+    utxo^- & = (\mathsf{txins} ~ b \restrictdom utxo) \cup (\mathsf{txins} ~ b \restrictdom utxo^+) \\
+    utxo^\prime & = (\mathsf{txins} ~ b \subtractdom utxo) \cup (\mathsf{txins} ~ b \subtractdom utxo^+) \\
+    \sigma^\prime & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ utxo^- \\
+\end{split}
+\end{equation*}
+
+The definition of $utxo^+$ here is perhaps somewhat counter-intuitive: it
+corresponds to the new outputs that the block adds to the UTxO, but includes the
+outputs that are spent within that same block. If we let
+%
+\begin{equation*}
+\mathsf{new} ~ b = \mathsf{txins} ~ b \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})
+\end{equation*}
+%
+we can change perspective slightly to get
+%
+\begin{equation*}
+\begin{split}
+\mathsf{applyBlock}_\sigma & ~ b ~ (utxo, pending, \sigma) = (utxo^\prime, pending^\prime, \sigma^\prime) \\
+\text{where} \quad \\
+    pending^\prime & = \{ tx ~|~ tx \in pending, (inputs, \_) = tx, inputs \cap \mathsf{txins} ~ b = \emptyset \} \\
+    utxo^+ & = \mathsf{new} ~ b \\
+    utxo^- & = \mathsf{txins} ~ b \restrictdom utxo \\
+    utxo^\prime & = (\mathsf{txins} ~ b \subtractdom utxo) \cup utxo^+ \\
+    \sigma^\prime & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ utxo^- \\
+\end{split}
+\end{equation*}
+%
+(where we also expanded the definition of $\mathsf{updatePending}$).
+
+Notice that $\mathsf{applyBlock}$ is defined in terms of $\mathsf{txins} ~
+b$ and $\mathsf{new} ~ b$; intuitively, the inputs spent in the block and the
+outputs created in the block. Define $\mathsf{applyBlock}'_\sigma$ such that
+%
+\begin{equation*}
+  \mathsf{applyBlock'}_\sigma ~ (\mathsf{txins} ~ b, \mathsf{new} ~ b)
+= \mathsf{applyBlock}_\sigma ~ b
+\end{equation*}
+%
+then, crucially, since
+%
+\begin{align*}
+inputs \cap (\mathsf{txins} ~ b \cap \dom utxo) & = inputs \cap \mathsf{txins} ~ b & \text{(invariant~\ref{txins_in_dom_utxo})} \\
+(\mathsf{txins} ~ b \cap \dom utxo) \subtractdom utxo & = \mathsf{txins} ~ b \subtractdom utxo & \text{(lemma~\ref{subtractdom_dom})} \\
+(\mathsf{txins} ~ b \cap \dom utxo) \restrictdom utxo & = \mathsf{txins} ~ b \restrictdom utxo & \text{(lemma~\ref{restrictdom_dom})} \\
+\end{align*}
+%
+we have that
+%
+\begin{equation*}
+  \mathsf{applyBlock'}_\sigma ~ (\mathsf{txins} ~ b \cap \dom utxo, \mathsf{new} ~ b)
+= \mathsf{applyBlock'}_\sigma ~ (\mathsf{txins} ~ b, \mathsf{new} ~ b)
+\end{equation*}
+%
+and so we can now redefine
+%
+\begin{equation*}
+  \mathsf{applyBlock}_\sigma ~ b
+= \mathsf{applyBlock'}_\sigma ~ (\mathsf{txins} ~ b \cap \dom utxo, \mathsf{new} ~ b)
+\end{equation*}
+%
+What we gained is that the argument to the operation now only contains
+information that is relevant to our UTxO, much reducing the size of the database
+log. Moreover, we can compute this information in
+\begin{math}
+\mathsf{join} ~ |\mathsf{txins} ~ b| ~ |utxo|
+\end{math}
+time, so we haven't inadvertedly made things more expensive.
+
+The downside is that in order to do this prefiltering we need to know the
+current value of our $utxo$, which means we need to do a database read and then
+a database write in two separate transactions. While in principle this means
+we might suffer from the lost update problem, in practice block updates need to
+be processed sequentially \emph{anyway}. It does however impose a proof
+obligation on the rest of the system:
+
+\begin{proofobligation}
+Only $\mathsf{applyBlock}$ modifies the wallet's UTxO.
+\end{proofobligation}
+
+Note that there are at least two possible alternative approaches:
+
+\begin{itemize}
+\item The wallet runs as part of a full node, and that full node maintains
+the full UTxO of the blockchain. When the fullnode receives a new block,
+that block must be consistent with the state of the blockchain, and hence
+the fullnode can decorate all inputs with the corresponding addresses before
+passing the block to the wallet. This would make the filtering operation in
+the wallet trivial and stateless.
+\item We can also push the problem further upstream and specify that the
+resolved addresses must be listed alongside the transaction IDs in the
+transaction inputs themselves. This would effectively be a form of caching
+in the blockchain, and may be beneficial elsewhere also.
+\end{itemize}
 
 \section{Transaction input selection and UTxO maintenance}
 

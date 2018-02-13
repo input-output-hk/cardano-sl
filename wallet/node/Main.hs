@@ -131,6 +131,7 @@ action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
+        when cnaDumpConfiguration CLI.dumpConfiguration
         CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs

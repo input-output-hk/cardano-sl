@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 -- because stack doesn't seem to take "buildable: False" into account when
 -- calculating the build plan.
 Flag for-installer
-  default:     False 
+  default:     False
   manual:      True
 
   description: Build a reduced set of components (only what is needed for the
@@ -427,10 +427,13 @@ executable cardano-post-mortem
                        , aeson
                        , attoparsec
                        , base
+                       , bytestring
+                       , cardano-sl
                        , cardano-sl-block
                        , cardano-sl-txp
                        , cardano-sl-util
                        , containers
+                       , cassava
                        , directory
                        , fgl
                        , filepath

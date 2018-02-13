@@ -24,6 +24,7 @@ import           Formatting (bprint, build, sformat, (%))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ComponentBlock (..), EpochIndex (..), HasConfiguration, StakeholderId,
                            addressHash, epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
@@ -72,7 +73,7 @@ type ReverseTrans = HashMap StakeholderId (HashSet StakeholderId, HashSet Stakeh
 -- executed under shared Gstate DB lock.
 calculateTransCorrections
     :: forall m.
-       (MonadDBRead m, WithLogger m)
+       (MonadUnliftIO m, MonadDBRead m, WithLogger m)
     => HashSet DlgEdgeAction -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
@@ -243,7 +244,7 @@ calculateTransCorrections eActions = do
                 Just Nothing  -> pure v
 
             loop :: StakeholderId ->
-                    MapCede (StateT (HashMap StakeholderId (Maybe StakeholderId)) m) StakeholderId
+                    StateT (HashMap StakeholderId (Maybe StakeholderId)) (MapCede m) StakeholderId
             loop v = retCached v $ resolve v >>= \case
                 -- There's no delegate = we are the delegate/end of the chain.
                 Nothing -> (at v ?= Nothing) $> v
@@ -260,7 +261,7 @@ calculateTransCorrections eActions = do
                                       HS.toList eActions)
                     mempty
 
-        in void $ evalMapCede eActionsHM $ loop iSId
+        in void $ StateT $ \s -> evalMapCede eActionsHM $ runStateT (loop iSId) s
 
     -- Given changeset, returns map d → (ad,dl), where ad is set of
     -- new issuers that delegate to d, while dl is set of issuers that
@@ -315,6 +316,7 @@ dlgVerifyBlocks ::
        forall ctx m.
        ( MonadDBRead m
        , MonadIO m
+       , MonadUnliftIO m
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasConfiguration
@@ -323,7 +325,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
-    richmen <- getDlgRichmen "dlgVerifyBlocks" headEpoch
+    richmen <- lift $ getDlgRichmen "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -348,7 +350,7 @@ dlgVerifyBlocks blocks = do
 
         ------------- [Header] -------------
 
-        dlgVerifyHeader $ blk ^. gbHeader
+        ExceptT $ dlgVerifyHeader $ blk ^. gbHeader
 
         ------------- [Payload] -------------
 
@@ -400,6 +402,7 @@ dlgApplyBlocks ::
        ( MonadDelegation ctx m
        , MonadIO m
        , MonadDBRead m
+       , MonadUnliftIO m
        , WithLogger m
        , MonadMask m
        , HasConfiguration
@@ -458,6 +461,7 @@ dlgRollbackBlocks
     :: forall ctx m.
        ( MonadDelegation ctx m
        , MonadDBRead m
+       , MonadUnliftIO m
        , WithLogger m
        )
     => NewestFirst NE DlgBlund
@@ -487,6 +491,7 @@ dlgNormalizeOnRollback ::
        forall ctx m.
        ( MonadDelegation ctx m
        , MonadDBRead m
+       , MonadUnliftIO m
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m

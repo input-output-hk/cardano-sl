@@ -11,7 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
-import           Control.Exception.Safe (MonadCatch, MonadMask, MonadThrow, Exception, throwM)
+import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow, throwM)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function
@@ -50,7 +50,9 @@ type instance M.Promise  Dequeue = M.Promise  M.Production
 
 instance M.Mockable M.Async Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
-instance M.Mockable M.Fork  Dequeue where
+instance M.Mockable M.LowLevelAsync Dequeue where
+    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
+instance M.Mockable M.MyThreadId  Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 
 newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }

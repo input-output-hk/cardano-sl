@@ -42,7 +42,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..))
+import           Mode (AuxxContext (..), AuxxMode)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (WithCommandAction (..), withAuxxRepl)
 
@@ -120,7 +120,6 @@ action opts@AuxxOptions {..} command = do
                   let auxxContext =
                           AuxxContext
                           { acRealModeContext = realModeContext
-                          , acCmdCtx = cmdCtx
                           , acTempDbUsed = tempDbUsed }
                   lift $ runReaderT auxxAction auxxContext
           let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
@@ -139,7 +138,6 @@ action opts@AuxxOptions {..} command = do
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =
         CLI.NodeArgs {behaviorConfigPath = Nothing}
-    cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

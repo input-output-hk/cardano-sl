@@ -27,8 +27,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Mockable (Production)
+import           Mockable (LowLevelAsync, Mockable, Production)
 import           System.Wlog (HasLoggerName (..))
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
@@ -183,6 +184,7 @@ instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeConte
 
 type MonadWalletWebMode ctx m =
     ( MinWorkMode m
+    , MonadUnliftIO m
     , MonadBaseControl IO m
     , MonadMask m
     , MonadSlots ctx m
@@ -214,6 +216,7 @@ type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
+    , Mockable LowLevelAsync m
     )
 
 ----------------------------------------------------------------------------
@@ -271,10 +274,12 @@ instance (HasConfiguration, HasSscConfiguration, HasInfraConfiguration) =>
 
 type BalancesEnv ext ctx m =
     ( MonadDBRead m
+    , MonadUnliftIO m
     , MonadGState m
     , MonadWalletDBRead ctx m
     , MonadMask m
-    , MonadTxpMem ext ctx m)
+    , MonadTxpMem ext ctx m
+    )
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do

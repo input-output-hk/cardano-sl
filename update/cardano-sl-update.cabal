@@ -123,6 +123,7 @@ library
                      , time-units
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-language:    Haskell2010

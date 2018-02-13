@@ -34,7 +34,6 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 import           Control.Monad.Trans (MonadTrans)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as M (fromList, insert, lookup)
@@ -221,7 +220,6 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx StateLockMetrics
     , HasReportingContext ctx
-    , MonadBaseControl IO m
     , Mockable CurrentTime m
     , MonadFormatPeers m
     , HasNodeType ctx

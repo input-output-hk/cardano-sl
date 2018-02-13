@@ -131,7 +131,7 @@ txProcessTransactionAbstract buildPTxContext txAction itw@(txId, txAux) = report
     -- Also note that we don't need to use a snapshot here and can be
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
-    tipDB <- GS.getTip
+    tipDB <- lift GS.getTip
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
     pctx <- lift $ buildPTxContext txAux
     pRes <-

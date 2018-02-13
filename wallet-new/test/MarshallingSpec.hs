@@ -9,6 +9,7 @@ import           Cardano.Wallet.Orphans ()
 import           Data.Aeson
 import           Data.Typeable (typeRep)
 import qualified Pos.Crypto as Crypto
+import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
@@ -52,6 +53,8 @@ spec = describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy
         migrateRoundtripProp @(WalletId, AccountId) @V0.AccountId Proxy Proxy
+        migrateRoundtripProp @PaymentDistribution @(V0.CId V0.Addr, Core.Coin) Proxy Proxy
+        migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
 
     describe "Invariants" $ do
         describe "password" $ do

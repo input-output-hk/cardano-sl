@@ -21,14 +21,15 @@ import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPeriod,
                                     walletTxCreationDisabled)
-import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL, TxAux)
+import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux, difficultyL)
 import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
-import           Pos.Slotting (MonadSlots, getNextEpochSlotDuration, onNewSlot)
+import           Pos.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
+                               getNextEpochSlotDuration, onNewSlot)
 import           Pos.Util.Chrono (getOldestFirst)
 import           Pos.Util.LogSafe (logDebugS, logInfoS)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
@@ -165,6 +166,9 @@ startPendingTxsResubmitter
     :: MonadPendings ctx m
     => (TxAux -> m Bool)
     -> m ()
-startPendingTxsResubmitter submitTx = setLogger $ onNewSlot False (processPtxsOnSlot submitTx)
+startPendingTxsResubmitter submitTx =
+    setLogger $ onNewSlot onsp (processPtxsOnSlot submitTx)
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
+    onsp :: OnNewSlotParams
+    onsp = defaultOnNewSlotParams { onspStartImmediately = False }

@@ -4,7 +4,10 @@
 -- | Transaction creation and fees
 
 module Pos.Wallet.Web.Methods.Payment
-       ( newPayment
+       ( MoneySource(..)
+       , MonadFees
+       , getMoneySourceUtxo
+       , newPayment
        , newPaymentBatch
        , getTxFee
        ) where

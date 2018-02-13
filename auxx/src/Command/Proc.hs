@@ -50,8 +50,7 @@ import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
                              ProposeUpdateParams (..), ProposeUpdateSystem (..),
                              RollbackParams (..), Value (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
-                       makePubKeyAddressAuxx)
+import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
 createCommandProcs ::
@@ -410,7 +409,6 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
-        CmdCtx {..} <- getCmdCtx
         let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i

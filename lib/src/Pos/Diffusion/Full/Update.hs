@@ -6,6 +6,7 @@ module Pos.Diffusion.Full.Update
        , sendUpdateProposal
 
        , updateListeners
+       , updateOutSpecs
        ) where
 
 import           Universum
@@ -20,10 +21,11 @@ import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
-                                             NodeId, MkListeners)
+                                             NodeId, MkListeners, OutSpecs)
 import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode,
                                           Relay (..), relayListeners,
-                                          InvReqDataParams (..), MempoolParams (..))
+                                          InvReqDataParams (..), MempoolParams (..),
+                                          relayPropagateOut)
 import           Pos.Crypto (hashHexF)
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -100,6 +102,18 @@ usRelays
     => Logic m
     -> [Relay m]
 usRelays logic = [proposalRelay logic, voteRelay logic]
+
+-- | 'OutSpecs' for the update system, to keep up with the 'InSpecs'/'OutSpecs'
+-- motif required for communication.
+-- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
+updateOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       , HasAdoptedBlockVersionData m
+       )
+    => Logic m
+    -> OutSpecs
+updateOutSpecs logic = relayPropagateOut (usRelays logic)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal relays

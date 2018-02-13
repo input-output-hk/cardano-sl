@@ -13,10 +13,11 @@ module Pos.Worker.Types
     ) where
 
 import           Universum
+
+import           Pos.Communication.Protocol (LocalOnNewSlotComm, OnNewSlotComm)
 import           Pos.Communication.Types.Protocol (OutSpecs)
-import           Pos.Communication.Protocol (OnNewSlotComm, LocalOnNewSlotComm)
-import           Pos.Communication.Util (Action, ActionSpec (..), toAction, localSpecs)
-import           Pos.Slotting (SlotId, onNewSlot)
+import           Pos.Communication.Util (Action, ActionSpec (..), localSpecs, toAction)
+import           Pos.Slotting (OnNewSlotParams (..), SlotId, onNewSlot)
 
 type Worker m = Action m ()
 type WorkerSpec m = ActionSpec m ()
@@ -33,21 +34,21 @@ worker' outSpecs h =
 
 onNewSlot'
     :: OnNewSlotComm ctx m
-    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' startImmediately (h, outs) =
+    => OnNewSlotParams -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' params (h, outs) =
     (,outs) . ActionSpec $ \sA ->
-        onNewSlot startImmediately $
+        onNewSlot params $
             \slotId -> let ActionSpec h' = h slotId
                         in h' sA
 onNewSlotWorker
     :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
+    => OnNewSlotParams -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
+onNewSlotWorker params outs = onNewSlot' params . workerHelper outs
 
 localOnNewSlotWorker
     :: LocalOnNewSlotComm ctx m
-    => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker b h = (ActionSpec $ \__sA -> onNewSlot b h, mempty)
+    => OnNewSlotParams -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+localOnNewSlotWorker params h = (ActionSpec $ \__sA -> onNewSlot params h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
 localWorker = localSpecs

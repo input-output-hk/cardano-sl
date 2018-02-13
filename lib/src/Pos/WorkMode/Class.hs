@@ -16,6 +16,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
@@ -97,6 +98,7 @@ type MinWorkMode m
       , CanJsonLog m
       , MonadMockable m
       , MonadIO m
+      , MonadUnliftIO m
       , HasConfiguration
       , HasInfraConfiguration
       , HasUpdateConfiguration

@@ -118,6 +118,7 @@ library
                       , time-units
                       , transformers
                       , universum
+                      , unliftio
                       , unordered-containers
 
 

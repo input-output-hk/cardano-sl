@@ -9,8 +9,7 @@ module Pos.Logic.Full
 import           Universum
 
 import           Control.Lens (at, to)
-import           Control.Monad.Trans.Except (runExceptT)
-import           Data.Conduit (Source)
+import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
@@ -108,7 +107,7 @@ logicLayerFull jsonLogTx connectionChangeAction k = do
         getBlock :: HeaderHash -> m (Maybe Block)
         getBlock = DB.getBlock
 
-        getChainFrom :: HeaderHash -> Source m Block
+        getChainFrom :: HeaderHash -> ConduitT () Block m ()
         getChainFrom = DB.blocksSourceFrom
 
         getTip :: m Block
@@ -127,19 +126,21 @@ logicLayerFull jsonLogTx connectionChangeAction k = do
         getBlockHeader = DB.getHeader
 
         getBlockHeaders
-            :: NonEmpty HeaderHash
+            :: Maybe Word -- ^ Optional limit on how many to pull in.
+            -> NonEmpty HeaderHash
             -> Maybe HeaderHash
             -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
-        getBlockHeaders checkpoints start = do
-            result <- runExceptT (DB.getHeadersFromManyTo checkpoints start)
-            either (pure . Left . GetBlockHeadersError) (pure . Right) result
+        getBlockHeaders mLimit checkpoints start =
+            first GetBlockHeadersError <$>
+            DB.getHeadersFromManyTo mLimit checkpoints start
 
         getBlockHeaders'
-            :: HeaderHash
+            :: Maybe Word -- ^ Optional limit on how many to pull in.
+            -> HeaderHash
             -> HeaderHash
             -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
-        getBlockHeaders' older newer = do
-            outcome <- DB.getHeadersRange Nothing older newer
+        getBlockHeaders' mLimit older newer = do
+            outcome <- DB.getHeadersRange mLimit older newer
             case outcome of
                 Left txt -> pure (Left (GetBlockHeadersError txt))
                 Right it -> pure (Right it)
@@ -204,7 +205,7 @@ logicLayerFull jsonLogTx connectionChangeAction k = do
             => SscTag
             -> (contents -> StakeholderId)
             -> (StakeholderId -> TossModifier -> Maybe contents)
-            -> (contents -> ExceptT err m ())
+            -> (contents -> m (Either err ()))
             -> KeyVal (Tagged contents StakeholderId) contents m
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
@@ -226,7 +227,7 @@ logicLayerFull jsonLogTx connectionChangeAction k = do
                 | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
                 | otherwise = sscProcessMessage processData dat
             sscProcessMessage sscProcessMessageDo dat =
-                runExceptT (sscProcessMessageDo dat) >>= \case
+                sscProcessMessageDo dat >>= \case
                     Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
 

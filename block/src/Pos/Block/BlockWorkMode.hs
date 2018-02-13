@@ -10,7 +10,7 @@ module Pos.Block.BlockWorkMode
 import           Universum
 
 import           Data.Default (Default)
-import           Mockable (Delay, Fork, Mockables, SharedAtomic)
+import           Mockable (Delay, Mockables, SharedAtomic)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
@@ -59,7 +59,7 @@ type BlockWorkMode ctx m =
     ( BlockInstancesConstraint m
 
     , Default (MempoolExt m)
-    , Mockables m [Delay, Fork, SharedAtomic]
+    , Mockables m [Delay, SharedAtomic]
 
     , LrcModeFull ctx m
     , MonadRecoveryInfo m

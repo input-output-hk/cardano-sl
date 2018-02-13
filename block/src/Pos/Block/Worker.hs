@@ -13,7 +13,7 @@ import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
-import           Mockable (delay, fork)
+import           Mockable (delay)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
@@ -52,7 +52,8 @@ import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRe
                                     recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
-import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
+import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
 import           Pos.Update.DB (getAdoptedBVData)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
@@ -81,7 +82,7 @@ blkWorkers =
 
 informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 informerWorker =
-    onNewSlotWorker True mempty $ \slotId _ ->
+    onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
             -- Printe tip header
@@ -102,16 +103,17 @@ informerWorker =
 -- Block creation worker
 ----------------------------------------------------------------------------
 
--- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
 blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
-    onNewSlotWorker True mempty $ \slotId diffusion ->
+    onNewSlotWorker onsp mempty $ \slotId diffusion ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
-            void $ fork $
-            blockCreator slotId diffusion `catchAny` onBlockCreatorException
+        blockCreator slotId diffusion `catchAny` onBlockCreatorException
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
-
+    onsp :: OnNewSlotParams
+    onsp =
+        defaultOnNewSlotParams
+        {onspTerminationPolicy = NewSlotTerminationPolicy "block creator"}
 
 blockCreator
     :: BlockWorkMode ctx m

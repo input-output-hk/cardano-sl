@@ -1,4 +1,3 @@
-{-#LANGUAGE OverloadedStrings #-}
 -- | Post-mortem tool main.
 
 import           Universum
@@ -27,7 +26,7 @@ main = parseOptions >>= \case
         xs <- forM logDirs $ flip processLogDirOverview sampleProb
         chart xs "times.svg"
         err "wrote times chart"
-        B.writeFile "times.csv" (C.encode $ foldl' (\ acc (_, m) -> getData m ++  acc) [] xs)
+        BSL.writeFile "times.csv" (C.encode $ foldl' (\ acc (_, m) -> getData m ++  acc) [] xs)
         err "wrote times csv"
     Focus txHash logDir         -> do
         err $ "transaction hash: " ++ show txHash

@@ -6,13 +6,11 @@ Most important code changes which made to release 1.1.0.
 
 ### Features
 
-* User is shown a notification when his time is out of sync with global time (notification advises to configure system NTP client).
-
+* New endpoint to provide UI an information that user's time is out of sync with global time.
+* Support of transactions with multiple recipients (useful for integration).
 * Minor: Logs being sent to report server are now compressed before sending (which reduces bandwidth usage in case of large logs).
 * Minor: Launcher now launched with YAML config which removes the need for custom .bat/.sh scripts to launch node.
 * Minor: Special option for node to switch off TLS protection of wallet endpoints (useful for integration/testing).
-
-* Backend: Support of transactions with multiple recipients (useful for integration)
 
 
 ### Important fixes

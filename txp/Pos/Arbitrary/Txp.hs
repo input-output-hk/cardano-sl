@@ -29,7 +29,7 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
 import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -119,8 +119,10 @@ buildProperTx inputList (inCoin, outCoin) =
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
-    newTx = fromMaybe (error "buildProperTx: can't create tx") $
-            mkTx ins outs def
+    newTx =
+        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
+        either (error "buildProperTx: can't create tx") identity $
+        mkTx ins outs def
     newTxHash = hash newTx
     ins  = fmap (view _2) txList
     outs = fmap (view _4) txList
@@ -141,8 +143,10 @@ newtype GoodTx = GoodTx
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
-    tx = fromMaybe (error "goodTxToTxAux created malformed tx") $
-         mkTx (map (view _2) l) (map (toaOut . view _3) l) def
+    tx =
+        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
+        either (error "goodTxToTxAux created malformed tx") identity $
+        mkTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
 instance HasConfiguration => Arbitrary GoodTx where

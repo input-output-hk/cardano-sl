@@ -75,6 +75,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -114,6 +115,7 @@ test-suite cardano-client-test
                      , containers
                      , formatting
                      , hspec
+                     , safe-exceptions
                      , universum >= 0.1.11
                      , unordered-containers
 
@@ -152,6 +154,7 @@ test-suite cardano-client-test
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

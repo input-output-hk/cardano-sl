@@ -5,7 +5,6 @@ This directory contains Bash scripts we use for different tasks (e.g. building, 
 ## Build
 
 * `build/cardano-sl.sh` - build Cardano SL, both in `dev` and `prod` modes.
-* `build/daedalus-bridge.sh` - build Daedalus Bridge, for work with Daedalus wallet.
 
 Please note that running mode depends on building mode! E.g. if you built Cardano SL in `dev`
 mode, it will run in `dev` mode as well, and if you built it in `prod` mode, it will run in
@@ -37,7 +36,6 @@ mode, it will run in `dev` mode as well, and if you built it in `prod` mode, it 
 ## Clean
 
 * `clean/db.sh` - clean Cardano SL DB data.
-* `clean/daedalus-bridge.sh` - clean Daedalus Bridge building artifacts.
 * `clean/all.sh` - do previous steps and clean `.stack-work` directory as well (in this case full rebuilding is required).
 
 ## Generate
@@ -54,10 +52,9 @@ mode, it will run in `dev` mode as well, and if you built it in `prod` mode, it 
 
 ## CI
 
-Please note that these scripts are for CI only (we use Travis and AppVeyor). These scripts rely on specific environment variables, so manual running of these scripts on your machine is not implied.
+Please note that these scripts are for CI only (we use Buildkite and AppVeyor). These scripts rely on specific environment variables, so manual running of these scripts on your machine is not implied.
 
-* `ci/travis.sh` - main script for Travis CI.
-* `ci/update-cardano-sl-readme.sh` - update Cardano SL `README.md`.
+* `ci/ci.sh` - main script for Buildkite CI.
 * `ci/update-cli-docs.sh` - update [Cardano SL CLI Options](https://cardanodocs.com/technical/cli-options/) chapter.
 * `ci/update-haddock.sh` - update Haddock-documentation for Cardano SL source code.
 * `ci/update-wallet-web-api-docs.sh` - update [Cardano SL Wallet Web API](https://cardanodocs.com/technical/wallet/api/) chapter.
@@ -68,7 +65,3 @@ Please note that these scripts are for CI only (we use Travis and AppVeyor). The
 
 * `common-functions.sh` - different Bash-functions we call in other scripts.
 * `grep.sh` - search in Cardano SL source code.
-
-## Log Configuration Templates
-
-Directory `log-templates` contains different YAML-templates for logging configuration.

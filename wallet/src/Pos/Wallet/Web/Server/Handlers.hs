@@ -16,13 +16,14 @@ import           Servant.Generic (AsServerT, GenericProduct, ToServant, toServan
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
+import           Pos.Core.Txp (TxAux)
 import           Pos.Update.Configuration (curSoftwareVersion)
+
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
 import qualified Pos.Wallet.Web.Api as A
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 
 ----------------------------------------------------------------------------
 -- The wallet API with Swagger
@@ -30,10 +31,11 @@ import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 
 servantHandlersWithSwagger
     :: MonadFullWalletWebMode ctx m
-    => (forall x. m x -> Handler x)
+    => (TxAux -> m Bool)
+    -> (forall x. m x -> Handler x)
     -> Server A.WalletSwaggerApi
-servantHandlersWithSwagger nat =
-    hoistServer A.walletApi nat servantHandlers
+servantHandlersWithSwagger submitTx nat =
+    hoistServer A.walletApi nat (servantHandlers submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
 
@@ -41,20 +43,21 @@ servantHandlersWithSwagger nat =
 -- The wallet API
 ----------------------------------------------------------------------------
 
-servantHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WalletApi m
-servantHandlers = toServant' A.WalletApiRecord
+servantHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WalletApi m
+servantHandlers submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers
     , _accounts    = accountsHandlers
     , _addresses   = addressesHandlers
     , _profile     = profileHandlers
-    , _txs         = txsHandlers
+    , _txs         = txsHandlers submitTx
     , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers
+    , _redemptions = redemptionsHandlers submitTx
     , _reporting   = reportingHandlers
     , _settings    = settingsHandlers
     , _backup      = backupHandlers
     , _info        = infoHandlers
+    , _system      = systemHandlers
     }
 
 -- branches of the API
@@ -79,7 +82,7 @@ walletsHandlers = toServant' A.WWalletsApiRecord
 
 accountsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WAccountsApi m
 accountsHandlers = toServant' A.WAccountsApiRecord
-    { _getAccount    = fixingCachedAccModifier M.getAccount
+    { _getAccount    = M.getAccount
     , _getAccounts   = M.getAccounts
     , _updateAccount = M.updateAccount
     , _newAccount    = M.newAccount RandomSeed
@@ -98,14 +101,16 @@ profileHandlers = toServant' A.WProfileApiRecord
     , _updateProfile = M.updateUserProfile
     }
 
-txsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WTxsApi m
-txsHandlers = toServant' A.WTxsApiRecord
-    { _newPayment      = M.newPayment
-    , _newPaymentBatch = M.newPaymentBatch
-    , _txFee           = M.getTxFee
-    , _resetFailedPtxs = M.resetAllFailedPtxs
-    , _updateTx        = M.updateTransaction
-    , _getHistory      = M.getHistoryLimited
+txsHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WTxsApi m
+txsHandlers submitTx = toServant' A.WTxsApiRecord
+    { _newPayment                = M.newPayment submitTx
+    , _newPaymentBatch           = M.newPaymentBatch submitTx
+    , _txFee                     = M.getTxFee
+    , _resetFailedPtxs           = M.resetAllFailedPtxs
+    , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
+    , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
+    , _getHistory                = M.getHistoryLimited
+    , _pendingSummary            = M.gatherPendingTxsSummary
     }
 
 updateHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WUpdateApi m
@@ -115,10 +120,10 @@ updateHandlers = toServant' A.WUpdateApiRecord
     , _applyUpdate    = M.applyUpdate
     }
 
-redemptionsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WRedemptionsApi m
-redemptionsHandlers = toServant' A.WRedemptionsApiRecord
-    { _redeemADA          = M.redeemAda
-    , _redeemADAPaperVend = M.redeemAdaPaperVend
+redemptionsHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WRedemptionsApi m
+redemptionsHandlers submitTx = toServant' A.WRedemptionsApiRecord
+    { _redeemADA          = M.redeemAda submitTx
+    , _redeemADAPaperVend = M.redeemAdaPaperVend submitTx
     }
 
 reportingHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WReportingApi m
@@ -143,6 +148,11 @@ backupHandlers = toServant' A.WBackupApiRecord
 infoHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WInfoApi m
 infoHandlers = toServant' A.WInfoApiRecord
     { _getClientInfo = M.getClientInfo
+    }
+
+systemHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WSystemApi m
+systemHandlers = toServant' A.WSystemApiRecord
+    { _requestShutdown = M.requestShutdown
     }
 
 ----------------------------------------------------------------------------

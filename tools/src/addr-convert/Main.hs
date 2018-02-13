@@ -12,8 +12,9 @@ import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, h
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
-import           Pos.Aeson.Genesis (fromAvvmPk)
 import           Pos.Core (makeRedeemAddress)
+import           Pos.Crypto.Signing (fromAvvmPk)
+import           Pos.Util.Util (eitherToThrow)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)
@@ -33,7 +34,7 @@ getAddrConvertOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc  "Produce public key and write it in stdout."
-                 <> header    "Tool to convert vending addresses into testnet addresses."
+                 <> header    "Tool to convert vending addresses into mainnet/testnet addresses."
                  <> footerDoc usageExample
 
     versionOption = infoOption
@@ -53,12 +54,14 @@ Output example:
 You can also run it without arguments to switch to interactive mode.
 In this case each entered vending address is echoed with a testnet address.|]
 
+convertAddr :: Text -> IO Text
+convertAddr addr =
+    pretty . makeRedeemAddress <$>
+    (eitherToThrow . fromAvvmPk) (toText addr)
+
 main :: IO ()
 main = do
     AddrConvertOptions{..} <- getAddrConvertOptions
     case address of
         Just addr -> convertAddr addr >>= putText
         Nothing   -> forever (getLine >>= convertAddr >>= putText)
-
-convertAddr :: Text -> IO Text
-convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)

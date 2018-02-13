@@ -193,10 +193,13 @@ perturbCanonicity term = sized $ \sz -> do
 
       shouldBeChanged :: StateT [Bool] Gen Bool
       shouldBeChanged = do
-          -- We use traverseCanonicalBits for both counting canonical bits and
-          -- changing them, hence the list will have just the right amount of
-          -- elements.
-          (x:xs) <- S.get
+          (x, xs) <- S.get >>= \case
+              (x:xs) -> return (x, xs)
+              [] ->
+                  -- We use traverseCanonicalBits for both counting canonical bits and
+                  -- changing them, hence the list will have just the right amount of
+                  -- elements.
+                  error "shouldBeChanged: impossible - not enough elements"
           S.put xs
           return x
 

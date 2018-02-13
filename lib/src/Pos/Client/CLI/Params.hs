@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
-import           Mockable (Catch, Fork, Mockable, Throw, throw)
 import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
@@ -27,6 +26,7 @@ import           Pos.Ssc (SscParams (..))
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
+import           Pos.Util.Util (eitherToThrow)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =
@@ -58,10 +58,7 @@ getKeyfilePath CommonNodeArgs {..}
 getNodeParams ::
        ( MonadIO m
        , WithLogger m
-       , MonadThrow m
-       , Mockable Fork m
-       , Mockable Catch m
-       , Mockable Throw m
+       , MonadCatch m
        , HasConfiguration
        , HasSscConfiguration
        )
@@ -75,7 +72,7 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
-        Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
+        Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

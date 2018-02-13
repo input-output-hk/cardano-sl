@@ -8,6 +8,7 @@ import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi, derive
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap, VssCertificatesMap)
 import           Pos.Ssc.Toss.Types (SscTag (..), TossModifier (..))
+import           Pos.Util.Util (cborError)
 
 deriveSimpleBi ''SscTag [
     Cons 'CommitmentMsg [],

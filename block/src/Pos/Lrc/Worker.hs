@@ -12,16 +12,16 @@ module Pos.Lrc.Worker
 
 import           Universum
 
+import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
-import           Control.Monad.Catch (bracketOnError)
 import           Control.Monad.STM (retry)
 import           Data.Coerce (coerce)
 import           Data.Conduit (runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
+import qualified System.Metrics.Counter as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
@@ -43,6 +43,7 @@ import           Pos.Lrc.Fts (followTheSatoshiM)
 import           Pos.Lrc.Logic (findAllRichmenMaybe)
 import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Reporting (reportMisbehaviour)
+import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
 import           Pos.Ssc.Message (SscMessageConstraints)
@@ -52,6 +53,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.TimeLimit (logWarningWaitLinear)
+import           Pos.Util.Util (HasLens (..))
 
 
 ----------------------------------------------------------------------------
@@ -152,7 +154,9 @@ lrcDo epoch consumers = do
             -- Critical error means that the system is in dangerous state.
             -- For now let's consider all errors critical, maybe we'll revise it later.
             -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
-            unless (noReportNoSecretsForEpoch1 && epoch == 1) $
+            unless (noReportNoSecretsForEpoch1 && epoch == 1) $ do
+                whenJustM (view misbehaviorMetrics) $ liftIO .
+                    Metrics.inc . _mmSscFailures
                 reportMisbehaviour isCritical $ sformat
                     ("SSC couldn't compute seed: "%build%" for epoch "%build%
                      ", going to reuse seed for previous epoch")
@@ -221,7 +225,7 @@ leadersComputationDo epochId seed =
   where
     logLeaders :: SlotLeaders -> m ()
     logLeaders leaders = logInfo $
-        sformat ("Slot leaders for "%build%" are: "%slotLeadersF)
+        sformat ("Slot leaders for epoch "%build%" are: "%slotLeadersF)
         epochId (toList leaders)
 
 richmenComputationDo
@@ -270,7 +274,7 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
 -- It was deleted because of possible deadlock. This worker may start
 -- doing LRC and try to acquire 'StateLock' while another thread may
 -- hold 'StateLock' for block processing and try to start LRC.  So if
--- you are going to uncomment it at some point, please take it into
+-- you are going to bring it back at some point, please take it into
 -- account.  One way to avoid locking here is to do CSL-360, i. e. use
 -- snapshot instead of locking.
 --

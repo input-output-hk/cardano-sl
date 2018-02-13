@@ -1,5 +1,6 @@
 {-# LANGUAGE ApplicativeDo         #-}
 {-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -11,28 +12,34 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+import qualified Prelude (show)
 import           Universum
 
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (tryAny)
 import           Control.Lens (makeLensesWith)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
+import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
+import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
-import           Formatting (int, sformat, shown, stext, (%))
+import qualified Data.Yaml as Y
+import           Formatting (int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      short, strOption, switch)
+import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
+                                      execParserPure, footerDoc, fullDesc, handleParseResult,
+                                      header, help, helper, info, infoOption, long, metavar,
+                                      progDesc, renderFailure, short, strOption)
+import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getExecutablePath)
+import           System.Environment (getEnv, getExecutablePath, getProgName)
 import           System.Exit (ExitCode (..))
-import           System.FilePath ((</>))
+import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
@@ -43,20 +50,18 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
 import qualified System.IO.Silently as Silently
-#endif
-
-#ifndef mingw32_HOST_OS
+#else
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception (handle, mask_, throwIO)
+import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
-import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
+import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
                                dbPutSerBlundRealDefault)
@@ -69,7 +74,7 @@ import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendRepo
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util (HasLens (..), directory, logException, postfixLFields, sleep)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
@@ -93,95 +98,113 @@ data LauncherOptions = LO
     -- console, except on Windows where we don't output anything to console
     -- because it crashes).
     , loLauncherLogsPrefix  :: !(Maybe FilePath)
-    }
+    } deriving (Generic)
+
+instance FromJSON LauncherOptions where
+    parseJSON = withObject "LauncherOptions" $ \o ->
+        genericParseJSON defaultOptions $ Object $
+            -- This provides default values for some keys and
+            -- allows not specifying them in the configuration
+            -- file at all. @<>@ for hashmaps is left-biased,
+            -- so it only adds new keys if there are aren't
+            -- any yet.
+            o <> HM.fromList
+                [ ("walletLogging", Bool False)
+                , ("nodeArgs",      Array mempty)
+                , ("walletArgs",    Array mempty)
+                , ("updaterArgs",   Array mempty)
+                ]
 
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
 
+-- | Executable can be node, wallet or updater
 data Executable = EWallet | ENode | EUpdater
 
-optionsParser :: Parser LauncherOptions
-optionsParser = do
-    -- Node-related args
-    loNodePath <- strOption $
-        long    "node" <>
-        help    "Path to the node executable." <>
-        metavar "PATH"
-    loNodeArgs <- many $ strOption $
-        short   'n' <>
-        help    "An argument to be passed to the node." <>
-        metavar "ARG"
-    loNodeDbPath <- strOption $
-        long    "db-path" <>
-        metavar "FILEPATH" <>
-        help    "Path to directory with all DBs used by the node."
-    loNodeLogConfig <- optional $ strOption $
-        long    "node-log-config" <>
-        help    "Path to log config that will be used by the node." <>
-        metavar "PATH"
-    loNodeLogPath <- optional $ strOption $
-        long    "node-log-path" <>
-        help    "File where node stdout/err will be redirected " <>
-        metavar "PATH"
+-- | This datatype holds values for either node or wallet
+--   Node/wallet path, args, log path
+data NodeData = NodeData
+    { ndPath    :: !FilePath
+    , ndArgs    :: ![Text]
+    , ndLogPath :: Maybe FilePath }
 
-    -- Wallet-related args
-    loWalletPath <- optional $ strOption $
-        long    "wallet" <>
-        help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
-        metavar "PATH"
-    loWalletArgs <- many $ strOption $
-        short   'w' <>
-        help    "An argument to be passed to the wallet frontend executable." <>
-        metavar "ARG"
-    loWalletLogging <- switch $
-        long    "wlogging" <>
-        help    "Bool that determines if wallet should log to stdout"
+-- | Updater path, args, windows runner path, archive path
+data UpdaterData = UpdaterData
+    { udPath        :: !FilePath
+    , udArgs        :: ![Text]
+    , udWindowsPath :: Maybe FilePath
+    , udArchivePath :: Maybe FilePath
+    }
 
-    loWalletLogPath <- optional $ strOption $
-        long    "wallet-log-path" <>
-        help    "File where wallet stdout/err will be redirected " <>
-        metavar "PATH"
-    -- Update-related args
-    loUpdaterPath <- strOption $
-        long    "updater" <>
-        help    "Path to the updater executable." <>
-        metavar "PATH"
-    loUpdaterArgs <- many $ strOption $
-        short   'u' <>
-        help    "An argument to be passed to the updater." <>
-        metavar "ARG"
-    loUpdateArchive <- optional $ strOption $
-        long    "update-archive" <>
-        help    "Path to the update archive, it will be passed to the updater." <>
-        metavar "PATH"
-    loUpdateWindowsRunner <- optional $ strOption $
-        long    "updater-windows-runner" <>
-        help    "Path to write the Windows batch file executing updater" <>
-        metavar "PATH"
+data LauncherArgs = LauncherArgs
+    { maybeConfigPath  :: !(Maybe FilePath)
+    }
 
-    -- Other args
-    loNodeTimeoutSec <- option auto $
-        long    "node-timeout" <>
-        help    ("How much to wait for the node to exit before killing it " <>
-                 "(and then how much to wait after that).") <>
-        metavar "SEC"
-    loReportServer <- optional $ strOption $
-        long    "report-server" <>
-        help    "Where to send logs in case of failure." <>
-        metavar "URL"
-    loLauncherLogsPrefix <- optional $ strOption $
-        long    "launcher-logs-prefix" <>
-        help    "Where to put launcher logs (def: console only)." <>
-        metavar "DIR"
+data LauncherError =
+      ConfigParseError !FilePath !(Y.ParseException)
 
-    loConfiguration <- configurationOptionsParser
+instance Show LauncherError where
+    show (ConfigParseError configPath yamlException) = toString $
+        sformat ("Failed to parse config at "%string%": "%shown) configPath yamlException
 
-    pure LO{..}
+instance Exception LauncherError
+
+launcherArgsParser :: Parser LauncherArgs
+launcherArgsParser = do
+    maybeConfigPath <- optional $ strOption $
+        short   'c' <>
+        long    "config" <>
+        help    "Path to the launcher configuration file." <>
+        metavar "PATH"
+    pure $ LauncherArgs {..}
+
+getDefaultLogDir :: IO FilePath
+getDefaultLogDir =
+#ifdef mingw32_HOST_OS
+    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
+#else
+    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
+#endif
+
+-- | Write @contents@ into @filename@ under default logging directory.
+--
+-- This function is only intended to be used before normal logging
+-- is initialized. Its purpose is to provide at least some information
+-- in cases where normal reporting methods don't work yet.
+reportErrorDefault :: FilePath -> Text -> IO ()
+reportErrorDefault filename contents = do
+    logDir <- getDefaultLogDir
+    createDirectoryIfMissing True logDir
+    writeFile (logDir </> filename) contents
 
 getLauncherOptions :: IO LauncherOptions
-getLauncherOptions = execParser programInfo
+getLauncherOptions = do
+    LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    configPath <- maybe defaultConfigPath pure maybeConfigPath
+    decoded <- Y.decodeFileEither configPath
+    case decoded of
+        Left err -> do
+            reportErrorDefault "config-parse-error.log" $ show err
+            throwM $ ConfigParseError configPath err
+        Right op -> expandVars op
   where
-    programInfo = info (helper <*> versionOption <*> optionsParser) $
+    execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
+    execParserEither pinfo = do
+        args <- getArgs
+        case execParserPure defaultPrefs pinfo args of
+            Success a -> pure $ Right a
+            Failure failure -> do
+                progn <- getProgName
+                let (msg, exitCode) = renderFailure failure progn
+                pure $ Left (toText msg, exitCode)
+            CompletionInvoked compl -> handleParseResult $ CompletionInvoked compl
+
+    parseErrorHandler :: (Text, ExitCode) -> IO a
+    parseErrorHandler (msg, exitCode) = do
+        reportErrorDefault "cli-parse-error.log" msg
+        exitWith exitCode
+
+    programInfo = info (helper <*> versionOption <*> launcherArgsParser) $
         fullDesc <> progDesc ""
                  <> header "Tool to launch Cardano SL."
                  <> footerDoc usageExample
@@ -190,33 +213,56 @@ getLauncherOptions = execParser programInfo
         ("cardano-launcher-" <> showVersion version)
         (long "version" <> help "Show version.")
 
+    defaultConfigPath :: IO FilePath
+    defaultConfigPath = do
+        launcherDir <- takeDirectory <$> getExecutablePath
+        pure $ launcherDir </> "launcher-config.yaml"
+
+    -- Poor man's environment variable expansion.
+    expandVars :: LauncherOptions -> IO LauncherOptions
+#ifdef mingw32_HOST_OS
+    expandVars lo@(LO {..}) = do
+        -- %APPDATA%: nodeArgs, nodeDbPath,
+        --     nodeLogPath, updaterPath,
+        --     updateWindowsRunner, launcherLogsPrefix
+        -- %DAEDALUS_DIR%: nodePath, walletPath
+        appdata <- toText <$> getEnv "APPDATA"
+        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
+        let replaceAppdata = replace "%APPDATA%" appdata
+            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+        pure lo
+            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
+            , loNodeDbPath          = replaceAppdata loNodeDbPath
+            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
+            , loUpdaterPath         = replaceAppdata loUpdaterPath
+            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
+            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
+            , loNodePath            = replaceDaedalusDir loNodePath
+            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
+            }
+#else
+    expandVars lo@(LO {..}) = do
+        home <- toText <$> getEnv "HOME"
+        let replaceHome = replace "$HOME" home
+        pure lo
+            { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
+            , loNodeDbPath         = replaceHome loNodeDbPath
+            , loNodeLogPath        = replaceHome <$> loNodeLogPath
+            , loUpdateArchive      = replaceHome <$> loUpdateArchive
+            , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
+            }
+#endif
+    replace :: Text -> Text -> FilePath -> FilePath
+    replace from to = toString . T.replace from to . toText
+
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
 Command example:
 
-  stack exec -- cardano-launcher                            \
-    --node binaries_v000/cardano-node                       \
-    --node-log-config scripts/log-templates/log-config.yaml \
-    -n "--update-server"                                    \
-    -n "http://localhost:3001"                              \
-    -n "--update-latest-path"                               \
-    -n "updateDownloaded.tar"                               \
-    -n "--listen"                                           \
-    -n "127.0.0.1:3004"                                     \
-    -n "--kademlia-id"                                      \
-    -n "a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA="       \
-    -n "--rebuild-db"                                       \
-    -n "--wallet"                                           \
-    -n "--web-port"                                         \
-    -n 8080                                                 \
-    -n "--wallet-port"                                      \
-    -n 8090                                                 \
-    -n "--wallet-rebuild-db"                                \
-    --updater cardano-updater                               \
-    -u "dir"                                                \
-    -u "binaries_v000"                                      \
-    --node-timeout 5                                        \
-    --update-archive updateDownloaded.tar|]
+  stack exec -- cardano-launcher --config launcher-config.yaml
+
+See tools/src/launcher/launcher-config.yaml for
+an example of the config file.|]
 
 data LauncherModeContext = LauncherModeContext { lmcNodeDBs :: NodeDBs }
 
@@ -255,7 +301,8 @@ main =
 #endif
   do
     LO {..} <- getLauncherOptions
-    let realNodeArgs = addConfigurationOptions loConfiguration $
+    -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
+    let realNodeArgs = propagateOptions loNodeDbPath loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -269,7 +316,7 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
-    Log.usingLoggerName "launcher" $
+    logException loggerName . Log.usingLoggerName loggerName $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
@@ -278,41 +325,43 @@ main =
                 serverScenario
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
-                    (loNodePath, realNodeArgs, loNodeLogPath)
-                    ( loUpdaterPath
-                    , loUpdaterArgs
-                    , loUpdateWindowsRunner
-                    , loUpdateArchive)
+                    (NodeData loNodePath realNodeArgs loNodeLogPath)
+                    (UpdaterData
+                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loReportServer
+                logNotice "Finished serverScenario"
             Just wpath -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
-                    (loNodePath, realNodeArgs, loNodeLogPath)
-                    (wpath, loWalletArgs, loWalletLogPath)
-                    ( loUpdaterPath
-                    , loUpdaterArgs
-                    , loUpdateWindowsRunner
-                    , loUpdateArchive)
+                    (NodeData loNodePath realNodeArgs loNodeLogPath)
+                    (NodeData wpath loWalletArgs loWalletLogPath)
+                    (UpdaterData
+                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
+                logNotice "Finished clientScenario"
   where
-    -- We propagate configuration options to the node executable,
-    -- because we almost certainly want to use the same configuration
-    -- and don't want to pass the same options twice.  However, if
-    -- user passes these options to the node explicitly, then we leave
-    -- their choice. It doesn't cover all cases
+    -- We propagate some options to the node executable, because
+    -- we almost certainly want to use the same configuration and
+    -- don't want to pass the same options twice.  However, if the
+    -- user passes these options to the node explicitly, then we
+    -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
-    addConfigurationOptions (ConfigurationOptions path key systemStart seed) =
+    loggerName = "launcher"
+    propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
+        addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed
 
+    addNodeDbPath nodeDbPath =
+        maybeAddOption "--db-path" (toText nodeDbPath)
     addConfFileOption filePath =
         maybeAddOption "--configuration-file" (toText filePath)
     addConfKeyOption key = maybeAddOption "--configuration-key" key
@@ -336,11 +385,10 @@ main =
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
     :: NodeDbPath
-    -> Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
-    -- ^ Updater, args, updater runner, the update .tar
-    -> Maybe String                        -- ^ Report server
+    -> Maybe FilePath     -- ^ Logger config
+    -> NodeData           -- ^ Node, args, log path
+    -> UpdaterData        -- ^ Updater, args, updater runner, archive path
+    -> Maybe String       -- ^ Report server
     -> M ()
 serverScenario ndbp logConf node updater report = do
     runUpdater ndbp updater
@@ -363,22 +411,22 @@ serverScenario ndbp logConf node updater report = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
     :: NodeDbPath
-    -> Maybe FilePath                      -- ^ Logger config
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text], Maybe FilePath)
-    -- ^ Wallet, args, wallet log path
-    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
-    -- ^ Updater, args, updater runner, the update .tar
-    -> Int                                 -- ^ Node timeout, in seconds
-    -> Maybe String                        -- ^ Report server
-    -> Bool                                -- ^ Wallet logging
+    -> Maybe FilePath    -- ^ Logger config
+    -> NodeData          -- ^ Node, args, node log path
+    -> NodeData          -- ^ Wallet, args, wallet log path
+    -> UpdaterData       -- ^ Updater, args, updater runner, archive path
+    -> Int               -- ^ Node timeout, in seconds
+    -> Maybe String      -- ^ Report server
+    -> Bool              -- ^ Wallet logging
     -> M ()
 clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = do
     runUpdater ndbp updater
-    let doesWalletLogToConsole = isNothing (wallet^._3) && walletLog
+    let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
-    walletAsync <- async (runWallet walletLog wallet (node^._3))
+    walletAsync <- async (runWallet walletLog wallet (ndLogPath node))
+    logInfo "Waiting for wallet or node to finish..."
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    logInfo "Wallet or node has finished!"
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
@@ -425,8 +473,12 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: NodeDbPath -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
-runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
+runUpdater :: NodeDbPath -> UpdaterData -> M ()
+runUpdater ndbp ud = do
+    let path = udPath ud
+        args = udArgs ud
+        runnerPath = udWindowsPath ud
+        mUpdateArchivePath = udArchivePath ud
     whenM (liftIO (doesFileExist path)) $ do
         logNotice "Running the updater"
         let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
@@ -443,19 +495,27 @@ runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
                 -- this will throw an exception if the file doesn't exist but
                 -- hopefully if the updater has succeeded it *does* exist
                 whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
-                    updateArchive <- BS.L.readFile updateArchivePath
-                    bracketNodeDBs ndbp $ \lmcNodeDBs ->
-                        usingReaderT LauncherModeContext{..} $
-                        affirmUpdateInstalled (installerHash updateArchive)
-                    removeFile updateArchivePath
+                    let affirmInstalled = do
+                            updateArchive <- BS.L.readFile updateArchivePath
+                            bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                                usingReaderT LauncherModeContext{..} $
+                                affirmUpdateInstalled (installerHash updateArchive)
+                        removeInstaller = removeFile updateArchivePath
+                    -- Even if we fail to affirm that update was
+                    -- installed, we still want to remove installer to
+                    -- avoid infinite loop. If we don't remove it, we
+                    -- will launch it again and again.
+                    affirmInstalled `finally` removeInstaller
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
-runUpdaterProc path args = liftIO $ do
-    let cr = createProc Process.CreatePipe path args
-    phvar <- newEmptyMVar
-    system' phvar cr mempty EUpdater
+runUpdaterProc path args = do
+    logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
+    liftIO $ do
+        let cr = createProc Process.CreatePipe path args
+        phvar <- newEmptyMVar
+        system' phvar cr mempty EUpdater
 
 writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do
@@ -472,24 +532,26 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]
-  where
-    quote str = "\"" <> str <> "\""
 
 ----------------------------------------------------------------------------
 -- Running stuff
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text], Maybe FilePath)
+    :: NodeData
     -> Bool -- Wallet logging
     -> M (ProcessHandle, Async ExitCode)
-spawnNode (path, args, mbLogPath) doesWalletLogToConsole = do
+spawnNode nd doesWalletLogToConsole = do
+    let path = ndPath nd
+        args = ndArgs nd
+        mLogPath = ndLogPath nd
     logNotice "Starting the node"
+    logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later in `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    cr <- liftIO $ case mbLogPath of
+    cr <- liftIO $ case mLogPath of
         Just lp -> do
             createLogFileProc path args lp
             -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
@@ -513,16 +575,19 @@ spawnNode (path, args, mbLogPath) doesWalletLogToConsole = do
             return (ph, asc)
 
 runWallet
-    :: Bool                               -- ^ wallet logging
-    -> (FilePath, [Text], Maybe FilePath) -- ^ Wallet, its args, wallet log file
-    -> Maybe FilePath                     -- ^ Node log file
+    :: Bool              -- ^ wallet logging
+    -> NodeData          -- ^ Wallet, its args, wallet log file
+    -> Maybe FilePath    -- ^ Node log file
     -> M ExitCode
-runWallet shouldLog (path, args, mLogPath) nLogPath = do
+runWallet shouldLog nd nLogPath = do
+    let wpath = ndPath nd
+        wargs = ndArgs nd
+        mWLogPath = ndLogPath nd
     logNotice "Starting the wallet"
     phvar <- newEmptyMVar
-    liftIO $ case mLogPath of
+    liftIO $ case mWLogPath of
         Just lp -> do
-            cr <- createLogFileProc path args lp
+            cr <- createLogFileProc wpath wargs lp
             system' phvar cr mempty EWallet
         Nothing ->
            -- if nLog is Nothing and shouldLog is True
@@ -530,7 +595,7 @@ runWallet shouldLog (path, args, mLogPath) nLogPath = do
            let cr = if shouldLog && isNothing nLogPath then
                         Process.CreatePipe
                     else Process.Inherit
-           in system' phvar (createProc cr path args) mempty EWallet
+           in system' phvar (createProc cr wpath wargs) mempty EWallet
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess
 createLogFileProc path args lp = do
@@ -651,7 +716,7 @@ halt a = do
     m <- poll a
     case m of
         Nothing          -> cancel a
-        Just (Left  msg) -> throwIO msg
+        Just (Left  msg) -> throwM msg
         Just (Right _)   -> return ()
 
 ignoreSIGPIPE :: IO () -> IO ()
@@ -660,7 +725,7 @@ ignoreSIGPIPE = handle (\ex -> case ex of
         { ioe_type = ResourceVanished
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
-    _ -> throwIO ex )
+    _ -> throwM ex )
 
 ----------------------------------------------------------------------------
 -- SIGKILL
@@ -677,3 +742,10 @@ maybeTrySIGKILL _h = do
         Process.OpenHandle pid -> signalProcess sigKILL pid
         _                      -> pass
 #endif
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+quote :: Text -> Text
+quote str = "\"" <> str <> "\""

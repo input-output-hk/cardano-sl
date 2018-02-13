@@ -61,7 +61,6 @@ import           Pos.Core (Block, GenericBlock (..), GenericBlockHeader (..))
 import qualified Pos.Core as C
 import           Pos.Crypto (HasCryptoConfiguration)
 import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.Util (eitherToFail)
 
 ----------------------------------------------------------------------------
 -- Encoding
@@ -247,21 +246,23 @@ instance ( Typeable b
             <> encode (_gbhExtra bh)
 
     decode = do
-        Bi.enforceSize "GenericBlock" 3
+        Bi.enforceSize "GenericBlockNoProof" 3
         (prevBlock, consensus, headerExtra) <- decodeHeader
         body  <- decode
         extra <- decode
         let bodyProof = C.mkBodyProof body
-        header <- eitherToFail $
+        header <- Bi.toCborError $
             C.recreateGenericHeader prevBlock bodyProof consensus headerExtra
-        block <- eitherToFail $ C.recreateGenericBlock header body extra
+        block <- Bi.toCborError $
+            C.recreateGenericBlock header body extra
         pure $ GenericBlockNoProof block
       where
         decodeHeader = do
-            Bi.enforceSize "GenericBlockHeader b" 4
+            Bi.enforceSize "GenericBlockHeader (proofless)" 4
             blockMagic <- decode
             when (blockMagic /= C.protocolMagic) $
-                fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+                Bi.cborError $ "GenericBlockHeader (proofless) failed " <>
+                               "with wrong magic: " <> show blockMagic
             prevBlock <- decode
             consensus <- decode
             extra     <- decode

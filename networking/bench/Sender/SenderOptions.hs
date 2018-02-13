@@ -12,7 +12,7 @@ import           Data.Monoid ((<>))
 import           Data.String (fromString)
 import           Data.Word (Word16)
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option, optional,
-                                             short, showDefault, some, strOption, value)
+                                             short, showDefault, some, strOption, value, readerError)
 import           Serokell.Util.OptParse (fromParsec)
 import           Serokell.Util.Parse (connection)
 
@@ -44,7 +44,7 @@ argsParser =
          long "logs-prefix" <> metavar "FILEPATH" <> help "Prefix to logger output path")
     <*>
     some
-        (option (fromParsec recipient) $
+        (option recipient $
          long "peer" <> metavar "HOST:PORT" <> help "Recipient's ip:port")
     <*>
     option
@@ -91,7 +91,7 @@ argsParser =
           <> showDefault <>
          help "Defines upper bound on sent message size")
   where
-    recipient = connection >>= \(h, mp) ->
+    recipient = fromParsec connection >>= \(h, mp) ->
         case mp of
             Just p -> return (fromString h, p)
-            _      -> fail $ "No port specified for host " <> h
+            _      -> readerError $ "No port specified for host " <> h

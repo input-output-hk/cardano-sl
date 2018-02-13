@@ -13,8 +13,10 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
+       , DoesAccountExist (..)
        , GetAccountIds (..)
        , GetAccountMeta (..)
+       , GetAccountAddrMaps (..)
        , GetWalletMeta (..)
        , GetWalletMetaIncludeUnready (..)
        , GetWalletPassLU (..)
@@ -45,7 +47,6 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletReady (..)
        , SetWalletPassLU (..)
        , SetWalletSyncTip (..)
-       , SetWalletTxMeta (..)
        , AddOnlyNewTxMetas (..)
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
@@ -66,6 +67,8 @@ module Pos.Wallet.Web.State.Acidic
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
        , ResetFailedPtxs (..)
+       , CancelApplyingPtxs (..)
+       , CancelSpecificApplyingPtx (..)
        , GetWalletStorage (..)
        , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
@@ -120,8 +123,10 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
+    , 'WS.doesAccountExist
     , 'WS.getAccountIds
     , 'WS.getAccountMeta
+    , 'WS.getAccountAddrMaps
     , 'WS.getWalletMeta
     , 'WS.getWalletMetaIncludeUnready
     , 'WS.getWalletPassLU
@@ -152,7 +157,6 @@ makeAcidic ''WalletStorage
     , 'WS.setWalletReady
     , 'WS.setWalletPassLU
     , 'WS.setWalletSyncTip
-    , 'WS.setWalletTxMeta
     , 'WS.addOnlyNewTxMetas
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
@@ -173,6 +177,8 @@ makeAcidic ''WalletStorage
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
     , 'WS.resetFailedPtxs
+    , 'WS.cancelApplyingPtxs
+    , 'WS.cancelSpecificApplyingPtx
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     ]

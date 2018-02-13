@@ -17,13 +17,12 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader)
+import           Pos.Core (ComponentBlock, HasConfiguration)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Some (Some)
 
 type TxpCommonMode m =
     ( WithLogger m
@@ -43,9 +42,7 @@ type TxpGlobalApplyMode ctx m =
     )
 
 type TxpGlobalRollbackMode m = TxpCommonMode m
-
--- [CSL-1156] Maybe find better approach (at least wrap into normal types).
-type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
+type TxpBlock = ComponentBlock TxPayload
 type TxpBlund = (TxpBlock, TxpUndo)
 
 data TxpGlobalSettings = TxpGlobalSettings

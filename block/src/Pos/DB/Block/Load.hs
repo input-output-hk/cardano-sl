@@ -8,7 +8,6 @@ module Pos.DB.Block.Load
        , loadBlocksWhile
        , loadHeadersWhile
        , loadHeadersByDepth
-       , loadHeadersByDepthWhile
 
        -- * Load data from tip
        , loadBlundsFromTipWhile
@@ -133,15 +132,6 @@ loadHeadersByDepth
     :: LoadHeadersMode m
     => BlockCount -> HeaderHash -> m (NewestFirst [] BlockHeader)
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
-
--- | Load headers which have depth less than given and match some criterion.
-loadHeadersByDepthWhile
-    :: LoadHeadersMode m
-    => (BlockHeader -> Bool)
-    -> BlockCount
-    -> HeaderHash
-    -> m (NewestFirst [] BlockHeader)
-loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------
 -- Load from tip

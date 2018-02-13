@@ -10,6 +10,8 @@ module Pos.Wallet.Web.Mode
        , MonadWalletWebSockets
        , MonadFullWalletWebMode
 
+       , walletWebModeToRealMode
+
        , getBalanceDefault
        , getOwnUtxosDefault
        , getNewAddressWebWallet
@@ -17,9 +19,7 @@ module Pos.Wallet.Web.Mode
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import           Control.Lens (makeLensesWith)
-import           Control.Monad.Catch (MonadMask)
 import qualified Control.Monad.Reader as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Crypto.Random (MonadRandom)
@@ -27,8 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           Ether.Internal (HasLens (..))
-import           Mockable (Production)
+import           Mockable (LowLevelAsync, Mockable, Production)
 import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
@@ -38,8 +37,6 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Client.Txp.Network (submitTxRaw)
-import           Pos.Communication (SendActions (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
@@ -53,7 +50,7 @@ import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..))
 import           Pos.Recovery ()
@@ -76,12 +73,11 @@ import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM
-import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-import           Pos.WorkMode (MinWorkMode, RealModeContext (..))
+import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..),
                                       applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
@@ -90,8 +86,9 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
-import           Pos.Wallet.Web.ClientTypes (AccountId, cadId)
-import           Pos.Wallet.Web.Methods (MonadWalletLogic, newAddress)
+import           Pos.Wallet.Web.ClientTypes (AccountId, cwamId)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
+import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,
@@ -102,14 +99,27 @@ import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebW
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcSendActions     :: !(STM.TMVar (SendActions WalletWebMode))
+    , wwmcHashes          :: !AddrCIdHashes
     , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
     }
 
 -- It's here because of TH for lens
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
+walletWebModeToRealMode
+    :: WalletState
+    -> ConnectionsVar
+    -> AddrCIdHashes
+    -> WalletWebMode t
+    -> RealMode WalletMempoolExt t
+walletWebModeToRealMode ws cv cidHashes act = do
+    rmc <- ask
+    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes rmc)
+
 makeLensesWith postfixLFields ''WalletWebModeContext
+
+instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
+    lensOf = wwmcHashes_L
 
 instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
@@ -182,8 +192,8 @@ type MonadWalletWebMode ctx m =
     , MonadRecoveryInfo m
     , MonadBListener m
     , MonadReader ctx m
-    , MonadKnownPeers m
     , MonadFormatPeers m
+    , MonadConvertToAddr ctx m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
     , HasReportingContext ctx
@@ -203,8 +213,8 @@ type MonadWalletWebMode ctx m =
 type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWalletWebSockets ctx m
-    , MonadWalletSendActions m
     , MonadReporting ctx m
+    , Mockable LowLevelAsync m
     )
 
 ----------------------------------------------------------------------------
@@ -302,11 +312,9 @@ instance (HasConfiguration, HasSscConfiguration, HasInfraConfiguration, HasCompi
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance MonadKnownPeers WalletWebMode where
-    updatePeersBucket = OQ.Reader.updatePeersBucketReader (rmcOutboundQ . wwmcRealModeContext)
-
 instance MonadFormatPeers WalletWebMode where
-    formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . wwmcRealModeContext)
+    -- Use the RealMode instance (ReaderT RealModeContext Production)
+    formatKnownPeers formatter = Mtl.withReaderT wwmcRealModeContext (formatKnownPeers formatter)
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
@@ -321,19 +329,12 @@ instance MonadKeysRead WalletWebMode where
 instance MonadKeys WalletWebMode where
     modifySecret = modifySecretDefault
 
-instance HasConfigurations => MonadWalletSendActions WalletWebMode where
-    sendTxToNetwork tx = do
-        saVar <- view wwmcSendActions_L
-        saMB <- atomically $ STM.tryReadTMVar saVar
-        let sa = fromMaybe (error "Wallet's SendActions isn't initialized") saMB
-        submitTxRaw (enqueueMsg sa) tx
-
 getNewAddressWebWallet
     :: MonadWalletLogic ctx m
     => (AccountId, PassPhrase) -> m Address
 getNewAddressWebWallet (accId, passphrase) = do
-    clientAddress <- newAddress RandomSeed passphrase accId
-    decodeCTypeOrFail (cadId clientAddress)
+    cAddrMeta <- newAddress_ RandomSeed passphrase accId
+    decodeCTypeOrFail (cwamId cAddrMeta)
 
 instance (HasConfigurations, HasCompileInfo)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where

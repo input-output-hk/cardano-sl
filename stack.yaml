@@ -69,7 +69,7 @@ packages:
 # These three are needed for cardano-sl-networking
 - location:
     git: https://github.com/serokell/network-transport-tcp
-    commit: 24dd213cef81d383083feb7f5d9ce4b8a6be8168
+    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
   extra-dep: true
 - location:
     git: https://github.com/serokell/network-transport
@@ -112,6 +112,11 @@ packages:
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
   extra-dep: true
 
+- location:
+    git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
+    commit: 49f501a082d745f3b880677220a29cafaa181452
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -138,7 +143,6 @@ extra-deps:
 - servant-quickcheck-0.0.4
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
-- rocksdb-haskell-1.0.0
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
@@ -183,3 +187,4 @@ ghc-options:
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
+  cardano-sl-wallet-new: -Werror

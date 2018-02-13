@@ -8,14 +8,8 @@ module Pos.Communication.Protocol
        , hoistSendActions
        , mapListener
        , mapListener'
-       , mapActionSpec
        , Message (..)
        , MessageCode
-       , worker
-       , worker'
-       , localWorker
-       , localSpecs
-       , toAction
        , unpackLSpecs
        , hoistMkListeners
        , makeSendActions
@@ -24,9 +18,9 @@ module Pos.Communication.Protocol
        , checkingInSpecs
        , constantListeners
 
-       -- * OnNewSlot workers
-       , onNewSlotWorker
-       , localOnNewSlotWorker
+       -- * OnNewSlot constraints
+       , LocalOnNewSlotComm
+       , OnNewSlotComm
        ) where
 
 import           Universum
@@ -35,7 +29,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic, Throw, throw)
+import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
@@ -43,12 +37,10 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Slotting (SlotId)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots)
-import           Pos.Slotting.Util (onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -61,12 +53,6 @@ mapListener'
     -> (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener' caMapper mapper (N.Listener f) =
     N.Listener $ \d nId -> mapper . f d nId . caMapper nId
-
-mapActionSpec
-    :: (SendActions m -> SendActions m)
-    -> (forall t. m t -> m t) -> ActionSpec m a -> ActionSpec m a
-mapActionSpec saMapper aMapper (ActionSpec f) =
-    ActionSpec $ \vI sA -> aMapper $ f vI (saMapper sA)
 
 hoistSendActions
     :: forall n m .
@@ -109,7 +95,7 @@ hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
 makeEnqueueMsg
     :: forall m .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -120,7 +106,7 @@ makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
 alternativeConversations
     :: forall m t .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => NodeId
     -> VerInfo -- ^ Ours
@@ -152,7 +138,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs
         logWarning $ sformat
             ("Failed to choose appropriate conversation: "%listJson)
             errs
-        throw $ NE.head errs
+        throwM $ NE.head errs
 
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
@@ -178,7 +164,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs
 makeSendActions
     :: forall m .
        ( WithLogger m
-       , Mockable Throw m
+       , MonadThrow m
        )
     => VerInfo
     -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
@@ -218,20 +204,6 @@ instance Buildable MismatchedProtocolMagic where
         bprint
           ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
 
-toAction
-    :: (SendActions m -> m a) -> ActionSpec m a
-toAction h = ActionSpec $ const h
-
-worker :: OutSpecs -> Worker m -> (WorkerSpec m, OutSpecs)
-worker outSpecs = (,outSpecs) . toAction
-
-workerHelper :: OutSpecs -> (arg -> Worker m) -> (arg -> WorkerSpec m, OutSpecs)
-workerHelper outSpecs h = (,outSpecs) $ toAction . h
-
-worker' :: OutSpecs -> (VerInfo -> Worker m) -> (WorkerSpec m, OutSpecs)
-worker' outSpecs h =
-    (,outSpecs) $ ActionSpec $ h
-
 
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
@@ -239,7 +211,7 @@ type LocalOnNewSlotComm ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockables m [Fork, Delay]
+    , Mockables m [Async, Delay]
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
@@ -248,34 +220,10 @@ type LocalOnNewSlotComm ctx m =
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
-    , Mockable Throw m
+    , MonadThrow m
     , Mockable SharedAtomic m
     , HasConfiguration
     )
-
-onNewSlot'
-    :: OnNewSlotComm ctx m
-    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' startImmediately (h, outs) =
-    (,outs) . ActionSpec $ \vI sA ->
-        onNewSlot startImmediately $
-            \slotId -> let ActionSpec h' = h slotId
-                        in h' vI sA
-onNewSlotWorker
-    :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
-
-localOnNewSlotWorker
-    :: LocalOnNewSlotComm ctx m
-    => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
-localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
-
-localWorker :: m () -> (WorkerSpec m, OutSpecs)
-localWorker = localSpecs
-
-localSpecs :: m a -> (ActionSpec m a, OutSpecs)
-localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkProtocolMagic
     :: WithLogger m

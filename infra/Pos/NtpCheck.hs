@@ -2,24 +2,20 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.NtpCheck
-    ( mkNtpStatusVar
+    ( getNtpStatusOnce
     , ntpSettings
     , withNtpCheck
     , NtpStatus(..)
     , NtpCheckMonad
     ) where
 
-import           Universum hiding (bracket)
+import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
-import           Mockable (Bracket, CurrentTime, Delay, Fork, Mockable, Mockables, bracket,
-                           currentTime)
-import           NTP.Client (NtpClientSettings (..), ntpSingleShot, pressNtpStopButton,
-                             startNtpClient)
+import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, withAsync)
+import           NTP.Client (NtpClientSettings (..), NtpMonad, spawnNtpClient)
 import           Serokell.Util (sec)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
@@ -27,19 +23,13 @@ import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
-    ( MonadIO m
-    , MonadMask m
-    , MonadBaseControl IO m
-    , Mockable Fork m
-    , Mockable Bracket m
+    ( NtpMonad m
     , Mockable CurrentTime m
-    , WithLogger m
     , HasInfraConfiguration
     )
 
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings m -> m a -> m a
-withNtpCheck settings action =
-    bracket (startNtpClient settings) pressNtpStopButton (const action)
+withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action)
 
 ntpSettings :: NtpCheckMonad m => (NtpStatus -> m ()) -> NtpClientSettings m
 ntpSettings onStatus = NtpClientSettings
@@ -70,13 +60,13 @@ timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval in
 timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
 timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
 
-type NtpStatusVar = MVar NtpStatus
-
--- Helper to get ntp status
-mkNtpStatusVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
-    => m NtpStatusVar
-mkNtpStatusVar = do
+-- | Create NTP client, let it work till the first response from servers,
+-- then shutdown and return result.
+getNtpStatusOnce :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
+    => m NtpStatus
+getNtpStatusOnce = do
     status <- newEmptyMVar
     let onStatusHandler = putMVar status
-    _ <- ntpSingleShot $ ntpSettings onStatusHandler
-    pure status
+    let initNtp = spawnNtpClient $ ntpSettings onStatusHandler
+    withAsync initNtp $ \_ ->
+        readMVar status

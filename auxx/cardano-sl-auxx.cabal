@@ -64,7 +64,6 @@ library
                      , containers
                      , data-default
                      , directory
-                     , ether
                      , filepath
                      , fmt
                      , formatting
@@ -122,6 +121,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -138,6 +138,7 @@ executable cardano-auxx
                      , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
+                     , cardano-sl-update
                      , conduit-combinators
                      , constraints
                      , formatting
@@ -180,6 +181,7 @@ executable cardano-auxx
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -243,6 +245,7 @@ test-suite cardano-auxx-test
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

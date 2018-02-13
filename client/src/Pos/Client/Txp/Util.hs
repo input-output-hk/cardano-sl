@@ -8,6 +8,7 @@ module Pos.Client.Txp.Util
        (
        -- * Tx creation params
          InputSelectionPolicy (..)
+       , PendingAddresses (..)
 
        -- * Tx creation
        , TxCreateMode
@@ -41,13 +42,15 @@ import           Universum
 
 import           Control.Lens (makeLenses, (%=), (.=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import           Data.Traversable (for)
 import           Data.Default (Default (..))
 import           Data.Fixed (Fixed, HasResolution)
 import qualified Data.HashSet as HS
-import           Data.List (tail)
+import           Data.List (partition, tail)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Semigroup as S
+import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))
@@ -77,6 +80,11 @@ type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
 type TxWithSpendings = (TxAux, NonEmpty TxOut)
 
+-- | List of addresses which are refered by at least one output of transaction
+-- which is not yet confirmed i.e. detected in block.
+newtype PendingAddresses = PendingAddresses (Set Address)
+    deriving (Show, Monoid)
+
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =
         bprint ("("%build%", "%listJson%")") txAux neTxOut
@@ -103,6 +111,8 @@ data TxError =
       -- ^ One of the tx outputs is a redemption address
     | RedemptionDepleted
       -- ^ Redemption address has already been used
+    | SafeSignerNotFound !Address
+      -- ^ The safe signer at the specified address was not found
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
@@ -127,6 +137,8 @@ instance Buildable TxError where
         bprint ("Output address "%build%" is a redemption address") addr
     build RedemptionDepleted =
         bprint "Redemption address balance is 0"
+    build (SafeSignerNotFound addr) =
+        bprint ("Address "%build%" has no associated safe signer") addr
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
 
@@ -137,6 +149,7 @@ isCheckedTxError = \case
     FailedToStabilize{}     -> False
     OutputIsRedeem{}        -> True
     RedemptionDepleted{}    -> True
+    SafeSignerNotFound{}    -> True
     GeneralTxError{}        -> True
 
 -----------------------------------------------------------------------------
@@ -145,14 +158,14 @@ isCheckedTxError = \case
 
 -- | Specifies the way Utxos are going to be grouped.
 data InputSelectionPolicy
-    = OptimizeForSecurity  -- ^ Spend everything from the address
-    | OptimizeForSize      -- ^ No grouping
+    = OptimizeForSecurity       -- ^ Spend everything from the address
+    | OptimizeForHighThroughput -- ^ No grouping, prefer confirmed addresses
     deriving (Show, Eq, Enum, Bounded, Generic)
 
 instance Buildable InputSelectionPolicy where
     build = \case
-        OptimizeForSecurity -> "securely"
-        OptimizeForSize -> "simple"
+        OptimizeForSecurity       -> "securely"
+        OptimizeForHighThroughput -> "high throughput"
 
 instance Buildable (SecureLog InputSelectionPolicy) where
     build = buildUnsecure
@@ -176,20 +189,21 @@ type TxCreateMode m
 
 -- | Generic function to create a transaction, given desired inputs,
 -- outputs and a way to construct witness from signature data
-makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
+makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
-               -> TxAux
-makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness
-  where
+               -> Either e TxAux
+makeAbstractTx mkWit txInputs outputs = do
+  let
     tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-    txWitness = V.fromList $ toList $ txInputs <&>
-        \(addr, _) -> mkWit addr txSigData
     txSigData = TxSigData
         { txSigTxHash = hash tx
         }
+  txWitness <- V.fromList . toList <$>
+      for txInputs (\(addr, _) -> mkWit addr txSigData)
+  pure $ TxAux tx txWitness
 
 -- | Datatype which contains all data from DB which is necessary
 -- to create transactions
@@ -215,46 +229,49 @@ runTxCreator inputSelectionPolicy action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: HasConfiguration
-    => (owner -> SafeSigner)
+    :: (HasConfiguration)
+    => (owner -> Either e SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
-    -> TxAux
+    -> Either e TxAux
 makeMPubKeyTx getSs = makeAbstractTx mkWit
   where mkWit addr sigData =
-          let ss = getSs addr
-          in PkWitness
+          getSs addr <&> \ss ->
+              PkWitness
               { twKey = safeToPublic ss
               , twSig = safeSign SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: HasConfiguration
-    => (Address -> SafeSigner)
+    :: (HasConfiguration)
+    => (Address -> Either e SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
-    -> TxAux
+    -> Either e TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx ss txInputs =
-    makeMPubKeyTx (const ss) (map ((), ) txInputs)
+makePubKeyTx ss txInputs txOutputs = either absurd identity $
+    makeMPubKeyTx (\_ -> Right ss) (map ((), ) txInputs) txOutputs
 
 makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
-makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
-  where mkWit _ sigData = ScriptWitness
+makeMOfNTx validator sks txInputs txOutputs = either absurd identity $
+    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
+  where
+    mkWit _ sigData = Right $ ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
             }
 
 makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
-makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
+makeRedemptionTx rsk txInputs txOutputs = either absurd identity $
+    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where rpk = redeemToPublic rsk
-        mkWit _ sigData = RedeemWitness
+        mkWit _ sigData = Right $ RedeemWitness
             { twRedeemKey = rpk
             , twRedeemSig = redeemSign SignRedeemTx rsk sigData
             }
@@ -290,13 +307,32 @@ makeLenses ''InputPickerState
 
 type InputPicker = StateT InputPickerState (Either TxError)
 
-plainInputPicker :: InputPickingWay
-plainInputPicker utxo _outputs moneyToSpent =
+plainInputPicker :: PendingAddresses -> InputPickingWay
+plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
     evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
   where
-    allUnspent = M.toList utxo
-    sortedUnspent =
-        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+    onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
+    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `Set.member` addrs)
+    --
+    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
+    -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
+    -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
+    -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
+    -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
+    -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
+    -- the `confirmed` set would tend to be quite big anyway.
+    -- We should revisit such policy and its implications during a proper rewrite.
+    --
+    -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
+    -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
+    -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
+    -- (The same malady the @OptimiseForSecurity@ policy was affected by).
+    sortedUnspent = confirmed ++ unconfirmed
+
+    (confirmed, unconfirmed) =
+      -- Give precedence to "confirmed" addresses.
+      partition (onlyConfirmedInputs pendingAddrs)
+                (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -420,16 +456,17 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
 
 prepareTxRaw
     :: Monad m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxFee
     -> TxCreator m TxRaw
-prepareTxRaw utxo outputs fee = do
+prepareTxRaw pendingTx utxo outputs fee = do
     inputSelectionPolicy <- view tcdInputSelectionPolicy
     let inputPicker =
           case inputSelectionPolicy of
-            OptimizeForSize     -> plainInputPicker
-            OptimizeForSecurity -> groupedInputPicker
+            OptimizeForHighThroughput -> plainInputPicker pendingTx
+            OptimizeForSecurity       -> groupedInputPicker
     prepareTxRawWithPicker inputPicker utxo outputs fee
 
 -- Returns set of tx outputs including change output (if it's necessary)
@@ -447,75 +484,86 @@ mkOutputsWithRem addrData TxRaw {..}
 
 prepareInpsOuts
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> AddrData m
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOuts utxo outputs addrData = do
-    txRaw@TxRaw {..} <- prepareTxWithFee utxo outputs
+prepareInpsOuts pendingTx utxo outputs addrData = do
+    txRaw@TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
     outputsWithRem <- mkOutputsWithRem addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
     :: TxCreateMode m
-    => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
+    => PendingAddresses
+    -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTx creator inputSelectionPolicy utxo outputs addrData =
+createGenericTx pendingTx creator inputSelectionPolicy utxo outputs addrData =
     runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOuts utxo outputs addrData
-        pure (creator inps outs, map fst inps)
+        (inps, outs) <- prepareInpsOuts pendingTx utxo outputs addrData
+        txAux <- either throwError return $ creator inps outs
+        pure (txAux, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
-    => (TxInputs -> TxOutputs -> TxAux)
+    => PendingAddresses
+    -> (TxInputs -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTxSingle creator = createGenericTx (creator . map snd)
+createGenericTxSingle pendingTx creator = createGenericTx pendingTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
     :: TxCreateMode m
-    => InputSelectionPolicy
+    => PendingAddresses
+    -> InputSelectionPolicy
     -> Utxo
-    -> (Address -> SafeSigner)
+    -> (Address -> Maybe SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx groupInputs utxo hdwSigners outputs addrData =
-    createGenericTx (makeMPubKeyTxAddrs hdwSigners)
+createMTx pendingTx groupInputs utxo hdwSigners outputs addrData =
+    createGenericTx pendingTx (makeMPubKeyTxAddrs getSigner)
         groupInputs utxo outputs addrData
+  where
+    getSigner address =
+        note (SafeSignerNotFound address) $
+        hdwSigners address
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
 createTx
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx utxo ss outputs addrData =
-    createGenericTxSingle (makePubKeyTx ss)
-        OptimizeForSecurity utxo outputs addrData
+createTx pendingTx utxo ss outputs addrData =
+    createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
+    OptimizeForSecurity utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
     :: TxCreateMode m
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx utxo keys outputs addrData =
-    createGenericTxSingle (makeMOfNTx validator sks)
+createMOfNTx pendingTx utxo keys outputs addrData =
+    createGenericTxSingle pendingTx (\i o -> Right $ makeMOfNTx validator sks i o)
     OptimizeForSecurity utxo outputs addrData
   where
     ids = map fst keys
@@ -532,12 +580,12 @@ createRedemptionTx
     -> m (Either TxError TxAux)
 createRedemptionTx utxo rsk outputs =
     runTxCreator whetherGroupedInputs $ do
-        TxRaw {..} <- prepareTxRaw utxo outputs (TxFee $ mkCoin 0)
+        TxRaw {..} <- prepareTxRaw mempty utxo outputs (TxFee $ mkCoin 0)
         let bareInputs = snd <$> trInputs
         pure $ makeRedemptionTx rsk bareInputs trOutputs
   where
     -- always spend redeem address fully
-    whetherGroupedInputs = OptimizeForSize
+    whetherGroupedInputs = OptimizeForSecurity
 
 -----------------------------------------------------------------------------
 -- Fees logic
@@ -555,23 +603,25 @@ withLinearFeePolicy action = view tcdFeePolicy >>= \case
         action linearPolicy
 
 -- | Prepare transaction considering fees
-prepareTxWithFee
-    :: (HasConfiguration, MonadAddresses m)
-    => Utxo
+prepareTxWithFee ::
+       (HasConfiguration, MonadAddresses m)
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-prepareTxWithFee utxo outputs = withLinearFeePolicy $ \linearPolicy ->
-    stabilizeTxFee linearPolicy utxo outputs
+prepareTxWithFee pendingTx utxo outputs = withLinearFeePolicy $ \linearPolicy ->
+    stabilizeTxFee pendingTx linearPolicy utxo outputs
 
 -- | Compute, how much fees we should pay to send money to given
 -- outputs
 computeTxFee
     :: (HasConfiguration, MonadAddresses m)
-    => Utxo
+    => PendingAddresses
+    -> Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee utxo outputs = do
-    TxRaw {..} <- prepareTxWithFee utxo outputs
+computeTxFee pendingTx utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
     let outAmount = sumTxOutCoins trOutputs
         inAmount = sumCoins $ map (txOutValue . fst) trInputs
         remaining = coinToInteger trRemainingMoney
@@ -623,11 +673,12 @@ computeTxFee utxo outputs = do
 -- To possibly find better solutions we iterate for several times more.
 stabilizeTxFee
     :: forall m. (HasConfiguration, MonadAddresses m)
-    => TxSizeLinear
+    => PendingAddresses
+    -> TxSizeLinear
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-stabilizeTxFee linearPolicy utxo outputs = do
+stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
     mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
@@ -642,7 +693,7 @@ stabilizeTxFee linearPolicy utxo outputs = do
                      -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
-        txRaw <- prepareTxRaw utxo outputs expectedFee
+        txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
         fakeChangeAddr <- lift . lift $ getFakeChangeAddress
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx fakeChangeAddr txRaw
@@ -683,4 +734,7 @@ createFakeTxFromRawTx fakeAddr TxRaw{..} =
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
-    in makeMPubKeyTxAddrs (const (fakeSigner fakeSK)) trInputs txOutsWithRem
+    in either absurd identity $ makeMPubKeyTxAddrs
+           (\_ -> Right $ fakeSigner fakeSK)
+           trInputs
+           txOutsWithRem

@@ -17,7 +17,7 @@ module Pos.Delegation.Logic.Common
 
 import           Universum
 
-import           Control.Exception (Exception (..))
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, stext, (%))

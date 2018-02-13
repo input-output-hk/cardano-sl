@@ -44,8 +44,8 @@ module Pos.Util.Servant
 
 import           Universum
 
+import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Catch (handleAll)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
@@ -159,8 +159,7 @@ instance HasSwagger v => HasSwagger (VerbMod mod v) where
 -------------------------------------------------------------------------
 
 -- | For many types with nice structure there exists a /client type/, which is
--- an intermediate representation between internal types and JSON. Their ToJSON
--- instances are derived automatically and they are used by daedalus-bridge.
+-- an intermediate representation between internal types and JSON.
 -- | This family maps /client types/ to their respective original types
 -- (e.g. @CAccountAddress@ -> @AccountAddress@).
 type family OriginType ctype :: *
@@ -539,7 +538,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 (showResponse resp)
     catchErrors st =
         flip catchError (servantErrHandler st) .
-        handleAll (exceptionsHandler st)
+        handleAny (exceptionsHandler st)
     servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase

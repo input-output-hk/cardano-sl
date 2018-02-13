@@ -3,8 +3,8 @@
 
 -- | This module does some hard work related to block processing
 -- logic, but not specific to any particular part of the
--- system. Contrary, modules like 'Pos.Block.Logic.VAR' unite logic
--- from multiple components into functions.
+-- system. On the contrary, modules like 'Pos.Block.Logic.VAR'
+-- unite logic from multiple components into functions.
 
 module Pos.Block.Slog.Logic
        ( mustDataBeKnown
@@ -35,7 +35,7 @@ import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Pure (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots)
+import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
@@ -117,6 +117,13 @@ type MonadSlogVerify ctx m =
 
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
+--
+-- The algorithm works as follows:
+--
+-- 1.  If the oldest block is a genesis block, verify that its leaders
+--     match the ones computed by LRC.
+-- 2.  Call pure verification. If it fails, throw.
+-- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
     :: forall ctx m.
     ( MonadSlogVerify ctx m
@@ -144,11 +151,12 @@ slogVerifyBlocks blocks = do
             when (block ^. genBlockLeaders /= leaders) $
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    -- Do pure block verification.
     verResToMonadError formatAllErrors $
         verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
-    -- Here we need to compute 'SlogUndo'. When we add apply a block,
-    -- we can remove one of the last slots stored in
-    -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
+    -- Here we need to compute 'SlogUndo'. When we apply a block,
+    -- we can remove one of the last slots stored in 'BlockExtra'.
+    -- This removed slot must be put into 'SlogUndo'.
     lastSlots <- GS.getLastSlots
     let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
@@ -186,19 +194,23 @@ type MonadSlogApply ctx m =
     , HasSlogGState ctx
     )
 
--- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
--- {-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ I reduced duplication by introducing 'slogCommon', but it wants
--- more and I don't.
-
 -- | Flag determining whether to call BListener callback.
 newtype ShouldCallBListener = ShouldCallBListener Bool
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
+--
+-- The algorithm works as follows:
+-- 1.  Put blunds in BlockDB (done first to preserve the invariant that the tip must exist in BlockDB).
+-- 2.  Call 'BListener', get extra 'SomeBatchOp's from it.
+-- 3.  Update @lastBlkSlots@ in-memory.
+-- 4.  Return 'SomeBatchOp's for:
+--     1. Updating tip
+--     2. Updating max seen difficulty
+--     3. 'BListener''s batch
+--     4. Updating @lastBlkSlots@ in the DB
+--     5. Adding new forward links
+--     6. Setting @inMainChain@ flags
 slogApplyBlocks
     :: forall ctx m. (MonadSlogApply ctx m)
     => ShouldCallBListener
@@ -211,8 +223,8 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- before we update GState, this invariant won't be violated. If
     -- we update GState first, this invariant may be violated.
     mapM_ putBlund blunds
-    -- If the program is interrupted at this point (after putting on
-    -- block), we will have a garbage block in BlockDB, but it's not a
+    -- If the program is interrupted at this point (after putting blunds
+    -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
     bListenerBatch <- if callBListener then onApplyBlocks blunds
                       else pure mempty
@@ -221,7 +233,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
         SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
                         | newestDifficulty > x]
@@ -256,6 +268,17 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
+--
+-- The algorithm works as follows:
+-- 1.  Assert that we are not rolling back 0th genesis block.
+-- 2.  Check that we are not rolling back more than 'blkSecurityParam' blocks.
+-- 3.  Call 'BListener', get extra 'SomeBatchOp's from it.
+-- 4.  Return 'SomeBatchOp's for:
+--     1. Reverting tip
+--     2. 'BListener''s batch
+--     3. Reverting @lastBlkSlots@
+--     4. Removing forward links
+--     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        forall ctx m. (MonadSlogApply ctx m)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
@@ -288,7 +311,7 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     return $
         SomeBatchOp
             [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -321,11 +344,3 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
-
--- Common actions for rollback and apply.
-slogCommon
-    :: MonadSlogApply ctx m
-    => LastBlkSlots
-    -> m ()
-slogCommon newLastSlots = do
-    slogPutLastSlots newLastSlots

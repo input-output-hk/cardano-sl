@@ -2,9 +2,9 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import           Universum hiding (bracket)
+import           Universum
 
-import           Mockable (Production, bracket, runProduction)
+import           Mockable (Production, runProduction)
 import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
                                    withCurrentDirectory)
 

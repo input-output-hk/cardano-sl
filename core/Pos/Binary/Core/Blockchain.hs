@@ -4,14 +4,20 @@ module Pos.Binary.Core.Blockchain
        (
        ) where
 
+import           Codec.CBOR.Decoding (decodeWordCanonical)
+import           Codec.CBOR.Encoding (encodeWord)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeListLen, enforceSize)
+import           Pos.Binary.Core.Block ()
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
+import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlockchain, MainBlockchain)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, protocolMagic)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (cborError, toCborError)
 
+-- When changing this instance, also change the one in Pos.Block.Dump
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
@@ -30,14 +36,15 @@ instance ( Typeable b
     decode = do
         enforceSize "GenericBlockHeader b" 5
         blockMagic <- decode
-        when (blockMagic /= protocolMagic) $
-            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+        when (blockMagic /= protocolMagic) $ cborError $
+            "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
         prevBlock <- decode
         bodyProof <- decode
         consensus <- decode
         extra     <- decode
-        eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra
+        toCborError $ T.recreateGenericHeader prevBlock bodyProof consensus extra
 
+-- When changing this instance, also change the one in Pos.Block.Dump
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
@@ -58,4 +65,27 @@ instance ( Typeable b
         header <- decode
         body   <- decode
         extra  <- decode
-        eitherToFail $ T.recreateGenericBlock header body extra
+        toCborError $ T.recreateGenericBlock header body extra
+
+----------------------------------------------------------------------------
+-- BlockHeader
+----------------------------------------------------------------------------
+
+instance ( HasConfiguration
+         , T.BlockchainHelpers MainBlockchain
+         , T.BlockchainHelpers GenesisBlockchain
+         ) =>
+         Bi BlockHeader where
+   encode x = encodeListLen 2 <> encodeWord tag <> body
+     where
+       (tag, body) = case x of
+         BlockHeaderGenesis bh -> (0, encode bh)
+         BlockHeaderMain bh    -> (1, encode bh)
+
+   decode = do
+       decodeListLenCanonicalOf 2
+       t <- decodeWordCanonical
+       case t of
+           0 -> BlockHeaderGenesis <$!> decode
+           1 -> BlockHeaderMain <$!> decode
+           _ -> cborError $ "decode@BlockHeader: unknown tag " <> show t

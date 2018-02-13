@@ -23,7 +23,7 @@ import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerHash,
                            headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader, blockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.DB.Class (MonadDBRead)
@@ -100,7 +100,9 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
     gbDiff = Just . view difficultyL
-    ptxBlkInfo = either (const Nothing) (Just . view difficultyL)
+    ptxBlkInfo = \case
+        BlockHeaderGenesis _ -> Nothing
+        BlockHeaderMain h -> Just $ h ^. difficultyL
 
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
@@ -153,7 +155,9 @@ blkHeaderTsGetter = do
     sd <- GS.getSlottingData
     let mainBlkHeaderTs mBlkH =
             getSlotStartPure systemStart (mBlkH ^. headerSlotL) sd
-    return $ either (const Nothing) mainBlkHeaderTs
+    return $ \case
+        BlockHeaderGenesis _ -> Nothing
+        BlockHeaderMain h -> mainBlkHeaderTs h
 
 gbTxsWUndo :: Blund -> [(TxAux, TxUndo, BlockHeader)]
 gbTxsWUndo (Left _, _) = []

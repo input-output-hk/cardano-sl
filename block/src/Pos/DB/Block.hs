@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Interface to Blocks DB.
+-- | Interface and implementation of Blocks DB: storing blocks in files on disk.
 
 module Pos.DB.Block
        ( getBlock
@@ -37,7 +37,6 @@ import           Control.Exception.Safe (handle)
 import           Control.Lens (at)
 import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
-import           Ether.Internal (HasLens (..))
 import           Formatting (formatToString, (%))
 import           System.Directory (createDirectoryIfMissing, removeFile)
 import           System.FilePath ((</>))
@@ -65,7 +64,7 @@ import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getBlockIndexDB, getNo
                                rocksPutBi)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
-import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
 ----------------------------------------------------------------------------
 -- BlockDB related methods

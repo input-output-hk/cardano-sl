@@ -35,11 +35,11 @@ import qualified Pos.Lrc as Lrc
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util (getKeys)
 
+import           Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks)
-import           Test.Pos.Configuration (defaultTestBlockVersionData)
-import           Test.Pos.Util (maybeStopProperty, stopProperty, withStaticConfigurations)
+import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 
 
 spec :: Spec
@@ -152,9 +152,9 @@ lrcCorrectnessProp = do
 
 checkRichmen :: HasConfigurations => BlockProperty ()
 checkRichmen = do
-    checkRichmenStakes =<< getRichmen (lift . Lrc.getRichmenSsc)
-    checkRichmenFull =<< getRichmen (lift . Lrc.getRichmenUS)
-    checkRichmenSet =<< getRichmen (lift . Lrc.getRichmenDlg)
+    checkRichmenStakes =<< getRichmen (lift . Lrc.tryGetSscRichmen)
+    checkRichmenFull =<< getRichmen (lift . Lrc.tryGetUSRichmen)
+    checkRichmenSet =<< getRichmen (lift . Lrc.tryGetDlgRichmen)
   where
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe

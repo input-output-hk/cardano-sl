@@ -13,14 +13,14 @@ module NTP.Util
     , withSocketsDoLifted
     ) where
 
-import           Control.Monad.Catch (catchAll)
+import           Control.Exception.Safe (catchAny)
 import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Data.List (sortOn)
 import           Data.List (find)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
-import           Network.Socket (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG), AddrInfoFlag (AI_PASSIVE),
+import           Network.Socket (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),
                                  Family (AF_INET, AF_INET6), PortNumber (..), SockAddr (..), Socket,
                                  SocketOption (ReuseAddr), SocketType (Datagram), aNY_PORT,
                                  addrAddress, addrFamily, addrFlags, addrSocketType, bind,
@@ -37,7 +37,7 @@ resolveHost host (hasIPv4, hasIPv6) = do
             , addrFlags = [AI_ADDRCONFIG]  -- since we use AF_INET family
             }
     addrInfos <- getAddrInfo (Just hints) (Just host) Nothing
-                    `catchAll` \_ -> return []
+                    `catchAny` \_ -> return []
 
     -- one address is enough
     pure $

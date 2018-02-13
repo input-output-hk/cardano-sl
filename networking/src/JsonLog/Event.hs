@@ -13,7 +13,7 @@ Portability:  GHC
 This module defines types of JSON log events
 and functions to work with them.
 
-Seeing as method @'JsonLog.CanJsonLog.jsonLog'@ allows to log events of arbitraby types
+Seeing as method @'JsonLog.CanJsonLog.jsonLog'@ allows to log events of arbitrary types
 which can be serialized to JSON, for the /parsing/ of JSON logs,
 three scenarios are supported:
 

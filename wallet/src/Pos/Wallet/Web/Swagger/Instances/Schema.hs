@@ -6,27 +6,28 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 
 import           Universum
 
-import           Control.Lens (mapped, (?~))
+import           Control.Lens (ix, mapped, (?~))
+import           Data.Aeson (toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
                                genericDeclareNamedSchema, minItems, name, properties, required,
-                               type_)
+                               sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
+import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
 import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
 
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
-                           SlotCount (..), SoftwareVersion)
+                           SlotCount (..), SoftwareVersion, mkCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
 
-import           Pos.Wallet.Aeson.Storage ()
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
@@ -67,14 +68,12 @@ instance ToSchema      CT.CCoin
 instance ToSchema      CT.CInitialized
 instance ToSchema      CT.CElectronCrashReport
 instance ToSchema      CT.CUpdateInfo
-instance ToSchema      CT.NewBatchPayment
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
 instance ToSchema      CT.SyncProgress
 instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
-instance ToSchema      InputSelectionPolicy
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
@@ -84,8 +83,16 @@ instance ToSchema      CT.ApiVersion
 instance ToSchema      Version
 instance ToSchema      CT.ClientInfo
 
+instance ToSchema InputSelectionPolicy where
+    declareNamedSchema proxy =
+        genericDeclareNamedSchema defaultSchemaOptions proxy
+            & mapped.Swagger.schema.example ?~ toJSON OptimizeForHighThroughput
+
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty
+
+instance ToSchema PendingTxsSummary where
+    declareNamedSchema _ = pure $ NamedSchema (Just "PendingTxsSummary") mempty
 
 instance ToSchema (FileData tag) where
     declareNamedSchema _ = do
@@ -116,6 +123,20 @@ instance ToSchema CT.CFilePath where
                \Also, when on Windows, don't forget to double-escape \
                \ backslashes, e.g. \
                \ \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""
+
+instance ToSchema CT.NewBatchPayment where
+    declareNamedSchema _ = do
+        cAccountIdSchema <- declareSchemaRef (Proxy @CT.CAccountId)
+        return $ NamedSchema (Just "NewBatchPayment") $
+            sketchSchema example_
+                & properties . ix "npbFrom" .~ cAccountIdSchema
+      where
+        example_ = CT.NewBatchPayment
+            { CT.npbFrom = CT.CAccountId "<walletId@accountId>"
+            , CT.npbTo   = (CT.CId (CT.CHash "<address>"), mkCoin 228) :|
+                          [(CT.CId (CT.CHash "<address>"), mkCoin 701)]
+            , CT.npbInputSelectionPolicy = OptimizeForSecurity
+            }
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

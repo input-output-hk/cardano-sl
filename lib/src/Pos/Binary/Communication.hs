@@ -2,7 +2,9 @@
 
 -- | Communication-related serialization -- messages mostly.
 
-module Pos.Binary.Communication () where
+module Pos.Binary.Communication
+    (
+    ) where
 
 import           Universum
 
@@ -15,8 +17,10 @@ import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   MsgSubscribe (..), VerInfo (..))
+                                                   MsgSubscribe (..), MsgSubscribe1 (..),
+                                                   VerInfo (..))
 import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
+import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
 
@@ -46,7 +50,7 @@ instance HasConfiguration => Bi MsgHeaders where
         case tag of
             0 -> MsgHeaders <$> decode
             1 -> MsgNoHeaders <$> decode
-            t -> fail $ "MsgHeaders wrong tag: " <> show t
+            t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
 instance HasConfiguration => Bi MsgBlock where
     encode = \case
@@ -58,11 +62,17 @@ instance HasConfiguration => Bi MsgBlock where
         case tag of
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
-            t -> fail $ "MsgBlock wrong tag: " <> show t
+            t -> cborError $ "MsgBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.
 -- TODO: Shall we encode this as `CBOR` TkNull?
+instance Bi MsgSubscribe1 where
+    encode MsgSubscribe1 = encode (42 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe1
+        n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
+
 instance Bi MsgSubscribe where
     encode = \case
         MsgSubscribe          -> encode (42 :: Word8)
@@ -70,7 +80,7 @@ instance Bi MsgSubscribe where
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe
         43 -> pure MsgSubscribeKeepAlive
-        n  -> fail $ "MsgSubscribe wrong byte: " <> show n
+        n  -> cborError $ "MsgSubscribe wrong byte: " <> show n
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

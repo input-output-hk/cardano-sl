@@ -33,9 +33,6 @@ data InfraConfiguration = InfraConfiguration
     -- ^ We consider node as known if it was pinged at most @ccEnhancedMessageTimeout@ sec ago
     , ccEnhancedMessageBroadcast    :: !Word
       -- ^ Number of nodes from batch for enhanced bessage broadcast
-    , ccNetworkWaitLogInterval      :: !Int
-      -- ^ Network wait logging interval in seconds
-      --   (logging that some recv/send takes significant amount of time)
 
     --------------------------------------------------------------------------
     -- -- Relay
@@ -70,6 +67,8 @@ infraConfiguration = given
 
 ntpServers :: [String]
 ntpServers =
-    [ "time.windows.com"
-    , "clock.isc.org"
-    , "ntp5.stratum2.ru" ]
+    [ "0.pool.ntp.org"
+    , "2.pool.ntp.org"
+    , "3.pool.ntp.org"
+    ]
+    -- need only 3 servers :shrug:

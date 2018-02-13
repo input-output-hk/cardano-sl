@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Type class necessary for Transaction processing (Txp)
+-- | Type class necessary for transaction processing (Txp)
 -- and some useful getters and setters.
 
 module Pos.Txp.MemState.Class
@@ -28,19 +28,18 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
-import           Ether.Internal (HasLens (..))
 import           Mockable (CurrentTime, Mockable)
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Core (HasConfiguration)
+import           Pos.Core.Txp (TxAux, TxId, TxUndo)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.Reporting (MonadReporting)
 import           Pos.Slotting (MonadSlots (..))
-
-import           Pos.Core.Txp (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..), GenericTxpLocalDataPure)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Txp.Toil.Types (MemPool (..), UtxoModifier)
+import           Pos.Util.Util (HasLens (..))
 
 data TxpHolderTag
 

@@ -31,7 +31,7 @@ for trgt in $targets; do
   # echo "Prebuilding dependencies for $trgt, quietly.."
   # nix-shell -A $trgt --run true --no-build-output --cores 0 --max-jobs 4 default.nix ||
   #         echo "Prebuild failed!"
-          
+
   echo "Building $trgt verbosely.."
   nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT
 #    TODO: CSL-1133
@@ -44,19 +44,20 @@ for trgt in $targets; do
 done
 
 #if [[ "$OS_NAME" == "linux" && "$BUILDKITE_BRANCH" == "master" && "$BUILDKITE_PULL_REQUEST" == "false" ]]; then
+  # XXX: this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
+  #
   #./update-wallet-web-api-docs.sh
   #./update-explorer-web-api-docs.sh
   #./update-cli-docs.sh
   #./update-haddock.sh
 #fi
 
-./cardano-sl-wallet.root/bin/cardano-wallet-hs2purs
-
 # Generate daedalus-bridge
+mkdir -p daedalus
 pushd daedalus
   echo $BUILDKITE_BUILD_NUMBER > build-id
   echo $BUILDKITE_COMMIT > commit-id
-  cp ../log-config-prod.yaml .
+  cp ../log-configs/daedalus.yaml ./log-config-prod.yaml
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .

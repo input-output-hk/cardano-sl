@@ -395,6 +395,7 @@ finishPrepare badProposals proposals votes = do
         | chosenUpId == Just upId = pass
         | otherwise =
             deactivateProposal upId
-    isVoteValid UpdateVote {..} =
-        (not (HS.member uvProposalId badProposals) &&) . isJust <$>
-        getProposal uvProposalId
+    isVoteValid vote = do
+        let id = uvProposalId vote
+        proposalIsPresent <- isJust <$> getProposal id
+        pure $ not (HS.member id badProposals) && proposalIsPresent

@@ -1,55 +1,34 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Server which handles update system.
+-- TODO rename the module / move defintions / whatever.
+-- It's not about the network at all.
 
 module Pos.Update.Network.Listeners
-       ( usRelays
+       ( handleProposal
+       , handleVote
        ) where
 
 import           Universum
 
-import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logNotice, logWarning)
 
-import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
-import           Pos.Communication.Types.Protocol (MsgType (..))
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (hash)
-import           Pos.Update.Logic.Local (getLocalProposalNVotes, getLocalVote, isProposalNeeded,
-                                         isVoteNeeded, processProposal, processVote)
+import           Pos.Update.Logic.Local (processProposal, processVote)
 import           Pos.Update.Mode (UpdateMode)
 
--- | Relays for data related to update system
-usRelays :: forall ctx m. UpdateMode ctx m
-    => [Relay m]
-usRelays = [proposalRelay, voteRelay]
-
-----------------------------------------------------------------------------
--- UpdateProposal relays
-----------------------------------------------------------------------------
-
-proposalRelay
-    :: forall ctx m. UpdateMode ctx m
-    => Relay m
-proposalRelay =
-    InvReqData
-        NoMempool $
-        InvReqDataParams
-           { invReqMsgType = MsgTransaction
-           , contentsToKey = \(up, _) -> pure . tag  $ hash up
-           , handleInv = \_ -> isProposalNeeded . unTagged
-           , handleReq = \_ -> getLocalProposalNVotes . unTagged
-           , handleData = \_ (proposal, votes) -> do
-                 res <- processProposal proposal
-                 logProp proposal res
-                 let processed = isRight res
-                 processed <$ when processed (mapM_ processVoteLog votes)
-           }
+handleProposal
+    :: forall ctx m .
+       UpdateMode ctx m
+    => (UpdateProposal, [UpdateVote])
+    -> m Bool
+handleProposal (proposal, votes) = do
+    res <- processProposal proposal
+    logProp proposal res
+    let processed = isRight res
+    processed <$ when processed (mapM_ processVoteLog votes)
   where
-    tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
-
     processVoteLog :: UpdateVote -> m ()
     processVoteLog vote = processVote vote >>= logVote vote
     logVote vote (Left cause) =
@@ -69,28 +48,19 @@ proposalRelay =
               prop
 
 ----------------------------------------------------------------------------
--- UpdateVote listeners
+-- UpdateVote
 ----------------------------------------------------------------------------
 
-voteRelay ::
-       forall ctx m. UpdateMode ctx m
-    => Relay m
-voteRelay =
-    InvReqData
-        NoMempool $
-        InvReqDataParams
-           { invReqMsgType = MsgTransaction
-           , contentsToKey = \UpdateVote{..} ->
-                 pure $ tag (uvProposalId, uvKey, uvDecision)
-           , handleInv = \_ (Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
-           , handleReq = \_ (Tagged (id, pk, dec)) -> getLocalVote id pk dec
-           , handleData = \_ uv -> do
-                 res <- processVote uv
-                 logProcess uv res
-                 pure $ isRight res
-           }
+handleVote
+    :: forall ctx m .
+       UpdateMode ctx m
+    => UpdateVote
+    -> m Bool
+handleVote uv = do
+    res <- processVote uv
+    logProcess uv res
+    pure $ isRight res
   where
-    tag = tagWith (Proxy :: Proxy UpdateVote)
     logProcess vote (Left cause) =
         logWarning $ sformat ("Processing of vote "%build%
                               "failed, the reason is: "%build)
@@ -101,7 +71,7 @@ voteRelay =
 -- Helpers
 ----------------------------------------------------------------------------
 
--- Update votes are accepted rarely (at least before Shelely), so
+-- Update votes are accepted rarely (at least before Shelley), so
 -- it deserves 'Notice' severity.
 logVoteAccepted :: WithLogger m => UpdateVote -> m ()
 logVoteAccepted =

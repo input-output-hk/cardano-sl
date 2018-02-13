@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 -- | Specification of Pos.Client.Txp.Util
 
@@ -31,9 +31,10 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                              redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
-import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Pos.Util.QuickCheck.Property (stopProperty)
 import           Pos.Util.Util (leftToPanic)
-import           Test.Pos.Util (stopProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
@@ -56,7 +57,7 @@ createMTxSpec :: HasTxpConfigurations => Spec
 createMTxSpec = do
     let inputSelectionPolicies =
             [ ("Grouped inputs", OptimizeForSecurity)
-            , ("Ungrouped inputs", OptimizeForSize)
+            , ("Ungrouped inputs", OptimizeForHighThroughput)
             ]
     let testSpecs =
             [ (createMTxWorksWhenWeAreRichDesc, TestFunctionWrapper createMTxWorksWhenWeAreRichSpec)
@@ -110,8 +111,8 @@ testCreateMTx
     :: HasTxpConfigurations
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
-testCreateMTx CreateMTxParams{..} =
-    createMTx cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
+testCreateMTx CreateMTxParams{..} = lift $
+    createMTx mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
 createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
@@ -201,7 +202,7 @@ txWithRedeemOutputFailsSpec :: HasTxpConfigurations => InputSelectionPolicy -> T
 txWithRedeemOutputFailsSpec inputSelectionPolicy = do
     forAllM genParams $ \(CreateMTxParams {..}) -> do
         txOrError <-
-            createMTx cmpInputSelectionPolicy cmpUtxo
+            createMTx mempty cmpInputSelectionPolicy cmpUtxo
                       (getSignerFromList cmpSigners)
                       cmpOutputs cmpAddrData
         case txOrError of
@@ -281,7 +282,7 @@ ungroupedPolicySpec =
             in unless (picked == 1) . stopProperty
             $ sformat ("Only "%build%" inputs were used instead of just 1 input") picked
   where
-    gen = makeManyUtxoTo1Params OptimizeForSize 10 1000000 1
+    gen = makeManyUtxoTo1Params OptimizeForHighThroughput 10 1000000 1
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -291,13 +292,13 @@ ungroupedPolicySpec =
 data CreateMTxParams = CreateMTxParams
     { cmpInputSelectionPolicy :: InputSelectionPolicy
     -- ^ Input selection policy
-    , cmpUtxo     :: !Utxo
+    , cmpUtxo                 :: !Utxo
     -- ^ Unspent transaction outputs.
-    , cmpSigners  :: !(NonEmpty (SafeSigner, Address))
+    , cmpSigners              :: !(NonEmpty (SafeSigner, Address))
     -- ^ Wrappers around secret keys for addresses in Utxo.
-    , cmpOutputs  :: !TxOutputs
+    , cmpOutputs              :: !TxOutputs
     -- ^ A (nonempty) list of desired tx outputs.
-    , cmpAddrData :: !(AddrData TxpTestMode)
+    , cmpAddrData             :: !(AddrData TxpTestMode)
     -- ^ Data that is normally used for creation of change addresses.
     -- In tests, it is always `()`.
     } deriving Show
@@ -310,14 +311,13 @@ data CreateRedemptionTxParams = CreateRedemptionTxParams
     , crpOutputs :: !TxOutputs
     } deriving Show
 
-getSignerFromList :: NonEmpty (SafeSigner, Address) -> (Address -> SafeSigner)
+getSignerFromList :: NonEmpty (SafeSigner, Address) -> Address -> Maybe SafeSigner
 getSignerFromList (HM.fromList . map swap . toList -> hm) =
-    \addr -> fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
+    \addr -> HM.lookup addr hm
 
 makeManyUtxoTo1Params :: InputSelectionPolicy -> Int -> Integer -> Integer -> Gen CreateMTxParams
 makeManyUtxoTo1Params inputSelectionPolicy numFrom amountEachFrom amountTo = do
-    [skFrom, skTo] <- nonrepeating 2
-
+    ~[skFrom, skTo] <- nonrepeating 2
     let txOutAuxInput  = generateTxOutAux amountEachFrom skFrom
         txOutAuxOutput = generateTxOutAux amountTo skTo
         cmpInputSelectionPolicy = inputSelectionPolicy

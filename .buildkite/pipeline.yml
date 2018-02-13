@@ -18,3 +18,8 @@ steps:
     command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
     agents:
       system: x86_64-darwin
+
+  - label: 'release.nix'
+    command: 'scripts/ci/nix-shell.sh --run scripts/ci/check-hydra.sh'
+    agents:
+      system: x86_64-linux

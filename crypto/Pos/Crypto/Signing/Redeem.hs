@@ -16,7 +16,7 @@ import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Signing.Tag (SignTag, signTag)
 import           Pos.Crypto.Signing.Types.Redeem
 

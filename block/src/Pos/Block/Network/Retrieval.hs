@@ -12,61 +12,55 @@ import           Conduit ((.|))
 import qualified Conduit as C
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
-import           Control.Lens (to, _Wrapped)
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Exception.Safe (handleAny)
+import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.Conduit.Async as Conduit.Async
-import           Data.List.NonEmpty ((<|))
+import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Set as S
 import           Ether.Internal (HasLens (..))
 import           Fmt (format, (+|), (|+))
-import           Formatting (build, builder, int, sformat, stext, (%))
-import           Mockable (delay, handleAll)
+import           Formatting (build, builder, int, sformat, (%))
+import           Mockable (delay)
 import qualified Network.HTTP.Simple as Http
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (sec)
+import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Dump (decodeBlockDumpC)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, verifyAndApplyBlocksC)
-import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
                                           MkHeadersRequestResult (..), handleBlocks,
-                                          mkBlocksRequest, mkHeadersRequest, requestHeaders,
-                                          triggerRecovery)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
+                                          mkHeadersRequest, triggerRecovery)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
-import           Pos.Block.Types (ProgressHeaderTag, RecoveryHeaderTag)
-import           Pos.Communication.Limits.Types (recvLimited)
-import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs,
-                                             SendActions (..), WorkerSpec, convH, toOutSpecs,
-                                             waitForConversations, worker)
+import           Pos.Block.Types (RecoveryHeaderTag)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
 import           Pos.Core (EpochIndex, HasHeaderHash (..), HeaderHash, difficultyL, epochIndexL,
                            getEpochOrSlot, isMoreDifficult, prevBlockL, siSlotL, unEpochOrSlot)
-import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Core.Block (BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.Diffusion.Types (Diffusion)
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Slotting.Class (getCurrentSlot)
 import           Pos.StateLock (Priority (HighPriority), modifyStateLock)
-import           Pos.Util ((<//>), _neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
-                                  _OldestFirst)
-import           Pos.Util.Timer (Timer, startTimer)
+import           Pos.Util ((<//>))
+import           Pos.Util.Chrono (OldestFirst (..), _OldestFirst)
+import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> Maybe Text -> (WorkerSpec m, OutSpecs)
-retrievalWorker keepAliveTimer blockStorageMirror =
-    worker outs (retrievalWorkerImpl keepAliveTimer blockStorageMirror)
+    => Maybe Text -> (WorkerSpec m, OutSpecs)
+retrievalWorker blockStorageMirror =
+    worker outs (retrievalWorkerImpl blockStorageMirror)
   where
-    outs = announceBlockOuts <>
-           toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
+    outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
                              (Proxy :: Proxy MsgBlock)
                       ]
 
@@ -90,10 +84,10 @@ retrievalWorker keepAliveTimer blockStorageMirror =
 retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Timer -> Maybe Text -> SendActions m -> m ()
-retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
+    => Maybe Text -> Diffusion m -> m ()
+retrievalWorkerImpl blockStorageMirror diffusion = do
     whenJust blockStorageMirror $ \dumpUrl ->
-        handleAll downloadBlockDumpE $ do
+        handleAny downloadBlockDumpE $ do
             epoch <- view epochIndexL <$> DB.getTipHeader
             downloadBlockDump epoch (toString dumpUrl)
     -- It would make some sense to do HTTP sync inside the 'retrievalLoop'
@@ -101,7 +95,7 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
     --
     -- 1. I don't feel confident enough about 'retrievalLoop' to modify it
     -- 2. hopefully, soon enough we'll get rid of HTTP sync
-    handleAll retrievalLoopE $ do
+    handleAny retrievalLoopE $ do
         logInfo "Starting retrieval loop"
         retrievalLoop
   where
@@ -112,29 +106,28 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
-        -- Reading the queue is a priority, because it sets recovery
-        -- variable in case header is alternative. So if the queue
-        -- contains lots of headers after a long delay, we'll first
-        -- iterate over them and set recovery variable to a latest
-        -- one, and only then we'll do recovery.
+        -- Reading the queue is a priority, because it sets the recovery
+        -- variable in case the header is classified as alternative. So if the
+        -- queue contains lots of headers after a long delay, we'll first
+        -- iterate over them and set recovery variable to the latest one, and
+        -- only then we'll do recovery.
         thingToDoNext <- atomically $ do
             mbQueuedHeadersChunk <- tryReadTBQueue queue
             mbRecHeader <- tryReadTMVar recHeaderVar
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                -- Dispatch task.
+                -- Dispatch the task
                 (Just (nodeId, task), _) ->
                     pure (handleBlockRetrieval nodeId task)
-                -- No tasks & recovery header is there ⇒ do recovery.
+                -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
-        startTimer keepAliveTimer
         thingToDoNext
         retrievalLoop
     retrievalLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         reportOrLogE "retrievalWorker retrievalLoopE: error caught " e
-        delay $ sec 1
+        delay (sec 1)
         retrievalLoop
 
     -----------------
@@ -151,20 +144,20 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
             nodeId
             brtHeader
 
-    -- When we have continuation, we just try to get and apply it.
+    -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do
         let hHash = headerHash header
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader header >>= \case
             CHContinues ->
-                void $ getProcessBlocks enqueueMsg nodeId header hHash
+                void $ getProcessBlocks diffusion nodeId header [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
 
-    -- When we have alternative header, we should check whether it's
-    -- really recovery mode (server side should send us headers as a
-    -- proof) and then enter recovery mode.
+    -- When we have an alternative header, we should check whether it's actually
+    -- recovery mode (server side should send us headers as a proof) and then
+    -- enter recovery mode.
     handleAlternative nodeId header = do
         logDebug $ "handleAlternative: " <> pretty (headerHash header)
         classifyNewHeader header >>= \case
@@ -182,7 +175,7 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
     -----------------
 
     handleRecoveryWithHandler nodeId header =
-        handleAll (handleRecoveryE nodeId header) $
+        handleAny (handleRecoveryE nodeId header) $
         handleRecovery nodeId header
 
     -- We immediately drop recovery mode/header and request tips
@@ -192,16 +185,15 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
         reportOrLogW (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash header)) e
-        dropUpdateHeader
-        dropRecoveryHeaderAndRepeat enqueueMsg nodeId
+        dropRecoveryHeaderAndRepeat diffusion nodeId
 
-    -- Recovery handling. We assume that header in recovery var makes
-    -- sense and just query headers/blocks.
+    -- Recovery handling. We assume that header in the recovery var is
+    -- appropriate and just query headers/blocks.
     handleRecovery Nothing _ = do
         logWarning "handleRecovery: unexpected 'Nothing' in the recovery \
                    \header (we should only have Nothing there when we're \
                    \doing HTTP sync, but something went wrong)"
-        dropRecoveryHeaderAndRepeat enqueueMsg Nothing
+        dropRecoveryHeaderAndRepeat diffusion Nothing
     handleRecovery (Just nodeId) header = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers and blocks"
@@ -210,19 +202,8 @@ retrievalWorkerImpl keepAliveTimer blockStorageMirror SendActions {..} = do
                 -- How did we even get into recovery then?
                 throwM $ DialogUnexpected "handleRecovery: got MhrrBlockAdopted"
             MhrrWithCheckpoints mgh -> do
-                logDebug "handleRecovery: asking for headers"
-                let cont (headers :: NewestFirst NE BlockHeader) =
-                        let oldestHeader = headers ^. _NewestFirst . _neLast
-                            newestHeader = headers ^. _NewestFirst . _neHead
-                        in getProcessBlocks enqueueMsg nodeId
-                                            oldestHeader (headerHash newestHeader)
-                -- If it returns w/o exception then we're:
-                --  * Either still in recovery mode
-                --  * Or just exited it and recoverVar was taken.
-                enqueueMsgSingle
-                    enqueueMsg
-                    (MsgRequestBlockHeaders $ Just $ S.singleton nodeId)
-                    (Conversation $ requestHeaders cont mgh nodeId)
+                logDebug "handleRecovery: asking for headers and blocks"
+                getProcessBlocks diffusion nodeId header (mghFrom mgh)
 
 ----------------------------------------------------------------------------
 -- HTTP-based block retrieval
@@ -342,11 +323,6 @@ updateRecoveryHeader nodeId hdr = do
             rNodeId
             (headerHash rHeader)
 
-dropUpdateHeader :: BlockWorkMode ctx m => m ()
-dropUpdateHeader = do
-    progressHeaderVar <- view (lensOf @ProgressHeaderTag)
-    void $ atomically $ tryTakeTMVar progressHeaderVar
-
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
 -- was stopped.
 --
@@ -375,151 +351,65 @@ dropRecoveryHeader nodeId = do
                    maybe "noth" show realPeer <> " vs " <> show nodeId
     pure kicked
 
--- | Drops recovery header and, if it was successful, queries tips.
+-- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
     :: (BlockWorkMode ctx m)
-    => EnqueueMsg m -> Maybe NodeId -> m ()
-dropRecoveryHeaderAndRepeat enqueue nodeId = do
+    => Diffusion m -> Maybe NodeId -> m ()
+dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
         delay $ sec 2
-        handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
+        handleAny handleRecoveryTriggerE $ triggerRecovery diffusion
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
         reportOrLogE $ "Exception happened while trying to trigger " <>
                        "recovery inside dropRecoveryHeaderAndRepeat: "
 
-----------------------------------------------------------------------------
--- Block request/processing logic
-----------------------------------------------------------------------------
-
 -- Returns only if blocks were successfully downloaded and
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => EnqueueMsg m
+    => Diffusion m
     -> NodeId
     -> BlockHeader
-    -> HeaderHash
+    -> [HeaderHash]
     -> m ()
-getProcessBlocks enqueue nodeId lcaChild newestHash = do
-    -- The conversation will attempt to retrieve the necessary blocks and apply
-    -- them. Each one gives a 'Bool' where 'True' means that a recovery was
-    -- completed (depends upon the state of the recovery-mode TMVar).
-    enqueueMsgSingle enqueue (MsgRequestBlocks (S.singleton nodeId)) $ Conversation $
-      \(conv :: ConversationActions MsgGetBlocks MsgBlock m) -> do
-        let lcaChildHash = headerHash lcaChild
-        logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
-                           lcaChildHash
-                           newestHash
-        send conv $ mkBlocksRequest lcaChildHash newestHash
-        logDebug "Requested blocks, waiting for the response"
-        chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-        recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-        case chainE of
-            Left e -> do
-                let msg = sformat ("Error retrieving blocks from "%shortHashF%
-                                   " to "%shortHashF%" from peer "%
-                                   build%": "%stext)
-                                  lcaChildHash newestHash nodeId e
-                logWarning msg
-                throwM $ DialogUnexpected msg
-            Right blocks -> do
-                logDebug $ sformat
-                    ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
-                    (blocks ^. _OldestFirst . to NE.length)
-                    (unitBuilder $ biSize blocks)
-                    (map (headerHash . view blockHeader) blocks)
-                handleBlocks nodeId blocks enqueue
-                dropUpdateHeader
-                -- If we've downloaded any block with bigger
-                -- difficulty than ncrecoveryheader, we're
-                -- gracefully exiting recovery mode.
-                let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
-                exitedRecovery <- atomically $ tryReadTMVar recHeaderVar >>= \case
-                    -- We're not in recovery mode? That must be ok.
-                    Nothing -> pure False
-                    -- If we're in recovery mode we should exit it if
-                    -- any block is more difficult than one in
-                    -- recHeader.
-                    Just (_, rHeader) ->
-                        if any (`isMoreDifficultThan` rHeader) blocks
-                        then isJust <$> tryTakeTMVar recHeaderVar
-                        else pure False
-                when exitedRecovery $
-                    logInfo "Recovery mode exited gracefully on receiving block we needed"
-
-
-----------------------------------------------------------------------------
--- Block retrieving functions
-----------------------------------------------------------------------------
-
-retrieveBlocks
-    :: (BlockWorkMode ctx m)
-    => ConversationActions MsgGetBlocks MsgBlock m
-    -> BlockHeader
-    -> HeaderHash
-    -> ExceptT Text m (OldestFirst NE Block)
-retrieveBlocks conv lcaChild endH = do
-    blocks <- retrieveBlocksDo 0 conv (lcaChild ^. prevBlockL) endH
-    let b0 = blocks ^. _OldestFirst . _neHead
-    if headerHash b0 == headerHash lcaChild
-       then pure blocks
-       else throwError $ sformat
-                ("First block of chain is "%build%
-                 " instead of expected "%build)
-                (b0 ^. blockHeader) lcaChild
-
-retrieveBlocksDo
-    :: (BlockWorkMode ctx m)
-    => Int        -- ^ Index of block we're requesting
-    -> ConversationActions MsgGetBlocks MsgBlock m
-    -> HeaderHash -- ^ We're expecting a child of this block
-    -> HeaderHash -- ^ Block at which to stop
-    -> ExceptT Text m (OldestFirst NE Block)
-retrieveBlocksDo i conv prevH endH = lift (recvLimited conv) >>= \case
-    Nothing ->
-        throwError $ sformat ("Failed to receive block #"%int) i
-    Just (MsgNoBlock t) ->
-        throwError $ sformat ("Server failed to return block #"%int%": "%stext) i t
-    Just (MsgBlock block) -> do
-        let prevH' = block ^. prevBlockL
-            curH = headerHash block
-        when (prevH' /= prevH) $ do
-            throwError $ sformat
-                ("Received block #"%int%" with prev hash "%shortHashF%
-                 " while "%shortHashF%" was expected: "%build)
-                i prevH' prevH (block ^. blockHeader)
-        progressHeaderVar <- view (lensOf @ProgressHeaderTag)
-        atomically $ do void $ tryTakeTMVar progressHeaderVar
-                        putTMVar progressHeaderVar $ block ^. blockHeader
-        if curH == endH
-        then pure $ one block
-        else over _Wrapped (block <|) <$> retrieveBlocksDo (i+1) conv curH endH
-
-----------------------------------------------------------------------------
--- Networking
-----------------------------------------------------------------------------
-
--- | Expects sending message to exactly one node. Receives result or
--- fails if no result was obtained (no nodes available, timeout, etc).
-enqueueMsgSingle ::
-       (MonadThrow m)
-    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (m b)))
-    -> t2
-    -> x
-    -> m b
-enqueueMsgSingle enqueue msg conv = do
-    results <- enqueue msg (\_ _ -> one conv) >>=
-               waitForConversations
-    case toList results of
-        [] ->      throwM $ DialogUnexpected $
-            "enqueueMsgSingle: contacted no peers"
-        (_:_:_) -> throwM $ DialogUnexpected $
-            "enqueueMsgSingle: contacted more than one peers, probably internal error"
-        [x] -> pure x
+getProcessBlocks diffusion nodeId desired checkpoints = do
+    result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
+    case getOldestFirst result of
+      [] -> do
+          let msg = sformat ("Error retrieving blocks from "%listJson%
+                             " to "%shortHashF%" from peer "%
+                             build%": unexpected empty list")
+                            checkpoints (headerHash desired) nodeId
+          throwM $ DialogUnexpected msg
+      (headBlocks : tailBlocks) -> do
+          let blocks = OldestFirst (headBlocks :| tailBlocks)
+          recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+          logDebug $ sformat
+              ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+              (blocks ^. _OldestFirst . to NE.length)
+              (unitBuilder $ biSize blocks)
+              (map (headerHash . view blockHeader) blocks)
+          handleBlocks nodeId blocks diffusion
+          -- If we've downloaded any block with bigger
+          -- difficulty than ncrecoveryheader, we're
+          -- gracefully exiting recovery mode.
+          let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
+          exitedRecovery <- atomically $ tryReadTMVar recHeaderVar >>= \case
+              -- We're not in recovery mode? That must be ok.
+              Nothing -> pure False
+              -- If we're in recovery mode we should exit it if
+              -- any block is more difficult than one in
+              -- recHeader.
+              Just (_, rHeader) ->
+                  if any (`isMoreDifficultThan` rHeader) blocks
+                  then isJust <$> tryTakeTMVar recHeaderVar
+                  else pure False
+          when exitedRecovery $
+              logInfo "Recovery mode exited gracefully on receiving block we needed"

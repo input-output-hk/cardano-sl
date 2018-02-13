@@ -17,14 +17,14 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.Arbitrary
+                       Pos.Util.QuickCheck
+                       Pos.Util.QuickCheck.Arbitrary
+                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
-                       Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
-                       Pos.Util.Concurrent.RWVar
 
                        Pos.Util.Filesystem
                        Pos.Util.Future
@@ -47,6 +47,8 @@ library
                      , base
                      , bytestring
                      , cardano-sl-networking
+                     , cborg
+                     , cereal
                      , concurrent-extra
                      , conduit-combinators
                      , containers
@@ -59,9 +61,11 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
+                     , megaparsec
                      , mmorph
                      , mtl
                      , parsec
@@ -93,6 +97,9 @@ library
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
+                       DeriveFunctor
+                       DeriveFoldable
+                       DeriveTraversable
                        GeneralizedNewtypeDeriving
                        StandaloneDeriving
                        FlexibleContexts
@@ -113,6 +120,8 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
+                       GADTs
 
   ghc-options:         -Wall
                        -fno-warn-orphans

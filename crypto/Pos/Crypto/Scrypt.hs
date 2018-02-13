@@ -1,4 +1,10 @@
--- | Wrapper over scrypt library
+-- | Wrapper over scrypt library.
+--
+-- Scrypt is a password-based key derivation function — that is,
+-- it takes a password as input and produces a (potentially longer)
+-- bytestring as output.
+--
+-- Mostly used in 'Pos.Crypto.Signing.Types.Safe'.
 
 module Pos.Crypto.Scrypt
        ( S.ScryptParams

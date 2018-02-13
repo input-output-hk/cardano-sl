@@ -21,7 +21,7 @@ import qualified Pos.Core.Block as BT
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Util.Chrono (OldestFirst (..))
 
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Blockchain dump" $ do

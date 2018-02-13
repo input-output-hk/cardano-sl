@@ -185,7 +185,13 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpSkipNoKey       = False
             , _bgpTxpGlobalSettings = txpSettings
             }
-    [block] <- genBlocks blockGenParams maybeToList
+    blocks <- genBlocks blockGenParams maybeToList
+    block <- case blocks of
+        [block] -> return block
+        _ ->
+            -- We specify '_bgpBlockCount = 1' above, so the output must contain
+            -- exactly one block.
+            error "genBlocksInTree: impossible - 'genBlocks' generated unexpected amount of blocks"
     forestBlocks <- genBlocksInForest secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 

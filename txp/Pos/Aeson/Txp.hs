@@ -19,34 +19,34 @@ import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
 import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                TxSigData)
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError, aesonError)
 
 txInFromText :: Text -> Either Text TxIn
 txInFromText t = case T.splitOn "_" t of
     ["TxInUtxo", h, idx]     -> TxInUtxo <$> decodeAbstractHash h <*> readEither idx
     ["TxInUnknown", tag, bs] -> TxInUnknown <$> readEither tag <*> B16.decode bs
-    _                        -> fail $ toString $ "Invalid TxIn " <> t
+    _                        -> Left $ "Invalid TxIn " <> t
 
 txInToText :: TxIn -> Text
 txInToText TxInUtxo {..}        = sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
 txInToText (TxInUnknown tag bs) = sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
 
 instance FromJSON TxIn where
-    parseJSON v = eitherToFail =<< txInFromText <$> parseJSON v
+    parseJSON v = toAesonError =<< txInFromText <$> parseJSON v
 
 instance ToJSON TxIn where
     toJSON = toJSON . txInToText
 
 instance FromJSONKey TxIn where
-    fromJSONKey = FromJSONKeyTextParser (eitherToFail . txInFromText)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . txInFromText)
 
 instance ToJSONKey TxIn where
     toJSONKey = toJSONKeyText txInToText
 
 instance FromJSON TxOut where
     parseJSON = withObject "TxOut" $ \o -> do
-        txOutValue   <- eitherToFail . integerToCoin =<< o .: "coin"
-        txOutAddress <- eitherToFail . decodeTextAddress =<< o .: "address"
+        txOutValue   <- toAesonError . integerToCoin =<< o .: "coin"
+        txOutAddress <- toAesonError . decodeTextAddress =<< o .: "address"
         return $ TxOut {..}
 
 instance ToJSON TxOut where
@@ -88,9 +88,10 @@ instance FromJSON TxInWitness where
             "UnknownWitnessType" -> do
                 (o .: "contents") >>= \case
                     [a, b] -> UnknownWitnessType <$> parseJSON a <*> (getJsonByteString <$> parseJSON b)
-                    _      -> fail "expected 'contents' to have two elements"
+                    _      -> aesonError $ "expected 'contents' to have two elements"
             _  ->
-                fail "expected 'tag' to be one of 'PkWitness', 'ScriptWitness', 'RedeemWitness', 'UnknownWitnessType'"
+                aesonError $ "expected 'tag' to be one of 'PkWitness', 'ScriptWitness', \
+                    \'RedeemWitness', 'UnknownWitnessType'"
 
 deriveJSON defaultOptions ''Tx
 deriveJSON defaultOptions ''TxOutAux

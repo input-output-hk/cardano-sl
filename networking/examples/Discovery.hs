@@ -11,6 +11,7 @@
 
 module Main where
 
+import           Control.Exception.Safe (throwM, finally)
 import           Control.Monad (forM, forM_, when)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Binary
@@ -21,7 +22,6 @@ import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Data.Void (Void, absurd)
 import           GHC.Generics (Generic)
 import           Mockable.Concurrent (ThreadId, delay, fork, killThread)
-import           Mockable.Exception (finally)
 import           Mockable.Production
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
@@ -117,14 +117,18 @@ makeNode transport i = do
 main :: IO ()
 main = runProduction $ do
 
-    [arg0] <- liftIO getArgs
-    let number = read arg0
+    args <- liftIO getArgs
+    number <- case args of
+        [arg0] | Just number <- read arg0 -> return number
+        _ -> error "Input argument must be a number"
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
     let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
-    Right transport_ <- liftIO $
-        TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
+    transport_ <- do
+        transportOrError <- liftIO $
+            TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "10128") params
+        either throwM return transportOrError
     let transport = concrete transport_
 
     liftIO . putStrLn $ "Spawning " ++ show number ++ " nodes"

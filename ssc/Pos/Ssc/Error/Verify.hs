@@ -1,4 +1,4 @@
--- | Possible failures during SSC.
+-- | Possible failures during SSC verification.
 
 module Pos.Ssc.Error.Verify
        ( SscVerifyError (..)

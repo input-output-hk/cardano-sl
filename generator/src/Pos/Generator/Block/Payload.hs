@@ -24,7 +24,7 @@ import           System.Random (RandomGen (..))
 import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
                                  unInvSecretsMap)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), createGenericTx,
-                                      makeMPubKeyTxAddrs)
+                                      makeMPubKeyTxAddrs, TxError (..))
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
                            coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
@@ -213,12 +213,13 @@ genTxPayload = do
         let inputSKs = map addrToSk inputAddrs
             signers = HM.fromList $ zip inputAddrs (map fakeSigner inputSKs)
             getSigner addr =
-                fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr signers
-            makeTestTx = makeMPubKeyTxAddrs getSigner
+                note (SafeSignerNotFound addr) $
+                HM.lookup addr signers
+            makeTestTx i o = makeMPubKeyTxAddrs getSigner i o
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux

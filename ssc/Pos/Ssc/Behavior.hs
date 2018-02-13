@@ -10,6 +10,8 @@ import qualified Data.Aeson as A
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 
+import           Pos.Util.Util (toAesonError)
+
 ----------------------------------------------------------------------------
 -- Types for the behavior config
 ----------------------------------------------------------------------------
@@ -52,19 +54,19 @@ instance A.FromJSON SscBehavior where
     parseJSON = A.genericParseJSON defaultOptions
 
 instance A.FromJSON SscOpeningParams where
-    parseJSON = A.withText "SscOpeningParams" $ \case
-        "Normal" -> pure SscOpeningNormal
-        "None"   -> pure SscOpeningNone
-        "Wrong"  -> pure SscOpeningWrong
-        other    -> fail ("invalid value " <> show other <>
+    parseJSON = A.withText "SscOpeningParams" $ toAesonError . \case
+        "Normal" -> Right SscOpeningNormal
+        "None"   -> Right SscOpeningNone
+        "Wrong"  -> Right SscOpeningWrong
+        other    -> Left ("invalid value " <> show other <>
                           ", acceptable values are Normal|None|Wrong")
 
 instance A.FromJSON SscSharesParams where
-    parseJSON = A.withText "SscSharesParams" $ \case
-        "Normal" -> pure SscSharesNormal
-        "None"   -> pure SscSharesNone
-        "Wrong"  -> pure SscSharesWrong
-        other    -> fail ("invalid value " <> show other <>
+    parseJSON = A.withText "SscSharesParams" $ toAesonError . \case
+        "Normal" -> Right SscSharesNormal
+        "None"   -> Right SscSharesNone
+        "Wrong"  -> Right SscSharesWrong
+        other    -> Left ("invalid value " <> show other <>
                           ", acceptable values are Normal|None|Wrong")
 
 ----------------------------------------------------------------------------

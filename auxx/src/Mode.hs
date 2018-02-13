@@ -4,16 +4,12 @@
 
 module Mode
        (
-         -- * Extra types
-         CmdCtx (..)
-
        -- * Mode, context, etc.
-       , AuxxContext (..)
+         AuxxContext (..)
        , AuxxMode
        , MonadAuxxMode
 
        -- * Helpers
-       , getCmdCtx
        , isTempDbUsed
        , realModeToAuxx
        , makePubKeyAddressAuxx
@@ -38,7 +34,6 @@ import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo
                                           getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication (NodeId)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
@@ -50,7 +45,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
@@ -66,15 +61,9 @@ import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
-import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
-
--- | Command execution context.
-data CmdCtx = CmdCtx
-    { ccPeers :: ![NodeId]
-    }
 
 type AuxxMode = ReaderT AuxxContext Production
 
@@ -83,7 +72,6 @@ instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
-    , acCmdCtx          :: !CmdCtx
     , acTempDbUsed      :: !Bool
     }
 
@@ -92,10 +80,6 @@ makeLensesWith postfixLFields ''AuxxContext
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
-
--- | Get 'CmdCtx' in 'AuxxMode'.
-getCmdCtx :: MonadAuxxMode m => m CmdCtx
-getCmdCtx = view acCmdCtx_L
 
 isTempDbUsed :: AuxxMode Bool
 isTempDbUsed = view acTempDbUsed_L
@@ -213,11 +197,8 @@ instance (HasConfiguration, HasInfraConfiguration, HasSscConfiguration, HasCompi
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance MonadKnownPeers AuxxMode where
-    updatePeersBucket = realModeToAuxx ... updatePeersBucket
-
 instance MonadFormatPeers AuxxMode where
-    formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
+    formatKnownPeers formatter = withReaderT acRealModeContext (formatKnownPeers formatter)
 
 instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where

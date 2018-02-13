@@ -30,18 +30,16 @@ import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsSet)
-
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsDetector)
 
 redeemAda
     :: MonadWalletTxFull ctx m
-    => PassPhrase -> CWalletRedeem -> m CTx
-redeemAda passphrase CWalletRedeem {..} = do
+    => (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx
+redeemAda submitTx passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
-    redeemAdaInternal passphrase crWalletId seedBs
+    redeemAdaInternal submitTx passphrase crWalletId seedBs
   where
     invalidBase64 =
         throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
@@ -51,17 +49,18 @@ redeemAda passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
-redeemAdaPaperVend passphrase CPaperVendWalletRedeem {..} = do
+redeemAdaPaperVend submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     aesKey <- either invalidMnemonic pure
         $ deriveAesKeyBS <$> toSeed pvBackupPhrase
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
-    redeemAdaInternal passphrase pvWalletId seedDecBs
+    redeemAdaInternal submitTx passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
@@ -72,16 +71,17 @@ redeemAdaPaperVend passphrase CPaperVendWalletRedeem {..} = do
 
 redeemAdaInternal
     :: MonadWalletTxFull ctx m
-    => PassPhrase
+    => (TxAux -> m Bool)
+    -> PassPhrase
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal passphrase cAccId seedBs = do
+redeemAdaInternal submitTx passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
     -- new redemption wallet
-    _ <- fixingCachedAccModifier L.getAccount accId
+    _ <- L.getAccount accId
 
     dstAddr <- decodeCTypeOrFail . cadId =<<
                L.newAddress RandomSeed passphrase accId
@@ -97,13 +97,13 @@ redeemAdaInternal passphrase cAccId seedBs = do
             dstWallet = aiWId accId
         ptx <- mkPendingTx dstWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx ptx
+        th <$ submitAndSaveNewPtx submitTx ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
     _ <- addHistoryTxMeta cWalId th
-    cWalAddrs <- getWalletAddrsSet Ever cWalId
+    cWalAddrsDetector <- getWalletAddrsDetector Ever cWalId
     diff <- getCurChainDifficulty
-    fst <$> constructCTx cWalId cWalAddrs diff th
+    fst <$> constructCTx cWalId cWalAddrsDetector diff th

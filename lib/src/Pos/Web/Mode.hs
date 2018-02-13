@@ -10,7 +10,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal (HasLens (..))
 import           Mockable (Production)
 
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..), NodeContext)
@@ -23,6 +22,7 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
                                dbWriteBatchDefault)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
 import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.Util (HasLens (..))
 
 data WebModeContext ext = WebModeContext
     { wmcNodeDBs      :: !NodeDBs

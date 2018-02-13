@@ -11,6 +11,7 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
+import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow, throwM)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Function
@@ -37,8 +38,9 @@ newtype Dequeue a = Dequeue { unDequeue :: M.Production a }
            , Applicative
            , Monad
            , MonadIO
-           , M.Mockable M.Bracket
-           , M.Mockable M.Catch
+           , MonadThrow
+           , MonadCatch
+           , MonadMask
            , CanLog
            , HasLoggerName
            )
@@ -48,7 +50,9 @@ type instance M.Promise  Dequeue = M.Promise  M.Production
 
 instance M.Mockable M.Async Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
-instance M.Mockable M.Fork  Dequeue where
+instance M.Mockable M.LowLevelAsync Dequeue where
+    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
+instance M.Mockable M.MyThreadId  Dequeue where
     liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
 
 newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
@@ -56,6 +60,7 @@ newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
            , Applicative
            , Monad
            , MonadIO
+           , MonadThrow
            , CanLog
            , HasLoggerName
            )
@@ -231,11 +236,17 @@ simplePeers = OutQ.simplePeers . map (\n -> (nodeType n, nodeId n))
 
 data Sync = Synchronous | Asynchronous
 
+data SendFailed = SendFailedAddToPool
+    deriving (Show)
+
+instance Exception SendFailed
+
 -- | Send a message from the specified node
 send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
 send sync from msgType msgId = do
     logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
-    True <- addToMsgPool (nodeMsgPool from) msgData
+    added <- addToMsgPool (nodeMsgPool from) msgData
+    unless added $ throwM SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj
   where
     msgData = MsgData (nodeId from) msgType msgId

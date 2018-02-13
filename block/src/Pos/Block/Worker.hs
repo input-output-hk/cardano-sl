@@ -13,30 +13,28 @@ import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
-import           Mockable (delay, fork)
+import           Mockable (delay)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
-import           System.Wlog (logDebug, logInfo, logWarning)
+import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply)
-import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
-                                             onNewSlotWorker, worker)
+import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),
-                           Timestamp (Timestamp), blkSecurityParam, difficultyL, epochSlots,
-                           fixedTimeCQSec, flattenSlotId, gbHeader, getSlotIndex, slotIdF,
-                           unflattenSlotId)
+                           Timestamp (Timestamp), blkSecurityParam, difficultyL, epochOrSlotToSlot,
+                           epochSlots, fixedTimeCQSec, flattenSlotId, gbHeader, getEpochOrSlot,
+                           getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Common (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
@@ -47,21 +45,23 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.Diffusion.Types (Diffusion)
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                     recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
-import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
+import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
 import           Pos.Update.DB (getAdoptedBVData)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.JsonLog (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)
-import           Pos.Util.Timer (Timer)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
-
+import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -70,11 +70,11 @@ import           Pos.Util.TimeWarp (CanJsonLog (..))
 -- | All workers specific to block processing.
 blkWorkers
     :: BlockWorkMode ctx m
-    => Timer -> Maybe Text -> ([WorkerSpec m], OutSpecs)
-blkWorkers keepAliveTimer blockStorageMirror =
+    => Maybe Text -> ([WorkerSpec m], OutSpecs)
+blkWorkers blockStorageMirror =
     merge $ [ blkCreatorWorker
             , informerWorker
-            , retrievalWorker keepAliveTimer blockStorageMirror
+            , retrievalWorker blockStorageMirror
             , recoveryTriggerWorker
             ]
   where
@@ -82,31 +82,43 @@ blkWorkers keepAliveTimer blockStorageMirror =
 
 informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 informerWorker =
-    onNewSlotWorker True announceBlockOuts $ \slotId _ ->
+    onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
+            -- Printe tip header
             logDebug $ sformat ("Our tip header: "%build) tipHeader
+            -- Print the difference between tip slot and current slot.
+            logHowManySlotsBehind slotId tipHeader
+            -- Compute and report metrics
             metricWorker slotId
+  where
+    logHowManySlotsBehind slotId tipHeader =
+        let tipSlot = epochOrSlotToSlot (getEpochOrSlot tipHeader)
+            slotDiff = flattenSlotId slotId - flattenSlotId tipSlot
+        in logInfo $ sformat ("Difference between current slot and tip slot is: "
+                              %int) slotDiff
+
 
 ----------------------------------------------------------------------------
 -- Block creation worker
 ----------------------------------------------------------------------------
 
--- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
 blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
-    onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
+    onNewSlotWorker onsp mempty $ \slotId diffusion ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
-            void $ fork $
-            blockCreator slotId sendActions `catchAny` onBlockCreatorException
+        blockCreator slotId diffusion `catchAny` onBlockCreatorException
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
-
+    onsp :: OnNewSlotParams
+    onsp =
+        defaultOnNewSlotParams
+        {onspTerminationPolicy = NewSlotTerminationPolicy "block creator"}
 
 blockCreator
     :: BlockWorkMode ctx m
-    => SlotId -> SendActions m -> m ()
-blockCreator (slotId@SlotId {..}) sendActions = do
+    => SlotId -> Diffusion m -> m ()
+blockCreator (slotId@SlotId {..}) diffusion = do
 
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlockAndApply siEpoch
@@ -128,7 +140,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                   (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
     onNoLeader =
-        logWarning "Couldn't find a leader for current slot among known ones"
+        logError "Couldn't find a leader for current slot among known ones"
     logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
     logOnEpochF = if siSlot == minBound then logInfo else logDebug
     onKnownLeader leaders leader = do
@@ -161,10 +173,10 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
            | weAreLeader ->
-                 onNewSlotWhenLeader slotId Nothing sendActions
+                 onNewSlotWhenLeader slotId Nothing diffusion
            | heavyWeAreDelegate ->
                  let pske = swap <$> dlgTransM
-                 in onNewSlotWhenLeader slotId pske sendActions
+                 in onNewSlotWhenLeader slotId pske diffusion
            | otherwise -> pass
 
 onNewSlotWhenLeader
@@ -172,7 +184,7 @@ onNewSlotWhenLeader
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
-onNewSlotWhenLeader slotId pske SendActions {..} = do
+onNewSlotWhenLeader slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -199,7 +211,7 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (Right createdBlk)
-            void $ announceBlock enqueueMsg $ createdBlk ^. gbHeader
+            void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
@@ -215,8 +227,8 @@ recoveryTriggerWorker =
 recoveryTriggerWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => SendActions m -> m ()
-recoveryTriggerWorkerImpl SendActions{..} = do
+    => Diffusion m -> m ()
+recoveryTriggerWorkerImpl diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
     delay $ sec 3
@@ -225,8 +237,7 @@ recoveryTriggerWorkerImpl SendActions{..} = do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
         when doTrigger $ do
             logInfo "Triggering recovery because we need it"
-            triggerRecovery enqueueMsg
-
+            triggerRecovery diffusion
 
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
@@ -241,7 +252,7 @@ recoveryTriggerWorkerImpl SendActions{..} = do
             logInfo "Checking if we need recovery as a safety measure"
             whenM (needTriggerRecovery <$> getSyncStatus 5) $ do
                 logInfo "Triggering recovery as a safety measure"
-                triggerRecovery enqueueMsg
+                triggerRecovery diffusion
 
         -- We don't want to ask for tips too frequently.
         -- E.g. there may be a tip processing mistake so that we

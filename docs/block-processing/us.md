@@ -1,28 +1,32 @@
 # Update system consensus rules
 ## Table of contents
 
+- [Update system consensus rules](#update-system-consensus-rules)
   * [Prerequisites](#prerequisites)
   * [Overview](#overview)
-  * [Problem definition](#problem-definition)
-  * [Update system model](#update-system-model)
+  * [Software update](#software-update)
     + [Update payload](#update-payload)
+      - [Software version](#software-version)
     + [Poll and decision agreement rules](#poll-and-decision-agreement-rules)
     + [Update proposal states](#update-proposal-states)
-    + [Software and block versions](#software-and-block-versions)
-    + [Adoption of block version](#adoption-of-block-version)
+  * [Protocol update](#protocol-update)
+    + [Softfork and hardfork](#softfork-and-hardfork)
+    + [Block version](#block-version)
+    + [Protocol constants](#protocol-constants)
+    + [Block version life cycle](#block-version-life-cycle)
       - [Competing block version](#competing-block-version)
-      - [Block validation according to adopted version](#block-validation-according-to-adopted-version)
-      - [Example](#example)
- * [Verification](#verification)
+      - [Adoption of block version](#adoption-of-block-version)
+    + [Example](#example)
+  * [Verification](#verification)
     + [Block header verification](#block-header-verification)
     + [Update proposal verification](#update-proposal-verification)
       - [General checks](#general-checks)
       - [Protocol version checks](#protocol-version-checks)
     + [Votes verification](#votes-verification)
- * [Confirmation and adoption algorithms](#confirmation-and-adoption-algorithms)
+  * [Confirmation and adoption algorithms](#confirmation-and-adoption-algorithms)
     + [Update proposal confirmation algorithm](#update-proposal-confirmation-algorithm)
-    + [Block version adoption algorithm](#block-version-adoption-adoption-algorithm)
- 
+    + [Block version adoption algorithm](#block-version-adoption-algorithm)
+
 ## Prerequisites
 
 * [Update Mechanism](https://cardanodocs.com/cardano/update-mechanism/).
@@ -35,19 +39,34 @@
 * [Block processing](block-processing.md).
 
 ## Overview
+
 Update system gives ability to developers to propose updates of software applications and
 ability to users to vote for updates to decide which one will be accepted.
 
-This document describes a global part of update system consensus rules.
+This document describes update system model and consensus rules including update payload verification, 
+which is part of block payload verification. It's described formally [here](overall.md#task-definition).
+
+Note, this document describes only global part of update system.
 Global consensus rules is a part of block processing, 
 which checks validity of update payload of block, verify main block header and 
-update corresponding state when blocks are applied/rolled back. 
+update corresponding state when blocks are applied/rolled back.
 
-## Update system model
+Local processing part of update system is to be described in separate document (TODO replace with link to that document as soon it's ready).
+
+## Software update
+
+Update system deals with software updates. Up to date (Dec 2017) all updates are implemented as software updates (there are plans to introduce protocol-only updates, see _[CS-116](https://iohk.myjetbrains.com/youtrack/issue/CS-116) Protocol-constants-only proposal_).
+
+A software update's general purpose is to deliver new code to user. This is reflected in update proposal's structure (in a way it contains references to new installers).
+
+Some software updates may also bring changes to protocol, see more information in [later section](#protocol-update).
 
 ### Update payload
 
-Update payload consists of at most one `UpdatePayload` and list of votes, it's reflected by the datatype:
+Update payload is part of block body, containing some data related to update system.
+For more information on block's internals, please visit [page on Cardano Docs](https://cardanodocs.com/technical/blocks/#main-block).
+
+Update payload consists of at most one update proposal and list of votes, it's reflected by the datatype:
 ```
 data UpdatePayload = UpdatePayload
     { upProposal :: !(Maybe UpdateProposal)
@@ -55,8 +74,40 @@ data UpdatePayload = UpdatePayload
     }
 ```
 
-This document describes update system model and consensus rules including update payload verification, 
-which is part of block payload verification. It's described formally [here](overall.md#task-definition).
+Update proposal is represented by type `UpdateProposal` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L314)) and contains folowing data:
+
+* [Block version](#block-version) 
+* Protocol constants modifier (see [Protocol constants](#protocol-constants))
+* [Software version](#software-version)
+* Update data
+    * For each supported system (identified by system tag, e.g. win64 or linux32) we keep number of hashe used to indetify binary files associated with update, see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L363) for details)
+* Proposal attributes
+  Attributes map, used for future extension of proposal contents with new fields (via softfork).
+* Protocol issuer (identified by his stake public key)
+* Signature of proposal by signature
+
+Vote is represented by type `UpdateVote` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L408)) and contains following fields:
+
+* Stake public key of voter
+* Id of update proposal
+* Decision: Positive or Negative
+* Signature of vote by voter
+
+#### Software version
+
+Each software update contains `SoftwareVersion` field.
+
+```
+data SoftwareVersion = SoftwareVersion
+    { svAppName :: !ApplicationName
+    , svNumber  :: !NumSoftwareVersion
+    }
+```
+
+`SoftwareVersion` contains application name and numeric representation of application version.
+
+Software versions from different proposals with same `svAppName` should be in increasing order (see [verification section](#general-checks)).
+
 
 ### Poll and decision agreement rules
 
@@ -72,49 +123,66 @@ and it has more stakes "for" than "against", then the proposal becomes approved 
 
 ### Update proposal states
 
-Update proposal may be in five states:
+![Update proposal state](us-proposal-states.png)
+
+There are five possible states for Update proposal:
+
 * **Active**  
 When an update proposal gets into the blockchain within some block, it becomes _active_.
-This state means that the proposal is known in the blockchain but 
-it wasn't still decided by stakeholders whether to approve or to reject this proposal.
+Though the proposal is committed to the blockchain, 
+stakeholders are still to be decide whether to approve or to reject this proposal.
 So, a poll is active and stakeholders' votes which get into the blockchain affect the decision.
 
 * **Approved**  
-If a decision about proposal has been made positively following one of two rules mentioned above,
-then proposal becomes **approved**.
+If a decision about proposal has been made positively following one of two rules [mentioned above](#poll-and-decision-agreement-rules),
+the proposal becomes **approved**.
 _Approved_ proposal may become _active_ or even _rejected_ if rollback occurs.
 
 * **Rejected**  
-If a decision about proposal has been made negatively, then proposal become **rejected**.
-_Rejected_ proposal may become _active_ or even _approved_ if rollback occurs.
+If a decision about proposal has been made negatively, the proposal becomes **rejected**.
+_Rejected_ proposal may become _active_ or even _approved_ if block rollback occurs
+and poll ended with positive decision on alternative branch.
 
 * **Confirmed**  
-If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, then
+If a proposal has been _approved_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **confirmed**.
 _Confirmed_ state reflects the fact that _approved_ state cannot be changed anymore 
 because we have guarantee that at most `k` blocks may be rolled back.
 
 * **Discarded**  
-If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, then
+If a proposal has been _rejected_ in some block and there are at least `k` blocks after this one, the
 update proposal becomes **discarded**.
-_Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.  
-If a proposal is discarded then it doesn't affect consensus rules anymore and we throw away it from the consideration.
+_Discarded_ state reflects the fact that _rejected_ state cannot be changed anymore.
+If a proposal is discarded then it doesn't affect consensus rules anymore and it's safe to evict it out of consideration/storages.
 
-### Software and block versions
+## Protocol update
 
-When a developer wants to fix some bug or add some features to application,
-which don't affect protocol rules, he should propose an update with new `SoftwareVersion`.
-```
-data SoftwareVersion = SoftwareVersion
-    { svAppName :: !ApplicationName
-    , svNumber  :: !NumSoftwareVersion
-    }
-```
+Each block in CSL contains a field, _block version_ which identifies current version of protocol network is supporting (_adopted_ block version).
 
-`SoftwareVersion` contains application name and numeric representation of application version.
+An update proposal also contains _block version_ field and we consider software update to introduce a protocol update if and only if this version is different from _adopted_ block version.
 
-If a developer wants to change some protocol rules, for example, `Address` format, 
-he must propose update with new `BlockVersion`
+### Softfork and hardfork
+
+There are two options to update protocol version: via softfork or via hardfork.
+
+A soft fork proposes modifying blockchain consensus rules so that the new version blocks are still compatible with old version clients. A hard fork is one that doesn’t maintain backward compatibility with the previous version.
+
+[BIP-99](https://github.com/bitcoin/bips/blob/ed283b05b332b85b6fd683be3a5d73fab6c15554/bip-0099.mediawiki) provides excellent criteria to distinguish between these two fork types:
+
+* A **soft fork** introduces new rules, or restrictions, on blocks. That way, everything that was previously invalid remains invalid, while some blocks that would have been previously considered valid become invalid.
+* A **hard fork** is a fork that makes previously invalid blocks valid.
+Soft forks have some deployment advantages like backward compatibility, and they don’t require everyone’s consensus, as the stake majority of users can impose the new rules. By contrast, hard forks require all users to upgrade.
+
+In theory, a hard fork may lead to a situation when a network splits into two parts, each maintaining a separate chain: 
+
+ * one from the nodes that adopted the latest system update
+ * another from the nodes that rejected to adopt the latest system update
+
+This means some blocks from the first part are considered invalid by the other part, and vice versa.
+
+### Block version
+
+Block version is represented by following data structure:
 
 ```
 data BlockVersion = BlockVersion
@@ -124,12 +192,32 @@ data BlockVersion = BlockVersion
     }
 ```
 
-So block version essentially is a tuple `(Maj, Min, Alt)`.
-Block version is also called **protocol version**.
+As you see, block version essentially is a tuple `(Maj, Min, Alt)`. It has following sematics:
 
-There are some protocol constants which depend on `BlockVersion`, for example max block size, slot duration, etc.
-Update system was designed in such way that you must attach new values of this constants if they are updated.
-`BlockVersionModifier` reflects these changes:
+* Major version (2 bytes): change of the `Maj` version identifies a protocol is being updated via hardfork
+* Minor version (2 bytes): change of the `Min` version identifies a protocol is being updated via softfork
+   * Changes should be backward-compatible in a sense that a block generated by the new client should be accepted by old client.
+* Alt version (1 byte): integer to manage several simultaneous protocol update proposals.
+   * It allows independent developers to introduce multiple changes to the protocol simultaneously. For example, if one vendor decides to introduce feature X via a soft fork, and another proposes feature Y (also via a soft fork), their software will be issuing blocks with versions a.b.X and a.b.Y, which can coexist in the blockchain (see [section](#competing-block-version)). However, only one will eventually be adopted.
+
+Block version is also often referred to as **protocol version**.
+
+### Protocol constants
+
+Cardano SL supports number of constants associated with block version.
+
+Protocol constants provide us more freedom to express protocol updates via softforks (i.e. without need for hardforks).
+
+Clients which run old version of protocol will be able to follow the blockchain (i.e. validate new blocks) without being updated even if protocol changed in following ways:
+ 
+ * Block size limit changed
+ * Slot duration changed
+ * Transaction fee policy changed
+
+Without protocol constants mechanism all these changes would definetely require a hard fork.
+
+If some update proposal introduces a protocol update, it may also change some of protocol constants, providing new values via `BlockVersionModifier` field of the update proposal:
+
 ```
 data BlockVersionModifier = BlockVersionModifier
     { bvmScriptVersion     :: !(Maybe ScriptVersion)
@@ -148,55 +236,50 @@ data BlockVersionModifier = BlockVersionModifier
     , bvmUnlockStakeEpoch  :: !(Maybe EpochIndex)
     }
 ```
-So if a value is going to be updated then a field is `Just` and `Nothing` otherwise.
 
-### Adoption of block version
+If constant value is going to be updated to `newValue` then a field is `Just newValue` and `Nothing` otherwise.
 
-Informally, `BlockVersion` is **adopted** if sum of block issuers' stakes, 
-which issued blocks of this `BlockVersion` at least once, takes a significant part of the stake.
+### Block version life cycle
 
-Formally, let's say a proposal became _confirmed_ in `s` epoch and current epoch is `t`:  
-if portion of block issuers' stakes, which issued blocks of this `BlockVersion` at least once, is greater than
-`max spMinThd (spInitThd - (t - s) * spThdDecrement)`, then proposal's `BlockVersion` becomes **adopted**.
+![Block version states](us-bv-states.png)
+
+Once an update proposal which introduces a protocol update becomes _confirmed_, corresponding block version may have one of following states:
+
+* Competing
+  * Block version which is candidate to be *adopted*
+* Adopted
+  * Current version of protocol
+* Never to become Adopted
+
+At any point in time, only one version is considered *adopted* by blockchain. This version is used to validate all blocks coming to blockchain. List of block versions which were at some point considered *adopted* form a linear order on `(Maj, Min)` pairs.
+
+#### Competing block version
+
+Block version is called **competing** if it may become adopted and 
+there is a confirmed proposal with this block version.
+
+NB: when some block version `(Maj, Min, Alt)` is adopted, only following versions may be competing:
+* `(Maj, Min+1, Alt')`
+* `(Maj+1, 0, Alt')`
+
+#### Adoption of block version
+
+Informally, `bv = (Maj, Min, Alt)` becomes **adopted** iff:
+ * `bv` is *competing*
+ * sum of block issuers' stakes, which issued a block with this `BlockVersion`, takes a significant part of the stake
+
+Formally, a proposal becomes **adopted** iff:
+* the proposal became _confirmed_ in epoch `s`
+* current epoch is `t`
+* portion of block issuers' stakes, which issued blocks with this `BlockVersion` at least once, is greater than:
+  `max spMinThd (spInitThd - (t - s) * spThdDecrement)`
 
 Intuitively, the threshold which needed to adopt `BlockVersion` is decreasing in each epoch but cannot become
 less than some reasonable minimal value (`spMinThd`).
 
-So we check this rule at the beginning of each epoch for each _confirmed_ proposal 
-and adopt one of block version from _confirmed_ proposals if this version satisfies the rule.
+Competing versions are checked at the beginning of each epoch (whether one of them became *adopted*).
 
-
-#### Competing block version
-Block version is called **competing** if it may become adopted and 
-there is a confirmed proposal with this block version.
-There are rules defining whether block version may become adopted after current last adopted version.  
-The following rules regarding major and minor versions take place:
-  * The proposed major version must be equal to or greater by `1` last adopted one.
-  * If the proposed major version is greater than last adopted one by `1`, then minor version must be `0`.
-  * If the proposed major version is equal to the last adopted one, then minor version 
-    can be either same as the last adopted one or greater by `1`.
-
-Also the following rules regarding alternative versions take place (assuming checks above passed):
-  * If `(Major, Minor)` of proposed version is equal to `(Major, Minor)` of
-    last adopted version, then alternative version must be equal to alternative version of last adopted version.
-  * Otherwise `(Major, Minor)` of proposed version is lexicographically greater 
-    than `(Major, Minor)` of last adopted version. In this case
-    other proposed block versions with same `(Major, Minor)` are considered. 
-    Let's call set of these block version `X`:
-    * If `X` is empty, given alternative version must be `0`.
-    * Otherwise it must be in `X` or greater than maximum from `X` by `1`.
-
-#### Block validation according to adopted version
-
-Assume a proposal which is bumping `BlockVersion` became _confirmed_.
-Though the proposal is already _confirmed_ but stakeholders
-haven't updated its software yet, hence, 
-they can't validate blocks of block version from the proposal.
-
-To avoid a situation when adversary stakeholder issues invalid block of _competing_ version
-other stakeholders will validate blocks according to the current _adopted_ block version.
-
-#### Example
+### Example
 
 Assume there are four stakeholders with stakes `[0.25, 0.26, 0.39, 0.1]`,
 `lastKnownBlockVersion` is `0.1.0` for all stakeholders' softwares and 
@@ -206,7 +289,7 @@ Then update proposal which bumps block version to `0.2.0` is confirmed in 2nd ep
 Suppose this proposal adds consensus rule, 
 that block header's attributes should contain by key `228` string `"pva"`.
 
-Then the first stakeholder downloads this update and update own software. 
+Then the first stakeholder downloads this update and updates own software. 
 `lastKnownBlockVersion` is `0.2.0` for this software but last adopted block version is still `0.1.0`.
 
 Then it's turn to issue a block of the first stakeholder as leader of some slot.  
@@ -258,7 +341,7 @@ First of all, we check that block version of a verifiable block is _adopted_ or 
 
 #### General checks
 
-* _No duplicated proposer check_: that no one stakeholder sent two update proposals within current epoch. 
+* _No duplicated proposer check_: that no stakeholder sent two update proposals within current epoch. 
 We prohibit it because of opportunity to spam update proposals from one stakeholder.
 
 * _Update proposal size check_: proposal doesn't exceed maximal proposal size.
@@ -283,7 +366,18 @@ So everyone can send update proposal to network, but it can get into block only 
 #### Protocol version checks
 
 * _Protocol version following check_: 
-proposed block version must adhere to the rules described [above](#competing-block-version).
+  * The proposed major version must be equal to or greater by `1` last adopted one.
+  * If the proposed major version is greater than last adopted one by `1`, then minor version must be `0`.
+  * If the proposed major version is equal to the last adopted one, then minor version 
+    can be either same as the last adopted one or greater by `1`.
+  * If `(Major, Minor)` of proposed version is equal to `(Major, Minor)` of
+    last adopted version, then alternative version must be equal to alternative version of last adopted version.
+    * Otherwise `(Major, Minor)` of proposed version is lexicographically greater 
+      than `(Major, Minor)` of last adopted version. In this case
+      other proposed block versions with same `(Major, Minor)` are considered. 
+      Let's call set of these block version `X`:
+      * If `X` is empty, given alternative version must be `0`.
+      * Otherwise it must be in `X` or greater than maximum from `X` by `1`.
 
 * _BlockVersionModifier consistenty check_: `BlockVersionModifier` from proposal is consistent 
 with `BlockVersionData` for adopted protocol version or 

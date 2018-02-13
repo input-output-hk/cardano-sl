@@ -25,8 +25,8 @@ import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, StakeholderId, addressHash,
-                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core (ComponentBlock (..), EpochIndex (..), HasConfiguration, StakeholderId,
+                           addressHash, epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, BlockchainHelpers, MainBlockchain, mainBlockDlgPayload,
                                  mainBlockSlot)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
@@ -43,9 +43,9 @@ import qualified Pos.Delegation.DB as GS
 import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
                                                processProxySKHeavyInternal)
-import           Pos.Delegation.RichmenComponent (getRichmenDlg)
+import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -295,12 +295,10 @@ getNoLongerRichmen ::
     -> m [StakeholderId]
 getNoLongerRichmen (EpochIndex 0) = pure mempty
 getNoLongerRichmen newEpoch =
-    (\\) <$> getRichmen (newEpoch - 1) <*> getRichmen newEpoch
+    (\\) <$> getRichmen (newEpoch - 1)
+         <*> getRichmen newEpoch
   where
-    getRichmen e =
-        toList <$>
-        lrcActionOnEpochReason e "getNoLongerRichmen" getRichmenDlg
-
+    getRichmen epoch = toList <$> getDlgRichmen "getNoLongerRichmen" epoch
 
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
@@ -325,11 +323,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
-    (richmen :: RichmenSet) <-
-        lrcActionOnEpochReason
-        headEpoch
-        "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
-        getRichmenDlg
+    richmen <- getDlgRichmen "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -424,7 +418,7 @@ dlgApplyBlocks dlgBlunds = do
   where
     blocks = map fst dlgBlunds
     applyBlock :: DlgBlund -> m SomeBatchOp
-    applyBlock ((Left block), DlgUndo{..}) = do
+    applyBlock ((ComponentBlockGenesis block), DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
@@ -439,23 +433,23 @@ dlgApplyBlocks dlgBlunds = do
                 SomeBatchOp $ map GS.DelPostedThisEpoch $
                 HS.toList duPrevEpochPosted
         pure $ edgeOp <> transCorrections <> postedOp
-    applyBlock ((Right block), _) = do
+    applyBlock ((ComponentBlockMain header payload), _) = do
         -- for main blocks we can get psks directly from the block,
         -- though it's duplicated in the undo.
-        let proxySKs = getDlgPayload $ snd block
-            issuers = map pskIssuerPk proxySKs
-            edgeActions = map pskToDlgEdgeAction proxySKs
-            postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
-        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let batchOps =
-                SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
-                transCorrections <>
-                postedThisEpoch
-        runDelegationStateAction $ do
-            dwTip .= headerHash block
-            forM_ issuers deleteFromDlgMemPool
-        pure $ SomeBatchOp batchOps
-
+        let proxySKs = getDlgPayload payload
+        if null proxySKs then pure mempty else do
+            let issuers = map pskIssuerPk proxySKs
+                edgeActions = map pskToDlgEdgeAction proxySKs
+                postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
+            transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+            let batchOps =
+                    SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
+                    transCorrections <>
+                    postedThisEpoch
+            runDelegationStateAction $ do
+                dwTip .= headerHash header
+                forM_ issuers deleteFromDlgMemPool
+            pure $ SomeBatchOp batchOps
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
@@ -472,11 +466,11 @@ dlgRollbackBlocks dlgBlunds = do
     getNewestFirst <$> mapM rollbackBlund dlgBlunds
   where
     rollbackBlund :: DlgBlund -> m SomeBatchOp
-    rollbackBlund (Left _, DlgUndo{..}) =
+    rollbackBlund (ComponentBlockGenesis _, DlgUndo{..}) =
         -- We should restore "this epoch posted" set to one from the undo
         pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
-    rollbackBlund (Right block, DlgUndo{..}) = do
-        let proxySKs = getDlgPayload $ snd block
+    rollbackBlund (ComponentBlockMain _ payload, DlgUndo{..}) = do
+        let proxySKs = getDlgPayload payload
             issuers = map pskIssuerPk proxySKs
             backDeleted = issuers \\ map pskIssuerPk duPsks
             edgeActions = map (DlgEdgeDel . addressHash) backDeleted

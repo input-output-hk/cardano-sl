@@ -26,7 +26,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal (HasLens (..))
 import           Mockable.Production (Production)
 
 import           Pos.Core (HasConfiguration, Timestamp)
@@ -46,6 +45,7 @@ import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingS
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.Util (HasLens (..))
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.

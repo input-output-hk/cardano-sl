@@ -1,5 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
+-- | Runtime propagation of genesis data (stakes & utxo).
+
 module Pos.Txp.GenesisUtxo
        ( genesisUtxo
        , genesisStakes

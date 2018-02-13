@@ -10,8 +10,8 @@ import           Universum
 import           Pos.SafeCopy ()
 import qualified Pos.Update as U
 
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (safeCopyTest)
-import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Update system" $ do

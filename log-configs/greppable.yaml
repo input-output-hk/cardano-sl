@@ -1,0 +1,4 @@
+# This template is used to grep the output.
+# It's used only for developers' needs.
+
+termSeveritiesOut: All

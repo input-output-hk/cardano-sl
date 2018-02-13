@@ -72,6 +72,7 @@ module Network.Broadcast.OutboundQueue (
   , simplePeers
   , peersFromList
   , updatePeersBucket
+  , getAllPeers
     -- * Debugging
   , registerQueueMetrics
   , dumpState
@@ -79,7 +80,8 @@ module Network.Broadcast.OutboundQueue (
   ) where
 
 import           Control.Concurrent
-import           Control.Exception
+import           Control.Exception.Safe (MonadMask, SomeException, displayException, finally, mask_,
+                                         try)
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -975,14 +977,14 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
           let delay = 1000000 `div` n
           applyMVar_ qRateLimited $ Set.insert (packetDestId p)
           forkThread threadRegistry $ \unmask -> unmask $
-            (liftIO $ threadDelay delay) `M.finally` (liftIO $ do
+            (liftIO $ threadDelay delay) `finally` (liftIO $ do
               applyMVar_ qRateLimited $ Set.delete (packetDestId p)
               poke qSignal)
 
       forkThread threadRegistry $ \unmask -> do
         logDebug $ debugSending p
 
-        ma <- M.try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
+        ma <- try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
 
         -- Reduce the in-flight count ..
         setInFlightFor p (\n -> n - 1) qInFlight
@@ -1225,13 +1227,13 @@ type SendMsg m msg nid = forall a. msg a -> nid -> m a
 -- It is the responsibility of the next layer up to fork this thread; this
 -- function does not return unless told to terminate using 'waitShutdown'.
 dequeueThread :: forall m msg nid buck. (
-                   MonadIO              m
-                 , M.Mockable M.Bracket m
-                 , M.Mockable M.Catch   m
-                 , M.Mockable M.Async   m
-                 , M.Mockable M.Fork    m
-                 , Ord (M.ThreadId      m)
-                 , WithLogger           m
+                   MonadIO                    m
+                 , MonadMask                  m
+                 , M.Mockable M.Async         m
+                 , M.Mockable M.LowLevelAsync m
+                 , M.Mockable M.MyThreadId    m
+                 , Ord (M.ThreadId            m)
+                 , WithLogger                 m
                  )
               => OutboundQ msg nid buck -> SendMsg m msg nid -> m ()
 dequeueThread outQ@OutQ{..} sendMsg = withThreadRegistry $ \threadRegistry ->
@@ -1367,28 +1369,28 @@ updatePeersBucket outQ@OutQ{..} buck f = do
 -------------------------------------------------------------------------------}
 
 data ThreadRegistry m =
-       ( MonadIO              m
-       , M.Mockable M.Async   m
-       , M.Mockable M.Bracket m
-       , M.Mockable M.Fork    m
-       , M.Mockable M.Catch   m
-       , Ord (M.ThreadId      m)
+       ( MonadIO                    m
+       , M.Mockable M.Async         m
+       , M.Mockable M.LowLevelAsync m
+       , M.Mockable M.MyThreadId    m
+       , MonadMask                  m
+       , Ord (M.ThreadId            m)
        )
     => TR (MVar (Map (M.ThreadId m) (M.Promise m ())))
 
 -- | Create a new thread registry, killing all threads when the action
 -- terminates.
-withThreadRegistry :: ( MonadIO              m
-                      , M.Mockable M.Bracket m
-                      , M.Mockable M.Async   m
-                      , M.Mockable M.Fork    m
-                      , M.Mockable M.Catch   m
-                      , Ord (M.ThreadId      m)
+withThreadRegistry :: ( MonadIO                    m
+                      , M.Mockable M.Async         m
+                      , M.Mockable M.LowLevelAsync m
+                      , M.Mockable M.MyThreadId    m
+                      , MonadMask                  m
+                      , Ord (M.ThreadId            m)
                       )
                    => (ThreadRegistry m -> m ()) -> m ()
 withThreadRegistry k = do
     threadRegistry <- liftIO $ TR <$> newMVar Map.empty
-    k threadRegistry `M.finally` killAllThreads threadRegistry
+    k threadRegistry `finally` killAllThreads threadRegistry
 
 killAllThreads :: ThreadRegistry m -> m ()
 killAllThreads (TR reg) = do
@@ -1404,12 +1406,12 @@ type Unmask m = forall a. m a -> m a
 
 -- | Fork a new thread, taking care of registration and unregistration
 forkThread :: ThreadRegistry m -> (Unmask m -> m ()) -> m ()
-forkThread (TR reg) threadBody = M.mask_ $ do
+forkThread (TR reg) threadBody = mask_ $ do
     barrier <- liftIO $ newEmptyMVar
     thread  <- M.asyncWithUnmask $ \unmask -> do
                  tid <- M.myThreadId
                  liftIO $ takeMVar barrier
-                 threadBody unmask `M.finally`
+                 threadBody unmask `finally`
                    applyMVar_ reg (at tid .~ Nothing)
     tid     <- M.asyncThreadId thread
     applyMVar_ reg (at tid .~ Just thread)

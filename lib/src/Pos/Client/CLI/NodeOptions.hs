@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE QuasiQuotes   #-}
 
--- | Command line options of pos-node.
+-- | Command line options of Cardano node.
 
 module Pos.Client.CLI.NodeOptions
        ( CommonNodeArgs (..)

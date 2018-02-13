@@ -18,8 +18,8 @@ and the client scenario. The server scenario is used when the launcher is used
 for the node alone (without wallet), and the client scenario is used when the
 launcher coordinates the node together with the wallet.
 
-The choice of scenario is determined by whether the optional CLI parameter
-`--wallet` was specified.
+The choice of scenario is determined by whether `walletPath` was specified
+in the config or not.
 
 ### Server scenario
 
@@ -53,7 +53,7 @@ In the client scenario, the launcher operates as follows:
     4. Goto to step 1 of client scenario
 6. If the wallet exited first, check its exit code:
     1. If it indicated that it needs an update (code 20)
-        * Wait for the node to die (timeout specified in CLI)
+        * Wait for the node to die (timeout specified in `nodeTimeoutSec` in config file)
         * Kill the node in case of timeout, and then goto the step 1 of client scenario
     2. If the wallet exited with a different code, assume it has crashed and kill the node (without timeout)
 
@@ -63,52 +63,20 @@ Here we describe flow of updater execution.
 
 1. Check that updater script exists
     * If it doesn't exist, update script execution finishes
-    * Note, that updater script is passed via CLI parameter `--updater`
+    * Note, that updater script is passed via config parameter `updaterPath`
 2. Launch updater:
-    * Pass the downloaded update archive (provided via CLI parameter `--update-archive`) to updater script as last
-argument
+    * Pass the downloaded update archive (provided via config parameter `updateArchive`) to updater script as last argument
 3. Wait for updater to finish, check the exit code:
     * Update script failed (non-zero exit code):
         * The update archive is not touched
         * Update script execution finishes
     * Update script succeeded (zero exit code):
         1. Mark the update as installed in the database
-           * Later, if the node tries to download another update, it will check this database entry and skip already installed update.
-        2. Delete the update archive, as this indicates to the launcher, node that there's no update pending or in progress.
+           * Later, if the node tries to download another update, it will check
+           this database entry and skip already installed update.
+        2. Delete the update archive, as this indicates to the launcher and the
+        node that there's no update pending or in progress.
 
-## CLI Parameters
+## Config parameters
 
-* `--node`: the path to the node executable
-
-* `--wallet`: the path to the wallet executable (determines the scenario)
-
-* `--db-path`: the path to node database (used for tracking of installed updates)
-
-* `--node-log-config`: the path to the node logging config (attached to crash
-reports)
-
-* `--node-log-path`: the path to a log file for the node; passed to the node as
-is, but also has defaulting logic (a temporary file is created when no path is
-specified)
-
-* `--updater`: the path to the updater script (used when an update is available)
-
-* `--update-archive`: the path at which an update archive will be saved by the
-node when a new update is broadcasted is registered in the blockchain
-
-* `--node-timeout`: the time (in seconds) to wait for a graceful shutdown of the
-  node in case the wallet exited with code 20
-
-* `--report-server`: a URL of the server where crash reports will be sent
-
-* `--launcher-logs-prefix`: a directory for launcher logs (optional)
-
-Besides these launcher-specific parameters, the launcher also expects:
-
-* parameters prefixed with `-n` -- those are passed to the node verbatim
-* parameters prefixed with `-w` -- those are passed to the wallet verbatim
-* paremeters prefixed with `-u` -- those are passed to the update script
-  verbatim
-* `--configuration-file`, `--configuration-key`, `--system-start`, and
-  `--configuration-seed`: these are used to initialize the global constant
-  configuration
+See [`tools/src/launcher/launcher-config.yaml`](https://github.com/input-output-hk/cardano-sl/blob/develop/tools/src/launcher/launcher-config.yaml).

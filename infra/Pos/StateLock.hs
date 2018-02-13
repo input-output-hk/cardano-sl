@@ -25,7 +25,6 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Monad.Catch (MonadMask)
 import           Data.Time.Units (Microsecond)
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
@@ -66,13 +65,15 @@ data StateLockMetrics = StateLockMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
       slmWait    :: !(String -> LoggerNameBox IO ())
-      -- | Called when a thread is granted the lock on the mempool. Parameter
-      --   indicates how long it waited.
-    , slmAcquire :: !(Microsecond -> LoggerNameBox IO ())
-      -- | Called when a thread is finished modifying the mempool and has
-      --   released the lock. Parameters indicates time elapsed since acquiring
-      --   the lock, and new mempool size.
-    , slmRelease :: !(Microsecond -> LoggerNameBox IO ())
+      -- | Called when a thread is granted the lock on the
+      --   mempool. The first parameter is the reason for modifying
+      --   the mempool. The second one indicates how long it waited.
+    , slmAcquire :: !(String -> Microsecond -> LoggerNameBox IO ())
+      -- | Called when a thread is finished modifying the mempool and
+      --   has released the lock. Parameters indicate the reason for
+      --   modifying the mempool, time elapsed since acquiring the
+      --   lock, and new mempool size.
+    , slmRelease :: !(String -> Microsecond -> LoggerNameBox IO ())
     }
 
 -- | A 'StateLockMetrics' that never does any writes. Use it if you
@@ -80,8 +81,8 @@ data StateLockMetrics = StateLockMetrics
 ignoreStateLockMetrics :: StateLockMetrics
 ignoreStateLockMetrics = StateLockMetrics
     { slmWait = const (pure ())
-    , slmAcquire = (const (pure ()))
-    , slmRelease = (const (pure ()))
+    , slmAcquire = const (const (pure ()))
+    , slmRelease = const (const (pure ()))
     }
 
 type MonadStateLockBase ctx m
@@ -136,10 +137,10 @@ stateLockHelper doWithMVar prio reason action = do
     withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do
         timeEndWait <- currentTime
         liftIO . usingLoggerName lname $
-            slmAcquire (timeEndWait - timeBeginWait)
+            slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
         res <- action hh
         timeEndModify <- currentTime
         liftIO . usingLoggerName lname $
-            slmRelease (timeEndModify - timeBeginModify)
+            slmRelease reason (timeEndModify - timeBeginModify)
         pure res

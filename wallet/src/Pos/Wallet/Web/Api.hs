@@ -27,19 +27,20 @@ module Pos.Wallet.Web.Api
        , WSettingsApi    , WSettingsApiRecord(..)
        , WBackupApi      , WBackupApiRecord(..)
        , WInfoApi        , WInfoApiRecord(..)
+       , WSystemApi      , WSystemApiRecord(..)
        -- ** Something
        , WalletVerb
 
        -- * Swagger API
+
        , WalletSwaggerApi
        , swaggerWalletApi
        ) where
 
-
 import           Universum
 
+import           Control.Exception.Safe (try)
 import           Control.Lens (from)
-import           Control.Monad.Catch (try)
 import           Data.Reflection (Reifies (..))
 import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get, JSON, Post, Put,
                               QueryParam, ReqBody, Summary, Verb)
@@ -55,12 +56,11 @@ import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReq
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
-                                             CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo,
-                                             NewBatchPayment, ScrollLimit, ScrollOffset,
-                                             SyncProgress, Wal)
+                                             CTxId, CUpdateInfo, CWallet, CWalletInit, CWalletMeta,
+                                             CWalletRedeem, ClientInfo, NewBatchPayment,
+                                             ScrollLimit, ScrollOffset, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
 
 -- | API result modification mode used here.
 data WalletVerbTag
@@ -127,6 +127,7 @@ data WalletApiRecord route = WalletApiRecord
   , _settings    :: route :- WSettingsApi         -- /settings
   , _backup      :: route :- WBackupApi           -- /backup
   , _info        :: route :- WInfoApi             -- /info
+  , _system      :: route :- WSystemApi           -- /system
   }
   deriving (Generic)
 
@@ -349,12 +350,17 @@ data WTxsApiRecord route = WTxsApiRecord
         \be passed to resubmition"
     :> WRes Get NoContent
 
-  , _updateTx :: route
-    :- "payments"
-    :> Summary "Update payment transaction."
-    :> CCapture "address" CAccountId
+  , _cancelApplyingPtxs :: route
+    :- "resubmission"
+    :> "cancel"
+    :> Summary "Cancel all transactions in CPtxApplying condition (unconfirmed)."
+    :> WRes Post NoContent
+
+  , _cancelSpecificApplyingPtx :: route
+    :- "resubmission"
+    :> "cancelsingle"
     :> Capture "transaction" CTxId
-    :> ReqBody '[JSON] CTxMeta
+    :> Summary "Cancel specific transaction in CPtxApplying condition."
     :> WRes Post NoContent
 
   , _getHistory :: route
@@ -366,6 +372,12 @@ data WTxsApiRecord route = WTxsApiRecord
     :> QueryParam "skip" ScrollOffset
     :> QueryParam "limit" ScrollLimit
     :> WRes Get ([CTx], Word)
+
+  , _pendingSummary :: route
+    :- "pending"
+    :> "summary"
+    :> Summary "Get the pending tx summaries."
+    :> WRes Get [PendingTxsSummary]
   }
   deriving (Generic)
 
@@ -504,6 +516,21 @@ data WBackupApiRecord route = WBackupApiRecord
   deriving (Generic)
 
 -- ~~~~~~~~~~
+--   /system
+-- ~~~~~~~~~~
+
+type WSystemApi = "system" :> ToServant (WSystemApiRecord AsApi)
+
+data WSystemApiRecord route = WSystemApiRecord
+  {
+    _requestShutdown :: route
+    :- "shutdown"
+    :> Summary "Request a shutdown from node."
+    :> WRes Post NoContent
+  }
+  deriving (Generic)
+
+-- ~~~~~~~~~~
 --   /info (client info)
 -- ~~~~~~~~~~
 
@@ -517,6 +544,3 @@ data WInfoApiRecord route = WInfoApiRecord
     :> WRes Get ClientInfo
   }
   deriving (Generic)
-
-
-

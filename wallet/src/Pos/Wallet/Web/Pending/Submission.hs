@@ -15,16 +15,19 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Monad.Catch (Handler (..), catches, onException)
+import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Formatting (build, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logInfo)
+import           Serokell.Util (hour)
+import           System.Wlog (WithLogger, logDebug, logInfo)
 
-import           Pos.Client.Txp.History (saveTx)
+import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
+import           Pos.Configuration (walletTxCreationDisabled)
+import           Pos.Core (diffTimestamp, getCurrentTimestamp)
+import           Pos.Core.Txp (TxAux)
 import           Pos.Util.LogSafe (logInfoS, logWarningS)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
                                                    usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
@@ -40,7 +43,7 @@ data PtxSubmissionHandlers m = PtxSubmissionHandlers
       -- Exception is not specified explicitely to prevent a wish
       -- to disassemble the cases - it's already done.
       pshOnNonReclaimable  :: forall e. (Exception e, Buildable e)
-                           => Bool -> e -> m ()
+                           => e -> m ()
       -- | When minor error occurs, which means that transaction has
       -- a chance to be applied later.
     , pshOnMinor           :: SomeException -> m ()
@@ -51,27 +54,18 @@ ptxFirstSubmissionHandler
     => PtxSubmissionHandlers m
 ptxFirstSubmissionHandler =
     PtxSubmissionHandlers
-    { pshOnNonReclaimable = \peerAck e ->
-        if peerAck
-        then reportPeerApplied
-        else throwM e
+    { pshOnNonReclaimable = throwM
     , pshOnMinor = \_ -> pass
     }
-  where
-     reportPeerApplied =
-        logInfo "Some peer applied new tx, while we didn't - considering \
-                \transaction made"
 
 ptxResubmissionHandler
     :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletDB ctx m)
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
-    { pshOnNonReclaimable = \peerAck e ->
+    { pshOnNonReclaimable = \e ->
         if | _ptxPeerAck ->
              reportPeerAppliedEarlier
-           | peerAck ->
-             reportPeerApplied
            | PtxApplying poolInfo <- _ptxCond -> do
              cancelPtx poolInfo e
              throwM e
@@ -93,11 +87,6 @@ ptxResubmissionHandler PendingTx{..} =
         sformat ("Some peer applied tx #"%build%" earlier - continuing \
             \tracking")
             _ptxTxId
-    reportPeerApplied =
-        logInfoS $
-        sformat ("Peer applied tx #"%build%", while we didn't - continuing \
-            \tracking")
-            _ptxTxId
     reportCanceled =
         logInfoS $
         sformat ("Pending transaction #"%build%" was canceled")
@@ -110,7 +99,6 @@ ptxResubmissionHandler PendingTx{..} =
 
 type TxSubmissionMode ctx m =
     ( TxMode m
-    , MonadWalletSendActions m
     , MonadWalletDB ctx m
     )
 
@@ -118,23 +106,42 @@ type TxSubmissionMode ctx m =
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => PtxSubmissionHandlers m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
-    addOnlyNewPendingTx ptx
-    ack <- sendTxToNetwork _ptxTxAux
-    (saveTx (_ptxTxId, _ptxTxAux)
-        `catches` handlers ack)
-        `onException` creationFailedHandler
+    => (TxAux -> m Bool)
+    -> PtxSubmissionHandlers m
+    -> PendingTx
+    -> m ()
+submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+    -- this should've been checked before, but just in case
+    when walletTxCreationDisabled $
+        throwM $ InternalError "Transaction creation is disabled by configuration!"
 
-    poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
-    _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
-    when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+    now <- getCurrentTimestamp
+    if | PtxApplying poolInfo <- _ptxCond,
+         Just creationTime <- poolInfo ^. thTimestamp,
+         diffTimestamp now creationTime > hour 1 -> do
+           let newCond = PtxWontApply "1h limit exceeded" poolInfo
+           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+           logInfo $
+             sformat ("Pending transaction #"%build%" discarded becauce \
+                      \the 1h time limit was exceeded")
+                      _ptxTxId
+       | otherwise -> do
+           addOnlyNewPendingTx ptx
+           (saveTx (_ptxTxId, _ptxTxAux)
+               `catches` handlers)
+               `onException` creationFailedHandler
+           ack <- submitTx _ptxTxAux
+           reportSubmitted ack
+
+           poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
+           _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
+           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
-    handlers accepted =
+    handlers =
         [ Handler $ \e ->
             if isReclaimableFailure e
                 then minorError "reclaimable" (SomeException e)
-                else nonReclaimableError accepted (SomeException e)
+                else nonReclaimableError (SomeException e)
 
         , Handler $ \e@SomeException{} ->
             -- I don't know where this error can came from,
@@ -144,9 +151,10 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     minorError desc e = do
         reportError desc e ", but was given another chance"
         pshOnMinor e
-    nonReclaimableError accepted e = do
+    nonReclaimableError e = do
         reportError "fatal" e ""
-        pshOnNonReclaimable accepted e
+        pshOnNonReclaimable e
+
     reportError desc e outcome =
         logInfoS $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
@@ -159,3 +167,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         -- then we better not remove this pending transaction
         void $ usingPtxCoords removeOnlyCreatingPtx ptx
     badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"
+
+    reportSubmitted ack =
+        logDebug $
+        sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
+                %build) ack

@@ -5,17 +5,15 @@ module Pos.Communication.Relay.Util
 
 import           Universum
 
-import           Mockable (Mockable, Throw, throw)
-
 import           Pos.Communication.Relay.Types (RelayError (UnexpectedData, UnexpectedInv))
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData)
 
 expectInv
-    :: Mockable Throw m
+    :: MonadThrow m
     => (InvMsg key -> m a) -> InvOrData key contents -> m a
-expectInv call = either call (\_ -> throw UnexpectedData)
+expectInv call = either call (\_ -> throwM UnexpectedData)
 
 expectData
-    :: Mockable Throw m
+    :: MonadThrow m
     => (DataMsg contents -> m a) -> InvOrData key contents -> m a
-expectData call = either (\_ -> throw UnexpectedInv) call
+expectData call = either (\_ -> throwM UnexpectedInv) call

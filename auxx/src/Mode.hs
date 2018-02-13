@@ -4,16 +4,12 @@
 
 module Mode
        (
-         -- * Extra types
-         CmdCtx (..)
-
        -- * Mode, context, etc.
-       , AuxxContext (..)
+         AuxxContext (..)
        , AuxxMode
        , MonadAuxxMode
 
        -- * Helpers
-       , getCmdCtx
        , isTempDbUsed
        , realModeToAuxx
        , makePubKeyAddressAuxx
@@ -23,8 +19,9 @@ module Mode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Trans.Resource (transResourceT)
+import           Data.Conduit (transPipe)
 import           Data.Default (def)
 import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
@@ -38,7 +35,6 @@ import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo
                                           getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication (NodeId)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
@@ -70,11 +66,6 @@ import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
--- | Command execution context.
-data CmdCtx = CmdCtx
-    { ccPeers :: ![NodeId]
-    }
-
 type AuxxMode = ReaderT AuxxContext Production
 
 class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
@@ -82,7 +73,6 @@ instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
-    , acCmdCtx          :: !CmdCtx
     , acTempDbUsed      :: !Bool
     }
 
@@ -91,10 +81,6 @@ makeLensesWith postfixLFields ''AuxxContext
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
-
--- | Get 'CmdCtx' in 'AuxxMode'.
-getCmdCtx :: MonadAuxxMode m => m CmdCtx
-getCmdCtx = view acCmdCtx_L
 
 isTempDbUsed :: AuxxMode Bool
 isTempDbUsed = view acTempDbUsed_L
@@ -182,7 +168,8 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
-    dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
+    dbIterSource tag p =
+        transPipe (transResourceT realModeToAuxx) (dbIterSource tag p)
     dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
     dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 

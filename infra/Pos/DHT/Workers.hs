@@ -9,7 +9,7 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, (%))
-import           Mockable (Async, Delay, Fork, Mockable)
+import           Mockable (Async, Delay, Mockable)
 import           Network.Kademlia (takeSnapshot)
 import           System.Wlog (WithLogger, logNotice)
 
@@ -25,6 +25,7 @@ import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots)
+import           Pos.Slotting.Util (defaultOnNewSlotParams)
 import           Pos.Worker.Types (WorkerSpec, localOnNewSlotWorker)
 
 type DhtWorkMode ctx m =
@@ -33,7 +34,6 @@ type DhtWorkMode ctx m =
     , MonadIO m
     , MonadMask m
     , Mockable Async m
-    , Mockable Fork m
     , Mockable Delay m
     , MonadRecoveryInfo m
     , MonadReader ctx m
@@ -55,7 +55,7 @@ dumpKademliaStateWorker
        )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
-dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
+dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker onsp $ \slotId ->
     when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
@@ -65,4 +65,5 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
             Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
+    onsp = defaultOnNewSlotParams
     isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

@@ -18,13 +18,14 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
-import           Mockable (Production (runProduction), Mockable, Async, withAsync)
+import           Mockable (Async, Mockable, Production (runProduction), withAsync)
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Aeson.Txp ()
 import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
@@ -175,7 +176,7 @@ getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 -- | Get info on all confirmed proposals
 confirmedProposals
-    :: (HasUpdateConfiguration, MonadDBRead m)
+    :: (HasUpdateConfiguration, MonadDBRead m, MonadUnliftIO m)
     => m [CConfirmedProposalState]
 confirmedProposals = do
     proposals <- GS.getConfirmedProposals Nothing

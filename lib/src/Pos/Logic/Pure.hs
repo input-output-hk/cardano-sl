@@ -12,28 +12,28 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Reflection (give)
 
-import           Pos.Core (StakeholderId, SoftwareVersion (..), BlockVersion (..),
-                           HeaderHash, Block, BlockHeader, GenericBlock (..),
-                           GenericBlockHeader (..), ExtraHeaderData, ExtraBodyData,
-                           BlockVersionData (..), mkApplicationName,
-                           unsafeCoinPortionFromDouble, TxFeePolicy (..), SoftforkRule (..))
+import           Pos.Core (Block, BlockHeader (..), BlockVersion (..), BlockVersionData (..),
+                           ExtraBodyData, ExtraHeaderData, GenericBlock (..),
+                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
+                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..), mkApplicationName,
+                           unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
-import           Pos.Core.Common (ChainDifficulty (..), BlockCount (..))
+import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
-import           Pos.Core.Slotting (SlotId (..), EpochIndex (..), LocalSlotIndex (..))
 import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
-import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
                                      deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (UnparsedFields (..), Attributes (..))
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Util.Chrono (OldestFirst (..), NewestFirst (..))
+import           Pos.Txp.Base (emptyTxPayload)
+import           Pos.Util.Chrono (NewestFirst (..), OldestFirst (..))
 
-import           Pos.Logic.Types (Logic (..), KeyVal (..))
+import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.
@@ -45,8 +45,8 @@ pureLogic = Logic
     , getBlock           = \_ -> pure (Just block)
     , getChainFrom       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
-    , getBlockHeaders    = \_ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getBlockHeaders'   = \_ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
+    , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
+    , getBlockHeaders'   = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -84,7 +84,7 @@ blockVersionData = BlockVersionData
     -- There's no way to say "no limit".
     --
     -- To fix this, perhaps we should augment the logic layer interface with
-    -- 
+    --
     --   limits :: m Limits
     --
     -- where Limits gives all of these 4 limits. Then we can use them to do
@@ -168,7 +168,7 @@ extraBodyData = MainExtraBodyData
     }
 
 blockHeader :: BlockHeader
-blockHeader = Right mainBlockHeader
+blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
 mainBlockHeader = UnsafeGenericBlockHeader

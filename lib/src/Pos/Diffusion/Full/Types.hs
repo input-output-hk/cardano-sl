@@ -11,14 +11,13 @@ module Pos.Diffusion.Full.Types
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (Mockable, MonadMockable)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable)
 import qualified Mockable.Metrics as Mockable
-import           System.Wlog (WithLogger)
 import qualified System.Metrics.Counter as Metrics
 import qualified System.Metrics.Distribution as Metrics
 import qualified System.Metrics.Gauge as Metrics
+import           System.Wlog (WithLogger)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
@@ -29,6 +28,7 @@ import           Pos.Infra.Configuration (HasInfraConfiguration)
 type DiffusionWorkMode m
     = ( WithLogger m
       , MonadMockable m
+      , Mockable LowLevelAsync m
       , MonadIO m
       -- Unfortunately we need HasConfigurations because so much of the core
       -- program depends upon it (serialization, message limits, smart
@@ -42,7 +42,6 @@ type DiffusionWorkMode m
       -- Needed for message size limits, but shouldn't be [CSL-2242].
       , HasInfraConfiguration
       , HasNodeConfiguration
-      , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
       -- TODO should not need HasAdoptedBlockVersionData

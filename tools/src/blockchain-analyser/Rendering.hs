@@ -14,7 +14,7 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Undo)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, LocalSlotIndex (..),
                            SlotId (..), Tx, getEpochIndex, getEpochOrSlot)
-import           Pos.Core.Block (Block, BlockHeader, blockHeaderHash, getBlockHeader, mbTxs,
+import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash, getBlockHeader, mbTxs,
                                  _gbBody, _gbhConsensus, _mcdLeaderKey)
 import           Pos.Crypto (PublicKey)
 import           Pos.Merkle (MerkleTree (..))
@@ -157,15 +157,16 @@ getSlot :: BlockHeader -> Maybe SlotId
 getSlot = either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot
 
 getLeader :: BlockHeader -> Maybe PublicKey
-getLeader (Left _)   = Nothing
-getLeader (Right bh) = Just . _mcdLeaderKey . _gbhConsensus $ bh
+getLeader (BlockHeaderGenesis _) = Nothing
+getLeader (BlockHeaderMain bh)   = Just . _mcdLeaderKey . _gbhConsensus $ bh
 
 getTxs :: Block -> MerkleTree Tx
 getTxs (Left _)          = MerkleEmpty
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
 getHeaderSize :: HasConfiguration => BlockHeader -> Integer
-getHeaderSize = either (toBytes . biSize) (toBytes . biSize)
+getHeaderSize (BlockHeaderGenesis h) = toBytes (biSize h)
+getHeaderSize (BlockHeaderMain h)    = toBytes (biSize h)
 
 getBlockSize :: HasConfiguration => Block -> Integer
 getBlockSize = either (toBytes . biSize) (toBytes . biSize)

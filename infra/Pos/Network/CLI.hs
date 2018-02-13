@@ -17,7 +17,8 @@ module Pos.Network.CLI
        , listenNetworkAddressOption
        , ipv4ToNetworkAddress
        , intNetworkConfigOpts
-         -- * Exported primilary for testing
+       , launchStaticConfigMonitoring
+         -- * Exported primarily for testing
        , readTopology
        , readPolicies
        , fromPovOf
@@ -25,7 +26,7 @@ module Pos.Network.CLI
 
 import           Universum
 
-import           Control.Concurrent
+import           Control.Concurrent (Chan, newChan, readChan, writeChan)
 import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as BS.C8
 import           Data.IP (IPv4)
@@ -33,14 +34,14 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
-import           Mockable (Mockable, fork)
-import           Mockable.Concurrent
+import           Mockable.Concurrent ()
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog.CanLog (WithLogger, logError, logNotice)
+import           System.Wlog (HasLoggerName, LoggerNameBox, WithLogger, askLoggerName, logError,
+                              logNotice, usingLoggerName)
 
 import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
                                             fromYamlConfig)
@@ -176,37 +177,32 @@ defaultDnsDomains = DnsDomains [
 -- Monitor for static peers
 ----------------------------------------------------------------------------
 
-data MonitorEvent m
-    = MonitorRegister (Peers NodeId -> m ())
+data MonitorEvent
+    = MonitorRegister (Peers NodeId -> LoggerNameBox IO ())
     | MonitorSIGHUP
 
 -- | Monitor for changes to the static config
-monitorStaticConfig :: forall m. (
-                         WithLogger     m
-                       , MonadIO        m
-                       , Mockable Fork  m
-                       , MonadCatch     m
-                       )
-                    => NetworkConfigOpts
-                    -> NodeMetadata    -- ^ Original metadata (at startup)
-                    -> Peers NodeId    -- ^ Initial value
-                    -> m T.StaticPeers
+monitorStaticConfig ::
+       NetworkConfigOpts
+    -> NodeMetadata -- ^ Original metadata (at startup)
+    -> Peers NodeId -- ^ Initial value
+    -> LoggerNameBox IO T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    events :: Chan (MonitorEvent m) <- liftIO newChan
+    events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
     liftIO $ installHandler SigHUP $ writeChan events MonitorSIGHUP
 #endif
 
-    _tid <- fork $ loop events initPeers []
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
+      , T.staticPeersMonitoring = loop events initPeers []
       }
   where
-    loop :: Chan (MonitorEvent m)
+    loop :: Chan MonitorEvent
          -> Peers NodeId
-         -> [Peers NodeId -> m ()]
-         -> m ()
+         -> [Peers NodeId -> LoggerNameBox IO ()]
+         -> LoggerNameBox IO ()
     loop events peers handlers = liftIO (readChan events) >>= \case
         MonitorRegister handler -> do
             runHandler peers handler -- Call new handler with current value
@@ -236,7 +232,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
                 logError $ readFailed fp ex
                 loop events peers handlers
 
-    runHandler :: forall t . t -> (t -> m ()) -> m ()
+    runHandler :: forall t . t -> (t -> LoggerNameBox IO ()) -> LoggerNameBox IO ()
     runHandler it handler = do
         mu <- try (handler it)
         case mu of
@@ -256,6 +252,20 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
     handlerError = sformat $
         "Exception thrown by staticPeersOnChange handler: " % shown % ". Ignored."
 
+launchStaticConfigMonitoring ::
+       (HasLoggerName m, MonadIO m) => T.Topology k -> m ()
+launchStaticConfigMonitoring topology = do
+    loggerName <- askLoggerName
+    liftIO . usingLoggerName loggerName $ action
+  where
+    action =
+        case topology of
+            T.TopologyCore {topologyStaticPeers = T.StaticPeers {..}} ->
+                staticPeersMonitoring
+            T.TopologyRelay {topologyStaticPeers = T.StaticPeers {..}} ->
+                staticPeersMonitoring
+            _ -> pass
+
 ----------------------------------------------------------------------------
 -- Interpreter
 ----------------------------------------------------------------------------
@@ -265,7 +275,6 @@ intNetworkConfigOpts ::
        forall m.
        ( WithLogger m
        , MonadIO m
-       , Mockable Fork m
        , MonadCatch m
        )
     => NetworkConfigOpts
@@ -279,7 +288,10 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         Y.TopologyStatic{..} -> do
             (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
-            topologyStaticPeers <- monitorStaticConfig cfg md initPeers
+            loggerName <- askLoggerName
+            topologyStaticPeers <-
+                liftIO . usingLoggerName loggerName $
+                monitorStaticConfig cfg md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,
             -- we can fill in some sensible defaults using the static routing and

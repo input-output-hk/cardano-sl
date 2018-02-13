@@ -20,7 +20,7 @@ module Pos.GState.BlockExtra
 
 import           Universum
 
-import           Data.Conduit (Source, yield)
+import           Data.Conduit (ConduitT, yield)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
@@ -34,7 +34,7 @@ import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
                          dbSerializeValue, getHeader)
-import           Pos.DB.Class (MonadBlockDBRead, getBlock) 
+import           Pos.DB.Class (MonadBlockDBRead, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.Util (maybeThrow)
@@ -184,17 +184,17 @@ loadBlocksUpWhile = loadUpWhile getBlock
 -- underlying database is changed while streaming, what happens?
 blocksSourceFrom
     :: ( MonadBlockDBRead m )
-    => HeaderHash -> Source m Block
+    => HeaderHash -> ConduitT () Block m ()
 blocksSourceFrom fromH = do
     mBlk <- lift $ getBlock fromH
     case mBlk of
-        Nothing -> pure ()
+        Nothing  -> pure ()
         Just blk -> yield blk >> continue blk
   where
     continue blk = do
         mNextH <- lift $ resolveForwardLink blk
         case mNextH of
-            Nothing -> pure ()
+            Nothing    -> pure ()
             Just nextH -> blocksSourceFrom nextH
 
 ----------------------------------------------------------------------------

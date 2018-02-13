@@ -74,7 +74,7 @@ import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendRepo
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
@@ -316,7 +316,7 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
-    Log.usingLoggerName "launcher" $
+    logException loggerName . Log.usingLoggerName loggerName $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
@@ -329,6 +329,7 @@ main =
                     (UpdaterData
                         loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loReportServer
+                logNotice "Finished serverScenario"
             Just wpath -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
@@ -342,6 +343,7 @@ main =
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
+                logNotice "Finished clientScenario"
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
@@ -349,6 +351,7 @@ main =
     -- user passes these options to the node explicitly, then we
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
+    loggerName = "launcher"
     propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
     propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
         addNodeDbPath nodeDbPath .
@@ -421,36 +424,40 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
     let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
     walletAsync <- async (runWallet walletLog wallet (ndLogPath node))
+    logInfo "Waiting for wallet or node to finish..."
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    logInfo "Wallet or node has finished!"
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
-    if | someAsync == nodeAsync -> do
-             logWarning $ sformat ("The node has exited with "%shown) exitCode
+    (walletExitCode, nodeExitCode) <- if
+       | someAsync == nodeAsync -> do
+             unless (exitCode == ExitFailure 20) $
+                 logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
-             when (walletExitCode == ExitFailure 20) $
-                 case exitCode of
-                     ExitSuccess{} -> restart
-                     ExitFailure{} ->
-                         -- -- Commented out because shutdown is broken and node
-                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
-                         -- TL.putStrLn $
-                         --   "The wallet has exited with code 20, but\
-                         --   \ we won't update due to node crash"
-                         restart -- remove this after CSL-1855
+             return (walletExitCode, Just exitCode)
        | exitCode == ExitFailure 20 -> do
              logNotice "The wallet has exited with code 20"
-             logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
-             sleep (fromIntegral nodeTimeout)
-             killNode nodeHandle nodeAsync
-             restart
+             logInfo $ sformat
+                 ("Waiting for the node to shut down or killing it in "%int%" seconds otherwise")
+                 nodeTimeout
+             nodeExitCode <- liftIO $ timeout (fromIntegral nodeTimeout * 1000000) (wait nodeAsync)
+             return (exitCode, nodeExitCode)
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             killNode nodeHandle nodeAsync
+             return (exitCode, Nothing)
+    when (isNothing nodeExitCode) $ do
+        logWarning "The wallet has exited, but the node is still up."
+        killNode nodeHandle nodeAsync
+    when (walletExitCode == ExitFailure 20) $
+        case nodeExitCode of
+            Just (ExitFailure 20) -> restart
+            _ -> logWarning $
+                "The wallet has exited with code 20, but we won't update due to node crash"
   where
     killNode nodeHandle nodeAsync = do
         logInfo "Killing the node"

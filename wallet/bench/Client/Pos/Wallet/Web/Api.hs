@@ -4,7 +4,8 @@
 -- only for endpoints we have to benchmark.
 
 module Client.Pos.Wallet.Web.Api
-    ( getHistory
+    ( getAccounts
+    , getHistory
     , getSyncProgress
     , getWallet
     , getWallets
@@ -20,10 +21,12 @@ import           Servant.Client             (ClientM, client)
 
 import           Pos.Client.Txp.Util        (InputSelectionPolicy)
 import           Pos.Core.Types             (Coin)
-import           Pos.Wallet.Web.Api         (ApiPrefix, GetHistory, GetSyncProgress,
+import           Pos.Wallet.Web.Api         (ApiPrefix,
+                                             GetAccounts, GetHistory, GetSyncProgress,
                                              GetWallet, GetWallets, IsValidAddress,
                                              NewAddress, NewPayment)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccountId (..), CAddress (..), CId (..),
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CAccountId (..),
+                                             CAddress (..), CId (..),
                                              CPassPhrase, CTx, CWallet, ScrollLimit,
                                              ScrollOffset, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError)
@@ -31,6 +34,8 @@ import           Pos.Wallet.Web.Error       (WalletError)
 -- | "Benchmarking API" which includes
 -- endpoints we need for benchmarking.
 type WalletBenchApi = ApiPrefix :> (
+     GetAccounts
+    :<|>
      GetHistory
     :<|>
      GetSyncProgress
@@ -47,6 +52,9 @@ type WalletBenchApi = ApiPrefix :> (
     )
 
 -- | Clients for "Benchmarking API".
+getAccounts
+    :: Maybe (CId Wal)
+    -> ClientM $ Either WalletError [CAccount]
 getHistory
     :: Maybe (CId Wal)
     -> Maybe CAccountId
@@ -75,7 +83,8 @@ newPayment
     -> Coin
     -> Maybe InputSelectionPolicy
     -> ClientM $ Either WalletError CTx
-getHistory
+getAccounts
+  :<|> getHistory
   :<|> getSyncProgress
   :<|> getWallet
   :<|> getWallets

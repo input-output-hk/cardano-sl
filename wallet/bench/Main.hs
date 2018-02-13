@@ -14,7 +14,7 @@ import           Bench.Pos.Wallet.Config        (getOptions, extractEndpointConf
 import           Bench.Pos.Wallet.Run           (runBench)
 import           Bench.Pos.Wallet.Types         (BenchEndpoint (..), CompleteConfig (..),
                                                  CLOptions (..))
-import           Client.Pos.Wallet.Web.Endpoint (getHistoryIO, getSyncProgressIO,
+import           Client.Pos.Wallet.Web.Endpoint (getAccountsIO, getHistoryIO, getSyncProgressIO,
                                                  getWalletIO, getWalletsIO,
                                                  isValidAddressIO, newAddressIO,
                                                  newPaymentIO)
@@ -39,7 +39,8 @@ main = do
                            <*> BS.readFile pathToTLSPubCert
                            <*> BS.readFile pathToTLSPrivKey
                            <*> return analyzeResponse
-    let benchmarks = [ maybeRun getHistoryIO      GetHistoryBench      conf
+    let benchmarks = [ maybeRun getAccountsIO     GetAccountsBench     conf
+                     , maybeRun getHistoryIO      GetHistoryBench      conf
                      , maybeRun getSyncProgressIO GetSyncProgressBench conf
                      , maybeRun getWalletIO       GetWalletBench       conf
                      , maybeRun getWalletsIO      GetWalletsBench      conf

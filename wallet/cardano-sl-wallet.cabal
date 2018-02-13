@@ -364,6 +364,7 @@ benchmark cardano-sl-wallet-bench
 
                        Client.Pos.Wallet.Web.Analyze
                        Client.Pos.Wallet.Web.Endpoint
+                       Client.Pos.Wallet.Web.Endpoint.GetAccounts
                        Client.Pos.Wallet.Web.Endpoint.GetHistory
                        Client.Pos.Wallet.Web.Endpoint.GetSyncProgress
                        Client.Pos.Wallet.Web.Endpoint.GetWallet

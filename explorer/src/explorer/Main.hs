@@ -17,6 +17,9 @@ import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                                       getExplorerNodeOptions)
+
+import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
+
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
@@ -92,7 +95,13 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             ekgNodeMetrics = EkgNodeMetrics
                 nrEkgStore
                 (runProduction . elim . explorerModeToRealMode)
-            serverRealMode = explorerModeToRealMode (runServer ncNodeParams ekgNodeMetrics outSpecs go)
+            serverRealMode = explorerModeToRealMode
+                $ runServer
+                    ncNodeParams
+                    ekgNodeMetrics
+                    outSpecs
+                    defaultConnectionChangeAction
+                    go
         in  elim serverRealMode
 
     nodeArgs :: NodeArgs

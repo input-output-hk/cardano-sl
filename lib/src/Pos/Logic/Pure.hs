@@ -61,6 +61,8 @@ pureLogic = Logic
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
     , securityParams     = def
+    , connectionChangeAction
+                         = defaultConnectionChangeAction
     }
   where
     dummyKeyVal :: Applicative m => KeyVal key val m

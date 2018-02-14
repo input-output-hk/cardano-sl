@@ -15,6 +15,8 @@ import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logDebug)
 
+import           Network.Broadcast.OutboundQueue (ConnectionChangeAction)
+
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import qualified Pos.Block.Logic as DB (getHeadersFromManyTo, getHeadersRange)
@@ -91,9 +93,10 @@ logicLayerFull
        ( LogicWorkMode ctx m
        )
     => (JLTxR -> m ())
+    -> ConnectionChangeAction m NodeId
     -> (LogicLayer m -> m x)
     -> m x
-logicLayerFull jsonLogTx k = do
+logicLayerFull jsonLogTx connectionChangeAction k = do
 
     -- Delivered monadically but in fact is constant (comes from a
     -- reader context).

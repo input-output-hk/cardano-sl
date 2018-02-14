@@ -24,6 +24,8 @@ import           Network.Wai (Application)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo)
 
+import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
+
 import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Context (NodeContext (..))
 import           Pos.Diffusion.Types (Diffusion)
@@ -64,7 +66,7 @@ runWRealMode db conn ref res (action, outSpecs) =
         (nrEkgStore res)
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
     serverWalletWebMode :: WalletWebMode a
-    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
+    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs defaultConnectionChangeAction action
     serverRealMode :: RealMode WalletMempoolExt a
     serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
 

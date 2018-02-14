@@ -234,13 +234,14 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 ourVerInfo
                 mEkgNodeMetrics
                 oq
+                (connectionChangeAction logic)
                 keepaliveTimer
                 currentSlotDuration
                 listeners
 
             enqueue :: EnqueueMsg d
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
-                itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+                itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) (connectionChangeAction logic)
                 let itMap = M.fromList itList
                 return ((>>= either throwM return) <$> itMap)
 
@@ -315,15 +316,16 @@ runDiffusionLayerFull
     -> VerInfo
     -> Maybe (EkgNodeMetrics d)
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
+    -> OQ.ConnectionChangeAction d NodeId
     -> Timer -- ^ Keepalive timer.
     -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
+runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq onConnChange keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse ->
-            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
+            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse) onConnChange) $ \dthread -> do
                 link dthread
                 case mEkgNodeMetrics of
                     Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
@@ -339,7 +341,7 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
     oqEnqueue msgType k = do
-        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k)) onConnChange
         let itMap = M.fromList itList
         return ((>>= either throwM return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of

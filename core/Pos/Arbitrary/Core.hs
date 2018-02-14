@@ -34,6 +34,7 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Arbitrary.Crypto ()
 import           Pos.Binary.Core ()
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
 import qualified Pos.Core.Common.Fee as Fee
@@ -49,6 +50,7 @@ import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Merkle (mkMerkleTree, MerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
 
@@ -579,3 +581,10 @@ deriving instance Arbitrary Types.TimeDiff
 instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
+
+----------------------------------------------------------------------------
+-- Merkle
+----------------------------------------------------------------------------
+
+instance (Bi a, Arbitrary a) => Arbitrary (MerkleTree a) where
+    arbitrary = mkMerkleTree <$> arbitrary

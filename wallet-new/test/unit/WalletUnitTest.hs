@@ -28,6 +28,10 @@ import UTxO.Interpreter
 import UTxO.PreChain
 import UTxO.Translate
 
+import Wallet.Abstract
+import qualified Wallet.Spec        as Spec
+import qualified Wallet.Incremental as Incr
+
 {-------------------------------------------------------------------------------
   Main test driver
 -------------------------------------------------------------------------------}
@@ -55,6 +59,7 @@ tests :: Spec
 tests = describe "Wallet unit tests" $ do
     sanityCheckTranslation
     quickCheckTranslation
+    sanityCheckPureWallet
     sanityCheckPassiveWallet
     sanityCheckActiveWallet
 
@@ -85,6 +90,43 @@ quickCheckTranslation =
     describe "QuickCheck sanity checks" $ do
       prop "can construct and verify block with one arbitrary transaction" $
         expectValid <$> intAndVerifyGen genOneTrans
+
+{-------------------------------------------------------------------------------
+  Pure wallet tests
+-------------------------------------------------------------------------------}
+
+-- | Sanity checks for the pure wallet implementations
+--
+-- TODO: We should have QuickCheck generators for InductiveWallets, and then do
+-- the same three checks (simple wallet satisfies invariants, incremental wallet
+-- satisfies invariants, and equivalence between simple and incremental wallet).
+sanityCheckPureWallet :: Spec
+sanityCheckPureWallet =
+    describe "Pure wallet sanity checks" $ do
+      it "simple empty wallet satisfies invariants" $
+        walletInvariants specEmpty WalletEmpty `shouldBe` Right ()
+      it "incremental empty wallet satisfies invariants" $
+        walletInvariants incrEmpty WalletEmpty `shouldBe` Right ()
+      it "simple and incremental empty wallets are equivalent" $
+        walletEquivalent specEmpty incrEmpty WalletEmpty `shouldBe` Right ()
+  where
+    transCtxt = runTranslateNoErrors ask
+
+    specEmpty :: Spec.Wallet GivenHash Addr
+    specEmpty = Spec.walletEmpty isOurs
+
+    incrEmpty :: Incr.Wallet GivenHash Addr
+    incrEmpty = Incr.walletEmpty isOurs
+
+    isOurs :: Ours Addr
+    isOurs addr = do
+        guard (isOurs' addr)
+        return $ fst (resolveAddr addr transCtxt)
+
+    -- Just an example: wallet tracking the first rich actor
+    isOurs' :: Addr -> Bool
+    isOurs' (Addr (IxRich 0) 0) = True
+    isOurs' _otherwise          = False
 
 {-------------------------------------------------------------------------------
   Passive wallet tests
@@ -292,11 +334,15 @@ intAndVerify pc = runTranslateT $ do
           (False, Left e)  -> return $ ExpectedInvalid (Left e)
           (False, Right _) -> return $ Disagreement UnexpectedValid
           (True,  Left e)  -> return $ Disagreement (UnexpectedInvalid e)
-          (True,  Right (_undo, utxo)) -> do
-            (utxo', _) <- runIntT ctxt dslUtxo
-            if utxo == utxo'
+          (True,  Right (_undo, finalUtxo)) -> do
+            (finalUtxo', _) <- runIntT ctxt dslUtxo
+            if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement (UnexpectedUtxo dslUtxo utxo utxo')
+              else return $ Disagreement UnexpectedUtxo {
+                         utxoDsl     = dslUtxo
+                       , utxoCardano = finalUtxo
+                       , utxoInt     = finalUtxo'
+                       }
 
 {-------------------------------------------------------------------------------
   Chain verification test result

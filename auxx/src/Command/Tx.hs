@@ -117,7 +117,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 txOutValue = val1
                 }
             txOuts = TxOutAux txOut1 :| []
-        forM_ (zip (drop startAt keysToSend) [0..]) $ \(secretKey, n) -> do
+        forM_ (zip (drop startAt keysToSend) [0.. conc * duration]) $ \(secretKey, n) -> do
             neighbours <- case sendMode of
                 SendNeighbours -> return ccPeers
                 SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]

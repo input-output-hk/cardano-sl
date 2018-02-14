@@ -36,11 +36,13 @@ import           Pos.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTime
 import           Pos.Util (_neHead)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
 
---- Usually in this method oldest header is LCA, so it can be optimized
--- by traversing from older to newer.
 -- | Find LCA of headers list and main chain, including oldest
--- header's parent hash. Iterates from newest to oldest until meets
--- first header that's in main chain. O(n).
+-- header's parent hash. Acts as it would iterate from newest to
+-- oldest until it meets the first header in the main chain (which is
+-- O(n)).
+--
+-- Though, usually in this method oldest header is LCA, so it can be
+-- optimized by traversing from older to newer.
 lcaWithMainChain
     :: (HasConfiguration, MonadBlockDBRead m)
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
@@ -56,8 +58,6 @@ lcaWithMainChain headers =
             (_, False)   -> pure prevValue
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
-
-
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blocksCount' and another slot after that one for which we

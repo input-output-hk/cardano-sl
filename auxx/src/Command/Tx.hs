@@ -123,8 +123,8 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                     liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ failed, "failed"]
                     return (TxCount 0 0 sending, sending <= 0)
                 if finished
-                then logInfo "Finished writing TPS samples."
-                else writeTPS
+                    then logInfo "Finished writing TPS samples."
+                    else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
             sendTxs :: Int -> m ()

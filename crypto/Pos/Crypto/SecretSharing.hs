@@ -143,19 +143,19 @@ decryptShare
 decryptShare (VssKeyPair k) (EncShare encShare) =
     DecShare <$> Scrape.shareDecrypt k encShare
 
--- | Generate random secret using MonadRandom and share it between given
--- public keys. The shares will be given in the order of *sorted* keys, not
--- the original order.
+-- | Generate random secret using MonadRandom and share it between
+-- given public keys. The shares will be given in the order of
+-- *sorted* keys, not the original order. Threshold must be inside
+-- @[2..n-2]@, where @n@ is length of parties key, otherwise this
+-- funciton panics.
 genSharedSecret
     :: MonadRandom m
     => Scrape.Threshold
     -> NonEmpty VssPublicKey
     -> m (Secret, SecretProof, [(VssPublicKey, EncShare)])
 genSharedSecret t ps
-    | t <= 1     =
-        -- TODO [CSL-2173]: Clarify
-        error "genSharedSecret: threshold must be > 1"
-    | t >= n - 1 = error "genSharedSecret: threshold must be < n-1"
+    | t <= 1     = error $ "genSharedSecret: threshold must be > 1: " <> show t
+    | t >= n - 1 = error $ "genSharedSecret: threshold must be < n-1: " <> show t
     | otherwise  = convertRes <$> Scrape.escrow t (coerce sorted)
   where
     n = fromIntegral (length ps)
@@ -236,7 +236,8 @@ reorderDecryptedShares participants shares =
         Just ss -> zip [i..] (take n ss) ++ go (i + n) ps
 
 -- CHECK: @verifyEncShare
--- | Verify encrypted shares
+-- | Verify encrypted shares. Threshold must be in @[2..n-2]@, where
+-- @n@ is number of shares.
 verifyEncShares
     :: MonadRandom m
     => SecretProof
@@ -245,11 +246,9 @@ verifyEncShares
     -> m Bool
 verifyEncShares SecretProof{..} threshold (sortWith fst -> pairs)
     | threshold <= 1     =
-        -- TODO [CSL-2173]: Clarify
-        error "verifyEncShares: threshold must be > 1"
+          error $ "verifyEncShares: threshold must be > 1: " <> show threshold
     | threshold >= n - 1 =
-        -- TODO [CSL-2173]: Clarify
-        error "verifyEncShares: threshold must be < n-1"
+          error $ "verifyEncShares: threshold must be < n-1: " <> show threshold
     | otherwise =
           Scrape.verifyEncryptedShares
               spExtraGen

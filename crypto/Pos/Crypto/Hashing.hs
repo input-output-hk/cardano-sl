@@ -32,7 +32,6 @@ module Pos.Crypto.Hashing
          -- * Utility
        , CastHash (castHash)
        , HashAlgorithm
-       , hashDigestSize'
        , reifyHashDigestSize
        ) where
 
@@ -106,8 +105,11 @@ instance Buildable.Buildable (AbstractHash algo a) where
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo
-    -- TODO [CSL-2173]: Clarify
-    (error "Pos.Crypto.Hashing.hashDigestSize': HashAlgorithm value is evaluated!")
+    -- This is not supposed to ever happen. The design of
+    -- 'HashAlgorithm' could be better (AmbiguousTypes, proxy), but
+    -- for now we need to pass hashAlgorithm, which is not supposed to
+    -- be ever used or evaluated.
+    (error "Pos.Crypto.Hashing.hashDigestSize': HashAlgorithm value was evaluated!")
 
 reifyHashDigestSize
     :: forall algo r.

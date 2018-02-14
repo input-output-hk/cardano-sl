@@ -31,9 +31,9 @@ redeemKeyGen =
     getRandomBytes 32 >>=
     maybe err pure . redeemDeterministicKeyGen
   where
-    err =
-        -- TODO [CSL-2173]: Clarify
-        error "Pos.Crypto.RedeemSigning.redeemKeyGen: createKeypairFromSeed_ failed"
+    -- We're passing 32 byte BS, so it should be okay.
+    err = error $ "Pos.Crypto.RedeemSigning.redeemKeyGen: " <>
+                  "createKeypairFromSeed_ failed, input is not 32 bytes long"
 
 -- | Create key pair deterministically from 32 bytes.
 redeemDeterministicKeyGen

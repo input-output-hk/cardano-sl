@@ -37,7 +37,8 @@ deterministic seed gen = fst $ withDRG chachaSeed gen
   where
     chachaSeed = drgNewSeed . seedFromInteger . os2ip $ seed
 
--- | Generate a random number in range [0, n).
+-- | Generate a random number in range [0, n). n must be positive,
+-- otherwise this function panics.
 --
 -- We want to avoid modulo bias, so we use the arc4random_uniform
 -- implementation (http://stackoverflow.com/a/20051580/615030). Specifically,
@@ -47,9 +48,7 @@ deterministic seed gen = fst $ withDRG chachaSeed gen
 -- be divisible by n, and thus applying 'mod' to it will be safe.
 randomNumber :: MonadRandom m => Integer -> m Integer
 randomNumber n
-    | n <= 0 =
-        -- TODO [CSL-2173]: Clarify
-        error "randomNumber: n <= 0"
+    | n <= 0 = error $ "randomNumber: n <= 0: " <> show n
     | otherwise = gen
   where
     size = max 4 (numBytes n)             -- size of integers, in bytes
@@ -58,10 +57,9 @@ randomNumber n
         x <- os2ip @ByteString <$> getRandomBytes size
         if x < rangeMod then gen else return (x `rem` n)
 
--- | Generate a random number in range [a, b].
+-- | Generate a random number in range @[a, b]@. @a@ must be less or
+-- equal than @b@, otherwise this function panics.
 randomNumberInRange :: MonadRandom m => Integer -> Integer -> m Integer
 randomNumberInRange a b
-    | a > b     =
-        -- TODO [CSL-2173]: Clarify
-        error "randomNumberInRange: a > b"
+    | a > b     = error $ "randomNumberInRange: a > b: " <> show a <> " " <> show b
     | otherwise = (a +) <$> randomNumber (b - a + 1)

@@ -70,7 +70,11 @@ data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
 -- | Parameters used to evaluate hash of passphrase.
 passScryptParam :: S.ScryptParams
 passScryptParam =
-    -- TODO [CSL-2173]: Clarify
+    -- This returns valid if parameters are not valid, but 'scrypt'
+    -- doesn't define "valid" in docs. Though, default is valid, and
+    -- for bufLen the only requirement is to be positive and less
+    -- (2^(32 :: Int)-1) * 32 (see scrypt source). So these params are
+    -- valid.
     fromMaybe (error "Bad passphrase scrypt parameters") $
     S.mkScryptParams def
         { S.spHashLen = 32  -- maximal passphrase length

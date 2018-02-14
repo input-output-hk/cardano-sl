@@ -135,14 +135,13 @@ parseFullProxyCert s = do
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
--- certificate inside, we panic. Please check this condition outside
--- of this function.
+-- certificate inside, this function will panic! Please check this
+-- condition outside of this function.
 proxySign
     :: (HasCryptoConfiguration, Bi a)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
 proxySign t sk@(SecretKey delegateSk) psk m
     | toPublic sk /= pskDelegatePk psk =
-        -- TODO [CSL-2173]: Clarify
         error $ sformat ("proxySign called with irrelevant certificate "%
                          "(psk delegatePk: "%build%", real delegate pk: "%build%")")
                         (pskDelegatePk psk) (toPublic sk)

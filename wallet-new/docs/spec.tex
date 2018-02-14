@@ -1,6 +1,6 @@
 \documentclass{article}
 \usepackage[margin=2.5cm]{geometry}
-\usepackage{amsmath, amssymb, stmaryrd, latexsym}
+\usepackage{amsmath, amssymb, stmaryrd, latexsym, amsthm}
 \usepackage{mathpazo, times}
 \usepackage{float}
 \usepackage{listings}
@@ -19,6 +19,7 @@
 \newcommand{\restrictrange}{\rhd}
 
 \newtheorem{proofobligation}{Proof Obligation}
+\newtheorem{lemma}{Lemma}
 
 \floatstyle{boxed}
 \restylefloat{figure}
@@ -29,7 +30,7 @@
 
 \title{Cardano wallet specification (DRAFT)}
 \author{Duncan Coutts \and Edsko de Vries}
-\date{February 18, 2018}
+\date{February 14, 2018}
 
 \maketitle
 
@@ -51,6 +52,7 @@
      balances. Slight notation change. Lemmas, invariants and assumptions
      clarified. Next steps updated.
 \item[Draft 6, Feb 12, 2018 (Edsko)] Added section on prefiltering.
+\item[Draft 7, Feb 14, 2018 (Edsko)] Added section on rollbacks.
 \end{description}
 
 \section{Introduction}
@@ -151,6 +153,7 @@ operations between the set of pending transactions and the set of transactions
 in a block.
 
 \section{Wallet operations}
+\label{sec:wallet_operations}
 
 There are only a small number of wallet operations of interest. We can:
 \begin{itemize}
@@ -398,6 +401,7 @@ other operators.
 
 
 \subsection{Invariants}
+\label{sec:invariants}
 
 We would hope to prove the following invariants are true for all wallet values
 
@@ -674,6 +678,7 @@ Putting everything back together, and defining $utxo^-$ for symmetry, we get
 \end{equation*}
 
 \section{Prefiltering}
+\label{sec:prefiltering}
 
 The $\mathsf{applyBlock} ~ b$ operation is problematic in a setting where it is
 implemented as an operation on the local database of the wallet and those
@@ -786,6 +791,258 @@ resolved addresses must be listed alongside the transaction IDs in the
 transaction inputs themselves. This would effectively be a form of caching
 in the blockchain, and may be beneficial elsewhere also.
 \end{itemize}
+
+\section{Rollback}
+
+The possible presence of forks in the blockchain means that we may occassionally
+have to roll back and ``undo'' calls to $\mathsf{applyBlock}$, reverting to an
+older version of the UTxO. When we \emph{apply} a block, pending transactions
+may become confirmed and are therefore removed from the $\mathit{pending}$ set.
+When we roll back, those transactions may once again become pending and should
+therefore be reintroduced into $\mathit{pending}$. However, the converse is
+\emph{not} true: when we roll back, currently pending transactions will
+\emph{remain} pending. After all, those pending transactions may still make it
+into the block chain; indeed, may already have made it into the fork that we are
+transitioning to. In other words, rolling back may \emph{increase} the size of
+the pending set but never decrease it.
+
+\subsection{Specification}
+\label{sec:rollback_spec}
+
+Before revisiting performance and prefiltering, let's first consider what
+the \emph{specification} of rollback should be.
+%
+\begin{align*}
+& w \in \mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending}] \\
+& \mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}) = \\
+& \qquad (( \mathsf{updateUTxO} ~ b ~ \mathit{utxo}
+         , \mathsf{updatePending} ~ b ~ \mathit{pending}
+         )
+         : (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
+         ) \\
+& \mathsf{newPending} ~ tx ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}) = (\mathit{utxo}, pending \cup \{ tx \} ) : \mathit{checkpoints} \\
+& \mathsf{rollback} ~ ((\mathit{utxo}, \mathit{pending}) :  (\mathit{utxo}^\prime, \mathit{pending}^\prime) : \mathit{checkpoints})) =
+     (\mathit{utxo}^\prime, \mathit{pending} \cup \mathit{pending}^\prime) : \mathit{checkpoints}
+\end{align*}
+%
+where the side condition to $\mathsf{newPending}$, as well as the definitions
+of $\mathsf{updateUTxO}$ and $\mathsf{updatePending}$, remain unchanged.
+
+\begin{lemma}
+\begin{equation*}
+\mathsf{rollback} \circ \mathsf{applyBlock} ~ b = \mathsf{id}
+\end{equation*}
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+    & \mathsf{rollback} ~ (\mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints})) \\
+= ~ & \mathsf{rollback} ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{utxo}
+         , \mathsf{updatePending} ~ b ~ \mathit{pending}
+         )
+         : (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
+         ) \\
+= ~ & (\mathit{utxo}, (\mathsf{updatePending} ~ b ~ \mathit{pending}) \cup \mathit{pending}) : \mathit{checkpoints} \\
+= ~ & (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
+\end{align*}
+\end{proof}
+
+The last line is justified by Lemma~\ref{lemma:updatePending_is_filter}.
+
+\begin{lemma} \label{lemma:updatePending_is_filter}
+\begin{equation*}
+\mathsf{updatePending} ~ b ~ \mathit{pending} \subseteq \mathit{pending}
+\end{equation*}
+\end{lemma}
+
+Moreover, we have
+
+\begin{lemma}
+\begin{equation*}
+\mathsf{rollback} \circ \mathsf{newPending} ~ tx \circ \mathsf{applyBlock} ~ b
+= \mathsf{newPending} ~ tx
+\end{equation*}
+(modulo checking side conditions).
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+    & \mathsf{rollback} ~ (\mathsf{newPending} ~ tx ~ (\mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}))) \\
+= ~ & \mathsf{rollback} ~ (\mathsf{newPending} ~ tx ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{utxo}
+         , \mathsf{updatePending} ~ b ~ \mathit{pending}
+         )
+         : (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
+         )) \\
+= ~ & \mathsf{rollback} ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{utxo}
+         , (\mathsf{updatePending} ~ b ~ \mathit{pending}) \cup \{tx\}
+         )
+         : (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
+         ) \\
+= ~ & (\mathit{utxo}, ((\mathsf{updatePending} ~ b ~ \mathit{pending}) \cup \{tx\}) \cup \mathit{pending}) : \mathit{checkpoints} \\
+= ~ & (\mathit{utxo}, \mathit{pending} \cup \{tx\}) : \mathit{checkpoints}
+\end{align*}
+\end{proof}
+
+where the last line follows from Lemma~\ref{lemma:updatePending_is_filter} and
+associativity and commutativity of set union.
+
+\subsection{Invariants}
+
+The most important consequence of introducing rollbacks is that invariant
+\eqref{txins_in_dom_utxo}, which states that
+%
+\begin{equation*}
+\mathsf{txins} ~ pending \subseteq \dom utxo
+\end{equation*}
+%
+may now be violated. This needs careful consideration.
+
+First, we were using this invariant as an indirect way of stating that there
+can be no ``dependent'' transactions (Section~\ref{sec:invariants}). We can
+state this more directly as
+%
+\begin{equation} \label{no_dep_trans}
+\mathsf{txins} ~ \mathit{pending} \cap \dom (\mathsf{txouts} ~ \mathit{pending}) = \emptyset
+\end{equation}
+%
+Sadly, this property too may no longer hold after a rollback. This is expected;
+consider the following chain of events:
+%
+\begin{enumerate}
+\item The user submits transaction $t_1$, and $t_1$ gets confirmed.
+\item They then submit transaction $t_2$, which uses an output of transaction as $t_1$ as input.
+\item Finally, we roll back. We end up with both transactions $t_1$ and $t_2$ as pending, with $t_2$ dependent on $t_1$.
+\end{enumerate}
+
+If we wanted to avoid this, we could strenghten the side condition to
+$\mathsf{newPending}$ to say that confirmed transactions can only be used as
+inputs once we are absolutely certain that the blockchain will not roll back so
+far that they become pending again (with the security parameter $k$ set to 2160
+and a slot length of 20 seconds, this currently takes exactly 12 hours). If that
+stronger side condition is acceptable, we can retain invariant
+\eqref{no_dep_trans}, although invariant \eqref{txins_in_dom_utxo} may still be
+violated.
+
+\subsection{Available and change}
+
+The definition of $\mathsf{available}$ can remain unchanged
+%
+\begin{equation}
+  \mathsf{available} ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints})
+= \mathsf{txins} ~ \mathit{pending} \subtractdom \mathit{utxo} \\
+\end{equation}
+%
+It makes no difference if  $\mathit{pending}$ contains
+inputs that don't exist in the UTxO (this is a direct consequence of
+lemma \eqref{subtractdom_dom}).
+
+In the presence of dependent transactions, however, the definition of
+$\mathsf{change}$ needs to be modified, since we should not include any
+transaction outputs that are consumed by other pending transactions:
+%
+\begin{equation*}
+  \mathsf{change} ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints})
+= \mathsf{new} ~ \mathit{pending}
+\end{equation*}
+%
+This change can be avoided if we strenghten the side condition to
+$\mathit{newPending}$, as discussed in the previous section.
+
+Stronger side condition or not, the \emph{interpretation} of
+$\mathsf{change}$ (and consequently of $\mathsf{total}$) becomes a bit more
+subtle, and we should be careful with how we present it the user. Consider the
+following situation:
+%
+\begin{enumerate}
+\item In block $b$ a user receives a large sum of money through transaction
+$t_1$.
+\item The user then submits a transaction $t_2$ that transfers a small
+percentage of that large sum to someone else. At this point $\mathsf{change}$
+would be a large figure.
+\item If we now roll back block $b$, we end up with a UTxO in
+which the user never received the large sum of money in the first place, but
+$\mathsf{change}$ is \emph{still} large.
+\end{enumerate}
+
+This is not incorrect: it is still true that \emph{if and when} $t_2$ gets
+included into the blockchain, transaction $t_1$ must also have been; but this is
+somewhat tentative. Put another way, $\mathsf{change}$ may now anticipate
+transfers \emph{to} the user that have not yet happened. (Note that we can
+easily detect such pending transactions that depend on transactions not
+present in the UTxO, which may be useful in presenting the user with the
+relevant information.)
+
+It is of course possible that such antecedent transactions (like $t_1$ in the
+example above) \emph{never} make it into the new fork, in which case the user's
+transaction $t_2$ should eventually be removed from $\mathit{pending}$. This
+problem may arise even without rollbacks, however, and cannot be solved until we
+introduce a TTL value for transactions.
+
+The remainder of the definitions from Section~\ref{sec:wallet_operations} can
+remain unchanged, with the side condition to $\mathsf{newPending}$ continuing to
+ensure that we cannot introduce any \emph{new} dependent pending transactions.
+This is still useful for keeping the number of dependent transactions down.
+Except for invariant~\eqref{txins_in_dom_utxo}, discussed in this section, the
+invariants of Section~\ref{sec:invariants} also continue to hold.
+
+\subsection{Memory requirements}
+
+Obviously, storing all checkpoints of the UTxO leads to unbounded memory usage.
+Thankfully however the blockchain protocol defines a ``security parameter'' $k$
+which guarantees that we will never have to roll back past $k$ slots, and hence
+don't have to store more than $k$ checkpoints. Currently, $k$ is set to 2160;
+for a typical user, the UTxO and pending sets will not be large and keeping
+track of the last 2160 values will not be a huge deal.
+
+We can also give a more precise upper bound on the memory requirements. Instead
+of storing $k$ UTxO checkpoints, it would also suffice to store the UTxO as it
+was $k$ slots ago, and store all $k$ blocks since the last checkpoint. Since a
+block has a maximum size of 2 MB, this means we need to store at most a little
+over 4 GB of data.
+
+As far as the pending transactions go, with the conservative estimate of 100
+pending transactions per slot, it'd be a maximum 216,000 transactions (plus some
+administrative overhead). At a maximum transaction size of 64 kB, this adds an
+additional 13.5 GB; however, at more typical values of 3 pending transactions
+this reduces to 405 MB, and with a more typical average transaction size of 4
+kB, to a mere 25 MB.
+
+Since rollbacks are relatively rare (especially having to roll back far), it
+would be fine to store this information on disk rather than in memory, and hence
+these memory requirements are no big deal at all. Probably the best engineering
+trade-off will be to store a few checkpoints in memory and the rest on disk.
+
+\subsection{Incremental balance computation and prefiltering}
+
+Neither the incremental balance computation nor the prefiltering in any way make
+use of, or depend on, the $\mathit{pending}$ set. We can therefore translate the
+definition from Section~\ref{sec:prefiltering} in a straight-forward manner. The
+type of the wallet becomes
+
+\begin{equation*}
+\mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{Coin}]
+\end{equation*}
+
+The definition of $\mathsf{applyBlock}'_\sigma$ then remains pretty much the
+same, except that it stores the old UTxO as a checkpoint:
+
+\begin{equation*}
+\begin{split}
+\mathsf{applyBlock}'_\sigma & ~ (\mathit{txins}_b, \mathit{new}_b) ~ ((\mathit{utxo}, \mathit{pending}, \sigma) : \mathit{checkpoints}) = \\
+& ((utxo^\prime, pending^\prime, \sigma^\prime), (\mathit{utxo}, \mathit{pending}, \sigma) : \mathit{checkpoints}) \\
+\text{where} \quad \\
+    pending^\prime & = \{ tx ~|~ tx \in pending, (inputs, \_) = tx, inputs \cap \mathit{txins}_b = \emptyset \} \\
+    utxo^+ & = \mathit{new}_b \\
+    utxo^- & = \mathit{txins}_b \restrictdom utxo \\
+    utxo^\prime & = (\mathit{txins}_b \subtractdom utxo) \cup utxo^+ \\
+    \sigma^\prime & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ utxo^- \\
+\end{split}
+\end{equation*}
+
+Rollback now needs to rollback the cached balance along with the UTxO, and the
+invariant that the cached balance matches the balance computed over the UTxO
+now extends to each checkpoint. The lemmas from Section~\ref{sec:rollback_spec}
+should extend to this modified definition without difficulty.
 
 \section{Transaction input selection and UTxO maintenance}
 

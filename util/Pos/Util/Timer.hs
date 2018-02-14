@@ -4,7 +4,7 @@
 -- @
 --   main :: IO ()
 --   main = do
---     delay <- newTimer $ 5 * 1000000
+--     delay <- newTimer $ convertUnit (5 :: Second)
 --     tid <- forkIO . forever $ do
 --       startTimer delay
 --       atomically $ waitTimer delay

@@ -48,17 +48,19 @@ printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
 
 printInfoOnStart ::
-       (HasConfiguration, WithLogger m, Mockable CurrentTime m)
+       (HasConfigurations, WithLogger m, Mockable CurrentTime m, MonadIO m)
     => CommonNodeArgs
     -> m ()
-printInfoOnStart cArgs = do
+printInfoOnStart CommonNodeArgs {..} = do
+    whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
+    when cnaDumpConfiguration dumpConfiguration
     printFlags
     t <- currentTime
     mapM_ logInfo $
         [ sformat ("System start time is " % shown) $ gdStartTime genesisData
         , sformat ("Current time is "%shown) (Timestamp t)
         , sformat ("Using configs and genesis:\n"%shown)
-                  (configurationOptions (commonArgs cArgs))
+                  (configurationOptions commonArgs)
         ]
 
 attackTypeParser :: P.Parser AttackType

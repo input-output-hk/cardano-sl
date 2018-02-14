@@ -36,8 +36,6 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Universum
-
 import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
@@ -53,13 +51,18 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 import           System.Wlog (WithLogger)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Universum
 
+import           Pos.Arbitrary.Crypto ()
 import           Pos.Binary.Class (Bi (..), decodeFull, encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
@@ -77,7 +80,13 @@ data WalletUserSecret = WalletUserSecret
     , _wusWalletName :: Text                -- ^ name of wallet
     , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
     , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
-    }
+    } deriving (Show, Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
+
+instance Arbitrary WalletUserSecret where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''WalletUserSecret
 
@@ -118,7 +127,13 @@ data UserSecret = UserSecret
     , _usWallet  :: Maybe WalletUserSecret
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
-    }
+    } deriving (Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq UserSecret
+
+instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''UserSecret
 
@@ -145,7 +160,6 @@ instance Exception UserSecretDecodingError
 instance Buildable UserSecretDecodingError where
     build (UserSecretDecodingError msg) =
         "Failed to decode user secret: " <> bprint build msg
-
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath

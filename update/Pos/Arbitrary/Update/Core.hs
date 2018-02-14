@@ -12,6 +12,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Crypto ()
+import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag, UpdateData (..),

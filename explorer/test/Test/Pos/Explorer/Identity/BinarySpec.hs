@@ -9,11 +9,10 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Explorer ()
+import           Pos.Explorer.Core (TxExtra)
+import           Test.Pos.Helpers (binaryTest)
 
 spec :: Spec
 spec = describe "Explorer types" $ do
-    pass
-    -- TODO uncomment this code when
-    -- @binaryTest@ will be in lib/src/Test
-    -- describe "Bi instances" $ do
-    --     binaryTest @TxExtra
+    describe "Bi instances" $ do
+        binaryTest @TxExtra

@@ -83,7 +83,8 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
     -- the internal consistency checks formerly done in the 'Bi' instance
     -- 'decode'.
-    slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
+    slogUndos <- withExceptT VerifyBlocksError $
+        ExceptT $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)

@@ -9,6 +9,8 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
+, ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
+, additionalNodeArgs ? ""
 }:
 
 with localLib;
@@ -29,7 +31,7 @@ let
     };
   };
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet}/bin/cardano-node";
+    wallet = "${iohkPkgs.cardano-sl-wallet-static}/bin/cardano-node";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
@@ -85,5 +87,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
-    --ekg-server ${ekgListen} --metrics +RTS -T -RTS
+    --ekg-server ${ekgListen} --metrics                            \
+    +RTS ${ghcRuntimeArgs} -RTS                                    \
+    ${additionalNodeArgs}
 ''

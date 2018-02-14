@@ -2,7 +2,7 @@
 # call: Rscript ../plots.r 2018-02-03_053826
 # (curr. workdir is where the run-???.csv is)
 #
-# packages to install: dplyr, ggplot2, svglite, gplots, anytime
+# packages to install: dplyr, ggplot2, svglite, gplots, anytime, gridExtra
 # (e.g. install.packages('svglite'))
 #
 
@@ -13,6 +13,8 @@ library(dplyr)
 library(ggplot2)
 library(gplots)
 library(anytime)
+library(grid)
+library(gridExtra)
 
 if (INTERACTIVE) {
   #library('ggedit')    # only if interactive editing
@@ -22,12 +24,14 @@ if (INTERACTIVE) {
   bp <- dirname(fname)
   fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
   fname3 <- paste(bp, '/bench-settings', sep='')
+  fname4 <- paste(bp, '/times.csv', sep='')
 } else {
   args = commandArgs(trailingOnly=TRUE)
   RUN <- args[1]
   fname <- paste('run-', RUN, '.csv', sep='')
   fname2 <- paste('report_', RUN, '.txt', sep='')
   fname3 <- 'bench-settings'
+  fname4 <- 'times.csv'
 }
 
 DESC=''                    # Add custom text to titles
@@ -35,12 +39,23 @@ k <- 6                     # Protocol parameters determining
 SLOTLENGTH <- 20           # the length of an epoch
 EPOCHLENGTH <- 10*k*SLOTLENGTH
 
+# have trx times?
+hasTrxTimes <- FALSE
+if (file.exists(fname4)) {
+  hasTrxTimes <- TRUE
+}
+
 # names of relay nodes
 relays <- c('r-a-1', 'r-a-2', 'r-a-3'
           , 'r-b-1', 'r-b-2'
           , 'r-c-1', 'r-c-2'
           , 'u-a-1', 'u-b-1', 'u-c-1'
             )
+
+# read in transaction times
+if (hasTrxTimes) {
+  times <- read.csv(fname4, header=FALSE, col.names=c("time", "cumm"))
+}
 
 # prep and read in benchmark parameters
 system(paste("sed -e 's/, /\\\n/g' ", fname3, " > ", fname3, "2", sep=''))
@@ -164,7 +179,7 @@ plotTxs <- function(d, run=RUN, desc=DESC) {
     }
 
 # plot the mempool residency for core and relay nodes
-plotMempools <- function(d, run=RUN, desc=DESC) {
+plotMempools <- function(d, str='core and relay', run=RUN, desc=DESC) {
     dd <- d %>%
         filter(txType %in% c("size after block"
                            , "size after rollback"
@@ -172,7 +187,7 @@ plotMempools <- function(d, run=RUN, desc=DESC) {
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
-            'Mempool sizes for core and relay nodes, run at '
+            'Mempool sizes for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
         xlab("t [s]") +
         ylab("Mempool size [# of transactions]") +
@@ -182,7 +197,7 @@ plotMempools <- function(d, run=RUN, desc=DESC) {
 }
 
 # plot the wait and hold times for the local state lock
-plotTimes <- function(d, run=RUN, desc=DESC) {
+plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC) {
     dd <- d %>%
             filter(txType %in% c("hold tx"
                                , "wait tx"
@@ -195,7 +210,7 @@ plotTimes <- function(d, run=RUN, desc=DESC) {
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
-            'Wait and work times for core and relay nodes, run at '
+            'Wait and work times for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
         xlab("t [s]") +
         ylab("Times waiting for/holding the lock [microseconds]") +
@@ -220,6 +235,47 @@ plotOverview <- function(d, report, run=RUN, desc=DESC) {
   #layout(matrix(c(1,1), 1, 1, byrow = TRUE))
 }
 
+plotDuration <- function(run=RUN, desc=DESC) {
+
+  formatylabels <- function(x) { lab <- sprintf("%1.2f", x) }
+
+  # 1
+  t1 <- grid.text(paste("\nTransaction times ", run), draw = FALSE)
+  # 2
+  bxstats <- boxplot.stats(times$time)
+  t2 <- grid.text(paste("median time", sprintf("%1.1f", bxstats$stats[3]), "seconds", sep=" "), draw = FALSE)
+  # 3
+  g1 <- ggplot(times, aes(x=time, y=cumm)) +
+          geom_point(col="blue") +
+          geom_vline(xintercept = bxstats$stats, col=c("grey","grey60","darkgreen","grey60","grey")) +
+          xlab("time (s)") + ylab("") +
+          scale_y_continuous(label=formatylabels)
+  # 4
+  g2 <- ggplot(times, aes(y=time, x=1)) +
+          geom_boxplot(fill = "lightblue", outlier.color = "darkred", outlier.size = 3, outlier.shape = 6) +
+          coord_flip() +
+          xlab("") + ylab("") +
+          scale_x_continuous(label=formatylabels) +
+          theme(axis.text.y = element_text(color="white"), axis.ticks.y = element_blank())
+
+  grid.arrange(t1, t2, g1, g2, ncol = 1, heights = c(1,0.5,4,1))
+}
+
+# plotDuration0 <- function(run=RUN, desc=DESC) {
+#   def.par <- par(no.readonly = TRUE)
+#   layout(mat = matrix(c(1,1,1,0,2,0,0,3,0), 3, 3, byrow = TRUE), widths = c(1,3,1), heights = c(3,6,2))
+#   par(mar=c(3,1,2,1))
+#   
+#   # 1
+#   textplot(paste("\nTransaction times ", run), cex = 1.4, valign = "top")
+#   # 2
+#   qqplot(times$time, times$cumm, main="transaction times", ylab="", xlab="seconds")
+#   # 3
+#   boxplot(times$time, main="", horizontal = TRUE, col="lightblue", boxwex=0.35)
+#   
+#   par(def.par)
+# }
+
 report <- readReport(fname2)
 data <- readData(fname)
 
@@ -228,18 +284,35 @@ plotOverview(data, report)
 dev.off()
 plotOverview(data, report)
 
+if (hasTrxTimes) {
+  png(filename=paste('duration-', RUN, '.png', sep=''))
+  plotDuration()
+  dev.off()
+  plotDuration()
+}
+
 plotTxs(data)
-ggsave(paste('txs-', RUN, '.svg', sep=''))
-ggsave(paste('txs-', RUN, '.png', sep=''))
+#ggsave(paste('txs-', RUN, '.svg', sep=''))
+#ggsave(paste('txs-', RUN, '.png', sep=''))
 
 plotMempools(data)
-ggsave(paste('mempools-', RUN, '.svg', sep=''))
-ggsave(paste('mempools-', RUN, '.png', sep=''))
+#ggsave(paste('mempools-', RUN, '.svg', sep=''))
+#ggsave(paste('mempools-', RUN, '.png', sep=''))
 
 plotTimes(data)
-ggsave(paste('times-', RUN, '.svg', sep=''))
-ggsave(paste('times-', RUN, '.png', sep=''))
+#ggsave(paste('times-', RUN, '.svg', sep=''))
+#ggsave(paste('times-', RUN, '.png', sep=''))
 
-# example: observe only core nodes:
-plotMempools(data %>% filter(!(node %in% relays)))
-plotTimes(data %>% filter(!(node %in% relays)))
+#observe only core nodes:
+plotMempools(data %>% filter(!(node %in% relays)), 'core')
+
+#observe only unprivileged relays:
+plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
+
+#observe only privileged relays:
+plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
+
+plotTimes(data %>% filter(!(node %in% relays)), 'core')
+
+
+

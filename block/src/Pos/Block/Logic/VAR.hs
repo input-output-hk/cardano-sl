@@ -29,23 +29,21 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            applyBlocksUnsafe, normalizeMempool,
                                            rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
                                            toUpdateBlock)
-import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown)
+import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
+import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
+import           Pos.Ssc.Logic (sscVerifyBlocks)
+import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
+import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
 import           Pos.Util.Util (HasLens (..))
-
-import           Pos.Block.Slog.Logic (slogVerifyBlocks)
-import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import           Pos.Ssc.Logic (sscVerifyBlocks)
-import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.Update.Logic (usVerifyBlocks)
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks
@@ -107,35 +105,16 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- | Union of constraints required by block processing and LRC.
 type BlockLrcMode ctx m = (MonadBlockApply ctx m, LrcModeFull ctx m)
 
--- | Applies blocks if they're valid. Takes one boolean flag
--- @rollback@. Returns header hash of last applied block (new tip) on
--- success. Failure behaviour depends on the @rollback@ flag. If it's on,
--- all blocks applied inside this function will be rolled back, so it
--- will do effectively nothing and return 'Left error'. If it's off,
--- it will try to apply as many blocks as it's possible and return
--- header hash of new tip. It's up to the caller to log a warning that
--- partial application has occurred.
---
--- Algorithm:
--- 1.  Ensure that the parent of the oldest block that we want to apply
---     matches the current tip.
--- 2.  Split the list of blocks into sublists where each list contains
---     a sequence of blocks that have the same type (genesis or main)
---     and epoch. See also examples for @spanEpoch@.
--- 3.  For each sublist:
---     3.1. If it consists of a single genesis block, do LRC for the
---          corresponding epoch if it has not been done yet.
---     3.2. Call verification on sublist.
---          3.2.1. If it fails, either roll back applied blocks or apply
---                 as many as possible, depending on the @rollback@
---                 parameter. If we tried to apply as many as possible
---                 but succeeded to apply none, throw, otherwise return
---                 the new tip.
---          3.2.2. If it succeeds, it returns a list of undos. Make
---                 'Blund's out of them and apply them component-wise
---                 (@slog@, @us@, @dlg@, @txp@, @ssc@), then perform
---                 a sanity check.
--- 4. Normalize all mempools.
+-- | Applies a list of blocks (not necessarily from a single epoch) if they
+-- are valid. Takes one boolean flag @rollback@. On success, normalizes all
+-- mempools except the delegation one and returns the header hash of the last
+-- applied block (the new tip). Failure behavior depends on the @rollback@
+-- flag. If it's on, all blocks applied inside this function will be rolled
+-- back, so it will do effectively nothing and return @Left error@. If it's
+-- off, it will try to apply as many blocks as possible. If the very first
+-- block cannot be applied, it will throw an exception, otherwise it will
+-- return the header hash of the new tip. It's up to the caller to log a
+-- warning that partial application has occurred.
 verifyAndApplyBlocks
     :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
     => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
@@ -148,15 +127,12 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     lift $ normalizeMempool
     pure hh
   where
-    -- Splits an 'OldestFirst' list of blocks into two lists
-    -- where the first list will contain the longest sequence
-    -- of blocks starting from the oldest one that have the same
-    -- type (genesis or main) and epoch as the first block.
-    -- Examples:
-    -- *  [genesis1, main1, main2, genesis2, main3]
-    --    → [genesis1], [main1, main2, genesis2, main3]
-    -- *  [main1, main2, genesis2, main3]
-    --    → [main1, main2], [genesis2, main3]
+    -- Spans input into @(a, b)@ where @a@ is either a single genesis
+    -- block or a maximum prefix of main blocks from the same epoch.
+    -- Examples (where g is for genesis and m is for main):
+    -- * gmmgm → g, mmgm
+    -- * mmgm → mm, gm
+    -- * ggmmg → g, gmmg
     spanEpoch ::
            OldestFirst NE Block
         -> (OldestFirst NE Block, OldestFirst [] Block)

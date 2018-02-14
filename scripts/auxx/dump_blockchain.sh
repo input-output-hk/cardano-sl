@@ -48,7 +48,7 @@ stack exec -- cardano-auxx                                \
   --no-ntp                                                \
   --topology $TOPOLOGY_FILE                               \
   $PEERS                                                  \
-  --log-config ./scripts/log-templates/log-config-qa.yaml \
+  --log-config ./log-configs/connect-to-cluster.yaml      \
   --logs-prefix ./logs/$CLUSTER                           \
   --db-path ./db-$CLUSTER                                 \
   --keyfile ./secret-$CLUSTER.key                         \

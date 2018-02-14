@@ -89,6 +89,7 @@ data BenchEndpoint
     | IsValidAddressBench
     | NewAddressBench
     | NewPaymentBench
+    | NewWalletBench
     deriving (Show)
 
 -- | Type synonym for client function: this function sends

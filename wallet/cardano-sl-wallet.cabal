@@ -372,6 +372,7 @@ benchmark cardano-sl-wallet-bench
                        Client.Pos.Wallet.Web.Endpoint.IsValidAddress
                        Client.Pos.Wallet.Web.Endpoint.NewAddress
                        Client.Pos.Wallet.Web.Endpoint.NewPayment
+                       Client.Pos.Wallet.Web.Endpoint.NewWallet
 
                        Client.Pos.Wallet.Web.Api
                        Client.Pos.Wallet.Web.Run
@@ -397,6 +398,7 @@ benchmark cardano-sl-wallet-bench
                      , servant
                      , servant-client
                      , text
+                     , time
                      , tls
                      , universum >= 0.1.11
                      , vector

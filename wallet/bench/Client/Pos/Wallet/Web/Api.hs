@@ -12,6 +12,7 @@ module Client.Pos.Wallet.Web.Api
     , isValidAddress
     , newAddress
     , newPayment
+    , newWallet
     ) where
 
 import           Universum
@@ -24,11 +25,12 @@ import           Pos.Core.Types             (Coin)
 import           Pos.Wallet.Web.Api         (ApiPrefix,
                                              GetAccounts, GetHistory, GetSyncProgress,
                                              GetWallet, GetWallets, IsValidAddress,
-                                             NewAddress, NewPayment)
+                                             NewAddress, NewPayment, NewWallet)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CAccountId (..),
                                              CAddress (..), CId (..),
-                                             CPassPhrase, CTx, CWallet, ScrollLimit,
-                                             ScrollOffset, SyncProgress, Wal)
+                                             CPassPhrase, CTx, CWallet, CWalletInit,
+                                             ScrollLimit, ScrollOffset, SyncProgress,
+                                             Wal)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 -- | "Benchmarking API" which includes
@@ -49,6 +51,8 @@ type WalletBenchApi = ApiPrefix :> (
      NewAddress
     :<|>
      NewPayment
+    :<|>
+     NewWallet
     )
 
 -- | Clients for "Benchmarking API".
@@ -83,6 +87,10 @@ newPayment
     -> Coin
     -> Maybe InputSelectionPolicy
     -> ClientM $ Either WalletError CTx
+newWallet
+    :: Maybe CPassPhrase
+    -> CWalletInit
+    -> ClientM $ Either WalletError CWallet
 getAccounts
   :<|> getHistory
   :<|> getSyncProgress
@@ -90,4 +98,5 @@ getAccounts
   :<|> getWallets
   :<|> isValidAddress
   :<|> newAddress
-  :<|> newPayment = client (Proxy @WalletBenchApi)
+  :<|> newPayment
+  :<|> newWallet = client (Proxy @WalletBenchApi)

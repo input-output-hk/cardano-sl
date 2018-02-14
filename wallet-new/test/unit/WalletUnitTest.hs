@@ -177,9 +177,10 @@ quickcheckSanityChecks :: Spec
 quickcheckSanityChecks = describe "QuickCheck sanity checks" $ do
     prop "can construct and verify block with one arbitrary transaction" $
       expectValid <$> intAndVerifyGen genOneTrans
-    prop "randomly generated transactions are all valid" $
-        forAll (intAndVerifyGen (toPreChain newChain)) $ \a ->
-            expectValid a
+    prop "DSL and Cardano agree on randomly generated chains" $
+        forAll
+            (intAndVerifyGen (toPreChain newChain))
+            expectAgreement
 
 {-------------------------------------------------------------------------------
   Example QuickCheck generated chains
@@ -414,6 +415,11 @@ data Disagreement =
 expectValid :: ValidationResult -> Bool
 expectValid ExpectedValid = True
 expectValid _otherwise    = False
+
+expectAgreement :: ValidationResult -> Bool
+expectAgreement ExpectedValid       = True
+expectAgreement (ExpectedInvalid _) = True
+expectAgreement _otherwise          = False
 
 expectInvalid :: ValidationResult -> Bool
 expectInvalid (ExpectedInvalid _) = True

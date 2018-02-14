@@ -295,6 +295,7 @@ test-suite wallet-new-specs
                     MarshallingSpec
 
                     Cardano.Wallet.API.V0.Handlers
+                    Cardano.Wallet.API.V1.Handlers
                     Cardano.Wallet.API.V1.LegacyHandlers
                     Cardano.Wallet.API.V1.LegacyHandlers.Accounts
                     Cardano.Wallet.API.V1.LegacyHandlers.Addresses

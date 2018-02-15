@@ -97,6 +97,10 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 
         -- Timer is in microseconds.
         keepaliveTimer :: Timer <- newTimer 20000000
+        -- Retry counter.  It is reset when a new block header arrives in
+        -- @`handleBlockHeaders`@ and it is incremented when
+        -- @`dnsSubscriptionWorker`@ fails to subscribe to any node.
+        retryCounter <- newMVar 0
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
@@ -202,7 +206,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 
             mkL :: MkListeners d
             mkL = mconcat $
-                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq keepaliveTimer
+                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq keepaliveTimer retryCounter
                 , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
                 , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
                 , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
@@ -235,6 +239,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 mEkgNodeMetrics
                 oq
                 keepaliveTimer
+                retryCounter
                 currentSlotDuration
                 listeners
 
@@ -316,11 +321,12 @@ runDiffusionLayerFull
     -> Maybe (EkgNodeMetrics d)
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> Timer -- ^ Keepalive timer.
+    -> MVar Int -- ^ Retry counter.
     -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
+runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer retryCounter slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse ->
             withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
@@ -344,9 +350,21 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
         return ((>>= either throwM return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
+            dnsSubscriptionWorker
+              oq
+              networkConfig
+              dnsDomains
+              keepaliveTimer
+              retryCounter
+              slotDuration
+              sactions
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
-            dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
+            dhtSubscriptionWorker
+              oq kinst
+              nodeType
+              valency
+              fallbacks
+              sactions
         Nothing -> pure ()
 
 sendMsgFromConverse

@@ -3,6 +3,7 @@ module Pos.Diffusion.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Control.Concurrent.MVar (modifyMVar)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, toMicroseconds, fromMicroseconds, convertUnit)
@@ -34,10 +35,11 @@ dnsSubscriptionWorker
     -> NetworkConfig kademlia
     -> DnsDomains DNS.Domain
     -> Timer
+    -> MVar Int
     -> m Millisecond
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration sendActions = do
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer retryCounter nextSlotDuration sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -45,7 +47,6 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- that the threads don't erase each-others' work.
     let initialDnsPeers :: Map Int (Alts NodeId)
         initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
-    retryCounter <- newSharedAtomic 0
     dnsPeersVar <- newSharedAtomic initialDnsPeers
     -- There's a thread for each conjunct which attempts to subscribe to one of
     -- the alternatives.
@@ -54,7 +55,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- fallbacks (for a given outer list element) is the length of the inner
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
-    void $ forConcurrently allOf (subscribeAlts dnsPeersVar retryCounter)
+    void $ forConcurrently allOf (subscribeAlts dnsPeersVar)
     logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
@@ -68,12 +69,11 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- (see 'retryInterval').
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
-        -> SharedAtomicT m Int
         -> (Int, Alts (NodeAddr DNS.Domain))
         -> m ()
-    subscribeAlts _ _ (index, []) =
+    subscribeAlts _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
-    subscribeAlts dnsPeersVar retryCounter (index, alts) = do
+    subscribeAlts dnsPeersVar (index, alts) = do
         -- Resolve all of the names and update the known peers in the queue.
         dnsPeersList <- findDnsPeers index alts
         modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
@@ -84,12 +84,8 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
         subscribeToOne dnsPeersList
-        interval <- retryInterval retryCounter
-        case interval of
-            Nothing -> logError "dnsSubscriptionWorker: DNS timeout failure"
-            Just it -> do
-                delay it
-                subscribeAlts dnsPeersVar retryCounter (index, alts)
+        retryInterval >>= delay
+        subscribeAlts dnsPeersVar (index, alts)
 
     subscribeToOne :: Alts NodeId -> m ()
     subscribeToOne dnsPeers = case dnsPeers of
@@ -112,16 +108,18 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         return nids
 
     -- How long to wait before retrying in case no alternative can be
-    -- subscribed to.
-    retryInterval :: SharedAtomicT m Int -> m (Maybe Millisecond)
-    retryInterval retryCounter = do
-        counter <- modifySharedAtomic retryCounter (\c -> return (c + 1, fromIntegral c))
+    -- subscribed to.  The calculated interval is one forths of slot duration
+    -- multiplied by 1.5 each time all the subscriptions have failed, but not
+    -- greater than 20s.
+    retryInterval :: m Millisecond
+    retryInterval = do
+        counter <- liftIO $ modifyMVar retryCounter (\c -> return (c + 1, fromIntegral c))
         slotDur <- nextSlotDuration
-        let interval = fromMicrosecondsF
-                $ (toMicrosecondsF slotDur) / 4 * (3 ** counter) / (2 ** counter)
-        if interval >= convertUnit (20 :: Second)
-            then return Nothing
-            else return $ Just interval
+        let interval = min
+                (fromMicrosecondsF
+                    $ toMicrosecondsF slotDur / 4 * (1.5 ** counter))
+                (convertUnit (20 :: Second))
+        return interval
 
     toMicrosecondsF :: Millisecond -> Float
     toMicrosecondsF = fromIntegral . toMicroseconds

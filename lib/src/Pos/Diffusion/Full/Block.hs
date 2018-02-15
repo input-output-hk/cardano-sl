@@ -13,6 +13,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import           Control.Concurrent.MVar (modifyMVar)
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -398,14 +399,15 @@ blockListeners
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> Timer -- ^ Keepalive timer
+    -> MVar Int -- ^ Retry counter of @`dnsSubscriptionWorker`@
     -> MkListeners m
-blockListeners logic oq keepaliveTimer = constantListeners $
+blockListeners logic oq keepaliveTimer retryCounter = constantListeners $
     [ -- Peer wants some block headers from us.
       handleGetHeaders logic oq
       -- Peer wants some blocks from us.
     , handleGetBlocks logic oq
       -- Peer has a block header for us (yes, singular only).
-    , handleBlockHeaders logic oq keepaliveTimer
+    , handleBlockHeaders logic oq keepaliveTimer retryCounter
     ]
 
 ----------------------------------------------------------------------------
@@ -482,8 +484,9 @@ handleBlockHeaders
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> Timer
+    -> MVar Int  -- ^ Retry counter of @`dnsSubscriptionWorker`@
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders logic oq keepaliveTimer retryCounter = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
@@ -496,6 +499,8 @@ handleBlockHeaders logic oq keepaliveTimer = listenerConv @MsgGetHeaders oq $ \_
             slotDuration <- fromIntegral . toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
             setTimerDuration keepaliveTimer $ 3 * slotDuration
             startTimer keepaliveTimer
+            -- Reset retry counter
+            liftIO $ modifyMVar retryCounter (\_ -> return (0, ()))
             handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId
         _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.
 

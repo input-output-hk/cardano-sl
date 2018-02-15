@@ -349,3 +349,26 @@ executable cardano-swagger
     buildable: False
   else
     buildable: True
+
+Test-suite unit-tests
+  type:               exitcode-stdio-1.0
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+  hs-source-dirs:     test
+  main-is:            Test.hs
+  other-modules:      Migrations
+  ghc-options:        -Wall -threaded -pgmP cpphs -optP --cpp
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+  build-depends:      base
+                    , cardano-sl
+                    , cardano-sl-core
+                    , cardano-sl-txp
+                    , cardano-sl-wallet
+                    , safecopy
+                    , tasty
+                    , tasty-quickcheck
+                    , QuickCheck
+                    , unordered-containers
+                    , universum >= 0.1.11

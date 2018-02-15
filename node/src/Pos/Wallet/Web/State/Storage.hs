@@ -88,6 +88,10 @@ module Pos.Wallet.Web.State.Storage
        , addOnlyNewPendingTx
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
+         -- * Exported only for testing purposes
+       , AddressInfo_v0 (..)
+       , AccountInfo_v0 (..)
+       , WalletStorage_v2(..)
        ) where
 
 import           Universum
@@ -667,7 +671,6 @@ data WalletStorage_v2 = WalletStorage_v2
     , _v2_wsUsedAddresses   :: !CustomAddresses_v0
     , _v2_wsChangeAddresses :: !CustomAddresses_v0
     }
-
 
 deriveSafeCopySimple 0 'base ''AddressInfo_v0
 deriveSafeCopySimple 1 'extension ''AddressInfo

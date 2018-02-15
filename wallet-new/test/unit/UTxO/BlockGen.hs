@@ -3,23 +3,22 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-module UTxO.BlockGen where
+module UTxO.BlockGen (
+    toPreChain
+  , newChain
+  ) where
 
 import           Universum hiding (use, (.~))
 
 import           Control.Lens hiding (elements)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Data.Traversable (for)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Test.QuickCheck
 
-import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.DSL
-import           UTxO.Interpreter
 import           UTxO.PreChain
-import           UTxO.Translate
 
 -- | Blockchain Generator Monad
 --
@@ -43,6 +42,10 @@ data BlockGenCtx h
 
 makeLenses ''BlockGenCtx
 
+bgcNonAvvm :: Getter (BlockGenCtx h) (Map Addr Value)
+bgcNonAvvm = bgcAddressesToBalances
+           . to (Map.filterWithKey (\addr _ -> not (isAvvmAddr addr)))
+
 toPreChain
     :: Hash h Addr
     => BlockGen h [[Value -> Transaction h Addr]]
@@ -57,18 +60,9 @@ toPreChainWith
 toPreChainWith settings bg = PreChain $ \boot -> do
     ks <- runBlockGenWith settings boot bg
     return
-        $ OldestFirst . reverse
-        . fmap (OldestFirst . reverse)
+        $ OldestFirst
+        . fmap OldestFirst
         . zipFees ks
-
--- | Given an initial bootstrap 'Transaction', this function will
--- initialize the generator and run the action provided.
-runBlockGen
-    :: Hash h Addr
-    => Transaction h Addr
-    -> BlockGen h a
-    -> Gen a
-runBlockGen = runBlockGenWith identity
 
 -- | Given an initial bootstrap 'Transaction' and a function to customize
 -- the other settings in the 'BlockGenCtx', this function will initialize
@@ -79,8 +73,8 @@ runBlockGenWith
     -> Transaction h Addr
     -> BlockGen h a
     -> Gen a
-runBlockGenWith settings boot (BlockGen m) =
-    evalStateT m (settings (initializeCtx boot))
+runBlockGenWith settings boot m =
+    evalStateT (unBlockGen m) (settings (initializeCtx boot))
 
 -- | Create an initial context from the boot transaction.
 initializeCtx :: Hash h Addr => Transaction h Addr -> BlockGenCtx h
@@ -90,7 +84,7 @@ initializeCtx boot@Transaction{..} = BlockGenCtx {..}
         foldl' outToValue mempty trOuts
     outToValue acc (Output {..}) =
         Map.insertWith (+) outAddr outVal acc
-    _bgcFreshHash = 0
+    _bgcFreshHash = 1
     _bgcCurrentBlockchain = ledgerSingleton boot
 
 -- | Lift a 'Gen' action into the 'BlockGen' monad.
@@ -104,17 +98,12 @@ freshHash = do
     bgcFreshHash += 1
     pure i
 
--- | Select a random address from the current state.
-selectFromAddr :: BlockGen h Addr
-selectFromAddr =
-    liftGen . elements =<< uses bgcAddressesToBalances (toList . Map.keysSet)
-
 -- | Select a random address from the current state that is not the
 -- provided address.
 selectToAddress :: Addr -> BlockGen h Addr
 selectToAddress addr = do
-    addrs <- uses bgcAddressesToBalances (toList . Set.delete addr . Map.keysSet)
-    liftGen (elements (filter (not . isAvvmAddr) addrs))
+    -- We cannot transfer money to an AVVM account
+    liftGen . elements =<< uses bgcNonAvvm (toList . Set.delete addr . Map.keysSet)
 
 -- | Returns true if the 'addrActorIx' is the 'IxAvvm' constructor.
 isAvvmAddr :: Addr -> Bool
@@ -129,7 +118,7 @@ isAvvmAddr addr =
 -- the 'Addr's balance.
 selectFromAddrAndAmount :: BlockGen h (Addr, Value)
 selectFromAddrAndAmount = do
-    addrs <- uses bgcAddressesToBalances Map.toList
+    addrs <- uses bgcNonAvvm Map.toList
     (addr, amount) <- liftGen $ elements addrs
     value <- liftGen $ choose (1, amount `safeSubtract` maxFee)
     if value < 1
@@ -215,10 +204,10 @@ createInputsAmountingTo addr txns desiredAmount =
                     ( inputs
                     , if isAvvmAddr addr
                         then Nothing
-                        else Just 
-                            $ Output addr 
-                            ( total 
-                            `safeSubtract` desiredAmount 
+                        else Just
+                            $ Output addr
+                            ( total
+                            `safeSubtract` desiredAmount
                             `safeSubtract` maxFee
                             )
                     )

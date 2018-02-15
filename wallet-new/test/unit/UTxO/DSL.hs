@@ -133,23 +133,64 @@ trIns' = Set.toList . trIns
 -- NOTE: The notion of 'valid' is not relevant for UTxO transactions,
 -- so we omit it.
 trIsAcceptable :: (Hash h a, Buildable a)
-               => Transaction h a -> Ledger h a -> Bool
-trIsAcceptable t l = and [
+               => Transaction h a -> Ledger h a -> Either Text ()
+trIsAcceptable t l = sequence_ [
       allInputsHaveOutputs
     , valueIsPreserved
     , inputsHaveNotBeenSpent
     ]
   where
-    allInputsHaveOutputs :: Bool
-    allInputsHaveOutputs = all (isJust . (`inpSpentOutput` l)) (trIns t)
+    allInputsHaveOutputs :: Either Text ()
+    allInputsHaveOutputs = forM_ (trIns t) $ \inp ->
+        case inpSpentOutput inp l of
+          Just _  -> return ()
+          Nothing -> Left $ sformat
+            ( "In transaction "
+            % build
+            % ": cannot resolve input "
+            % build
+            )
+            t
+            inp
 
-    valueIsPreserved :: Bool
+    -- TODO: Ideally, we would require here that @sumIn == sumOut@. However,
+    -- as long as we have to be conservative about fees, we will not be able
+    -- to achieve that in the unit tests.
+    valueIsPreserved :: Either Text ()
     valueIsPreserved =
-           sum (map (`inpVal'` l) (trIns' t)) + trFresh t
-        == sum (map outVal        (trOuts t)) + trFee   t
+        unless (sumIn >= sumOut) $
+          Left $ sformat
+            ( "In transaction "
+            % build
+            % ": value not preserved (in: "
+            % build
+            % ", out: "
+            % build
+            % "; difference "
+            % build
+            % ")"
+            )
+            t
+            sumIn
+            sumOut
+            -- avoid overflow
+            (if sumOut > sumIn then sumOut - sumIn else sumIn - sumOut)
+      where
+        sumIn  = sum (map (`inpVal'` l) (trIns' t)) + trFresh t
+        sumOut = sum (map outVal        (trOuts t)) + trFee   t
 
-    inputsHaveNotBeenSpent :: Bool
-    inputsHaveNotBeenSpent = all (`Set.member` ledgerUnspentOutputs l) (trIns t)
+    inputsHaveNotBeenSpent :: Either Text ()
+    inputsHaveNotBeenSpent = forM_ (trIns t) $ \inp ->
+        unless (inp `Set.member` ledgerUnspentOutputs l) $
+          Left $ sformat
+            ( "In transaction "
+            % build
+            % ": input "
+            % build
+            % " already spent"
+            )
+            t
+            inp
 
 -- | The effect this transaction has on the balance of an address
 trBalance :: forall h a. (Hash h a, Eq a, Buildable a)
@@ -309,8 +350,8 @@ ledgerUtxo l = go (ledgerToNewestFirst l)
     go (t:ts) = utxoRemoveInputs (trSpentOutputs t) (go ts) `utxoUnion` trUtxo t
 
 -- | Ledger validity
-ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Bool
-ledgerIsValid l = all (uncurry trIsAcceptable) (ledgerTails l)
+ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Either Text ()
+ledgerIsValid l = mapM_ (uncurry trIsAcceptable) (ledgerTails l)
 
 {-------------------------------------------------------------------------------
   We parameterize over the hashing function

@@ -53,7 +53,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @Core.Coin @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy
-        migrateRoundtripProp @(WalletId, AccountId) @V0.AccountId Proxy Proxy
+        migrateRoundtripProp @(WalletId, AccountIndex) @V0.AccountId Proxy Proxy
         migrateRoundtripProp @PaymentDistribution @(V0.CId V0.Addr, Core.Coin) Proxy Proxy
         migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
 

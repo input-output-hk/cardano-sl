@@ -46,7 +46,7 @@ newAddress
     => NewAddress -> m (WalletResponse WalletAddress)
 newAddress NewAddress {..} = do
     let password = fromMaybe emptyPassphrase newaddrSpendingPassword
-    accountId <- migrate (newaddrWalletId, newaddrAccountId)
+    accountId <- migrate (newaddrWalletId, newaddrAccountIndex)
     fmap single $ V0.newAddress V0.RandomSeed password accountId
               >>= migrate
 

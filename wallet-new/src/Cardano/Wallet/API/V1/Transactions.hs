@@ -14,7 +14,7 @@ type API
                         :> Post '[ValidJSON] (WalletResponse Transaction)
     :<|> "transactions" :> Summary "Returns the transaction history, i.e the list of all the past transactions."
                         :> Capture "walletId" WalletId
-                        :> QueryParam "account_id" AccountId
+                        :> QueryParam "account_index" AccountIndex
                         :> QueryParam "address" Text
                         :> WalletRequestParams
                         :> Get '[ValidJSON] (WalletResponse [Transaction])

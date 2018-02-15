@@ -55,7 +55,7 @@ type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 -- | The indices for each major resource.
 type WalletIxs      = '[WalletId, Core.Coin]
 type TransactionIxs = '[TxId]
-type AccountIxs     = '[AccountId]
+type AccountIxs     = '[AccountIndex]
 
 instance Indexable WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
@@ -65,4 +65,4 @@ instance Indexable TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> [txId]))
 
 instance Indexable AccountIxs Account where
-  indices = ixList (ixFun (\Account{..} -> [accId]))
+  indices = ixList (ixFun (\Account{..} -> [accIndex]))

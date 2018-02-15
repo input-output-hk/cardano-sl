@@ -1,40 +1,43 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances       #-}
 -- | Pure versions of the Cardano verification functions
-module UTxO.Verify (
+module UTxO.Verify
+    (
     -- * Verification monad
-    Verify -- opaque
-  , verify
+      Verify -- opaque
+    , verify
+
     -- * Specific verification functions
-  , verifyBlocksPrefix
-  ) where
+    , verifyBlocksPrefix
+    ) where
 
-import Universum
-import Control.Lens ((%=), _Wrapped)
-import Control.Monad.Except
-import Data.Default
-import System.Wlog
+import           Universum
+
+import           Control.Lens ((%=), _Wrapped)
+import           Control.Monad.Except
+import           Data.Default
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import qualified Data.List.NonEmpty  as NE
-import qualified Data.Map.Strict     as Map
+import qualified Data.HashSet as HS
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
 import qualified Ether
+import           System.Wlog
 
-import Pos.Block.Error
-import Pos.Block.Logic hiding (verifyBlocksPrefix)
-import Pos.Block.Pure (verifyBlocks)
-import Pos.Block.Slog hiding (slogVerifyBlocks)
-import Pos.Block.Types
-import Pos.Core
-import Pos.DB.Class (MonadGState(..))
-import Pos.Delegation (DlgUndo(..))
-import Pos.Txp hiding (tgsVerifyBlocks)
-import Pos.Update.Poll
-import Pos.Util.Chrono
-import Pos.Util (ether, neZipWith4)
-import Pos.Util.Lens
-import Serokell.Util.Verify
+import           Pos.Block.Error
+import           Pos.Block.Logic hiding (verifyBlocksPrefix)
+import           Pos.Block.Logic.Integrity (verifyBlocks)
+import           Pos.Block.Slog hiding (slogVerifyBlocks)
+import           Pos.Block.Types
+import           Pos.Core
+import           Pos.DB.Class (MonadGState (..))
+import           Pos.Delegation (DlgUndo (..))
+import           Pos.Txp hiding (tgsVerifyBlocks)
+import           Pos.Update.Poll
+import           Pos.Util (ether, neZipWith4)
+import           Pos.Util.Chrono
+import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
+import           Serokell.Util.Verify
 
 {-------------------------------------------------------------------------------
   Verification environment
@@ -164,7 +167,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT' (withExceptT f) ma
   Block verification
 
   There appears to be only a single "pure" block verification function
-  (requiring only HasConfiguration): 'Pos.Block.Pure.verifyBlocks'.
+  (requiring only HasConfiguration): 'Pos.Block.Logic.Integrity.verifyBlocks'.
   Unfortunately, it seems this really only verifies the block envelope (maximum
   block size, unknown attributes, that sort of thing), not the transactions
   contained within. There is also
@@ -174,7 +177,7 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT' (withExceptT f) ma
 
   2. 'Pos.Block.Slog.Logic.slogVerifyBlocks'
      Requires 'MonadSlogVerify'.
-     Called by (1) and calls 'Pos.Block.Pure.verifyBlocks'.
+     Called by (1) and calls 'Pos.Block.Logic.Integrity.verifyBlocks'.
      Doesn't seem to do any additional verification itself.
 
   3. 'Pos.Ssc.Logic.VAR.sscVerifyBlocks'

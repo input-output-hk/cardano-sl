@@ -1,8 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pure functions related to blocks and headers, mostly their verification.
+-- | Verification of headers and blocks, also chain integrity
+-- checks. Almost pure (requires leaders to be explicitly passed).
 
-module Pos.Block.Pure
+module Pos.Block.Logic.Integrity
        (
          -- * Header
          VerifyHeaderParams (..)

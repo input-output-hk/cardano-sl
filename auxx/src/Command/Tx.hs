@@ -39,7 +39,7 @@ import           Pos.Communication (SendActions, immediateConcurrentConversation
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Core.Txp (TxAux (..), TxIn (..), TxOut (..), TxOutAux (..), txaF, txInputs)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
                              safeToPublic, toPublic, withSafeSigners)
 import           Pos.Txp (topsortTxAuxes)
@@ -183,8 +183,9 @@ send
     => SendActions m
     -> Int
     -> NonEmpty TxOut
+    -> Bool
     -> m ()
-send sendActions idx outputs = do
+send sendActions idx outputs fakeInputs = do
     CmdCtx{ccPeers} <- getCmdCtx
     skey <- takeSecret
     let curPk = encToPublic skey
@@ -199,7 +200,12 @@ send sendActions idx outputs = do
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
         (txAux,_) <- lift $ prepareMTx getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
-        txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
+        let modTxIn tx@(TxInUnknown _ _) = tx
+            modTxIn tx = tx { txInIndex = 100500 }
+            txAux' =
+                if not fakeInputs then txAux
+                else txAux { taTx = taTx txAux & txInputs %~ fmap modTxIn }
+        txAux' <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux')
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
         Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx

@@ -87,6 +87,7 @@ library
                      , text-format
                      , time-units
                      , transformers
+                     , vector
                      , universum >= 0.1.11
                      , unordered-containers
 

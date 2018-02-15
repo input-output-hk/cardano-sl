@@ -42,18 +42,6 @@ instance Hashable UnparsedFields where
 fromUnparsedFields :: UnparsedFields -> Map Word8 LBS.ByteString
 fromUnparsedFields (UnparsedFields m) = m
 
-{-
--- | Convert from Store format.
-fromRaw :: BS.ByteString -> UnparsedFields
-fromRaw = \case
-    "" -> UnparsedFields $ M.empty
-    bs -> UnparsedFields $ M.singleton maxBound bs
-
--- | Extract Store format.
-toRaw :: UnparsedFields -> BS.ByteString
-toRaw = fromMaybe BS.empty . M.lookup maxBound . fromUnparsedFields
--}
-
 ----------------------------------------
 
 mkAttributes :: h -> Attributes h

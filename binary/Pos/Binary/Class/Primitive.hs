@@ -59,6 +59,9 @@ import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborE
 -- The output is represented as a lazy 'BSL.ByteString' and is constructed
 -- incrementally.
 serialize :: Bi a => a -> BSL.ByteString
+-- 1024 is the size of the first buffer, 4096 is the size of subsequent
+-- buffers. Chosen because they seem to give good performance. They are not
+-- sacred.
 serialize = serializeWith 1024 4096
 
 -- | Serialize a Haskell value to an external binary representation.
@@ -202,7 +205,7 @@ biSize = fromIntegral . BSL.length . serialize
 -- In CBOR diagnostic notation:
 -- >>> 24(h'DEADBEEF')
 encodeKnownCborDataItem :: Bi a => a -> E.Encoding
-encodeKnownCborDataItem = encodeUnknownCborDataItem . serializeWith 1024 4096
+encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize
 
 -- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
 -- input object, so that it must be passed as a binary `ByteString` blob.
@@ -245,7 +248,7 @@ encodeCrcProtected :: Bi a => a -> E.Encoding
 encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
-    body = serializeWith 1024 4096 x
+    body = serialize x
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

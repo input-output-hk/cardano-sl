@@ -144,7 +144,7 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.serializeWith 32 1024
+unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.serialize
 
 -- | Make an AbstractHash from a lazy ByteString. You can choose the phantom
 -- type, hence the "unsafe".

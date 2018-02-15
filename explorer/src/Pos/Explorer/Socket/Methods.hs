@@ -55,7 +55,6 @@ module Pos.Explorer.Socket.Methods
 
 import           Universum
 
-import           Control.Exception.Safe (tryAny)
 import           Control.Lens (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State (MonadState)
 import           Data.Aeson (ToJSON)

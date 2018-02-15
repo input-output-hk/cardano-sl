@@ -29,7 +29,7 @@ data DlgUndo = DlgUndo
     , duPrevEpochPosted :: !(HashSet StakeholderId)
       -- ^ Set of stakeholders that posted in epoch i. This field
       -- should be present only for genesis block of epoch i+1.
-    } deriving (Generic)
+    } deriving (Eq, Show, Generic)
 
 instance NFData DlgUndo
 

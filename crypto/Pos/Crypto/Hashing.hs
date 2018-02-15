@@ -62,7 +62,7 @@ import qualified Pos.Binary.Class as Bi
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a
-    } deriving (Show, Typeable)
+    } deriving (Show, Typeable, Generic)
 
 instance Hashable (WithHash a) where
     hashWithSalt s = hashWithSalt s . whHash

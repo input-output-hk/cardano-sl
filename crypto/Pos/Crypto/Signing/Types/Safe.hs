@@ -33,6 +33,11 @@ data EncryptedSecretKey = EncryptedSecretKey
     , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation.
     }
 
+-- We don't have the @Eq CC.XPrv@ instance here because
+-- it is a security issue to compare secret keys. But it
+-- can be derived in tests where it doesn't matter.
+deriving instance Eq CC.XPrv => Eq EncryptedSecretKey
+
 instance Show EncryptedSecretKey where
     show _ = "<encrypted key>"
 

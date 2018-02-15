@@ -6952,15 +6952,15 @@ inherit (pkgs) mesa;};
              unordered-containers vector wai warp warp-tls yaml
            ];
            testHaskellDepends = [
-             base bytestring canonical-json cardano-sl-binary cardano-sl-block
-             cardano-sl-core cardano-sl-crypto cardano-sl-db
+             base bytestring canonical-json cardano-crypto cardano-sl-binary
+             cardano-sl-block cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cborg cereal containers
-             cryptonite data-default extra fmt formatting generic-arbitrary half
-             hspec lens MonadRandom mtl pvss QuickCheck random reflection
-             safecopy serokell-util tagged text text-format time-units universum
-             unordered-containers vector
+             cryptonite data-default extra filelock fmt formatting
+             generic-arbitrary half hspec lens MonadRandom mtl pvss QuickCheck
+             random reflection safecopy serokell-util tagged text text-format
+             time-units universum unordered-containers vector
            ];
            doHaddock = false;
            description = "Cardano SL main implementation";
@@ -7020,7 +7020,7 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-binary" = callPackage
         ({ mkDerivation, autoexporter, base, binary, bytestring, cborg
-         , containers, cpphs, digest, formatting, hashable, lens, mtl
+         , containers, cpphs, digest, formatting, half, hashable, lens, mtl
          , parsec, process, QuickCheck, quickcheck-instances
          , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
          , template-haskell, text, th-lift-instances, th-utilities, time
@@ -7033,7 +7033,7 @@ inherit (pkgs) mesa;};
            src = ./../binary;
            libraryHaskellDepends = [
              autoexporter base binary bytestring cborg containers digest
-             formatting hashable lens mtl parsec process QuickCheck
+             formatting half hashable lens mtl parsec process QuickCheck
              quickcheck-instances safe-exceptions semigroups serokell-util stm
              tagged template-haskell text th-lift-instances th-utilities time
              time-units transformers transformers-base transformers-lift
@@ -7149,12 +7149,13 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-crypto" = callPackage
         ({ mkDerivation, aeson, autoexporter, base, binary, bytestring
-         , cardano-crypto, cardano-sl-binary, cardano-sl-util, containers
-         , cpphs, cryptonite, cryptonite-openssl, data-default, ed25519
-         , formatting, generic-arbitrary, hashable, lens, memory, mtl, pvss
-         , QuickCheck, quickcheck-instances, reflection, safe-exceptions
-         , scrypt, serokell-util, stdenv, stm, text, text-format
-         , transformers, universum, unordered-containers, vector
+         , cardano-crypto, cardano-sl-binary, cardano-sl-util, cborg
+         , containers, cpphs, cryptonite, cryptonite-openssl, data-default
+         , ed25519, formatting, generic-arbitrary, hashable, lens, memory
+         , mtl, pvss, QuickCheck, quickcheck-instances, reflection
+         , safe-exceptions, scrypt, serokell-util, stdenv, stm, text
+         , text-format, transformers, universum, unordered-containers
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-crypto";
@@ -7162,7 +7163,7 @@ inherit (pkgs) mesa;};
            src = ./../crypto;
            libraryHaskellDepends = [
              aeson autoexporter base binary bytestring cardano-crypto
-             cardano-sl-binary cardano-sl-util containers cryptonite
+             cardano-sl-binary cardano-sl-util cborg containers cryptonite
              cryptonite-openssl data-default ed25519 formatting
              generic-arbitrary hashable lens memory mtl pvss QuickCheck
              quickcheck-instances reflection safe-exceptions scrypt

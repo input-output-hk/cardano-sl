@@ -1,7 +1,7 @@
 name:                cardano-sl-crypto
 version:             1.0.3
 synopsis:            Cardano SL - cryptography primitives
-description:         This package contains cryptography primities used in Cardano SL.
+description:         This package contains cryptography primitives used in Cardano SL.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -53,6 +53,7 @@ library
                      , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-util
+                     , cborg
                      , containers
                      , cryptonite
                      , cryptonite-openssl

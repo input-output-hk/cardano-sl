@@ -7,9 +7,12 @@ module Pos.Block.Logic.Header
        , classifyNewHeader
        , ClassifyHeadersRes (..)
        , classifyHeaders
+
+       , GetHeadersFromManyToError (..)
        , getHeadersFromManyTo
        , getHeadersOlderExp
-       , getHeadersRange
+       , GetHashesRangeError (..)
+       , getHashesRange
        ) where
 
 import           Universum
@@ -244,6 +247,9 @@ classifyHeaders inRecovery headers = do
                           depthDiff blkSecurityParam
             | otherwise -> CHsValid lcaChild
 
+
+data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
+
 -- | Given a set of checkpoints @c@ to stop at and a terminating
 -- header hash @h@, we take @h@ block (or tip if latter is @Nothing@)
 -- and fetch the blocks until one of checkpoints is encountered. In
@@ -255,11 +261,11 @@ getHeadersFromManyTo ::
        , WithLogger m
        , HasConfiguration
        )
-    => Maybe Word -- ^ Optional limit on how many to bring in.
+    => Maybe Word          -- ^ Optional limit on how many to bring in.
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
-    -> m (Either Text (NewestFirst NE BlockHeader))
+    -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
 getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
@@ -270,12 +276,12 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
 
     -- This filters out invalid/unknown checkpoints also.
     inMainCheckpoints <-
-        noteM "no checkpoints are in the main chain" $ lift $
-        nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints)
+        maybe (throwLocal "no checkpoints are in the main chain") pure =<<
+        lift (nonEmpty <$> filterM GS.isBlockInMainChain (toList checkpoints))
     let inMainCheckpointsHashes = map headerHash inMainCheckpoints
     when (tipHash `elem` inMainCheckpointsHashes) $
-        throwError "found checkpoint that is equal to our tip"
-    logDebug $ "got checkpoints in main chain"
+        throwLocal "found checkpoint that is equal to our tip"
+    logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
 
     if (tip ^. prevBlockL . headerHashG) `elem` inMainCheckpointsHashes
         -- Optimization for the popular case "just get me the newest
@@ -291,15 +297,16 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
                     curH /= startHash && maybe True ((<) h) mLimitInt
             up <- lift $ GS.loadHeadersUpWhile newestCheckpoint loadUpCond
             res <-
-                note "loadHeadersUpWhile returned empty list" $
-                _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
+                maybe (throwLocal "loadHeadersUpWhile returned empty list") pure $
+                _NewestFirst nonEmpty $
+                toNewestFirst $ over _OldestFirst (drop 1) up
             logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
             pure res
   where
-    noteM :: (MonadError e n) => e -> n (Maybe a) -> n a
-    noteM reason action = note reason =<< action
     mLimitInt :: Maybe Int
     mLimitInt = fromIntegral <$> mLimit
+
+    throwLocal = throwError . GHFBadInput
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed
@@ -354,29 +361,40 @@ getHeadersOlderExp upto = do
                 | otherwise = selGo es ii $ succ skipped
         in selGo elems ixs 0
 
+
+data GetHashesRangeError = GHRBadInput Text deriving (Show,Generic)
+
+-- Throws 'GetHashesRangeException'.
+throwGHR :: Monad m => Text -> ExceptT GetHashesRangeError m a
+throwGHR = throwError . GHRBadInput
+
 -- | Given optional @depthLimit@, @from@ and @to@ headers where @from@
 -- is older (not strict) than @to@, and valid chain in between can be
 -- found, headers in range @[from..to]@ will be found. If the number
 -- of headers in the chain (which should be returned) is more than
 -- @depthLimit@, error will be thrown.
-getHeadersRange ::
+getHashesRange ::
        forall m. (HasConfiguration, MonadDBRead m)
     => Maybe Word
     -> HeaderHash
     -> HeaderHash
-    -> m (Either Text (OldestFirst NE HeaderHash))
-getHeadersRange depthLimitM older newer | older == newer = runExceptT $ do
+    -> m (Either GetHashesRangeError (OldestFirst NE HeaderHash))
+getHashesRange depthLimitM older newer | older == newer = runExceptT $ do
     unlessM (isJust <$> lift (DB.getHeader newer)) $
-        throwError "getHeadersRange: can't find newer-older header"
+        throwGHR "can't find newer-older header"
     whenJust depthLimitM $ \depthLimit ->
         when (depthLimit < 1) $
-        throwError $
-        sformat ("getHeadersRange: depthLimit is "%int%
+        throwGHR $
+        sformat ("depthLimit is "%int%
                  ", we can't return the single requested header "%build)
                 depthLimit
                 newer
     pure $ OldestFirst $ one newer
-getHeadersRange depthLimitM older newer = runExceptT $ do
+getHashesRange depthLimitM older newer = runExceptT $ do
+    let fromMaybeM :: Text
+                   -> ExceptT GetHashesRangeError m (Maybe x)
+                   -> ExceptT GetHashesRangeError m x
+        fromMaybeM r m = maybe (throwGHR r) pure =<< m
     -- oldest and newest blocks do exist
     newerHd <- fromMaybeM "can't retrieve newer header" $ DB.getHeader newer
     olderHd <- fromMaybeM "can't retrieve older header" $ DB.getHeader older
@@ -386,13 +404,13 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
     -- Proving newerD >= olderD
     let newerOlderF = "newer: "%build%", older: "%build
     when (newerD == olderD) $
-        throwError $
-        sformat ("getHeadersRange: newer and older headers have "%
+        throwGHR $
+        sformat ("newer and older headers have "%
                  "the same difficulty, but are not equal. "%newerOlderF)
                 newerHd olderHd
     when (newerD < olderD) $
-        throwError $
-        sformat ("getHeadersRange: newer header is less dificult than older one. "%
+        throwGHR $
+        sformat ("newer header is less dificult than older one. "%
                  newerOlderF)
                 newerHd olderHd
 
@@ -406,8 +424,8 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
 
     whenJust depthLimitM $ \depthLimit ->
         when (depthDiff + 1 > depthLimit) $
-        throwError $
-        sformat ("getHeadersRange: requested "%int%" headers, but depthLimit is "%
+        throwGHR $
+        sformat ("requested "%int%" headers, but depthLimit is "%
                  int%". Headers: "%newerOlderF)
                 depthDiff
                 depthLimit
@@ -423,15 +441,15 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
     -- branch (after first checks are performed here) and olderHd is
     -- no longer in the main chain.
     -- CSL-1950 We should use snapshots here.
-    when (null $ allExceptNewest ^. _OldestFirst) $ throwError $
-        "getHeadersRange: loaded 0 headers though checks passed. " <>
+    when (null $ allExceptNewest ^. _OldestFirst) $ throwGHR $
+        "loaded 0 headers though checks passed. " <>
         "May be (very rare) concurrency problem, just retry"
 
     -- It's safe to use 'unsafeLast' here after the last check.
     let lastElem = allExceptNewest ^. _OldestFirst . to unsafeLast
     when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
-        throwError $
-        sformat ("getHeadersRange: newest block parent is not "%
+        throwGHR $
+        sformat ("getHashesRange: newest block parent is not "%
                  "equal to the newest one iterated. It may indicate recent fork or "%
                  "inconsistent request. Newest: "%build%
                  ", last list hash: "%build%", already retrieved (w/o last): "%listJson)
@@ -441,9 +459,7 @@ getHeadersRange depthLimitM older newer = runExceptT $ do
 
     -- We append last element and convert to nonempty.
     let conv =
-           fromMaybe (error "getHeadersRange: can't happen") .
+           fromMaybe (error "getHashesRange: can't happen") .
            nonEmpty .
            (++ [newer])
     pure $ allExceptNewest & _OldestFirst %~ conv
-  where
-    fromMaybeM r m = ExceptT $ maybeToRight ("getHeadersRange: " <> r) <$> m

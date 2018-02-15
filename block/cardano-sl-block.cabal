@@ -22,7 +22,6 @@ library
                         Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
-                        Pos.Block.Genesis
                         Pos.Block.Logic
                         Pos.Block.Pure
                         Pos.Block.RetrievalQueue

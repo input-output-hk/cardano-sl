@@ -16,7 +16,7 @@ import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)

@@ -162,8 +162,8 @@ class MonadDBRead m => MonadDB m where
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
 
-    -- | Put given blund into the Block DB.
-    dbPutSerBlund :: (Block, SerializedUndo) -> m ()
+    -- | Put given blunds into the Block DB.
+    dbPutSerBlunds :: NonEmpty (Block, SerializedUndo) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
@@ -172,7 +172,7 @@ instance {-# OVERLAPPABLE #-}
     dbPut = lift ... dbPut
     dbWriteBatch = lift ... dbWriteBatch
     dbDelete = lift ... dbDelete
-    dbPutSerBlund = lift ... dbPutSerBlund
+    dbPutSerBlunds = lift ... dbPutSerBlunds
 
 ----------------------------------------------------------------------------
 -- GState abstraction

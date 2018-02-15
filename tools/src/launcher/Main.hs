@@ -64,7 +64,7 @@ import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundRealDefault)
+                               dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
@@ -283,7 +283,7 @@ instance HasConfiguration => MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutSerBlund = dbPutSerBlundRealDefault
+    dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 newtype NodeDbPath = NodeDbPath FilePath
 

@@ -75,10 +75,6 @@ module Network.Broadcast.OutboundQueue (
   , updatePeersBucket
     -- * Connection status
   , ConnectionStatus(..)
-  , ConnectionChangeAction(ConnectionChangeAction)
-  , defaultConnectionChangeAction
-  , liftConnectionChangeAction
-  , withConnectionStatuses
   , getAllPeers
     -- * Debugging
   , registerQueueMetrics
@@ -86,7 +82,9 @@ module Network.Broadcast.OutboundQueue (
   , currentlyInFlight
   ) where
 
+import           Universum (atomically)
 import           Control.Concurrent
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, modifyTVar)
 import           Control.Exception.Safe (MonadMask, SomeException, displayException, finally, mask_,
                                          try)
 import           Control.Lens
@@ -354,32 +352,6 @@ data ConnectionStatus =
     | NotConnected
     deriving (Eq, Ord, Show)
 
--- | Connection change callback
-newtype ConnectionChangeAction m nid = ConnectionChangeAction { runConnChange :: Map nid ConnectionStatus -> m () }
-
-defaultConnectionChangeAction :: (Applicative m) => ConnectionChangeAction m nid
-defaultConnectionChangeAction = ConnectionChangeAction (const $ pure ())
-
-liftConnectionChangeAction :: forall m nid. (MonadIO m)
-                           => ConnectionChangeAction IO nid
-                           -> ConnectionChangeAction m nid
-liftConnectionChangeAction act = ConnectionChangeAction $ liftIO . runConnChange act
-
--- | Helper function which runs 'ConnectionChangeAction' whenever the connection status
--- changes.
-withConnectionStatuses :: forall m nid a. (MonadIO m, Eq nid, Show nid)
-                       => ConnectionChangeAction m nid
-                       -> MVar (Map nid ConnectionStatus)
-                       -> m a
-                       -> m a
-withConnectionStatuses onConnChange connStatuses act = do
-    conns <- liftIO $ readMVar connStatuses
-    a <- act
-    newConns <- liftIO $ readMVar connStatuses
-    unless (conns == newConns)
-        (runConnChange onConnChange newConns)
-    return a
-
 -- | The outbound queue (opaque data structure)
 --
 -- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
@@ -437,7 +409,7 @@ data OutboundQ msg nid buck = ( FormatMsg msg
     , qHealth          :: QHealth buck
 
       -- | Connections statuses
-    , qConnections     :: MVar (Map nid ConnectionStatus)
+    , qConnections     :: TVar (Map nid ConnectionStatus)
     }
 
 -- | Use a formatter to get a dump of the state.
@@ -502,7 +474,7 @@ new qSelf
     qFailures    <- newMVar Map.empty
     qRateLimited <- newMVar Set.empty
     qHealth      <- newQHealth
-    qConnections <- newMVar Map.empty
+    qConnections <- newTVarIO Map.empty
 
     -- Only look for control messages when the queue is empty
     let checkCtrlMsg :: IO (Maybe CtrlMsg)
@@ -758,67 +730,65 @@ intEnqueue :: forall m msg nid buck a. (MonadIO m, WithLogger m)
            -> MsgType nid
            -> msg a
            -> Peers nid
-           -> ConnectionChangeAction m nid
            -> m [Packet msg nid a]
-intEnqueue outQ@OutQ{..} msgType msg peers onConnChange =
-    withConnectionStatuses onConnChange qConnections $ do
-        fmap concat $
-            forM (qEnqueuePolicy msgType) $ \case
+intEnqueue outQ@OutQ{..} msgType msg peers = do
+    fmap concat $
+        forM (qEnqueuePolicy msgType) $ \case
 
-                enq@EnqueueAll{..} -> do
-                    let fwdSets :: AllOf (Alts nid)
-                        fwdSets = removeOrigin (msgOrigin msgType) $
-                                    peersRoutes peers ^. routesOfType enqNodeType
+            enq@EnqueueAll{..} -> do
+                let fwdSets :: AllOf (Alts nid)
+                    fwdSets = removeOrigin (msgOrigin msgType) $
+                                peersRoutes peers ^. routesOfType enqNodeType
 
-                        sendAll :: [Packet msg nid a]
-                                -> AllOf (Alts nid)
-                                -> m [Packet msg nid a]
-                        sendAll acc []           = return acc
-                        sendAll acc (alts:altss) = do
-                            mPacket <- sendFwdSet True -- warn on failure
-                                                    (map packetDestId acc)
-                                                    enqMaxAhead
-                                                    enqPrecedence
-                                                    (enqNodeType, alts)
-                            case mPacket of
-                                Nothing -> sendAll    acc  altss
-                                Just p  -> sendAll (p:acc) altss
+                    sendAll :: [Packet msg nid a]
+                            -> AllOf (Alts nid)
+                            -> m [Packet msg nid a]
+                    sendAll acc []           = return acc
+                    sendAll acc (alts:altss) = do
+                        mPacket <- sendFwdSet True -- warn on failure
+                                                (map packetDestId acc)
+                                                enqMaxAhead
+                                                enqPrecedence
+                                                (enqNodeType, alts)
+                        case mPacket of
+                            Nothing -> sendAll    acc  altss
+                            Just p  -> sendAll (p:acc) altss
 
-                    enqueued <- sendAll [] fwdSets
+                enqueued <- sendAll [] fwdSets
 
-                    -- Log an error if we didn't manage to enqueue the message to any peer
-                    -- at all (provided that we were configured to send it to some)
-                    if | null fwdSets ->
-                            logDebug $ debugNotEnqueued enqNodeType -- This isn't an error
-                       | null enqueued ->
-                            logFailure outQ FailedEnqueueAll (enq, Some msg, fwdSets)
-                       | otherwise ->
-                            logDebug $ debugEnqueued enqueued
+                -- Log an error if we didn't manage to enqueue the message to any peer
+                -- at all (provided that we were configured to send it to some)
+                if | null fwdSets ->
+                        logDebug $ debugNotEnqueued enqNodeType -- This isn't an error
+                    | null enqueued ->
+                        logFailure outQ FailedEnqueueAll (enq, Some msg, fwdSets)
+                    | otherwise ->
+                        logDebug $ debugEnqueued enqueued
 
-                    return enqueued
+                return enqueued
 
-                enq@EnqueueOne{..} -> do
-                    let fwdSets :: [(NodeType, Alts nid)]
-                        fwdSets = concatMap
-                                    (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
-                                                        peersRoutes peers ^. routesOfType t)
-                                    enqNodeTypes
+            enq@EnqueueOne{..} -> do
+                let fwdSets :: [(NodeType, Alts nid)]
+                    fwdSets = concatMap
+                                (\t -> map (t,) $ removeOrigin (msgOrigin msgType) $
+                                                    peersRoutes peers ^. routesOfType t)
+                                enqNodeTypes
 
-                        -- We don't warn when choosing an alternative here, as failure to
-                        -- choose an alternative implies failure to enqueue for 'EnqueueOne'
-                        sendOne :: [(NodeType, Alts nid)] -> m [Packet msg nid a]
-                        sendOne = fmap maybeToList
-                                . orElseM
-                                . map (sendFwdSet False [] enqMaxAhead enqPrecedence)
+                    -- We don't warn when choosing an alternative here, as failure to
+                    -- choose an alternative implies failure to enqueue for 'EnqueueOne'
+                    sendOne :: [(NodeType, Alts nid)] -> m [Packet msg nid a]
+                    sendOne = fmap maybeToList
+                            . orElseM
+                            . map (sendFwdSet False [] enqMaxAhead enqPrecedence)
 
-                    enqueued <- sendOne fwdSets
+                enqueued <- sendOne fwdSets
 
-                    -- Log an error if we didn't manage to enqueue the message
-                    if null enqueued
-                        then logFailure outQ FailedEnqueueOne (enq, Some msg, fwdSets)
-                        else logDebug $ debugEnqueued enqueued
+                -- Log an error if we didn't manage to enqueue the message
+                if null enqueued
+                    then logFailure outQ FailedEnqueueOne (enq, Some msg, fwdSets)
+                    else logDebug $ debugEnqueued enqueued
 
-                    return enqueued
+                return enqueued
   where
     -- Attempt to send the message to a single forwarding set
     sendFwdSet :: Bool                 -- ^ Warn on failure?
@@ -835,7 +805,7 @@ intEnqueue outQ@OutQ{..} msgType msg peers onConnChange =
           return Nothing
         Just alt -> liftIO $ do
           sentVar <- newEmptyMVar
-          applyMVar_ qConnections $ Map.alter alterConnStatus alt
+          atomically $ modifyTVar qConnections $ Map.alter alterConnStatus alt
           let packet = Packet {
                            packetPayload  = msg
                          , packetDestId   = alt
@@ -972,9 +942,8 @@ intDequeue :: forall m msg nid buck. WithLogger m
            => OutboundQ msg nid buck
            -> ThreadRegistry m
            -> SendMsg m msg nid
-           -> ConnectionChangeAction m nid
            -> m (Maybe CtrlMsg)
-intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg onConnChange = do
+intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
     mPacket <- getPacket
     case mPacket of
       Left ctrlMsg -> return $ Just ctrlMsg
@@ -1035,29 +1004,30 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg onConnChange = do
               applyMVar_ qRateLimited $ Set.delete (packetDestId p)
               poke qSignal)
 
-      forkThread threadRegistry $ \unmask ->
-        withConnectionStatuses onConnChange qConnections $ do
-            logDebug $ debugSending p
+      forkThread threadRegistry $ \unmask -> do
+          logDebug $ debugSending p
 
-            ma <- try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
+          ma <- try $ unmask $ sendMsg (packetPayload p) (packetDestId p)
 
-            -- Reduce the in-flight count ..
-            setInFlightFor p (\n -> n - 1) qInFlight
-            liftIO $ poke qSignal
+          -- Reduce the in-flight count ..
+          setInFlightFor p (\n -> n - 1) qInFlight
+          liftIO $ poke qSignal
 
-            -- .. /before/ notifying the sender that the send is complete.
-            -- If we did this the other way around a subsequent enqueue might fail
-            -- because of policy restrictions on the max in-flight.
-            liftIO $ putMVar (packetSent p) ma
+          -- .. /before/ notifying the sender that the send is complete.
+          -- If we did this the other way around a subsequent enqueue might fail
+          -- because of policy restrictions on the max in-flight.
+          liftIO $ putMVar (packetSent p) ma
 
-            case ma of
-                Left err -> do
-                    logFailure outQ FailedSend (Some p, err)
-                    intFailure outQ p sendStartTime err
-                Right _  -> do
-                    applyMVar_ qConnections $ Map.update (const $ Just Connected) (packetDestId p)
+          case ma of
+              Left err -> do
+                  logFailure outQ FailedSend (Some p, err)
+                  intFailure outQ p sendStartTime err
+              Right _  ->
+                atomically
+                    $ modifyTVar qConnections
+                    $ Map.update (const $ Just Connected) (packetDestId p)
 
-            logDebug $ debugSent p
+          logDebug $ debugSent p
 
     debugSending :: Packet msg nid a -> Text
     debugSending Packet{..} =
@@ -1084,7 +1054,8 @@ intFailure :: forall m msg nid buck a. MonadIO m
            -> SomeException     -- ^ The exception thrown by the send action
            -> m ()
 intFailure OutQ{..} p sendStartTime err = do
-    applyMVar_ qConnections $ Map.update (const $ Just ConnectionBroken) (packetDestId p)
+    atomically $ modifyTVar qConnections
+        $ Map.update (const $ Just ConnectionBroken) (packetDestId p)
     applyMVar_ qFailures $
       Map.insert (packetDestId p) (
           sendStartTime
@@ -1130,10 +1101,9 @@ enqueue :: (MonadIO m, WithLogger m)
         => OutboundQ msg nid buck
         -> MsgType nid -- ^ Type of the message being sent
         -> msg a       -- ^ Message to send
-        -> ConnectionChangeAction m nid
         -> m [(nid, m (Either SomeException a))]
-enqueue outQ msgType msg onConnChange = do
-    waitAsync <$> intEnqueueTo outQ msgType msg (msgEnqueueTo msgType) onConnChange
+enqueue outQ msgType msg = do
+    waitAsync <$> intEnqueueTo outQ msgType msg (msgEnqueueTo msgType)
 
 -- | Queue a message and wait for it to have been sent
 --
@@ -1143,10 +1113,9 @@ enqueueSync' :: (MonadIO m, WithLogger m)
              => OutboundQ msg nid buck
              -> MsgType nid -- ^ Type of the message being sent
              -> msg a       -- ^ Message to send
-             -> ConnectionChangeAction m nid
              -> m [(nid, Either SomeException a)]
-enqueueSync' outQ msgType msg onConnChange = do
-    promises <- enqueue outQ msgType msg onConnChange
+enqueueSync' outQ msgType msg = do
+    promises <- enqueue outQ msgType msg
     traverse (\(nid, wait) -> (,) nid <$> wait) promises
 
 -- | Queue a message and wait for it to have been sent
@@ -1160,10 +1129,9 @@ enqueueSync :: forall m msg nid buck a. (MonadIO m, WithLogger m)
             => OutboundQ msg nid buck
             -> MsgType nid -- ^ Type of the message being sent
             -> msg a       -- ^ Message to send
-            -> ConnectionChangeAction m nid
             -> m ()
-enqueueSync outQ msgType msg onConnChange =
-    warnIfNotOneSuccess outQ msg $ enqueueSync' outQ msgType msg onConnChange
+enqueueSync outQ msgType msg =
+    warnIfNotOneSuccess outQ msg $ enqueueSync' outQ msgType msg
 
 -- | Enqueue a message which really should not get lost
 --
@@ -1172,10 +1140,9 @@ enqueueCherished :: forall m msg nid buck a. (MonadIO m, WithLogger m)
                  => OutboundQ msg nid buck
                  -> MsgType nid -- ^ Type of the message being sent
                  -> msg a       -- ^ Message to send
-                 -> ConnectionChangeAction m nid
                  -> m Bool
-enqueueCherished outQ msgType msg onConnChange =
-    cherish outQ $ enqueueSync' outQ msgType msg onConnChange
+enqueueCherished outQ msgType msg =
+    cherish outQ $ enqueueSync' outQ msgType msg
 
 {-------------------------------------------------------------------------------
   Internal generalization of the enqueueing API
@@ -1187,11 +1154,10 @@ intEnqueueTo :: forall m msg nid buck a. (MonadIO m, WithLogger m)
              -> MsgType nid
              -> msg a
              -> EnqueueTo nid
-             -> ConnectionChangeAction m nid
              -> m [Packet msg nid a]
-intEnqueueTo outQ@OutQ{..} msgType msg enqTo onConnChange = do
+intEnqueueTo outQ@OutQ{..} msgType msg enqTo = do
     peers <- restrict <$> getAllPeers outQ
-    intEnqueue outQ msgType msg peers onConnChange
+    intEnqueue outQ msgType msg peers
   where
     -- Restrict the set of all peers to the requested subset (if one).
     --
@@ -1298,12 +1264,11 @@ dequeueThread :: forall m msg nid buck. (
                  )
               => OutboundQ msg nid buck
               -> SendMsg m msg nid
-              -> ConnectionChangeAction m nid
               -> m ()
-dequeueThread outQ@OutQ{..} sendMsg onConnChange = withThreadRegistry $ \threadRegistry ->
+dequeueThread outQ@OutQ{..} sendMsg = withThreadRegistry $ \threadRegistry ->
     let loop :: m ()
         loop = do
-          mCtrlMsg <- intDequeue outQ threadRegistry sendMsg onConnChange
+          mCtrlMsg <- intDequeue outQ threadRegistry sendMsg
           case mCtrlMsg of
             Nothing      -> loop
             Just ctrlMsg -> do
@@ -1418,10 +1383,10 @@ updatePeersBucket outQ@OutQ{..} buck f = do
             applyMVar_ qInFlight    $ at nid .~ Nothing
             applyMVar_ qFailures    $ Map.delete nid
             applyMVar_ qRateLimited $ Set.delete nid
-            applyMVar_ qConnections $ Map.delete nid
+            atomically $ modifyTVar qConnections $ Map.delete nid
             MQ.removeAllIn (KeyByDest nid) qScheduled
           let newConns = Map.fromList $ map (,NotConnected) $ Set.elems peers
-          applyMVar_ qConnections $ flip Map.union newConns
+          atomically $ modifyTVar qConnections $ flip Map.union newConns
           return (buckets', True)
 
     unless success $

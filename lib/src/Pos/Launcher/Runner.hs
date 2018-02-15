@@ -24,10 +24,8 @@ import           Mockable (race)
 import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 
-import           Network.Broadcast.OutboundQueue (ConnectionChangeAction)
-
 import           Pos.Binary ()
-import           Pos.Communication (ActionSpec (..), OutSpecs (..), NodeId)
+import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
@@ -71,14 +69,12 @@ runRealMode
        )
     => NodeResources ext
     -> (ActionSpec (RealMode ext) a, OutSpecs)
-    -> ConnectionChangeAction (RealMode ext) NodeId
     -> Production a
-runRealMode nr@NodeResources {..} (actionSpec, outSpecs) onConnChange =
+runRealMode nr@NodeResources {..} (actionSpec, outSpecs) =
     elimRealMode nr $ runServer
         ncNodeParams
         (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode nr))
         outSpecs
-        onConnChange
         actionSpec
   where
     NodeContext {..} = nrContext
@@ -129,10 +125,9 @@ runServer
     => NodeParams
     -> EkgNodeMetrics m
     -> OutSpecs
-    -> ConnectionChangeAction m NodeId
     -> ActionSpec m t
     -> m t
-runServer NodeParams {..} ekgNodeMetrics _ onConnChange (ActionSpec act) =
+runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do

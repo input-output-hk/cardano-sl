@@ -18,8 +18,6 @@ import           System.Wlog (LoggerName, logInfo)
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                                       getExplorerNodeOptions)
 
-import           Network.Broadcast.OutboundQueue (defaultConnectionChangeAction)
-
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
@@ -100,7 +98,6 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                     ncNodeParams
                     ekgNodeMetrics
                     outSpecs
-                    defaultConnectionChangeAction
                     go
         in  elim serverRealMode
 

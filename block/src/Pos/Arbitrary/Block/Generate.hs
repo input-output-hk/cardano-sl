@@ -1,6 +1,6 @@
 -- | Utility to generate a random block using an Arbitrary instance.
 
-module Pos.Block.Util.Generate
+module Pos.Arbitrary.Block.Generate
     ( generateBlock
     ) where
 

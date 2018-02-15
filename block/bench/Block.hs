@@ -13,8 +13,8 @@ import qualified Data.ByteString.Lazy as LBS
 import           Formatting (sformat, build, shown)
 import           System.Environment (lookupEnv)
 
+import           Pos.Arbitrary.Block.Generate (generateBlock)
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import           Pos.Block.Util.Generate (generateBlock)
 import qualified Pos.Block.BHelpers as Verify
 import           Pos.Core.Common (SharedSeed (..), CoinPortion)
 import           Pos.Core.Configuration

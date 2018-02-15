@@ -32,6 +32,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Payments
   , TxId (..)
   , Payment (..)
+  , PaymentSource (..)
   , PaymentDistribution (..)
   , Transaction (..)
   , TransactionType (..)
@@ -331,25 +332,35 @@ deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse 
 instance Default TransactionGroupingPolicy where
     def = OptimiseForSecurityPolicy
 
+-- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
+-- a 'WalletId' and an 'AccountIndex' within it.
+data PaymentSource = PaymentSource
+  { psWalletId     :: !WalletId
+  , psAccountIndex :: !AccountIndex
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''PaymentSource
+
+instance Arbitrary PaymentSource where
+  arbitrary = PaymentSource <$> arbitrary
+                            <*> arbitrary
+
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
-  { pmtSourceWallet     :: !WalletId
-    -- ^ The source Wallet.
-  , pmtSourceAccount    :: !AccountIndex
-    -- ^ The source Account.
+  { pmtSource           :: !PaymentSource
+    -- ^ The source for the payment.
   , pmtDestinations     :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.
   , pmtGroupingPolicy   :: !(Maybe TransactionGroupingPolicy)
-    -- ^ Which strategy use in grouping the input transactions.
+    -- ^ Which strategy to use for selecting the transaction inputs.
   , pmtSpendingPassword :: !(Maybe SpendingPassword)
-    -- ^ spending password to encrypt private keys
+    -- ^ spending password to access the funds.
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
 
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
-                      <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary

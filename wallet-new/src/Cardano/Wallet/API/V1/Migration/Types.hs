@@ -133,9 +133,15 @@ instance Migrate (V1.WalletId, V1.AccountIndex) V0.AccountId where
     eitherMigrate (walId, accIdx) =
         V0.AccountId <$> eitherMigrate walId <*> pure accIdx
 
+instance Migrate V1.PaymentSource V0.AccountId where
+    eitherMigrate V1.PaymentSource{..} = eitherMigrate (psWalletId, psAccountIndex)
+
 instance Migrate (V1.WalletId, V1.AccountIndex) V0.CAccountId where
     eitherMigrate (walId, accId) =
         V0.encodeCType <$> eitherMigrate (walId, accId)
+
+instance Migrate V1.PaymentSource V0.CAccountId where
+    eitherMigrate V1.PaymentSource{..} = eitherMigrate (psWalletId, psAccountIndex)
 
 instance Migrate V0.AccountId (V1.WalletId, V1.AccountIndex) where
     eitherMigrate accId =

@@ -38,7 +38,7 @@ newTransaction
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
 newTransaction submitTx Payment {..} = do
     let spendingPw = fromMaybe mempty pmtSpendingPassword
-    cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
+    cAccountId <- migrate pmtSource
     addrCoinList <- migrate $ NE.toList pmtDestinations
     policy <- migrate $ fromMaybe def pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
@@ -90,7 +90,7 @@ estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
 estimateFees Payment{..} = do
     policy <- migrate $ fromMaybe def pmtGroupingPolicy
     pendingAddrs <- V0.getPendingAddresses policy
-    cAccountId <- migrate (pmtSourceWallet, pmtSourceAccount)
+    cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
     fee <- V0.rewrapTxError "Cannot compute transaction fee" $

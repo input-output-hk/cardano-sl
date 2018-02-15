@@ -86,9 +86,12 @@ instance Example NodeInfo where
                        <*> example
                        <*> example
 
+instance Example PaymentSource where
+    example = PaymentSource <$> example
+                            <*> example
+
 instance Example Payment where
     example = Payment <$> example
-                      <*> example
                       <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example

@@ -49,6 +49,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @NodeSettings Proxy
 
         -- Migrate roundrips
+        migrateRoundtripProp @Core.Address @(V0.CId V0.Addr) Proxy Proxy
         migrateRoundtripProp @Core.Coin @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy

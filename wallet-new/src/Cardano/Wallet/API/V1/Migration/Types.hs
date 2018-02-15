@@ -14,7 +14,9 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Txp as Core
 import qualified Pos.Util.Servant as V0
@@ -164,6 +166,11 @@ instance Migrate (V0.CId V0.Addr) Core.Address where
         first (const $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
             . Core.decodeTextAddress $ h
 
+instance Migrate Core.Address (V0.CId V0.Addr) where
+    eitherMigrate address =
+      let h = sformat addressF address in
+      pure $ (V0.CId (V0.CHash h))
+
 instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, cCoin) = do
         pdAddress <- eitherMigrate cIdAddr
@@ -200,11 +207,9 @@ instance Migrate V0.CTx V1.Transaction where
 
         pure V1.Transaction{..}
 
--- | The migration instance for migrating history to a list of transactions
-instance Migrate (Map Core.TxId (V0.CTx, POSIXTime), Word) [V1.Transaction] where
-    eitherMigrate txsMapAndSize = do
-        let txsMapValues = elems . fst $ txsMapAndSize
-        mapM (eitherMigrate . fst) txsMapValues
+-- | The migration instance for migrating history to a list of transactions 
+instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
+    eitherMigrate txsMap = mapM (eitherMigrate . fst) (elems txsMap)
 
 instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
     eitherMigrate policy =

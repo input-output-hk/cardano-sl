@@ -16,4 +16,13 @@ let
   lib = pkgs.lib;
 in lib // (rec {
   inherit fetchNixPkgs;
+  ifThenElse = { bool, thenValue, elseValue }: (if bool then thenValue else elseValue);
+  fetchFromGitHub = ifThenElse {
+    bool = (0 <= builtins.compareVersions builtins.nixVersion "1.12pre");
+    thenValue = { owner, repo, rev, sha256 }: builtins.fetchTarball {
+      url = "https://github.com/${owner}/${repo}/archive/${rev}.tar.gz";
+      inherit sha256;
+    };
+    elseValue = pkgs.fetchFromGitHub;
+  };
 })

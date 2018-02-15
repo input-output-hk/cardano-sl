@@ -20,4 +20,7 @@ export NIX_REMOTE=daemon
 export NIX_PATH="nixpkgs=$(${NIX_BUILD} fetch-nixpkgs.nix -o nixpkgs)"
 export NIX_BUILD_SHELL
 
+# the pure way, causes some errors
+# ${NIX_SHELL} -E 'with import (import ./fetch-nixpkgs.nix) { config = {}; }; stdenv.mkDerivation { name = "shell"; buildInputs = [ nix bash coreutils zlib gmp ncurses purescript ]; }' "$@"
+
 ${NIX_SHELL} -p nix bash coreutils zlib gmp ncurses purescript "$@"

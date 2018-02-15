@@ -25,7 +25,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
-  , AccountId
+  , AccountIndex
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
@@ -197,11 +197,11 @@ instance Arbitrary AddressValidity where
 -- Accounts
 --------------------------------------------------------------------------------
 
-type AccountId = Word32
+type AccountIndex = Word32
 
 -- | A wallet 'Account'.
 data Account = Account
-  { accId        :: !AccountId
+  { accIndex     :: !AccountIndex
   , accAddresses :: [Core.Address]  -- should be WalletAddress
   , accAmount    :: !Core.Coin
   , accName      :: !Text
@@ -257,7 +257,7 @@ instance Arbitrary WalletAddress where
 
 data NewAddress = NewAddress
   { newaddrSpendingPassword :: !(Maybe SpendingPassword)
-  , newaddrAccountId        :: !AccountId
+  , newaddrAccountIndex     :: !AccountIndex
   , newaddrWalletId         :: !WalletId
   } deriving (Show, Eq, Generic)
 
@@ -335,7 +335,7 @@ instance Default TransactionGroupingPolicy where
 data Payment = Payment
   { pmtSourceWallet     :: !WalletId
     -- ^ The source Wallet.
-  , pmtSourceAccount    :: !AccountId
+  , pmtSourceAccount    :: !AccountIndex
     -- ^ The source Account.
   , pmtDestinations     :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.

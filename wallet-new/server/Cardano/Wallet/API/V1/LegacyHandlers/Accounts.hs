@@ -28,15 +28,15 @@ handlers walletId =
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> m NoContent
-deleteAccount wId accId =
-    migrate (wId, accId) >>= V0.deleteAccount
+    => WalletId -> AccountIndex -> m NoContent
+deleteAccount wId accIdx =
+    migrate (wId, accIdx) >>= V0.deleteAccount
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountId -> m (WalletResponse Account)
-getAccount wId accId =
-    single <$> (migrate (wId, accId) >>= V0.getAccount >>= migrate)
+    => WalletId -> AccountIndex -> m (WalletResponse Account)
+getAccount wId accIdx =
+    single <$> (migrate (wId, accIdx) >>= V0.getAccount >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
@@ -58,9 +58,9 @@ newAccount wId nAccount@NewAccount{..} = do
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> AccountUpdate -> m (WalletResponse Account)
-updateAccount wId accId accUpdate = do
-    newAccId <- migrate (wId, accId)
+    => WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
+updateAccount wId accIdx accUpdate = do
+    newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)

@@ -37,7 +37,7 @@ instance Example a => Example (WalletResponse a) where
 
 instance Example Address
 instance Example Metadata
-instance Example AccountId
+instance Example AccountIndex
 instance Example WalletId
 instance Example BackupPhrase
 instance Example AssuranceLevel

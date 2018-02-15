@@ -10,10 +10,9 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurati
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
-import qualified Data.IxSet.Typed as IxSet
 import           Data.Default
+import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
-import           Servant
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (TxAux, decodeTextAddress)
 import           Pos.Util (eitherToThrow)
@@ -22,6 +21,7 @@ import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.Util as V0
+import           Servant
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -49,18 +49,18 @@ newTransaction submitTx Payment {..} = do
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)
     => WalletId
-    -> Maybe AccountId
+    -> Maybe AccountIndex
     -> Maybe Text
     -> RequestParams
     -> m (WalletResponse [Transaction])
-allTransactions walletId mAccId mTextAddr requestParams = do
+allTransactions walletId mAccIdx mTextAddr requestParams = do
     cIdWallet <- migrate walletId
 
     -- Create a `[V0.AccountId]` to get txs from it
-    accIds <- case mAccId of
-        Just accId -> pure $ migrate (walletId, accId)
+    accIds <- case mAccIdx of
+        Just accIdx -> pure $ migrate (walletId, accIdx)
         -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
-        Nothing -> V0.getWalletAccountIds cIdWallet
+        Nothing     -> V0.getWalletAccountIds cIdWallet
         -- ^ Or get all `V0.AccountId`s of a wallet
 
     -- Helper to create a `V1.Address` from a `Text` address
@@ -70,7 +70,7 @@ allTransactions walletId mAccId mTextAddr requestParams = do
 
     -- Try to get `(V0.CId V0.Addr)` from a `Text` address
     let mV0Addr = case mTextAddr of
-            Nothing -> Nothing
+            Nothing       -> Nothing
             Just textAddr -> fromMaybe Nothing (mV0AddrFromTextAddr textAddr)
 
     -- get all `[Transaction]`'s

@@ -81,11 +81,11 @@ confirmBlockVersion confirmedEpoch bv =
 -- Specifically, one of the following conditions must be true.
 -- • Given block version is equal to last adopted block version.
 -- • Given block version is competing
-canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
-canCreateBlockBV bv = do
-    lastAdopted <- getAdoptedBV
+canCreateBlockBV :: MonadPollRead m => BlockVersion -> BlockVersion -> m Bool
+canCreateBlockBV lastAdopted bv = do
     isCompeting <- isCompetingBV bv
     pure (bv == lastAdopted || isCompeting)
+
 
 -- | Check whether given 'BlockVersion' can be proposed according to
 -- current Poll.

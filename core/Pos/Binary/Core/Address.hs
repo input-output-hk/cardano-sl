@@ -117,7 +117,7 @@ For address there are two attributes:
 -}
 
 instance Bi (Attributes AddrAttributes) where
-    -- FIXME it was observed that for a 150kb block, this call to
+    -- FIXME @avieth it was observed that for a 150kb block, this call to
     -- encodeAttributes allocated 3.685mb
     -- Try using serialize rather than serialize', to avoid the
     -- toStrict call.

@@ -1,6 +1,7 @@
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Pos.Util.Util
        (
@@ -19,6 +20,7 @@ module Pos.Util.Util
        , toCerealError
        , cerealError
        , liftE
+       , pattern Exc
 
        -- * Ether
        , ether
@@ -169,6 +171,28 @@ parsecError = toParsecError . Left
 
 liftE :: TH.Lift a => Either Text a -> TH.ExpQ
 liftE = TH.lift <=< toTemplateHaskellError
+
+-- | A pseudo-constructor for 'SomeException'. Can be used to match on
+-- exceptions of different types, or to construct 'SomeException'.
+--
+-- @
+-- data A = A deriving (..)
+-- instance Exception A
+--
+-- data B = B deriving (..)
+-- instance Exception B
+--
+-- match :: SomeException -> ...
+-- match = \case
+--   Exc A -> ...
+--   Exc B -> ...
+--   _ -> ...
+-- @
+--
+pattern Exc :: Exception e => e -> SomeException
+pattern Exc e <- (E.fromException -> Just e)
+  where
+    Exc e = E.toException e
 
 ----------------------------------------------------------------------------
 -- Ether

@@ -19,6 +19,7 @@ module Pos.Communication.Relay.Logic
        , relayPropagateOut
        , handleDataDo
        , handleInvDo
+       , InvReqCommunicationException (..)
 
        , invReqDataFlow
        , invReqDataFlowTK

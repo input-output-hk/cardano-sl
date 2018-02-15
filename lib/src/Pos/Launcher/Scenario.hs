@@ -11,6 +11,7 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
+import           Control.Exception.Safe (withException)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Mockable (mapConcurrently)
@@ -85,15 +86,13 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
 
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
-            action diffusion `catch` reportHandler
+            action diffusion `withException` reportHandler
 
     void (mapConcurrently (unpackPlugin) $ workers' ++ plugins')
 
     exitFailure
 
   where
-    -- FIXME shouldn't this kill the whole program?
-    -- FIXME: looks like something bad.
     -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
     reportHandler (SomeException e) = do
         loggerName <- askLoggerName

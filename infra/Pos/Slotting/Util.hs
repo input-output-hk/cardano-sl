@@ -6,7 +6,6 @@ module Pos.Slotting.Util
          getCurrentSlotFlat
        , getSlotStart
        , getSlotStartPure
-       , getSlotStartEmpatically
        , getCurrentEpochSlotDuration
        , getNextEpochSlotDuration
        , slotFromTimestamp
@@ -36,16 +35,14 @@ import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarni
 import           Pos.Core (FlatSlotId, HasConfiguration, LocalSlotIndex, SlotId (..),
                            Timestamp (..), flattenSlotId, slotIdF)
 import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
-import           Pos.Reporting.Methods (MonadReporting, reportOrLogE)
+import           Pos.Reporting.Methods (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Error (SlottingError (..))
 import           Pos.Slotting.Impl.Util (slotFromTimestamp)
 import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochSlottingDataM,
                                         getEpochSlottingDataM, getSystemStartM)
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, computeSlotStart,
                                      lookupEpochSlottingData)
-import           Pos.Util.Util (maybeThrow)
 
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -72,15 +69,6 @@ getSlotStartPure systemStart slotId slottingData =
 
     localSlotIndex :: LocalSlotIndex
     localSlotIndex = siSlot slotId
-
--- | Get timestamp when given slot starts empatically, which means
--- that function throws exception when slot start is unknown.
-getSlotStartEmpatically
-    :: (MonadSlotsData ctx m, MonadThrow m)
-    => SlotId
-    -> m Timestamp
-getSlotStartEmpatically slot =
-    getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
 
 -- | Get current slot duration.
 getCurrentEpochSlotDuration
@@ -167,35 +155,20 @@ onNewSlotWithLogging
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
--- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
     :: forall ctx m. MonadOnNewSlot ctx m
     => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging params action =
-    impl `catch` workerHandler
-  where
-    impl = onNewSlotDo withLogging Nothing params actionWithCatch
-    -- [CSL-198] TODO: consider removing it.
-    actionWithCatch s = action s `catch` actionHandler
-    actionHandler :: SomeException -> m ()
-    -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
-    actionHandler = reportOrLogE "onNewSlotImpl: "
-    workerHandler :: SomeException -> m ()
-    workerHandler e = do
-        -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
-        reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
-        delay =<< getNextEpochSlotDuration
-        onNewSlotImpl withLogging params action
+    onNewSlotDo withLogging Nothing params action
 
 onNewSlotDo
     :: MonadOnNewSlot ctx m
     => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotDo withLogging expectedSlotId onsp action = do
-    curSlot <- waitUntilExpectedSlot
 
-    let nextSlot = succ curSlot
+    (curSlot, nextSlot, Timestamp nextSlotStart) <- waitUntilKnownSlotStart
+
     Timestamp curTime <- currentTimeSlotting
-    Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
     let timeToWait = nextSlotStart - curTime
 
     let applyTimeout a = case onspTerminationPolicy onsp of
@@ -214,6 +187,7 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     let newParams = onsp { onspStartImmediately = True }
     onNewSlotDo withLogging (Just nextSlot) newParams action
   where
+
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
         -- definitely we don't know current slot and even if we do
@@ -227,6 +201,19 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
             -- has really started, taking into account possible inaccuracies.
             -- Usually it shouldn't happen.
                | otherwise -> delay shortDelay >> waitUntilExpectedSlot
+
+    waitUntilKnownSlotStart = do
+        curSlot <- waitUntilExpectedSlot
+        let nextSlot = succ curSlot
+        mNextSlotStart <- getSlotStart nextSlot
+        case mNextSlotStart of
+            Just nextSlotStart ->
+                return (curSlot, nextSlot, nextSlotStart)
+            Nothing -> do
+                logWarning "onNewSlotDo: unknown slot start, waiting and retrying"
+                delay =<< getNextEpochSlotDuration
+                waitUntilKnownSlotStart
+
     shortDelay :: Millisecond
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond

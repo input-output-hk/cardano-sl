@@ -39,10 +39,10 @@ instance ( Typeable b
         -- must not happen in decoding.
         when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
             "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
-        _gbhPrevBlock <- ({-# SCC "decode_header_prev" #-} decode)
-        _gbhBodyProof <- ({-# SCC "decode_header_body_proof" #-} decode)
-        _gbhConsensus <- ({-# SCC "decode_header_consensus" #-} decode)
-        _gbhExtra     <- ({-# SCC "decode_header_extra" #-} decode)
+        _gbhPrevBlock <- decode
+        _gbhBodyProof <- decode
+        _gbhConsensus <- decode
+        _gbhExtra     <- decode
         pure T.UnsafeGenericBlockHeader {..}
 
 instance ( Typeable b
@@ -61,9 +61,9 @@ instance ( Typeable b
               <> encode (T._gbExtra gb)
     decode = do
         enforceSize "GenericBlock" 3
-        _gbHeader <- ({-# SCC "decode_block_header" #-} decode)
-        _gbBody   <- ({-# SCC "decode_block_body" #-} decode)
-        _gbExtra  <- ({-# SCC "decode_block_extra" #-} decode)
+        _gbHeader <- decode
+        _gbBody   <- decode
+        _gbExtra  <- decode
         pure T.UnsafeGenericBlock {..}
 
 ----------------------------------------------------------------------------

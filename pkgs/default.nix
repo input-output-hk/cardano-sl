@@ -7304,7 +7304,7 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
              data-default formatting hspec lens MonadRandom QuickCheck
-             serokell-util universum unordered-containers
+             safe-exceptions serokell-util universum unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

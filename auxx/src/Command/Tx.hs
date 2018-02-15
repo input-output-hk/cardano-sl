@@ -109,21 +109,26 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
-        forM_ (zip (drop startAt keysToSend) [0..]) $ \(secretKey, n) -> do
-            outAddr <- makePubKeyAddressAuxx (toPublic secretKey)
-            let val1 = mkCoin 1
-                txOut1 = TxOut {
-                    txOutAddress = outAddr,
-                    txOutValue = val1
-                    }
-                txOuts = TxOutAux txOut1 :| []
+        -- construct transaction output
+        outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
+        let val1 = mkCoin 1
+            txOut1 = TxOut {
+                txOutAddress = outAddr,
+                txOutValue = val1
+                }
+            txOuts = TxOutAux txOut1 :| []
+        forM_ (zip (drop startAt keysToSend) [0.. conc * duration]) $ \(secretKey, n) -> do
             neighbours <- case sendMode of
                 SendNeighbours -> return ccPeers
                 SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
                 SendRandom -> do
                     i <- liftIO $ randomRIO (0, nNeighbours - 1)
                     return [ccPeers !! i]
-            atomically $ writeTQueue txQueue (secretKey, txOuts, neighbours)
+            utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+            etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+            case etx of
+                Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
@@ -137,8 +142,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ failed, "failed"]
                     return (TxCount 0 0 sending, sending <= 0)
                 if finished
-                then logInfo "Finished writing TPS samples."
-                else writeTPS
+                    then logInfo "Finished writing TPS samples."
+                    else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
             sendTxs :: Int -> m ()
@@ -148,19 +153,12 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                       modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (key, txOuts, neighbours) -> do
-                          utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
-                          etx <- createTx mempty utxo (fakeSigner key) txOuts (toPublic key)
-                          case etx of
-                              Left err -> do
-                                  addTxFailed tpsMVar
-                                  logError (sformat ("Error: "%build%" while trying to send to "%shown) err neighbours)
-                              Right (tx, _) -> do
-                                  res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
-                                  addTxSubmit tpsMVar
-                                  logInfo $ if res
-                                      then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
-                                      else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
+                      Just (tx, neighbours) -> do
+                          res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
+                          addTxSubmit tpsMVar
+                          logInfo $ if res
+                                    then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
+                                    else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)

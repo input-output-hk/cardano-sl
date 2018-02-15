@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GADTs #-}
 
 -- | Tx sending functionality in Auxx.
 
@@ -152,11 +153,21 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                           sendTxs (n - 1)
                       Nothing -> logInfo "No more transactions in the queue."
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
+        -- pre construct the first batch of transactions. Otherwise,
+        -- we'll be CPU bound and will not achieve high transaction
+        -- rates. If we pre construct all the transactions, the
+        -- startup time will be quite long.
+        forM_  firstBatch addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
         -- guarantee that we don't miss any numbers.
-        void $ concurrently writeTPS (sendTxsConcurrently duration)
+        --
+        -- While we're sending, we're constructing the second batch of
+        -- transactions.
+        void $
+            concurrently (forM_ secondBatch addTx) $
+            concurrently writeTPS (sendTxsConcurrently duration)
 
 ----------------------------------------------------------------------------
 -- Casual sending

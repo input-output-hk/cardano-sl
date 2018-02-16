@@ -43,7 +43,7 @@ verifyAndApplySscPayload
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
     -- Check the payload for internal consistency.
-    either (throwError . SscInvalidPayload) pure =<< runExceptT (checkSscPayload payload)
+    either (throwError . SscInvalidPayload) pure (checkSscPayload payload)
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
     whenLeft eoh $ const $ verifySscPayload eoh payload

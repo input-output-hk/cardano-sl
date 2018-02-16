@@ -142,7 +142,7 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    either (throwError . ToilInconsistentTxAux) pure =<< runExceptT (checkTxAux txAux)
+    either (throwError . ToilInconsistentTxAux) pure (checkTxAux txAux)
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx

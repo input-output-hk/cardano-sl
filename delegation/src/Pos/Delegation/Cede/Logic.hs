@@ -5,9 +5,8 @@
 module Pos.Delegation.Cede.Logic
        (
          getPskChain
-       , getPskChainInternal
        , detectCycleOnAddition
-       , dlgReachesIssuance
+       , dlgLastPsk
        , dlgVerifyHeader
        , CheckForCycle(..)
        , dlgVerifyPskHeavy
@@ -24,8 +23,8 @@ import           Formatting (build, sformat, (%))
 import           Pos.Core (EpochIndex, ProxySKHeavy, StakeholderId, addressHash, gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, psigPsk,
-                             HasCryptoConfiguration, validateProxySecretKey)
+import           Pos.Crypto (HasCryptoConfiguration, ProxySecretKey (..), PublicKey, psigPsk,
+                             validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Helpers (isRevokePsk)
@@ -40,6 +39,8 @@ getPskChain
     => StakeholderId -> m DlgMemPool
 getPskChain = getPskChainInternal HS.empty
 
+-- TODO probably, toIgnore feature is useless
+--
 -- See doc for 'getPskChain'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set. This may be used to call it
 -- several times to collect a whole tree/forest, for example.
@@ -53,6 +54,8 @@ getPskChainInternal toIgnore issuer =
     trav x | HS.member x toIgnore = pass
     trav x = do
         whenM (uses _2 $ HS.member x) $
+            -- FIXME @volhovm We should throw something else, we don't
+            -- use db directly.
             throwM $ DBMalformed "getPskChainInternal: found a PSK cycle"
         _2 %= HS.insert x
         pskM <- getPsk x
@@ -86,32 +89,25 @@ detectCycleOnAddition toAdd
                                  (isRevokePsk psk))
                    next
 
--- | Given a psk getPskr, issuer, delegate and cert he uses (to sign,
--- or taken from psk), checks if there's a psk chain "issuer →
--- delegate" and the last cert matches the provided one (can be
--- retrieved using 'psigPsk'). This *does not* check that delegate
--- didn't issue a psk to somebody else.
-dlgReachesIssuance
+-- | Returns the last certificate in the chain, starting with given
+-- issuer.
+--
+-- Delegate 'd' has right to issue block instead of issuer 'i' if
+-- there's a delegation chain:
+--
+-- i → x₁ → x₂ → … xₖ → d → ∅
+--
+-- where every arrow is resolved psk, and the last one xₖ → d (it is
+-- returned).
+dlgLastPsk
     :: (MonadCedeRead m)
-    => PublicKey                             -- ^ Issuer
-    -> PublicKey                             -- ^ Delegate
-    -> ProxySKHeavy                          -- ^ i->d psk
-    -> m Bool
-dlgReachesIssuance i d _ | i == d = pure True
-dlgReachesIssuance i d psk = reach i
+    => StakeholderId          -- ^ Issuer
+    -> m (Maybe ProxySKHeavy) -- ^ Last cert in the chain, if any
+dlgLastPsk i = reach (Nothing, i)
   where
-    -- Delegate 'd' has right to issue block instead of issuer 'i' if
-    -- there's a delegation chain:
-    --
-    -- i → x₁ → x₂ → … xₖ → d
-    --
-    -- where every arrow is resolved psk, and the last one xₖ → d
-    -- equals to the passed one.
-    reach curUser = getPsk (addressHash curUser) >>= \case
-        Nothing   -> pure False
-        Just psk'
-            | pskDelegatePk psk' == d -> pure $ psk' == psk
-            | otherwise               -> reach (pskDelegatePk psk')
+    reach (!prevPsk, !curUser) = getPsk curUser >>= \case
+        Nothing    -> pure prevPsk
+        Just !psk' -> reach (Just psk', addressHash $ pskDelegatePk psk')
 
 -- | Verifies a header from delegation perspective (signature checks).
 dlgVerifyHeader ::
@@ -119,40 +115,35 @@ dlgVerifyHeader ::
     => MainBlockHeader
     -> m (Either Text ())
 dlgVerifyHeader h = runExceptT $ do
-    -- Issuer didn't delegate the right to issue to elseone.
-    let issuer = h ^. mainHeaderLeaderKey
+    let leader = h ^. mainHeaderLeaderKey
     let sig = h ^. gbhConsensus . mcdSignature
-    issuerPsk <- getPskPk issuer
-    whenJust issuerPsk $ \psk -> case sig of
-        (BlockSignature _) ->
-            throwError $
-            sformat ("issuer "%build%" has delegated issuance right, "%
-                     "so he can't issue the block, psk: "%build%", sig: "%build)
-                issuer psk sig
-        _ -> pass
 
-    -- Check that if proxy sig is used, delegate indeed has right to
-    -- issue the block. Signatures themselves are checked in the
-    -- constructor, here we only verify they are related to slot
-    -- leader. Self-signed proxySigs are forbidden on block
-    -- construction level.
-    case h ^. gbhConsensus ^. mcdSignature of
+    case sig of
+        -- If slot leader delegated, nobody can issue blocks with default
+        -- signatures and his name in "slot leader" field.
+        (BlockSignature _) -> do
+            whenJustM (getPskPk leader) $ \psk ->
+                throwError $
+                sformat ("issuer "%build%" has delegated issuance right, "%
+                         "so he can't issue the block himself, psk: "%build%", sig: "%build)
+                    leader psk sig
+        -- We check that the cert is related to block issuer. This
+        -- also checks that the delegate didn't delegate himself.
         (BlockPSignatureHeavy pSig) -> do
-            let psk = psigPsk pSig
-            let delegate = pskDelegatePk psk
-            canIssue <- dlgReachesIssuance issuer delegate psk
+            lastPskM <- dlgLastPsk (addressHash leader)
+            let canIssue = lastPskM == (Just $ psigPsk pSig)
             unless canIssue $ throwError $
                 sformat ("heavy proxy signature's "%build%" "%
                          "related proxy cert can't be found/doesn't "%
                          "match the one in current allowed heavy psks set")
                         pSig
+        -- We check that the light signature is valid.
         (BlockPSignatureLight pSig) -> do
             let pskIPk = pskIssuerPk (psigPsk pSig)
-            unless (pskIPk == issuer) $ throwError $
+            unless (pskIPk == leader) $ throwError $
                 sformat ("light proxy signature's "%build%" issuer "%
                          build%" doesn't match block slot leader "%build)
-                        pSig pskIPk issuer
-        _ -> pass
+                        pSig pskIPk leader
 
 -- | Wrapper that turns on/off check of cycle creation in psk
 -- verification.

@@ -12,28 +12,25 @@ module Pos.Delegation.Cede.Holders
 
 import           Universum
 
-import           Control.Lens (at, (%=))
+import           Control.Lens (at, (%=), (.=))
+import qualified Control.Monad.State as Mtl
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet as HS
-import qualified Ether
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
 import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..), cmHasPostedThisEpoch,
-                                            cmPskMods, dlgEdgeActionIssuer)
+                                            cmLookupCache, cmPskMods, dlgEdgeActionIssuer)
 import qualified Pos.Delegation.DB as DB
-import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
 -- Pure database-only holder
 ----------------------------------------------------------------------------
 
-data DBCedeTag
-
-type DBCede = Ether.TaggedTrans DBCedeTag IdentityT
+type DBCede = IdentityT
 
 runDBCede :: DBCede m a -> m a
 runDBCede = coerce
@@ -52,25 +49,31 @@ instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (DBCede m) where
 
 -- | Monad transformer that holds extra layer of modifications to the
 -- underlying set of PSKs (which can be empty if you want).
-type MapCede = Ether.LazyStateT' CedeModifier
+type MapCede = Mtl.StateT CedeModifier
 
 runMapCede :: CedeModifier -> MapCede m a -> m (a, CedeModifier)
-runMapCede = flip Ether.runLazyStateT
+runMapCede = flip Mtl.runStateT
 
 evalMapCede :: Monad m => CedeModifier -> MapCede m a -> m a
-evalMapCede = flip Ether.evalLazyStateT
+evalMapCede = flip Mtl.evalStateT
 
 instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (MapCede m) where
-    getPsk iPk =
-        ether $ use (cmPskMods . at iPk) >>= \case
-            Nothing                -> lift $ DB.getPskByIssuer $ Right iPk
-            Just (DlgEdgeDel _)    -> pure Nothing
-            Just (DlgEdgeAdd psk ) -> pure (Just psk)
+    getPsk i =
+        use (cmLookupCache . at i) >>= \case
+            Just res -> pure res
+            Nothing ->
+                use (cmPskMods . at i) >>= \case
+                    Nothing                -> do
+                        res <- lift $ DB.getPskByIssuer $ Right i
+                        cmLookupCache . at i .= Just res
+                        pure res
+                    Just (DlgEdgeDel _)    -> pure Nothing
+                    Just (DlgEdgeAdd psk ) -> pure (Just psk)
     hasPostedThisEpoch sId =
-        ether $ use (cmHasPostedThisEpoch . at sId) >>= \case
+        use (cmHasPostedThisEpoch . at sId) >>= \case
             Nothing                -> lift $ DB.isIssuerPostedThisEpoch sId
             Just v                 -> pure v
-    getAllPostedThisEpoch = ether $ do
+    getAllPostedThisEpoch = do
         allPostedDb <- lift DB.getThisEpochPostedKeys
         mods <- use cmHasPostedThisEpoch
         pure $ HM.foldlWithKey'
@@ -81,6 +84,8 @@ instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (MapCede m) where
 instance (MonadDBRead m, MonadUnliftIO m) => MonadCede (MapCede m) where
     modPsk eAction = do
         let issuer = dlgEdgeActionIssuer eAction
-        ether $ cmPskMods %= HM.insert issuer eAction
-    addThisEpochPosted sId = ether $ cmHasPostedThisEpoch %= HM.insert sId True
-    delThisEpochPosted sId = ether $ cmHasPostedThisEpoch %= HM.insert sId False
+        -- drop cache
+        cmLookupCache . at issuer .= Nothing
+        cmPskMods %= HM.insert issuer eAction
+    addThisEpochPosted sId = cmHasPostedThisEpoch %= HM.insert sId True
+    delThisEpochPosted sId = cmHasPostedThisEpoch %= HM.insert sId False

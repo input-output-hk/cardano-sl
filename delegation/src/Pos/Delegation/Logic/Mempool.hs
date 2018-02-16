@@ -31,8 +31,8 @@ import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBl
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
-import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
-                                      evalMapCede, pskToDlgEdgeAction)
+import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPskHeavy,
+                                      emptyCedeModifier, evalMapCede, pskToDlgEdgeAction)
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers (isRevokePsk)
@@ -161,14 +161,13 @@ processProxySKHeavyInternal psk = do
 
     -- This is inefficient. Consider supporting this map
     -- in-memory or changing mempool key to stakeholderId.
-    let _cmPskMods = HM.fromList $
+    let pskMods = HM.fromList $
             map (bimap addressHash pskToDlgEdgeAction) $
             HM.toList cyclePool
-        -- Not used since we can't have more than one psk per issuer
-        -- in mempool and "has posted this epoch" is fully backed up
-        -- by the database.
-    let _cmHasPostedThisEpoch = mempty
-    let cedeModifier = CedeModifier {..}
+    -- We don't use postedThisEpoch since we can't have more than
+    -- one psk per issuer in mempool and "has posted this epoch"
+    -- is fully backed up by the database.
+    let cedeModifier = emptyCedeModifier & cmPskMods .~ pskMods
     (verificationError, pskValid) <-
         fmap (either (,False)
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $

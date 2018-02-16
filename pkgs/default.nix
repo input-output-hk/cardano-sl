@@ -6870,26 +6870,27 @@ inherit (pkgs) mesa;};
       "cardano-report-server" = callPackage
         ({ mkDerivation, aeson, aeson-pretty, base, bytestring
          , case-insensitive, directory, exceptions, fetchgit, filelock
-         , filepath, formatting, http-types, lens, lifted-base, log-warper
-         , monad-control, mtl, network, optparse-applicative, parsec, random
-         , stdenv, text, time, transformers, universum, vector, wai
-         , wai-extra, warp
+         , filepath, formatting, http-types, lens, lens-aeson, lifted-base
+         , log-warper, monad-control, mtl, network, optparse-applicative
+         , parsec, random, stdenv, text, time, transformers, universum
+         , vector, wai, wai-extra, warp, wreq
          }:
          mkDerivation {
            pname = "cardano-report-server";
-           version = "0.4.0";
+           version = "0.4.6";
            src = fetchgit {
              url = "https://github.com/input-output-hk/cardano-report-server.git";
-             sha256 = "02s3qqwb2c8ldxnj43xrhmscyzby165421k2p53z2x9qg35zgn6m";
-             rev = "7b28613c9c3535193991712ff5a4a36a9f165570";
+             sha256 = "0mvxq15p1qgb6gp2x4s24g97nxams7k5x8sdycq4k3rc2j362iw5";
+             rev = "54b2fc0972b34b91a906f65eb22c20245e129a01";
            };
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
              aeson aeson-pretty base bytestring case-insensitive directory
-             exceptions filelock filepath formatting http-types lens lifted-base
-             log-warper monad-control mtl network optparse-applicative parsec
-             random text time transformers universum vector wai wai-extra warp
+             exceptions filelock filepath formatting http-types lens lens-aeson
+             lifted-base log-warper monad-control mtl network
+             optparse-applicative parsec random text time transformers universum
+             vector wai wai-extra warp wreq
            ];
            executableHaskellDepends = [
              base directory filepath http-types log-warper monad-control mtl

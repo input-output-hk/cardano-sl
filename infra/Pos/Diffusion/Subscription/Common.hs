@@ -12,7 +12,9 @@ module Pos.Diffusion.Subscription.Common
 import           Universum
 
 import           Control.Exception.Safe (try)
+import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Data.List.NonEmpty as NE
+import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (convertUnit, Second)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
@@ -60,13 +62,15 @@ subscribeTo
     :: forall m. (SubscriptionMode m)
     => Timer
     -> TVar SubscriptionStatus
+    -> MVar POSIXTime -- ^ Subscription duration.
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer subStatus sendActions peer = do
+subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
     -- Change subscription status as we begin a new subscription
     atomically $ writeTVar subStatus Subscribing
     logNotice $ msgSubscribingTo peer
+    subStarted <- liftIO getPOSIXTime
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
         -- the highest available version of the conversation is picked.
@@ -77,6 +81,8 @@ subscribeTo keepAliveTimer subStatus sendActions peer = do
     logNotice $ msgSubscriptionTerminated peer reason
     -- Change subscription state
     atomically $ writeTVar subStatus NotSubscribed
+    subEnded <- liftIO getPOSIXTime
+    liftIO $ modifyMVar_ subDuration $ return . max (subEnded - subStarted)
     return reason
   where
     convMsgSubscribe :: ConversationActions MsgSubscribe Void m -> m t

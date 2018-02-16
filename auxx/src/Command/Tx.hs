@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GADTs #-}
 
 -- | Tx sending functionality in Auxx.
 
@@ -117,19 +118,22 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 txOutValue = val1
                 }
             txOuts = TxOutAux txOut1 :| []
-        forM_ (zip (drop startAt keysToSend) [0.. conc * duration]) $ \(secretKey, n) -> do
-            neighbours <- case sendMode of
-                SendNeighbours -> return ccPeers
-                SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
-                SendRandom -> do
-                    i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                    return [ccPeers !! i]
-            utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
-            etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
-            case etx of
-                Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
-
+        -- construct a transaction, and add it to the queue
+        let addTx (secretKey, n) = do
+                neighbours <- case sendMode of
+                    SendNeighbours -> return ccPeers
+                    SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
+                    SendRandom -> do
+                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
+                        return [ccPeers !! i]
+                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+                case etx of
+                    Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
+        let nTrans = conc * duration -- number of transactions we'll send
+            allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
+            (firstBatch, secondBatch) = splitAt (nTrans `div` 2) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
@@ -164,11 +168,21 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                           sendTxs (n - 1)
                       Nothing -> logInfo "No more transactions in the queue."
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
+        -- pre construct the first batch of transactions. Otherwise,
+        -- we'll be CPU bound and will not achieve high transaction
+        -- rates. If we pre construct all the transactions, the
+        -- startup time will be quite long.
+        forM_  firstBatch addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
         -- guarantee that we don't miss any numbers.
-        void $ concurrently writeTPS (sendTxsConcurrently duration)
+        --
+        -- While we're sending, we're constructing the second batch of
+        -- transactions.
+        void $
+            concurrently (forM_ secondBatch addTx) $
+            concurrently writeTPS (sendTxsConcurrently duration)
 
 ----------------------------------------------------------------------------
 -- Casual sending

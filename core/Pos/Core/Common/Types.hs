@@ -299,11 +299,10 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- | Just use the 'Coin' constructor. This is legacy but still used. Formerly
--- it would fail with 'error' if the 'Word64' exceeds 'maxCoinVal', but now you
--- have to 'checkCoin' if you care about that.
+-- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
+-- You can also use 'checkCoin' to do that check.
 mkCoin :: Word64 -> Coin
-mkCoin c = either error (const coin) (runExceptT (checkCoin coin))
+mkCoin c = either error (const coin) (checkCoin coin)
   where
     coin = (Coin c)
 {-# INLINE mkCoin #-}

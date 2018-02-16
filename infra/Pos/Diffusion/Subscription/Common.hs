@@ -29,6 +29,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              MsgSubscribe1 (..), NodeId, OutSpecs,
                                              SendActions, constantListeners,
                                              convH, toOutSpecs, withConnectionTo)
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
 import           Pos.Worker.Types (Worker, WorkerSpec, worker)
@@ -57,8 +58,14 @@ data SubscriptionTerminationReason =
 -- giving the reason. Notices will be logged before and after the subscription.
 subscribeTo
     :: forall m. (SubscriptionMode m)
-    => Timer -> SendActions m -> NodeId -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer sendActions peer = do
+    => Timer
+    -> TVar SubscriptionStatus
+    -> SendActions m
+    -> NodeId
+    -> m SubscriptionTerminationReason
+subscribeTo keepAliveTimer subStatus sendActions peer = do
+    -- Change subscription status as we begin a new subscription
+    atomically $ writeTVar subStatus Subscribing
     logNotice $ msgSubscribingTo peer
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
@@ -68,10 +75,15 @@ subscribeTo keepAliveTimer sendActions peer = do
         ]
     let reason = either Exceptional (maybe Normal absurd) outcome
     logNotice $ msgSubscriptionTerminated peer reason
+    -- Change subscription state
+    atomically $ writeTVar subStatus NotSubscribed
     return reason
   where
     convMsgSubscribe :: ConversationActions MsgSubscribe Void m -> m t
     convMsgSubscribe conv = do
+        -- We are now subscribed, in rare cases when the connection will be
+        -- dropped this will result in a missleading subscription state.
+        atomically $ writeTVar subStatus Subscribed
         send conv MsgSubscribe
         forever $ do
             startTimer keepAliveTimer
@@ -86,6 +98,7 @@ subscribeTo keepAliveTimer sendActions peer = do
 
     convMsgSubscribe1 :: ConversationActions MsgSubscribe1 Void m -> m (Maybe Void)
     convMsgSubscribe1 conv = do
+        atomically $ writeTVar subStatus Subscribed
         send conv MsgSubscribe1
         recv conv 0 -- Other side will never send
 

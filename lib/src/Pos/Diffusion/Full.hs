@@ -52,7 +52,8 @@ import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Diffusion.Types (Diffusion (..) , DiffusionLayer (..),
+                                      SubscriptionStatus (NotSubscribed))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
@@ -94,6 +95,9 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
         -- Make the outbound queue using network policies.
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
             initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
+
+        -- Subscription status.
+        subscriptionStatus <- newTVarIO NotSubscribed
 
         -- Timer is in microseconds.
         keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
@@ -236,6 +240,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 oq
                 keepaliveTimer
                 currentSlotDuration
+                subscriptionStatus
                 listeners
 
             enqueue :: EnqueueMsg d
@@ -317,10 +322,11 @@ runDiffusionLayerFull
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> Timer -- ^ Keepalive timer.
     -> d Millisecond -- ^ Slot duration; may change over time.
+    -> TVar SubscriptionStatus -- ^ Subscription status.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
+runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration subscriptionStatus listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse ->
             withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
@@ -344,7 +350,7 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
         return ((>>= either throwM return) <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
+            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration subscriptionStatus sactions
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
             dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
         Nothing -> pure ()

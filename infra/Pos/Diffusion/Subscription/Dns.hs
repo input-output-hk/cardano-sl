@@ -17,6 +17,7 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
 import           Pos.Communication.Protocol (SendActions)
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
@@ -35,9 +36,10 @@ dnsSubscriptionWorker
     -> DnsDomains DNS.Domain
     -> Timer
     -> m Millisecond
+    -> TVar SubscriptionStatus
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration sendActions = do
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -82,6 +84,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
         subscribeToOne dnsPeersList
+        atomically $ writeTVar subStatus NotSubscribed
         retryInterval >>= delay
         subscribeAlts dnsPeersVar (index, alts)
 
@@ -89,7 +92,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeToOne dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer sendActions peer
+            void $ subscribeTo keepaliveTimer subStatus sendActions peer
             subscribeToOne peers
 
     -- Find peers via DNS, preserving order.

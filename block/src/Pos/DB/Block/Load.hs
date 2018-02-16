@@ -12,6 +12,11 @@ module Pos.DB.Block.Load
        -- * Load data from tip
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
+
+       -- * Low-level functions
+       , getBlockThrow
+       , getHeaderThrow
+       , getBlundThrow
        ) where
 
 import           Universum
@@ -152,7 +157,7 @@ loadBlundsFromTipByDepth
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 ----------------------------------------------------------------------------
--- Private functions
+-- Low-level functions
 ----------------------------------------------------------------------------
 
 getBlockThrow

@@ -6961,7 +6961,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-auxx" = callPackage
-        ({ mkDerivation, ansi-wl-pprint, async, base, bytestring
+        ({ mkDerivation, aeson, ansi-wl-pprint, async, base, bytestring
          , canonical-json, cardano-sl, cardano-sl-block, cardano-sl-client
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-generator, cardano-sl-infra, cardano-sl-networking
@@ -6982,8 +6982,8 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             ansi-wl-pprint async base bytestring canonical-json cardano-sl
-             cardano-sl-block cardano-sl-client cardano-sl-core
+             aeson ansi-wl-pprint async base bytestring canonical-json
+             cardano-sl cardano-sl-block cardano-sl-client cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-generator
              cardano-sl-infra cardano-sl-networking cardano-sl-ssc
              cardano-sl-txp cardano-sl-update cardano-sl-util constraints

@@ -42,6 +42,7 @@ library
                      , MonadRandom
                      , ansi-wl-pprint
                      , async
+                     , aeson
                      , base
                      , bytestring
                      , canonical-json

@@ -22,9 +22,7 @@ library
                         Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
-                        Pos.Block.Genesis
                         Pos.Block.Logic
-                        Pos.Block.Pure
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
@@ -55,6 +53,7 @@ library
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
+                        Pos.Block.Logic.Integrity
 
                         Pos.Block.Worker
 

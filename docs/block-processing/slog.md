@@ -1,4 +1,4 @@
-Slog is a part of block processing that does things which don't fit in any other
+Slog is a part of block processing that does things which don’t fit in any other
 part (other parts being `Toil` in `txp`, `Poll` in `update`, `Toss` in `ssc`,
 `Cede` in `delegation` and `lrc`).
 
@@ -16,10 +16,10 @@ Slog is responsible for the following (see explanations below):
     -   `inMainChain` flags
 -   Calling callbacks (`BListener`)
 
-Pure verification is a set of checks in `Pos.Block.Pure` that operate on
-arbitrary sequences of blocks and verify in a pure context whether these blocks
-constitute a valid chain. For more information, see Haddock comments in
-`Pos.Block.Pure`
+Pure verification is a set of checks in `Pos.Block.Logic.Integrity` that operate
+on arbitrary sequences of blocks and verify in a pure context whether these
+blocks constitute a valid chain. For more information, see Haddock comments in
+`Pos.Block.Logic.Integrity`.
 
 Genesis blocks contain no information that cannot be derived from preceding main
 blocks, but we still store them as physical entities for convenience. Here we

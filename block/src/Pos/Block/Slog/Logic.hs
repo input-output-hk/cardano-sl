@@ -34,7 +34,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Pure (verifyBlocks)
+import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))

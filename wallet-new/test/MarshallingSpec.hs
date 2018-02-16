@@ -8,6 +8,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import           Data.Aeson
 import           Data.Typeable (typeRep)
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -25,19 +26,18 @@ spec :: Spec
 spec = describe "Marshalling & Unmarshalling" $ do
     describe "Roundtrips" $ do
         -- Aeson roundrips
-        aesonRoundtripProp @BackupPhrase Proxy
+        aesonRoundtripProp @(V1 BackupPhrase) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
         aesonRoundtripProp @NewAddress Proxy
-        aesonRoundtripProp @Core.Coin Proxy
-        aesonRoundtripProp @Crypto.PassPhrase Proxy
-        aesonRoundtripProp @TransactionGroupingPolicy Proxy
+        aesonRoundtripProp @(V1 Core.Coin) Proxy
+        aesonRoundtripProp @(V1 Crypto.PassPhrase) Proxy
+        aesonRoundtripProp @(V1 InputSelectionPolicy) Proxy
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
-        aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @WalletError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy
@@ -46,11 +46,10 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @BlockchainHeight Proxy
         aesonRoundtripProp @SyncProgress Proxy
         aesonRoundtripProp @NodeInfo Proxy
-        aesonRoundtripProp @NodeSettings Proxy
 
         -- Migrate roundrips
-        migrateRoundtripProp @Core.Address @(V0.CId V0.Addr) Proxy Proxy
-        migrateRoundtripProp @Core.Coin @V0.CCoin Proxy Proxy
+        migrateRoundtripProp @(V1 Core.Address) @(V0.CId V0.Addr) Proxy Proxy
+        migrateRoundtripProp @(V1 Core.Coin) @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy
         migrateRoundtripProp @(WalletId, AccountIndex) @V0.AccountId Proxy Proxy
@@ -60,13 +59,13 @@ spec = describe "Marshalling & Unmarshalling" $ do
     describe "Invariants" $ do
         describe "password" $ do
             it "empty string decodes to empty password" $
-                jsonString "" `decodesTo` (== Crypto.emptyPassphrase)
+                jsonString "" `decodesTo` (== V1 (Crypto.emptyPassphrase))
             it "base-16 string of length 32 decodes to nonempty password" $
                 jsonString (fromString $ replicate 64 'a')
-                    `decodesTo` (/= Crypto.emptyPassphrase)
+                    `decodesTo` (/= V1 (Crypto.emptyPassphrase))
             it "invalid length password decoding fails" $
                 -- currently passphrase should be either empty or of length 32
-                decodingFails @Crypto.PassPhrase "aabbcc" Proxy
+                decodingFails @(V1 Crypto.PassPhrase) "aabbcc" Proxy
 
 migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from) => proxy from -> proxy to -> Property
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do

@@ -10,12 +10,14 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurati
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
-import           Data.Default
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
+import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (TxAux, decodeTextAddress)
+import           Pos.Core (TxAux)
+import qualified Pos.Core as Core
 import           Pos.Util (eitherToThrow)
+import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
@@ -37,10 +39,10 @@ newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
 newTransaction submitTx Payment {..} = do
-    let spendingPw = fromMaybe mempty pmtSpendingPassword
+    let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
     cAccountId <- migrate pmtSource
     addrCoinList <- migrate $ NE.toList pmtDestinations
-    policy <- migrate $ fromMaybe def pmtGroupingPolicy
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
@@ -50,10 +52,10 @@ allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)
     => WalletId
     -> Maybe AccountIndex
-    -> Maybe Text
+    -> Maybe (V1 Core.Address)
     -> RequestParams
     -> m (WalletResponse [Transaction])
-allTransactions walletId mAccIdx mTextAddr requestParams = do
+allTransactions walletId mAccIdx mAddr requestParams = do
     cIdWallet <- migrate walletId
 
     -- Create a `[V0.AccountId]` to get txs from it
@@ -63,19 +65,13 @@ allTransactions walletId mAccIdx mTextAddr requestParams = do
         Nothing     -> V0.getWalletAccountIds cIdWallet
         -- ^ Or get all `V0.AccountId`s of a wallet
 
-    -- Helper to create a `V1.Address` from a `Text` address
-    -- and migrate it into `(V0.CId V0.Addr)`
-    let mV0AddrFromTextAddr addr =
-            either (const Nothing) (Just . migrate) (decodeTextAddress addr)
-
-    -- Try to get `(V0.CId V0.Addr)` from a `Text` address
-    let mV0Addr = case mTextAddr of
-            Nothing       -> Nothing
-            Just textAddr -> fromMaybe Nothing (mV0AddrFromTextAddr textAddr)
+    let v0Addr = case mAddr of
+            Nothing        -> Nothing
+            Just (V1 addr) -> Just $ V0.encodeCType addr
 
     -- get all `[Transaction]`'s
     let transactions = do
-            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet accIds mV0Addr
+            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet accIds v0Addr
             migrate wh
 
     -- Paginate result
@@ -88,7 +84,7 @@ estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
     => Payment
     -> m (WalletResponse EstimatedFees)
 estimateFees Payment{..} = do
-    policy <- migrate $ fromMaybe def pmtGroupingPolicy
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
     pendingAddrs <- V0.getPendingAddresses policy
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo (V0.AccountMoneySource cAccountId)

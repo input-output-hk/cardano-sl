@@ -51,7 +51,7 @@ newAccount
     :: (V0.MonadWalletLogic ctx m)
     => WalletId -> NewAccount -> m (WalletResponse Account)
 newAccount wId nAccount@NewAccount{..} = do
-    let spendingPw = fromMaybe mempty naccSpendingPassword
+    let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
     cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
     single <$> (migrate cAccount)

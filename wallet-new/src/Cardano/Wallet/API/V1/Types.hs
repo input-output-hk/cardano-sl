@@ -6,8 +6,9 @@
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Cardano.Wallet.API.V1.Types (
+    V1 (..)
   -- * Swagger & REST-related types
-    PasswordUpdate (..)
+  , PasswordUpdate (..)
   , AccountUpdate (..)
   , NewAccount (..)
   , Update
@@ -30,14 +31,12 @@ module Cardano.Wallet.API.V1.Types (
   , WalletAddress (..)
   , NewAddress (..)
   -- * Payments
-  , TxId (..)
   , Payment (..)
   , PaymentSource (..)
   , PaymentDistribution (..)
   , Transaction (..)
   , TransactionType (..)
   , TransactionDirection (..)
-  , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -60,12 +59,15 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Char as C
-import           Data.Default
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
+import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic)
+import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
+import qualified Serokell.Util.Base16 as Base16
 import           Test.QuickCheck
 import           Web.HttpApiData
 
@@ -73,13 +75,135 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOf
 import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
+import qualified Pos.Client.Txp.Util as Core
+import           Pos.Core (addressF)
 import qualified Pos.Core as Core
+import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+
+--
+-- Versioning
+--
+
+-- This deceptively-simple newtype is a wrapper to virtually @all@ the types exposed as
+-- part of this API. The reason is twofold:
+--
+-- 1. We want to version our API, and we want the types to reflect that, without us having
+-- to manually write newtype wrappers for all the types.
+--
+-- 2. Shelter an API from serialisation changes. Across versions of an API types can change,
+-- so can they JSON instances. But chances are we might want to reuse most of those for different
+-- versions of an API. Think about 'Address' or 'Coin'. Those are core Cardano types we want to
+-- probably use for the time being. But their serialisation format can change as it's not defined
+-- as part of the API, but in the lower layers of the stack.
+--
+-- General rules for serialisation:
+--
+-- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
+newtype V1 a = V1 a deriving (Eq, Ord)
+
+instance Show a => Show (V1 a) where
+    show (V1 a) = Prelude.show a
+
+instance Enum a => Enum (V1 a) where
+    toEnum x = V1 (toEnum x)
+    fromEnum (V1 a) = fromEnum a
+
+instance Bounded a => Bounded (V1 a) where
+    minBound = V1 $ minBound @a
+    maxBound = V1 $ maxBound @a
+
+--
+-- Benign instances
+--
+
+instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
+   length (V1 a) = ByteArray.length a
+   withByteArray (V1 a) callback = ByteArray.withByteArray a callback
+
+-- TODO(adinapoli) Rewrite it properly under CSL-2048.
+instance Arbitrary (V1 BackupPhrase) where
+    arbitrary = pure . V1 . BackupPhrase $ [
+          "shell"
+        , "also"
+        , "throw"
+        , "ramp"
+        , "grape"
+        , "chest"
+        , "setup"
+        , "mandate"
+        , "spare"
+        , "verb"
+        , "lemon"
+        , "test"
+        ]
+
+instance ToJSON (V1 BackupPhrase) where
+    toJSON (V1 (BackupPhrase wrds)) = toJSON wrds
+
+instance FromJSON (V1 BackupPhrase) where
+    parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
+    parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
+
+mkPassPhrase :: Text -> Either Text Core.PassPhrase
+mkPassPhrase text =
+    case Base16.decode text of
+        Left e -> Left e
+        Right bs -> do
+            let bl = BS.length bs
+            -- Currently passphrase may be either 32-byte long or empty (for
+            -- unencrypted keys).
+            if bl == 0 || bl == Core.passphraseLength
+                then Right $ ByteArray.convert bs
+                else Left $ sformat
+                     ("Expected spending password to be of either length 0 or "%int%", not "%int)
+                     Core.passphraseLength bl
+
+instance ToJSON (V1 Core.PassPhrase) where
+    toJSON = String . Base16.encode . ByteArray.convert
+
+instance FromJSON (V1 Core.PassPhrase) where
+    parseJSON (String pp) = case mkPassPhrase pp of
+        Left e    -> fail (toString e)
+        Right pp' -> pure (V1 pp')
+    parseJSON x           = typeMismatch "parseJSON failed for PassPhrase" x
+
+instance Arbitrary (V1 Core.PassPhrase) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToJSON (V1 Core.Coin) where
+    toJSON (V1 c) = toJSON . Core.unsafeGetCoin $ c
+
+instance FromJSON (V1 Core.Coin) where
+    parseJSON v = V1 . Core.mkCoin <$> parseJSON v
+
+instance Arbitrary (V1 Core.Coin) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToJSON (V1 Core.Address) where
+    toJSON (V1 c) = String $ sformat addressF c
+
+instance FromJSON (V1 Core.Address) where
+    parseJSON (String a) = case Core.decodeTextAddress a of
+        Left e     -> fail $ "Not a valid Cardano Address: " <> toString e
+        Right addr -> pure (V1 addr)
+    parseJSON x = typeMismatch "parseJSON failed for Address" x
+
+instance Arbitrary (V1 Core.Address) where
+    arbitrary = fmap V1 arbitrary
+
+instance FromHttpApiData (V1 Core.Address) where
+    parseQueryParam = fmap (fmap V1) Core.decodeTextAddress
+
+instance ToHttpApiData (V1 Core.Address) where
+    toQueryParam (V1 a) = sformat build a
 
 --
 -- Domain-specific types, mostly placeholders.
@@ -91,7 +215,7 @@ import qualified Pos.Crypto.Signing as Core
 -- 'SpendingPassword'.
 -- Practically speaking, it's just a type synonym for a PassPhrase, which is a
 -- base16-encoded string.
-type SpendingPassword = Core.PassPhrase
+type SpendingPassword = V1 Core.PassPhrase
 
 type WalletName = Text
 
@@ -134,9 +258,10 @@ instance Arbitrary WalletOperation where
 deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
+
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !BackupPhrase
+      newwalBackupPhrase     :: !(V1 BackupPhrase)
     -- ^ The backup phrase to restore the wallet.
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ The spending password to encrypt the private keys.
@@ -171,7 +296,7 @@ instance Arbitrary WalletUpdate where
 data Wallet = Wallet {
       walId      :: !WalletId
     , walName    :: !WalletName
-    , walBalance :: !Core.Coin
+    , walBalance :: !(V1 Core.Coin)
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -203,8 +328,8 @@ type AccountIndex = Word32
 -- | A wallet 'Account'.
 data Account = Account
   { accIndex     :: !AccountIndex
-  , accAddresses :: [Core.Address]  -- should be WalletAddress
-  , accAmount    :: !Core.Coin
+  , accAddresses :: [V1 Core.Address]  -- should be WalletAddress
+  , accAmount    :: !(V1 Core.Coin)
   , accName      :: !Text
   -- ^ The Account name.
   , accWalletId  :: WalletId
@@ -242,8 +367,8 @@ instance Arbitrary NewAccount where
 
 -- | Summary about single address.
 data WalletAddress = WalletAddress
-  { addrId            :: !Core.Address
-  , addrBalance       :: !Core.Coin
+  { addrId            :: !(V1 Core.Address)
+  , addrBalance       :: !(V1 Core.Coin)
   , addrUsed          :: !Bool
   , addrChangeAddress :: !Bool
   } deriving (Show, Generic)
@@ -286,7 +411,7 @@ instance Arbitrary PasswordUpdate where
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.
 data EstimatedFees = EstimatedFees {
-    feeEstimatedAmount :: !Core.Coin
+    feeEstimatedAmount :: !(V1 Core.Coin)
     -- ^ The estimated fees, as coins.
   } deriving (Show, Eq, Generic)
 
@@ -298,8 +423,8 @@ instance Arbitrary EstimatedFees where
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
 data PaymentDistribution = PaymentDistribution {
-      pdAddress :: Core.Address
-    , pdAmount  :: Core.Coin
+      pdAddress :: V1 (Core.Address)
+    , pdAmount  :: V1 (Core.Coin)
     } deriving (Show, Ord, Eq)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
@@ -307,30 +432,6 @@ deriveJSON Serokell.defaultOptions ''PaymentDistribution
 instance Arbitrary PaymentDistribution where
   arbitrary = PaymentDistribution <$> arbitrary
                                   <*> arbitrary
-
--- | A policy to be passed to each new payment request to
--- determine how a 'Transaction' is assembled.
-data TransactionGroupingPolicy =
-    OptimiseForHighThroughputPolicy
-  -- ^ Tries to minimise the size of the created transaction
-  -- by choosing only the biggest value available up until
-  -- the stake sum is greater or equal the payment amount.
-  -- Confirmed addresses are givest the highest priority (i.e.
-  -- the set of pending transactions is taken into consideration
-  -- to pick, if possible, only "stable" addresses.
-  | OptimiseForSecurityPolicy
-  -- ^ Tries to minimise the number of addresses left with
-  -- unspent funds after the transaction has been created.
-  deriving (Show, Ord, Eq, Enum, Bounded)
-
-instance Arbitrary TransactionGroupingPolicy where
-  arbitrary = elements [minBound .. maxBound]
-
--- Drops the @Policy@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
-
-instance Default TransactionGroupingPolicy where
-    def = OptimiseForSecurityPolicy
 
 -- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
 -- a 'WalletId' and an 'AccountIndex' within it.
@@ -351,11 +452,23 @@ data Payment = Payment
     -- ^ The source for the payment.
   , pmtDestinations     :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.
-  , pmtGroupingPolicy   :: !(Maybe TransactionGroupingPolicy)
+  , pmtGroupingPolicy   :: !(Maybe (V1 Core.InputSelectionPolicy))
     -- ^ Which strategy to use for selecting the transaction inputs.
   , pmtSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ spending password to access the funds.
-  } deriving (Show, Ord, Eq, Generic)
+  } deriving (Show, Eq, Generic)
+
+instance ToJSON (V1 Core.InputSelectionPolicy) where
+    toJSON (V1 Core.OptimizeForSecurity)       = String "OptimizeForSecurity"
+    toJSON (V1 Core.OptimizeForHighThroughput) = String "OptimizeForHighThroughput"
+
+instance FromJSON (V1 Core.InputSelectionPolicy) where
+    parseJSON (String "OptimizeForSecurity")       = pure (V1 Core.OptimizeForSecurity)
+    parseJSON (String "OptimizeForHighThroughput") = pure (V1 Core.OptimizeForHighThroughput)
+    parseJSON x = typeMismatch "Not a valid InputSelectionPolicy" x
+
+instance Arbitrary (V1 Core.InputSelectionPolicy) where
+    arbitrary = fmap V1 arbitrary
 
 deriveJSON Serokell.defaultOptions ''Payment
 
@@ -368,25 +481,17 @@ instance Arbitrary Payment where
 ----------------------------------------------------------------------------
 -- TxId
 ----------------------------------------------------------------------------
+instance Arbitrary (V1 Core.TxId) where
+  arbitrary = V1 <$> arbitrary
 
--- | TxId
-newtype TxId = TxId Text
-    deriving (Show, Eq, Ord, Generic)
+instance ToJSON (V1 Core.TxId) where
+  toJSON (V1 t) = String (sformat hashHexF t)
 
-deriveJSON Serokell.defaultOptions ''TxId
+instance FromHttpApiData (V1 Core.TxId) where
+    parseQueryParam = fmap (fmap V1) decodeHash
 
-instance Arbitrary TxId where
-  arbitrary = TxId . fromString <$> elements
-      [ "1f434ae9e903ea86f420cd18160d2a6c4d5efa29a1004dfb0466f7a2ec643a6d"
-      , "b53fadd178f752271cfd079aeaf2b791870ede4ed1456d889e43273a8cef87fb"
-      , "a792424d01bbba9fcdf129f40cdde3808baa7c9c38f898e40e7545358a093ca6"
-      ]
-
-instance FromHttpApiData TxId where
-    parseQueryParam = Right . TxId
-
-instance ToHttpApiData TxId where
-    toQueryParam (TxId txId) = txId
+instance ToHttpApiData (V1 Core.TxId) where
+    toQueryParam (V1 txId) = sformat hashHexF txId
 
 ----------------------------------------------------------------------------
   -- Transaction types
@@ -426,11 +531,11 @@ deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
-  { txId            :: !TxId
+  { txId            :: !(V1 Core.TxId)
     -- ^ The Tx Id.
   , txConfirmations :: !Word
     -- ^ The number of confirmations.
-  , txAmount        :: !Core.Coin
+  , txAmount        :: !(V1 Core.Coin)
     -- ^ The 'Coin' moved as part of this transaction.
   , txInputs        :: !(NonEmpty PaymentDistribution)
     -- ^ The input money distribution.
@@ -442,7 +547,7 @@ data Transaction = Transaction
     -- ^ The direction for this transaction (e.g incoming, outgoing).
   } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''Transaction
+deriveToJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> arbitrary
@@ -492,37 +597,33 @@ instance FromJSON SlotDuration where
 -- the current software version running on the node, etc.
 data NodeSettings = NodeSettings {
      setSlotDuration   :: !SlotDuration
-   , setSoftwareInfo   :: !Core.SoftwareVersion
+   , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
    , setProjectVersion :: !Version
    , setGitRevision    :: !Text
    } deriving (Show, Eq)
 
--- The following instances are derived manually due to the fact that changing the
--- way `SoftwareVersion` is represented would break compatibility with V0, so the
--- solution is either write this manual instance by hand or create a `newtype` wrapper.
---deriveJSON Serokell.defaultOptions ''NodeSettings
-instance ToJSON NodeSettings where
-    toJSON NodeSettings{..} =
-        let override Core.SoftwareVersion{..} =
-                object [ "applicationName" .= toJSON (Core.getApplicationName svAppName)
-                       , "version" .=  toJSON svNumber
-                       ]
-        in object [ "slotDuration" .= toJSON setSlotDuration
-                  , "softwareInfo" .= override setSoftwareInfo
-                  , "projectVersion" .= toJSON setProjectVersion
-                  , "gitRevision" .= toJSON setGitRevision
-                  ]
 
-instance FromJSON NodeSettings where
-    parseJSON = withObject "NodeSettings" $ \ns -> do
-        si <- ns .: "softwareInfo"
-        let softwareInfo = withObject "SoftwareVersion" $ \sw ->
-                Core.SoftwareVersion <$> sw .: "applicationName"
-                                     <*> sw .: "version"
-        NodeSettings <$> ns .: "slotDuration"
-                     <*> softwareInfo si
-                     <*> ns .: "projectVersion"
-                     <*> ns .: "gitRevision"
+instance ToJSON (V1 Core.ApplicationName) where
+    toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
+
+instance FromJSON (V1 Core.ApplicationName) where
+    parseJSON (String svAppName) = case Core.mkApplicationName svAppName of
+        Left e        -> fail $ "mkApplicationName failed: " <> toString e
+        Right appName -> pure (V1 appName)
+    parseJSON x = typeMismatch "Not a valid ApplicationName" x
+
+instance ToJSON (V1 Core.SoftwareVersion) where
+    toJSON (V1 Core.SoftwareVersion{..}) =
+        object [ "applicationName" .= toJSON (V1 svAppName)
+               -- svNumber is just a type alias to Word32
+               -- so that's fine.
+               , "version" .=  toJSON svNumber
+               ]
+
+instance Arbitrary (V1 Core.SoftwareVersion) where
+    arbitrary = fmap V1 arbitrary
+
+deriveToJSON Serokell.defaultOptions ''NodeSettings
 
 instance Arbitrary NodeSettings where
     arbitrary = NodeSettings <$> arbitrary

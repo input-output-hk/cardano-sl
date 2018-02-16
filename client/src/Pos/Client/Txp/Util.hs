@@ -8,6 +8,7 @@ module Pos.Client.Txp.Util
        (
        -- * Tx creation params
          InputSelectionPolicy (..)
+       , defaultInputSelectionPolicy
        , PendingAddresses (..)
 
        -- * Tx creation
@@ -42,7 +43,6 @@ import           Universum
 
 import           Control.Lens (makeLenses, (%=), (.=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
-import           Data.Traversable (for)
 import           Data.Default (Default (..))
 import           Data.Fixed (Fixed, HasResolution)
 import qualified Data.HashSet as HS
@@ -52,6 +52,7 @@ import qualified Data.Map as M
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
+import           Data.Traversable (for)
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))
 import           Serokell.Util (listJson)
@@ -171,7 +172,10 @@ instance Buildable (SecureLog InputSelectionPolicy) where
     build = buildUnsecure
 
 instance Default InputSelectionPolicy where
-    def = OptimizeForSecurity
+    def = defaultInputSelectionPolicy
+
+defaultInputSelectionPolicy :: InputSelectionPolicy
+defaultInputSelectionPolicy = OptimizeForSecurity
 
 instance Arbitrary InputSelectionPolicy where
     arbitrary = elements [minBound .. maxBound]

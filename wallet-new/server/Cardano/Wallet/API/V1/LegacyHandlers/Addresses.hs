@@ -45,7 +45,7 @@ newAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)
     => NewAddress -> m (WalletResponse WalletAddress)
 newAddress NewAddress {..} = do
-    let password = fromMaybe emptyPassphrase newaddrSpendingPassword
+    let (V1 password) = fromMaybe (V1 emptyPassphrase) newaddrSpendingPassword
     accountId <- migrate (newaddrWalletId, newaddrAccountIndex)
     fmap single $ V0.newAddress V0.RandomSeed password accountId
               >>= migrate

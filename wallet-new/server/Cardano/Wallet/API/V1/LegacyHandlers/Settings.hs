@@ -27,7 +27,7 @@ getSettings :: (HasConfigurations, HasCompileInfo, MonadBlockchainInfo m)
             => m (WalletResponse NodeSettings)
 getSettings = do
     settings <- NodeSettings <$> (V1.mkSlotDuration . fromIntegral <$> blockchainSlotDuration)
-                             <*> pure curSoftwareVersion
+                             <*> pure (V1 curSoftwareVersion)
                              <*> pure version
                              <*> pure (T.replace "\n" mempty $ ctiGitRevision compileInfo)
     return $ single settings

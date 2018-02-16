@@ -13,12 +13,14 @@ import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Txp as Core
+import           Pos.Crypto (decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
@@ -65,13 +67,13 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
     eitherMigrate V1.NormalAssurance = pure V0.CWANormal
 
 --
-instance Migrate V0.CCoin Core.Coin where
-    eitherMigrate =
-        first (const $ Errors.MigrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") .
-        V0.decodeCType
+instance Migrate V0.CCoin (V1 Core.Coin) where
+    eitherMigrate c =
+        let err = Left . Errors.MigrationFailed . mappend "error migrating V0.CCoin -> Core.Coin, mkCoin failed: "
+        in either err (pure . V1) (V0.decodeCType c)
 
-instance Migrate Core.Coin V0.CCoin where
-    eitherMigrate = pure . V0.encodeCType
+instance Migrate (V1 Core.Coin) V0.CCoin where
+    eitherMigrate (V1 c) = pure (V0.encodeCType c)
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
@@ -162,18 +164,18 @@ instance Migrate V0.CAccountId V1.WalletId where
         (walletId, _) :: (V1.WalletId, V1.AccountIndex) <- eitherMigrate oldAccountId
         pure walletId
 
-instance Migrate V0.CAddress Core.Address where
+instance Migrate V0.CAddress (V1 Core.Address) where
        eitherMigrate V0.CAddress {..} =
-          first (const $ Errors.MigrationFailed "Error migrating V0.CAddress -> Core.Address failed.")
-              $ V0.decodeCType cadId
+           let err = Left . Errors.MigrationFailed . mappend "Error migrating V0.CAddress -> Core.Address failed: "
+           in either err (pure . V1) (V0.decodeCType cadId)
 
-instance Migrate (V0.CId V0.Addr) Core.Address where
+instance Migrate (V0.CId V0.Addr) (V1 Core.Address) where
     eitherMigrate (V0.CId (V0.CHash h)) =
-        first (const $ Errors.MigrationFailed "Error migrating (V0.CId V0.Addr) -> Core.Address failed.")
-            . Core.decodeTextAddress $ h
+        let err = Left . Errors.MigrationFailed . mappend "Error migrating (V0.CId V0.Addr) -> Core.Address failed."
+        in either err (pure . V1) (Core.decodeTextAddress h)
 
-instance Migrate Core.Address (V0.CId V0.Addr) where
-    eitherMigrate address =
+instance Migrate (V1 Core.Address) (V0.CId V0.Addr) where
+    eitherMigrate (V1 address) =
       let h = sformat addressF address in
       pure $ (V0.CId (V0.CHash h))
 
@@ -185,15 +187,19 @@ instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
 
 instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, Core.Coin) where
     eitherMigrate V1.PaymentDistribution {..} =
-        pure (V0.encodeCType pdAddress, pdAmount)
+        let (V1 amount) = pdAmount
+            (V1 addr)   = pdAddress
+            in pure (V0.encodeCType addr, amount)
 
 instance Migrate (V0.CId V0.Addr, Core.Coin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, coin) = do
         pdAddress <- eitherMigrate cIdAddr
-        pure $ V1.PaymentDistribution pdAddress coin
+        pure $ V1.PaymentDistribution pdAddress (V1 coin)
 
-instance Migrate V0.CTxId V1.TxId where
-    eitherMigrate (V0.CTxId (V0.CHash h)) = pure $ V1.TxId h
+instance Migrate V0.CTxId (V1 Core.TxId) where
+    eitherMigrate (V0.CTxId (V0.CHash h)) =
+        let err = Left . Errors.MigrationFailed . mappend "Error migrating a TxId: "
+        in either err (pure . V1) (decodeHash h)
 
 instance Migrate V0.CTx V1.Transaction where
     eitherMigrate V0.CTx{..} = do
@@ -217,14 +223,13 @@ instance Migrate V0.CTx V1.Transaction where
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
     eitherMigrate txsMap = mapM (eitherMigrate . fst) (elems txsMap)
 
-instance Migrate V1.TransactionGroupingPolicy V0.InputSelectionPolicy where
-    eitherMigrate policy =
-        pure $ case policy of
-                  V1.OptimiseForHighThroughputPolicy -> V0.OptimizeForHighThroughput
-                  V1.OptimiseForSecurityPolicy       -> V0.OptimizeForSecurity
+instance Migrate (V1 V0.InputSelectionPolicy) V0.InputSelectionPolicy where
+    eitherMigrate (V1 policy) = pure policy
 
 instance Migrate V0.TxFee V1.EstimatedFees where
-    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees coin
+    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees (V1 coin)
 
 instance Migrate V1.EstimatedFees V0.TxFee where
-    eitherMigrate V1.EstimatedFees{..} = pure $ V0.TxFee feeEstimatedAmount
+    eitherMigrate V1.EstimatedFees{..} =
+        let (V1 amount) = feeEstimatedAmount
+            in pure $ V0.TxFee amount

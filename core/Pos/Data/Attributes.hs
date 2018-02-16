@@ -6,10 +6,6 @@
 
 module Pos.Data.Attributes
        ( UnparsedFields(..)
-       {-
-       , fromRaw
-       , toRaw
-       -}
        , Attributes (..)
        , areAttributesKnown
        , encodeAttributes

@@ -303,9 +303,10 @@ maxCoinVal = 45000000000000000
 -- it would fail with 'error' if the 'Word64' exceeds 'maxCoinVal', but now you
 -- have to 'checkCoin' if you care about that.
 mkCoin :: Word64 -> Coin
-mkCoin c
-    | c <= maxCoinVal = Coin c
-    | otherwise = error $ "Coin: " <> show c <> " is too large"
+mkCoin c = either error (const coin) (runExceptT (checkCoin coin))
+  where
+    coin = (Coin c)
+{-# INLINE mkCoin #-}
 
 checkCoin :: MonadError Text m => Coin -> m ()
 checkCoin (Coin c)

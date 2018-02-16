@@ -47,7 +47,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
-    commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+    commit: aa0b0e9192f427158108e63c06d09dce9c910b88
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git

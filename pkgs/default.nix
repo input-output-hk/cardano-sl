@@ -2254,21 +2254,21 @@ inherit (pkgs.xorg) libXrender;};
          }) {};
       "acid-state" = callPackage
         ({ mkDerivation, array, base, bytestring, cereal, containers
-         , directory, extensible-exceptions, fetchgit, filepath, mtl
-         , network, safecopy, stdenv, stm, template-haskell, th-expand-syns
-         , unix
+         , directory, extensible-exceptions, fetchgit, filelock, filepath
+         , mtl, network, safecopy, stdenv, stm, template-haskell
+         , th-expand-syns, unix
          }:
          mkDerivation {
            pname = "acid-state";
            version = "0.14.2";
            src = fetchgit {
              url = "https://github.com/serokell/acid-state.git";
-             sha256 = "109liqzk66cxkarw8r8jxh27n6qzdcha2xlhsj56xzyqc2aqjz15";
-             rev = "95fce1dbada62020a0b2d6aa2dd7e88eadd7214b";
+             sha256 = "1l19g73680g1fc7v22f2d54y8db4vhdwfmqchshf5pzv3nlxm640";
+             rev = "aa0b0e9192f427158108e63c06d09dce9c910b88";
            };
            libraryHaskellDepends = [
              array base bytestring cereal containers directory
-             extensible-exceptions filepath mtl network safecopy stm
+             extensible-exceptions filelock filepath mtl network safecopy stm
              template-haskell th-expand-syns unix
            ];
            doHaddock = false;

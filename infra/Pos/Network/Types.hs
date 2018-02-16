@@ -508,6 +508,9 @@ choosePeers valency fallbacks peerType =
 type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 
 -- | Variation on resolveDnsDomains that returns node IDs
+--
+-- This uses the network, and so may throw exceptions in case of, for instance,
+-- and unreachable network.
 resolveDnsDomains :: NetworkConfig kademlia
                   -> [NodeAddr DNS.Domain]
                   -> IO [Either DNSError [NodeId]]

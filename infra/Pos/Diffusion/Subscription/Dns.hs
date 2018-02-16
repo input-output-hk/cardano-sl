@@ -3,6 +3,7 @@ module Pos.Diffusion.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Control.Exception.Safe (IOException, tryIO)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
@@ -73,15 +74,19 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
     subscribeAlts dnsPeersVar (index, alts) = do
         -- Resolve all of the names and update the known peers in the queue.
-        dnsPeersList <- findDnsPeers index alts
-        modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
-            let dnsPeers' = M.insert index dnsPeersList dnsPeers
-            void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
-                peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
-            pure (dnsPeers', ())
-        -- Try to subscribe to some peer.
-        -- If they all fail, wait a while before trying again.
-        subscribeToOne dnsPeersList
+        mDnsPeersList <- findDnsPeers index alts
+        case mDnsPeersList of
+            Left ioexception -> do
+                logError $ sformat ("dnsSubscriptionWorker: failed to resolve names "%shown) ioexception
+            Right dnsPeersList -> do
+                modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
+                    let dnsPeers' = M.insert index dnsPeersList dnsPeers
+                    void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
+                        peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
+                    pure (dnsPeers', ())
+                -- Try to subscribe to some peer.
+                -- If they all fail, wait a while before trying again.
+                subscribeToOne dnsPeersList
         retryInterval >>= delay
         subscribeAlts dnsPeersVar (index, alts)
 
@@ -96,14 +101,26 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- In case multiple addresses are returned for one name, they're flattened
     -- and we forget the boundaries, but all of the addresses for a given name
     -- are adjacent.
-    findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> m (Alts NodeId)
+    -- An IOException from resolveDnsDomains is squelched.
+    -- It's probably (certainly?) a network-related problem, like no
+    -- internet connection, in which case we don't want the subscription
+    -- thread to blow up.
+    -- NB: safe-exceptions package is used, so this doesn't catch async
+    -- exceptions.
+    findDnsPeers
+        :: Int
+        -> Alts (NodeAddr DNS.Domain)
+        -> m (Either IOException (Alts NodeId))
     findDnsPeers index alts = do
-        mNodeIds <- liftIO $ resolveDnsDomains networkCfg alts
-        let (errs, nids_) = partitionEithers mNodeIds
-            nids = mconcat nids_
-        when (null nids)       $ logError (msgNoRelays index)
-        when (not (null errs)) $ logError (msgDnsFailure index errs)
-        return nids
+        mNodeIds <- liftIO $ tryIO $ resolveDnsDomains networkCfg alts
+        case mNodeIds of
+            Left ioexception -> pure (Left ioexception)
+            Right nodeIds -> do
+                let (errs, nids_) = partitionEithers nodeIds
+                    nids = mconcat nids_
+                when (null nids)       $ logError (msgNoRelays index)
+                when (not (null errs)) $ logError (msgDnsFailure index errs)
+                return (Right nids)
 
     -- How long to wait before retrying in case no alternative can be
     -- subscribed to.

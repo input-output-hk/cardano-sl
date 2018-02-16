@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
@@ -83,18 +83,18 @@ ptxResubmissionHandler PendingTx{..} =
         reportCanceled
 
     reportPeerAppliedEarlier =
-        logInfoS $
-        sformat ("Some peer applied tx #"%build%" earlier - continuing \
+        logInfoSP $ \sl ->
+        sformat ("Some peer applied tx #"%secretOnlyF sl build%" earlier - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
-        logInfoS $
-        sformat ("Pending transaction #"%build%" was canceled")
+        logInfoSP $ \sl ->
+        sformat ("Pending transaction #"%secretOnlyF sl build%" was canceled")
             _ptxTxId
     reportBadCondition =
-        logWarningS $
-        sformat ("Processing failure of "%build%" resubmission, but \
-            \this transaction has unexpected condition "%build)
+        logWarningSP $ \sl ->
+        sformat ("Processing failure of "%secretOnlyF sl build%" resubmission, but \
+            \this transaction has unexpected condition "%buildSafe sl)
             _ptxTxId _ptxCond
 
 type TxSubmissionMode ctx m =
@@ -156,8 +156,8 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         pshOnNonReclaimable e
 
     reportError desc e outcome =
-        logInfoS $
-        sformat ("Transaction #"%build%" application failed ("%shown%" - "
+        logInfoSP $ \sl ->
+        sformat ("Transaction #"%secretOnlyF sl build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
 
     creationFailedHandler =

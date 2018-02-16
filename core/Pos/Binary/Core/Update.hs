@@ -135,11 +135,6 @@ instance HasConfiguration => Bi U.UpdateVote where
         uvDecision   <- decode
         uvSignature  <- decode
         pure U.UnsafeUpdateVote{..}
-        {-
-        case U.validateUpdateVote U.UnsafeUpdateVote{..} of
-            Left err -> fail $ toString ("decode@UpdateVote: " <> err)
-            Right uv -> pure uv
-        -}
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
     Cons 'U.UpdatePayload [

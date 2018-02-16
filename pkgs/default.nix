@@ -7467,7 +7467,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-block, cardano-sl-core, cardano-sl-crypto
          , cardano-sl-db, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, Chart, Chart-diagrams, containers, cpphs
+         , cardano-sl-util, cassava, Chart, Chart-diagrams, containers, cpphs
          , cryptonite, data-default, directory, ed25519, ether, fgl
          , filepath, foldl, formatting, Glob, graphviz, kademlia, lens
          , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
@@ -7489,7 +7489,7 @@ inherit (pkgs) mesa;};
              cardano-sl-binary cardano-sl-block cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-txp cardano-sl-update
-             cardano-sl-util Chart Chart-diagrams containers cryptonite
+             cardano-sl-util cassava Chart Chart-diagrams containers cryptonite
              data-default directory ed25519 ether fgl filepath foldl formatting
              Glob graphviz kademlia lens lifted-async log-warper MonadRandom mtl
              neat-interpolation optparse-applicative parsec pipes

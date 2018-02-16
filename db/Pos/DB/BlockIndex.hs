@@ -3,18 +3,19 @@
 module Pos.DB.BlockIndex
        ( getHeader
        , getTipHeader
-       , blockIndexKey
+       , putHeadersIndex
+       , deleteHeaderIndex
        ) where
 
 import           Universum
 
 import           Data.ByteArray (convert)
 
-import           Pos.Core.Block (BlockHeader)
-import           Pos.Core.Common (HeaderHash)
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead)
-import           Pos.DB.Functions (dbGetBi)
+import qualified Database.RocksDB as Rocks
+import           Pos.Core (BlockHeader, BlockchainHelpers, HasConfiguration, HeaderHash,
+                           MainBlockchain, headerHash)
+import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead, MonadDB (..))
+import           Pos.DB.Functions (dbGetBi, dbSerializeValue)
 import           Pos.DB.GState.Common (getTipSomething)
 
 -- | Returns header of block that was requested from Block DB.
@@ -26,6 +27,16 @@ getHeader = dbGetBi BlockIndexDB . blockIndexKey
 -- | Get 'BlockHeader' corresponding to tip.
 getTipHeader :: MonadBlockDBRead m => m BlockHeader
 getTipHeader = getTipSomething "header" getHeader
+
+-- | Writes batch of headers into the block index db.
+putHeadersIndex :: (MonadDB m, BlockchainHelpers MainBlockchain) => [BlockHeader] -> m ()
+putHeadersIndex =
+    dbWriteBatch BlockIndexDB .
+    map (\h -> Rocks.Put (blockIndexKey $ headerHash h) (dbSerializeValue h))
+
+-- | Deletes header from the index db.
+deleteHeaderIndex :: MonadDB m => HeaderHash -> m ()
+deleteHeaderIndex = dbDelete BlockIndexDB . blockIndexKey
 
 ----------------------------------------------------------------------------
 -- Keys

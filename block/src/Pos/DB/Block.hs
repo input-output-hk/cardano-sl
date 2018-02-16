@@ -8,7 +8,7 @@ module Pos.DB.Block
        ( getBlock
        , getUndo
        , getBlund
-       , putBlund
+       , putBlunds
        , deleteBlock
 
        , getTipBlock
@@ -18,26 +18,27 @@ module Pos.DB.Block
        -- * Pure implementation
        , dbGetSerBlockPureDefault
        , dbGetSerUndoPureDefault
-       , dbPutSerBlundPureDefault
+       , dbPutSerBlundsPureDefault
 
        -- * Rocks implementation
        , dbGetSerBlockRealDefault
        , dbGetSerUndoRealDefault
-       , dbPutSerBlundRealDefault
+       , dbPutSerBlundsRealDefault
 
        -- * DBSum implementation
        , dbGetSerBlockSumDefault
        , dbGetSerUndoSumDefault
-       , dbPutSerBlundSumDefault
+       , dbPutSerBlundsSumDefault
        ) where
 
+import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (handle)
 import           Control.Lens (at)
 import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
-import           Formatting (formatToString, (%))
+import           Formatting (formatToString)
 import           System.Directory (createDirectoryIfMissing, removeFile)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
@@ -52,16 +53,13 @@ import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
-import           Pos.DB.BlockIndex (blockIndexKey)
+import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
                                SerializedUndo, getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
-import           Pos.DB.Functions (dbSerializeValue)
 import           Pos.DB.GState.Common (getTipSomething)
-import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlockIndexDB,
-                              pureBlocksStorage)
-import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getBlockIndexDB, getNodeDBs, rocksDelete,
-                               rocksPutBi)
+import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
+import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
@@ -81,8 +79,8 @@ getBlund x =
     (,) <$> MaybeT (getBlock x)
         <*> MaybeT (getUndo x)
 
-putBlund :: MonadDB m => Blund -> m ()
-putBlund = dbPutSerBlund . fmap (Serialized . serialize')
+putBlunds :: MonadDB m => NonEmpty Blund -> m ()
+putBlunds = dbPutSerBlunds . map (fmap (Serialized . serialize'))
 
 -- | Get 'Block' corresponding to tip.
 getTipBlock :: MonadDBRead m => m Block
@@ -102,24 +100,32 @@ getSerializedBlock = blockDataPath >=> getRawData
 getSerializedUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
 getSerializedUndo = undoDataPath >=> getRawData
 
--- Put given block, its metadata and Undo data into Block DB. This
--- function uses 'MonadRealDB' constraint which is too
+-- For every blund, put given block, its metadata and Undo data into
+-- Block DB. This function uses 'MonadRealDB' constraint which is too
 -- severe. Consider using 'dbPutBlund' instead.
-putSerializedBlund
-    :: (HasConfiguration, MonadRealDB ctx m)
-    => SerializedBlund -> m ()
-putSerializedBlund (blk, serUndo) = do
-    let h = headerHash blk
-    liftIO . createDirectoryIfMissing False =<< dirDataPath h
-    flip putData blk =<< blockDataPath h
-    flip putRawData (unSerialized serUndo) =<< undoDataPath h
-    putBi (blockIndexKey h) (CB.getBlockHeader blk)
+putSerializedBlunds
+    :: (HasConfiguration, MonadRealDB ctx m, MonadDB m)
+    => NonEmpty SerializedBlund -> m ()
+putSerializedBlunds (toList -> bs) = do
+    bdd <- view blockDataDir <$> getNodeDBs
+    let allData = map (\(b,u) -> let (dP, bP, uP) = getAllPaths bdd (headerHash b)
+                                 in (dP,(b,u,bP,uP))
+                      )
+                      bs
+    forM_ (ordNub $ map fst allData) $ \dPath ->
+        liftIO $ createDirectoryIfMissing False dPath
+    forM_ (map snd allData) $ \(blk,serUndo,bPath,uPath) -> do
+        putData bPath blk
+        putRawData uPath (unSerialized serUndo)
+    putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
 
-deleteBlock :: MonadRealDB ctx m => HeaderHash -> m ()
+deleteBlock :: (MonadRealDB ctx m, MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
-    delete (blockIndexKey hh)
-    deleteData =<< blockDataPath hh
-    deleteData =<< undoDataPath hh
+    deleteHeaderIndex hh
+    bdd <- view blockDataDir <$> getNodeDBs
+    let (_, bPath, uPath) = getAllPaths bdd hh
+    deleteData bPath
+    deleteData uPath
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -129,7 +135,7 @@ prepareBlockDB
     :: MonadDB m
     => GenesisBlock -> m ()
 prepareBlockDB blk =
-    dbPutSerBlund (Left blk, Serialized $ serialize' genesisUndo)
+    dbPutSerBlunds $ one (Left blk, Serialized $ serialize' genesisUndo)
   where
     genesisUndo =
         Undo
@@ -173,19 +179,19 @@ dbGetSerUndoPureDefault
     -> m (Maybe SerializedUndo)
 dbGetSerUndoPureDefault h = (Serialized . serialize' . snd) <<$>> dbGetBlundPureDefault h
 
-dbPutSerBlundPureDefault ::
-       forall ctx m. (HasConfiguration, MonadPureDB ctx m)
-    => SerializedBlund
+dbPutSerBlundsPureDefault ::
+       forall ctx m. (HasConfiguration, MonadPureDB ctx m, MonadDB m)
+    => NonEmpty SerializedBlund
     -> m ()
-dbPutSerBlundPureDefault (blk, serUndo) = do
-    undo <- eitherToThrow $ first DBMalformed $ decodeFull $ unSerialized serUndo
-    let blund :: Blund
-        blund = (blk, undo)
-    let h = headerHash blk
-    (var :: DBPureVar) <- view (lensOf @DBPureVar)
-    flip atomicModifyIORefPure var $
-        (pureBlocksStorage . at h .~ Just (serialize' blund)) .
-        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerializeValue $ CB.getBlockHeader blk))
+dbPutSerBlundsPureDefault (toList -> blunds) = do
+    forM_ blunds $ \(blk, serUndo) -> do
+        undo <- eitherToThrow $ first DBMalformed $ decodeFull $ unSerialized serUndo
+        let blund :: Blund -- explicit signature is required
+            blund = (blk,undo)
+        (var :: DBPureVar) <- view (lensOf @DBPureVar)
+        flip atomicModifyIORefPure var $
+            (pureBlocksStorage . at (headerHash blk) .~ Just (serialize' blund))
+    putHeadersIndex $ map (CB.getBlockHeader . fst) blunds
 
 ----------------------------------------------------------------------------
 -- Rocks implementation
@@ -211,15 +217,18 @@ dbGetSerUndoRealDefault ::
     -> m (Maybe SerializedUndo)
 dbGetSerUndoRealDefault x = Serialized <<$>> getSerializedUndo x
 
-dbPutSerBlundRealDefault :: (HasConfiguration, MonadDBRead m, MonadRealDB ctx m) => SerializedBlund -> m ()
-dbPutSerBlundRealDefault = putSerializedBlund
+dbPutSerBlundsRealDefault ::
+       (HasConfiguration, MonadDB m, MonadRealDB ctx m)
+    => NonEmpty SerializedBlund
+    -> m ()
+dbPutSerBlundsRealDefault = putSerializedBlunds
 
 ----------------------------------------------------------------------------
 -- DBSum implementation
 ----------------------------------------------------------------------------
 
 type DBSumEnv ctx m =
-    ( MonadDBRead m
+    ( MonadDB m
     , MonadDBSum ctx m
     , HasConfiguration
     )
@@ -235,22 +244,15 @@ dbGetSerUndoSumDefault
 dbGetSerUndoSumDefault hh =
     eitherDB (dbGetSerUndoRealDefault hh) (dbGetSerUndoPureDefault hh)
 
-dbPutSerBlundSumDefault
+dbPutSerBlundsSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => SerializedBlund -> m ()
-dbPutSerBlundSumDefault b = eitherDB (dbPutSerBlundRealDefault b) (dbPutSerBlundPureDefault b)
+    => NonEmpty SerializedBlund -> m ()
+dbPutSerBlundsSumDefault b =
+    eitherDB (dbPutSerBlundsRealDefault b) (dbPutSerBlundsPureDefault b)
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
-
-putBi
-    :: (MonadRealDB ctx m, Bi v)
-    => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getBlockIndexDB
-
-delete :: (MonadRealDB ctx m) => ByteString -> m ()
-delete k = rocksDelete k =<< getBlockIndexDB
 
 getRawData ::  forall m . (MonadIO m, MonadCatch m) => FilePath -> m (Maybe ByteString)
 getRawData  = handle handler . fmap Just . liftIO . BS.readFile
@@ -275,16 +277,21 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handler
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-dirDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
-
 blockDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-blockDataPath (formatToString (hashHexF%".block") -> fn) =
-    gitDirDataPath fn <&> (</> drop 2 fn)
+blockDataPath hh = do
+    bdd <- view blockDataDir <$> getNodeDBs
+    pure $ (view _2) $ getAllPaths bdd hh
 
 undoDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-undoDataPath (formatToString (hashHexF%".undo") -> fn) =
-    gitDirDataPath fn <&> (</> drop 2 fn)
+undoDataPath hh = do
+    bdd <- view blockDataDir <$> getNodeDBs
+    pure $ (view _3) $ getAllPaths bdd hh
 
-gitDirDataPath :: MonadRealDB ctx m => [Char] -> m FilePath
-gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
+-- | Pass blockDataDir path
+getAllPaths :: FilePath -> HeaderHash -> (FilePath, FilePath, FilePath)
+getAllPaths bdd hh = (dir,bl,un)
+  where
+    (fn0, fn1) = splitAt 2 $ formatToString hashHexF hh
+    dir = bdd </> fn0
+    bl = dir </> (fn1 <> ".block")
+    un = dir </> (fn1 <> ".undo")

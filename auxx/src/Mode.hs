@@ -177,7 +177,7 @@ instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-    dbPutSerBlund = realModeToAuxx ... dbPutSerBlund
+    dbPutSerBlunds = realModeToAuxx ... dbPutSerBlunds
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData

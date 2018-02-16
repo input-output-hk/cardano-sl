@@ -31,7 +31,7 @@ instance ToIndex Wallet Core.Coin where
         Nothing -> Nothing
         Just c  | c > Core.maxCoinVal -> Nothing
         Just c  -> Just (Core.mkCoin c)
-    accessIx Wallet{..} = walBalance
+    accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where
@@ -54,15 +54,15 @@ type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 
 -- | The indices for each major resource.
 type WalletIxs      = '[WalletId, Core.Coin]
-type TransactionIxs = '[TxId]
+type TransactionIxs = '[Core.TxId]
 type AccountIxs     = '[AccountIndex]
 
 instance Indexable WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
-                   (ixFun (\Wallet{..} -> [walBalance]))
+                   (ixFun (\Wallet{..} -> let (V1 balance) = walBalance in [balance]))
 
 instance Indexable TransactionIxs Transaction where
-  indices = ixList (ixFun (\Transaction{..} -> [txId]))
+  indices = ixList (ixFun (\Transaction{..} -> let (V1 tid) = txId in [tid]))
 
 instance Indexable AccountIxs Account where
   indices = ixList (ixFun (\Account{..} -> [accIndex]))

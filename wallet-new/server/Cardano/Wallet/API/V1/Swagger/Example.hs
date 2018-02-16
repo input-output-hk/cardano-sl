@@ -27,8 +27,8 @@ instance Example a => Example [a] where
 instance Example a => Example (Maybe a) where
     example = Just <$> example
 
-instance Example Core.PassPhrase
-instance Example Core.Coin
+instance Example (V1 Core.PassPhrase)
+instance Example (V1 Core.Coin)
 
 instance Example a => Example (WalletResponse a) where
     example = WalletResponse <$> example
@@ -36,10 +36,12 @@ instance Example a => Example (WalletResponse a) where
                              <*> example
 
 instance Example Address
+instance Example (V1 Address)
 instance Example Metadata
 instance Example AccountIndex
 instance Example WalletId
 instance Example BackupPhrase
+instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
 instance Example SyncProgress
 instance Example BlockchainHeight
@@ -63,8 +65,8 @@ instance Example NewAddress
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
 
-instance Example TransactionGroupingPolicy where
-    example = pure OptimiseForHighThroughputPolicy
+instance Example (V1 InputSelectionPolicy) where
+    example = pure (V1 OptimizeForHighThroughput)
 
 instance Example Account where
     example = Account <$> example

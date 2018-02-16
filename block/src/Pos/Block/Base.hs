@@ -12,7 +12,6 @@ module Pos.Block.Base
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
 import           Data.Default (Default (def))
 
 import           Pos.Block.BHelpers ()
@@ -74,15 +73,15 @@ mkMainHeader prevHeader slotId sk pske body extra =
 -- FIXME TBD do we need to verify here? This is not used on untrusted data,
 -- so why bother?
 mkMainBlock
-    :: (HasUpdateConfiguration, HasConfiguration, MonadError Text m)
+    :: (HasUpdateConfiguration, HasConfiguration)
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body MainBlockchain
-    -> m MainBlock
+    -> MainBlock
 mkMainBlock prevHeader slotId sk pske body =
-    pure $ UnsafeGenericBlock
+    UnsafeGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB

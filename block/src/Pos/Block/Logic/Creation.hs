@@ -304,7 +304,7 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pske body
+    pure (mkMainBlock (Just prevHeader) sId sk pske body)
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
@@ -313,8 +313,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
-        musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pske musthaveBody
+        let musthaveBlock =
+                mkMainBlock (Just prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize

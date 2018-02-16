@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Header processing logic.
+-- | Functions that validate headers coming from the network and retrieve headers
+-- from the DB.
 
 module Pos.Block.Logic.Header
        ( ClassifyHeaderRes (..)

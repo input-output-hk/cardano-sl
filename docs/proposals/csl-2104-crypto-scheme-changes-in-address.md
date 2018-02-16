@@ -170,6 +170,11 @@ go n v acc =
         _ -> pure NoPayload
 ```
 
+## Note on update process
+
+This change when introduced in new version of cardano shall be formed as a softfork update proposal.
+(Otherwise addresses with new attribute will be rejected by non-updated nodes).
+
 # User stories<a id="sec-4" name="sec-4"></a>
 
 This section has the aim of prove the validity of the proposed design against a number of relevant user stories.

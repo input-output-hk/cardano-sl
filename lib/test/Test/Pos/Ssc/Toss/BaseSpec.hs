@@ -6,6 +6,8 @@ module Test.Pos.Ssc.Toss.BaseSpec
 
 import           Universum
 
+import           Codec.CBOR.Read (deserialiseFromBytes)
+import           Codec.CBOR.Write (toLazyByteString)
 import           Control.Lens (ix, _Wrapped)
 import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
@@ -21,15 +23,17 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..), Proper
 import           Pos.Arbitrary.Lrc (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Arbitrary.Ssc (BadCommAndOpening (..), BadSignedCommitment (..),
                                     CommitmentOpening (..))
-import           Pos.Binary (AsBinary)
+import           Pos.Binary (AsBinary, AsBinaryClass (..), Bi (..))
+import           Pos.Binary.Core ()
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration, StakeholderId,
                            VssCertificate (..), VssCertificatesMap (..), addressHash, crucialSlot,
                            genesisBlockVersionData, insertVss, mkCoin, _vcVssKey)
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (..), InnerSharesMap,
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
-                               mkCommitmentsMapUnsafe)
+                               mkCommitmentsMapUnsafe, mkVssCertificate)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
                              toPublic)
+import           Pos.Crypto.SecretSharing (VssPublicKey)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -69,6 +73,7 @@ spec = withDefConfiguration $ describe "Ssc.Base" $ do
             (\e mrs hm -> emptyPayload (checkCertificatesPayload e) $ HM.insert e hm mrs)
         prop description_checksGoodCertsPayload checksGoodCertsPayload
         prop description_checksBadCertsPayload checksBadCertsPayload
+        prop description_checksBijectiveCertsPayload checksBijectiveCertsPayload
   where
     description_verifiesOkComm =
         "successfully verifies a correct commitment commitment"
@@ -103,6 +108,8 @@ spec = withDefConfiguration $ describe "Ssc.Base" $ do
     description_checksBadCertsPayload =
         "unsuccessfully checks payload of certificates with the right exception for each\
         \ failure case"
+    description_checksBijectiveCertsPayload =
+        "no two stakeholders can have same active VSS keys"
 
 verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
@@ -615,6 +622,37 @@ checksBadCertsPayload (GoodPayload epoch sgs certsMap mrs) pk cert =
     in (not (HM.member certSid $ mrs HM.! epoch) &&
         not (vcVssKey cert `elem` allVssKeys))
        ==> res1 .&&. res2 .&&. res3 .&&. res4
+
+-- [CT-99]: Test that no two stakeholders can have same active VSS keys. Specifically:
+--
+-- A VSS payload with two certs that have equal VSS keys should not be
+-- deserializable (with decode).
+checksBijectiveCertsPayload :: HasConfiguration
+                            => VssCertificatesMap
+                            -> SecretKey
+                            -> SecretKey
+                            -> VssPublicKey
+                            -> Property
+checksBijectiveCertsPayload (UnsafeVssCertificatesMap vssCertsMap) sk1 sk2 vssPk = do
+    -- generate two certificates with different SecretKeys but same VssKey
+    let binaryVssPk = asBinary vssPk
+    let cert1 = mkVssCertificate sk1 binaryVssPk 0
+    let cert2 = mkVssCertificate sk2 binaryVssPk 0
+    let key1  = addressHash (vcSigningKey cert1)
+    let key2  = addressHash (vcSigningKey cert2)
+    let newCerts = UnsafeVssCertificatesMap
+                 $ HM.insert key1 cert1
+                 $ HM.insert key2 cert2 vssCertsMap
+
+    -- check that certificate duplication throws error on decoding stage
+    let encodedCerts = encode newCerts
+    let decodedCerts = deserialiseFromBytes (decode @VssCertificatesMap)
+                                            (toLazyByteString encodedCerts)
+    let check = case decodedCerts of
+            Left _  -> property True
+            Right _ -> qcFail "Decoding of VssCertMap with duplicate certs should fail"
+
+    sk1 /= sk2 ==> check
 
 ----------------------------------------------------------------------------
 -- Utility functions for this module

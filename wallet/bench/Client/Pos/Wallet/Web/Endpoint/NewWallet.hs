@@ -6,8 +6,9 @@ module Client.Pos.Wallet.Web.Endpoint.NewWallet
 
 import           Universum
 
-import           Test.QuickCheck                   (arbitrary, generate)
+import           Data.Function                     (id)
 import           Data.Time.Clock                   (getCurrentTime)
+import           Crypto.Random.Entropy             (getEntropy)
 
 import           Client.Pos.Wallet.Web.Api         (newWallet)
 import           Client.Pos.Wallet.Web.Run         (runEndpointClient)
@@ -16,13 +17,14 @@ import           Bench.Pos.Wallet.Types            (BenchEndpoint (..), Complete
                                                     Response, ResponseReport (..))
 import           Pos.Wallet.Web.ClientTypes        (CWallet (..), CWalletInit (..),
                                                     CWalletMeta (..), CWalletAssurance (..))
-import           Pos.Util.BackupPhrase             (BackupPhrase)
+import           Pos.Util.BackupPhrase             (BackupPhrase, mkBackupPhrase12)
+import           Pos.Util.Mnemonics                (toMnemonic)
 
 -- | Run 'NewWallet' client. As a result we will get a newly created wallet.
 newWalletIO :: CompleteConfig -> IO ()
 newWalletIO conf@CompleteConfig {..} = do
     timeForNow <- getCurrentTime
-    backupPhrase <- generate arbitrary :: IO BackupPhrase
+    backupPhrase <- generateBackupPhrase
     let walletName = "Wallet " <> show timeForNow -- For unique name of wallet.
         assurance  = CWAStrict
         smallUnit  = 1 -- For Lovelaces
@@ -31,6 +33,14 @@ newWalletIO conf@CompleteConfig {..} = do
         passPhrase = Nothing -- Don't use passphrase, for simplicity.
     response <- runEndpointClient conf $ newWallet passPhrase walletInit
     analyzeResponseIfNeeded NewWalletBench conf $ analyze response
+
+-- | Generate new backup phrase for new wallet.
+generateBackupPhrase :: IO BackupPhrase
+generateBackupPhrase = do
+    -- The size 16 should give us 12-words mnemonic after BIP-39 encoding.
+    genMnemonic <- getEntropy 16
+    let newMnemonic = either (error . show) id $ toMnemonic genMnemonic
+    return $ mkBackupPhrase12 $ words newMnemonic
 
 -- | Analyze response with new address.
 analyze

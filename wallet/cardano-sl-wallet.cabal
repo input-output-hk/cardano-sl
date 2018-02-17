@@ -387,6 +387,7 @@ benchmark cardano-sl-wallet-bench
                      , cardano-sl-wallet
                      , cassava
                      , connection
+                     , cryptonite
                      , data-default
                      , gauge
                      , http-client

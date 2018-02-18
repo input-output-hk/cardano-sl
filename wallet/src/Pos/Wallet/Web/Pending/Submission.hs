@@ -11,6 +11,8 @@ module Pos.Wallet.Web.Pending.Submission
 
     , TxSubmissionMode
     , submitAndSavePtx
+    , TxSubmissionResult (..)
+    , submitAndSavePtxMocked
     ) where
 
 import           Universum
@@ -23,8 +25,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux)
+import           Pos.Core (Timestamp, diffTimestamp, getCurrentTimestamp)
+import           Pos.Core.Txp (TxId, TxAux)
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
@@ -102,6 +104,18 @@ type TxSubmissionMode ctx m =
     , MonadWalletDB ctx m
     )
 
+
+-- | Covering the `submitAndSave` code paths (end states) with types so we can test it.
+data TxSubmissionResult
+    = TxApplying
+    | TxStillApplying
+    | TxTimeoutWhenApplying PtxPoolInfo PendingTx
+    | TxMinorError Text SomeException
+    | TxNonReclaimableError SomeException
+    | TxCreationFailed
+    deriving (Show)
+
+
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
@@ -116,41 +130,35 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         throwM $ InternalError "Transaction creation is disabled by configuration!"
 
     now <- getCurrentTimestamp
-    if | PtxApplying poolInfo <- _ptxCond,
-         Just creationTime <- poolInfo ^. thTimestamp,
-         diffTimestamp now creationTime > hour 1 -> do
-           let newCond = PtxWontApply "1h limit exceeded" poolInfo
-           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
-           logInfo $
-             sformat ("Pending transaction #"%build%" discarded becauce \
-                      \the 1h time limit was exceeded")
-                      _ptxTxId
-       | otherwise -> do
-           addOnlyNewPendingTx ptx
-           (saveTx (_ptxTxId, _ptxTxAux)
-               `catches` handlers)
-               `onException` creationFailedHandler
-           ack <- submitTx _ptxTxAux
-           reportSubmitted ack
 
-           poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
-           _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
-           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+    submissionResult <- submitAndSavePtxMocked ptx now saveTxAndResult
+
+    case submissionResult of
+
+        TxTimeoutWhenApplying poolInfo ptx' -> submitAndSaveTxApplying poolInfo ptx'
+        TxMinorError desc e -> minorError desc e
+        TxNonReclaimableError e -> nonReclaimableError e
+        TxCreationFailed -> creationFailedHandler
+
+        TxStillApplying -> pure ()
+        TxApplying -> do
+            ack <- submitTx _ptxTxAux
+            reportSubmitted ack
+
+            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
+            _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
+            when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+
+
   where
-    handlers =
-        [ Handler $ \e ->
-            if isReclaimableFailure e
-                then minorError "reclaimable" (SomeException e)
-                else nonReclaimableError (SomeException e)
+    saveTxAndResult (txId, txAux) = do
+        saveTx (txId, txAux)
+        pure TxApplying
 
-        , Handler $ \e@SomeException{} ->
-            -- I don't know where this error can came from,
-            -- but it's better to try with tx again than to regret, right?
-            minorError "unknown error" e
-        ]
     minorError desc e = do
         reportError desc e ", but was given another chance"
         pshOnMinor e
+
     nonReclaimableError e = do
         reportError "fatal" e ""
         pshOnNonReclaimable e
@@ -166,9 +174,73 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         -- while transaction creation failed, due to protocol error or bug,
         -- then we better not remove this pending transaction
         void $ usingPtxCoords removeOnlyCreatingPtx ptx
+
     badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"
 
     reportSubmitted ack =
         logDebug $
         sformat ("submitAndSavePtx: transaction submitted with confirmation?: "
                 %build) ack
+
+
+-- As simple and as clear as I could.
+submitAndSavePtxMocked
+    :: TxSubmissionMode ctx m
+    => PendingTx
+    -> Timestamp
+    -> ((TxId, TxAux) -> m TxSubmissionResult)
+    -> m TxSubmissionResult
+submitAndSavePtxMocked ptx@PendingTx{..} now mSaveTx =
+
+    case _ptxCond of
+
+      PtxApplying poolInfo -> do
+          let Just creationTime = poolInfo ^. thTimestamp
+          if diffTimestamp now creationTime > hour 1
+              then pure $ TxTimeoutWhenApplying poolInfo ptx
+              else pure $ TxStillApplying
+
+      _ -> do
+          addOnlyNewPendingTx ptx
+          saveTxWithHandlers $ mSaveTx (_ptxTxId, _ptxTxAux)
+
+
+saveTxWithHandlers
+    :: MonadMask m
+    => m TxSubmissionResult
+    -> m TxSubmissionResult
+saveTxWithHandlers mSaveTx = do
+    _ <- (mSaveTx `catches` handlers) `onException` creationFailedHandler
+    -- The transaction is being applied.
+    pure TxApplying
+  where
+    handlers =
+        [ Handler $ \e ->
+            if isReclaimableFailure e
+                then minorError "reclaimable" (SomeException e)
+                else nonReclaimableError (SomeException e)
+
+        , Handler $ \e@SomeException{} ->
+            -- I don't know where this error can came from,
+            -- but it's better to try with tx again than to regret, right?
+            minorError "unknown error" e
+        ]
+
+    minorError desc e = pure $ TxMinorError desc e
+    nonReclaimableError e = pure $ TxNonReclaimableError e
+    creationFailedHandler = pure $ TxCreationFailed
+
+
+submitAndSaveTxApplying
+    :: TxSubmissionMode ctx m
+    => PtxPoolInfo
+    -> PendingTx
+    -> m ()
+submitAndSaveTxApplying poolInfo PendingTx{..} = do
+    let newCond = PtxWontApply "1h limit exceeded" poolInfo
+    void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+    logInfo $
+      sformat ("Pending transaction #"%build%" discarded becauce \
+               \the 1h time limit was exceeded")
+               _ptxTxId
+

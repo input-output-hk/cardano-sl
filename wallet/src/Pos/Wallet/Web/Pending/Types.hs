@@ -115,7 +115,7 @@ instance Buildable (SecureLog PtxCondition) where
 data PtxSubmitTiming = PtxSubmitTiming
     { _pstNextSlot  :: SlotId
     , _pstNextDelay :: FlatSlotId
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 makeLenses ''PtxSubmitTiming
 

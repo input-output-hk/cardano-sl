@@ -311,6 +311,8 @@ reportNode sendLogs extendWithNodeInfo reportType =
         logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RInfo text) =
         logInfo $ "Reporting info with text \"" <> text <> "\""
+    logReportType (RCustomReport{}) =
+        logInfo $ "Reporting custom report"
 
     -- Retrieves node info that we would like to know when analyzing
     -- malicious behavior of node.

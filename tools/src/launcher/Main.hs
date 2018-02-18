@@ -430,11 +430,11 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     (walletExitCode, nodeExitCode) <- if
        | someAsync == nodeAsync -> do
-             unless (exitCode == ExitFailure 20) $
+             unless (exitCode == ExitFailure 20) $ do
                  logWarning $ sformat ("The node has exited with "%shown) exitCode
-             whenJust report $ \repServ -> do
-                 logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ
+                 whenJust report $ \repServ -> do
+                     logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+                     reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode

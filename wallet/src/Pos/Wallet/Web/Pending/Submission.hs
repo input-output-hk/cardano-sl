@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Pending.Submission
     , TxSubmissionMode
     , submitAndSavePtx
     , TxSubmissionResult (..)
+    , saveTxWithHandlers
     , submitAndSavePtxMocked
     ) where
 

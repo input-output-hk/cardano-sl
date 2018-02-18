@@ -144,7 +144,7 @@ library
                       , cardano-sl-db
                       , cardano-sl-networking
                       , cardano-sl-util
-                      , cardano-report-server >= 0.3.0
+                      , cardano-report-server >= 0.4.5
                       , conduit
                       , containers
                       , directory

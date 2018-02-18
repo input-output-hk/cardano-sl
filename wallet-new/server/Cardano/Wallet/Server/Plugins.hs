@@ -15,15 +15,15 @@ module Cardano.Wallet.Server.Plugins (
 
 import           Universum
 
-import           Cardano.Wallet.API              as API
-import qualified Cardano.Wallet.Kernel           as Kernel
+import           Cardano.Wallet.API as API
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
-import qualified Cardano.Wallet.Kernel.Mode      as Kernel
-import qualified Cardano.Wallet.LegacyServer     as LegacyServer
-import qualified Cardano.Wallet.Server           as Server
-import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..), isDebugMode,
-                                            walletAcidInterval, walletDbOptions,
-                                            NewWalletBackendParams(..) )
+import qualified Cardano.Wallet.Kernel.Mode as Kernel
+import qualified Cardano.Wallet.LegacyServer as LegacyServer
+import qualified Cardano.Wallet.Server as Server
+import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
+                                            WalletBackendParams (..), isDebugMode,
+                                            walletAcidInterval, walletDbOptions)
 
 import           Formatting (build, sformat, (%))
 import           Mockable
@@ -49,8 +49,8 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
 import           Pos.Web (serveWeb)
+import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
-import           Pos.Worker.Types (worker, WorkerSpec)
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = ([WorkerSpec m], OutSpecs)

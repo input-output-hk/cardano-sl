@@ -93,6 +93,9 @@ getWalletNodeOptions = execParser programInfo
 
 tlsParamsOption :: Opt.Parser TlsParams
 tlsParamsOption = do
+    -- usually modified depending on exterior cmd arguments, e.g. @--debug@
+    let tpAllowInsecure = False
+
     tpCertPath <-
         Opt.strOption $
             CLI.templateParser

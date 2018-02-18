@@ -23,9 +23,10 @@ data SscStage
 
 -- | TLS Transport Layer Security file paths.
 data TlsParams = TlsParams
-    { tpCertPath :: FilePath
-    , tpCaPath   :: FilePath
-    , tpKeyPath  :: FilePath
+    { tpCertPath      :: FilePath
+    , tpCaPath        :: FilePath
+    , tpKeyPath       :: FilePath
+    , tpAllowInsecure :: Bool      -- ^ Allow HTTP requests, for debugging
     } deriving (Show)
 
 newtype CConfirmedProposalState = CConfirmedProposalState Text

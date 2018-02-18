@@ -21,7 +21,8 @@ import           Data.Default (Default)
 import           Mockable (Async, Mockable, Production (runProduction), withAsync)
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.WarpTLS (OnInsecure (AllowInsecure), TLSSettings, onInsecure,
+                                              runTLS, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
@@ -95,7 +96,13 @@ serveImpl app host port walletTLSParams =
     mTlsConfig = tlsParamsToWai <$> walletTLSParams
 
 tlsParamsToWai :: TlsParams -> TLSSettings
-tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+tlsParamsToWai TlsParams{..} =
+    maybeAllowInsecure $ tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+  where
+    maybeAllowInsecure settings
+        | tpAllowInsecure = settings{ onInsecure = AllowInsecure }
+        | otherwise = settings
+
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

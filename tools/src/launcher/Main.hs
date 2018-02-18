@@ -592,11 +592,13 @@ runWallet shouldLog nd nLogPath = do
             cr <- createLogFileProc wpath wargs lp
             system' phvar cr mempty EWallet
         Nothing ->
-           -- if nLog is Nothing and shouldLog is True
-           -- we want to CreatePipe otherwise Inherit
-           let cr = if shouldLog && isNothing nLogPath then
-                        Process.CreatePipe
-                    else Process.Inherit
+           let cr = if | not shouldLog -> Process.NoStream
+                       -- If node's output is not redirected, we want
+                       -- to receive node's output and modify it.
+                       | isNothing nLogPath -> Process.CreatePipe
+                       -- If node's output is redirected, it's ok to
+                       -- let wallet log to launcher's standard streams.
+                       | otherwise -> Process.Inherit
            in system' phvar (createProc cr wpath wargs) mempty EWallet
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess

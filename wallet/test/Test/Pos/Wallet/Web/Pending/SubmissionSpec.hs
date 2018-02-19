@@ -4,8 +4,6 @@ module Test.Pos.Wallet.Web.Pending.SubmissionSpec
 
 import           Universum
 
-import           Control.Exception (throw)
-
 import           Data.Default (def)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
@@ -19,8 +17,7 @@ import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.ClientTypes (CHash (..), CId (..))
 
-import           Pos.Wallet.Web.Pending.Submission (TxSubmissionResult (..), saveTxWithHandlers,
-                                                    submitAndSavePtxMocked)
+import           Pos.Wallet.Web.Pending.Submission (TxSubmissionResult (..), submitAndSavePtxMocked)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
 import           Test.Pos.Util (assertProperty, withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
@@ -32,26 +29,10 @@ spec = withCompileInfo def $
        withDefConfigurations $
     describe "Wallet.Web.Pending.SubmissionSpec" $ modifyMaxSuccess (const 100) $ do
         describe "submitAndSaveTx" $ do
-            describe "Tx minor error handling" saveTxWithHandlersSpec
-
             describe "Normal application" normalApplicationSpec
             describe "Tx timeout after an hour " txTimeoutSpec
-            describe "ToilTooLarge exception occurs " toilTooLargeSpec
             describe "ToilKnown exception occurs " toilKnownLargeSpec
-
-
-saveTxWithHandlersSpec :: (HasCompileInfo, HasConfigurations) => Spec
-saveTxWithHandlersSpec = walletPropertySpec normalApplicationDesc $ do
-    result     <- lift $ saveTxWithHandlers (throw ToilKnown)
-
-    assertProperty (testState result) $
-      ("Tx should be in state TxMinorError, in state " <> show result)
-  where
-    normalApplicationDesc = "Tx handling: `TxMinorError`"
-
-    testState (TxMinorError _ _) = True
-    testState _                  = False
-
+            describe "ToilTooLarge exception occurs " toilTooLargeSpec
 
 -- testTime :: UTCTime
 -- testTime = parseTime True defaultTimeLocale "%Y-%m-%dT%H:%M:%S%z" "2017-03-29T11:02:57+00:00 "
@@ -64,12 +45,11 @@ normalApplicationSpec = walletPropertySpec normalApplicationDesc $ do
                       pendingTx
                       timestamp
                       (\_ -> pure TxApplying)
-    -- _ <- stopProperty $ "Should be valid: " <> show result
 
     assertProperty (testState result) $
-        "Tx should be in state TxApplying"
+        ("Tx should be in state TxStillApplying, in state " <> show result)
   where
-    normalApplicationDesc = "Normal application: `PtxApplying -> PtxApplying`"
+    normalApplicationDesc = "Normal application: `PtxApplying -> TxStillApplying`"
 
     testState TxStillApplying = True
     testState _               = False
@@ -86,31 +66,12 @@ txTimeoutSpec = walletPropertySpec normalApplicationDesc $ do
                       (\_ -> pure TxApplying)
 
     assertProperty (testState result) $
-        "Tx should be in state TxApplying"
+        ("Tx should be in state TxTimeoutWhenApplying, in state " <> show result)
   where
-    normalApplicationDesc = "Tx timeout application: `PtxApplying -> PtxWontApply`"
+    normalApplicationDesc = "Tx timeout application: `PtxApplying -> TxTimeoutWhenApplying`"
 
     testState (TxTimeoutWhenApplying _ _) = True
     testState _                           = False
-
--- Exceptions that can occur should be in TxMinorError --
-
-toilTooLargeSpec :: (HasCompileInfo, HasConfigurations) => Spec
-toilTooLargeSpec = walletPropertySpec normalApplicationDesc $ do
-    let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
-    tx         <- liftIO $ creatingTx $ Just timestamp
-    result     <- lift $ submitAndSavePtxMocked
-                      tx
-                      timestamp
-                      (\_ -> throwM $ ToilTooLargeTx 100 100)
-
-    assertProperty (testState result) $
-        "Tx should be in state TxApplying"
-  where
-    normalApplicationDesc = "Toil too large application: `PtxPersisted -> PtxApplying`"
-
-    testState TxApplying = True
-    testState _          = False
 
 
 toilKnownLargeSpec :: (HasCompileInfo, HasConfigurations) => Spec
@@ -123,12 +84,30 @@ toilKnownLargeSpec = walletPropertySpec normalApplicationDesc $ do
                       (\_ -> throwM ToilKnown)
 
     assertProperty (testState result) $
-        "Tx should be in state TxApplying"
+        ("Tx should be in state TxMinorError, in state " <> show result)
   where
-    normalApplicationDesc = "Toil known application: `PtxPersisted -> PtxApplying`"
+    normalApplicationDesc = "Toil known application: `PtxCreating -> TxMinorError`"
 
-    testState TxApplying = True
-    testState _          = False
+    testState (TxMinorError _ _) = True
+    testState _                  = False
+
+
+toilTooLargeSpec :: (HasCompileInfo, HasConfigurations) => Spec
+toilTooLargeSpec = walletPropertySpec normalApplicationDesc $ do
+    let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
+    tx         <- liftIO $ creatingTx $ Just timestamp
+    result     <- lift $ submitAndSavePtxMocked
+                      tx
+                      timestamp
+                      (\_ -> throwM $ ToilTooLargeTx 100 100)
+
+    assertProperty (testState result) $
+        ("Tx should be in state TxNonReclaimableError, in state " <> show result)
+  where
+    normalApplicationDesc = "Toil too large application: `PtxCreating -> TxNonReclaimableError`"
+
+    testState (TxNonReclaimableError _) = True
+    testState _                         = False
 
 
 applyingTx :: HasConfigurations => Maybe Timestamp -> IO PendingTx

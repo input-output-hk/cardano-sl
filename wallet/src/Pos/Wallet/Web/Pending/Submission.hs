@@ -12,7 +12,6 @@ module Pos.Wallet.Web.Pending.Submission
     , TxSubmissionMode
     , submitAndSavePtx
     , TxSubmissionResult (..)
-    , saveTxWithHandlers
     , submitAndSavePtxMocked
     ) where
 
@@ -203,17 +202,7 @@ submitAndSavePtxMocked ptx@PendingTx{..} now mSaveTx =
 
       _ -> do
           addOnlyNewPendingTx ptx
-          saveTxWithHandlers $ mSaveTx (_ptxTxId, _ptxTxAux)
-
-
-saveTxWithHandlers
-    :: MonadMask m
-    => m TxSubmissionResult
-    -> m TxSubmissionResult
-saveTxWithHandlers mSaveTx = do
-    _ <- (mSaveTx `catches` handlers) `onException` creationFailedHandler
-    -- The transaction is being applied.
-    pure TxApplying
+          (mSaveTx (_ptxTxId, _ptxTxAux) `catches` handlers) `onException` creationFailedHandler
   where
     handlers =
         [ Handler $ \e ->

@@ -23,7 +23,7 @@ module Pos.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -62,6 +62,9 @@ data NodeConfiguration = NodeConfiguration
       -- ^ Disallow transaction creation or re-submission of
       -- pending transactions by the wallet
     } deriving (Show, Generic)
+
+instance ToJSON NodeConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 instance FromJSON NodeConfiguration where
     parseJSON = genericParseJSON defaultOptions

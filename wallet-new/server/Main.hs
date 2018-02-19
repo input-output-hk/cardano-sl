@@ -97,7 +97,6 @@ startEdgeNode WalletStartupOptions{..} = do
     getParameters :: HasConfigurations => Production (SscParams, NodeParams)
     getParameters = do
 
-      whenJust (CLI.cnaDumpGenesisDataPath wsoNodeArgs) $ CLI.dumpGenesisData True
       currentParams <- CLI.getNodeParams loggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)

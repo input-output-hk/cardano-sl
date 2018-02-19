@@ -373,8 +373,9 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @(Attributes X1)
                 binaryTest @(Attributes X2)
                 brokenDisabled $ binaryTest @UserSecret
-                binaryTest @WalletUserSecret
-                binaryTest @EncryptedSecretKey
+                modifyMaxSuccess (min 50) $ do
+                    binaryTest @WalletUserSecret
+                    binaryTest @EncryptedSecretKey
                 binaryTest @(WithHash ARecord)
 
             describe "Primitive instances" $ do
@@ -446,18 +447,15 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
             describe "Bi instances" $ do
                 describe "Undo" $ do
                     binaryTest @BT.SlogUndo
-                    binaryTest @BT.Undo
-                describe "Block network types" $ do
-                    describe "MsgGetHeaders" $
-                        binaryTest @BT.MsgGetHeaders
-                    describe "MsgGetBlocks" $
-                        binaryTest @BT.MsgGetBlocks
-                    describe "MsgHeaders" $ do
-                        binaryTest @BT.MsgHeaders
-                    describe "MsgBlock" $ do
-                        binaryTest @BT.MsgBlock
+                    modifyMaxSuccess (min 50) $ do
+                        binaryTest @BT.Undo
+                describe "Block network types" $ modifyMaxSuccess (min 10) $ do
+                    binaryTest @BT.MsgGetHeaders
+                    binaryTest @BT.MsgGetBlocks
+                    binaryTest @BT.MsgHeaders
+                    binaryTest @BT.MsgBlock
                 describe "Blockchains and blockheaders" $ do
-                    describe "GenericBlockHeader" $ do
+                    modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
                         describe "GenesisBlockHeader" $ do
                             binaryTest @BT.GenesisBlockHeader
                         describe "MainBlockHeader" $ do
@@ -478,7 +476,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                             binaryTest @BT.BlockSignature
                         describe "ConsensusData" $ do
                             binaryTest @(BT.ConsensusData BT.MainBlockchain)
-                        describe "Body" $ do
+                        modifyMaxSuccess (min 10) $ describe "Body" $ do
                             binaryTest @(BT.Body BT.MainBlockchain)
                         describe "MainToSign" $ do
                             binaryTest @BT.MainToSign
@@ -546,7 +544,11 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @Ssc.Commitment
                 binaryTest @Ssc.CommitmentsMap
                 binaryTest @Ssc.Opening
-                binaryTest @Ssc.SscPayload
+                modifyMaxSuccess (min 10) $ do
+                    binaryTest @Ssc.SscPayload
+                    binaryTest @Ssc.TossModifier
+                    binaryTest @Ssc.VssCertData
+                    binaryTest @Ssc.SscGlobalState
                 binaryTest @Ssc.SscProof
                 binaryTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId))
                 binaryTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId))
@@ -556,9 +558,6 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @(R.DataMsg Ssc.MCShares)
                 binaryTest @(R.DataMsg Ssc.MCVssCertificate)
                 binaryTest @Ssc.SscTag
-                binaryTest @Ssc.TossModifier
-                binaryTest @Ssc.VssCertData
-                binaryTest @Ssc.SscGlobalState
                 binaryTest @Ssc.SscSecretStorage
             describe "Message length limit" $ do
                 msgLenLimitedTest @Ssc.Opening

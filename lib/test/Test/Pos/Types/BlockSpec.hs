@@ -26,8 +26,9 @@ import           Pos.Util.Chrono (NewestFirst (..))
 
 import           Test.Pos.Configuration (withDefConfiguration)
 
+-- This tests are quite slow, hence max success is at most 20.
 spec :: Spec
-spec = withDefConfiguration $ describe "Block properties" $ do
+spec = withDefConfiguration $ describe "Block properties" $ modifyMaxSuccess (min 20) $ do
     describe "mkMainHeader" $ do
         prop mainHeaderFormationDesc mainHeaderFormation
     describe "mkGenesisHeader" $ do

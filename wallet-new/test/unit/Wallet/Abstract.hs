@@ -119,6 +119,22 @@ interpret es p = go
     verify :: Wallets ws h a -> Either Text (Wallets ws h a)
     verify ws = p ws >> return ws
 
+inductiveGen 
+    :: Gen (Block h a)
+    -> Gen (Transaction h a)
+    -> Gen (Inductive h a)
+inductiveGen mkBlock mkTransaction = sized go
+  where 
+    go n
+        | n <= 1 = pure WalletEmpty
+        | otherwise = do
+            this <- frequency 
+                [ (1, ApplyBlock <$> mkBlock)
+                , (9, NewPending <$> mkTransaction)
+                ]
+            next <- go (n-1)
+            pure (this next)
+
 {-------------------------------------------------------------------------------
   Invariants
 -------------------------------------------------------------------------------}

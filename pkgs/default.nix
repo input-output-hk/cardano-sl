@@ -119,6 +119,8 @@ self: {
           pname = "HUnit";
           version = "1.5.0.0";
           sha256 = "186ykl7vxlfgkd2k8k1rq7yzcryzjpqwmn4ci1nn9h6irqbivib5";
+          revision = "1";
+          editedCabalFile = "10mwjkm6gpk92rl8x676hyqhdwbcyx4mbgjk9f4lcx93ymvslp5i";
           libraryHaskellDepends = [
             base
             call-stack
@@ -338,8 +340,8 @@ self: {
           pname = "active";
           version = "0.2.0.13";
           sha256 = "1yw029rh0gb63bhwwjynbv173mny14is4cyjkrlvzvxwb0fi96jx";
-          revision = "2";
-          editedCabalFile = "1ml42hbvfhqzpdi1y5q6dqp4wq6zqb30f15r34n9ip9iv44qjwwf";
+          revision = "3";
+          editedCabalFile = "0jm8kkqa5k9nppis3jdx11nmds6w0x62rmnv5bn5q3b75llhnlc1";
           libraryHaskellDepends = [
             base
             lens
@@ -908,8 +910,8 @@ self: {
           pname = "bytes";
           version = "0.15.3";
           sha256 = "0kfdw1c13y3kxc1s9nzyavrv1ccipzrmqlwmigj3gnwjcjvddp6q";
-          revision = "2";
-          editedCabalFile = "07j20bmhysp4dawy8am1j4lhg21s5c2i8ckqby0iykmfgrlsrcv0";
+          revision = "3";
+          editedCabalFile = "13dwn6srx7zgiyayx5yxc14425asph9mylbi21yw30g04ahrbkxv";
           setupHaskellDepends = [
             base
             Cabal
@@ -2128,6 +2130,8 @@ self: {
           pname = "case-insensitive";
           version = "1.2.0.10";
           sha256 = "0v1hclvv0516fnlj5j2izd9xmakl7dshi9cb32iz6dgvzx01qck6";
+          revision = "2";
+          editedCabalFile = "197c93pa4lq6rgv59s9q9m11lziyyy6jlizvqap4lz0ijfnmj1gx";
           libraryHaskellDepends = [
             base
             bytestring
@@ -2252,8 +2256,8 @@ self: {
           pname = "comonad";
           version = "5.0.2";
           sha256 = "115pai560rllsmym76bj787kwz5xx19y8bl6262005nddqwzxc0v";
-          revision = "1";
-          editedCabalFile = "1lnsnx8p3wlfhd1xfc68za3b00vq77z2m6b0vqiw2laqmpj9akcw";
+          revision = "2";
+          editedCabalFile = "1ngks9bym68rw0xdq43n14nay4kxdxv2n7alwfd9wcpismfz009g";
           setupHaskellDepends = [
             base
             Cabal
@@ -2839,8 +2843,8 @@ self: {
           pname = "distributive";
           version = "0.5.3";
           sha256 = "0y566r97sfyvhsmd4yxiz4ns2mqgwf5bdbp56wgxl6wlkidq0wwi";
-          revision = "3";
-          editedCabalFile = "17qqdl8p04vy314jp045100989lh84cbhqv6ghizm87xpk7ck4j3";
+          revision = "4";
+          editedCabalFile = "1v6b2vnharppjn6w36lxfy0dvl93jzjq7fcyq9cp71650f1g9ai5";
           setupHaskellDepends = [
             base
             Cabal
@@ -3243,8 +3247,8 @@ self: {
           pname = "exceptions";
           version = "0.8.3";
           sha256 = "1gl7xzffsqmigam6zg0jsglncgzxqafld2p6kb7ccp9xirzdjsjd";
-          revision = "2";
-          editedCabalFile = "1vl59j0l7m53hkzlcfmdbqbab8dk4lp9gzwryn7nsr6ylg94wayw";
+          revision = "5";
+          editedCabalFile = "1kfgp41i6mfz9gjczp3flvqxfhnznd81rwldv8j05807n6mnqqii";
           libraryHaskellDepends = [
             base
             mtl
@@ -3676,8 +3680,10 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.8";
-          sha256 = "186ky3bly0i3cc56qk3r7j7pxh2108aackq4n2lli7jmbnb3kxsd";
+          version = "1.19.9";
+          sha256 = "138xpxdb7x62lpmgmb6b3v3vgdqqvqn4273jaap3mjmc2gla709y";
+          revision = "1";
+          editedCabalFile = "1lm706nv64cvfi3ccg7hc3217642sg0z9f9xz2ivbpzvzwwn8gj6";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [
@@ -3836,6 +3842,8 @@ self: {
           pname = "hspec-core";
           version = "2.4.4";
           sha256 = "1pxzr3l8b9640mh904n51nwlr2338wak23781s48a9kzvwf347b0";
+          revision = "1";
+          editedCabalFile = "0m4bmclgs7as957wdnq1y4zh49hrwpslgz5m9430myl4dc14r81l";
           libraryHaskellDepends = [
             ansi-terminal
             array
@@ -4103,8 +4111,8 @@ self: {
           pname = "insert-ordered-containers";
           version = "0.2.1.0";
           sha256 = "1612f455dw37da9g7bsd1s5kyi84mnr1ifnjw69892amyimi47fp";
-          revision = "3";
-          editedCabalFile = "0ik4n32rvamxvlp80ixjrbhskivynli7b89s4hk6401bcy3ykp3g";
+          revision = "4";
+          editedCabalFile = "0ls5rm5hg2lqp2m6bfssa30y72x8xyyl7izvwr3w804dpa9fvwrm";
           libraryHaskellDepends = [
             aeson
             base
@@ -4120,7 +4128,7 @@ self: {
           doHaddock = false;
           doCheck = false;
           homepage = "https://github.com/phadej/insert-ordered-containers#readme";
-          description = "Associative containers retating insertion order for traversals";
+          description = "Associative containers retaining insertion order for traversals";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       integer-gmp = callPackage ({ ghc-prim, mkDerivation, stdenv }:
@@ -4143,6 +4151,8 @@ self: {
           pname = "integer-logarithms";
           version = "1.0.2";
           sha256 = "0w5mhak181zi6qr5h2zbcs9ymaqacisp9jwk99naz6s8zz5rq1ii";
+          revision = "1";
+          editedCabalFile = "0sccd0d6qrcm3a7nni5lqv40g5m5knf965z4skkgbyyhb3z6qsq8";
           libraryHaskellDepends = [
             array
             base
@@ -4160,8 +4170,8 @@ self: {
           pname = "intervals";
           version = "0.8.1";
           sha256 = "00vyxf3ba9d7aas3npfapr53w71fslgh69fczjb25axr66fvzqww";
-          revision = "1";
-          editedCabalFile = "0im2m4acx6g638h7yz0x3qyaipfmri59q4zdq1w7n608r3i406dj";
+          revision = "2";
+          editedCabalFile = "0ia6pig8g2hg1nr0p46s3npv0gvd2cn9mkgm232slwynyb63qjkn";
           setupHaskellDepends = [
             base
             Cabal
@@ -4344,6 +4354,8 @@ self: {
           pname = "lifted-base";
           version = "0.2.3.11";
           sha256 = "1ass00wfa91z5xp2xmm97xrvwm7j5hdkxid5cqvr3xbwrsgpmi4f";
+          revision = "1";
+          editedCabalFile = "0vrik0j1xv2yp759ffa7jb7q838z4wglnbgsrja97mx0dwsbavnx";
           libraryHaskellDepends = [
             base
             monad-control
@@ -4360,8 +4372,8 @@ self: {
           pname = "linear";
           version = "1.20.7";
           sha256 = "1dna0zf4qwqwvslz0nkkfclvbflfvf10qydnjsi20wijilkbd22b";
-          revision = "1";
-          editedCabalFile = "0ghmlkk5cy0pylx47rwr37p403ml7x6sg0sapz9c7534nzzhxq0g";
+          revision = "2";
+          editedCabalFile = "1w5194k2sqr508942xr9acfzk80avc4bwax347blw4js4vl5adwn";
           setupHaskellDepends = [
             base
             Cabal
@@ -4744,8 +4756,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "1by8xwjc23l6pa9l4iv7zp82dykpll3vc3hgxk0pgva724n8xhma";
-          revision = "2";
-          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
+          revision = "4";
+          editedCabalFile = "1zppa1fcc7pl7ak0hs3w3pkx34398nrfiiwa3w689ib08kqkdpby";
           libraryHaskellDepends = [
             base
           ];
@@ -5047,6 +5059,8 @@ self: {
           pname = "parallel";
           version = "3.2.1.1";
           sha256 = "05rw8zhpqhx31zi6vg7zpyciaarh24j7g2p613xrpyrnksybjfrj";
+          revision = "1";
+          editedCabalFile = "12sgigg7r4nmyhbfn1p09ajf4s576yca31b7daj5zpp1mxgb5x7i";
           libraryHaskellDepends = [
             array
             base
@@ -5063,6 +5077,8 @@ self: {
           pname = "parsec";
           version = "3.1.11";
           sha256 = "0vk7q9j2128q191zf1sg0ylj9s9djwayqk9747k0a5fin4f2b1vg";
+          revision = "1";
+          editedCabalFile = "0prqjj2gxlwh2qhpcck5k6cgk4har9xqxc67yzjqd44mr2xgl7ir";
           libraryHaskellDepends = [
             base
             bytestring
@@ -5513,6 +5529,8 @@ self: {
           pname = "regex-tdfa";
           version = "1.2.2";
           sha256 = "0f8x8wyr6m21g8dnxvnvalz5bsq37l125l6qhs0fscbvprsxc4nb";
+          revision = "1";
+          editedCabalFile = "0m2i94gm6a1m6sn3mj47jbnmjp5ksiqmdn6v4pdr7xsv5a15gfwn";
           libraryHaskellDepends = [
             array
             base
@@ -6268,8 +6286,8 @@ self: {
       stringbuilder = callPackage ({ base, mkDerivation, stdenv }:
       mkDerivation {
           pname = "stringbuilder";
-          version = "0.5.0";
-          sha256 = "1ap95xphqnrhv64c2a137wqslkdmb2jjd9ldb17gs1pw48k8hrl9";
+          version = "0.5.1";
+          sha256 = "1fh3csx1wcssn8xyvl4ip4aprh9l4qyz2kk8mgjvqvc0vb2bsy6q";
           libraryHaskellDepends = [
             base
           ];
@@ -6413,8 +6431,8 @@ self: {
           pname = "tagged";
           version = "0.8.5";
           sha256 = "16cdzh0bw16nvjnyyy5j9s60malhz4nnazw96vxb0xzdap4m2z74";
-          revision = "1";
-          editedCabalFile = "15mqdimbgrq5brqljjl7dbxkyrxppap06q53cp7ml7w3l08v5mx8";
+          revision = "2";
+          editedCabalFile = "0r2knfcq0b4s652vlvlnfwxlc2mkc2ra9kl8bp4zdn1awmfy0ia5";
           libraryHaskellDepends = [
             base
             deepseq
@@ -7093,8 +7111,8 @@ self: {
           pname = "vector";
           version = "0.12.0.1";
           sha256 = "0yrx2ypiaxahvaz84af5bi855hd3107kxkbqc8km29nsp5wyw05i";
-          revision = "1";
-          editedCabalFile = "1xjv8876kx9vh86w718vdaaai40pwnsiw8368c5h88ch8iqq10qb";
+          revision = "2";
+          editedCabalFile = "0vzr8kra73anchp86knkmkq2afkd1hw6hirldn9vn69frynb1n6y";
           libraryHaskellDepends = [
             base
             deepseq

@@ -16,7 +16,8 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON, withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
+                             withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
@@ -28,7 +29,8 @@ import           System.Wlog (WithLogger, logInfo)
 import           Pos.Aeson.Core.Configuration ()
 
 import           Pos.Block.Configuration
-import           Pos.Configuration
+import           Pos.Configuration (HasNodeConfiguration, NodeConfiguration (..),
+                                    withNodeConfiguration)
 import           Pos.Core.Configuration
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Delegation.Configuration
@@ -43,13 +45,16 @@ data Configuration = Configuration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
-    , ccBlock  :: !BlockConfiguration
     , ccDlg    :: !DlgConfiguration
+    , ccBlock  :: !BlockConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
 instance FromJSON Configuration where
     parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON Configuration where
+    toJSON = genericToJSON defaultOptions
 
 type HasConfigurations =
     ( HasConfiguration

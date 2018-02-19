@@ -7,11 +7,11 @@ module Pos.Infra.Configuration
        , ntpServers
        ) where
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
-import           Data.Reflection (Given, give, given)
-import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Reflection (Given, give, given)
+import           Serokell.Aeson.Options (defaultOptions)
 
 data InfraConfiguration = InfraConfiguration
     {
@@ -56,6 +56,9 @@ data InfraConfiguration = InfraConfiguration
 
 instance FromJSON InfraConfiguration where
     parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON InfraConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 type HasInfraConfiguration = Given InfraConfiguration
 

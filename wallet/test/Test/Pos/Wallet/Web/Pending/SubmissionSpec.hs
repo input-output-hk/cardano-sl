@@ -9,6 +9,7 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, arbitrary, generate)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
+import           Test.QuickCheck.Monadic (PropertyM)
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Timestamp (..), addMicrosecondsToTimestamp)
@@ -17,7 +18,8 @@ import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.ClientTypes (CHash (..), CId (..))
 
-import           Pos.Wallet.Web.Pending.Submission (TxSubmissionResult (..), submitAndSavePtxMocked)
+import           Pos.Wallet.Web.Pending.Submission (TxSubmissionMode, TxSubmissionResult (..),
+                                                    submitAndSavePtxMocked)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
 import           Test.Pos.Util (assertProperty, withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
@@ -37,8 +39,9 @@ spec = withCompileInfo def $
 -- testTime :: UTCTime
 -- testTime = parseTime True defaultTimeLocale "%Y-%m-%dT%H:%M:%S%z" "2017-03-29T11:02:57+00:00 "
 
+
 normalApplicationSpec :: (HasCompileInfo, HasConfigurations) => Spec
-normalApplicationSpec = walletPropertySpec normalApplicationDesc $ do
+normalApplicationSpec = walletPropertySpec decription $ do
     let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
     pendingTx  <- liftIO $ applyingTx $ Just timestamp
     result     <- lift $ submitAndSavePtxMocked
@@ -49,13 +52,14 @@ normalApplicationSpec = walletPropertySpec normalApplicationDesc $ do
     assertProperty (testState result) $
         ("Tx should be in state TxStillApplying, in state " <> show result)
   where
-    normalApplicationDesc = "Normal application: `PtxApplying -> TxStillApplying`"
+    decription = "Normal application: `PtxApplying -> TxStillApplying`"
 
     testState TxStillApplying = True
     testState _               = False
 
+
 txTimeoutSpec :: (HasCompileInfo, HasConfigurations) => Spec
-txTimeoutSpec = walletPropertySpec normalApplicationDesc $ do
+txTimeoutSpec = walletPropertySpec decription $ do
     let timestampTx   = Timestamp $ 1518968949 * 1000000 -- In microseconds
     -- After an hour.
     let timestampNode = addMicrosecondsToTimestamp (3600000000 + 1) timestampTx
@@ -68,17 +72,42 @@ txTimeoutSpec = walletPropertySpec normalApplicationDesc $ do
     assertProperty (testState result) $
         ("Tx should be in state TxTimeoutWhenApplying, in state " <> show result)
   where
-    normalApplicationDesc = "Tx timeout application: `PtxApplying -> TxTimeoutWhenApplying`"
+    decription = "Tx timeout application: `PtxApplying -> TxTimeoutWhenApplying`"
 
     testState (TxTimeoutWhenApplying _ _) = True
     testState _                           = False
 
 
+txSubmission
+    :: (HasConfigurations, TxSubmissionMode ctx m)
+    => PendingTx
+    -> Timestamp
+    -> PropertyM m ()
+txSubmission tx timestamp = do
+
+    result    <- lift $ submitAndSavePtxMocked
+                      tx
+                      timestamp
+                      (\_ -> pure TxApplying)
+
+    assertProperty (testState result) $
+        ("Tx should be in state TxApplying, in state " <> show result)
+  where
+
+    testState TxApplying = True
+    testState _          = False
+
+
 toilKnownLargeSpec :: (HasCompileInfo, HasConfigurations) => Spec
-toilKnownLargeSpec = walletPropertySpec normalApplicationDesc $ do
-    let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
+toilKnownLargeSpec = walletPropertySpec decription $ do
+    let timestamp = Timestamp $ 1518968948 * 1000000 -- In microseconds
     tx         <- liftIO $ creatingTx $ Just timestamp
-    result     <- lift $ submitAndSavePtxMocked
+
+    -- The submission
+    txSubmission tx timestamp
+
+    -- The re-submission
+    result   <- lift $ submitAndSavePtxMocked
                       tx
                       timestamp
                       (\_ -> throwM ToilKnown)
@@ -86,17 +115,22 @@ toilKnownLargeSpec = walletPropertySpec normalApplicationDesc $ do
     assertProperty (testState result) $
         ("Tx should be in state TxMinorError, in state " <> show result)
   where
-    normalApplicationDesc = "Toil known application: `PtxCreating -> TxMinorError`"
+    decription = "Toil known application: `PtxCreating -> TxMinorError`"
 
     testState (TxMinorError _ _) = True
     testState _                  = False
 
 
 toilTooLargeSpec :: (HasCompileInfo, HasConfigurations) => Spec
-toilTooLargeSpec = walletPropertySpec normalApplicationDesc $ do
+toilTooLargeSpec = walletPropertySpec decription $ do
     let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
     tx         <- liftIO $ creatingTx $ Just timestamp
-    result     <- lift $ submitAndSavePtxMocked
+
+    -- The submission
+    txSubmission tx timestamp
+
+    -- The re-submission
+    result   <- lift $ submitAndSavePtxMocked
                       tx
                       timestamp
                       (\_ -> throwM $ ToilTooLargeTx 100 100)
@@ -104,7 +138,7 @@ toilTooLargeSpec = walletPropertySpec normalApplicationDesc $ do
     assertProperty (testState result) $
         ("Tx should be in state TxNonReclaimableError, in state " <> show result)
   where
-    normalApplicationDesc = "Toil too large application: `PtxCreating -> TxNonReclaimableError`"
+    decription = "Toil too large application: `PtxCreating -> TxNonReclaimableError`"
 
     testState (TxNonReclaimableError _) = True
     testState _                         = False
@@ -132,11 +166,6 @@ creatingTx mTimestamp =
     ptxPoolInfo = genPtxPollInfo mTimestamp
 
 
--- persistedTx :: HasConfigurations => IO PendingTx
--- persistedTx =
---    generate $ genPendingTxWithCondition PtxPersisted
-
-
 -- We don't care about most of the fields. We could also use
 -- a full @Arbitrary@ instance and just replace the field, but you never
 -- know what is the next field that should be included in the test.
@@ -148,6 +177,7 @@ genPtxPollInfo _thTimestamp = do
     _thInputs       <- arbitrary
     _thOutputAddrs  <- arbitrary
     pure $ THEntry{..}
+
 
 genPendingTxWithCondition :: HasConfigurations => PtxCondition -> Gen PendingTx
 genPendingTxWithCondition _ptxCond = do

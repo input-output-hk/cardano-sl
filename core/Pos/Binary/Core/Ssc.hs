@@ -11,6 +11,7 @@ import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
                                    deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Opening (..),
                                      OpeningsMap, SharesMap, SignedCommitment, SscPayload (..),

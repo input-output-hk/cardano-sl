@@ -4,7 +4,8 @@ module Cardano.Wallet.LegacyServer where
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Migration as Migration
 
-import qualified Cardano.Wallet.API.V0.Handlers       as V0
+import qualified Cardano.Wallet.API.V0.Handlers as V0
+import qualified Cardano.Wallet.API.Dev.LegacyHandlers as Dev
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -23,3 +24,4 @@ walletServer :: ( Migration.HasConfigurations
 walletServer natV0 diffusion =
          V0.handlers natV0 diffusion
     :<|> V1.handlers natV0 diffusion
+    :<|> Dev.handlers natV0

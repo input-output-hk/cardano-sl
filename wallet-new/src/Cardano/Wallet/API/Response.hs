@@ -20,7 +20,7 @@ import           Data.Aeson.TH
 import           Data.Typeable
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..))
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
@@ -60,6 +60,9 @@ deriveJSON Serokell.defaultOptions ''WalletResponse
 
 instance Arbitrary a => Arbitrary (WalletResponse a) where
   arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
+    mimeRender _ = encode
 
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:

@@ -26,6 +26,7 @@ import qualified Pos.Core as Core
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
 import           Control.Lens ((?~))
 import           Data.Aeson (ToJSON (..), Value (Number, Object))
@@ -330,6 +331,9 @@ instance ToDocs LocalTimeDifference where
 
 instance ToDocs NodeInfo where
   descriptionFor _ = "A collection of dynamic information for this wallet node."
+
+instance ToDocs WalletStateSnapshot where
+  descriptionFor _ = "Dump of current wallet state"
 
 instance ToDocs (V1 InputSelectionPolicy) where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "

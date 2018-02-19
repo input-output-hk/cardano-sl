@@ -23,6 +23,8 @@ library
                        Cardano.Wallet.Orphans.Arbitrary
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
+                       Cardano.Wallet.API.Dev
+                       Cardano.Wallet.API.Dev.Test
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
@@ -132,7 +134,10 @@ executable cardano-node-new
                        -Wall
                        -fno-warn-orphans
                        -O2
-  other-modules:       Cardano.Wallet.API.V0.Handlers
+  other-modules:       Cardano.Wallet.API.Dev.Handlers
+                       Cardano.Wallet.API.Dev.LegacyHandlers
+                       Cardano.Wallet.API.Dev.LegacyHandlers.Test
+                       Cardano.Wallet.API.V0.Handlers
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
@@ -294,6 +299,8 @@ test-suite wallet-new-specs
                     APISpec
                     MarshallingSpec
 
+                    Cardano.Wallet.API.Dev.LegacyHandlers
+                    Cardano.Wallet.API.Dev.LegacyHandlers.Test
                     Cardano.Wallet.API.V0.Handlers
                     Cardano.Wallet.API.V1.LegacyHandlers
                     Cardano.Wallet.API.V1.LegacyHandlers.Accounts

@@ -73,6 +73,7 @@ import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, cancelA
                                        setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
+import           Test.QuickCheck (Arbitrary (..))
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -191,6 +192,8 @@ instance MimeRender OctetStream WalletStateSnapshot where
 
 instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
+
+instance Arbitrary WalletStateSnapshot
 
 dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage

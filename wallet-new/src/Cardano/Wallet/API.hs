@@ -9,6 +9,7 @@ import           Servant ((:<|>), (:>), Proxy (..))
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1 as V1
+import qualified Cardano.Wallet.API.Dev as Dev
 
 -- | The complete API, qualified by its versions. For backward compatibility's sake, we still expose
 -- the old API under @/api/@. Specification is split under separate modules.
@@ -24,6 +25,7 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- * 'Cardano.Wallet.Server' contains the main server;
 -- * 'Cardano.Wallet.API.V0.Handlers' contains all the @Handler@s serving the V0 API;
 -- * 'Cardano.Wallet.API.V1.Handlers' contains all the @Handler@s serving the V1 API;
+-- * 'Cardano.Wallet.API.Dev.Handlers' contains all the @Handler@s serving the Dev API;
 --
 type WalletAPI
     =    "api" :> Tags '["V0 (Deprecated)"]
@@ -31,6 +33,9 @@ type WalletAPI
     :<|> "api" :> "v1"
                :> Tags '["V1"]
                :> V1.API
+    :<|> "api" :> "development"
+               :> Tags '["Development"]
+               :> Dev.API
 
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy

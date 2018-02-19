@@ -5,7 +5,8 @@ import Servant
 
 import Cardano.Wallet.API
 import Cardano.Wallet.Kernel
-import qualified Cardano.Wallet.API.V0          as V0
+import qualified Cardano.Wallet.API.Dev.Handlers as Dev
+import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 
 -- | Serve the REST interface to the wallet
@@ -13,7 +14,7 @@ import qualified Cardano.Wallet.API.V1.Handlers as V1
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
 walletServer :: ActiveWallet -> Server WalletAPI
-walletServer w = v0Handler :<|> V1.handlers w
+walletServer w = v0Handler :<|> V1.handlers w :<|> Dev.handlers
 
 -- | Return
 --

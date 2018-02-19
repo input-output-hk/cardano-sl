@@ -9,8 +9,10 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+
 
 class Arbitrary a => Example a where
     example :: Gen a
@@ -61,6 +63,7 @@ instance Example WalletAddress
 instance Example NewAccount
 instance Example AddressValidity
 instance Example NewAddress
+instance Example WalletStateSnapshot
 
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput

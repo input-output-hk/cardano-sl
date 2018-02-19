@@ -42,16 +42,15 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), DumpBlockchainParams (..),
                              GenBlocksParams (..), ProposeUpdateParams (..),
-                             ProposeUpdateSystem (..), RollbackParams (..),
-                             Value (..))
+                             ProposeUpdateSystem (..), RollbackParams (..), Value (..))
 import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
@@ -479,11 +478,27 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         dumpOutFolder <- getArg tyFilePath "dump-folder"
         pure DumpBlockchainParams{..}
     , cpExec = \DumpBlockchainParams{..} -> do
-        DumpBlockchain.dumpBlockchain dumpOutFolder
+        DumpBlockchain.dumpBlockchain Nothing Nothing dumpOutFolder
         return ValueUnit
     , cpHelp = "dump all available blocks as a number of .cbor.lzma files, \
                \each corresponding to a single epoch (the last epoch might \
                \be truncated"
+    },
+
+    let name = "dump-blockchain-loop" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        dumpOutFolder <- getArg tyFilePath "dump-folder"
+        pure DumpBlockchainParams{..}
+    , cpExec = \DumpBlockchainParams{..} -> do
+        DumpBlockchain.dumpBlockchainLoop dumpOutFolder
+        return ValueUnit
+    , cpHelp = "run a loop that will dump epochs as soon as they become \
+               \stable (immutable); each epoch will be dumped as a \
+               \.cbor.lzma file"
     },
 
     let name = "listaddr" in

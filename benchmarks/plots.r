@@ -6,7 +6,7 @@
 # (e.g. install.packages('svglite'))
 #
 
-# if run in RStudio one can select the csv in a file dialogue
+# if run in RStudio one can select the csv ("run-2018???.csv") in a file dialogue
 INTERACTIVE <- FALSE
 
 library(dplyr)
@@ -22,20 +22,21 @@ if (INTERACTIVE) {
   fname <- fnames[1]
   RUN <- sub('.*run-([-_0-9]+).csv', '\\1', fname)
   bp <- dirname(fname)
-  fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
-  fname3 <- paste(bp, '/bench-settings', sep='')
-  fname4 <- paste(bp, '/times.csv', sep='')
 } else {
   args = commandArgs(trailingOnly=TRUE)
   RUN <- args[1]
+  bp <- "."
   fname <- paste('run-', RUN, '.csv', sep='')
-  fname2 <- paste('report_', RUN, '.txt', sep='')
-  fname3 <- 'bench-settings'
-  fname4 <- 'times.csv'
+  #fname2 <- paste('report_', RUN, '.txt', sep='')
+  #fname3 <- 'bench-settings'
+  #fname4 <- 'times.csv'
 }
+fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
+fname3 <- paste(bp, '/bench-settings', sep='')
+fname4 <- paste(bp, '/times.csv', sep='')
 
 DESC=''                    # Add custom text to titles
-k <- 6                     # Protocol parameters determining
+k <- 12 #6                     # Protocol parameters determining
 SLOTLENGTH <- 20           # the length of an epoch
 EPOCHLENGTH <- 10*k*SLOTLENGTH
 
@@ -84,7 +85,14 @@ readData <- function(filename, run=RUN) {
     #filename <- paste('run-', run, '.csv', sep='')
     print(paste('reading data from', filename, sep=' '))
     data <- read.csv(filename)
-    t0 = min(data$time)
+    t0 <- min(data$time)
+
+    # find first block created
+    txWritten <- data %>% filter(txType %in% c("written")) %>% filter(txCount > 0)
+    tFirstBlock <- min(txWritten$time)
+    tFirstBlock <- trunc((tFirstBlock - t0) / 1000 / EPOCHLENGTH) * EPOCHLENGTH * 1000 + t0
+    data <- filter(data, time >= tFirstBlock)
+    
     # time after start of experiment, in seconds
     data$t <- (data$time - t0) %/% 1e6
     data$clustersize <- as.factor(data$clustersize)
@@ -112,7 +120,9 @@ readData <- function(filename, run=RUN) {
 
 # dashed vertical lines at the epoch boundaries
 epochs <- function(d) {
-    epochs <- data.frame(start=seq(from=0, to=max(d$t), by=EPOCHLENGTH))
+    tmin <- min(d$t)
+    tmin <- trunc(tmin / EPOCHLENGTH) * EPOCHLENGTH
+    epochs <- data.frame(start=seq(from=tmin, to=max(d$t), by=EPOCHLENGTH))
     geom_vline(data=epochs,
                aes(xintercept = start, alpha=0.65)
              , colour='red'
@@ -122,9 +132,11 @@ epochs <- function(d) {
 
 # dotted vertical lines every k slots
 kslots <- function(d) {
-    kslots <- data.frame(start=seq(from=0, to=max(d$t), by=k*SLOTLENGTH))
+  tmin <- min(d$t)
+  tmin <- trunc(tmin / EPOCHLENGTH) * EPOCHLENGTH
+  kslots <- data.frame(start=seq(from=tmin, to=max(d$t), by=k*SLOTLENGTH))
     geom_vline(data=kslots,
-               aes(xintercept = start, alpha=0.40)
+               aes(xintercept = start, alpha=0.55)
              , colour='red'
              , linetype='dotted'
                )
@@ -137,27 +149,19 @@ histTxs <- function(d, run=RUN, desc=DESC) {
   maxtx <- max(dd$txCount)
   crit <- "submitted"
   dd <- d %>%
-    filter(txType %in% c(crit))
-#  ggplot(dd, aes(txCount)) + stat_ecdf(geom="step") +
-#      ggtitle(paste(crit, 'transactions', desc, sep = ' ')) +
-#      ylab("") + xlab(paste("tx", crit, sep=" "))
+    filter(txType %in% c(crit)) %>%
+    filter(txCount > 0)   ### only blocks with transactions
 
-#  qqplot(x=1:length(dd$txCount), y=dd$txCount, xlab="", ylab="tx/slot", main=paste(crit, 'transactions', desc, sep = ' '))
-
-  hist(dd$txCount, main=paste('transaction count per slot', desc, sep = ' ')
+  hist(dd$txCount, main=paste('transaction count/slot (>0)', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
        , xlab = crit )
   crit <- "written"
   dd <- d %>%
-    filter(txType %in% c(crit))
-#  ggplot(dd, aes(txCount)) + stat_ecdf(geom="step") +
-#      ggtitle(paste(crit, 'transactions', desc, sep = ' ')) +
-#      ylab("") + xlab(paste("tx", crit, sep=" "))
+    filter(txType %in% c(crit)) %>%
+    filter(txCount > 0)   ### only blocks with transactions
 
-#  qqplot(x=1:length(dd$txCount), y=dd$txCount, xlab="", ylab="tx/slot", main=paste(crit, 'transactions', desc, sep = ' '))
-
-  hist(dd$txCount, main=paste('transaction count per slot', desc, sep = ' ')
+  hist(dd$txCount, main=paste('transaction count/slot (>0)', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
        , xlab = crit )
@@ -166,7 +170,8 @@ histTxs <- function(d, run=RUN, desc=DESC) {
 # plot the rate of sent and written transactions
 plotTxs <- function(d, run=RUN, desc=DESC) {
     dd <- d %>%
-        filter(txType %in% c("submitted", "written"))
+        filter(txType %in% c("submitted", "written")) %>%
+            filter(txCount > 0)   ### only blocks with transactions
     ggplot(dd, aes(t, txCount/slotDuration)) +
         geom_point(aes(colour=node)) +
         geom_smooth() +
@@ -199,7 +204,12 @@ plotMempools <- function(d, str='core and relay', run=RUN, desc=DESC) {
 }
 
 # plot the wait and hold times for the local state lock
-plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC) {
+plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC, lin=TRUE, minfilter = 0) {
+    if (lin) {
+      desc <- paste("\n(", desc, "linear scale,", "min =", minfilter, ")", sep=" ")
+    } else {
+      desc <- paste("\n(", desc, "log scale,", "min =", minfilter, ")", sep=" ")
+    }
     dd <- d %>%
             filter(txType %in% c("hold tx"
                                , "wait tx"
@@ -207,8 +217,7 @@ plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC) {
                                , "wait block"
                                , "hold rollback"
                                , "wait rollback"
-                                 ))
-        #dd$t <- dd$t %/% 1000
+                                 ))      %>% filter(txCount > minfilter)    ###  <<<<<<
     ggplot(dd, aes(t, txCount)) +
         geom_point(aes(colour=node)) +
         ggtitle(paste(
@@ -216,7 +225,7 @@ plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC) {
           , run, desc, sep = ' ')) +
         xlab("t [s]") +
         ylab("Times waiting for/holding the lock [microseconds]") +
-        scale_y_log10() +
+        (if (lin) { scale_y_continuous(); } else { scale_y_log10(); }) +     ###  <<<<<<
         facet_grid(txType ~ isRelay) +
         epochs(d) +
         guides(size = "none", colour = "legend", alpha = "none")
@@ -263,28 +272,59 @@ plotDuration <- function(run=RUN, desc=DESC) {
   grid.arrange(t1, t2, g1, g2, ncol = 1, heights = c(1,0.5,4,1))
 }
 
-# plotDuration0 <- function(run=RUN, desc=DESC) {
-#   def.par <- par(no.readonly = TRUE)
-#   layout(mat = matrix(c(1,1,1,0,2,0,0,3,0), 3, 3, byrow = TRUE), widths = c(1,3,1), heights = c(3,6,2))
-#   par(mar=c(3,1,2,1))
-#   
-#   # 1
-#   textplot(paste("\nTransaction times ", run), cex = 1.4, valign = "top")
-#   # 2
-#   qqplot(times$time, times$cumm, main="transaction times", ylab="", xlab="seconds")
-#   # 3
-#   boxplot(times$time, main="", horizontal = TRUE, col="lightblue", boxwex=0.35)
-#   
-#   par(def.par)
-# }
+plotMessages <- function(d, run=RUN, desc=DESC) {
+  messages_by_type <- aggregate(txCount ~ txType, data, sum)
+  submitted_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("submitted")), sum)
+  colnames(submitted_by_node) <- c("node", "submitted")
+  written_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("written")), sum)  %>% filter(txCount > 0)
+  core_nodes <- select(written_by_node %>% filter(txCount > 0), node)
+  colnames(written_by_node) <- c("node", "written")
+  colnames(core_nodes) <- c("core")
+  rollbackwait_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("wait rollback")), sum)
+  colnames(rollbackwait_by_node) <- c("node", "wait rollback")
+  rollbacksize_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("size after rollback")), sum)
+  colnames(rollbacksize_by_node) <- c("node", "size rollback")
+  
+  maxparam <- length(submitted_by_node[,2])
+  summsg <- sum(submitted_by_node[,2])
+  #submitted_by_node[maxparam+1,1] <- "sum"
+  submitted_by_node[maxparam+1,2] <- summsg
+  maxparam <- length(written_by_node[,2])
+  summsg <- sum(written_by_node[,2])
+  #written_by_node[maxparam+1,1] <- "sum"
+  written_by_node[maxparam+1,2] <- summsg
+  
+  def.par <- par(no.readonly = TRUE)
+  layout(mat = matrix(c(1,1,1,1,2,2,3,4,5,6,7,0), 3, 4, byrow = TRUE), heights=c(2,4,3))
+  
+  textplot(paste("\nMessage counts of ", run), cex = 2, valign = "top")
+  
+  defborder <- c(1,0,1,1)
+  textplot(messages_by_type, show.rownames = FALSE, mar=defborder, cex=1, valign="top")
+  textplot(submitted_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  textplot(written_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  
+  textplot(rollbackwait_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  textplot(rollbacksize_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  textplot(core_nodes, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+
+  par(def.par)
+}
 
 report <- readReport(fname2)
 data <- readData(fname)
+
+
 
 png(filename=paste('overview-', RUN, '.png', sep=''))
 plotOverview(data, report)
 dev.off()
 plotOverview(data, report)
+
+png(filename=paste('msgcount-', RUN, '.png', sep=''))
+plotMessages(data)
+dev.off()
+plotMessages(data)
 
 if (hasTrxTimes) {
   png(filename=paste('duration-', RUN, '.png', sep=''))
@@ -294,16 +334,20 @@ if (hasTrxTimes) {
 }
 
 plotTxs(data)
-ggsave(paste('txs-', RUN, '.svg', sep=''))
+#ggsave(paste('txs-', RUN, '.svg', sep=''))
 ggsave(paste('txs-', RUN, '.png', sep=''))
 
 plotMempools(data)
-ggsave(paste('mempools-', RUN, '.svg', sep=''))
+#ggsave(paste('mempools-', RUN, '.svg', sep=''))
 ggsave(paste('mempools-', RUN, '.png', sep=''))
 
-plotTimes(data)
-ggsave(paste('times-', RUN, '.svg', sep=''))
+plotTimes(data, lin=FALSE)
+#ggsave(paste('times-', RUN, '.svg', sep=''))
 ggsave(paste('times-', RUN, '.png', sep=''))
+
+plotTimes(data, lin=TRUE, minfilter=1e+03)
+#ggsave(paste('times-', RUN, '.svg', sep=''))
+ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
 
 #observe only core nodes:
 plotMempools(data %>% filter(!(node %in% relays)), 'core')

@@ -10,9 +10,8 @@ import qualified Data.HashSet as HS
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
-                                   deriveSimpleBi, deriveSimpleBiCxt, encodeListLen, enforceSize)
+                                   deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Opening (..),
                                      OpeningsMap, SharesMap, SignedCommitment, SscPayload (..),
                                      SscProof (..), VssCertificatesHash, mkCommitmentsMap)
@@ -35,7 +34,7 @@ instance Bi CommitmentsMap where
     encode = encodeCommitments
     decode = decodeCommitments
 
-instance HasConfiguration => Bi VssCertificate where
+instance Bi VssCertificate where
     encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
                                      <> encode (vcExpiryEpoch vssCert)
                                      <> encode (vcSignature vssCert)
@@ -48,7 +47,7 @@ instance HasConfiguration => Bi VssCertificate where
         sky <- decode
         pure $ UnsafeVssCertificate key epo sig sky
 
-instance HasConfiguration => Bi VssCertificatesMap where
+instance Bi VssCertificatesMap where
     encode = encodeVssCertificates
     decode = decodeVssCertificates
 
@@ -74,10 +73,10 @@ Instead, we serialize those maps as sets, and we make sure to check that
 there are no values with duplicate stakeholder ids.
 -}
 
-encodeVssCertificates :: HasConfiguration => VssCertificatesMap -> Encoding
+encodeVssCertificates :: VssCertificatesMap -> Encoding
 encodeVssCertificates = encode . HS.fromList . toList
 
-decodeVssCertificates :: HasConfiguration => Decoder s VssCertificatesMap
+decodeVssCertificates :: Decoder s VssCertificatesMap
 decodeVssCertificates = do
     certs <- toList <$> decode @(HashSet VssCertificate)
     pure $ mkVssCertificatesMap certs
@@ -96,7 +95,7 @@ decodeCommitments = do
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
+deriveSimpleBi ''SscPayload [
     Cons 'CommitmentsPayload [
         Field [| spComms    :: CommitmentsMap     |],
         Field [| spVss      :: VssCertificatesMap |] ],

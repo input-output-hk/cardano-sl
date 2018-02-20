@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Block creation logic.
+-- | Functions that retrieve payload from context and create genesis/main blocks
+-- with many validations.
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlockAndApply

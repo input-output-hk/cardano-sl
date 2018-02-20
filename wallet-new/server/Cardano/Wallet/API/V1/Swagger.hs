@@ -21,6 +21,8 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import qualified Pos.Core as Core
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
@@ -244,6 +246,13 @@ instance ToParamSchema Page where
 
 instance ToParamSchema WalletId
 
+instance ToParamSchema Core.Address where
+  toParamSchema _ = mempty
+    & type_ .~ SwaggerString
+
+instance ToParamSchema (V1 Core.Address) where
+  toParamSchema _ = toParamSchema (Proxy @Core.Address)
+
 instance ToDocs Metadata where
   descriptionFor _ = "Metadata returned as part of an <b>WalletResponse</b>."
 
@@ -264,7 +273,10 @@ instance ToDocs NewAccount where
 instance ToDocs AddressValidity where
   descriptionFor _ = "Verifies that an address is base58 decodable."
 
-instance ToDocs Address where
+instance ToDocs (V1 Core.Address) where
+  descriptionFor _ = "A base58-encoded Address."
+
+instance ToDocs Core.Address where
   descriptionFor _ = "A base58-encoded Address."
 
 instance ToDocs WalletId where
@@ -319,10 +331,10 @@ instance ToDocs LocalTimeDifference where
 instance ToDocs NodeInfo where
   descriptionFor _ = "A collection of dynamic information for this wallet node."
 
-instance ToDocs TransactionGroupingPolicy where
+instance ToDocs (V1 InputSelectionPolicy) where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "
                   <> "determine how a `Transaction` is assembled. "
-                  <> "Possible values: [" <> possibleValuesOf @TransactionGroupingPolicy Proxy <> "]."
+                  <> "Possible values: [" <> possibleValuesOf @(V1 InputSelectionPolicy) Proxy <> "]."
 
 possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
 possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
@@ -344,7 +356,7 @@ instance ToSchema NewAccount where
 instance ToSchema AddressValidity where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema Address where
+instance ToSchema (V1 Core.Address) where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletId where

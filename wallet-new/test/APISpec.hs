@@ -38,6 +38,7 @@ import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
+import           Cardano.Wallet.API.V1.Types ()
 
 --
 -- Instances to allow use of `servant-quickcheck`.

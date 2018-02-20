@@ -20,7 +20,7 @@ import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
 import qualified Pos.Block.Base as T
-import qualified Pos.Block.Pure as T
+import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog.Types (SlogUndo)
 import           Pos.Block.Types (Undo (..))
 import           Pos.Core (HasConfiguration, epochSlots)

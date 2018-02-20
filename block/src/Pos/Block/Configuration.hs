@@ -17,7 +17,7 @@ module Pos.Block.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -38,6 +38,9 @@ data BlockConfiguration = BlockConfiguration
     , ccRecoveryHeadersMessage :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
     } deriving (Show, Generic)
+
+instance ToJSON BlockConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 instance FromJSON BlockConfiguration where
     parseJSON = genericParseJSON defaultOptions

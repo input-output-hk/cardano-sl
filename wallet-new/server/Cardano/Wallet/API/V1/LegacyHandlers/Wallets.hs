@@ -38,13 +38,14 @@ handlers =   newWallet
 -- wallet in the 'Wallet' type.
 newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-  let newWalletHandler CreateWallet = V0.newWallet
+  let newWalletHandler CreateWallet  = V0.newWallet
       newWalletHandler RestoreWallet = V0.restoreWallet
-  let spendingPassword = fromMaybe mempty newwalSpendingPassword
+      (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
+      (V1 backupPhrase) = newwalBackupPhrase
   initMeta <- V0.CWalletMeta <$> pure newwalName
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0
-  let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
+  let walletInit = V0.CWalletInit initMeta backupPhrase
   single <$> (newWalletHandler newwalOperation spendingPassword walletInit >>= migrate)
 
 -- | Returns the full (paginated) list of wallets.
@@ -61,7 +62,9 @@ updatePassword
     => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
     wid' <- migrate wid
-    _ <- V0.changeWalletPassphrase wid' pwdOld pwdNew
+    let (V1 old) = pwdOld
+        (V1 new) = pwdNew
+    _ <- V0.changeWalletPassphrase wid' old new
     single <$> (V0.getWallet wid' >>= migrate)
 
 -- | Deletes an exisiting wallet.

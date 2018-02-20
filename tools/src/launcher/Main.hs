@@ -64,7 +64,7 @@ import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundRealDefault)
+                               dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
@@ -283,7 +283,7 @@ instance HasConfiguration => MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutSerBlund = dbPutSerBlundRealDefault
+    dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 newtype NodeDbPath = NodeDbPath FilePath
 
@@ -430,11 +430,11 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
     let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     (walletExitCode, nodeExitCode) <- if
        | someAsync == nodeAsync -> do
-             unless (exitCode == ExitFailure 20) $
+             unless (exitCode == ExitFailure 20) $ do
                  logWarning $ sformat ("The node has exited with "%shown) exitCode
-             whenJust report $ \repServ -> do
-                 logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ
+                 whenJust report $ \repServ -> do
+                     logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+                     reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
@@ -592,11 +592,13 @@ runWallet shouldLog nd nLogPath = do
             cr <- createLogFileProc wpath wargs lp
             system' phvar cr mempty EWallet
         Nothing ->
-           -- if nLog is Nothing and shouldLog is True
-           -- we want to CreatePipe otherwise Inherit
-           let cr = if shouldLog && isNothing nLogPath then
-                        Process.CreatePipe
-                    else Process.Inherit
+           let cr = if | not shouldLog -> Process.NoStream
+                       -- If node's output is not redirected, we want
+                       -- to receive node's output and modify it.
+                       | isNothing nLogPath -> Process.CreatePipe
+                       -- If node's output is redirected, it's ok to
+                       -- let wallet log to launcher's standard streams.
+                       | otherwise -> Process.Inherit
            in system' phvar (createProc cr wpath wargs) mempty EWallet
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess

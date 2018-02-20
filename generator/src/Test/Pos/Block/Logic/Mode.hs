@@ -363,7 +363,7 @@ instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
@@ -488,7 +488,7 @@ instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

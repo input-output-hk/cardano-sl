@@ -17,14 +17,15 @@ module Pos.Update.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON, withObject, (.:), (.:?))
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import qualified Data.Text as T
 import           Distribution.System (buildArch, buildOS)
 import           Language.Haskell.TH (runIO)
 import qualified Language.Haskell.TH.Syntax as TH (lift)
-import           Serokell.Util.ANSI  (Color (Red, Blue), colorize)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util.ANSI (Color (Blue, Red), colorize)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
@@ -56,6 +57,9 @@ data UpdateConfiguration = UpdateConfiguration
     , ccSystemTag             :: !SystemTag
     }
     deriving (Show, Generic)
+
+instance ToJSON UpdateConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 instance FromJSON UpdateConfiguration where
     parseJSON = withObject "UpdateConfiguration" $ \o -> do

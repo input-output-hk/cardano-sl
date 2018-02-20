@@ -16,7 +16,7 @@ import           Test.QuickCheck (Property, (===), (==>))
 import           Pos.Arbitrary.Block as T
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
-import qualified Pos.Block.Pure as T
+import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Crypto (ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..), createPsk,

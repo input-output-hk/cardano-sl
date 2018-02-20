@@ -7,6 +7,7 @@ module Pos.Block.Base
 
        , mkGenesisHeader
        , mkGenesisBlock
+       , genesisBlock0
        ) where
 
 import           Universum
@@ -27,6 +28,7 @@ import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
@@ -151,3 +153,7 @@ mkGenesisBlock prevHeader epoch leaders =
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders
     extra = GenesisExtraBodyData $ mkAttributes ()
+
+-- | Creates the very first genesis block.
+genesisBlock0 :: HasConfiguration => GenesisBlock
+genesisBlock0 = mkGenesisBlock Nothing 0 genesisLeaders

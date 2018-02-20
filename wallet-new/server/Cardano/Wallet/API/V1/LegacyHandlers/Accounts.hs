@@ -28,15 +28,15 @@ handlers walletId =
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> m NoContent
-deleteAccount wId accId =
-    migrate (wId, accId) >>= V0.deleteAccount
+    => WalletId -> AccountIndex -> m NoContent
+deleteAccount wId accIdx =
+    migrate (wId, accIdx) >>= V0.deleteAccount
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountId -> m (WalletResponse Account)
-getAccount wId accId =
-    single <$> (migrate (wId, accId) >>= V0.getAccount >>= migrate)
+    => WalletId -> AccountIndex -> m (WalletResponse Account)
+getAccount wId accIdx =
+    single <$> (migrate (wId, accIdx) >>= V0.getAccount >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
@@ -51,16 +51,16 @@ newAccount
     :: (V0.MonadWalletLogic ctx m)
     => WalletId -> NewAccount -> m (WalletResponse Account)
 newAccount wId nAccount@NewAccount{..} = do
-    let spendingPw = fromMaybe mempty naccSpendingPassword
+    let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
     cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
     single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountId -> AccountUpdate -> m (WalletResponse Account)
-updateAccount wId accId accUpdate = do
-    newAccId <- migrate (wId, accId)
+    => WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
+updateAccount wId accIdx accUpdate = do
+    newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)

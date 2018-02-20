@@ -37,7 +37,6 @@ import           Universum
 
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Data.Default (Default, def)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
@@ -74,7 +73,6 @@ import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, cancelA
                                        setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
-import           Test.QuickCheck (Arbitrary (..))
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -193,9 +191,6 @@ instance MimeRender OctetStream WalletStateSnapshot where
 
 instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
-
-instance Default WalletStateSnapshot where
-    def = WalletStateSnapshot { wssWalletStorage = def }
 
 dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
 dumpState = WalletStateSnapshot <$> getWalletStorage

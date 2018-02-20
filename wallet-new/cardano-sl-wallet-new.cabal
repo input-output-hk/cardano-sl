@@ -23,8 +23,7 @@ library
                        Cardano.Wallet.Orphans.Arbitrary
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
-                       Cardano.Wallet.API.Dev
-                       Cardano.Wallet.API.Dev.Test
+                       Cardano.Wallet.API.Development
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
@@ -66,7 +65,6 @@ library
                      , data-default
                      , exceptions
                      , formatting
-                     , generic-arbitrary
                      , generics-sop
                      , http-api-data
                      , http-client
@@ -135,9 +133,9 @@ executable cardano-node-new
                        -Wall
                        -fno-warn-orphans
                        -O2
-  other-modules:       Cardano.Wallet.API.Dev.Handlers
-                       Cardano.Wallet.API.Dev.LegacyHandlers
-                       Cardano.Wallet.API.Dev.LegacyHandlers.Test
+  other-modules:       Cardano.Wallet.API.Development.Handlers
+                       Cardano.Wallet.API.Development.Helpers
+                       Cardano.Wallet.API.Development.LegacyHandlers
                        Cardano.Wallet.API.V0.Handlers
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.LegacyHandlers
@@ -186,6 +184,7 @@ executable cardano-node-new
                      , mtl
                      , neat-interpolation
                      , optparse-applicative
+                     , safe-exceptions
                      , servant
                      , servant-server
                      , servant-swagger
@@ -300,8 +299,7 @@ test-suite wallet-new-specs
                     APISpec
                     MarshallingSpec
 
-                    Cardano.Wallet.API.Dev.LegacyHandlers
-                    Cardano.Wallet.API.Dev.LegacyHandlers.Test
+                    Cardano.Wallet.API.Development.LegacyHandlers
                     Cardano.Wallet.API.V0.Handlers
                     Cardano.Wallet.API.V1.LegacyHandlers
                     Cardano.Wallet.API.V1.LegacyHandlers.Accounts

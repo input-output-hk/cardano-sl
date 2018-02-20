@@ -1,4 +1,4 @@
-module Cardano.Wallet.API.Dev.Test where
+module Cardano.Wallet.API.Development where
 
 import           Servant.API.ContentTypes (OctetStream)
 import           Cardano.Wallet.API.Response (WalletResponse)

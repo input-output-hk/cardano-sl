@@ -76,11 +76,13 @@ addTxSubmit =
         (\(TxCount submitted failed sending) ->
              pure (TxCount (submitted + 1) failed sending, ()))
 
+{-
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed =
     flip modifySharedAtomic
         (\(TxCount submitted failed sending) ->
              pure (TxCount submitted (failed + 1) sending, ()))
+-}
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
@@ -127,7 +129,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
         let nTrans = conc * duration -- number of transactions we'll send
             allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
-            (firstBatch, secondBatch) = splitAt (nTrans `div` 2) allTrans
+            (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do

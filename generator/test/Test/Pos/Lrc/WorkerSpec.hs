@@ -10,10 +10,11 @@ module Test.Pos.Lrc.WorkerSpec
 
 import           Universum
 
+import           Control.Exception.Safe (try)
 import           Control.Lens (At (at), Index, _Right)
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
-import           Formatting (build, sformat, (%))
+import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
@@ -39,24 +40,32 @@ import           Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks)
+import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 
 
 spec :: Spec
--- Currently we want to run it only 4 times, because there is no
--- much randomization (its effect is likely negligible) and
--- performance matters (but not very much, so we can run more than once).
 spec = withStaticConfigurations $ withCompileInfo def $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
-            prop lrcCorrectnessDesc $
+            -- Currently we want to run it only 4 times, because there
+            -- is no much randomization (its effect is likely
+            -- negligible) and performance matters (but not very much,
+            -- so we can run more than once).
+            modifyMaxSuccess (const 4) $ prop lrcCorrectnessDesc $
                 blockPropertyToProperty genTestParams lrcCorrectnessProp
+            -- This test is relatively slow, hence we launch it only 15 times.
+            modifyMaxSuccess (const 15) $ blockPropertySpec lessThanKAfterCrucialDesc
+                lessThanKAfterCrucialProp
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
         "right before the '8 * k'-th slot.\n" <>
         "Computes leaders using follow-the-satoshi algorithm using stake " <>
         "distribution right before the '8 * k'-th slot."
+    lessThanKAfterCrucialDesc =
+        "Fails for epoch 'e' if there are less than 'k' blocks in slots " <>
+        "[(e, 8 * k - 1) .. (e, 10 * k - 1)]"
 
 ----------------------------------------------------------------------------
 -- Parameters generation
@@ -102,7 +111,7 @@ genGenesisInitializer = do
         return TestnetBalanceOptions {..}
 
 ----------------------------------------------------------------------------
--- Actual test
+-- Actual correctness test
 ----------------------------------------------------------------------------
 
 lrcCorrectnessProp :: (HasConfigurations, HasCompileInfo) => BlockProperty ()
@@ -242,3 +251,34 @@ txsAfterBoundary = pure []
 --     -- balances.
 --     let toAddr = fromAddr
 --     return undefined
+
+----------------------------------------------------------------------------
+-- Less than `k` blocks test.
+----------------------------------------------------------------------------
+
+lessThanKAfterCrucialProp :: (HasConfigurations, HasCompileInfo) => BlockProperty ()
+lessThanKAfterCrucialProp = do
+    let k = blkSecurityParam
+    -- We need to generate '8 * k' blocks for first '8 * k' slots.
+    let inFirst8K = 8 * k
+    -- And then we need to generate random number of blocks in range
+    -- '[0 .. 2 * k]'.
+    inLast2K <- pick (choose (0, 2 * k))
+    let toGenerate = inFirst8K + inLast2K
+    -- LRC should succeed iff number of blocks in last '2 * k' slots is
+    -- at least 'k'.
+    let shouldSucceed = inLast2K >= k
+    () <$ bpGenBlocks (Just toGenerate) (EnableTxPayload False) (InplaceDB True)
+    let mkFormat expectedOutcome =
+            ("We expected LRC to " %expectedOutcome % " because there are " %int %
+             " blocks after crucial slot, but it failed")
+    let unexpectedFailMsg = sformat (mkFormat "succeed") inLast2K
+    let unexpectedSuccessMsg = sformat (mkFormat "fail") inLast2K
+    lift (try $ Lrc.lrcSingleShot 1) >>= \case
+        Left Lrc.UnknownBlocksForLrc
+            | shouldSucceed -> stopProperty unexpectedFailMsg
+            | otherwise -> pass
+        Left e -> lift (throwM e)
+        Right ()
+            | shouldSucceed -> pass
+            | otherwise -> stopProperty unexpectedSuccessMsg

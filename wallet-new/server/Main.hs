@@ -14,30 +14,29 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Launcher (NodeParams (..), NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, withConfigurations,
-                               bpLoggingParams, lpDefaultName)
+import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
+                               bracketNodeResources, loggerBracket, lpDefaultName, runNode,
+                               withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode, syncWalletsWithGState, AddrCIdHashes (..))
+import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
+                                 getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (flushWalletStorage)
-import           System.Wlog (LoggerName, logInfo,
-                              Severity, usingLoggerName, logMessage)
+import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-import           Cardano.Wallet.Server.CLI (WalletBackendParams (..), WalletDBOptions (..),
-                                            WalletStartupOptions (..), getWalletNodeOptions,
-                                            isDebugMode,
-                                            ChooseWalletBackend (..), NewWalletBackendParams (..))
-import qualified Cardano.Wallet.Server.Plugins as Plugins
-import qualified Cardano.Wallet.Kernel      as Kernel
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
+import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
+                                            WalletBackendParams (..), WalletDBOptions (..),
+                                            WalletStartupOptions (..), getWalletNodeOptions,
+                                            isDebugMode)
+import qualified Cardano.Wallet.Server.Plugins as Plugins
 import qualified Pos.Client.CLI as CLI
 
 -- | Default logger name when one is not provided on the command line
@@ -146,7 +145,6 @@ startEdgeNode WalletStartupOptions{..} = do
     getParameters :: HasConfigurations => Production (SscParams, NodeParams)
     getParameters = do
 
-      whenJust (CLI.cnaDumpGenesisDataPath wsoNodeArgs) $ CLI.dumpGenesisData True
       currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)

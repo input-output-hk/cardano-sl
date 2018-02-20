@@ -14798,7 +14798,7 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 4
+    applicationVersion: 6
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14808,7 +14808,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 4
+    applicationVersion: 6
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

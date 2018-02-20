@@ -49,6 +49,7 @@ data CommonNodeArgs = CommonNodeArgs
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
+    , cnaDumpConfiguration   :: !Bool
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -101,6 +102,10 @@ commonNodeArgsParser = do
     cnaDumpGenesisDataPath <- optional $ strOption $
         long "dump-genesis-data-to" <>
         help "Dump genesis data in canonical JSON format to this file."
+
+    cnaDumpConfiguration <- switch $
+        long "dump-configuration" <>
+        help "Dump configuration and exit."
 
     pure CommonNodeArgs{..}
 

@@ -79,8 +79,14 @@ encodeVssCertificates = encode . HS.fromList . toList
 
 decodeVssCertificates :: Decoder s VssCertificatesMap
 decodeVssCertificates = do
-    certs <- toList <$> decode @(HashSet VssCertificate)
-    pure $ mkVssCertificatesMap certs
+    certs <- decode @(HashSet VssCertificate)
+    let vssMap = mkVssCertificatesMap (toList certs)
+    -- If the set is bigger than the map, then there must be some entires in
+    -- the set which have the same signing key. That means it's a
+    -- non-canonical encoding. The set itself could very well be canonical,
+    -- though, since its values include more than just the signing keys.
+    when (length certs > length vssMap) (cborError "duplicate vss key")
+    pure vssMap
 
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList

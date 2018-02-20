@@ -27,9 +27,6 @@ if (INTERACTIVE) {
   RUN <- args[1]
   bp <- "."
   fname <- paste('run-', RUN, '.csv', sep='')
-  #fname2 <- paste('report_', RUN, '.txt', sep='')
-  #fname3 <- 'bench-settings'
-  #fname4 <- 'times.csv'
 }
 fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
 fname3 <- paste(bp, '/bench-settings', sep='')
@@ -150,19 +147,20 @@ histTxs <- function(d, run=RUN, desc=DESC) {
     filter(txType %in% c(crit)) %>%
     filter(txCount > 0)   ### only blocks with transactions
 
-  hist(dd$txCount, main=paste('transaction count/slot (>0)', desc, sep = ' ')
+  hist(dd$txCount, main=paste('generated (>0)', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
-       , xlab = crit )
+       , xlab = "transactions/slot" )
+
   crit <- "written"
   dd <- d %>%
     filter(txType %in% c(crit)) %>%
     filter(txCount > 0)   ### only blocks with transactions
 
-  hist(dd$txCount, main=paste('transaction count/slot (>0)', desc, sep = ' ')
+  hist(dd$txCount, main=paste('integrated in blocks (>0)', desc, sep = ' ')
        , breaks=seq(0,maxtx, by=1)
        , col=gray.colors(maxtx/2)
-       , xlab = crit )
+       , xlab = "transactions/slot" )
 }
 
 # plot the rate of sent and written transactions
@@ -302,6 +300,7 @@ plotMessages <- function(d, run=RUN, desc=DESC) {
   def.par <- par(no.readonly = TRUE)
   layout(mat = matrix(c(1,1,1,1,2,2,3,4,5,6,7,0), 3, 4, byrow = TRUE), heights=c(2,4,3))
   
+  layout(matrix(c(1,1,1,2,3,4,5,6,7), 3, 3, byrow = TRUE))
   textplot(paste("\nMessage counts of ", run), cex = 2, valign = "top")
   
   defborder <- c(1,0,1,1)
@@ -315,7 +314,7 @@ plotMessages <- function(d, run=RUN, desc=DESC) {
   if (! is.null(rollbacksize_by_node)) {
     textplot(rollbacksize_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
   }
-  textplot(core_nodes, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  #textplot(core_nodes, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
 
   par(def.par)
 }
@@ -362,7 +361,7 @@ ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
 plotMempools(data %>% filter(!(node %in% relays)), 'core')
 
 #observe only unprivileged relays:
-plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
+#plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
 
 #observe only privileged relays:
 plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')

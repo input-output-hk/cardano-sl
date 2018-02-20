@@ -13,7 +13,7 @@ module Pos.Delegation.Cede.Holders
 import           Universum
 
 import           Control.Lens (at, (%=), (.=))
-import qualified Control.Monad.State as Mtl
+import qualified Control.Monad.State.Strict as Mtl
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
@@ -49,13 +49,15 @@ instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (DBCede m) where
 
 -- | Monad transformer that holds extra layer of modifications to the
 -- underlying set of PSKs (which can be empty if you want).
-type MapCede = Mtl.StateT CedeModifier
+newtype MapCede m a = MapCede
+    { unMapCede :: StateT CedeModifier m a
+    } deriving (Functor,Applicative,Monad,MonadIO,MonadState CedeModifier,MonadThrow,MonadTrans)
 
 runMapCede :: CedeModifier -> MapCede m a -> m (a, CedeModifier)
-runMapCede = flip Mtl.runStateT
+runMapCede c m = Mtl.runStateT (unMapCede m) c
 
 evalMapCede :: Monad m => CedeModifier -> MapCede m a -> m a
-evalMapCede = flip Mtl.evalStateT
+evalMapCede c m = Mtl.evalStateT (unMapCede m) c
 
 instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (MapCede m) where
     getPsk i =

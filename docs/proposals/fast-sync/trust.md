@@ -2,7 +2,7 @@
 
 This document describes the problem of establishing trust in a
 snapshot and proposes two ways to solve it. It is needed
-for [fast synchronization](#README.md).
+for [fast synchronization](./README.md).
 
 ## The problem
 

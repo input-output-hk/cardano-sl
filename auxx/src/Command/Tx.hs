@@ -135,7 +135,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
         let nTrans = conc * duration -- number of transactions we'll send
             allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
-            (firstBatch, secondBatch) = splitAt ((3 * nTrans) `div` 2) allTrans
+            (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do

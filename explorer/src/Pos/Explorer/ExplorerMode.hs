@@ -187,7 +187,7 @@ instance HasConfigurations => DB.MonadDB ExplorerTestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 ----------------------------------------------------------------------------
 -- Boilerplate ExplorerTestContext instances
@@ -259,7 +259,7 @@ instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
     askLoggerName = askLoggerNameDefault

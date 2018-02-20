@@ -6,36 +6,36 @@ module Cardano.Wallet.Kernel.Mode (
   , getWallet
   ) where
 
-import Universum
-import Control.Lens (makeLensesWith)
+import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           Universum
 
-import Mockable
-import Pos.Block.BListener
-import Pos.Block.Slog
-import Pos.Block.Types
-import Pos.Communication
-import Pos.Context
-import Pos.Core
-import Pos.DB
-import Pos.DB.Block
-import Pos.DB.DB
-import Pos.Infra.Configuration
-import Pos.KnownPeers
-import Pos.Launcher
-import Pos.Network.Types
-import Pos.Reporting
-import Pos.Shutdown
-import Pos.Slotting
-import Pos.Txp.Logic
-import Pos.Txp.MemState
-import Pos.Util
-import Pos.Util.Chrono
-import Pos.Util.JsonLog
-import Pos.Util.TimeWarp (CanJsonLog(..))
-import Pos.WorkMode
+import           Mockable
+import           Pos.Block.BListener
+import           Pos.Block.Slog
+import           Pos.Block.Types
+import           Pos.Communication
+import           Pos.Context
+import           Pos.Core
+import           Pos.DB
+import           Pos.DB.Block
+import           Pos.DB.DB
+import           Pos.Infra.Configuration
+import           Pos.KnownPeers
+import           Pos.Launcher
+import           Pos.Network.Types
+import           Pos.Reporting
+import           Pos.Shutdown
+import           Pos.Slotting
+import           Pos.Txp.Logic
+import           Pos.Txp.MemState
+import           Pos.Util
+import           Pos.Util.Chrono
+import           Pos.Util.JsonLog
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.WorkMode
 
-import Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel (PassiveWallet)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -185,7 +185,7 @@ instance HasConfiguration => MonadDB WalletMode where
   dbPut         = dbPutDefault
   dbWriteBatch  = dbWriteBatchDefault
   dbDelete      = dbDeleteDefault
-  dbPutSerBlund = dbPutSerBlundRealDefault
+  dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance ( HasConfiguration
          , HasInfraConfiguration

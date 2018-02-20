@@ -31,11 +31,11 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
                            isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.Configuration (HasConfiguration, memPoolLimitTx)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
                                txInputs, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
+import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
 import           Pos.Txp.Toil.Class (MonadStakes (..), MonadTxPool (..), MonadUtxo (..),
                                      MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
@@ -104,7 +104,7 @@ type LocalToilMode m =
     , MonadGState m
     , MonadTxPool m
     , WithLogger m
-    , HasConfiguration
+    , HasTxpConfiguration
     )
 
 -- CHECK: @processTx

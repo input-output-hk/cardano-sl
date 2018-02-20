@@ -19,6 +19,8 @@ library
     Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
 
+    Pos.Txp.Configuration
+
     Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
     Pos.Txp.Toil.Stakes
@@ -99,6 +101,7 @@ library
                      , safe-exceptions
                      , serokell-util
                      , stm
+                     , reflection
                      , tagged
                      , template-haskell
                      , text

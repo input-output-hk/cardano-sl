@@ -13,9 +13,6 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-       , memPoolLimitTx
-
-
        ) where
 
 import           Universum
@@ -43,11 +40,8 @@ data CoreConfiguration = CoreConfiguration
       -- | Specifies the genesis
       ccGenesis            :: !GenesisConfiguration
 
-    , -- | Versioning for values in node's DB
-      ccDbSerializeVersion :: !Word8
-      -- | Limint on the number of transactions that can be stored in
-      -- the mem pool.
-    , ccMemPoolLimitTx     :: !Int
+      -- | Versioning for values in node's DB
+    , ccDbSerializeVersion :: !Word8
 
     }
     deriving (Show, Generic)
@@ -64,8 +58,3 @@ coreConfiguration = given
 -- with this constant.
 dbSerializeVersion :: HasCoreConfiguration => Word8
 dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration
-
--- | Limint on the number of transactions that can be stored in
--- the mem pool.
-memPoolLimitTx :: (HasCoreConfiguration, Integral i) => i
-memPoolLimitTx = fromIntegral . ccMemPoolLimitTx $ coreConfiguration

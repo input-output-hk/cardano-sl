@@ -1,10 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Cardano.Wallet.Kernel.Mode (
-    WalletMode
-  , WalletContext -- opaque
-  , runWalletMode
-  , getWallet
-  ) where
+module Cardano.Wallet.Kernel.Mode
+    ( WalletMode
+    , WalletContext -- opaque
+    , runWalletMode
+    , getWallet
+    ) where
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
@@ -27,6 +27,7 @@ import           Pos.Network.Types
 import           Pos.Reporting
 import           Pos.Shutdown
 import           Pos.Slotting
+import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
@@ -208,7 +209,7 @@ instance MonadFormatPeers WalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo)
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

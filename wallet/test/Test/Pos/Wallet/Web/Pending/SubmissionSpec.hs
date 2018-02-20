@@ -19,7 +19,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.ClientTypes (CHash (..), CId (..))
 
 import           Pos.Wallet.Web.Pending.Submission (TxSubmissionMode, TxSubmissionResult (..),
-                                                    submitAndSavePtxMocked)
+                                                    submitAndSavePtxStates)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
 import           Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -45,7 +45,7 @@ normalApplicationSpec :: (HasCompileInfo, HasConfigurations) => Spec
 normalApplicationSpec = walletPropertySpec decription $ do
     let timestamp = Timestamp $ 1518968949 * 1000000 -- In microseconds
     pendingTx  <- liftIO $ applyingTx $ Just timestamp
-    result     <- lift $ submitAndSavePtxMocked
+    result     <- lift $ submitAndSavePtxStates
                       pendingTx
                       timestamp
                       (\_ -> pure TxApplying)
@@ -65,7 +65,7 @@ txTimeoutSpec = walletPropertySpec decription $ do
     -- After an hour.
     let timestampNode = addMicrosecondsToTimestamp (3600000000 + 1) timestampTx
     pendingTx  <- liftIO $ applyingTx $ Just timestampTx
-    result     <- lift $ submitAndSavePtxMocked
+    result     <- lift $ submitAndSavePtxStates
                       pendingTx
                       timestampNode
                       (\_ -> pure TxApplying)
@@ -86,7 +86,7 @@ txSubmission
     -> PropertyM m ()
 txSubmission tx timestamp = do
 
-    result    <- lift $ submitAndSavePtxMocked
+    result    <- lift $ submitAndSavePtxStates
                       tx
                       timestamp
                       (\_ -> pure TxApplying)
@@ -108,7 +108,7 @@ toilKnownLargeSpec = walletPropertySpec decription $ do
     txSubmission tx timestamp
 
     -- The re-submission
-    result   <- lift $ submitAndSavePtxMocked
+    result   <- lift $ submitAndSavePtxStates
                       tx
                       timestamp
                       (\_ -> throwM ToilKnown)
@@ -131,7 +131,7 @@ toilTooLargeSpec = walletPropertySpec decription $ do
     txSubmission tx timestamp
 
     -- The re-submission
-    result   <- lift $ submitAndSavePtxMocked
+    result   <- lift $ submitAndSavePtxStates
                       tx
                       timestamp
                       (\_ -> throwM $ ToilTooLargeTx 100 100)

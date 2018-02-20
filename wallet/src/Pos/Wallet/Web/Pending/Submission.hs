@@ -12,7 +12,7 @@ module Pos.Wallet.Web.Pending.Submission
     , TxSubmissionMode
     , submitAndSavePtx
     , TxSubmissionResult (..)
-    , submitAndSavePtxMocked
+    , submitAndSavePtxStates
     ) where
 
 import           Universum
@@ -131,7 +131,7 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
 
     now <- getCurrentTimestamp
 
-    submissionResult <- submitAndSavePtxMocked ptx now saveTxAndResult
+    submissionResult <- submitAndSavePtxStates ptx now saveTxAndResult
 
     case submissionResult of
 
@@ -184,13 +184,13 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
 
 
 -- As simple and as clear as I could.
-submitAndSavePtxMocked
+submitAndSavePtxStates
     :: TxSubmissionMode ctx m
     => PendingTx
     -> Timestamp
     -> ((TxId, TxAux) -> m TxSubmissionResult)
     -> m TxSubmissionResult
-submitAndSavePtxMocked ptx@PendingTx{..} now mSaveTx =
+submitAndSavePtxStates ptx@PendingTx{..} now mSaveTx =
 
     case _ptxCond of
 

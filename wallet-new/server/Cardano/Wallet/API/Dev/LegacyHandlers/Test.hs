@@ -12,7 +12,7 @@ import           Servant
 
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 
--- | @Servant@ handlers used by test cases. They are not public, but for development only.
+-- | @Servant@ handlers needed by test cases. They are not public, but for development only.
 handlers :: ( HasConfigurations
             , HasCompileInfo
             )

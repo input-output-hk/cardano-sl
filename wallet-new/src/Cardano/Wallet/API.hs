@@ -1,6 +1,8 @@
 
 module Cardano.Wallet.API
        ( WalletAPI
+       , WalletSwaggerApi
+       , swaggerWalletApi
        , walletAPI
        ) where
 
@@ -27,15 +29,35 @@ import qualified Cardano.Wallet.API.Dev as Dev
 -- * 'Cardano.Wallet.API.V1.Handlers' contains all the @Handler@s serving the V1 API;
 -- * 'Cardano.Wallet.API.Dev.Handlers' contains all the @Handler@s serving the Dev API;
 --
+-- type WalletAPI
+--     =     WalletPublicAPI
+--     :<|>  WalletDevAPI
+
+type V0_API
+     = "api" :> Tags '["V0 (Deprecated)"]
+             :> V0.API
+
+type V1_API
+     = "api" :> "v1"
+             :> Tags '["V1"]
+             :> V1.API
+
+type DEV_API
+     = "api" :> "development"
+             :> Tags '["Development"]
+             :> Dev.API
+
 type WalletAPI
-    =    "api" :> Tags '["V0 (Deprecated)"]
-               :> V0.API
-    :<|> "api" :> "v1"
-               :> Tags '["V1"]
-               :> V1.API
-    :<|> "api" :> "development"
-               :> Tags '["Development"]
-               :> Dev.API
+    =     V0_API
+    :<|>  V1_API
+    :<|>  DEV_API
+
+type WalletSwaggerApi
+    =     V0_API
+    :<|>  V1_API
 
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
+
+swaggerWalletApi :: Proxy WalletSwaggerApi
+swaggerWalletApi = Proxy

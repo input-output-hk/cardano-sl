@@ -6,5 +6,5 @@ import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
 import           Servant
 
-type API = "dump-wallet-state" :> Summary "Dump the wallet state as JSON."
+type API = "dump-wallet-state" :> Summary "Dump wallet state."
                                :> Get '[OctetStream] (WalletResponse WalletStateSnapshot)

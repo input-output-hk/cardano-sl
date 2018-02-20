@@ -66,6 +66,7 @@ library
                      , data-default
                      , exceptions
                      , formatting
+                     , generic-arbitrary
                      , generics-sop
                      , http-api-data
                      , http-client

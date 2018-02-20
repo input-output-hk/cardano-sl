@@ -333,7 +333,7 @@ instance ToDocs NodeInfo where
   descriptionFor _ = "A collection of dynamic information for this wallet node."
 
 instance ToDocs WalletStateSnapshot where
-  descriptionFor _ = "Dump of current wallet state"
+  descriptionFor _ = "Dump current wallet state"
 
 instance ToDocs (V1 InputSelectionPolicy) where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "

@@ -110,6 +110,7 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, Ptx
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
                                               mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
                                               resetFailedPtx)
+import           Test.QuickCheck (Arbitrary (..))
 
 -- | Type alias for indices which are used to maintain order
 -- in which addresses were created.

@@ -118,7 +118,6 @@ dev: &dev
     networkConnectionTimeout: 15000 # ms
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
-    propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds
     walletProductionApi: false
     walletTxCreationDisabled: false
@@ -308,7 +307,6 @@ mainnet_base: &mainnet_base
     networkConnectionTimeout: 15000
     conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
-    propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds
     walletProductionApi: true
     walletTxCreationDisabled: false

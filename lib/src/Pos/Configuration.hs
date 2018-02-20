@@ -12,7 +12,6 @@ module Pos.Configuration
        , networkConnectionTimeout
        , conversationEstablishTimeout
        , blockRetrievalQueueSize
-       , propagationQueueSize
 
        -- * Wallet constants
        , pendingTxResubmitionPeriod
@@ -46,8 +45,6 @@ data NodeConfiguration = NodeConfiguration
       -- Default 30 seconds.
     , ccBlockRetrievalQueueSize      :: !Int
       -- ^ Block retrieval queue capacity
-    , ccPropagationQueueSize         :: !Int
-      -- ^ InvMsg propagation queue capacity
     , ccPendingTxResubmissionPeriod  :: !Int
       -- ^ Minimal delay between pending transactions resubmission
     , ccWalletProductionApi          :: !Bool
@@ -77,10 +74,6 @@ conversationEstablishTimeout = ms . fromIntegral . ccConversationEstablishTimeou
 blockRetrievalQueueSize :: (HasNodeConfiguration, Integral a) => a
 blockRetrievalQueueSize =
     fromIntegral . ccBlockRetrievalQueueSize $ nodeConfiguration
-
-propagationQueueSize :: (HasNodeConfiguration, Integral a) => a
-propagationQueueSize =
-    fromIntegral $ ccPropagationQueueSize $ nodeConfiguration
 
 ----------------------------------------------------------------------------
 -- Wallet parameters

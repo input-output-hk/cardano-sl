@@ -36,7 +36,7 @@ fname3 <- paste(bp, '/bench-settings', sep='')
 fname4 <- paste(bp, '/times.csv', sep='')
 
 DESC=''                    # Add custom text to titles
-k <- 12 #6                     # Protocol parameters determining
+k <- 6 #12 #24             # Protocol parameters determining
 SLOTLENGTH <- 20           # the length of an epoch
 EPOCHLENGTH <- 10*k*SLOTLENGTH
 
@@ -280,11 +280,18 @@ plotMessages <- function(d, run=RUN, desc=DESC) {
   core_nodes <- select(written_by_node %>% filter(txCount > 0), node)
   colnames(written_by_node) <- c("node", "written")
   colnames(core_nodes) <- c("core")
-  rollbackwait_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("wait rollback")), sum)
-  colnames(rollbackwait_by_node) <- c("node", "wait rollback")
-  rollbacksize_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("size after rollback")), sum)
-  colnames(rollbacksize_by_node) <- c("node", "size rollback")
-  
+  rollbackwait_by_node <- {}
+  try({
+      rollbackwait_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("wait rollback")), sum)
+      colnames(rollbackwait_by_node) <- c("node", "wait rollback") },
+    TRUE
+  )
+  rollbacksize_by_node <- {}
+  try({
+      rollbacksize_by_node <- aggregate(txCount ~ node, data %>% filter(txType %in% c("size after rollback")), sum)
+      colnames(rollbacksize_by_node) <- c("node", "size rollback") },
+    TRUE
+  )
   maxparam <- length(submitted_by_node[,2])
   summsg <- sum(submitted_by_node[,2])
   #submitted_by_node[maxparam+1,1] <- "sum"
@@ -304,8 +311,12 @@ plotMessages <- function(d, run=RUN, desc=DESC) {
   textplot(submitted_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
   textplot(written_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
   
-  textplot(rollbackwait_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
-  textplot(rollbacksize_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  if (! is.null(rollbackwait_by_node)) {
+    textplot(rollbackwait_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  }
+  if (! is.null(rollbacksize_by_node)) {
+    textplot(rollbacksize_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
+  }
   textplot(core_nodes, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
 
   par(def.par)

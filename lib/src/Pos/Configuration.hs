@@ -13,7 +13,6 @@ module Pos.Configuration
        , conversationEstablishTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
-       , defaultPeers
 
        -- * Wallet constants
        , pendingTxResubmitionPeriod
@@ -28,9 +27,6 @@ import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (ms)
-import qualified Text.Parsec as P
-
-import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 type HasNodeConfiguration = Given NodeConfiguration
 
@@ -43,9 +39,7 @@ withNodeConfiguration = give
 -- | Top-level node configuration. See example in /configuration.yaml/ file.
 data NodeConfiguration = NodeConfiguration
     {
-      ccDefaultPeers                 :: ![Text]
-      -- ^ List of default peers
-    , ccNetworkConnectionTimeout     :: !Int
+      ccNetworkConnectionTimeout     :: !Int
       -- ^ Network connection timeout in milliseconds
     , ccConversationEstablishTimeout :: !Int
       -- ^ Conversation acknowledgement timeout in milliseconds.
@@ -87,16 +81,6 @@ blockRetrievalQueueSize =
 propagationQueueSize :: (HasNodeConfiguration, Integral a) => a
 propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ nodeConfiguration
-
--- | See 'Pos.NodeConfiguration.ccDefaultPeers'.
-defaultPeers :: HasNodeConfiguration => [NetworkAddress]
-defaultPeers = map parsePeer . ccDefaultPeers $ nodeConfiguration
-  where
-    parsePeer :: Text -> NetworkAddress
-    parsePeer =
-        either (error . show) identity .
-        P.parse addrParser "Compile time config"
-
 
 ----------------------------------------------------------------------------
 -- Wallet parameters

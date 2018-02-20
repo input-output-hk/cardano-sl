@@ -61,16 +61,6 @@ dev: &dev
     dbSerializeVersion: 0
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
 
-    # Chain quality thresholds and other constants to detect suspicious things
-    nonCriticalCQBootstrap: 0.95
-    criticalCQBootstrap: 0.8888
-    nonCriticalCQ: 0.8
-    criticalCQ: 0.654321
-    criticalForkThreshold: 2 # number of blocks such that if so many blocks are
-                             # rolled back, it requires immediate response
-    fixedTimeCQ: 10 # Chain quality will be also calculated for this amount
-                    # of seconds.
-
   infra: &dev_infra
 
     # NTP slotting
@@ -111,6 +101,16 @@ dev: &dev
   block: &dev_block
     networkDiameter: 3
     recoveryHeadersMessage: 20 # should be greater than k
+
+    # Chain quality thresholds and other constants to detect suspicious things
+    nonCriticalCQBootstrap: 0.95
+    criticalCQBootstrap: 0.8888
+    nonCriticalCQ: 0.8
+    criticalCQ: 0.654321
+    criticalForkThreshold: 2 # number of blocks such that if so many blocks are
+                             # rolled back, it requires immediate response
+    fixedTimeCQ: 10 # Chain quality will be also calculated for this amount
+                    # of seconds.
 
   node: &dev_node
     defaultPeers: []
@@ -250,16 +250,6 @@ mainnet_base: &mainnet_base
     dbSerializeVersion: 0
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
 
-    # Chain quality thresholds and other constants to detect suspicious things
-    nonCriticalCQBootstrap: 0.95
-    criticalCQBootstrap: 0.8888
-    nonCriticalCQ: 0.8
-    criticalCQ: 0.654321
-    criticalForkThreshold: 3 # number of blocks such that if so many blocks are
-                             # rolled back, it requires immediate response
-    fixedTimeCQ: 3600 # Chain quality will be also calculated for this amount
-                      # of seconds.
-
   infra:
 
     # NTP slotting
@@ -300,6 +290,16 @@ mainnet_base: &mainnet_base
   block: &mainnet_base_block
     networkDiameter: 18
     recoveryHeadersMessage: 2200 # should be greater than k
+
+    # Chain quality thresholds and other constants to detect suspicious things
+    nonCriticalCQBootstrap: 0.95
+    criticalCQBootstrap: 0.8888
+    nonCriticalCQ: 0.8
+    criticalCQ: 0.654321
+    criticalForkThreshold: 3 # number of blocks such that if so many blocks are
+                             # rolled back, it requires immediate response
+    fixedTimeCQ: 3600 # Chain quality will be also calculated for this amount
+                      # of seconds.
 
   node: &mainnet_base_node
     defaultPeers: []

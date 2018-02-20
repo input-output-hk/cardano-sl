@@ -57,6 +57,9 @@ module UTxO.DSL (
   , utxoRestrictToAddr
   , utxoRestrictToInputs
   , utxoRemoveInputs
+  , utxoOutputForInput
+  , utxoAmountForInput
+  , utxoAddressForInput
     -- ** Chain
   , Block
   , Blocks
@@ -388,7 +391,16 @@ findHash' h l = fromJust err (findHash h l)
   Additional: UTxO
 -------------------------------------------------------------------------------}
 
--- | Unspent transaction outputs
+-- | Unspent transaction outputs.
+--
+-- The underlying representation is a @'Map' ('Input' h a) ('Output' h a)@,
+-- which is not particularly helpful to understanding the meaning of this
+-- type. Other ways to understand it are:
+--
+-- * A @'Set' ('Input' h a)@ where each input has an 'Output' detailing the
+--   total amount of the 'Input' value and the address to which it belongs.
+-- * A relation on with columns @input@, @coin@, and @address@, with
+--   a primary index on the @input@
 newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
 
 deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
@@ -396,18 +408,43 @@ deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
 utxoEmpty :: Utxo h a
 utxoEmpty = Utxo Map.empty
 
+-- | Construct a 'Utxo' from a 'Map' of 'Input's. The 'Output' that each
+-- 'Input' in the map point to should represent the total value of that
+-- 'Input' along with the address that the 'Input' currently belongs to.
 utxoFromMap :: Map (Input h a) (Output a) -> Utxo h a
 utxoFromMap = Utxo
 
+-- | Construct a 'Utxo' from a list of 'Input's. The 'Output' that each
+-- 'Input' is paired with should represent the total value of that 'Input'
+-- along with the address that the 'Input' currently belongs to.
 utxoFromList :: Hash h a => [(Input h a, Output a)] -> Utxo h a
 utxoFromList = utxoFromMap . Map.fromList
 
 utxoToList :: Utxo h a -> [(Input h a, Output a)]
 utxoToList = Map.toList . utxoToMap
 
+-- | For a given 'Input', return the 'Output' that contains the address of
+-- the owner and value for the 'Input'.
+utxoOutputForInput :: Hash h a => Input h a -> Utxo h a -> Maybe (Output a)
+utxoOutputForInput i = Map.lookup i . utxoToMap
+
+-- | Look up the 'Value' amount for an 'Input' in the 'Utxo'.
+utxoAmountForInput :: Hash h a => Input h a -> Utxo h a -> Maybe Value
+utxoAmountForInput i = fmap outVal . utxoOutputForInput i
+
+-- | Look up the @address@ to which the given 'Input' belongs.
+utxoAddressForInput :: Hash h a => Input h a -> Utxo h a -> Maybe a
+utxoAddressForInput i = fmap outAddr . utxoOutputForInput i
+
+-- | This returns the set of 'Input' that are currently unspent. This
+-- function discards the information about how much value is in the input
+-- and to what address the input is sent.
 utxoDomain :: Utxo h a -> Set (Input h a)
 utxoDomain = Map.keysSet . utxoToMap
 
+-- | This returns the 'Output's that make up the unspent inputs. The
+-- 'Output's contain the total value and owning address for their
+-- respective 'Input's.
 utxoRange :: Utxo h a -> [Output a]
 utxoRange = Map.elems . utxoToMap
 
@@ -417,6 +454,8 @@ utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
 utxoUnions = Utxo . Map.unions . map utxoToMap
 
+-- | Filter the 'Utxo' to only contain unspent transaction outputs that
+-- satisfy the given predicate.
 utxoRestrictToAddr :: (a -> Bool) -> Utxo h a -> Utxo h a
 utxoRestrictToAddr p = Utxo . Map.filter (p . outAddr) . utxoToMap
 

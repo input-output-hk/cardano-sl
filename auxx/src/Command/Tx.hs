@@ -76,11 +76,13 @@ addTxSubmit =
         (\(TxCount submitted failed sending) ->
              pure (TxCount (submitted + 1) failed sending, ()))
 
+{-
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed =
     flip modifySharedAtomic
         (\(TxCount submitted failed sending) ->
              pure (TxCount submitted (failed + 1) sending, ()))
+-}
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m

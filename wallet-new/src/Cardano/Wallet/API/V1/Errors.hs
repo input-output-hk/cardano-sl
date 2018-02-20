@@ -53,6 +53,7 @@ data WalletError =
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | WalletNotFound
+    | DevelopmentModeOnly
     deriving (Show, Eq)
 
 --
@@ -78,6 +79,7 @@ instance Arbitrary WalletError where
         , MigrationFailed <$> pure "migration"
         , JSONValidationFailed <$> pure "Expected String, found Null."
         , pure WalletNotFound
+        , pure DevelopmentModeOnly
         ]
 
 --
@@ -94,6 +96,7 @@ allErrorsList = gconsNames (Proxy :: Proxy WalletError)
 walletHTTPError :: WalletError -> ServantErr
 walletHTTPError NotEnoughMoney{}       = err403 -- <https://httpstatuses.com/403 403> Forbidden
 walletHTTPError OutputIsRedeem{}       = err403
+walletHTTPError DevelopmentModeOnly    = err403
 walletHTTPError SomeOtherError{}       = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
 walletHTTPError MigrationFailed{}      = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
 walletHTTPError JSONValidationFailed{} = err400 -- <https://httpstatuses.com/400 400> Bad Request

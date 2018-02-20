@@ -2,14 +2,12 @@ module Cardano.Wallet.API.Development.Helpers where
 
 import           Universum
 
-import qualified Cardano.Wallet.API.Development as Dev
-import           Cardano.Wallet.API.Response (WalletResponse)
 import           Cardano.Wallet.Server.CLI (RunMode (..), isDebugMode)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
-import           Servant
+import           Cardano.Wallet.API.V1.Errors
+
 import           Control.Exception.Safe (throwM)
 
-developmentOnly :: RunMode -> Server Dev.API -> Handler (WalletResponse WalletStateSnapshot)
+developmentOnly :: MonadThrow m => RunMode -> m a -> m a
 developmentOnly runMode api
     | isDebugMode runMode = api
-    | otherwise = throwM err403
+    | otherwise = throwM $ toError DevelopmentModeOnly

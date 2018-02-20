@@ -22,10 +22,11 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           System.Wlog (WithLogger)
 
+import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), difficultyL,
-                           fixedTimeCQ, flattenSlotId, headerHash, prevBlockL)
+                           flattenSlotId, headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
@@ -133,7 +134,13 @@ calcOverallChainQuality =
 -- restrictive at all.
 -- 3. We are able to determine which slot started 'fixedTimeCQ' ago.
 calcChainQualityFixedTime ::
-       forall ctx m res. (Fractional res, MonadSlots ctx m, HasConfiguration, HasSlogGState ctx)
+       forall ctx m res.
+       ( Fractional res
+       , MonadSlots ctx m
+       , HasConfiguration
+       , HasBlockConfiguration
+       , HasSlogGState ctx
+       )
     => m (Maybe res)
 calcChainQualityFixedTime = do
     Timestamp curTime <- currentTimeSlotting

@@ -7526,9 +7526,10 @@ inherit (pkgs) mesa;};
          , containers, cpphs, data-default, ekg-core, ether, exceptions, fmt
          , formatting, generic-arbitrary, hashable, lens, log-warper, memory
          , mmorph, mtl, neat-interpolation, plutus-prototype, QuickCheck
-         , resourcet, rocksdb-haskell-ng, safe-exceptions, serokell-util
-         , stdenv, stm, tagged, template-haskell, text, text-format
-         , transformers, universum, unliftio, unordered-containers, vector
+         , reflection, resourcet, rocksdb-haskell-ng, safe-exceptions
+         , serokell-util, stdenv, stm, tagged, template-haskell, text
+         , text-format, transformers, universum, unliftio
+         , unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-txp";
@@ -7540,7 +7541,7 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-util conduit containers
              data-default ekg-core ether exceptions fmt formatting
              generic-arbitrary hashable lens log-warper memory mmorph mtl
-             neat-interpolation plutus-prototype QuickCheck resourcet
+             neat-interpolation plutus-prototype QuickCheck reflection resourcet
              rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
              template-haskell text text-format transformers universum unliftio
              unordered-containers vector

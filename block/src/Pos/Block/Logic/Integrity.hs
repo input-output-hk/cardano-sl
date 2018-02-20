@@ -60,8 +60,8 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Eq, Show)
 
-verifyFromEither :: Text -> Either a b -> VerificationRes
-verifyFromEither txt (Left _)  = verifyGeneric [(False, txt)]
+verifyFromEither :: Text -> Either Text b -> VerificationRes
+verifyFromEither txt (Left reason)  = verifyGeneric [(False, txt <> ": " <> reason)]
 verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
 
 -- CHECK: @verifyHeader

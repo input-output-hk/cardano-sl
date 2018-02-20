@@ -31,7 +31,7 @@ import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpen
                           secretToSharedSeed, vssThreshold)
 import           Pos.Util (nonrepeating, sublistN)
 
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic
@@ -39,7 +39,7 @@ getPubAddr = addressHash . toPublic
 spec :: Spec
 spec = withDefConfiguration $ do
     -- note that we can't make max size larger than 50 without changing it in
-    -- Test.Pos.Util as well
+    -- Test.Pos.Configuration as well
     let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)
     describe "calculateSeed" $ smaller $ do
         prop

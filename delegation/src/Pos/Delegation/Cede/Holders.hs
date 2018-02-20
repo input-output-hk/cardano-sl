@@ -18,6 +18,7 @@ import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet as HS
 import qualified Ether
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
@@ -37,7 +38,7 @@ type DBCede = Ether.TaggedTrans DBCedeTag IdentityT
 runDBCede :: DBCede m a -> m a
 runDBCede = coerce
 
-instance MonadDBRead m => MonadCedeRead (DBCede m) where
+instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (DBCede m) where
     getPsk = DB.getPskByIssuer . Right
     hasPostedThisEpoch = DB.isIssuerPostedThisEpoch
     getAllPostedThisEpoch = DB.getThisEpochPostedKeys
@@ -59,7 +60,7 @@ runMapCede = flip Ether.runLazyStateT
 evalMapCede :: Monad m => CedeModifier -> MapCede m a -> m a
 evalMapCede = flip Ether.evalLazyStateT
 
-instance MonadDBRead m => MonadCedeRead (MapCede m) where
+instance (MonadDBRead m, MonadUnliftIO m) => MonadCedeRead (MapCede m) where
     getPsk iPk =
         ether $ use (cmPskMods . at iPk) >>= \case
             Nothing                -> lift $ DB.getPskByIssuer $ Right iPk
@@ -77,7 +78,7 @@ instance MonadDBRead m => MonadCedeRead (MapCede m) where
                    allPostedDb
                    mods
 
-instance MonadDBRead m => MonadCede (MapCede m) where
+instance (MonadDBRead m, MonadUnliftIO m) => MonadCede (MapCede m) where
     modPsk eAction = do
         let issuer = dlgEdgeActionIssuer eAction
         ether $ cmPskMods %= HM.insert issuer eAction

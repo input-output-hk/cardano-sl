@@ -21,6 +21,7 @@ import           Control.Exception.Safe (Exception (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, stext, (%))
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
@@ -81,7 +82,7 @@ runDelegationStateAction action = do
 -- and resolves the passed issuer to a public key. Doesn't check that
 -- user himself didn't delegate. Uses database only.
 getDlgTransPsk
-    :: MonadDBRead m
+    :: (MonadDBRead m, MonadUnliftIO m)
     => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
 getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
     Nothing -> pure Nothing

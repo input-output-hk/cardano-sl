@@ -15,6 +15,7 @@ module Pos.Reporting.Methods
        , reportOrLog
        , reportOrLogE
        , reportOrLogW
+       , tryReport
 
        -- * Internals, exported for custom usages.
        -- E. g. to report crash from launcher.
@@ -310,6 +311,8 @@ reportNode sendLogs extendWithNodeInfo reportType =
         logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RInfo text) =
         logInfo $ "Reporting info with text \"" <> text <> "\""
+    logReportType (RCustomReport{}) =
+        logInfo $ "Reporting custom report"
 
     -- Retrieves node info that we would like to know when analyzing
     -- malicious behavior of node.
@@ -369,25 +372,36 @@ reportError = reportNode True True . RError
 
 -- | Exception handler which reports (and logs) an exception or just
 -- logs it. It reports only few types of exceptions which definitely
--- deserve attention. Other types are simply logged. It's suitable for
--- long-running workers which want to catch all exceptions and restart
--- after delay. If you are catching all exceptions somewhere, you most
--- likely want to use this handler (and maybe do something else).
+-- deserve attention. Other types are ignored. Function returns whether
+-- exception was reported. It's suitable for long-running workers which
+-- want to catch all exceptions and restart after delay. If you are
+-- catching all exceptions somewhere, you most likely want to use this
+-- handler (and maybe do something else).
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-reportOrLog
+tryReport
     :: forall ctx m . (MonadReporting ctx m)
-    => Severity -> Text -> SomeException -> m ()
-reportOrLog severity prefix exc =
+    => Text -> SomeException -> m Bool
+tryReport prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
-        Just msg -> reportError $ prefix <> msg
-        Nothing  -> logMessage severity $ prefix <> pretty exc
+        Just msg -> True <$ reportError (prefix <> msg)
+        Nothing  -> pure False
   where
     tryCast ::
            forall e. Exception e
         => Maybe Text
     tryCast = toText . displayException <$> fromException @e exc
+
+-- | Similar to 'tryReport', performs simple logging if exception is
+-- not suitable for being reported.
+reportOrLog
+    :: forall ctx m . (MonadReporting ctx m)
+    => Severity -> Text -> SomeException -> m ()
+reportOrLog severity prefix exc = do
+    success <- tryReport prefix exc
+    unless success $ do
+        logMessage severity $ prefix <> pretty exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
 reportOrLogE

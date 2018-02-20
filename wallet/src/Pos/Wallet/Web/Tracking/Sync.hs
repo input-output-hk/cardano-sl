@@ -50,19 +50,15 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import           Ether.Internal (HasLens (..))
-import           Formatting (build, sformat, shown, (%))
-import           Mockable (Mockable (..))
-import           Mockable.Concurrent (Async, async, wait)
-import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
-                              modifyLoggerName)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (BlockHeaderStub, ChainDifficulty, HasConfiguration, HasDifficulty (..),
-                           HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
-                           headerSlotL, timestampToPosix)
-import           Pos.Core.Block (BlockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..), HeaderHash,
+                           Timestamp, blkSecurityParam, genesisHash, headerHash, headerSlotL,
+                           timestampToPosix)
+import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
@@ -76,10 +72,11 @@ import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics
 import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
                           unGenesisUtxo, _txOutputs)
 import           Pos.Util.Chrono (getNewestFirst)
-import           Pos.Util.LogSafe (logErrorS, logInfoS, logWarningS)
+import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningSP, secretOnlyF,
+                                   secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util (HasLens (..), getKeys)
 
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))
@@ -123,8 +120,7 @@ type WalletTrackingEnv ctx m =
 -- | Restore the full history for a wallet, given its 'EncryptedSecretKey'
 -- TODO(adn): Periodically update the progress in the wallet state.
 -- TODO(adn): Make it async.
-restoreWalletHistory :: ( Mockable Async m
-                         , MonadWalletDB ctx m
+restoreWalletHistory :: (  MonadWalletDB ctx m
                          , MonadDBRead m
                          , WithLogger m
                          , HasLens StateLock ctx StateLock
@@ -132,7 +128,7 @@ restoreWalletHistory :: ( Mockable Async m
                          , MonadSlotsData ctx m
                          ) => EncryptedSecretKey -> m ()
 restoreWalletHistory encSK = do
-    res <- wait =<< async (syncWalletsFromGState [encSK])
+    res <- syncWalletsFromGState [encSK]
     mapM_ processSyncResult res
 
 txMempoolToModifier :: WalletTrackingEnvRead ctx m => WalletDecrCredentials -> m CAccModifier
@@ -146,9 +142,9 @@ txMempoolToModifier credentials = do
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)
         Nothing -> do
-            let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
-            logError errMsg
-            throwM $ InternalError errMsg
+            let errMsg sl = sformat ("There is no undo corresponding to TxId #"%secretOnlyF sl build%" from txp mempool") id
+            logErrorSP errMsg
+            throwM $ InternalError (errMsg secure)
 
     case topsortTxs wHash txsWUndo of
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
@@ -180,12 +176,16 @@ processSyncResult :: ( WithLogger m
 processSyncResult sr = case sr of
     SyncSucceeded -> return ()
     NoSyncTipAvailable walletId ->
-        logWarningS $ sformat ("There is no syncTip corresponding to wallet #" % build) walletId
+        logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) walletId
     NotSyncable walletId walletError -> do
-        logErrorS $ sformat ("Wallet #" % build % " is not syncable. Error was: " % shown) walletId walletError
+        logErrorSP   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
+                                                  % " is not syncable. Error was: "
+                                                  % build) walletId walletError
     SyncFailed  walletId exception -> do
-        let errMsg  = "Sync failed for Wallet #" % build % ". An exception was raised during the sync process: " % shown
-        logErrorS $ sformat errMsg walletId exception
+        let errMsg sl = "Sync failed for Wallet #" % secretOnlyF sl build
+                                                   % ". An exception was raised during the sync process: "
+                                                   % build
+        logErrorSP $ \sl -> sformat (errMsg sl) walletId exception
 
 -- | Iterates over blocks (using forward links) and reconstructs the transaction
 -- history for the given wallets.
@@ -282,7 +282,9 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
 
         mainBlkHeaderTs mBlkH =
           getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
-        blkHeaderTs = either (const Nothing) mainBlkHeaderTs
+        blkHeaderTs = \case
+            BlockHeaderGenesis _ -> Nothing
+            BlockHeaderMain h -> mainBlkHeaderTs h
 
         -- assuming that transactions are not created until syncing is complete
         ptxBlkInfo = const Nothing
@@ -300,9 +302,12 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
         computeAccModifier :: BlockHeader -> m CAccModifier
         computeAccModifier wHeader = do
             dbUsed <- WS.getCustomAddresses WS.UsedAddr
-            logInfoS $
-                sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
-                walletId wHeader gstateH
+            logInfoSP $ \sl -> do
+                sformat ("Wallet " % secretOnlyF sl build
+                                   % " header: "
+                                   % build
+                                   % ", current tip header: "
+                                   % build) walletId wHeader gstateH
             if | diff gstateH > diff wHeader -> do
                      let loadCond (b,_undo) _ = b ^. difficultyL <= gstateH ^. difficultyL
                          convertFoo rr blund = (rr <>) <$> applyBlock dbUsed blund
@@ -326,21 +331,23 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
                      blunds <- getNewestFirst <$>
                          GS.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
                      pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
-               | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") walletId)
+               | otherwise -> do
+                     logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
+                     return mempty
 
     whenNothing_ wTipHeader $ restoreGenesisAddresses credentials
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet walletId (headerHash gstateH) mapModifier
-    logInfoS $
-        sformat ("Wallet "%build%" has been synced with tip "
-                %shortHashF%", "%build)
+    logInfoSP $ \sl ->
+        sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
+                %shortHashF%", "%buildSafe sl)
                 walletId (maybe genesisHash headerHash wTipHeader) mapModifier
     pure SyncSucceeded
   where
     firstGenesisHeader :: m BlockHeader
-    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
+    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeader) >>=
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 

@@ -15,12 +15,12 @@ import           Formatting (build, sformat, (%))
 import qualified Serokell.Util.Base64 as B64
 
 import qualified Pos.Binary as Bi
-import           Pos.Crypto (EncryptedSecretKey (..))
+import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..))
+import           Pos.Util.Util (aesonError, toAesonError)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
                                              CWalletMeta (..))
-import           Pos.Util.Util (toAesonError, aesonError)
 
 data IndexedAccountMeta = IndexedAccountMeta Int AccountMetaBackup
 
@@ -82,7 +82,7 @@ instance FromJSON WalletBackup where
                 IndexedAccountMeta idx meta <- parseJSON v
                 return $ HM.insert idx meta accMap
 
-        prvKey <- decodeBase64 =<< o .: "walletSecretKey"
+        SecretKey prvKey <- decodeBase64 =<< o .: "walletSecretKey"
         passPhraseHash <- decodeBase64 =<< o .: "passwordHash"
         walletMeta <- o .: "walletMeta"
         walletAccounts <- withArray "WalletBackup.accounts" collectAccMap =<<
@@ -122,7 +122,7 @@ instance ToJSON IndexedAccountMeta where
 
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object
-        [ "walletSecretKey" .= B64.encode (Bi.serialize' prvKey)
+        [ "walletSecretKey" .= B64.encode (Bi.serialize' $ SecretKey prvKey)
         , "passwordHash" .= B64.encode (Bi.serialize' passPhraseHash)
         , "walletMeta" .= wMeta
         , "accounts" .= encodeAccMap wAccounts

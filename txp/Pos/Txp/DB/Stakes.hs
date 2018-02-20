@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Lens (at)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
@@ -32,6 +32,7 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (Coin, HasConfiguration, StakeholderId, StakesMap, coinF, mkCoin,
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
@@ -90,12 +91,13 @@ initGStateStakes (GenesisUtxo genesisUtxo) = do
 -- | Run iterator over stakes.
 stakeSource ::
        forall m. (MonadDBRead m)
-    => Source (ResourceT m) (IterType StakeIter)
+    => ConduitT () (IterType StakeIter) (ResourceT m) ()
 stakeSource = dbIterSource GStateDB (Proxy @StakeIter)
 
 -- | Get stakes of all stakeholders. Use with care – the resulting map
 -- can be very big.
-getAllPotentiallyHugeStakesMap :: MonadDBRead m => m StakesMap
+getAllPotentiallyHugeStakesMap ::
+       (MonadDBRead m, MonadUnliftIO m) => m StakesMap
 getAllPotentiallyHugeStakesMap =
     runConduitRes $
     stakeSource .|
@@ -106,7 +108,7 @@ getAllPotentiallyHugeStakesMap =
 ----------------------------------------------------------------------------
 
 sanityCheckStakes
-    :: (MonadDBRead m, WithLogger m)
+    :: (MonadDBRead m, MonadUnliftIO m, WithLogger m)
     => m ()
 sanityCheckStakes = do
     calculatedTotalStake <- runConduitRes $

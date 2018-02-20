@@ -1,9 +1,7 @@
-
 -- | Everything related to /follow-the-satoshi/ procedure.
 
 module Pos.Lrc.FtsPure
        ( followTheSatoshi
-       , followTheSatoshiM
        , followTheSatoshiUtxo
        ) where
 

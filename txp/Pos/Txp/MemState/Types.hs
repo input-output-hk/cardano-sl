@@ -9,6 +9,7 @@ module Pos.Txp.MemState.Types
        , TxpLocalDataPure
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
+       , JLTxR (..)
        ) where
 
 import           Universum
@@ -71,3 +72,13 @@ data MemPoolModifyReason =
     deriving Show
 
 $(deriveJSON defaultOptions ''MemPoolModifyReason)
+
+----------------------------------------------------------------------------
+-- Logging
+----------------------------------------------------------------------------
+
+-- | Json log of one transaction being received by a node.
+data JLTxR = JLTxR
+    { jlrTxId  :: Text
+    , jlrError :: Maybe Text
+    } deriving Show

@@ -11,7 +11,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, ourSystemTag)
 import qualified Pos.Update.Constants     as C
 
 import           Test.Hspec               (Expectation, Spec, describe, it, shouldSatisfy)
-import           Test.Pos.Util            (withDefUpdateConfiguration)
+import           Test.Pos.Configuration   (withDefUpdateConfiguration)
 
 -- | @currentSystemTag@ is a value obtained at compile time with TemplateHaskell
 -- that represents that current system's platform (i.e. where it was compiled).

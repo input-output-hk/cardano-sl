@@ -1,19 +1,13 @@
 module Pos.Communication.Configuration
-       ( networkWaitLogInterval
-       , maxReqSize
+       ( maxReqSize
        , maxMempoolMsgSize
        , maxInvSize
        ) where
 
-import           Data.Time.Units (Second)
 import           Universum
 
 import           Pos.Infra.Configuration (HasInfraConfiguration, ccMaxInvSize, ccMaxMempoolMsgSize,
-                                          ccMaxReqSize, ccNetworkWaitLogInterval,
-                                          infraConfiguration)
-
-networkWaitLogInterval :: HasInfraConfiguration => Second
-networkWaitLogInterval = fromIntegral . ccNetworkWaitLogInterval $ infraConfiguration
+                                          ccMaxReqSize, infraConfiguration)
 
 maxReqSize :: HasInfraConfiguration => Word32
 maxReqSize = ccMaxReqSize infraConfiguration

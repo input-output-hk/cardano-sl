@@ -4,6 +4,7 @@ module Cardano.Wallet.API.V1.Transactions where
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import qualified Pos.Core as Core
 
 import           Servant
 
@@ -13,6 +14,8 @@ type API
                         :> Post '[ValidJSON] (WalletResponse Transaction)
     :<|> "transactions" :> Summary "Returns the transaction history, i.e the list of all the past transactions."
                         :> Capture "walletId" WalletId
+                        :> QueryParam "account_index" AccountIndex
+                        :> QueryParam "address" (V1 Core.Address)
                         :> WalletRequestParams
                         :> Get '[ValidJSON] (WalletResponse [Transaction])
     :<|> "transactions" :> "fees"

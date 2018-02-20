@@ -20,15 +20,16 @@ import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
 import qualified Pos.Block.Base as T
-import           Pos.Block.Network as T
-import qualified Pos.Block.Pure as T
+import qualified Pos.Block.Logic.Integrity as T
+import           Pos.Block.Slog.Types (SlogUndo)
+import           Pos.Block.Types (Undo (..))
 import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
 import           Pos.Util.Util (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
@@ -38,6 +39,10 @@ newtype BodyDependsOnSlot b = BodyDependsOnSlot
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
+
+instance HasConfiguration => Arbitrary T.BlockHeader where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance (HasConfiguration, Arbitrary SscProof) =>
     Arbitrary T.BlockSignature where
@@ -56,7 +61,7 @@ instance Arbitrary T.GenesisExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary T.GenesisBlockHeader where
+instance HasConfiguration => Arbitrary T.GenesisBlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -188,36 +193,6 @@ instance ( Arbitrary SscPayload
             T.recreateGenericBlock header body extraBodyData
     shrink = genericShrink
 
-------------------------------------------------------------------------------------------
--- Block network types
-------------------------------------------------------------------------------------------
-
-instance Arbitrary T.MsgGetHeaders where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary T.MsgGetBlocks where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Bi Raw
-         , HasConfiguration
-         ) =>
-         Arbitrary T.MsgHeaders where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
-         ) =>
-         Arbitrary T.MsgBlock where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
 instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where
     build (block, key) =
         bprint
@@ -267,7 +242,7 @@ recursiveHeaderGen genesis
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let gHeader = Left $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader (head blockchain) siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
           recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
@@ -289,7 +264,7 @@ recursiveHeaderGen genesis
                         toPsk = createPsk issuerSK delegatePK
                         proxy = (toPsk siEpoch, toPublic issuerSK)
                     in (delegateSK, Just proxy)
-        pure $ Right $
+        pure $ T.BlockHeaderMain $
             T.mkMainHeader prevHeader slotId leader proxySK body extraHData
 recursiveHeaderGen _ [] _ b = return b
 recursiveHeaderGen _ _ [] b = return b
@@ -403,13 +378,13 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                 case header of
                     -- If the header is of the genesis kind, this field is
                     -- not needed.
-                    Left _  -> Nothing
+                    T.BlockHeaderGenesis _  -> Nothing
                     -- If it's a main blockheader, then a valid "current"
                     -- SlotId for testing is any with an epoch greater than
                     -- the header's epoch and with any slot index, or any in
                     -- the same epoch but with a greater or equal slot index
                     -- than the header.
-                    Right h -> -- Nothing {-
+                    T.BlockHeaderMain h -> -- Nothing {-
                         let (Core.SlotId e s) = view Core.headerSlotL h
                             rndEpoch :: Core.EpochIndex
                             rndEpoch = betweenXAndY e maxBound
@@ -421,10 +396,9 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                         in Just rndSlot
             hasUnknownAttributes =
                 not . areAttributesKnown $
-                either
-                    (view $ Core.gbhExtra . T.gehAttributes)
-                    (view $ Core.gbhExtra . T.mehAttributes)
-                    header
+                case header of
+                    T.BlockHeaderGenesis h -> h ^. Core.gbhExtra . T.gehAttributes
+                    T.BlockHeaderMain h    -> h ^. Core.gbhExtra . T.mehAttributes
             params = T.VerifyHeaderParams
                 { T.vhpPrevHeader = prev
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
@@ -433,3 +407,15 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }
         return . HAndP $ (params, header)
+
+------------------------------------------------------------------------
+-- Pos.Block.Slog.Types
+------------------------------------------------------------------------
+
+instance Arbitrary SlogUndo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance HasConfiguration => Arbitrary Undo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

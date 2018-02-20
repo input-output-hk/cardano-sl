@@ -201,7 +201,7 @@ define it.
 
 We disallow the use of `throwIO` only because it is redundant in the presence of
 `throwM` and requires a stronger constraint (`MonadIO` rather than
-`MonadThrow`).
+`MonadThrow`). In code which lives directly in `IO` usage of `throwIO` is fine.
 
 Derive prisms for exception types with multiple constructors, so it's convenient
 to use them with `catchJust`.
@@ -245,9 +245,6 @@ with simple `Either`, we should do this replacement. For instance,
 `mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion
 -> m AddrStakeDistribution` becomes `mkMultiKeyDistr :: Map
 StakeholderId CoinPortion -> Either Text AddrStakeDistribution`
-
-We should locate all usages of `forkIO` and replace with appropriate functions
-from `async`.
 
 We should find where errors which are not programmer mistakes are thrown with
 `error`, `undefined`, or `impureThrow`, and rewrite them to use correct error

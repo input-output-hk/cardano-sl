@@ -38,8 +38,9 @@ import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (.
                           supplyPureTossEnv)
 import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyCommitmentSignature,
                                verifyOpening)
+import           Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
-import           Test.Pos.Util (qcElem, qcFail, qcIsRight, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc.Base" $ do

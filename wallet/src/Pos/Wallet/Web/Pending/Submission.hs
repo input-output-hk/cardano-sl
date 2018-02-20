@@ -24,10 +24,10 @@ import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
                                                    usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
@@ -83,23 +83,22 @@ ptxResubmissionHandler PendingTx{..} =
         reportCanceled
 
     reportPeerAppliedEarlier =
-        logInfoS $
-        sformat ("Some peer applied tx #"%build%" earlier - continuing \
+        logInfoSP $ \sl ->
+        sformat ("Some peer applied tx #"%secretOnlyF sl build%" earlier - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
-        logInfoS $
-        sformat ("Pending transaction #"%build%" was canceled")
+        logInfoSP $ \sl ->
+        sformat ("Pending transaction #"%secretOnlyF sl build%" was canceled")
             _ptxTxId
     reportBadCondition =
-        logWarningS $
-        sformat ("Processing failure of "%build%" resubmission, but \
-            \this transaction has unexpected condition "%build)
+        logWarningSP $ \sl ->
+        sformat ("Processing failure of "%secretOnlyF sl build%" resubmission, but \
+            \this transaction has unexpected condition "%buildSafe sl)
             _ptxTxId _ptxCond
 
 type TxSubmissionMode ctx m =
     ( TxMode m
-    , MonadWalletSendActions m
     , MonadWalletDB ctx m
     )
 
@@ -107,8 +106,11 @@ type TxSubmissionMode ctx m =
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => PtxSubmissionHandlers m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+    => (TxAux -> m Bool)
+    -> PtxSubmissionHandlers m
+    -> PendingTx
+    -> m ()
+submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -128,7 +130,7 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
            (saveTx (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
-           ack <- sendTxToNetwork _ptxTxAux
+           ack <- submitTx _ptxTxAux
            reportSubmitted ack
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
@@ -154,8 +156,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         pshOnNonReclaimable e
 
     reportError desc e outcome =
-        logInfoS $
-        sformat ("Transaction #"%build%" application failed ("%shown%" - "
+        logInfoSP $ \sl ->
+        sformat ("Transaction #"%secretOnlyF sl build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
 
     creationFailedHandler =

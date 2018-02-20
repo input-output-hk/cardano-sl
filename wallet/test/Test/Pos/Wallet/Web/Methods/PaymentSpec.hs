@@ -27,16 +27,17 @@ import           Pos.Wallet.Web.Account (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes (CAccount (..), CWAddressMeta (..),
                                              NewBatchPayment (..))
 
+import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
+                                               splitWord, stopProperty)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
-import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, splitWord,
-                                stopProperty, withDefConfigurations)
 
 import           Pos.Util.Servant (encodeCType)
-import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Wallet.Web.Mode (getSentTxs, submitTxTestMode, walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 
@@ -79,7 +80,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
                 , npbTo = fromList $ zip dstCAddrs coins
                 , npbInputSelectionPolicy = policy
                 }
-    void $ lift $ newPaymentBatch pswd newBatchP
+    void $ lift $ newPaymentBatch submitTxTestMode pswd newBatchP
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

@@ -20,7 +20,7 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
-import           Pos.Update (updateTriggerWorker)
+import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
@@ -45,7 +45,6 @@ action
     => SimpleNodeArgs
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
     CLI.printInfoOnStart cArgs
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs

@@ -7,11 +7,11 @@ module Pos.Infra.Configuration
        , ntpServers
        ) where
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
-import           Data.Reflection (Given, give, given)
-import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Reflection (Given, give, given)
+import           Serokell.Aeson.Options (defaultOptions)
 
 data InfraConfiguration = InfraConfiguration
     {
@@ -33,9 +33,6 @@ data InfraConfiguration = InfraConfiguration
     -- ^ We consider node as known if it was pinged at most @ccEnhancedMessageTimeout@ sec ago
     , ccEnhancedMessageBroadcast    :: !Word
       -- ^ Number of nodes from batch for enhanced bessage broadcast
-    , ccNetworkWaitLogInterval      :: !Int
-      -- ^ Network wait logging interval in seconds
-      --   (logging that some recv/send takes significant amount of time)
 
     --------------------------------------------------------------------------
     -- -- Relay
@@ -60,6 +57,9 @@ data InfraConfiguration = InfraConfiguration
 instance FromJSON InfraConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
+instance ToJSON InfraConfiguration where
+    toJSON = genericToJSON defaultOptions
+
 type HasInfraConfiguration = Given InfraConfiguration
 
 withInfraConfiguration :: InfraConfiguration -> (HasInfraConfiguration => r) -> r
@@ -70,6 +70,8 @@ infraConfiguration = given
 
 ntpServers :: [String]
 ntpServers =
-    [ "time.windows.com"
-    , "clock.isc.org"
-    , "ntp5.stratum2.ru" ]
+    [ "0.pool.ntp.org"
+    , "2.pool.ntp.org"
+    , "3.pool.ntp.org"
+    ]
+    -- need only 3 servers :shrug:

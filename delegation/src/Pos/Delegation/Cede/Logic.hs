@@ -116,8 +116,8 @@ dlgReachesIssuance i d psk = reach i
 dlgVerifyHeader ::
        (MonadCedeRead m)
     => MainBlockHeader
-    -> ExceptT Text m ()
-dlgVerifyHeader h = do
+    -> m (Either Text ())
+dlgVerifyHeader h = runExceptT $ do
     -- Issuer didn't delegate the right to issue to elseone.
     let issuer = h ^. mainHeaderLeaderKey
     let sig = h ^. gbhConsensus . mcdSignature

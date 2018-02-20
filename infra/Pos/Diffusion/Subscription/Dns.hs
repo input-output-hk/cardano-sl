@@ -8,7 +8,6 @@ import           Universum
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
-import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
@@ -50,7 +49,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     let initialDnsPeers :: Map Int (Alts NodeId)
         initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
     -- Subscription duration
-    subDuration <- newMVar (0 :: POSIXTime)
+    subDuration <- newMVar (0 :: Millisecond)
     dnsPeersVar <- newSharedAtomic initialDnsPeers
     -- There's a thread for each conjunct which attempts to subscribe to one of
     -- the alternatives.
@@ -73,7 +72,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- (see 'retryInterval').
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
-        -> MVar POSIXTime
+        -> MVar Millisecond
         -> (Int, Alts (NodeAddr DNS.Domain))
         -> m ()
     subscribeAlts _ _ (index, []) =
@@ -94,7 +93,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         retryInterval d >>= delay
         subscribeAlts dnsPeersVar subDuration (index, alts)
 
-    subscribeToOne :: Alts NodeId -> MVar POSIXTime -> m ()
+    subscribeToOne :: Alts NodeId -> MVar Millisecond -> m ()
     subscribeToOne dnsPeers subDuration = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
@@ -124,7 +123,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- For a @20s@ slot: the values will be @20s@, @10s@, @5s@, @2s@,
     -- @1s@, @0s@, i.e. if there was a subscription that lasted more than
     -- @5@ slots we will try to re-subscribe immediately.
-    retryInterval :: POSIXTime -> m Millisecond
+    retryInterval :: Millisecond -> m Millisecond
     retryInterval d = do
         slotDur <- nextSlotDuration
         let -- slot duration in microseconds
@@ -132,7 +131,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
             slotDurF = fromIntegral $ toMicroseconds slotDur
             -- Number of slots that passed in the longest subscription duration
             slotsF :: Float
-            slotsF = realToFrac d * 1000000 / slotDurF
+            slotsF = (fromIntegral $ toMicroseconds d) / slotDurF
         return $ fromMicroseconds $ floor $ slotDurF / (2 ** slotsF)
 
     msgDnsFailure :: Int -> [DNS.DNSError] -> Text

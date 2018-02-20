@@ -14,8 +14,9 @@ import           Universum
 import           Control.Exception.Safe (try)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
-import           Data.Time.Units (convertUnit, Second)
+import           Data.Time.Clock (NominalDiffTime)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Millisecond, Second, convertUnit, fromMicroseconds)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
@@ -62,7 +63,7 @@ subscribeTo
     :: forall m. (SubscriptionMode m)
     => Timer
     -> TVar SubscriptionStatus
-    -> MVar POSIXTime -- ^ Subscription duration.
+    -> MVar Millisecond -- ^ Subscription duration.
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
@@ -77,12 +78,13 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
         [ Conversation convMsgSubscribe
         , Conversation convMsgSubscribe1
         ]
-    let reason = either Exceptional (maybe Normal absurd) outcome
-    logNotice $ msgSubscriptionTerminated peer reason
     -- Change subscription state
     atomically $ writeTVar subStatus NotSubscribed
     subEnded <- liftIO getPOSIXTime
-    liftIO $ modifyMVar_ subDuration $ return . max (subEnded - subStarted)
+    liftIO $ modifyMVar_ subDuration
+        (\x -> return $! max x (ndtToMilliseconds $ subEnded - subStarted))
+    let reason = either Exceptional (maybe Normal absurd) outcome
+    logNotice $ msgSubscriptionTerminated peer reason
     return reason
   where
     convMsgSubscribe :: ConversationActions MsgSubscribe Void m -> m t
@@ -113,6 +115,9 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
 
     msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
     msgSubscriptionTerminated = sformat $ "subscriptionWorker: lost connection to "%shown%" "%shown
+
+    ndtToMilliseconds :: NominalDiffTime -> Millisecond
+    ndtToMilliseconds = fromMicroseconds . round . (* 1000000)
 
 -- | A listener for subscriptions: add the subscriber to the set of known
 -- peers, annotating it with a given NodeType. Remove that peer from the set

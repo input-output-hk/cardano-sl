@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Block creation logic.
+-- | Functions that retrieve payload from context and create genesis/main blocks
+-- with many validations.
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlockAndApply
@@ -31,7 +32,7 @@ import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
                            HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
                            flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader, GenesisBlock, MainBlock, MainBlockchain)
+import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
@@ -173,11 +174,11 @@ needCreateGenesisBlock ::
     -> m Bool
 needCreateGenesisBlock epoch tipHeader = do
     case tipHeader of
-        Left _ -> pure False
+        BlockHeaderGenesis _ -> pure False
         -- This is true iff tip is from 'epoch' - 1 and last
         -- 'blkSecurityParam' blocks fully fit into last
         -- 'slotSecurityParam' slots from 'epoch' - 1.
-        Right mb ->
+        BlockHeaderMain mb ->
             if mb ^. epochIndexL /= epoch - 1
                 then pure False
                 else calcChainQualityM (flattenSlotId $ SlotId epoch minBound) <&> \case
@@ -250,7 +251,7 @@ createMainBlockInternal sId pske = do
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
-        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
         block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
@@ -263,7 +264,7 @@ canCreateBlock ::
     -> m (Either Text ())
 canCreateBlock sId tipHeader =
     runExceptT $ do
-        unlessM usCanCreateBlock $
+        unlessM (lift usCanCreateBlock) $
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"

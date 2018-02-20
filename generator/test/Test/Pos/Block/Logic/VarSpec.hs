@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RankNTypes      #-}
 
 -- | Specification of 'Pos.Block.Logic.VAR'.
 
@@ -38,16 +39,15 @@ import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmp
                                   _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
+import           Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                                              DbNotEquivalentToSnapshot (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks, bpGoToArbitraryState, getAllSecrets,
                                             satisfySlotCheck)
-import           Test.Pos.Helpers (blockPropertySpec)
-import           Test.Pos.Util (HasStaticConfigurations, splitIntoChunks, stopProperty,
-                                withStaticConfigurations)
-
+import           Test.Pos.Block.Property (blockPropertySpec)
+import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
 spec :: Spec

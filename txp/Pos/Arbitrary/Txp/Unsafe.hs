@@ -6,7 +6,7 @@ import           Universum
 
 import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Util.Arbitrary (ArbitraryUnsafe (..))
+import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..))
 
 instance ArbitraryUnsafe TxOut where
     arbitraryUnsafe = TxOut <$> arbitraryUnsafe <*> arbitraryUnsafe

@@ -9,7 +9,7 @@ environment:
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
-    CACHE_S3_VERSION: v0.1.1
+    CACHE_S3_VERSION: v0.1.3
     AWS_REGION: us-west-1
     S3_BUCKET: appveyor-ci-cache
     AWS_ACCESS_KEY_ID:
@@ -52,6 +52,7 @@ before_test:
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
 - copy rocksdb.dll lib
 - copy rocksdb.dll wallet
+- copy rocksdb.dll wallet-new
 
 # Install liblzma/xz
 - ps: Start-FileDownload https://tukaani.org/xz/xz-5.2.3-windows.zip -Filename xz-5.2.3-windows.zip

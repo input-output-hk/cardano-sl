@@ -14,20 +14,23 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                         Pos.Arbitrary.Block
+                        Pos.Arbitrary.Block.Message
 
                         Pos.Block.Base
                         Pos.Block.BHelpers
                         Pos.Block.BListener
+                        Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
-                        Pos.Block.Genesis
                         Pos.Block.Logic
-                        Pos.Block.Network
-                        Pos.Block.Pure
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-                        Pos.Block.Worker
+
+                        Pos.Block.Network
+                        Pos.Block.Network.Logic
+                        Pos.Block.Network.Retrieval
+                        Pos.Block.Network.Types
 
                         Pos.DB.Block
                         Pos.DB.Block.Load
@@ -50,18 +53,15 @@ library
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
+                        Pos.Block.Logic.Integrity
+
+                        Pos.Block.Worker
 
   other-modules:
-                        Pos.Block.BlockWorkMode
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Network.Announce
-                        Pos.Block.Network.Listeners
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
@@ -73,6 +73,7 @@ library
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
+
 
   build-depends:        QuickCheck
                       , aeson
@@ -116,6 +117,7 @@ library
                       , time-units
                       , transformers
                       , universum
+                      , unliftio
                       , unordered-containers
 
 

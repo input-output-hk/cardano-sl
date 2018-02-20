@@ -115,6 +115,7 @@ test-suite cardano-client-test
                      , containers
                      , formatting
                      , hspec
+                     , safe-exceptions
                      , universum >= 0.1.11
                      , unordered-containers
 

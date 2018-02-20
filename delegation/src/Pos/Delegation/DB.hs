@@ -48,11 +48,12 @@ import           Universum
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Database.RocksDB as Rocks
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash)
@@ -185,7 +186,9 @@ instance DBIteratorClass DlgTransRevIter where
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
+getDelegators ::
+       MonadDBRead m
+    => ConduitT () (StakeholderId, HashSet StakeholderId) (ResourceT m) ()
 getDelegators = dbIterSource GStateDB (Proxy @DlgTransRevIter)
 
 -- Iterator over the "this epoch posted" set.
@@ -197,7 +200,7 @@ instance DBIteratorClass ThisEpochPostedIter where
     iterKeyPrefix = iterPostedThisEpochPrefix
 
 -- | Get all keys of thisEpochPosted set.
-getThisEpochPostedKeys :: MonadDBRead m => m (HashSet StakeholderId)
+getThisEpochPostedKeys :: (MonadDBRead m, MonadUnliftIO m) => m (HashSet StakeholderId)
 getThisEpochPostedKeys =
     runConduitRes $
     mapOutput fst (dbIterSource GStateDB (Proxy @ThisEpochPostedIter)) .| consumeHs

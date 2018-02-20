@@ -16,7 +16,7 @@ import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, determinist
                                            toVssPublicKey)
 import           Pos.Crypto.Signing (PublicKey, SecretKey, Signed, mkSigned)
 import           Pos.Crypto.Signing.Types.Tag (SignTag)
-import           Pos.Util.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
+import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 64

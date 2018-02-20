@@ -88,7 +88,7 @@ instance HasSlogGState SlogContext where
 -- applied.
 newtype SlogUndo = SlogUndo
     { getSlogUndo :: Maybe FlatSlotId
-    } deriving (NFData, Generic)
+    } deriving (Eq, Show, NFData, Generic)
 
 instance HasConfiguration => Buildable SlogUndo where
     build (SlogUndo oldSlot) =

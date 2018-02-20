@@ -67,6 +67,7 @@ library
                      , time-units
                      , transformers-base
                      , universum
+                     , unliftio
                      , unordered-containers
                      , vector
 
@@ -109,11 +110,11 @@ test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec
-                       Test.Pos.Helpers
 
                        Test.Pos.Lrc.WorkerSpec
                        Test.Pos.Block.Logic.CreationSpec
                        Test.Pos.Block.Logic.VarSpec
+                       Test.Pos.Block.Property
 
   type:                exitcode-stdio-1.0
 
@@ -136,6 +137,7 @@ test-suite cardano-generator-test
                      , formatting
                      , hspec
                      , lens
+                     , safe-exceptions
                      , serokell-util
                      , universum >= 0.1.11
                      , unordered-containers

@@ -11,8 +11,9 @@ import           Test.Hspec.QuickCheck (prop)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
+import           Pos.Util.QuickCheck.Property (stopProperty)
 
-import           Test.Pos.Util (stopProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.

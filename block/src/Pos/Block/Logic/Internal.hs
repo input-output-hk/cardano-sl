@@ -1,8 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
 
--- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
--- lrc requires to apply and rollback blocks, but applying many blocks
+-- | Unsafe functions for block application/rollback, some constraint sets
+-- and some utilities. Mostly needed for use in 'Pos.Lrc' -- using lrc
+-- requires applying and rolling back blocks, but applying many blocks
 -- requires triggering lrc recalculations.
 
 module Pos.Block.Logic.Internal
@@ -27,7 +28,6 @@ import           Universum
 
 import           Control.Lens (each, _Wrapped)
 import qualified Crypto.Random as Rand
-import           Ether.Internal (lensOf)
 import           Formatting (sformat, (%))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
@@ -59,8 +59,9 @@ import           Pos.Update (UpdateBlock)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
-import           Pos.Util (HasLens', Some (..), spanSafe)
+import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ctx m

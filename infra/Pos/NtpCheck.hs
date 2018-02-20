@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.NtpCheck
-    ( mkNtpStatusVar
+    ( getNtpStatusOnce
     , ntpSettings
     , withNtpCheck
     , NtpStatus(..)
@@ -11,14 +11,11 @@ module Pos.NtpCheck
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
-import           Mockable (Async, Concurrently, CurrentTime, Delay, Mockable, Mockables,
-                           currentTime, withAsync)
-import           NTP.Client (NtpClientSettings (..), ntpSingleShot, spawnNtpClient)
+import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, withAsync)
+import           NTP.Client (NtpClientSettings (..), NtpMonad, spawnNtpClient)
 import           Serokell.Util (sec)
-import           System.Wlog (WithLogger)
 
 import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
@@ -26,13 +23,8 @@ import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
-    ( MonadIO m
-    , MonadMask m
-    , MonadBaseControl IO m
-    , Mockable Async m
-    , Mockable Concurrently m
+    ( NtpMonad m
     , Mockable CurrentTime m
-    , WithLogger m
     , HasInfraConfiguration
     )
 
@@ -68,13 +60,13 @@ timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval in
 timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
 timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
 
-type NtpStatusVar = MVar NtpStatus
-
--- Helper to get ntp status
-mkNtpStatusVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
-    => m NtpStatusVar
-mkNtpStatusVar = do
+-- | Create NTP client, let it work till the first response from servers,
+-- then shutdown and return result.
+getNtpStatusOnce :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
+    => m NtpStatus
+getNtpStatusOnce = do
     status <- newEmptyMVar
     let onStatusHandler = putMVar status
-    _ <- ntpSingleShot $ ntpSettings onStatusHandler
-    pure status
+    let initNtp = spawnNtpClient $ ntpSettings onStatusHandler
+    withAsync initNtp $ \_ ->
+        readMVar status

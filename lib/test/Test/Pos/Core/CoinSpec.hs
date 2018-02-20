@@ -14,7 +14,7 @@ import           Test.QuickCheck (Property, (.||.), (===))
 import qualified Pos.Arbitrary.Core as C
 import qualified Pos.Core.Common as C
 
-import           Test.Pos.Helpers (shouldThrowException, (.=.), (>=.))
+import           Pos.Util.QuickCheck.Property (shouldThrowException, (.=.), (>=.))
 
 spec :: Spec
 spec = describe "Coin properties" $ do

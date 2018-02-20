@@ -13,17 +13,16 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, stext, (%))
 
-import           Mockable (Mockable (..))
-import           Mockable.Concurrent (Async)
 import           Pos.Wallet.Web.Backup (TotalBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 import           Servant.API.ContentTypes (NoContent (..))
+import           UnliftIO (MonadUnliftIO)
 
 type MonadWalletBackup ctx m = ( L.MonadWalletLogic ctx m
-                               , Mockable Async m
+                               , MonadUnliftIO m
                                )
 
 importWalletJSON :: MonadWalletBackup ctx m => CFilePath -> m CWallet

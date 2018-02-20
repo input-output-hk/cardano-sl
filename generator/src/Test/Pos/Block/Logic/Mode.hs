@@ -50,7 +50,6 @@ import           Data.Default (def)
 import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units (TimeUnit (..))
-import           Ether.Internal (HasLens (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
@@ -96,6 +95,7 @@ import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
+import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode (EmptyMempoolExt)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
@@ -362,7 +362,7 @@ instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
@@ -485,7 +485,7 @@ instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutSerBlund = DB.dbPutSerBlundPureDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

@@ -33,7 +33,7 @@ newtype EpochIndex = EpochIndex
     } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
 
 instance Buildable EpochIndex where
-    build = bprint ("epoch #"%int)
+    build = bprint ("#"%int)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = UnsafeLocalSlotIndex

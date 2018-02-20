@@ -25,6 +25,8 @@ import           System.Wlog (WithLogger, logInfo)
 import qualified Data.ByteString.Char8 as BS8
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core (HasConfiguration)
+import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -44,7 +46,7 @@ import           Pos.Web (TlsParams, serveImpl)
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
-    :: MonadWalletWebMode ctx m
+    :: (HasConfiguration, MonadIO m)
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
@@ -62,13 +64,16 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => (forall x. m x -> Handler x)
+    => Diffusion m
+    -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer nat = do
+walletServer diffusion nat = do
     syncResults <- syncWalletsFromGState =<< mapM findKey =<< myRootAddresses
-    -- TODO(adn): Make sure re-throwing potential failures is not disruptive here.
     mapM_ processSyncResult syncResults
-    return $ servantHandlersWithSwagger nat
+    return $ servantHandlersWithSwagger submitTx nat
+  where
+    -- Diffusion layer takes care of submitting transactions.
+    submitTx = sendTx diffusion
 
 bracketWalletWebDB
     :: ( MonadIO m

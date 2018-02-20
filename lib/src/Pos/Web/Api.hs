@@ -27,7 +27,7 @@ import           Pos.Web.Types (CConfirmedProposalState)
 -- | Servant API which provides access to full node internals.
 --
 -- Implementations of these methods are in
--- 'Pos.Web.Server.baseServantHandlers'.
+-- 'Pos.Web.Server.nodeServantHandlers'.
 type NodeApi =
     -- "current_slot"
     --     :> Get '[JSON] SlotId

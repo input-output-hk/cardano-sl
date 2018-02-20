@@ -23,8 +23,6 @@ import           System.IO.Error (isDoesNotExistError)
 import           System.Wlog (logDebug)
 
 import qualified Data.HashMap.Strict as HM
-import           Mockable (Mockable (..))
-import           Mockable.Concurrent (Async)
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
@@ -54,6 +52,7 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decrypt
                                                   eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (restoreGenesisAddresses, restoreWalletHistory)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
+import           UnliftIO (MonadUnliftIO)
 
 
 -- | Which index to use to create initial account and address on new wallet
@@ -95,8 +94,8 @@ newWalletHandler passphrase cwInit = do
 -- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
 -}
 restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
-                        , Mockable Async m
-                        ) => PassPhrase -> CWalletInit -> m CWallet
+                         , MonadUnliftIO m
+                         ) => PassPhrase -> CWalletInit -> m CWallet
 restoreWalletFromSeed passphrase cwInit = do
     (sk, _) <- newWallet passphrase cwInit False -- TODO(adn) readyness must be changed into richer type.
     restoreWallet sk
@@ -106,7 +105,7 @@ restoreWalletFromSeed passphrase cwInit = do
 -- 2. Restoring the balance (via Utxo)
 -- 3. Restore (asynchronously) the histrory.
 restoreWallet :: ( L.MonadWalletLogic ctx m
-                 , Mockable Async m
+                 , MonadUnliftIO m
                  ) => EncryptedSecretKey ->  m CWallet
 restoreWallet sk = do
     let credentials@(_, wId) = eskToWalletDecrCredentials sk
@@ -124,6 +123,7 @@ restoreWallet sk = do
 restoreWalletBalance :: ( L.MonadWalletLogicRead ctx m
                         , MonadWalletDB ctx m
                         , MonadDBRead m
+                        , MonadUnliftIO m
                         ) => WalletDecrCredentials -> m ()
 restoreWalletBalance credentials = do
     utxo <- filterUtxo walletUtxo
@@ -134,7 +134,7 @@ restoreWalletBalance credentials = do
           isJust (decryptAddress credentials addr)
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
-                           , Mockable Async m
+                           , MonadUnliftIO m
                            ) => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
@@ -179,7 +179,7 @@ restoreWalletFromBackup WalletBackup {..} = do
 
 importWallet
     :: ( L.MonadWalletLogic ctx m
-       , Mockable Async m
+       , MonadUnliftIO m
        )
     => PassPhrase
     -> CFilePath
@@ -199,7 +199,7 @@ importWallet passphrase (CFilePath (toString -> fp)) = do
 -- Do the all concrete logic of importing here.
 importWalletDo
     :: ( L.MonadWalletLogic ctx m
-       , Mockable Async m
+       , MonadUnliftIO m
        )
     => PassPhrase
     -> WalletUserSecret
@@ -211,7 +211,7 @@ importWalletDo passphrase wSecret = do
 
 importWalletSecret
     :: ( L.MonadWalletLogic ctx m
-       , Mockable Async m
+       , MonadUnliftIO m
        )
     => PassPhrase
     -> WalletUserSecret
@@ -238,8 +238,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: (L.MonadWalletLogic ctx m
-                         , Mockable Async m
+addInitialRichAccount :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
                          ) => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAny wSetExistsHandler $ do

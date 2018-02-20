@@ -19,6 +19,7 @@ module Pos.Network.Types
        , topologyDequeuePolicy
        , topologyFailurePolicy
        , topologyMaxBucketSize
+       , topologyHealthStatus
        , topologyRoute53HealthCheckEnabled
        -- * Queue initialization
        , Bucket(..)
@@ -45,10 +46,10 @@ module Pos.Network.Types
        , NodeId (..)
        ) where
 
-import           Universum hiding (show)
+import           Universum
 
 import           Data.IP (IPv4)
-import           GHC.Show (Show (..))
+import qualified Data.Set as Set (null)
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -56,12 +57,14 @@ import           Network.DNS (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
+import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog.CanLog (WithLogger)
+import           System.Wlog (LoggerNameBox, WithLogger)
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains
 import qualified Pos.Network.Policy as Policy
+import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.System.Metrics.Constants (cardanoNamespace)
 import           Pos.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.Util (HasLens', lensOf)
@@ -116,12 +119,16 @@ showableNetworkConfig NetworkConfig {..} =
 --
 -- Although the peers are statically configured, this is nonetheless stateful
 -- because we re-read the file on SIGHUP.
-data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
+data StaticPeers = StaticPeers {
       -- | Register a handler to be invoked whenever the static peers change
       --
       -- The handler will also be called on registration
       -- (with the current value).
-      staticPeersOnChange :: (Peers NodeId -> m ()) -> IO ()
+      staticPeersOnChange   :: (Peers NodeId -> LoggerNameBox IO ()) -> IO ()
+    , -- | Monitoring worker which is supposed to be started in a
+      -- separate thread. This worker processes handlers registered by
+      -- 'staticPeersOnChange'.
+      staticPeersMonitoring :: LoggerNameBox IO ()
     }
 
 instance Show StaticPeers where
@@ -287,7 +294,7 @@ topologyEnqueuePolicy = go
     go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
-    go TopologyAuxx{}        = Policy.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyAuxx{}        = Policy.defaultEnqueuePolicyAuxx
 
 -- | Dequeue policy for the given topology
 topologyDequeuePolicy :: Topology kademia -> OQ.DequeuePolicy
@@ -298,22 +305,88 @@ topologyDequeuePolicy = go
     go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
-    go TopologyAuxx{}        = Policy.defaultDequeuePolicyEdgeBehindNat
+    go TopologyAuxx{}        = Policy.defaultDequeuePolicyAuxx
 
 -- | Failure policy for the given topology
 topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId
-topologyFailurePolicy = Policy.defaultFailurePolicy . topologyNodeType
+topologyFailurePolicy = go
+  where
+    go TopologyAuxx{} = Policy.defaultFailurePolicyAuxx
+    go topo           = Policy.defaultFailurePolicy . topologyNodeType $ topo
 
 -- | Maximum bucket size
-topologyMaxBucketSize :: Topology kademia -> Bucket -> OQ.MaxBucketSize
+topologyMaxBucketSize :: Topology kademia -> Bucket -> Maybe OQ.MaxBucketSize
 topologyMaxBucketSize topology bucket =
     case bucket of
       BucketSubscriptionListener ->
         case topologySubscribers topology of
-          Just (_subscriberType, maxBucketSize) -> maxBucketSize
-          Nothing                               -> OQ.BucketSizeMax 0 -- subscription not allowed
-      _otherBucket ->
-        OQ.BucketSizeUnlimited
+          Just (_subscriberType, maxBucketSize) -> Just maxBucketSize
+          Nothing                               -> Nothing -- subscription not allowed
+      _otherBucket -> Just OQ.BucketSizeUnlimited
+
+topologyHealthStatus :: MonadIO m => Topology kademlia -> OutboundQ msg nid Bucket -> m HealthStatus
+topologyHealthStatus topology = case topology of
+    TopologyCore{}        -> const (pure topologyHealthStatusCore)
+    TopologyRelay{..}     -> topologyHealthStatusRelay topologyMaxSubscrs
+    TopologyBehindNAT{}   -> topologyHealthStatusNAT
+    TopologyP2P{}         -> topologyHealthStatusP2P
+    TopologyTraditional{} -> topologyHealthStatusTraditional
+    TopologyAuxx{}        -> topologyHealthStatusAuxx
+
+-- | Core nodes are always healthy.
+topologyHealthStatusCore :: HealthStatus
+topologyHealthStatusCore = HSHealthy ""
+
+-- | Health of a relay is determined by its spare capacity.
+topologyHealthStatusRelay
+    :: MonadIO m
+    => OQ.MaxBucketSize
+    -> OQ.OutboundQ msg nid Bucket
+    -> m HealthStatus
+topologyHealthStatusRelay mbs oq = do
+    let maxCapacityText :: Text
+        maxCapacityText = case mbs of
+            OQ.BucketSizeUnlimited -> fromString "unlimited"
+            OQ.BucketSizeMax x     -> fromString (show x)
+    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
+    pure $ case spareCapacity of
+        OQ.SpareCapacity sc  | sc == 0 -> HSUnhealthy (fromString "0/" <> maxCapacityText)
+        OQ.SpareCapacity sc  -> HSHealthy $ fromString (show sc) <> "/" <> maxCapacityText
+        OQ.UnlimitedCapacity -> HSHealthy maxCapacityText
+
+-- | Health of a behind-NAT node is good iff it is connected to some other node.
+topologyHealthStatusNAT
+    :: MonadIO m
+    => OQ.OutboundQ msg nid bucket
+    -> m HealthStatus
+topologyHealthStatusNAT oq = do
+    peers <- OQ.getAllPeers oq
+    if (Set.null (peersSet peers))
+    then pure $ HSUnhealthy "not connected"
+    else pure $ HSHealthy "connected"
+
+-- | Health status of a P2P node is the same as for behind NAT. Its capacity to
+-- support new subscribers is ignored.
+topologyHealthStatusP2P
+    :: MonadIO m
+    => OQ.OutboundQ msg nid bucket
+    -> m HealthStatus
+topologyHealthStatusP2P = topologyHealthStatusNAT
+
+-- | Health status of a traditional node is the same as for behind NAT. Its
+-- capacity to support new subscribers is ignored.
+topologyHealthStatusTraditional
+    :: MonadIO m
+    => OQ.OutboundQ msg nid bucket
+    -> m HealthStatus
+topologyHealthStatusTraditional = topologyHealthStatusTraditional
+
+-- | Auxx health status is the same as for behind-NAT.
+topologyHealthStatusAuxx
+    :: MonadIO m
+    => OQ.OutboundQ msg nid bucket
+    -> m HealthStatus
+topologyHealthStatusAuxx = topologyHealthStatusNAT
 
 -- | Whether or not we want to enable the health-check endpoint to be used by Route53
 -- in determining if a relay is healthy (i.e. it can accept more subscriptions or not)
@@ -367,7 +440,7 @@ initQueue NetworkConfig{..} mStore = do
                  ncEnqueuePolicy
                  ncDequeuePolicy
                  ncFailurePolicy
-                 (topologyMaxBucketSize   ncTopology)
+                 (fromMaybe (OQ.BucketSizeMax 0) . topologyMaxBucketSize ncTopology)
                  (topologyUnknownNodeType ncTopology)
 
     case mStore of

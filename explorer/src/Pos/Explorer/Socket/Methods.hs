@@ -358,10 +358,10 @@ getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
     => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock =
-    DB.getHeadersRange Nothing oldBlock recentBlock >>= \case
+    DB.getHashesRange Nothing oldBlock recentBlock >>= \case
         Left _ -> pure Nothing
-        Right (getOldestFirst -> headers) ->
-            Just . catMaybes <$> forM (NE.tail headers) getBlund
+        Right (getOldestFirst -> hashes) ->
+            Just . catMaybes <$> forM (NE.tail hashes) getBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)

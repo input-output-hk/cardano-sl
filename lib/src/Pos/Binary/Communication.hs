@@ -8,6 +8,8 @@ module Pos.Binary.Communication
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
@@ -91,7 +93,7 @@ instance Bi HandlerSpec where
         ConvHandler mname        ->
             encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
         UnknownHandler word8 bs  ->
-            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "HandlerSpec" 2
         tag <- decode @Word8

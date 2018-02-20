@@ -21,7 +21,8 @@ module Pos.Core.Txp
        -- * Tx
        , Tx (..)
        , TxAux (..)
-       , mkTx
+       , checkTx
+       , checkTxAux
        , txInputs
        , txOutputs
        , txAttributes
@@ -33,8 +34,12 @@ module Pos.Core.Txp
        , mkTxProof
        , TxPayload (..)
        , mkTxPayload
+       , checkTxPayload
        , txpTxs
        , txpWitnesses
+
+       -- * Verification
+       , mkTxPayloadMerkleTree
 
        -- * Undo
        , TxUndo
@@ -43,6 +48,7 @@ module Pos.Core.Txp
 
 import           Universum
 
+import           Control.Monad.Except (MonadError(throwError))
 import           Control.Lens (makeLenses, makePrisms)
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
@@ -56,7 +62,7 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, veri
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Common (Address (..), Coin, Script, addressHash, coinF, mkCoin)
+import           Pos.Core.Common (Address (..), Coin (..), Script, addressHash, coinF, checkCoin)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -218,23 +224,39 @@ txaF = later $ \(TxAux tx w) ->
 instance Bi Tx => Buildable TxAux where
     build = bprint txaF
 
--- | Create valid Tx or fail.
--- Verify inputs and outputs are non empty; have enough coins.
-mkTx :: NonEmpty TxIn -> NonEmpty TxOut -> TxAttributes -> Either Text Tx
-mkTx inputs outputs attrs =
+-- | Verify inputs and outputs are non empty; have enough coins.
+checkTx
+    :: MonadError Text m
+    => Tx
+    -> m ()
+checkTx it =
     case verRes of
-        VerSuccess -> Right $ UnsafeTx inputs outputs attrs
-        failure    -> Left $ sformat verResSingleF failure
+        VerSuccess -> pure ()
+        failure    -> throwError $ sformat verResSingleF failure
   where
     verRes =
         verifyGeneric $
-        concat $ zipWith outputPredicates [0 ..] $ toList outputs
+        concat $ zipWith outputPredicates [0 ..] $ toList (_txOutputs it)
     outputPredicates (i :: Word) TxOut {..} =
-        [ ( txOutValue > mkCoin 0
+        [ ( txOutValue > Coin 0
           , sformat
                 ("output #"%int%" has non-positive value: "%coinF)
-                i txOutValue)
+                i txOutValue
+          )
+        , ( isRight (checkCoin txOutValue)
+          , sformat
+                ("output #"%int%" has invalid coin")
+                i
+          )
         ]
+
+-- | Check that a 'TxAux' is internally valid (checks that its 'Tx' is valid
+-- via 'checkTx'). Does not check the witness.
+checkTxAux
+    :: MonadError Text m
+    => TxAux
+    -> m ()
+checkTxAux TxAux{..} = checkTx taTx
 
 ----------------------------------------------------------------------------
 -- Payload and proof
@@ -252,11 +274,13 @@ instance Buildable TxProof where
 instance NFData TxProof
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
-mkTxProof :: Bi TxInWitness => TxPayload -> TxProof
+-- This will construct a merkle tree, which can be very expensive. Use with
+-- care. Bi constraints arise because we need to hash these things.
+mkTxProof :: (Bi Tx,  Bi TxInWitness) => TxPayload -> TxProof
 mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)
-    , txpRoot = mtRoot _txpTxs
+    , txpRoot = mtRoot (mkMerkleTree _txpTxs)
     , txpWitnessesHash = hash _txpWitnesses
     }
 
@@ -265,7 +289,7 @@ mkTxProof UnsafeTxPayload {..} =
 -- with different number of transactions and witnesses.
 data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
-      _txpTxs       :: !(MerkleTree Tx)
+      _txpTxs       :: ![Tx]
     , -- | Witnesses for each transaction. The length of this field is
       -- checked during deserialisation; we can't put witnesses into the same
       -- Merkle tree with transactions, as the whole point of SegWit is to
@@ -284,13 +308,22 @@ makeLenses ''TxPayload
 --
 -- Currently there is only one invariant:
 -- • number of txs must be same as number of witnesses.
-mkTxPayload :: (Bi Tx) => [TxAux] -> TxPayload
+mkTxPayload :: [TxAux] -> TxPayload
 mkTxPayload txws = do
     UnsafeTxPayload {..}
   where
     (txs, _txpWitnesses) =
             unzip . map (liftA2 (,) taTx taWitness) $ txws
-    _txpTxs = mkMerkleTree txs
+    _txpTxs = txs
+
+-- | Check a TxPayload by checking all of the Txs it contains.
+checkTxPayload :: MonadError Text m => TxPayload -> m ()
+checkTxPayload it = forM_ (_txpTxs it) checkTx
+
+-- | Construct a merkle tree from the transactions in a 'TxPayload'
+-- Use with care; this can be very expensive.
+mkTxPayloadMerkleTree :: (Bi Tx) => TxPayload -> MerkleTree Tx
+mkTxPayloadMerkleTree UnsafeTxPayload {..} = mkMerkleTree _txpTxs
 
 ----------------------------------------------------------------------------
 -- Undo

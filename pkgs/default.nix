@@ -5118,6 +5118,19 @@ inherit (pkgs.xorg) libXrender;};
            description = "Base64 implementation for String's";
            license = "unknown";
          }) {};
+      "basement" = callPackage
+        ({ mkDerivation, base, ghc-prim, stdenv }:
+         mkDerivation {
+           pname = "basement";
+           version = "0.0.6";
+           sha256 = "9ca23b940006d8c6a7bc9c07c4ef1bf5ddb47ce82d384c5f341996e22cb95ff7";
+           libraryHaskellDepends = [ base ghc-prim ];
+           doHaddock = false;
+           doCheck = false;
+           homepage = "https://github.com/haskell-foundation/foundation";
+           description = "Foundation scrap box of array & string";
+           license = stdenv.lib.licenses.bsd3;
+         }) {};
       "basic-prelude" = callPackage
         ({ mkDerivation, base, bytestring, containers, filepath, hashable
          , lifted-base, ReadArgs, safe, stdenv, text, transformers
@@ -6860,8 +6873,8 @@ inherit (pkgs) mesa;};
            version = "1.0.0";
            src = fetchgit {
              url = "https://github.com/input-output-hk/cardano-crypto";
-             sha256 = "10f89zm2sd015r6fbhlk1zp0720rzq2dvwazrmcxa3bd5s2l696v";
-             rev = "1cde8e3a8d9093bbf571085920045c05edb3eaa4";
+             sha256 = "05i1z01fzg0la4hk2ff0l89sk0a5ada81w60kwj9i8ix74jchp94";
+             rev = "287cc575fafe86af9d24af9d012c47f9d3f04da0";
            };
            libraryHaskellDepends = [
              base bytestring cryptonite cryptonite-openssl deepseq hashable
@@ -7912,11 +7925,11 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cborg";
-           version = "0.1.1.0";
+           version = "0.2.0.0";
            src = fetchgit {
              url = "https://github.com/well-typed/cborg";
-             sha256 = "06k0sqjfwc75w099vg5yqa5jf5406j9cz2x1dbkp3p887cmik4fv";
-             rev = "c7db82bfd93923f5b08ed51a4cd53e30bd445924";
+             sha256 = "0i38fzyj34cg5i6n0kk05zv255hbz2544rxknsxlvdz90cr2rk51";
+             rev = "8bddf97abe613d4eb523ed6b0ff8eabbd713c744";
            };
            postUnpack = "sourceRoot+=/cborg; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [
@@ -9951,15 +9964,19 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "cryptonite" = callPackage
-        ({ mkDerivation, base, bytestring, deepseq, foundation, ghc-prim
-         , integer-gmp, memory, stdenv
+        ({ mkDerivation, base, basement, bytestring, deepseq, fetchgit
+         , ghc-prim, integer-gmp, memory, stdenv
          }:
          mkDerivation {
            pname = "cryptonite";
-           version = "0.23";
-           sha256 = "ee4a1c2cec13f3697a2a35255022fe802b2e29cd836b280702f2495b5f6f0099";
+           version = "0.24";
+           src = fetchgit {
+             url = "https://github.com/haskell-crypto/cryptonite";
+             sha256 = "1fd9swq1akngngg9ygf15yzj38cwgbk50fq53hckfjrgkwg34v7x";
+             rev = "41d610fb18e2924d7aa704c37798e1c197557f3e";
+           };
            libraryHaskellDepends = [
-             base bytestring deepseq foundation ghc-prim integer-gmp memory
+             base basement bytestring deepseq ghc-prim integer-gmp memory
            ];
            doHaddock = false;
            doCheck = false;
@@ -14122,12 +14139,12 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "foundation" = callPackage
-        ({ mkDerivation, base, ghc-prim, stdenv }:
+        ({ mkDerivation, base, basement, ghc-prim, stdenv }:
          mkDerivation {
            pname = "foundation";
-           version = "0.0.13";
-           sha256 = "106a85cbbf936591df44b46ee04d39f29c15752f6eca438341f2b735e9c0755f";
-           libraryHaskellDepends = [ base ghc-prim ];
+           version = "0.0.19";
+           sha256 = "b83bd852f1bc2f7a39fe02ce673580483cb3264ce10dd8768ee4dcf49a2b6f14";
+           libraryHaskellDepends = [ base basement ghc-prim ];
            doHaddock = false;
            doCheck = false;
            homepage = "https://github.com/haskell-foundation/foundation";
@@ -25581,17 +25598,15 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd2;
          }) {};
       "memory" = callPackage
-        ({ mkDerivation, base, bytestring, deepseq, foundation, ghc-prim
-         , stdenv
+        ({ mkDerivation, base, basement, bytestring, deepseq, foundation
+         , ghc-prim, stdenv
          }:
          mkDerivation {
            pname = "memory";
-           version = "0.14.6";
-           sha256 = "c7dec070174756f1753010585a6dcd4f958a4360634142c4e387b3475bffc160";
-           revision = "1";
-           editedCabalFile = "0pyzdy5ca1cbkjzy1scnz6mr9251ap4w8a5phzxp91wkxpc45538";
+           version = "0.14.14";
+           sha256 = "1d1b985620155dbacfc9d924b49505889a558f5a7787bf308fad418ded59960e";
            libraryHaskellDepends = [
-             base bytestring deepseq foundation ghc-prim
+             base basement bytestring deepseq foundation ghc-prim
            ];
            doHaddock = false;
            doCheck = false;

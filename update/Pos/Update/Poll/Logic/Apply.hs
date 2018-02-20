@@ -7,7 +7,7 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
-import           Control.Monad.Except (MonadError, throwError)
+import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
@@ -22,7 +22,8 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, I
                            headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Update (BlockVersionData (..), UpId, UpdatePayload (..),
-                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd)
+                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
+                                  checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
 import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
@@ -60,8 +61,9 @@ type ApplyMode m =
 verifyAndApplyUSPayload
     :: ApplyMode m
     => Bool -> Either SlotId (Some IsMainHeader) -> UpdatePayload -> m ()
-verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
-    -- First of all, we verify data from header.
+verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+    -- First of all, we verify data.
+    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload upp)
     whenRight slotOrHeader verifyHeader
     -- Then we split all votes into groups. One group consists of
     -- votes for proposal from payload. Each other group consists of

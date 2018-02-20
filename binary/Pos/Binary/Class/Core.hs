@@ -18,6 +18,7 @@ module Pos.Binary.Class.Core
     , D.Decoder
     , CBOR.Read.deserialiseIncremental
     , CBOR.Write.toLazyByteString
+    , CBOR.Write.toBuilder
     , CBOR.Read.IDecode(..)
     -- * GHC-Generics-based encoding & decoding
     , genericEncode

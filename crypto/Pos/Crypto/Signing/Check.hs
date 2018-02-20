@@ -10,6 +10,7 @@ module Pos.Crypto.Signing.Check
        , checkSigRaw
        , verifyProxyCert
        , validateProxySecretKey
+       , validateProxySignature
        ) where
 
 import           Universum
@@ -23,7 +24,7 @@ import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
-                                           SignTag (..), Signature (..))
+                                           SignTag (..), Signature (..), ProxySignature (..))
 
 -- CHECK: @checkSig
 -- | Verify a signature.
@@ -61,9 +62,15 @@ verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
 validateProxySecretKey
     :: (HasCryptoConfiguration, MonadError Text m, Bi w)
     => ProxySecretKey w
-    -> m (ProxySecretKey w)
+    -> m ()
 validateProxySecretKey psk =
     if verifyProxyCert (pskIssuerPk psk) (pskDelegatePk psk)
                        (pskOmega psk) (pskCert psk)
-        then pure psk
+        then pure ()
         else throwError "a ProxySecretKey has an invalid signature"
+
+validateProxySignature
+    :: (HasCryptoConfiguration, MonadError Text m, Bi w)
+    => ProxySignature w a
+    -> m ()
+validateProxySignature psig = validateProxySecretKey (psigPsk psig)

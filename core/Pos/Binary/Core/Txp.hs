@@ -6,6 +6,8 @@ module Pos.Binary.Core.Txp
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeListLenCanonical, decodeUnknownCborDataItem,
                                    deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
@@ -14,7 +16,6 @@ import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
 import qualified Pos.Core.Txp as T
-import           Pos.Util.Util (toCborError)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -28,7 +29,7 @@ instance Bi T.TxIn where
     encode (T.TxInUnknown tag bs) =
         encodeListLen 2 <>
         encode tag <>
-        encodeUnknownCborDataItem bs
+        encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "TxIn" 2
         tag <- decode @Word8
@@ -54,8 +55,7 @@ instance Bi T.Tx where
                 <> encode (T._txAttributes tx)
     decode = do
         enforceSize "Tx" 3
-        res <- T.mkTx <$> decode <*> decode <*> decode
-        toCborError res
+        T.UnsafeTx <$> decode <*> decode <*> decode
 
 instance Bi T.TxInWitness where
     encode input = case input of
@@ -74,7 +74,7 @@ instance Bi T.TxInWitness where
         T.UnknownWitnessType tag bs ->
             encodeListLen 2 <>
             encode tag <>
-            encodeUnknownCborDataItem bs
+            encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         len <- decodeListLenCanonical
         tag <- decode @Word8

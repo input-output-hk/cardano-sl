@@ -20,7 +20,6 @@ import           Universum
 
 import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Functor.Identity (Identity (..))
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGet, runPut)
@@ -28,7 +27,7 @@ import           Data.Typeable (typeRep)
 import           Formatting (formatToString, int, (%))
 import           Prelude (read)
 import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, modifyMaxSize, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, counterexample, forAll,
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
@@ -56,10 +55,21 @@ cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 -- Test that serialized 'a' has canonical representation, i.e. if we're able to
 -- change its serialized form, it won't be successfully deserialized.
 cborCanonicalRep :: forall a. (Bi a, Show a) => a -> Property
-cborCanonicalRep a = counterexample (show a) . property $ do
+cborCanonicalRep a = property $ do
     let sa = serialize a
     sa' <- R.serialise <$> perturbCanonicity (R.deserialise sa)
-    pure $ sa == sa' || isLeft (decodeFull @a $ BSL.toStrict sa')
+    let out = decodeFull @a $ sa'
+    pure $ case out of
+        -- perturbCanonicity may have not changed anything. Decoding can
+        -- succeed in this case.
+        Right a' -> counterexample (show a') (sa == sa')
+        -- It didn't decode. The error had better be a canonicity violation.
+        Left err -> counterexample (show err) (isCanonicityViolation err)
+  where
+    -- FIXME cbor errors are just text.
+    -- Regex matching on "non-canonical" might work.
+    -- Would be nice if we had a sum type for these errors.
+    isCanonicityViolation = const True
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -90,8 +100,12 @@ binaryTest =
                        .&&. cborFlatTermValid x
                        .&&. cborCanonicalRep x
 
+-- This tend to be expensive and cause a lot of disk I/O, which can be
+-- devastating on the developer's desktop system, so we limit the size and
+-- max success count.
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
-safeCopyTest = identityTest @a safeCopyEncodeDecode
+safeCopyTest = modifyMaxSize (const 8) $ modifyMaxSuccess (const 10) $
+    identityTest @a safeCopyEncodeDecode
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
 showReadTest = identityTest @a showReadId

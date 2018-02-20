@@ -28,8 +28,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ComponentBlock (..), EpochIndex (..), HasConfiguration, StakeholderId,
                            addressHash, epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
-import           Pos.Core.Block (Block, BlockchainHelpers, MainBlockchain, mainBlockDlgPayload,
-                                 mainBlockSlot)
+import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
@@ -319,7 +318,6 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasConfiguration
-       , BlockchainHelpers MainBlockchain
        )
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
@@ -497,7 +495,6 @@ dlgNormalizeOnRollback ::
        , HasLrcContext ctx
        , Mockable CurrentTime m
        , HasConfiguration
-       , BlockchainHelpers MainBlockchain
        )
     => m ()
 dlgNormalizeOnRollback = do

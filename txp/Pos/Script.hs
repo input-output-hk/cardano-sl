@@ -132,11 +132,11 @@ txScriptCheck sigData validator redeemer = case spoon result of
         -- don't match
         valScr <- case scrVersion validator of
             0 -> over _Left PlutusDecodingFailure $
-                     Bi.decodeFull (scrScript validator)
+                     Bi.decodeFull' (scrScript validator)
             v -> Left (PlutusUnknownVersion v)
         redScr <- case scrVersion redeemer of
             0 -> over _Left PlutusDecodingFailure $
-                     Bi.decodeFull (scrScript redeemer)
+                     Bi.decodeFull' (scrScript redeemer)
             v -> Left (PlutusUnknownVersion v)
         (script, env) <- over _Left (PlutusExecutionFailure . toText) $
             PL.buildValidationScript stdlib valScr redScr

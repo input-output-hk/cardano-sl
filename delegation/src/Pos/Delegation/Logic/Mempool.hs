@@ -28,7 +28,6 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
                            epochIndexL, headerHash)
-import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -39,10 +38,10 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
 import           Pos.Delegation.Lrc (getDlgRichmen)
-import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
+import           Pos.Delegation.Types (DlgPayload (..))
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
-import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
+import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 ----------------------------------------------------------------------------
@@ -53,9 +52,7 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m DlgPayload
-getDlgMempool = do
-    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
-    pure $ leftToPanic "getDlgMempool: " $ mkDlgPayload sks
+getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool
@@ -135,7 +132,6 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
-       , BlockchainHelpers MainBlockchain
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -146,7 +142,7 @@ processProxySKHeavy psk =
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
-       forall ctx m. (ProcessHeavyConstraint ctx m, BlockchainHelpers MainBlockchain)
+       forall ctx m. (ProcessHeavyConstraint ctx m)
     => ProxySKHeavy
     -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do

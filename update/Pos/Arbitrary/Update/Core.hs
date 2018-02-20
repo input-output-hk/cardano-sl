@@ -15,9 +15,9 @@ import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Update (BlockVersionModifier, SystemTag, UpdateData (..),
+import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
-                                  UpdateProposalToSign (..), UpdateVote (..), mkSystemTag,
+                                  UpdateProposalToSign (..), UpdateVote (..),
                                   mkUpdateProposalWSign, mkUpdateVote)
 import           Pos.Crypto (fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
@@ -29,11 +29,8 @@ instance Arbitrary BlockVersionModifier where
 
 instance Arbitrary SystemTag where
     arbitrary =
-        oneof .
-        map (pure . fromMaybe onFail . rightToMaybe . mkSystemTag) $
+        oneof . map (pure . SystemTag) $
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
-      where
-        onFail = error "instance Arbitrary SystemTag: disaster"
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary UpdateVote where

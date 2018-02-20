@@ -70,8 +70,6 @@ dev: &dev
                              # rolled back, it requires immediate response
     fixedTimeCQ: 10 # Chain quality will be also calculated for this amount
                     # of seconds.
-    # Mode-sensitive logging options
-    webLoggingEnabled: true
 
   infra: &dev_infra
 
@@ -260,9 +258,7 @@ mainnet_base: &mainnet_base
     criticalForkThreshold: 3 # number of blocks such that if so many blocks are
                              # rolled back, it requires immediate response
     fixedTimeCQ: 3600 # Chain quality will be also calculated for this amount
-                    # of seconds.
-    # Mode-sensitive logging options
-    webLoggingEnabled: true
+                      # of seconds.
 
   infra:
 

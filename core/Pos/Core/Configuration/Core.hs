@@ -21,7 +21,6 @@ module Pos.Core.Configuration.Core
        , criticalForkThreshold
        , fixedTimeCQ
        , fixedTimeCQSec
-       , webLoggingEnabled
 
        ) where
 
@@ -78,11 +77,6 @@ data CoreConfiguration = CoreConfiguration
       -- | Chain quality will be also calculated for this amount of seconds.
     , ccFixedTimeCQ            :: !Second
 
-      -- Web settings
-
-      -- | Whether incoming requests logging should be performed by web
-      -- part
-    , ccWebLoggingEnabled      :: !Bool
     }
     deriving (Show, Generic)
 
@@ -136,7 +130,3 @@ fixedTimeCQ = convertUnit fixedTimeCQSec
 -- | 'fixedTimeCQ' expressed as seconds.
 fixedTimeCQSec :: HasCoreConfiguration => Second
 fixedTimeCQSec = ccFixedTimeCQ coreConfiguration
-
--- | Web logging might be disabled for security concerns.
-webLoggingEnabled :: HasCoreConfiguration => Bool
-webLoggingEnabled = ccWebLoggingEnabled coreConfiguration

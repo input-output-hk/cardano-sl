@@ -141,6 +141,7 @@ packages:
 
 nix:
   shell-file: shell.nix
+  enable: true
 
 extra-deps:
 - ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21

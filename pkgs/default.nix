@@ -9645,24 +9645,29 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mpl20;
          }) {};
       "criterion" = callPackage
-        ({ mkDerivation, aeson, ansi-wl-pprint, base, binary, bytestring
-         , cassava, code-page, containers, deepseq, directory, filepath
-         , Glob, hastache, js-flot, js-jquery, mtl, mwc-random
-         , optparse-applicative, parsec, statistics, stdenv, text, time
-         , transformers, transformers-compat, vector, vector-algorithms
+        ({ mkDerivation, aeson, ansi-wl-pprint, base, base-compat, binary
+         , bytestring, cassava, code-page, containers, deepseq, directory
+         , exceptions, filepath, Glob, js-flot, js-jquery, microstache, mtl
+         , mwc-random, optparse-applicative, parsec, semigroups, statistics
+         , stdenv, text, time, transformers, transformers-compat, vector
+         , vector-algorithms
          }:
          mkDerivation {
            pname = "criterion";
-           version = "1.1.4.0";
-           sha256 = "53a243fc759ed3100e71f96a5f6649658d076d91d52ce2853a6f8587aa3cfa76";
-           revision = "1";
-           editedCabalFile = "0hgy2rbrb0dg1sjdvqk2zivdq075fih4zlf51ffdmqzgcdj3i9b1";
+           version = "1.3.0.0";
+           sha256 = "18b9336ade26d222f360200ba9508729937f9c54178456128a43992cad994f33";
+           isLibrary = true;
+           isExecutable = true;
            enableSeparateDataOutput = true;
            libraryHaskellDepends = [
-             aeson ansi-wl-pprint base binary bytestring cassava code-page
-             containers deepseq directory filepath Glob hastache js-flot
-             js-jquery mtl mwc-random optparse-applicative parsec statistics
-             text time transformers transformers-compat vector vector-algorithms
+             aeson ansi-wl-pprint base base-compat binary bytestring cassava
+             code-page containers deepseq directory exceptions filepath Glob
+             js-flot js-jquery microstache mtl mwc-random optparse-applicative
+             parsec semigroups statistics text time transformers
+             transformers-compat vector vector-algorithms
+           ];
+           executableHaskellDepends = [
+             base base-compat optparse-applicative semigroups
            ];
            doHaddock = false;
            doCheck = false;
@@ -35968,23 +35973,24 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "statistics" = callPackage
-        ({ mkDerivation, aeson, base, binary, deepseq, erf, math-functions
-         , monad-par, mwc-random, primitive, stdenv, vector
-         , vector-algorithms, vector-binary-instances
+        ({ mkDerivation, aeson, base, base-orphans, binary, deepseq, erf
+         , math-functions, monad-par, mwc-random, primitive, stdenv, vector
+         , vector-algorithms, vector-binary-instances, vector-th-unbox
          }:
          mkDerivation {
            pname = "statistics";
-           version = "0.13.3.0";
-           sha256 = "6e7fe0f10086725c696fdd855caf4b6fb58ca5100bd0c9995f575f5b071381ed";
+           version = "0.14.0.2";
+           sha256 = "3495df2da42c9fcc5b594b97f16c02353bfd6616d6e134ac031dac389d7a4778";
            libraryHaskellDepends = [
-             aeson base binary deepseq erf math-functions monad-par mwc-random
-             primitive vector vector-algorithms vector-binary-instances
+             aeson base base-orphans binary deepseq erf math-functions monad-par
+             mwc-random primitive vector vector-algorithms
+             vector-binary-instances vector-th-unbox
            ];
            doHaddock = false;
            doCheck = false;
            homepage = "https://github.com/bos/statistics";
            description = "A library of statistical types, data, and functions";
-           license = stdenv.lib.licenses.bsd3;
+           license = stdenv.lib.licenses.bsd2;
          }) {};
       "stemmer" = callPackage
         ({ mkDerivation, base, stdenv }:

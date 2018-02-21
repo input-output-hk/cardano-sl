@@ -145,16 +145,15 @@ trIsAcceptable t l = sequence_ [
   where
     allInputsHaveOutputs :: Either Text ()
     allInputsHaveOutputs = forM_ (trIns t) $ \inp ->
-        case inpSpentOutput inp l of
-          Just _  -> return ()
-          Nothing -> Left $ sformat
+        whenNothing_ (inpSpentOutput inp l) $
+          Left (sformat
             ( "In transaction "
             % build
             % ": cannot resolve input "
             % build
             )
             t
-            inp
+            inp)
 
     -- TODO: Ideally, we would require here that @sumIn == sumOut@. However,
     -- as long as we have to be conservative about fees, we will not be able

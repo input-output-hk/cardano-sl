@@ -40,6 +40,7 @@ cc = CoreConfiguration
     { ccGenesis = GCSpec genesisSpec
     , ccDbSerializeVersion = 0
       -- Why are these here? They seem ad-hoc/misplaced.
+    {-
     , ccMemPoolLimitTx = 0
     , ccNonCriticalCQBootstrap = 0
     , ccCriticalCQBootstrap = 0
@@ -50,6 +51,7 @@ cc = CoreConfiguration
       -- This one is...... What is the web part? I am confused.
       -- Is this really a matter of "core" configuration?
     , ccWebLoggingEnabled = False
+    -}
     }
 
 pc :: ProtocolConstants

@@ -97,7 +97,7 @@ startEdgeNode WalletStartupOptions{..} = do
     getParameters :: HasConfigurations => Production (SscParams, NodeParams)
     getParameters = do
 
-      currentParams <- CLI.getNodeParams loggerName wsoNodeArgs nodeArgs
+      currentParams <- CLI.getNodeParams loggerName wsoNodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
@@ -108,9 +108,6 @@ startEdgeNode WalletStartupOptions{..} = do
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
-
-    nodeArgs :: CLI.NodeArgs
-    nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }
 
 -- | Generates the updated spec and store it in the appropriate folder.
 -- the reason why we don't generate a yaml file is because for swagger-ui is actually

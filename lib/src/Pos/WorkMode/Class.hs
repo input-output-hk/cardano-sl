@@ -45,6 +45,7 @@ import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
+import           Pos.Update.Behavior (UpdateBehavior)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
@@ -82,6 +83,7 @@ type WorkMode ctx m
       , HasLens' ctx SecurityParams
       , HasLens' ctx TxpGlobalSettings
       , HasLens' ctx (NetworkConfig KademliaDHTInstance)
+      , HasLens' ctx UpdateBehavior
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
       , HasSscContext ctx

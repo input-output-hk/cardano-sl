@@ -8,7 +8,6 @@ module Pos.Update.Mode
 import           Universum
 
 import           Data.Tagged (Tagged)
-import           Ether.Internal (HasLens (..))
 import           Mockable (MonadMockable)
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger)
@@ -26,9 +25,11 @@ import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown.Class (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots)
 import           Pos.StateLock (StateLock)
+import           Pos.Update.Behavior (UpdateBehavior)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
+import           Pos.Util.Util (HasLens, HasLens')
 
 type UpdateMode ctx m
     = ( WithLogger m
@@ -42,6 +43,7 @@ type UpdateMode ctx m
       , HasLens UpdateContext ctx UpdateContext
       , HasLens UpdateParams ctx UpdateParams
       , HasLens StateLock ctx StateLock
+      , HasLens' ctx UpdateBehavior
       , HasShutdownContext ctx
       , HasConfiguration
       , HasUpdateConfiguration

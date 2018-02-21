@@ -16,7 +16,7 @@ import           Mockable (Fork, Mockable)
 import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
 import           Pos.Core.Configuration (HasConfiguration)
@@ -66,13 +66,12 @@ getNodeParams ::
        )
     => LoggerName
     -> CommonNodeArgs
-    -> NodeArgs
     -> m NodeParams
-getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
+getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} = do
     (primarySK, userSecret) <-
         prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    npBehaviorConfig <- case behaviorConfigPath of
+    npBehaviorConfig <- case cnaBehaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)
     pure NodeParams

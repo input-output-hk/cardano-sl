@@ -24,6 +24,7 @@ import           Pos.Reporting.MemState (HasReportServers (..))
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Statistics (EkgParams, StatsdParams)
+import           Pos.Update.Behavior (UpdateBehavior)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.TimeWarp (NetworkAddress)
@@ -78,6 +79,8 @@ instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npBehaviorConfig_L . bcSecurityParams_L
 instance HasLens SscBehavior NodeParams SscBehavior where
     lensOf = npBehaviorConfig_L . bcSscBehavior_L
+instance HasLens UpdateBehavior NodeParams UpdateBehavior where
+    lensOf = npBehaviorConfig_L . bcUpdateBehavior_L
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L

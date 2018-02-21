@@ -11,18 +11,21 @@ import           Data.Default (Default (..))
 
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Behavior (SscBehavior)
+import           Pos.Update.Behavior (UpdateBehavior)
 
 data BehaviorConfig = BehaviorConfig
     { bcSecurityParams :: !SecurityParams    -- ^ network
     , bcSscBehavior    :: !SscBehavior       -- ^ SSC
+    , bcUpdateBehavior :: !UpdateBehavior    -- ^ Update
     }
     deriving (Eq, Show)
 
 instance Default BehaviorConfig where
-    def = BehaviorConfig def def
+    def = BehaviorConfig def def def
 
 instance A.FromJSON BehaviorConfig where
     parseJSON = A.withObject "BehaviorConfig" $ \o -> do
         bcSecurityParams <- o A..: "networkAttacks"
         bcSscBehavior    <- o A..: "ssc"
+        bcUpdateBehavior <- o A..: "update"
         pure BehaviorConfig{..}

@@ -18,7 +18,7 @@ import           System.Wlog (LoggerName, logInfo)
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                                       getExplorerNodeOptions)
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
 import           Pos.Explorer.DB (explorerInitDB)
@@ -56,7 +56,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withCompileInfo $(retrieveCompileTimeInfo) $ do
         CLI.printInfoOnStart cArgs
         logInfo $ "Explorer is enabled!"
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        currentParams <- getNodeParams loggerName cArgs
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
@@ -87,6 +87,3 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     runExplorerRealMode nr@NodeResources{..} =
         let extraCtx = makeExtraCtx
         in runRealBasedMode (runExplorerProd extraCtx) liftToExplorerProd nr
-
-    nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

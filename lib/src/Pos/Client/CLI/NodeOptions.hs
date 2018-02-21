@@ -7,7 +7,6 @@
 module Pos.Client.CLI.NodeOptions
        ( CommonNodeArgs (..)
        , SimpleNodeArgs (..)
-       , NodeArgs (..)
        , commonNodeArgsParser
        , getSimpleNodeOptions
        , usageExample
@@ -50,6 +49,7 @@ data CommonNodeArgs = CommonNodeArgs
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     , cnaDumpConfiguration   :: !Bool
+    , cnaBehaviorConfigPath  :: !(Maybe FilePath)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -107,26 +107,19 @@ commonNodeArgsParser = do
         long "dump-configuration" <>
         help "Dump configuration and exit."
 
+    cnaBehaviorConfigPath <- optional $ strOption $
+        long "behavior" <>
+        metavar "FILE" <>
+        help "Path to the behavior config"
+
     pure CommonNodeArgs{..}
 
-data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
-
-data NodeArgs = NodeArgs
-    { behaviorConfigPath :: !(Maybe FilePath)
-    } deriving Show
+newtype SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do
     commonNodeArgs <- commonNodeArgsParser
-    behaviorConfigPath <- behaviorConfigOption
-    pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
-
-behaviorConfigOption :: Parser (Maybe FilePath)
-behaviorConfigOption =
-    optional $ strOption $
-        long "behavior" <>
-        metavar "FILE" <>
-        help "Path to the behavior config"
+    pure $ SimpleNodeArgs commonNodeArgs
 
 getSimpleNodeOptions :: HasCompileInfo => IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo

@@ -100,7 +100,7 @@ action opts@AuxxOptions {..} command = do
       Just Dict -> do
           CLI.printInfoOnStart aoCommonNodeArgs
           (nodeParams, tempDbUsed) <-
-              correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
+              correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs
           let
               toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
               toRealMode auxxAction = do
@@ -120,8 +120,6 @@ action opts@AuxxOptions {..} command = do
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
-    nArgs =
-        CLI.NodeArgs {behaviorConfigPath = Nothing}
     cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()

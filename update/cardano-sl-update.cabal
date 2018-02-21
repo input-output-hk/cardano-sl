@@ -24,9 +24,9 @@ library
                        -- Aeson
                        Pos.Aeson.Update
 
-                       Pos.Update.BlockVersion
-
                        -- Misc
+                       Pos.Update.Behavior
+                       Pos.Update.BlockVersion
                        Pos.Update.Configuration
                        Pos.Update.Constants
                        Pos.Update.DB

@@ -15,7 +15,7 @@ import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
+import           Pos.Client.CLI (CommonNodeArgs (..), SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
@@ -44,10 +44,10 @@ action
        )
     => SimpleNodeArgs
     -> Production ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..})) = do
     CLI.printInfoOnStart cArgs
     logInfo "Wallet is disabled, because software is built w/o it"
-    currentParams <- CLI.getNodeParams loggerName cArgs nArgs
+    currentParams <- CLI.getNodeParams loggerName cArgs
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
@@ -56,7 +56,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
-    args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
+    args@(CLI.SimpleNodeArgs commonNodeArgs) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     loggerBracket loggingParams . logException "node" . runProduction $

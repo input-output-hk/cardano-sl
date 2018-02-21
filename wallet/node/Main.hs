@@ -17,7 +17,7 @@ import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
 import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
@@ -132,19 +132,15 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        currentParams <- getNodeParams loggerName cArgs
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         actionWithWallet sscParams currentParams wArgs
   where
-    nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }
-
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
-
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

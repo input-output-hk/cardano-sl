@@ -96,8 +96,8 @@ quickCheckTranslation =
         expectValid <$> intAndVerifyGen genOneTrans
       prop "DSL and Cardano agree on randomly generated chains" $
         forAll
-          (intAndVerifyGen (toPreChain newChain))
-          expectAgreement
+          (intAndVerifyGen genValidBlockchain)
+          expectValid
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
@@ -415,11 +415,6 @@ data Disagreement h a =
 expectValid :: ValidationResult h a -> Bool
 expectValid ExpectedValid = True
 expectValid _otherwise    = False
-
-expectAgreement :: ValidationResult h a -> Bool
-expectAgreement ExpectedValid         = True
-expectAgreement (ExpectedInvalid _ _) = True
-expectAgreement _otherwise            = False
 
 expectInvalid :: ValidationResult h a -> Bool
 expectInvalid (ExpectedInvalid _ _) = True

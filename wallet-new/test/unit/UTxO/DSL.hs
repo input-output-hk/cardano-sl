@@ -454,8 +454,8 @@ utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
 utxoUnions = Utxo . Map.unions . map utxoToMap
 
--- | Filter the 'Utxo' to only contain unspent transaction outputs that
--- satisfy the given predicate.
+-- | Filter the 'Utxo' to only contain unspent transaction outputs whose
+-- address satisfy the given predicate.
 utxoRestrictToAddr :: (a -> Bool) -> Utxo h a -> Utxo h a
 utxoRestrictToAddr p = Utxo . Map.filter (p . outAddr) . utxoToMap
 

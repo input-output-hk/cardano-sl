@@ -1,10 +1,15 @@
-module Cardano.Wallet.API.Development.Handlers (handlers) where
+module Cardano.Wallet.API.Development.Handlers
+    ( handlers
+    ) where
 
-import Universum
-import Servant
+import           Universum
+
+import           Cardano.Wallet.Server.CLI (RunMode (..))
+
+import           Servant
 
 import qualified Cardano.Wallet.API.Development as Dev
 
 -- TODO: Add handlers for new wallet
-handlers :: Server Dev.API
-handlers = error "TODO"
+handlers :: RunMode -> Server Dev.API
+handlers _ = error "TODO"

@@ -8,7 +8,7 @@ import Servant
 import Cardano.Wallet.API
 import Cardano.Wallet.Kernel
 import qualified Cardano.Wallet.API.Development.Handlers as Dev
-import qualified Cardano.Wallet.API.Development.Helpers as Dev
+-- import qualified Cardano.Wallet.API.Development.Helpers as Dev
 import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import           Cardano.Wallet.Server.CLI (RunMode (..))
@@ -24,7 +24,8 @@ walletServer :: ActiveWallet
 walletServer w runMode =
           v0Handler
     :<|>  V1.handlers w
-    :<|>  Dev.developmentOnly runMode Dev.handlers
+    -- :<|>  Dev.developmentOnly runMode Dev.handlers
+    :<|>  Dev.handlers runMode
 
 -- | Return
 --

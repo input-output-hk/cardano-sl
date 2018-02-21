@@ -13,11 +13,13 @@ import           Universum
 import           Control.Monad.Catch (MonadThrow)
 
 import qualified Cardano.Wallet.API.Development as Dev
+import           Cardano.Wallet.API.Development.Helpers (developmentOnly)
 import           Cardano.Wallet.API.Response (WalletResponse, single)
 import           Cardano.Wallet.API.V1.Migration
+import           Cardano.Wallet.Server.CLI (RunMode (..))
 
 import qualified Pos.Configuration as V0
-import qualified Pos.Wallet.Web.State.State as V0
+import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Client.KeyStorage as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 
@@ -29,8 +31,9 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
          => (forall a. MonadV1 a -> Handler a)
+         -> RunMode
          -> Server Dev.API
-handlers naturalTransformation =
+handlers naturalTransformation runMode =
          hoistServer (Proxy @Dev.API) naturalTransformation handlers'
          where
             -- | @Servant@ handlers needed by test cases.
@@ -42,18 +45,22 @@ handlers naturalTransformation =
                          , MonadThrow m
                          )
                       => ServerT Dev.API m
-            handlers' =    getWalletState
-                      :<|> deleteSecretKeys
+            handlers' =    getWalletState runMode
+                      :<|> deleteSecretKeys runMode
 
 
-getWalletState :: (V0.MonadWalletDBRead ctx m)
-               => m (WalletResponse V0.WalletStateSnapshot)
-getWalletState = single <$> V0.dumpState
+getWalletState :: ( MonadThrow m, V0.MonadWalletDBRead ctx m)
+               => RunMode
+               -> m (WalletResponse V0.WalletStateSnapshot)
+getWalletState runMode =
+    developmentOnly runMode (single <$> V0.dumpState)
 
-deleteSecretKeys :: ( MonadThrow m
-                    , V0.HasNodeConfiguration
+deleteSecretKeys :: ( V0.HasNodeConfiguration
                     , V0.MonadWalletDB ctx m
                     , V0.MonadKeys m
+                    , MonadThrow m
                     )
-                 => m NoContent
-deleteSecretKeys = V0.testResetAll
+                 => RunMode
+                 -> m NoContent
+deleteSecretKeys runMode =
+    developmentOnly runMode (V0.deleteAllSecretKeys >> V0.testReset >> return NoContent)

@@ -3,14 +3,16 @@ module Pos.Diffusion.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
-import           Control.Exception.Safe (IOException, tryIO)
+import           Control.Exception (IOException)
+import           Control.Monad.Catch (catch)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
-import           Universum
+-- Universum re-exports safe-exceptions.
+import           Universum hiding (catch)
 
 import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAtomicT, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
@@ -73,23 +75,15 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeAlts _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
     subscribeAlts dnsPeersVar (index, alts) = do
-        -- Resolve all of the names and update the known peers in the queue.
-        mDnsPeersList <- findDnsPeers index alts
-        case mDnsPeersList of
-            Left ioexception -> do
-                logError $ sformat ("dnsSubscriptionWorker: failed to resolve names "%shown) ioexception
-            Right dnsPeersList -> do
-                modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
-                    let dnsPeers' = M.insert index dnsPeersList dnsPeers
-                    void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
-                        peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
-                    pure (dnsPeers', ())
-                -- Try to subscribe to some peer.
-                -- If they all fail, wait a while before trying again.
-                subscribeToOne dnsPeersList
+        -- Any IOException is squelched. This does not include async exceptions.
+        -- It does handle the case in which there's no internet connection and
+        -- resolving the name ('findDnsPeers') throws an 'IOException'.
+        findAndSubscribe dnsPeersVar index alts `catch` logIOException
         retryInterval >>= delay
         subscribeAlts dnsPeersVar (index, alts)
 
+    -- Subscribe to all alternatives, one-at-a-time, until the list is
+    -- exhausted.
     subscribeToOne :: Alts NodeId -> m ()
     subscribeToOne dnsPeers = case dnsPeers of
         [] -> return ()
@@ -97,30 +91,40 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
             void $ subscribeTo keepaliveTimer sendActions peer
             subscribeToOne peers
 
+    -- Resolve a name and subscribe to the node(s) at the addresses.
+    findAndSubscribe
+        :: SharedAtomicT m (Map Int (Alts NodeId))
+        -> Int
+        -> Alts (NodeAddr DNS.Domain)
+        -> m ()
+    findAndSubscribe dnsPeersVar index alts = do
+        -- Resolve all of the names and update the known peers in the queue.
+        dnsPeersList <- findDnsPeers index alts
+        modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
+            let dnsPeers' = M.insert index dnsPeersList dnsPeers
+            void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
+                peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
+            pure (dnsPeers', ())
+        -- Try to subscribe to some peer.
+        -- If they all fail, wait a while before trying again.
+        subscribeToOne dnsPeersList
+
+    logIOException :: IOException -> m ()
+    logIOException ioexception =
+        logError $ sformat ("dnsSubscriptionWorker: "%shown) ioexception
+
     -- Find peers via DNS, preserving order.
     -- In case multiple addresses are returned for one name, they're flattened
     -- and we forget the boundaries, but all of the addresses for a given name
     -- are adjacent.
-    -- An IOException from resolveDnsDomains is squelched.
-    -- It's probably (certainly?) a network-related problem, like no
-    -- internet connection, in which case we don't want the subscription
-    -- thread to blow up.
-    -- NB: safe-exceptions package is used, so this doesn't catch async
-    -- exceptions.
-    findDnsPeers
-        :: Int
-        -> Alts (NodeAddr DNS.Domain)
-        -> m (Either IOException (Alts NodeId))
+    findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> m (Alts NodeId)
     findDnsPeers index alts = do
-        mNodeIds <- liftIO $ tryIO $ resolveDnsDomains networkCfg alts
-        case mNodeIds of
-            Left ioexception -> pure (Left ioexception)
-            Right nodeIds -> do
-                let (errs, nids_) = partitionEithers nodeIds
-                    nids = mconcat nids_
-                when (null nids)       $ logError (msgNoRelays index)
-                when (not (null errs)) $ logError (msgDnsFailure index errs)
-                return (Right nids)
+        mNodeIds <- liftIO $ resolveDnsDomains networkCfg alts
+        let (errs, nids_) = partitionEithers mNodeIds
+            nids = mconcat nids_
+        when (null nids)       $ logError (msgNoRelays index)
+        when (not (null errs)) $ logError (msgDnsFailure index errs)
+        return nids
 
     -- How long to wait before retrying in case no alternative can be
     -- subscribed to.

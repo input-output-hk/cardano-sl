@@ -181,7 +181,7 @@ calculateTransCorrections eActions = do
             af = getKeys affected
 
         -- Step 2.
-        dlgNew <- execStateT (for_ af calculateDlgNew) HM.empty
+        dlgNew <- execStateT (forM_ af calculateDlgNew) HM.empty
         -- Let's check that sizes of af and dlgNew match (they should).
         -- We'll need it to merge in (3).
         let notResolved = let dlgKeys = getKeys dlgNew
@@ -191,22 +191,27 @@ calculateTransCorrections eActions = do
                     notResolved
 
         -- Step 3.
-        -- Some unsafe functions (чтобы жизнь медом не казалась)
+        -- Some unsafe functions.
         let lookupUnsafe k =
-                -- TODO [CSL-2173]: Clarify
-                fromMaybe (error $ "transChangeset shouldn't happen but happened: " <> pretty k) .
+                fromMaybe (error $ "transChangeset.lookupUnsafe failed: " <> pretty k) .
                 HM.lookup k
             toTheseUnsafe :: StakeholderId
                           -> (Maybe StakeholderId, Maybe StakeholderId)
                           -> These StakeholderId StakeholderId
             toTheseUnsafe a = \case
                 (Nothing,Nothing) ->
-                    -- TODO [CSL-2173]: Clarify
+                    -- Algorithm can't come up with (N,N) because it means
+                    -- "user didn't have cert and doesn't have now", but
+                    -- algo should not consider these users at all.
                     error $ "Tried to convert (N,N) to These with affected user: " <> pretty a
                 (Just x, Nothing) -> This x
                 (Nothing, Just x) -> That x
                 (Just x, Just y)  -> These x y
+
         let dlgFin = flip HM.mapWithKey affected $ \a dOld ->
+                         -- lookupUnafe here won't fail because 'dlgNew' must
+                         -- contain the same keys as 'affected', which is
+                         -- asserted in the end of step 2.
                          toTheseUnsafe a (dOld, lookupUnsafe a dlgNew)
 
         pure $ dlgFin

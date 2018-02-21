@@ -56,7 +56,7 @@ getDlgMempool
 getDlgMempool = do
     sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
     pure $
-        -- TODO [CSL-2173]: Clarify
+        -- Mempool must be a consistent dlg payload.
         leftToPanic "getDlgMempool: " $ mkDlgPayload sks
 
 -- | Clears delegation mempool.
@@ -175,10 +175,12 @@ processProxySKHeavyInternal psk = do
         -- by the database.
     let _cmHasPostedThisEpoch = mempty
     let cedeModifier = CedeModifier {..}
+    -- verificationError is only something sane if pskValid is false.
+    -- 'Maybe' could be used here, but it'll make if-case in the end less beautiful.
     (verificationError, pskValid) <-
         fmap (either (,False)
-                     -- TODO [CSL-2173]: Clarify
-                     (const (error "processProxySKHeavyInternal:can't happen",True))) $
+                     -- See the comment above.
+                     (const (error "processProxySKHeavyInternal:verificationError",True))) $
         evalMapCede cedeModifier $
         runExceptT $
         dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk

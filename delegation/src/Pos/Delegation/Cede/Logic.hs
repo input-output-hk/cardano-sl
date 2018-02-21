@@ -64,6 +64,8 @@ getPskChainInternal toIgnore issuer =
 -- | Checks if addition of the PSK to the map will lead to cycles. The
 -- initial map may or may not contain this PSK. Returns nothing if
 -- it's good, first-already-visited public key otherwise.
+--
+-- Initial 'MonadCedeRead' holder must not contain revoke psks.
 detectCycleOnAddition
     :: forall m . (MonadCedeRead m)
     => ProxySKHeavy                      -- ^ PSK to check against
@@ -80,7 +82,7 @@ detectCycleOnAddition toAdd
         identity %= HS.insert cur
         let stop = pure Nothing
         let panicRevoke p =
-                -- TODO [CSL-2173]: Clarify
+                -- Cede storage can't contain revoke psks.
                 error $ "dlgMemPoolDetectCycle: found revoke psk: " <> pretty p
         maybe stop (\psk -> bool (trav $ pskDelegatePk psk)
                                  (panicRevoke psk)

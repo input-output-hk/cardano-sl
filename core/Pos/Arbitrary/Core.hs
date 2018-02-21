@@ -104,7 +104,7 @@ instance Arbitrary Types.EpochIndex where
 
 instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
     arbitrary =
-        -- TODO [CSL-2173]: Clarify
+        -- Arbitrary value is generated exactly inside the allowed range
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink

@@ -84,12 +84,11 @@ isHardened = ( >= firstHardened)
 deriveHDPublicKey :: PublicKey -> Word32 -> PublicKey
 deriveHDPublicKey (PublicKey xpub) childIndex
     | isHardened childIndex =
-        -- TODO [CSL-2173]: Clarify
-        error "Wrong index for non-hardened derivation"
+        error "deriveHDPublicKey: wrong index for non-hardened derivation"
     | otherwise =
         -- TODO [CSL-2173]: Clarify
         maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
-          deriveXPub xpub childIndex
+             deriveXPub xpub childIndex
 
 -- | Whether to call @checkPassMatches@
 newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
@@ -140,7 +139,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     case unpackCF of
         Left _ -> Nothing
         Right p -> case decodeFull p of
-            Left _ -> Nothing
+            Left _     -> Nothing
             Right path -> pure path
 
 -- | Take HDPassphrase as symmetric key and serialized derivation path

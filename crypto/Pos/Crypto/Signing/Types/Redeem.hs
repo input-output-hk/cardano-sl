@@ -106,7 +106,7 @@ fromAvvmPk addrText = do
     let base64rify = T.replace "-" "+" . T.replace "_" "/"
     let parsedM = B64.decode $ base64rify addrText
     addrParsed <- case parsedM of
-        Left _ -> Left (ApeAddressFormat addrText)
+        Left _  -> Left (ApeAddressFormat addrText)
         Right a -> Right a
     let len = BS.length addrParsed
     unless (len == 32) $ Left (ApeAddressLength len)
@@ -117,7 +117,6 @@ fromAvvmPk addrText = do
 redeemPkBuild :: ByteString -> RedeemPublicKey
 redeemPkBuild bs
     | BS.length bs /= 32 =
-        -- TODO [CSL-2173]: Clarify
         error $
         "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
         ", when should be 32"

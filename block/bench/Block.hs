@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards  #-}
 
 import           Universum
 
@@ -10,26 +9,24 @@ import           Criterion.Main
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Formatting (sformat, build, shown)
+import           Formatting (build, sformat, shown)
 import           System.Environment (lookupEnv)
 
 import           Pos.Arbitrary.Block.Generate (generateBlock)
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
-import           Pos.Core.Common (SharedSeed (..), CoinPortion)
+import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, BodyProof,
+                           CoinPortion (..), ConsensusData, DlgPayload, EpochIndex (..),
+                           ExtraBodyData, ExtraHeaderData, MainBlock, MainBlockHeader,
+                           MainBlockchain, SoftforkRule (..), SscPayload, Timestamp (..),
+                           TxFeePolicy (..), TxPayload (..), UpdatePayload,
+                           unsafeCoinPortionFromDouble, _gbBody, _gbExtra, _gbHeader, _gbhBodyProof,
+                           _gbhConsensus, _gbhExtra, _mbDlgPayload, _mbSscPayload, _mbTxPayload,
+                           _mbUpdatePayload)
+import           Pos.Core.Block.Main ()
+import           Pos.Core.Common (CoinPortion, SharedSeed (..))
 import           Pos.Core.Configuration
 import           Pos.Core.Genesis
-import           Pos.Core (Block, BlockHeader, MainBlock, MainBlockHeader,
-                           BlockVersionData (..), SoftforkRule (..),
-                           EpochIndex (..), CoinPortion (..), unsafeCoinPortionFromDouble,
-                           Timestamp (..), TxFeePolicy (..), TxPayload (..),
-                           SscPayload, DlgPayload, UpdatePayload,
-                           MainBlockchain, BodyProof, ConsensusData,
-                           ExtraHeaderData, ExtraBodyData, Body,
-                           _gbBody, _gbHeader, _gbExtra, _mbTxPayload,
-                           _mbSscPayload, _mbDlgPayload, _mbUpdatePayload,
-                           _gbhBodyProof, _gbhConsensus, _gbhExtra)
-import           Pos.Core.Block.Main ()
 import           Pos.Crypto (ProtocolMagic (..))
 
 -- We need configurations in order to get Arbitrary and Bi instances for
@@ -39,17 +36,6 @@ cc :: CoreConfiguration
 cc = CoreConfiguration
     { ccGenesis = GCSpec genesisSpec
     , ccDbSerializeVersion = 0
-      -- Why are these here? They seem ad-hoc/misplaced.
-    , ccMemPoolLimitTx = 0
-    , ccNonCriticalCQBootstrap = 0
-    , ccCriticalCQBootstrap = 0
-    , ccNonCriticalCQ = 0
-    , ccCriticalCQ = 0
-    , ccCriticalForkThreshold = maxBound
-    , ccFixedTimeCQ = 0
-      -- This one is...... What is the web part? I am confused.
-      -- Is this really a matter of "core" configuration?
-    , ccWebLoggingEnabled = False
     }
 
 pc :: ProtocolConstants
@@ -246,8 +232,8 @@ main = withCoreConfigurations cc confDir (Just (Timestamp 0)) Nothing $ do
   seedStr <- lookupEnv "SEED"
   let size = case fmap reads sizeStr of
           Just [(size',"")] -> size'
-          _ -> 4
+          _                 -> 4
       seed = case fmap reads seedStr of
           Just [(seed',"")] -> seed'
-          _ -> 42
+          _                 -> 42
   benchMain seed size

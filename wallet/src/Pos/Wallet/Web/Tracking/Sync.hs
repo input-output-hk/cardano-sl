@@ -23,10 +23,13 @@ module Pos.Wallet.Web.Tracking.Sync
        , trackingRollbackTxs
        , applyModifierToWallet
        , rollbackModifierFromWallet
+       , SyncQueue
+       , SyncRequest
        , BlockLockMode
        , WalletTrackingEnv
 
-       , restoreWalletHistory
+       , restoreWalletBalance
+       , asynchronouslyRestoreWalletHistory
        , restoreGenesisAddresses
        , txMempoolToModifier
 
@@ -41,8 +44,10 @@ module Pos.Wallet.Web.Tracking.Sync
        ) where
 
 import           Universum
+import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
 
+import           Control.Concurrent.STM (TBQueue, writeTBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
@@ -59,8 +64,9 @@ import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..)
                            Timestamp, blkSecurityParam, genesisHash, headerHash, headerSlotL,
                            timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
-import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
-import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
+import           Pos.Core.Txp (TxAux (..), TxIn, TxOut (..), TxOutAux (..), TxUndo, toaOut,
+                               txOutAddress)
+import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.Block.Load as GS
 import qualified Pos.DB.BlockIndex as DB
@@ -70,13 +76,15 @@ import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
 import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
-                          unGenesisUtxo, _txOutputs)
+                          unGenesisUtxo, utxoToModifier, _txOutputs)
+import           Pos.Txp.DB.Utxo (filterUtxo)
+import           Pos.Util (HasLens (..))
 import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningSP, secretOnlyF,
                                    secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (HasLens (..), getKeys)
+import           Pos.Util.Util (getKeys)
 
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))
@@ -85,11 +93,13 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressM
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), MonadWalletDB, WalletTip (..))
+import           Pos.Wallet.Web.State (CustomAddressType (..), MonadWalletDB, WalletTip (..),
+                                       updateWalletBalancesAndUtxo)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
-                                                  buildTHEntryExtra, eskToWalletDecrCredentials,
-                                                  isTxEntryInteresting, selectOwnAddresses)
+                                                  buildTHEntryExtra, decryptAddress,
+                                                  eskToWalletDecrCredentials, isTxEntryInteresting,
+                                                  selectOwnAddresses)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    VoidModifier, deleteAndInsertIMM,
                                                    deleteAndInsertMM, deleteAndInsertVM,
@@ -117,19 +127,53 @@ type WalletTrackingEnv ctx m =
      , MonadWalletDB ctx m
      )
 
--- | Restore the full history for a wallet, given its 'EncryptedSecretKey'
--- TODO(adn): Periodically update the progress in the wallet state.
--- TODO(adn): Make it async.
-restoreWalletHistory :: (  MonadWalletDB ctx m
-                         , MonadDBRead m
-                         , WithLogger m
-                         , HasLens StateLock ctx StateLock
-                         , MonadMask m
-                         , MonadSlotsData ctx m
-                         ) => EncryptedSecretKey -> m ()
-restoreWalletHistory encSK = do
-    res <- syncWalletsFromGState [encSK]
-    mapM_ processSyncResult res
+type SyncQueue = TBQueue SyncRequest
+
+data SyncRequest = RestoreWalletHistory WalletDecrCredentials
+
+data SyncResult = SyncSucceeded
+                -- ^ The sync succeed without errors.
+                | NoSyncTipAvailable (CId Wal)
+                -- ^ There was no sync tip available for this wallet.
+                | NotSyncable (CId Wal) WalletError
+                -- ^ The given wallet cannot be synced due to an unexpected error.
+                -- The routine was not even started.
+                | SyncFailed  (CId Wal) SomeException
+                -- ^ The sync process failed abruptly during the sync process.
+
+-- | Asynchronously restores the full history for a wallet, given its 'WalletDecrCredentials'.
+asynchronouslyRestoreWalletHistory :: ( MonadWalletDB ctx m
+                                      , MonadDBRead m
+                                      , WithLogger m
+                                      , HasLens StateLock ctx StateLock
+                                      , HasLens SyncQueue ctx SyncQueue
+                                      , MonadMask m
+                                      , MonadSlotsData ctx m
+                                      ) => WalletDecrCredentials -> m ()
+asynchronouslyRestoreWalletHistory credentials = submitSyncRequest (RestoreWalletHistory credentials)
+
+submitSyncRequest :: ( MonadIO m
+                     , MonadReader ctx m
+                     , HasLens SyncQueue ctx SyncQueue
+                     ) => SyncRequest -> m ()
+submitSyncRequest syncRequest = do
+    requestQueue <- view (lensOf @(TBQueue SyncRequest))
+    liftIO $ atomically $ writeTBQueue requestQueue syncRequest
+
+-- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
+-- each unspent output address. If we get a match, it means it belongs to us.
+restoreWalletBalance :: ( MonadWalletDB ctx m
+                        , MonadDBRead m
+                        , MonadUnliftIO m
+                        ) => WalletDecrCredentials -> m ()
+restoreWalletBalance credentials = do
+    utxo <- filterUtxo walletUtxo
+    updateWalletBalancesAndUtxo (utxoToModifier utxo)
+    where
+      walletUtxo :: (TxIn, TxOutAux) -> Bool
+      walletUtxo (_, TxOutAux (TxOut addr _)) =
+          isJust (decryptAddress credentials addr)
+
 
 txMempoolToModifier :: WalletTrackingEnvRead ctx m => WalletDecrCredentials -> m CAccModifier
 txMempoolToModifier credentials = do
@@ -159,15 +203,6 @@ txMempoolToModifier credentials = do
 -- Logic
 ----------------------------------------------------------------------------
 
-data SyncResult = SyncSucceeded
-                -- ^ The sync succeed without errors.
-                | NoSyncTipAvailable (CId Wal)
-                -- ^ There was no sync tip available for this wallet.
-                | NotSyncable (CId Wal) WalletError
-                -- ^ The given wallet cannot be synced due to an unexpected error.
-                -- The routine was not even started.
-                | SyncFailed  (CId Wal) SomeException
-                -- ^ The sync process failed abruptly during the sync process.
 
 -- | TODO(adn): Process the exceptions rather than just logging them.
 processSyncResult :: ( WithLogger m
@@ -196,13 +231,13 @@ syncWalletsFromGState
     , MonadSlotsData ctx m
     , HasConfiguration
     )
-    => [EncryptedSecretKey] -> m [SyncResult]
-syncWalletsFromGState encSKs = processEncryptedKeys encSKs []
+    => [WalletDecrCredentials] -> m [SyncResult]
+syncWalletsFromGState creds = processEncryptedKeys creds []
   where
-    processEncryptedKeys :: [EncryptedSecretKey] -> [SyncResult] -> m [SyncResult]
+    processEncryptedKeys :: [WalletDecrCredentials] -> [SyncResult] -> m [SyncResult]
     processEncryptedKeys [] !aux = pure aux
-    processEncryptedKeys (encSK : rest) !aux = do
-        let credentials@(_, walletId) = eskToWalletDecrCredentials encSK
+    processEncryptedKeys (credentials : rest) !aux = do
+        let (_, walletId) = credentials
         let onError ex = processEncryptedKeys rest (SyncFailed walletId ex : aux)
         handleAny onError $ do
             WS.getWalletSyncTip walletId >>= \case

@@ -26,13 +26,9 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
-import           Pos.DB (MonadDBRead)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
-import           Pos.Txp (utxoToModifier)
-import           Pos.Txp.DB.Utxo (filterUtxo)
-import           Pos.Util (maybeThrow)
+import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
                                       mkGenesisWalletUserSecret, readUserSecret, usWallet,
                                       wusAccounts, wusWalletName)
@@ -45,12 +41,12 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), 
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), MonadWalletDB, createAccount,
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), createAccount,
                                        getAccountWAddresses, getWalletMeta, removeHistoryCache,
-                                       setWalletSyncTip, updateWalletBalancesAndUtxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
-                                                  eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (restoreGenesisAddresses, restoreWalletHistory)
+                                       setWalletSyncTip)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (SyncQueue, asynchronouslyRestoreWalletHistory,
+                                               restoreGenesisAddresses, restoreWalletBalance)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           UnliftIO (MonadUnliftIO)
 
@@ -95,6 +91,7 @@ newWalletHandler passphrase cwInit = do
 -}
 restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
                          , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
                          ) => PassPhrase -> CWalletInit -> m CWallet
 restoreWalletFromSeed passphrase cwInit = do
     (sk, _) <- newWallet passphrase cwInit False -- TODO(adn) readyness must be changed into richer type.
@@ -106,35 +103,19 @@ restoreWalletFromSeed passphrase cwInit = do
 -- 3. Restore (asynchronously) the histrory.
 restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
+                 , HasLens SyncQueue ctx SyncQueue
                  ) => EncryptedSecretKey ->  m CWallet
 restoreWallet sk = do
     let credentials@(_, wId) = eskToWalletDecrCredentials sk
     restoreGenesisAddresses credentials
     restoreWalletBalance credentials
-    -- TODO(adn) Make restoreWalletHistory async.
-    _ <- restoreWalletHistory sk
     WS.setWalletReady wId True
-    -- TODO(adn) We can set the wallet ready much sooner, after 'restoreWalletHistory'
-    -- is properly async.
+    asynchronouslyRestoreWalletHistory credentials
     L.getWallet wId
-
--- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
--- each unspent output address. If we get a match, it means it belongs to us.
-restoreWalletBalance :: ( L.MonadWalletLogicRead ctx m
-                        , MonadWalletDB ctx m
-                        , MonadDBRead m
-                        , MonadUnliftIO m
-                        ) => WalletDecrCredentials -> m ()
-restoreWalletBalance credentials = do
-    utxo <- filterUtxo walletUtxo
-    updateWalletBalancesAndUtxo (utxoToModifier utxo)
-    where
-      walletUtxo :: (TxIn, TxOutAux) -> Bool
-      walletUtxo (_, TxOutAux (TxOut addr _)) =
-          isJust (decryptAddress credentials addr)
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , MonadUnliftIO m
+                           , HasLens SyncQueue ctx SyncQueue
                            ) => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
@@ -180,6 +161,7 @@ restoreWalletFromBackup WalletBackup {..} = do
 importWallet
     :: ( L.MonadWalletLogic ctx m
        , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
        )
     => PassPhrase
     -> CFilePath
@@ -200,6 +182,7 @@ importWallet passphrase (CFilePath (toString -> fp)) = do
 importWalletDo
     :: ( L.MonadWalletLogic ctx m
        , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
        )
     => PassPhrase
     -> WalletUserSecret
@@ -212,6 +195,7 @@ importWalletDo passphrase wSecret = do
 importWalletSecret
     :: ( L.MonadWalletLogic ctx m
        , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
        )
     => PassPhrase
     -> WalletUserSecret
@@ -240,6 +224,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 -- For debug purposes
 addInitialRichAccount :: ( L.MonadWalletLogic ctx m
                          , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
                          ) => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAny wSetExistsHandler $ do

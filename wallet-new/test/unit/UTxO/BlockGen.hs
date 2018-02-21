@@ -7,7 +7,7 @@ module UTxO.BlockGen
     ( genValidBlockchain
     ) where
 
-import           Universum hiding (use, (.~))
+import           Universum hiding (use)
 
 import           Control.Lens hiding (elements)
 import           Data.List.NonEmpty (NonEmpty (..))

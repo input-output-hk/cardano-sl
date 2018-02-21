@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes      #-}
 
 module Pos.Ssc.Worker
        ( sscWorkers
@@ -7,13 +8,15 @@ module Pos.Ssc.Worker
 import           Universum
 
 import           Control.Concurrent.STM (readTVar)
+import           Control.Exception.Safe (handleJust)
 import           Control.Lens (at, each, partsOf, to, views)
 import           Control.Monad.Except (runExceptT)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
+import           Data.Time.Units (Microsecond, Millisecond, convertUnit, fromMicroseconds,
+                                  toMicroseconds)
 import           Formatting (build, int, ords, sformat, shown, (%))
-import           Mockable (currentTime, delay)
+import           Mockable (delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
@@ -24,7 +27,8 @@ import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Protocol (OutSpecs)
-import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), StakeholderId, Timestamp (..),
+import           Pos.Communication.Relay (InvReqCommunicationException)
+import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), StakeholderId,
                            VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
@@ -37,10 +41,10 @@ import           Pos.DB (gsAdoptedBVData)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
-import           Pos.Reporting (reportMisbehaviour)
+import           Pos.Reporting (reportMisbehaviour, reportOrLogE)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Slotting (defaultOnNewSlotParams, getCurrentSlot, getSlotStartEmpatically,
-                               onNewSlot)
+import           Pos.Slotting (defaultOnNewSlotParams, flattenSlotId, getCurrentSlot,
+                               getCurrentSlotInaccurate, getNextEpochSlotDuration, onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
@@ -60,7 +64,7 @@ import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc
                                 sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
-import           Pos.Util.Util (getKeys, leftToPanic)
+import           Pos.Util.Util (pattern Exc, getKeys, leftToPanic)
 import           Pos.Worker.Types (WorkerSpec, localWorker, onNewSlotWorker)
 
 sscWorkers
@@ -87,7 +91,8 @@ onNewSlotSsc
     :: (SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId diffusion ->
-    recoveryCommGuard "onNewSlot worker in SSC" $ do
+    recoveryCommGuard "onNewSlot worker in SSC" $
+    catchReportExc $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
@@ -96,6 +101,16 @@ onNewSlotSsc = onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId diffusion
             onNewSlotCommitment slotId (sendSscCommitment diffusion)
             onNewSlotOpening (sbSendOpening behavior) slotId (sendSscOpening diffusion)
             onNewSlotShares (sbSendShares behavior) slotId (sendSscShares diffusion)
+  where
+    -- Detect errors that should not crash the worker (and the node with it).
+    isNonCriticalExc = \case
+        -- TODO: [CSL-2315] Revise this list of errors.
+        Exc (_ :: InvReqCommunicationException) -> True
+        _ -> False
+
+    catchReportExc = handleJust
+        (\e -> e <$ guard (isNonCriticalExc e))
+        (reportOrLogE "onNewSlotSsc failed: ")
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
@@ -365,14 +380,18 @@ waitUntilSend msgTag epoch slMultiplier = do
             -- TODO [CSL-2173]: Clarify
             leftToPanic "waitUntilSend: " $
             mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
-    Timestamp beginning <-
-        getSlotStartEmpatically $
-        SlotId {siEpoch = epoch, siSlot = slot}
-    curTime <- currentTime
-    let minToSend = curTime
-    let maxToSend = beginning + mpcSendInterval
-    when (minToSend < maxToSend) $ do
-        let delta = maxToSend - minToSend
+        phaseStartSlot = SlotId {siEpoch = epoch, siSlot = slot}
+    -- An approximation for the time difference between the current slot and the
+    -- phase start slot. The result might be inaccurate.
+    timeDiff <- do
+        curSlot <- getCurrentSlotInaccurate
+        slotDur <- getNextEpochSlotDuration
+        let subzero a b = if a > b then a - b else 0
+            slotDiff = (subzero `on` flattenSlotId) curSlot phaseStartSlot
+        return $ fromMicroseconds $
+            fromIntegral slotDiff * toMicroseconds slotDur
+    let delta = mpcSendInterval - timeDiff
+    when (delta > 0) $ do
         timeToWait <- randomTimeInInterval delta
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait

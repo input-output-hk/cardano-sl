@@ -41,8 +41,8 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))

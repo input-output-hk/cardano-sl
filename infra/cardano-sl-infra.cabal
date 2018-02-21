@@ -47,7 +47,6 @@ library
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
                         Pos.Slotting.Types
-                        Pos.Slotting.Error
                         Pos.Slotting.Util
 
                         -- Pos.DHT

@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes      #-}
 
 -- | Block processing related workers.
 
@@ -9,6 +10,7 @@ module Pos.Block.Worker
 
 import           Universum
 
+import           Control.Exception.Safe (handleJust)
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
@@ -24,7 +26,8 @@ import           Pos.Block.Configuration (networkDiameter)
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply)
-import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), requestTipOuts,
+                                          triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
@@ -52,8 +55,9 @@ import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRe
                                     recoveryCommGuard)
 import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
                                 recordValue, reportOrLogE)
+import           Pos.Security.Params (NodeAttackedError)
 import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
+                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStart)
 import           Pos.Update.DB (getAdoptedBVData)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
@@ -61,6 +65,7 @@ import           Pos.Util.JsonLog (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Util.Util (pattern Exc)
 import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 ----------------------------------------------------------------------------
@@ -107,9 +112,20 @@ blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
     onNewSlotWorker onsp mempty $ \slotId diffusion ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
-        blockCreator slotId diffusion `catchAny` onBlockCreatorException
+        catchReportExc $
+        blockCreator slotId diffusion
   where
-    onBlockCreatorException = reportOrLogE "blockCreator failed: "
+    -- Detect errors that should not crash the worker (and the node with it).
+    isNonCriticalExc = \case
+        -- TODO: [CSL-2315] Revise this list of errors.
+        Exc (_ :: NodeAttackedError) -> True
+        Exc DialogUnexpected{} -> True
+        _ -> False
+
+    catchReportExc = handleJust
+        (\e -> e <$ guard (isNonCriticalExc e))
+        (reportOrLogE "blockCreator failed: ")
+
     onsp :: OnNewSlotParams
     onsp =
         defaultOnNewSlotParams
@@ -180,28 +196,35 @@ blockCreator (slotId@SlotId {..}) diffusion = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: BlockWorkMode ctx m
+    :: forall m ctx.
+       BlockWorkMode ctx m
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
-onNewSlotWhenLeader slotId pske diffusion = do
+onNewSlotWhenLeader slotId pske diffusion = runET $ do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
         logLeader = "because i'm a leader"
         logCert (psk,_) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pske
-    nextSlotStart <- getSlotStartEmpatically (succ slotId)
+    lift $ logInfoS $ logReason <> maybe logLeader logCert pske
+    nextSlotStart <- ExceptT $
+        note "unknown slot start" <$> getSlotStart (succ slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
-    logInfoS $
+    lift $ logInfoS $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
-    delay timeToWait
-    logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
+    lift $ delay timeToWait
+    lift $ logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
+    runET :: ExceptT Text m () -> m ()
+    runET m = runExceptT m >>= \case
+        Right () -> pass
+        Left reason -> logInfoS $
+            "onNewSlotWhenLeader: early exit due to " <> reason
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
         createdBlock <- createMainBlockAndApply slotId pske

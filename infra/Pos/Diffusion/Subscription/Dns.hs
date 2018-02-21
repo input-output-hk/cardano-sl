@@ -75,10 +75,14 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeAlts _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
     subscribeAlts dnsPeersVar (index, alts) = do
-        -- Any IOException is squelched. This does not include async exceptions.
-        -- It does handle the case in which there's no internet connection and
-        -- resolving the name ('findDnsPeers') throws an 'IOException'.
-        findAndSubscribe dnsPeersVar index alts `catch` logIOException
+        -- Any DNSError is squelched. So are IOExceptions, for good measure.
+        -- This does not include async exceptions.
+        -- It does handle the case in which there's no internet connection, or
+        -- a bad configuration, so that the subscription thread will keep on
+        -- retrying.
+        findAndSubscribe dnsPeersVar index alts
+            `catch` logDNSError
+            `catch` logIOException
         retryInterval >>= delay
         subscribeAlts dnsPeersVar (index, alts)
 
@@ -110,8 +114,12 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         subscribeToOne dnsPeersList
 
     logIOException :: IOException -> m ()
-    logIOException ioexception =
-        logError $ sformat ("dnsSubscriptionWorker: "%shown) ioexception
+    logIOException ioException =
+        logError $ sformat ("dnsSubscriptionWorker: "%shown) ioException
+
+    logDNSError :: DNS.DNSError -> m ()
+    logDNSError dnsError =
+        logError $ sformat ("dnsSubscriptionWorker: "%shown) dnsError
 
     -- Find peers via DNS, preserving order.
     -- In case multiple addresses are returned for one name, they're flattened

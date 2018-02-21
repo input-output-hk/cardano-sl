@@ -4,15 +4,13 @@ module Pos.Diffusion.Subscription.Dns
     ) where
 
 import           Control.Exception (IOException)
-import           Control.Monad.Catch (catch)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
--- Universum re-exports safe-exceptions.
-import           Universum hiding (catch)
+import           Universum
 
 import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAtomicT, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)

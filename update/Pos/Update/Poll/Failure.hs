@@ -85,6 +85,7 @@ data PollVerFailure
     | PollTipMismatch { ptmTipDB     :: !HeaderHash
                       , ptmTipMemory :: !HeaderHash
                       }
+    | PollInvalidUpdatePayload !Text
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -172,6 +173,8 @@ instance Buildable PollVerFailure where
         bprint ("tip we store in US mem-state ("%shortHashF%
                 ") differs from the tip we store in DB ("%build%")")
         ptmTipMemory ptmTipDB
+    build (PollInvalidUpdatePayload msg) =
+        bprint ("invalid update payload: "%stext) msg
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
 

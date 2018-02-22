@@ -21,7 +21,7 @@ module Pos.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Except (MonadError (..), runExceptT)
 import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog (WithLogger)
 
@@ -31,11 +31,11 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
                            isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.Configuration (HasConfiguration, memPoolLimitTx)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
-                               txInputs, txOutAddress)
+                               txInputs, txOutAddress, checkTxAux)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
+import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
 import           Pos.Txp.Toil.Class (MonadStakes (..), MonadTxPool (..), MonadUtxo (..),
                                      MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
@@ -104,7 +104,7 @@ type LocalToilMode m =
     , MonadGState m
     , MonadTxPool m
     , WithLogger m
-    , HasConfiguration
+    , HasTxpConfiguration
     )
 
 -- CHECK: @processTx
@@ -142,6 +142,7 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
+    either (throwError . ToilInconsistentTxAux) pure (checkTxAux txAux)
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx

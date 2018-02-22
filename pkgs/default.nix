@@ -783,7 +783,7 @@ let
            homepage = "http://github.com/ryantm/hdbc-mysql";
            description = "MySQL driver for HDBC";
            license = "LGPL";
-         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl;
+         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl; 
 inherit (pkgs) zlib;};
       "HDBC-session" = callPackage
         ({ mkDerivation, base, HDBC, stdenv }:
@@ -2024,8 +2024,8 @@ inherit (pkgs) zlib;};
            description = "A binding to part of the Win32 library";
            license = stdenv.lib.licenses.bsd3;
            platforms = stdenv.lib.platforms.none;
-         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32;
-inherit (pkgs) shell32; inherit (pkgs) shfolder;
+         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32; 
+inherit (pkgs) shell32; inherit (pkgs) shfolder; 
 inherit (pkgs) user32; inherit (pkgs) winmm;};
       "Win32-extras" = callPackage
         ({ mkDerivation, base, imm32, msimg32, stdenv, Win32 }:
@@ -2095,7 +2095,7 @@ inherit (pkgs) user32; inherit (pkgs) winmm;};
            homepage = "https://github.com/xmonad/X11";
            description = "A binding to the X11 graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama; 
 inherit (pkgs.xorg) libXrender;};
       "X11-xft" = callPackage
         ({ mkDerivation, base, libXft, stdenv, utf8-string, X11 }:
@@ -2254,21 +2254,21 @@ inherit (pkgs.xorg) libXrender;};
          }) {};
       "acid-state" = callPackage
         ({ mkDerivation, array, base, bytestring, cereal, containers
-         , directory, extensible-exceptions, fetchgit, filepath, mtl
-         , network, safecopy, stdenv, stm, template-haskell, th-expand-syns
-         , unix
+         , directory, extensible-exceptions, fetchgit, filelock, filepath
+         , mtl, network, safecopy, stdenv, stm, template-haskell
+         , th-expand-syns, unix
          }:
          mkDerivation {
            pname = "acid-state";
            version = "0.14.2";
            src = fetchgit {
              url = "https://github.com/serokell/acid-state.git";
-             sha256 = "109liqzk66cxkarw8r8jxh27n6qzdcha2xlhsj56xzyqc2aqjz15";
-             rev = "95fce1dbada62020a0b2d6aa2dd7e88eadd7214b";
+             sha256 = "1l19g73680g1fc7v22f2d54y8db4vhdwfmqchshf5pzv3nlxm640";
+             rev = "aa0b0e9192f427158108e63c06d09dce9c910b88";
            };
            libraryHaskellDepends = [
              array base bytestring cereal containers directory
-             extensible-exceptions filepath mtl network safecopy stm
+             extensible-exceptions filelock filepath mtl network safecopy stm
              template-haskell th-expand-syns unix
            ];
            doHaddock = false;
@@ -5118,6 +5118,19 @@ inherit (pkgs.xorg) libXrender;};
            description = "Base64 implementation for String's";
            license = "unknown";
          }) {};
+      "basement" = callPackage
+        ({ mkDerivation, base, ghc-prim, stdenv }:
+         mkDerivation {
+           pname = "basement";
+           version = "0.0.6";
+           sha256 = "9ca23b940006d8c6a7bc9c07c4ef1bf5ddb47ce82d384c5f341996e22cb95ff7";
+           libraryHaskellDepends = [ base ghc-prim ];
+           doHaddock = false;
+           doCheck = false;
+           homepage = "https://github.com/haskell-foundation/foundation";
+           description = "Foundation scrap box of array & string";
+           license = stdenv.lib.licenses.bsd3;
+         }) {};
       "basic-prelude" = callPackage
         ({ mkDerivation, base, bytestring, containers, filepath, hashable
          , lifted-base, ReadArgs, safe, stdenv, text, transformers
@@ -5492,7 +5505,7 @@ inherit (pkgs.xorg) libXrender;};
            doCheck = false;
            description = "Low-level bindings to GLFW OpenGL library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes; 
 inherit (pkgs) mesa;};
       "bindings-libzip" = callPackage
         ({ mkDerivation, base, bindings-DSL, libzip, stdenv }:
@@ -6860,8 +6873,8 @@ inherit (pkgs) mesa;};
            version = "1.0.0";
            src = fetchgit {
              url = "https://github.com/input-output-hk/cardano-crypto";
-             sha256 = "10f89zm2sd015r6fbhlk1zp0720rzq2dvwazrmcxa3bd5s2l696v";
-             rev = "1cde8e3a8d9093bbf571085920045c05edb3eaa4";
+             sha256 = "05i1z01fzg0la4hk2ff0l89sk0a5ada81w60kwj9i8ix74jchp94";
+             rev = "287cc575fafe86af9d24af9d012c47f9d3f04da0";
            };
            libraryHaskellDepends = [
              base bytestring cryptonite cryptonite-openssl deepseq hashable
@@ -7526,9 +7539,10 @@ inherit (pkgs) mesa;};
          , containers, cpphs, data-default, ekg-core, ether, exceptions, fmt
          , formatting, generic-arbitrary, hashable, lens, log-warper, memory
          , mmorph, mtl, neat-interpolation, plutus-prototype, QuickCheck
-         , resourcet, rocksdb-haskell-ng, safe-exceptions, serokell-util
-         , stdenv, stm, tagged, template-haskell, text, text-format, th-lift
-         , transformers, universum, unliftio, unordered-containers, vector
+         , reflection, resourcet, rocksdb-haskell-ng, safe-exceptions
+         , serokell-util, stdenv, stm, tagged, template-haskell, text
+         , text-format, th-lift, transformers, universum, unliftio
+         , unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-txp";
@@ -7540,7 +7554,7 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-util conduit containers
              data-default ekg-core ether exceptions fmt formatting
              generic-arbitrary hashable lens log-warper memory mmorph mtl
-             neat-interpolation plutus-prototype QuickCheck resourcet
+             neat-interpolation plutus-prototype QuickCheck reflection resourcet
              rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
              template-haskell text text-format th-lift transformers universum
              unliftio unordered-containers vector
@@ -7912,11 +7926,11 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cborg";
-           version = "0.1.1.0";
+           version = "0.2.0.0";
            src = fetchgit {
              url = "https://github.com/well-typed/cborg";
-             sha256 = "06k0sqjfwc75w099vg5yqa5jf5406j9cz2x1dbkp3p887cmik4fv";
-             rev = "c7db82bfd93923f5b08ed51a4cd53e30bd445924";
+             sha256 = "0i38fzyj34cg5i6n0kk05zv255hbz2544rxknsxlvdz90cr2rk51";
+             rev = "8bddf97abe613d4eb523ed6b0ff8eabbd713c744";
            };
            postUnpack = "sourceRoot+=/cborg; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [
@@ -9632,24 +9646,29 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mpl20;
          }) {};
       "criterion" = callPackage
-        ({ mkDerivation, aeson, ansi-wl-pprint, base, binary, bytestring
-         , cassava, code-page, containers, deepseq, directory, filepath
-         , Glob, hastache, js-flot, js-jquery, mtl, mwc-random
-         , optparse-applicative, parsec, statistics, stdenv, text, time
-         , transformers, transformers-compat, vector, vector-algorithms
+        ({ mkDerivation, aeson, ansi-wl-pprint, base, base-compat, binary
+         , bytestring, cassava, code-page, containers, deepseq, directory
+         , exceptions, filepath, Glob, js-flot, js-jquery, microstache, mtl
+         , mwc-random, optparse-applicative, parsec, semigroups, statistics
+         , stdenv, text, time, transformers, transformers-compat, vector
+         , vector-algorithms
          }:
          mkDerivation {
            pname = "criterion";
-           version = "1.1.4.0";
-           sha256 = "53a243fc759ed3100e71f96a5f6649658d076d91d52ce2853a6f8587aa3cfa76";
-           revision = "1";
-           editedCabalFile = "0hgy2rbrb0dg1sjdvqk2zivdq075fih4zlf51ffdmqzgcdj3i9b1";
+           version = "1.3.0.0";
+           sha256 = "18b9336ade26d222f360200ba9508729937f9c54178456128a43992cad994f33";
+           isLibrary = true;
+           isExecutable = true;
            enableSeparateDataOutput = true;
            libraryHaskellDepends = [
-             aeson ansi-wl-pprint base binary bytestring cassava code-page
-             containers deepseq directory filepath Glob hastache js-flot
-             js-jquery mtl mwc-random optparse-applicative parsec statistics
-             text time transformers transformers-compat vector vector-algorithms
+             aeson ansi-wl-pprint base base-compat binary bytestring cassava
+             code-page containers deepseq directory exceptions filepath Glob
+             js-flot js-jquery microstache mtl mwc-random optparse-applicative
+             parsec semigroups statistics text time transformers
+             transformers-compat vector vector-algorithms
+           ];
+           executableHaskellDepends = [
+             base base-compat optparse-applicative semigroups
            ];
            doHaddock = false;
            doCheck = false;
@@ -9951,15 +9970,19 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "cryptonite" = callPackage
-        ({ mkDerivation, base, bytestring, deepseq, foundation, ghc-prim
-         , integer-gmp, memory, stdenv
+        ({ mkDerivation, base, basement, bytestring, deepseq, fetchgit
+         , ghc-prim, integer-gmp, memory, stdenv
          }:
          mkDerivation {
            pname = "cryptonite";
-           version = "0.23";
-           sha256 = "ee4a1c2cec13f3697a2a35255022fe802b2e29cd836b280702f2495b5f6f0099";
+           version = "0.24";
+           src = fetchgit {
+             url = "https://github.com/haskell-crypto/cryptonite";
+             sha256 = "1fd9swq1akngngg9ygf15yzj38cwgbk50fq53hckfjrgkwg34v7x";
+             rev = "41d610fb18e2924d7aa704c37798e1c197557f3e";
+           };
            libraryHaskellDepends = [
-             base bytestring deepseq foundation ghc-prim integer-gmp memory
+             base basement bytestring deepseq ghc-prim integer-gmp memory
            ];
            doHaddock = false;
            doCheck = false;
@@ -14122,12 +14145,12 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "foundation" = callPackage
-        ({ mkDerivation, base, ghc-prim, stdenv }:
+        ({ mkDerivation, base, basement, ghc-prim, stdenv }:
          mkDerivation {
            pname = "foundation";
-           version = "0.0.13";
-           sha256 = "106a85cbbf936591df44b46ee04d39f29c15752f6eca438341f2b735e9c0755f";
-           libraryHaskellDepends = [ base ghc-prim ];
+           version = "0.0.19";
+           sha256 = "b83bd852f1bc2f7a39fe02ce673580483cb3264ce10dd8768ee4dcf49a2b6f14";
+           libraryHaskellDepends = [ base basement ghc-prim ];
            doHaddock = false;
            doCheck = false;
            homepage = "https://github.com/haskell-foundation/foundation";
@@ -14189,7 +14212,7 @@ inherit (pkgs) mesa;};
            homepage = "https://github.com/chrisdone/freenect";
            description = "Interface to the Kinect device";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync;
+         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync; 
 inherit (pkgs) libfreenect;};
       "freer" = callPackage
         ({ mkDerivation, base, stdenv }:
@@ -14409,8 +14432,8 @@ inherit (pkgs) libfreenect;};
            doCheck = false;
            description = "A Haskell binding to a subset of the GD graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig;
-inherit (pkgs) freetype; inherit (pkgs) gd;
+         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig; 
+inherit (pkgs) freetype; inherit (pkgs) gd; 
 inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
       "general-games" = callPackage
         ({ mkDerivation, base, monad-loops, MonadRandom, random
@@ -15281,9 +15304,9 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            description = "manage files with git, without checking their contents into git";
            license = stdenv.lib.licenses.gpl3;
            platforms = [ "i686-linux" "x86_64-linux" ];
-         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git;
-inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh;
-inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget;
+         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git; 
+inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh; 
+inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget; 
 inherit (pkgs) which;};
       "github" = callPackage
         ({ mkDerivation, aeson, aeson-compat, base, base-compat
@@ -25581,17 +25604,15 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd2;
          }) {};
       "memory" = callPackage
-        ({ mkDerivation, base, bytestring, deepseq, foundation, ghc-prim
-         , stdenv
+        ({ mkDerivation, base, basement, bytestring, deepseq, foundation
+         , ghc-prim, stdenv
          }:
          mkDerivation {
            pname = "memory";
-           version = "0.14.6";
-           sha256 = "c7dec070174756f1753010585a6dcd4f958a4360634142c4e387b3475bffc160";
-           revision = "1";
-           editedCabalFile = "0pyzdy5ca1cbkjzy1scnz6mr9251ap4w8a5phzxp91wkxpc45538";
+           version = "0.14.14";
+           sha256 = "1d1b985620155dbacfc9d924b49505889a558f5a7787bf308fad418ded59960e";
            libraryHaskellDepends = [
-             base bytestring deepseq foundation ghc-prim
+             base basement bytestring deepseq foundation ghc-prim
            ];
            doHaddock = false;
            doCheck = false;
@@ -35953,23 +35974,24 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "statistics" = callPackage
-        ({ mkDerivation, aeson, base, binary, deepseq, erf, math-functions
-         , monad-par, mwc-random, primitive, stdenv, vector
-         , vector-algorithms, vector-binary-instances
+        ({ mkDerivation, aeson, base, base-orphans, binary, deepseq, erf
+         , math-functions, monad-par, mwc-random, primitive, stdenv, vector
+         , vector-algorithms, vector-binary-instances, vector-th-unbox
          }:
          mkDerivation {
            pname = "statistics";
-           version = "0.13.3.0";
-           sha256 = "6e7fe0f10086725c696fdd855caf4b6fb58ca5100bd0c9995f575f5b071381ed";
+           version = "0.14.0.2";
+           sha256 = "3495df2da42c9fcc5b594b97f16c02353bfd6616d6e134ac031dac389d7a4778";
            libraryHaskellDepends = [
-             aeson base binary deepseq erf math-functions monad-par mwc-random
-             primitive vector vector-algorithms vector-binary-instances
+             aeson base base-orphans binary deepseq erf math-functions monad-par
+             mwc-random primitive vector vector-algorithms
+             vector-binary-instances vector-th-unbox
            ];
            doHaddock = false;
            doCheck = false;
            homepage = "https://github.com/bos/statistics";
            description = "A library of statistical types, data, and functions";
-           license = stdenv.lib.licenses.bsd3;
+           license = stdenv.lib.licenses.bsd2;
          }) {};
       "stemmer" = callPackage
         ({ mkDerivation, base, stdenv }:

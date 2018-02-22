@@ -31,6 +31,7 @@ import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Configuration (HasInfraConfiguration, withInfraConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
+import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
 
@@ -66,6 +67,7 @@ type HasStaticConfigurations =
     , HasBlockConfiguration
     , HasNodeConfiguration
     , HasDlgConfiguration
+    , HasTxpConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -86,6 +88,9 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
+withDefTxpConfiguration :: (HasTxpConfiguration => r) -> r
+withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
+
 withDefConfiguration :: (HasConfiguration => r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 
@@ -96,6 +101,7 @@ withStaticConfigurations patak =
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
+    withDefTxpConfiguration $
     withDefInfraConfiguration patak
 
 withDefConfigurations :: (HasConfigurations => r) -> r

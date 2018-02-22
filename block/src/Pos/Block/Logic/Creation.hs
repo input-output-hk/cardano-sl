@@ -41,8 +41,8 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
-                                 clearDlgMemPool, getDlgMempool, mkDlgPayload)
+import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo,
+                                 clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
@@ -62,7 +62,7 @@ import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.LogSafe (logInfoS)
-import           Pos.Util.Util (HasLens (..), HasLens', leftToPanic)
+import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
@@ -304,7 +304,7 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pske body
+    pure (mkMainBlock (Just prevHeader) sId sk pske body)
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
@@ -313,8 +313,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
-        musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pske musthaveBody
+        let musthaveBlock =
+                mkMainBlock (Just prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
@@ -448,9 +448,7 @@ createMainBody bodyLimit sId payload =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
-        let dlgPay' =
-              -- TODO [CSL-2173]: Clarify
-              leftToPanic "createMainBlockPure: " $ mkDlgPayload psks'
+        let dlgPay' = UnsafeDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block

@@ -4,6 +4,7 @@ module Pos.Binary.Core.Fee () where
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Fixed (Nano)
 
 import           Pos.Binary.Class (Bi (..), decode, decodeKnownCborDataItem,
@@ -30,7 +31,7 @@ instance Bi TxFeePolicy where
                             <> encodeKnownCborDataItem txSizeLinear
         TxFeePolicyUnknown word8 bs          ->
             encodeListLen 2 <> encode word8
-                            <> encodeUnknownCborDataItem bs
+                            <> encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "TxFeePolicy" 2
         tag <- decode @Word8

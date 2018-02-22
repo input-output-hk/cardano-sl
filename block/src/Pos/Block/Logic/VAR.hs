@@ -79,7 +79,10 @@ verifyBlocksPrefix blocks = runExceptT $ do
     adoptedBV <- lift GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
 
-    -- And then we run verification of each component.
+    -- Run verification of each component.
+    -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
+    -- the internal consistency checks formerly done in the 'Bi' instance
+    -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $
         ExceptT $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $

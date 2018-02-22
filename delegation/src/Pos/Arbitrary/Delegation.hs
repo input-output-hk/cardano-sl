@@ -14,14 +14,11 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex, HasConfiguration)
 import           Pos.Crypto (ProxySecretKey (..), createPsk)
-import           Pos.Delegation.Types (DlgPayload, DlgUndo, mkDlgPayload)
-import           Pos.Util.Util (leftToPanic)
+import           Pos.Delegation.Types (DlgPayload (..), DlgUndo)
 
 genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
 genDlgPayload epoch =
-    -- TODO [CSL-2173]: Clarify
-    leftToPanic "genDlgPayload: " .
-    mkDlgPayload . toList . HM.fromList . map convert <$>
+    UnsafeDlgPayload . toList . HM.fromList . map convert <$>
     listOf genPSK
   where
     convert psk = (pskIssuerPk psk, psk)

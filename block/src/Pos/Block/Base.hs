@@ -12,7 +12,6 @@ module Pos.Block.Base
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
 import           Data.Default (Default (def))
 
 import           Pos.Block.BHelpers ()
@@ -22,7 +21,7 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  GenesisBlockchain, GenesisExtraBodyData (..),
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
                                  MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainToSign (..), mkGenericHeader, recreateGenericBlock)
+                                 MainToSign (..), mkGenericHeader, GenericBlock (..))
 import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
 import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
@@ -33,7 +32,6 @@ import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion)
-import           Pos.Util.Util (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors
@@ -50,10 +48,6 @@ mkMainHeader
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
-    -- here we know that header creation can't fail, because the only invariant
-    -- which we check in 'verifyBBlockHeader' is signature correctness, which
-    -- is enforced in this function
-    leftToPanic "mkMainHeader: " $
     mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
@@ -74,18 +68,20 @@ mkMainHeader prevHeader slotId sk pske body extra =
         , _mcdSignature = signature prevHash proof
         }
 
--- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
--- verifies consistency of given data and may fail.
+-- | Smart constructor for 'MainBlock'.
+--
+-- FIXME TBD do we need to verify here? This is not used on untrusted data,
+-- so why bother?
 mkMainBlock
-    :: (HasUpdateConfiguration, HasConfiguration, MonadError Text m)
+    :: (HasUpdateConfiguration, HasConfiguration)
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body MainBlockchain
-    -> m MainBlock
+    -> MainBlock
 mkMainBlock prevHeader slotId sk pske body =
-    recreateGenericBlock
+    UnsafeGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB
@@ -126,9 +122,6 @@ mkGenesisHeader
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail
-    -- TODO [CSL-2173]: update comment above, it must explain WHY the failure
-    -- cannot happpen
-    leftToPanic "mkGenesisHeader: " $
     mkGenericHeader
         prevHeader
         body
@@ -147,8 +140,7 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
-    -- TODO [CSL-2173]: Clarify
-    leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
+    UnsafeGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders

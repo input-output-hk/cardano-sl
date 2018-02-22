@@ -9,9 +9,8 @@ import           Universum
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Delegation (DlgPayload (getDlgPayload), mkDlgPayload)
-import           Pos.Util.Util (toCborError)
+import           Pos.Core.Delegation (DlgPayload (..))
 
 instance HasConfiguration => Bi DlgPayload where
     encode = encode . getDlgPayload
-    decode = decode >>= toCborError . mkDlgPayload
+    decode = UnsafeDlgPayload <$> decode

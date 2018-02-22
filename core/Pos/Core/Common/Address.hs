@@ -85,7 +85,7 @@ import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey, 
 import           Pos.Data.Attributes (attrData, mkAttributes)
 
 instance Bi Address => Hashable Address where
-    hashWithSalt s = hashWithSalt s . Bi.serialize'
+    hashWithSalt s = hashWithSalt s . Bi.serialize
 
 ----------------------------------------------------------------------------
 -- Formatting, pretty-printing
@@ -158,7 +158,7 @@ decodeTextAddress = decodeAddress . encodeUtf8
     decodeAddress bs = do
         let base58Err = "Invalid base58 representation of address"
         dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-        Bi.decodeFull dbs
+        Bi.decodeFull' dbs
 
 ----------------------------------------------------------------------------
 -- Constructors
@@ -306,7 +306,7 @@ unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
     firstHash :: Bi a => a -> Digest SHA3_256
-    firstHash = CryptoHash.hash . Bi.serialize'
+    firstHash = CryptoHash.hashlazy . Bi.serialize
     secondHash :: Digest SHA3_256 -> Digest Blake2b_224
     secondHash = CryptoHash.hash
 

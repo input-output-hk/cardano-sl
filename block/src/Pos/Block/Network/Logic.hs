@@ -29,6 +29,7 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockInstancesConstraint, BlockWorkMode)
+import           Pos.Block.Configuration (criticalForkThreshold)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
                                   verifyAndApplyBlocks)
@@ -40,8 +41,8 @@ import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs, convH,
                                              toOutSpecs)
-import           Pos.Core (HasHeaderHash (..), HeaderHash, criticalForkThreshold, gbHeader,
-                           headerHashG, isMoreDifficult, prevBlockL)
+import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
+                           prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB

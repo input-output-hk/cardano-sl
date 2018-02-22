@@ -26,6 +26,7 @@ module Pos.Crypto.Hashing
        , shortHashF
        , hash
        , hashRaw
+       , hashRaw'
        , unsafeHash
        , unsafeCheatingHashCoerce
 
@@ -144,7 +145,7 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hash . Bi.serialize'
+unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.serialize
 
 -- | Make an AbstractHash from a lazy ByteString. You can choose the phantom
 -- type, hence the "unsafe".
@@ -163,8 +164,11 @@ hash :: Bi a => a -> Hash a
 hash = unsafeHash
 
 -- | Raw constructor application.
-hashRaw :: ByteString -> Hash Raw
-hashRaw = AbstractHash . Hash.hash
+hashRaw :: LBS.ByteString -> Hash Raw
+hashRaw = AbstractHash . Hash.hashlazy
+
+hashRaw' :: ByteString -> Hash Raw
+hashRaw' = AbstractHash . Hash.hash
 
 -- | Encode thing as 'Bi' data and then wrap into constructor.
 unsafeHash :: Bi a => a -> Hash b

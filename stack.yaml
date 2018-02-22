@@ -140,7 +140,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/log-warper.git
-    commit: 4ee4e2e7b41a17cc5bb9d9d0bd2d2ba19da015fd
+    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
   extra-dep: true
 
 nix:

@@ -24752,30 +24752,25 @@ inherit (pkgs) which;};
       "log-warper" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, base, containers, deepseq
          , directory, dlist, errors, exceptions, extra, fetchgit, filepath
-         , fmt, formatting, hashable, lens, markdown-unlit, mmorph
-         , monad-control, monad-loops, mtl, network, stdenv, text
-         , text-format, time, transformers, transformers-base, universum
-         , unix, unordered-containers, vector, yaml
+         , fmt, formatting, hashable, lens, mmorph, monad-control
+         , monad-loops, mtl, network, stdenv, text, text-format, time
+         , transformers, transformers-base, universum, unix
+         , unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "log-warper";
            version = "1.8.0";
            src = fetchgit {
              url = "https://github.com/serokell/log-warper.git";
-             sha256 = "0cc73a3rv2mzzpcbvzm408zp654j29iygi0ad44zgag5wkpfczz5";
-             rev = "4ee4e2e7b41a17cc5bb9d9d0bd2d2ba19da015fd";
+             sha256 = "1rqpkid2c58pk813kb7wjcibsxf97cn7vjf3bv3dma1k5b818ana";
+             rev = "7f95c6990ef93a289678755cb1db71c2a4ecdfb5";
            };
-           isLibrary = true;
-           isExecutable = true;
            libraryHaskellDepends = [
              aeson ansi-terminal base containers deepseq directory dlist errors
              exceptions extra filepath fmt formatting hashable lens mmorph
              monad-control monad-loops mtl network text text-format time
              transformers transformers-base universum unix unordered-containers
              vector yaml
-           ];
-           executableHaskellDepends = [
-             base exceptions markdown-unlit text universum yaml
            ];
            doHaddock = false;
            doCheck = false;

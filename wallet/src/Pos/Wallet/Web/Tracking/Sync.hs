@@ -17,8 +17,8 @@
 --   Utxo (GStateDB), because blockchain can be large.
 
 module Pos.Wallet.Web.Tracking.Sync
-       ( syncWalletsFromGState
-       , processSyncResult
+       ( syncWallet
+       , processSyncRequest
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWallet
@@ -47,7 +47,7 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
 
-import           Control.Concurrent.STM (TBQueue, writeTBQueue)
+import           Control.Concurrent.STM (TBQueue, readTBQueue, writeTBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
@@ -141,6 +141,22 @@ data SyncResult = SyncSucceeded
                 | SyncFailed  (CId Wal) SomeException
                 -- ^ The sync process failed abruptly during the sync process.
 
+-- | Sync a wallet with the last state of the blockchain, given its 'WalletDecrCredentials'.
+-- The update of the balance will be done immediately and synchronously, the transaction history
+-- will instead be recovered asynchronously.
+syncWallet :: ( MonadWalletDB ctx m
+              , MonadDBRead m
+              , WithLogger m
+              , HasLens StateLock ctx StateLock
+              , HasLens SyncQueue ctx SyncQueue
+              , MonadMask m
+              , MonadSlotsData ctx m
+              , MonadUnliftIO m
+              ) => WalletDecrCredentials -> m ()
+syncWallet credentials = do
+    restoreWalletBalance credentials
+    asynchronouslyRestoreWalletHistory credentials
+
 -- | Asynchronously restores the full history for a wallet, given its 'WalletDecrCredentials'.
 asynchronouslyRestoreWalletHistory :: ( MonadWalletDB ctx m
                                       , MonadDBRead m
@@ -159,6 +175,20 @@ submitSyncRequest :: ( MonadIO m
 submitSyncRequest syncRequest = do
     requestQueue <- view (lensOf @(TBQueue SyncRequest))
     liftIO $ atomically $ writeTBQueue requestQueue syncRequest
+
+processSyncRequest :: ( MonadWalletDB ctx m
+                      , BlockLockMode ctx m
+                      , MonadSlotsData ctx m
+                      , HasConfiguration
+                      , MonadIO m
+                      ) => SyncQueue -> m ()
+processSyncRequest syncQueue = do
+    newRequest <- liftIO $ atomically $ readTBQueue syncQueue
+    case newRequest of
+        RestoreWalletHistory credentials -> do
+          results <- syncWalletsFromGState [credentials]
+          mapM_ processSyncResult results
+    processSyncRequest syncQueue
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.

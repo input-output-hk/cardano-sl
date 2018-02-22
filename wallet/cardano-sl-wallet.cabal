@@ -216,6 +216,7 @@ executable cardano-node
                       , formatting
                       , log-warper
                       , optparse-applicative
+                      , stm
                       , time-units
                       , universum >= 0.1.11
 

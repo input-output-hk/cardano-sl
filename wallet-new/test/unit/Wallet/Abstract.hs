@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -30,15 +31,16 @@ module Wallet.Abstract (
   , utxoRestrictToOurs
   ) where
 
-import           Universum
-
 import qualified Data.Foldable as Fold
-import qualified Data.IntMap as IntMap
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import           Universum
+
+import qualified Data.IntMap as IntMap
+import qualified Data.List as List
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
+import           Pos.Util (HasLens', lensOf')
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Test.QuickCheck
 
@@ -60,13 +62,23 @@ type Pending h a = Set (Transaction h a)
 
 -- | Abstract definition of a wallet
 class (Hash h a, Ord a) => IsWallet w h a where
-  pending    :: w h a -> Pending h a
   utxo       :: w h a -> Utxo h a
   ours       :: w h a -> Ours a
   applyBlock :: Block h a -> w h a -> w h a
-  newPending :: Transaction h a -> w h a -> Maybe (w h a)
 
   -- Operations with default implementations
+
+  pending :: w h a -> Pending h a
+  default pending :: HasLens' (w h a) (Pending h a)
+                  => w h a -> Pending h a
+  pending w = w ^. lensOf'
+
+  newPending :: Transaction h a -> w h a -> Maybe (w h a)
+  default newPending :: HasLens' (w h a) (Pending h a)
+                     => Transaction h a -> w h a -> Maybe (w h a)
+  newPending tx w = do
+      guard $ trIns tx `Set.isSubsetOf` utxoDomain (available w)
+      return $ w & lensOf' %~ Set.insert tx
 
   availableBalance :: IsWallet w h a => w h a -> Value
   availableBalance = balance . available

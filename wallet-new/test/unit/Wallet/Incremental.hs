@@ -1,4 +1,4 @@
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Incremental yet pure version of the wallet
 --
@@ -10,8 +10,11 @@ module Wallet.Incremental (
   , walletEmpty
   ) where
 
-import qualified Data.Set as Set
 import           Universum hiding (State)
+
+import           Control.Lens.TH
+import qualified Data.Set as Set
+import           Pos.Util
 
 import           UTxO.DSL
 import           Wallet.Abstract
@@ -26,84 +29,63 @@ import           Wallet.Abstract
 --
 -- > stateUtxoBalance == balance stateUtxo
 data State h a = State {
-      stateUtxo        :: Utxo h a
-    , stateUtxoBalance :: Value
-    , statePending     :: Pending h a
+      _stateUtxo        :: Utxo h a
+    , _stateUtxoBalance :: Value
+    , _statePending     :: Pending h a
     }
 
 -- | Wallet
 data Wallet h a = Wallet {
-      walletOurs  :: Ours a
-    , walletState :: State h a
+      _walletOurs  :: Ours a
+    , _walletState :: State h a
     }
+
+makeLenses ''State
+makeLenses ''Wallet
+
+instance HasLens (Pending h a) (Wallet h a) (Pending h a) where
+    lensOf = walletState . statePending
 
 -- | Wallet state
 walletEmpty :: Ours a -> Wallet h a
-walletEmpty walletOurs = Wallet {..}
+walletEmpty _walletOurs = Wallet {..}
   where
-    walletState = State {
-        stateUtxo        = utxoEmpty
-      , stateUtxoBalance = 0
-      , statePending     = Set.empty
+    _walletState = State {
+        _stateUtxo        = utxoEmpty
+      , _stateUtxoBalance = 0
+      , _statePending     = Set.empty
       }
-
--- | Internal helper function for updating wallet state
-updateState :: Functor f
-            => (State h a -> f (State h a))
-            -> Wallet h a -> f (Wallet h a)
-updateState f w = (\st -> w { walletState = st }) <$> f (walletState w)
 
 {-------------------------------------------------------------------------------
   IsWallet instance
 -------------------------------------------------------------------------------}
 
 instance (Hash h a, Ord a) => IsWallet Wallet h a where
-  pending :: Wallet h a -> Pending h a
-  pending = statePending . walletState
+  utxo = view (walletState . stateUtxo)
+  ours = view walletOurs
 
-  utxo :: Wallet h a -> Utxo h a
-  utxo = stateUtxo . walletState
-
-  ours :: Wallet h a -> Ours a
-  ours = walletOurs
-
-  applyBlock :: Block h a -> Wallet h a -> Wallet h a
-  applyBlock b w = runIdentity $ updateState aux w
+  applyBlock b w = w & walletState %~ aux
     where
-     aux :: State h a -> Identity (State h a)
-     aux State{..} = return State {
-           stateUtxo        = utxo'
-         , stateUtxoBalance = balance'
-         , statePending     = pending'
+     aux :: State h a -> State h a
+     aux State{..} = State {
+           _stateUtxo        = utxo'
+         , _stateUtxoBalance = balance'
+         , _statePending     = pending'
          }
        where
-         pending' = updatePending b statePending
+         pending' = updatePending b _statePending
          utxoNew  = utxoRestrictToOurs (ours w) (txOuts b)
-         unionNew = stateUtxo `utxoUnion` utxoNew
+         unionNew = _stateUtxo `utxoUnion` utxoNew
          utxoRem  = utxoRestrictToInputs (txIns b) unionNew
          utxo'    = utxoRemoveInputs     (txIns b) unionNew
-         balance' = stateUtxoBalance + balance utxoNew - balance utxoRem
-
-  newPending :: Transaction h a -> Wallet h a -> Maybe (Wallet h a)
-  newPending tx w = updateState aux w
-    where
-      aux :: State h a -> Maybe (State h a)
-      aux State{..} = do
-          guard $ trIns tx `Set.isSubsetOf` utxoDomain (available w)
-          return State {
-              stateUtxo        = stateUtxo
-            , stateUtxoBalance = stateUtxoBalance
-            , statePending     = Set.insert tx statePending
-            }
+         balance' = _stateUtxoBalance + balance utxoNew - balance utxoRem
 
   -- We can also replace some default methods with more efficient versions
 
   availableBalance :: Wallet h a -> Value
-  availableBalance Wallet{..} =
-        stateUtxoBalance
-      - balance (utxoRestrictToInputs (txIns statePending) stateUtxo)
-    where
-      State{..} = walletState
+  availableBalance w =
+        (w ^. walletState . stateUtxoBalance)
+      - balance (utxoRestrictToInputs (txIns (pending w)) (utxo w))
 
   totalBalance :: Wallet h a -> Value
   totalBalance w = availableBalance w + balance (change w)

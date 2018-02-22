@@ -25,7 +25,6 @@ import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer)
-import           System.Time.Monotonic (Clock, newClock)
 
 dnsSubscriptionWorker
     :: forall pack kademlia m.
@@ -51,7 +50,6 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     let initialDnsPeers :: Map Int (Alts NodeId)
         initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
     -- Subscription duration
-    clock <- liftIO newClock
     subDuration <- newMVar (0 :: Millisecond)
     dnsPeersVar <- newSharedAtomic initialDnsPeers
     -- There's a thread for each conjunct which attempts to subscribe to one of
@@ -61,7 +59,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- fallbacks (for a given outer list element) is the length of the inner
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
-    void $ forConcurrently allOf (subscribeAlts dnsPeersVar subDuration clock)
+    void $ forConcurrently allOf (subscribeAlts dnsPeersVar subDuration)
     logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
@@ -76,12 +74,11 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
         -> MVar Millisecond
-        -> Clock
         -> (Int, Alts (NodeAddr DNS.Domain))
         -> m ()
-    subscribeAlts _ _ _ (index, []) =
+    subscribeAlts _ _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
-    subscribeAlts dnsPeersVar subDuration clock (index, alts) = do
+    subscribeAlts dnsPeersVar subDuration (index, alts) = do
         -- Resolve all of the names and update the known peers in the queue.
         dnsPeersList <- findDnsPeers index alts
         modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
@@ -91,17 +88,17 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
             pure (dnsPeers', ())
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
-        subscribeToOne dnsPeersList subDuration clock
+        subscribeToOne dnsPeersList subDuration
         d <- swapMVar subDuration 0
         retryInterval d >>= delay
-        subscribeAlts dnsPeersVar subDuration clock (index, alts)
+        subscribeAlts dnsPeersVar subDuration (index, alts)
 
-    subscribeToOne :: Alts NodeId -> MVar Millisecond -> Clock -> m ()
-    subscribeToOne dnsPeers subDuration clock = case dnsPeers of
+    subscribeToOne :: Alts NodeId -> MVar Millisecond -> m ()
+    subscribeToOne dnsPeers subDuration = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer subStatus subDuration clock sendActions peer
-            subscribeToOne peers subDuration clock
+            void $ subscribeTo keepaliveTimer subStatus subDuration sendActions peer
+            subscribeToOne peers subDuration
 
     -- Find peers via DNS, preserving order.
     -- In case multiple addresses are returned for one name, they're flattened

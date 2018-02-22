@@ -1,4 +1,3 @@
-
 -- | Logic of application and verification of data in Poll.
 
 module Pos.Update.Poll.Logic.Apply
@@ -7,7 +6,7 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
-import           Control.Monad.Except (MonadError, throwError, runExceptT)
+import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
@@ -21,7 +20,7 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, I
                            blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                            headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
-import           Pos.Core.Update (BlockVersionData (..), UpId, UpdatePayload (..),
+import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
                                   UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
                                   checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
@@ -58,35 +57,41 @@ type ApplyMode m =
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
-verifyAndApplyUSPayload
-    :: ApplyMode m
-    => Bool -> Either SlotId (Some IsMainHeader) -> UpdatePayload -> m ()
-verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload ::
+       ApplyMode m
+    => BlockVersion
+    -> Bool
+    -> Either SlotId (Some IsMainHeader)
+    -> UpdatePayload
+    -> m ()
+verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
     either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload upp)
-    whenRight slotOrHeader verifyHeader
-    -- Then we split all votes into groups. One group consists of
-    -- votes for proposal from payload. Each other group consists of
-    -- votes for other proposals.
-    let upId = hash <$> upProposal
-    let votePredicate vote = maybe False (uvProposalId vote ==) upId
-    let (curPropVotes, otherVotes) = partition votePredicate upVotes
-    let otherGroups = NE.groupWith uvProposalId otherVotes
-    -- When there is proposal in payload, it's verified and applied.
-    whenJust upProposal $
-        verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
-    -- Then we also apply votes from other groups.
-    -- ChainDifficulty is needed, because proposal may become approved
-    -- and then we'll need to track whether it becomes confirmed.
-    let cd = case slotOrHeader of
-            Left  _ -> Nothing
-            Right h -> Just (h ^. difficultyL, h ^. headerHashG)
-    mapM_ (verifyAndApplyVotesGroup cd) otherGroups
+    whenRight slotOrHeader $ verifyHeader lastAdopted
+
+    unless isEmptyPayload $ do
+        -- Then we split all votes into groups. One group consists of
+        -- votes for proposal from payload. Each other group consists of
+        -- votes for other proposals.
+        let upId = hash <$> upProposal
+        let votePredicate vote = maybe False (uvProposalId vote ==) upId
+        let (curPropVotes, otherVotes) = partition votePredicate upVotes
+        let otherGroups = NE.groupWith uvProposalId otherVotes
+        -- When there is proposal in payload, it's verified and applied.
+        whenJust upProposal $
+            verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
+        -- Then we also apply votes from other groups.
+        -- ChainDifficulty is needed, because proposal may become approved
+        -- and then we'll need to track whether it becomes confirmed.
+        let cd = case slotOrHeader of
+                Left  _ -> Nothing
+                Right h -> Just (h ^. difficultyL, h ^. headerHashG)
+        mapM_ (verifyAndApplyVotesGroup cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
     -- confirmed/discarded).
     case slotOrHeader of
-        Left _ -> pass
+        Left _           -> pass
         Right mainHeader -> do
             applyImplicitAgreement
                 (mainHeader ^. headerSlotL)
@@ -96,15 +101,16 @@ verifyAndApplyUSPayload verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = d
                 (mainHeader ^. epochIndexL)
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
+  where
+    isEmptyPayload = isNothing upProposal && null upVotes
 
 -- Here we verify all US-related data from header.
 verifyHeader
     :: (MonadError PollVerFailure m, MonadPoll m, IsMainHeader mainHeader)
-    => mainHeader -> m ()
-verifyHeader header = do
-    lastAdopted <- getAdoptedBV
+    => BlockVersion -> mainHeader -> m ()
+verifyHeader lastAdopted header = do
     let versionInHeader = header ^. blockVersionL
-    unlessM (canCreateBlockBV versionInHeader) $
+    unlessM (canCreateBlockBV lastAdopted versionInHeader) $ do
         throwError
             PollWrongHeaderBlockVersion
             {pwhpvGiven = versionInHeader, pwhpvAdopted = lastAdopted}
@@ -320,7 +326,7 @@ applyDepthCheck epoch hh (ChainDifficulty cd)
         let winners =
                 concatMap (toList . discardAllExceptHead . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals
-        mapM_ applyDepthCheckDo winners
+        unless (null deepProposals) $ mapM_ applyDepthCheckDo winners
   where
     upsAppName = svAppName . upSoftwareVersion . upsProposal
     discardAllExceptHead (a:|xs) = a :| map (\x->x {dpsDecision = False}) xs

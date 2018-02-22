@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 
 -- | Abstract definition of a wallet
 module Wallet.Abstract (
@@ -16,6 +17,9 @@ module Wallet.Abstract (
     -- ** Testing
   , walletInvariants
   , walletEquivalent
+    -- ** Generation
+    -- $generation
+  , genFromBlockchain
     -- * Auxiliary operations
   , balance
   , txIns
@@ -24,13 +28,19 @@ module Wallet.Abstract (
   , utxoRestrictToOurs
   ) where
 
-import Universum
-import qualified Data.Foldable as Fold
-import qualified Data.Set      as Set
-import qualified Data.Map      as Map
+import           Universum
 
-import UTxO.DSL
-import UTxO.Crypto
+import qualified Data.Foldable as Fold
+import qualified Data.IntMap as IntMap
+import qualified Data.List as List
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import           Test.QuickCheck
+
+import           UTxO.Context
+import           UTxO.Crypto
+import           UTxO.DSL
+import           UTxO.PreChain
 
 {-------------------------------------------------------------------------------
   Wallet type class
@@ -118,22 +128,6 @@ interpret es p = go
 
     verify :: Wallets ws h a -> Either Text (Wallets ws h a)
     verify ws = p ws >> return ws
-
-inductiveGen 
-    :: Gen (Block h a)
-    -> Gen (Transaction h a)
-    -> Gen (Inductive h a)
-inductiveGen mkBlock mkTransaction = sized go
-  where 
-    go n
-        | n <= 1 = pure WalletEmpty
-        | otherwise = do
-            this <- frequency 
-                [ (1, ApplyBlock <$> mkBlock)
-                , (9, NewPending <$> mkTransaction)
-                ]
-            next <- go (n-1)
-            pure (this next)
 
 {-------------------------------------------------------------------------------
   Invariants
@@ -246,3 +240,187 @@ utxoRestrictToOurs p = utxoRestrictToAddr (isJust . p)
 -- This is available out of the box from containters >= 0.5.11
 disjoint :: Ord a => Set a -> Set a -> Bool
 disjoint a b = Set.null (a `Set.intersection` b)
+
+-- $generation
+--
+-- The 'Inductive' data type describes a potential history of a wallet's
+-- view of an existing blockchain. This means that there are many possible
+-- 'Inductive's for any given blockchain -- any set of addresses can belong
+-- to the 'Inductive' that the wallet is for, and there are many possible
+-- sequences of actions that adequately describe the view of the
+-- blockchain.
+
+-- | A monad for generating inductive chains.
+newtype InductiveGen h a
+    = InductiveGen
+    { unInductiveGen :: StateT (InductiveCtx h) Gen a
+    } deriving (Functor, Applicative, Monad, MonadState (InductiveCtx h))
+
+runInductiveGen :: FromPreChain h -> InductiveGen h a -> Gen a
+runInductiveGen fpc ig = evalStateT (unInductiveGen ig) (initializeCtx fpc)
+
+newtype InductiveCtx h
+    = InductiveCtx
+    { icFromPreChain :: FromPreChain h
+    }
+
+initializeCtx :: FromPreChain h -> InductiveCtx h
+initializeCtx fpc@FromPreChain{..} = InductiveCtx{..}
+  where
+    icFromPreChain = fpc
+
+getFromPreChain :: InductiveGen h (FromPreChain h)
+getFromPreChain = gets icFromPreChain
+
+getBlockchain :: InductiveGen h (Chain h Addr)
+getBlockchain = fpcChain <$> getFromPreChain
+
+getLedger :: InductiveGen h (Ledger h Addr)
+getLedger = fpcLedger <$> getFromPreChain
+
+-- | The 'Inductive' data type is isomorphic to a linked list of this
+-- 'Action' type. It is more convenient to operate on this type, as it can
+-- vary the sequence representation and reuse sequence functions.
+data Action h a
+    = ApplyBlock' (Block h a)
+    | NewPending' (Transaction h a)
+
+-- | Convert a container of 'Action's into an 'Inductive' wallet.
+toInductive :: (Container t, Element t ~ Action h a) => t -> Inductive h a
+toInductive = foldr k WalletEmpty
+  where
+    k (ApplyBlock' a) = ApplyBlock a
+    k (NewPending' a) = NewPending a
+
+-- | Given a 'Set' of addresses that will represent the
+genFromBlockchain :: Hash h Addr => Set Addr -> FromPreChain h -> Gen (Inductive h Addr)
+genFromBlockchain addrs fpc = do
+    runInductiveGen fpc (genInductiveFor addrs)
+
+genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
+genInductiveFor addrs = do
+    chain <- getBlockchain
+    let initialActions = chainToApplyBlocks chain
+    intersperseTransactions addrs initialActions
+
+-- | The first step in converting a 'Chain into an 'Inductive' wallet is
+-- to sequence the existing blocks using 'ApplyBlock' constructors.
+chainToApplyBlocks :: Chain h a -> [Action h a]
+chainToApplyBlocks =
+    toList . map ApplyBlock' . chainBlocks
+
+-- | Once we've created our initial @['Action' h 'Addr']@, we want to
+-- insert some 'Transaction's in appropriate locations in the list. There
+-- are some properties that the inserted events must satisfy:
+--
+-- * The transaction must be after all of the blocks that confirm inputs to
+--   the transaction.
+-- * The transaction must be before the block that confirms it, if any
+--   blocks confirm it. It is not necessary that the transaction gets
+--   confirmed eventually!
+intersperseTransactions
+    :: Hash h Addr
+    => Set Addr
+    -> [Action h Addr]
+    -> InductiveGen h (Inductive h Addr)
+intersperseTransactions addrs actions = do
+    ourTxns <- findOurTransactions addrs <$> getBlockchain
+    let allTxnCount = length ourTxns
+    -- we weight the frequency distribution such that most of the
+    -- transactions will be represented by this wallet. this can be
+    -- changed or made configurable later.
+    txnToDisperseCount <- liftGen
+        . frequency
+        . zip [1 .. allTxnCount]
+        . map pure
+        $ [1 .. allTxnCount]
+
+    txnsToDisperse <- liftGen $ subsetOf txnToDisperseCount ourTxns
+
+    chain <- getBlockchain
+    ledger <- getLedger
+
+    let txnsWithRange =
+            mapMaybe
+                (\(i, t) -> (,,) t i <$> transactionMaxIndex addrs t chain ledger)
+                txnsToDisperse
+
+    txnsWithIndex <-
+        forM txnsWithRange $ \(t, lo, hi) ->
+            (,) t <$> liftGen (choose (lo, hi + 1))
+
+    pure
+        . toInductive
+        . conssect
+        . foldr
+            (\(t, i) -> IntMap.insertWith (<>) i [NewPending' t])
+            (dissect actions)
+        $ txnsWithIndex
+
+-- | Construct an 'IntMap' consisting of the index of the element in the
+-- input list pointing to a singleton list of the element the original
+-- list.
+dissect :: [a] -> IntMap [a]
+dissect = IntMap.fromList . zip [0..] . map pure
+
+-- | Reverse the operation of 'dissect'. Given an 'IntMap' originally
+-- representing the original index in the list pointing to the list of new
+-- items at that starting index, collapse that into a single list of
+-- elements.
+conssect :: IntMap [a] -> [a]
+conssect = concatMap snd . IntMap.toList
+
+-- | Given a 'Set' of addresses and a 'Chain', this function returns a list
+-- of the transactions with outputs belonging to any of the addresses and
+-- the index of the block that the transaction is confirmed in.
+findOurTransactions :: Ord a => Set a -> Chain h a -> [(Int, Transaction h a)]
+findOurTransactions addrs =
+    concatMap k . zip [0..] . toList . chainBlocks
+  where
+    k (i, block) =
+        map ((,) i)
+            . filter (any ((`Set.member` addrs) . outAddr) . trOuts)
+            $ toList block
+
+-- | This function identifies the index of the block that the input was
+-- received in the ledger, marking the point at which it may be inserted as
+-- a 'NewPending' transaction.
+blockReceivedIndex :: Hash h Addr => Input h Addr -> Chain h Addr -> Maybe Int
+blockReceivedIndex i =
+    List.findIndex (any ((inpTrans i ==) . hash)) . toList . chainBlocks
+
+-- | For each 'Input' in the 'Transaction' that belongs to one of the
+-- 'Addr'esses in the 'Set' provided, find the index of the block in the
+-- 'Chain' that confirms that 'Input'. Take the maximum index and return
+-- that -- that is the earliest this transaction may appear as a pending
+-- transaction.
+transactionMaxIndex
+    :: Hash h Addr
+    => Set Addr
+    -> Transaction h Addr
+    -> Chain h Addr
+    -> Ledger h Addr
+    -> Maybe Int
+transactionMaxIndex addrs txn chain ledger =
+    let inps = Set.filter inputInAddrs (trIns txn)
+        inputInAddrs i =
+            case inpSpentOutput i ledger of
+                Just o  -> outAddr o `Set.member` addrs
+                Nothing -> False
+        indexes = Set.map (\i -> blockReceivedIndex i chain) inps
+     in maximum indexes
+
+liftGen :: Gen a -> InductiveGen h a
+liftGen = InductiveGen . lift
+
+-- | Like 'elements', but returns a list containing at least one and up to
+-- @limit@ values from the input list.
+subsetOf :: Eq a => Int -> [a] -> Gen [a]
+subsetOf limit = go 0 []
+  where
+    go count acc samples
+        | count >= limit = do
+            x <- elements samples
+            go (count + 1) (x:acc) (List.delete x samples)
+        | otherwise =
+            pure acc

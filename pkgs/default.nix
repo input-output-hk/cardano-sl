@@ -24751,16 +24751,20 @@ inherit (pkgs) which;};
          }) {};
       "log-warper" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, base, containers, deepseq
-         , directory, dlist, errors, exceptions, extra, filepath, fmt
-         , formatting, hashable, lens, markdown-unlit, mmorph, monad-control
-         , monad-loops, mtl, network, stdenv, text, text-format, time
-         , transformers, transformers-base, universum, unix
-         , unordered-containers, vector, yaml
+         , directory, dlist, errors, exceptions, extra, fetchgit, filepath
+         , fmt, formatting, hashable, lens, markdown-unlit, mmorph
+         , monad-control, monad-loops, mtl, network, stdenv, text
+         , text-format, time, transformers, transformers-base, universum
+         , unix, unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "log-warper";
            version = "1.8.0";
-           sha256 = "370274f1420405e34e135dfcb73b6ed90dd2d6f8704d3c25811baa43a27db32c";
+           src = fetchgit {
+             url = "https://github.com/serokell/log-warper.git";
+             sha256 = "0cc73a3rv2mzzpcbvzm408zp654j29iygi0ad44zgag5wkpfczz5";
+             rev = "4ee4e2e7b41a17cc5bb9d9d0bd2d2ba19da015fd";
+           };
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [

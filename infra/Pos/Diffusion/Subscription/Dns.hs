@@ -6,6 +6,7 @@ module Pos.Diffusion.Subscription.Dns
 import           Universum
 
 import           Data.Either (partitionEithers)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
 import           Formatting (int, sformat, shown, (%))
@@ -37,7 +38,7 @@ dnsSubscriptionWorker
     -> DnsDomains DNS.Domain
     -> Timer
     -> m Millisecond
-    -> TVar SubscriptionStatus
+    -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions m
     -> m ()
 dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
@@ -88,7 +89,6 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
         subscribeToOne dnsPeersList subDuration
-        atomically $ writeTVar subStatus NotSubscribed
         d <- swapMVar subDuration 0
         retryInterval d >>= delay
         subscribeAlts dnsPeersVar subDuration (index, alts)

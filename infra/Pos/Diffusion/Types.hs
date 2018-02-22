@@ -9,6 +9,8 @@ module Pos.Diffusion.Types
     ) where
 
 import           Universum
+import           Data.Map.Strict                  (Map)
+import qualified Data.Map.Strict                  as Map
 import           Formatting                       (Format)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
@@ -21,13 +23,15 @@ import           Pos.Core.Ssc                     (Opening, InnerSharesMap, Sign
 import           Pos.Util.Chrono                  (OldestFirst (..))
 
 data SubscriptionStatus =
-    -- | Node established a subscription
+    -- | Established a subscription to a node
     Subscribed
-    -- | Node established a TCP connection
+    -- | Establishing a TCP connection to a node
   | Subscribing
-  | NotSubscribed
   deriving (Eq, Ord, Show)
 
+instance Semigroup SubscriptionStatus where
+    Subscribed <> _     = Subscribed
+    Subscribing <> s    = s
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -79,7 +83,9 @@ data Diffusion m = Diffusion
       -- quality?). [CSL-2147]
     , healthStatus       :: m HealthStatus
     , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
-    , subscriptionStatus :: TVar SubscriptionStatus
+      -- | Subscriptin statuses to all nodes.  If the node is not subscribed it
+      -- is not in the map.
+    , subscriptionStatus :: TVar (Map NodeId SubscriptionStatus)
     }
 
 -- | A diffusion layer: its interface, and a way to run it.
@@ -91,13 +97,13 @@ data DiffusionLayer m = DiffusionLayer
 -- | A diffusion layer that does nothing.
 dummyDiffusionLayer :: (Monad m, MonadIO m, Monad d) => m (DiffusionLayer d)
 dummyDiffusionLayer = do
-    ss <- newTVarIO NotSubscribed 
+    ss <- newTVarIO Map.empty 
     return DiffusionLayer
         { runDiffusionLayer = identity
         , diffusion         = dummyDiffusion ss
         }
   where
-    dummyDiffusion :: Monad m => TVar SubscriptionStatus -> Diffusion m
+    dummyDiffusion :: Monad m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
     dummyDiffusion subscriptionStatus = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = \_ -> pure mempty

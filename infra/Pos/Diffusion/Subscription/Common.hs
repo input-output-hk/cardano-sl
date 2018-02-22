@@ -13,6 +13,7 @@ import           Universum
 
 import           Control.Exception.Safe (try)
 import           Control.Concurrent.MVar (modifyMVar_)
+import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Clock (NominalDiffTime)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -62,14 +63,14 @@ data SubscriptionTerminationReason =
 subscribeTo
     :: forall m. (SubscriptionMode m)
     => Timer
-    -> TVar SubscriptionStatus
+    -> TVar (Map NodeId SubscriptionStatus)
     -> MVar Millisecond -- ^ Subscription duration.
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
 subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
     -- Change subscription status as we begin a new subscription
-    atomically $ writeTVar subStatus Subscribing
+    alterPeerSubStatus (Just Subscribing)
     logNotice $ msgSubscribingTo peer
     subStarted <- liftIO getPOSIXTime
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
@@ -79,7 +80,7 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
         , Conversation convMsgSubscribe1
         ]
     -- Change subscription state
-    atomically $ writeTVar subStatus NotSubscribed
+    alterPeerSubStatus Nothing
     subEnded <- liftIO getPOSIXTime
     liftIO $ modifyMVar_ subDuration
         (\x -> return $! max x (ndtToMilliseconds $ subEnded - subStarted))
@@ -91,7 +92,7 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
     convMsgSubscribe conv = do
         -- We are now subscribed, in rare cases when the connection will be
         -- dropped this will result in a missleading subscription state.
-        atomically $ writeTVar subStatus Subscribed
+        alterPeerSubStatus (Just Subscribed)
         send conv MsgSubscribe
         forever $ do
             startTimer keepAliveTimer
@@ -106,7 +107,7 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
 
     convMsgSubscribe1 :: ConversationActions MsgSubscribe1 Void m -> m (Maybe Void)
     convMsgSubscribe1 conv = do
-        atomically $ writeTVar subStatus Subscribed
+        alterPeerSubStatus (Just Subscribed)
         send conv MsgSubscribe1
         recv conv 0 -- Other side will never send
 
@@ -118,6 +119,16 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
 
     ndtToMilliseconds :: NominalDiffTime -> Millisecond
     ndtToMilliseconds = fromMicroseconds . round . (* 1000000)
+
+    alterPeerSubStatus :: Maybe SubscriptionStatus -> m ()
+    alterPeerSubStatus s = atomically $ do
+        stats <- readTVar subStatus
+        let !stats' = Map.alter fn peer stats
+        writeTVar subStatus stats'
+        where
+            fn :: Maybe SubscriptionStatus -> Maybe SubscriptionStatus
+            fn Nothing = s
+            fn (Just t) = (t <>) <$> s
 
 -- | A listener for subscriptions: add the subscriber to the set of known
 -- peers, annotating it with a given NodeType. Remove that peer from the set

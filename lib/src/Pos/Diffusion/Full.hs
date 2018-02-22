@@ -12,6 +12,7 @@ import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
+import qualified Data.Map.Strict as MS
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (Format)
 import           Mockable (withAsync, link)
@@ -52,8 +53,8 @@ import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
-import           Pos.Diffusion.Types (Diffusion (..) , DiffusionLayer (..),
-                                      SubscriptionStatus (NotSubscribed))
+import           Pos.Diffusion.Types (Diffusion (..) , DiffusionLayer (..), SubscriptionStatus)
+                                      
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
@@ -97,7 +98,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
 
         -- Subscription status.
-        subscriptionStatus <- newTVarIO NotSubscribed
+        subscriptionStatus <- newTVarIO MS.empty
 
         -- Timer is in microseconds.
         keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
@@ -322,7 +323,7 @@ runDiffusionLayerFull
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> Timer -- ^ Keepalive timer.
     -> d Millisecond -- ^ Slot duration; may change over time.
-    -> TVar SubscriptionStatus -- ^ Subscription status.
+    -> TVar (MS.Map NodeId SubscriptionStatus) -- ^ Subscription status.
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x

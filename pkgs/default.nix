@@ -2263,8 +2263,8 @@ inherit (pkgs.xorg) libXrender;};
            version = "0.14.2";
            src = fetchgit {
              url = "https://github.com/serokell/acid-state.git";
-             sha256 = "1l19g73680g1fc7v22f2d54y8db4vhdwfmqchshf5pzv3nlxm640";
-             rev = "aa0b0e9192f427158108e63c06d09dce9c910b88";
+             sha256 = "19q7lxqwk3s6v6n6ck7xz0flff8cpk2pchrgz4hssmv3w8yd4bbr";
+             rev = "9a8af2440d655e14b802639b0b363be2ffb5a32a";
            };
            libraryHaskellDepends = [
              array base bytestring cereal containers directory

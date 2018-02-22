@@ -10,7 +10,6 @@ module Cardano.Wallet.API.V1.Swagger where
 
 import           Universum
 
-import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
@@ -532,8 +531,12 @@ data DescriptionEnvironment = DescriptionEnvironment {
   , deSoftwareVersion       :: !T.Text
   }
 
-api :: (HasCompileInfo, HasUpdateConfiguration) => Swagger
-api = toSwagger walletAPI
+api :: ( HasCompileInfo
+       , HasUpdateConfiguration
+       , HasSwagger a)
+    => Proxy a
+    -> Swagger
+api walletApi = toSwagger walletApi
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"

@@ -270,11 +270,11 @@ disjoint a b = Set.null (a `Set.intersection` b)
 -- | A monad for generating inductive chains.
 newtype InductiveGen h a
     = InductiveGen
-    { unInductiveGen :: StateT (InductiveCtx h) Gen a
-    } deriving (Functor, Applicative, Monad, MonadState (InductiveCtx h))
+    { unInductiveGen :: ReaderT (InductiveCtx h) Gen a
+    } deriving (Functor, Applicative, Monad, MonadReader (InductiveCtx h))
 
 runInductiveGen :: FromPreChain h -> InductiveGen h a -> Gen a
-runInductiveGen fpc ig = evalStateT (unInductiveGen ig) (initializeCtx fpc)
+runInductiveGen fpc ig = runReaderT (unInductiveGen ig) (initializeCtx fpc)
 
 newtype InductiveCtx h
     = InductiveCtx
@@ -287,7 +287,7 @@ initializeCtx fpc@FromPreChain{..} = InductiveCtx{..}
     icFromPreChain = fpc
 
 getFromPreChain :: InductiveGen h (FromPreChain h)
-getFromPreChain = gets icFromPreChain
+getFromPreChain = asks icFromPreChain
 
 getBlockchain :: InductiveGen h (Chain h Addr)
 getBlockchain = fpcChain <$> getFromPreChain

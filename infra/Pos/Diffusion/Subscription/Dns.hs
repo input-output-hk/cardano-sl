@@ -89,8 +89,10 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
         subscribeToOne dnsPeersList subDuration
-        d <- swapMVar subDuration 0
-        retryInterval d >>= delay
+        d <- swapMVar subDuration 0 >>= retryInterval
+        logNotice $ sformat ("dnsSubscriptionWorker: waiting"%int%"ms before trying again")
+            (toMicroseconds d `div` 1000)
+        delay d
         subscribeAlts dnsPeersVar subDuration (index, alts)
 
     subscribeToOne :: Alts NodeId -> MVar Millisecond -> m ()

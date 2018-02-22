@@ -24,8 +24,8 @@ walletServer :: ( Migration.HasConfigurations
              -> Diffusion WalletWebMode
              -> RunMode
              -> Server WalletAPI
-walletServer natV0 diffusion runMode =
-         V0.handlers natV0 diffusion
-    :<|> V1.handlers natV0 diffusion
-    -- :<|> Dev.developmentOnly runMode (Dev.handlers natV0)
-    :<|> Dev.handlers natV0 runMode
+walletServer natV0 diffusion runMode = externalAPI :<|> internalAPI
+  where
+    externalAPI =  V0.handlers natV0 diffusion
+              :<|> V1.handlers natV0 diffusion
+    internalAPI =  Dev.handlers natV0 runMode

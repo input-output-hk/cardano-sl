@@ -24,8 +24,8 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Core as Core
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
-import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
 import           Data.Aeson (ToJSON (..), Value (Number, Object))

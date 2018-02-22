@@ -2,15 +2,14 @@ module Cardano.Wallet.Server
     ( walletServer
     ) where
 
-import Universum
-import Servant
+import           Servant
+import           Universum
 
-import Cardano.Wallet.API
-import Cardano.Wallet.Kernel
+import           Cardano.Wallet.API
 import qualified Cardano.Wallet.API.Development.Handlers as Dev
--- import qualified Cardano.Wallet.API.Development.Helpers as Dev
 import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1.Handlers as V1
+import           Cardano.Wallet.Kernel
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
 
@@ -21,11 +20,10 @@ import           Cardano.Wallet.Server.CLI (RunMode (..))
 walletServer :: ActiveWallet
              -> RunMode
              -> Server WalletAPI
-walletServer w runMode =
-          v0Handler
-    :<|>  V1.handlers w
-    -- :<|>  Dev.developmentOnly runMode Dev.handlers
-    :<|>  Dev.handlers runMode
+walletServer w runMode = externalAPI :<|> internalAPI
+  where
+    externalAPI = v0Handler :<|> V1.handlers w
+    internalAPI = Dev.handlers runMode
 
 -- | Return
 --

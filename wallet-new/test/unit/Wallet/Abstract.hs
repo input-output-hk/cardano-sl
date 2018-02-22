@@ -37,11 +37,10 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text as Text
-import           Formatting (build, sformat, (%), shown)
+import           Formatting (build, sformat, shown, (%))
 import           GHC.Show (Show (..))
+import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Test.QuickCheck
-import Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 import           UTxO.Context
 import           UTxO.Crypto
@@ -122,7 +121,7 @@ instance
     ( Buildable (Transaction h a)
     , Buildable (Block h a)
     ) => Show (Inductive h a) where
-    show i = Text.unpack $ case i of
+    show i = toString $ case i of
       WalletEmpty    -> "WalletEmpty"
       ApplyBlock b n -> sformat ("ApplyBlock (" % build % ") (" % shown % ")") b n
       NewPending t n -> sformat ("NewPending (" % build % ") (" % shown % ")") t n
@@ -332,7 +331,7 @@ genFromBlockchainPickingAccounts i fpc = do
     let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
         eligibleAddrs = filter (not . isAvvmAddr) allAddrs
 
-    !() <- if null eligibleAddrs then
+    if null eligibleAddrs then
         error
         $ sformat
             ( "No eligible addresses!\n\n"
@@ -342,8 +341,8 @@ genFromBlockchainPickingAccounts i fpc = do
 
     addrs <- Set.fromList <$> sublistN i eligibleAddrs
 
-    !() <- if null addrs
-        then error
+    if null addrs then
+        error
         $ sformat
             ( "No addresses!\n\n"
             % "All addresses: " % build

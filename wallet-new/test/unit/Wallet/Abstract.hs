@@ -292,7 +292,10 @@ toInductive = foldr k WalletEmpty
     k (ApplyBlock' a) = ApplyBlock a
     k (NewPending' a) = NewPending a
 
--- | Given a 'Set' of addresses that will represent the
+-- | Given a 'Set' of addresses that will represent the addresses that
+-- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
+-- that contains the relevant blockchain, this will be able to generate
+-- arbitrary views into the blockchain.
 genFromBlockchain :: Hash h Addr => Set Addr -> FromPreChain h -> Gen (Inductive h Addr)
 genFromBlockchain addrs fpc = do
     runInductiveGen fpc (genInductiveFor addrs)
@@ -346,8 +349,8 @@ intersperseTransactions addrs actions = do
                 txnsToDisperse
 
     txnsWithIndex <-
-        forM txnsWithRange $ \(t, lo, hi) ->
-            (,) t <$> liftGen (choose (lo, hi + 1))
+        forM txnsWithRange $ \(t, hi, lo) ->
+            (,) t <$> liftGen (choose (lo, hi))
 
     pure
         . toInductive
@@ -408,7 +411,7 @@ transactionMaxIndex addrs txn chain ledger =
                 Just o  -> outAddr o `Set.member` addrs
                 Nothing -> False
         indexes = Set.map (\i -> blockReceivedIndex i chain) inps
-     in maximum indexes
+     in foldl' max Nothing indexes
 
 liftGen :: Gen a -> InductiveGen h a
 liftGen = InductiveGen . lift

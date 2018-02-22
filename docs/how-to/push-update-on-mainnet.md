@@ -149,8 +149,8 @@ Sending an update proposal
 Let's say that you want to push an update with the following Windows/macOS installers (note: the file path must start with either `/` or `./` and only alphanumeric characters and `.`, `-`, `_`, `/` are allowed):
 
 ```
-WIN64_INSTALLER=daedalus-win64-1.0.3350.0-installer.exe
-DARWIN_INSTALLER=Daedalus-installer-1.0-rc.3202.pkg
+WIN64_INSTALLER=./daedalus-win64-1.0.3350.0-installer.exe
+DARWIN_INSTALLER=./Daedalus-installer-1.0-rc.3202.pkg
 ```
 
 Or you may want to update `cardano-sl` application, in this case you

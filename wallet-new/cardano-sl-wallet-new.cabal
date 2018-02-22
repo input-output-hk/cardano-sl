@@ -295,9 +295,10 @@ test-suite wallet-new-specs
   main-is:          Spec.hs
   hs-source-dirs:   server test
 
-  other-modules:    SwaggerSpec
-                    APISpec
+  other-modules:    APISpec
+                    DevelopmentSpec
                     MarshallingSpec
+                    SwaggerSpec
 
                     Cardano.Wallet.API.Development.LegacyHandlers
                     Cardano.Wallet.API.V0.Handlers
@@ -336,6 +337,7 @@ test-suite wallet-new-specs
                     , aeson
                     , aeson-pretty
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-client
                     , cardano-sl-core
@@ -359,7 +361,9 @@ test-suite wallet-new-specs
                     , insert-ordered-containers
                     , ixset-typed
                     , lens
+                    , log-warper
                     , neat-interpolation
+                    , optparse-applicative
                     , quickcheck-instances
                     , memory
                     , safe-exceptions
@@ -372,5 +376,6 @@ test-suite wallet-new-specs
                     , stm
                     , swagger2
                     , text
+                    , time-units
                     , universum
                     , unordered-containers

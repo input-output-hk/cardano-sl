@@ -7,6 +7,7 @@
 
 module Cardano.Wallet.API.Development.LegacyHandlers
     ( handlers
+    , deleteSecretKeys
     ) where
 
 import           Universum

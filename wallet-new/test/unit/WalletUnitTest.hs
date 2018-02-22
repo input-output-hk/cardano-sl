@@ -130,7 +130,11 @@ sanityCheckPureWallet = do
 
     genInductive = do
       (_, fpc) <- intAndVerifyChain genValidBlockchain
-      n <- choose (1, length (ledgerAddresses (fpcLedger fpc)))
+      n <- choose
+        ( 1
+        , length . filter (not . isAvvmAddr) . toList
+        . ledgerAddresses $ fpcLedger fpc
+        )
       genFromBlockchainPickingAccounts n fpc
 
     specEmpty :: Spec.Wallet GivenHash Addr

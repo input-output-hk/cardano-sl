@@ -188,7 +188,7 @@ newBlock = do
 
 newChain :: Hash h Addr => BlockGen h [[Value -> Transaction h Addr]]
 newChain = do
-    blockCount <- liftGen $ choose (10, 100)
+    blockCount <- liftGen $ choose (10, 50)
     replicateM blockCount newBlock
 
 zipFees

@@ -14,6 +14,7 @@ import           Universum
 import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
 import           Control.Exception.Safe (Exception (..), try)
 import           Control.Monad.Except (runExceptT)
+import           Data.Aeson (eitherDecodeStrict)
 import qualified Data.ByteString as BS
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
@@ -29,7 +30,6 @@ import           Serokell.Util (ms, sec)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 
-import           Pos.Binary (decodeFull')
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
@@ -210,8 +210,8 @@ sendTxsFromFile
     -> FilePath
     -> m ()
 sendTxsFromFile diffusion txsFile = do
-    liftIO (BS.readFile txsFile) <&> decodeFull' >>= \case
-        Left err -> throwM (AuxxException err)
+    liftIO (BS.readFile txsFile) <&> eitherDecodeStrict >>= \case
+        Left err -> throwM (AuxxException $ toText err)
         Right txs -> sendTxs txs
   where
     sendTxs :: [TxAux] -> m ()

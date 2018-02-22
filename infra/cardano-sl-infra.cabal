@@ -176,6 +176,7 @@ library
                       , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , stm
+                      , system-time-monotonic
                       , tagged
                       , tar
                       , text

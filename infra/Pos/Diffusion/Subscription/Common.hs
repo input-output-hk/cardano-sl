@@ -15,14 +15,14 @@ import           Control.Exception.Safe (try)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Clock (NominalDiffTime)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Clock (DiffTime)
 import           Data.Time.Units (Millisecond, Second, convertUnit, fromMicroseconds)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
 import           Formatting (sformat, shown, (%))
 import           Node.Message.Class (Message)
+import           System.Time.Monotonic (Clock, clockGetTime)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Class (Bi)
@@ -65,14 +65,15 @@ subscribeTo
     => Timer
     -> TVar (Map NodeId SubscriptionStatus)
     -> MVar Millisecond -- ^ Subscription duration.
+    -> Clock -- ^ Monotonic clock used to measure subscription duration.
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
+subscribeTo keepAliveTimer subStatus subDuration clock sendActions peer = do
     -- Change subscription status as we begin a new subscription
     alterPeerSubStatus (Just Subscribing)
     logNotice $ msgSubscribingTo peer
-    subStarted <- liftIO getPOSIXTime
+    subStarted <- liftIO $ clockGetTime clock
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
         -- the highest available version of the conversation is picked.
@@ -81,9 +82,9 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
         ]
     -- Change subscription state
     alterPeerSubStatus Nothing
-    subEnded <- liftIO getPOSIXTime
+    subEnded <- liftIO $ clockGetTime clock
     liftIO $ modifyMVar_ subDuration
-        (\x -> return $! max x (ndtToMilliseconds $ subEnded - subStarted))
+        (\x -> return $! max x (dtToMilliseconds $ subEnded - subStarted))
     let reason = either Exceptional (maybe Normal absurd) outcome
     logNotice $ msgSubscriptionTerminated peer reason
     return reason
@@ -117,8 +118,8 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
     msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
     msgSubscriptionTerminated = sformat $ "subscriptionWorker: lost connection to "%shown%" "%shown
 
-    ndtToMilliseconds :: NominalDiffTime -> Millisecond
-    ndtToMilliseconds = fromMicroseconds . round . (* 1000000)
+    dtToMilliseconds :: DiffTime -> Millisecond
+    dtToMilliseconds = fromMicroseconds . round . (* 1000000)
 
     alterPeerSubStatus :: Maybe SubscriptionStatus -> m ()
     alterPeerSubStatus s = atomically $ do

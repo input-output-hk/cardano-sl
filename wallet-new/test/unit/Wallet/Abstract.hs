@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -- | Abstract definition of a wallet
 module Wallet.Abstract (
@@ -20,6 +21,7 @@ module Wallet.Abstract (
     -- ** Generation
     -- $generation
   , genFromBlockchain
+  , genFromBlockchainPickingAccounts
     -- * Auxiliary operations
   , balance
   , txIns
@@ -28,14 +30,18 @@ module Wallet.Abstract (
   , utxoRestrictToOurs
   ) where
 
-import           Universum
+import           Universum hiding (Show, show)
 
 import qualified Data.Foldable as Fold
 import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text as Text
+import           Formatting (build, sformat, (%), shown)
+import           GHC.Show (Show (..))
 import           Test.QuickCheck
+import Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 import           UTxO.Context
 import           UTxO.Crypto
@@ -110,6 +116,17 @@ data Inductive h a =
     WalletEmpty
   | ApplyBlock (Block       h a) (Inductive h a)
   | NewPending (Transaction h a) (Inductive h a)
+  deriving Eq
+
+instance
+    ( Buildable (Transaction h a)
+    , Buildable (Block h a)
+    ) => Show (Inductive h a) where
+    show i = Text.unpack $ case i of
+      WalletEmpty    -> "WalletEmpty"
+      ApplyBlock b n -> sformat ("ApplyBlock (" % build % ") (" % shown % ")") b n
+      NewPending t n -> sformat ("NewPending (" % build % ") (" % shown % ")") t n
+
 
 -- | Interpreter for 'Inductive'
 --
@@ -287,23 +304,59 @@ data Action h a
 
 -- | Convert a container of 'Action's into an 'Inductive' wallet.
 toInductive :: (Container t, Element t ~ Action h a) => t -> Inductive h a
-toInductive = foldr k WalletEmpty
+toInductive = foldl' k WalletEmpty
   where
-    k (ApplyBlock' a) = ApplyBlock a
-    k (NewPending' a) = NewPending a
+    k acc (ApplyBlock' a) = ApplyBlock a acc
+    k acc (NewPending' a) = NewPending a acc
 
 -- | Given a 'Set' of addresses that will represent the addresses that
 -- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
 -- that contains the relevant blockchain, this will be able to generate
 -- arbitrary views into the blockchain.
-genFromBlockchain :: Hash h Addr => Set Addr -> FromPreChain h -> Gen (Inductive h Addr)
-genFromBlockchain addrs fpc = do
+genFromBlockchain
+    :: Hash h Addr
+    => Set Addr
+    -> FromPreChain h
+    -> Gen (Inductive h Addr)
+genFromBlockchain addrs fpc =
     runInductiveGen fpc (genInductiveFor addrs)
+
+-- | Selects a random subset of addresses to be considered from the
+-- blockchain in the amount given.
+genFromBlockchainPickingAccounts
+    :: Hash h Addr
+    => Int
+    -> FromPreChain h
+    -> Gen (Inductive h Addr)
+genFromBlockchainPickingAccounts i fpc = do
+    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
+        eligibleAddrs = filter (not . isAvvmAddr) allAddrs
+
+    !() <- if null eligibleAddrs then
+        error
+        $ sformat
+            ( "No eligible addresses!\n\n"
+            % "All addresses: " % build
+            ) (concatMap show allAddrs)
+        else pure ()
+
+    addrs <- Set.fromList <$> sublistN i eligibleAddrs
+
+    !() <- if null addrs
+        then error
+        $ sformat
+            ( "No addresses!\n\n"
+            % "All addresses: " % build
+            ) (concatMap show allAddrs)
+        else pure ()
+
+    genFromBlockchain addrs fpc
 
 genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
 genInductiveFor addrs = do
     chain <- getBlockchain
     let initialActions = chainToApplyBlocks chain
+    if null addrs then error "why is this happening" else pure ()
     intersperseTransactions addrs initialActions
 
 -- | The first step in converting a 'Chain into an 'Inductive' wallet is
@@ -327,20 +380,27 @@ intersperseTransactions
     -> [Action h Addr]
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions addrs actions = do
-    ourTxns <- findOurTransactions addrs <$> getBlockchain
+    if null addrs then error "what the fuck" else pure ()
+    chain <- getBlockchain
+    let ourTxns = findOurTransactions addrs chain
     let allTxnCount = length ourTxns
+
     -- we weight the frequency distribution such that most of the
     -- transactions will be represented by this wallet. this can be
     -- changed or made configurable later.
-    txnToDisperseCount <- liftGen
-        . frequency
-        . zip [1 .. allTxnCount]
-        . map pure
-        $ [1 .. allTxnCount]
+    --
+    -- also, weirdly, sometimes there aren't any transactions on any of the
+    -- addresses that belong to us. that seems like an edge case.
+    txnToDisperseCount <- if allTxnCount == 0
+        then pure 0
+        else liftGen
+            . frequency
+            . zip [1 .. allTxnCount]
+            . map pure
+            $ [1 .. allTxnCount]
 
-    txnsToDisperse <- liftGen $ subsetOf txnToDisperseCount ourTxns
+    txnsToDisperse <- liftGen $ sublistN txnToDisperseCount ourTxns
 
-    chain <- getBlockchain
     ledger <- getLedger
 
     let txnsWithRange =
@@ -415,15 +475,3 @@ transactionMaxIndex addrs txn chain ledger =
 
 liftGen :: Gen a -> InductiveGen h a
 liftGen = InductiveGen . lift
-
--- | Like 'elements', but returns a list containing at least one and up to
--- @limit@ values from the input list.
-subsetOf :: Eq a => Int -> [a] -> Gen [a]
-subsetOf limit = go 0 []
-  where
-    go count acc samples
-        | count >= limit = do
-            x <- elements samples
-            go (count + 1) (x:acc) (List.delete x samples)
-        | otherwise =
-            pure acc

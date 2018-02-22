@@ -38,6 +38,7 @@ module UTxO.DSL (
   , ledgerUnspentOutputs
   , ledgerUtxo
   , ledgerIsValid
+  , ledgerAddresses
     -- * Hash
   , Hash(..)
   , GivenHash(..)
@@ -354,6 +355,13 @@ ledgerUtxo l = go (ledgerToNewestFirst l)
 -- | Ledger validity
 ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Either Text ()
 ledgerIsValid l = mapM_ (uncurry trIsAcceptable) (ledgerTails l)
+
+-- | Extracts the set of addresses present in the ledger.
+ledgerAddresses :: Ord a => Ledger h a -> Set a
+ledgerAddresses = Set.fromList
+    . map outAddr
+    . concatMap trOuts
+    . ledgerToNewestFirst
 
 {-------------------------------------------------------------------------------
   We parameterize over the hashing function

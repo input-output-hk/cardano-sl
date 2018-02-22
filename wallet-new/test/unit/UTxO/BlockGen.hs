@@ -99,13 +99,6 @@ freshHash = do
     bgcFreshHash += 1
     pure i
 
--- | Returns true if the 'addrActorIx' is the 'IxAvvm' constructor.
-isAvvmAddr :: Addr -> Bool
-isAvvmAddr addr =
-    case addrActorIx addr of
-        IxAvvm _ -> True
-        _        -> False
-
 bgcNonAvvmUtxo :: Getter (BlockGenCtx h) (Utxo h Addr)
 bgcNonAvvmUtxo =
     bgcCurrentUtxo . to (utxoRestrictToAddr (not . isAvvmAddr))
@@ -195,7 +188,7 @@ newBlock = do
 
 newChain :: Hash h Addr => BlockGen h [[Value -> Transaction h Addr]]
 newChain = do
-    blockCount <- liftGen $ choose (1, 10)
+    blockCount <- liftGen $ choose (10, 100)
     replicateM blockCount newBlock
 
 zipFees

@@ -109,7 +109,7 @@ quickCheckTranslation =
 -- the same three checks (simple wallet satisfies invariants, incremental wallet
 -- satisfies invariants, and equivalence between simple and incremental wallet).
 sanityCheckPureWallet :: Spec
-sanityCheckPureWallet =
+sanityCheckPureWallet = do
     describe "Pure wallet sanity checks" $ do
       it "simple empty wallet satisfies invariants" $
         walletInvariants specEmpty WalletEmpty `shouldBe` Right ()
@@ -117,8 +117,21 @@ sanityCheckPureWallet =
         walletInvariants incrEmpty WalletEmpty `shouldBe` Right ()
       it "simple and incremental empty wallets are equivalent" $
         walletEquivalent specEmpty incrEmpty WalletEmpty `shouldBe` Right ()
+
+    describe "Inductive Wallet Generation" $ do
+      prop "constructed inductive wallet satisfies invariants" $ do
+        forAll genInductive $ \wallet -> conjoin
+          [ walletInvariants specEmpty wallet `shouldBe` Right ()
+          , walletInvariants incrEmpty wallet `shouldBe` Right ()
+          , walletEquivalent specEmpty incrEmpty WalletEmpty `shouldBe` Right ()
+          ]
   where
     transCtxt = runTranslateNoErrors ask
+
+    genInductive = do
+      (_, fpc) <- intAndVerifyChain genValidBlockchain
+      n <- choose (1, length (ledgerAddresses (fpcLedger fpc)))
+      genFromBlockchainPickingAccounts n fpc
 
     specEmpty :: Spec.Wallet GivenHash Addr
     specEmpty = Spec.walletEmpty isOurs
@@ -324,29 +337,37 @@ intAndVerifyGen = intAndVerify
 -- | Interpret and verify a chain, given the bootstrap transactions
 intAndVerify :: (Hash h Addr, Monad m)
              => PreChain h m -> m (ValidationResult h Addr)
-intAndVerify pc = runTranslateT $ do
-    FromPreChain{..} <- fromPreChain pc
+intAndVerify = map fst . intAndVerifyChain
+
+-- | Interpret and verify a chain, given the bootstrap transactions. Also
+-- returns the 'FromPreChain' value, which contains the blockchain, ledger,
+-- boot transaction, etc.
+intAndVerifyChain :: (Hash h Addr, Monad m)
+             => PreChain h m -> m (ValidationResult h Addr, FromPreChain h)
+intAndVerifyChain pc = runTranslateT $ do
+    fpc@FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
         dslUtxo    = ledgerUtxo    fpcLedger
+        returnWith a = return (a, fpc)
     intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
     case intResult of
       Left e ->
         case dslIsValid of
-          Right () -> return $ Disagreement fpcLedger (UnexpectedError e)
-          Left e'  -> return $ ExpectedInvalid e' (Right e)
+          Right () -> returnWith $ Disagreement fpcLedger (UnexpectedError e)
+          Left e'  -> returnWith $ ExpectedInvalid e' (Right e)
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
-          (Left  e' , Left  e) -> return $ ExpectedInvalid e' (Left e)
-          (Left  e' , Right _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
-          (Right () , Left  e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
+          (Left  e' , Left  e) -> returnWith $ ExpectedInvalid e' (Left e)
+          (Left  e' , Right _) -> returnWith $ Disagreement fpcLedger (UnexpectedValid e')
+          (Right () , Left  e) -> returnWith $ Disagreement fpcLedger (UnexpectedInvalid e)
           (Right () , Right (_undo, finalUtxo)) -> do
             (finalUtxo', _) <- runIntT ctxt dslUtxo
             if finalUtxo == finalUtxo'
-              then return $ ExpectedValid
-              else return $ Disagreement fpcLedger UnexpectedUtxo {
+              then returnWith $ ExpectedValid
+              else returnWith $ Disagreement fpcLedger UnexpectedUtxo {
                          utxoDsl     = dslUtxo
                        , utxoCardano = finalUtxo
                        , utxoInt     = finalUtxo'

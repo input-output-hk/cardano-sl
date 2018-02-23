@@ -26,9 +26,13 @@ import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..
 import           Network.Transport (Transport)
 import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
 import           Node.Conversation (Converse, converseWith, Conversation)
+import           System.Metrics.Gauge (Gauge)
+import qualified System.Metrics as Monitoring
+
 import           System.Random (newStdGen)
 
-import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
+import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock, MsgStream,
+                                    MsgStreamBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
                                     EnqueueMsg, makeEnqueueMsg, bipPacking, Listener,
                                     MkListeners (..), HandlerSpecs, InSpecs (..),
@@ -58,7 +62,8 @@ import           Pos.Infra.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                                                           emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..),
+                                            StreamEntry, DiffusionHealth (..))
 import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Infra.Network.Types (NetworkConfig (..), Bucket (..),
                                           initQueue, topologySubscribers,
@@ -73,6 +78,7 @@ import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Trace, Severity (Error))
@@ -87,6 +93,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
+    , fdcStreamWindow           :: !Word32
     , fdcTrace                  :: !(Trace IO (Severity, Text))
     }
 
@@ -182,12 +189,20 @@ diffusionLayerFullExposeInternals fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+        streamWindow = fdcStreamWindow fdconf
         logTrace = fdcTrace fdconf
 
     -- Subscription states.
     subscriptionStates <- emptySubscriptionStates
 
     keepaliveTimer <- newTimer
+
+    diffusionHealth <- case mEkgNodeMetrics of
+                            Nothing -> return Nothing
+                            Just m  -> liftIO $ do
+                                wqgM <- Monitoring.createGauge (withCardanoNamespace "diffusion.WriteQueue") $ enmStore m
+                                wM   <- Monitoring.createGauge (withCardanoNamespace "diffusion.Window")     $ enmStore m
+                                return $ Just $ DiffusionHealth wqgM wM
 
     let -- VerInfo is a diffusion-layer-specific thing. It's only used for
         -- negotiating with peers.
@@ -267,11 +282,16 @@ diffusionLayerFullExposeInternals fdconf
             , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
                                                             (Proxy :: Proxy MsgBlock)
                                                     ]
+            , streamBlockHeaderOuts
             ]
 
         announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                      (Proxy :: Proxy MsgGetHeaders)
                                              ]
+
+        streamBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgStream)
+                                                   (Proxy :: Proxy MsgStreamBlock)
+                                           ]
 
         -- Plainly mempty from the definition of allWorkers.
         slottingWorkerOutSpecs = mempty
@@ -333,6 +353,14 @@ diffusionLayerFullExposeInternals fdconf
 
         requestTip :: IO (Map NodeId (IO BlockHeader))
         requestTip = Diffusion.Block.requestTip logTrace logic enqueue recoveryHeadersMessage
+
+        streamBlocks :: forall t .
+                        NodeId
+                     -> HeaderHash
+                     -> [HeaderHash]
+                     -> ((Word32, Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
+                     -> IO (Maybe t)
+        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue

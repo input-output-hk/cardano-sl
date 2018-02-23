@@ -103,7 +103,7 @@ runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               -> Production a
 runWalletMode pm nr wallet action =
     Production $ runRealMode pm nr $ \diffusion ->
-        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do

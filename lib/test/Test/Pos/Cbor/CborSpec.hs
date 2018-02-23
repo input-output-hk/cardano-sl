@@ -200,6 +200,8 @@ spec = withDefConfiguration $ \_ -> do
                     binaryTest @BT.MsgGetBlocks
                     binaryTest @BT.MsgHeaders
                     binaryTest @BT.MsgBlock
+                    binaryTest @BT.MsgStream
+                    binaryTest @BT.MsgStreamBlock
                 describe "Blockchains and blockheaders" $ do
                     modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
                         describe "GenesisBlockHeader" $ do

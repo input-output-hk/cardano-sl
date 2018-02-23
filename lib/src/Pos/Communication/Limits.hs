@@ -54,6 +54,8 @@ module Pos.Communication.Limits
        , mlMainBlock
        , mlBlock
        , mlMsgBlock
+       , mlMsgStreamBlock
+       , mlMsgStream
        ) where
 
 import           Universum
@@ -68,7 +70,7 @@ import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe, mlTriple, mlTuple,
                                    vectorOf, vectorOfNE, (<+>))
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+                                    MsgHeaders (..), MsgStream (..), MsgStreamBlock (..))
 import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex, StakeholderId, UpId,
                            VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
@@ -316,6 +318,15 @@ mlBlock bvd = mlEither (mlGenesisBlock bvd) (mlMainBlock bvd)
 
 mlMsgBlock :: BlockVersionData -> Limit MsgBlock
 mlMsgBlock = fmap MsgBlock . mlBlock
+
+mlMsgStream :: Limit MsgStream
+mlMsgStream = mlMsgStreamStart
+
+mlMsgStreamStart :: Limit MsgStream
+mlMsgStreamStart = 0x7ffff -- XXX A 512k limit, if these numbers are bytes.
+
+mlMsgStreamBlock :: BlockVersionData -> Limit MsgStreamBlock
+mlMsgStreamBlock = fmap MsgStreamBlock . mlBlock -- XXX MsgStreamNoBlock has an arbitrary text field...
 
 ----------------------------------------------------------------------------
 -- Utils

@@ -270,6 +270,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let secretKeys =
                     case genesisSecretKeys of
                         Nothing ->
+                            -- TODO [CSL-2173]: Clarify
                             error "initBlockTestContext: no genesisSecretKeys"
                         Just ks -> ks
             let btcAllSecrets = mkAllSecretsSimple secretKeys
@@ -388,7 +389,9 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
             DB.PureDB pdb -> pdb
         setter _ pdb = DB.PureDB pdb
         pureDBLens = lens getter setter
-        realDBInTestsError = error "You are using real db in tests"
+        realDBInTestsError =
+            -- TODO [CSL-2173]: Clarify
+            error "You are using real db in tests"
 
 instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
     lensOf = btcPureDBSnapshotsL

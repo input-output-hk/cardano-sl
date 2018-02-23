@@ -54,6 +54,7 @@ sublistN :: Int -> [a] -> Gen [a]
 sublistN n xs = do
     let len = length xs
     if len < n then
+        -- TODO [CSL-2173]: Clarify
         error $ sformat ("sublistN: requested "%build%" elements, "%
             "but list only contains "%build) n len
     else

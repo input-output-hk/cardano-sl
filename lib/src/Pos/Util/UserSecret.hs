@@ -295,6 +295,7 @@ writeUserSecretRelease u
     | otherwise = liftIO $ do
           writeRaw u
           unlockFile
+            -- TODO [CSL-2173]: Clarify
             (fromMaybe (error "writeUserSecretRelease: incorrect UserSecret") $
             u ^. usLock)
 

@@ -7136,7 +7136,7 @@ inherit (pkgs) mesa;};
          , generic-arbitrary, hashable, lens, log-warper, memory, mtl
          , parsec, plutus-prototype, QuickCheck, quickcheck-instances
          , random, reflection, safe-exceptions, scrypt, serokell-util
-         , stdenv, tagged, template-haskell, text, text-format
+         , stdenv, tagged, template-haskell, text, text-format, th-lift
          , th-lift-instances, time, time-units, universum
          , unordered-containers, vector
          }:
@@ -7153,7 +7153,7 @@ inherit (pkgs) mesa;};
              generic-arbitrary hashable lens log-warper memory mtl parsec
              plutus-prototype QuickCheck quickcheck-instances random reflection
              safe-exceptions scrypt serokell-util tagged template-haskell text
-             text-format th-lift-instances time time-units universum
+             text-format th-lift th-lift-instances time time-units universum
              unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
@@ -7541,7 +7541,7 @@ inherit (pkgs) mesa;};
          , mmorph, mtl, neat-interpolation, plutus-prototype, QuickCheck
          , reflection, resourcet, rocksdb-haskell-ng, safe-exceptions
          , serokell-util, stdenv, stm, tagged, template-haskell, text
-         , text-format, transformers, universum, unliftio
+         , text-format, th-lift, transformers, universum, unliftio
          , unordered-containers, vector
          }:
          mkDerivation {
@@ -7556,8 +7556,8 @@ inherit (pkgs) mesa;};
              generic-arbitrary hashable lens log-warper memory mmorph mtl
              neat-interpolation plutus-prototype QuickCheck reflection resourcet
              rocksdb-haskell-ng safe-exceptions serokell-util stm tagged
-             template-haskell text text-format transformers universum unliftio
-             unordered-containers vector
+             template-haskell text text-format th-lift transformers universum
+             unliftio unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7604,9 +7604,10 @@ inherit (pkgs) mesa;};
          , log-warper, lrucache, megaparsec, mmorph, mtl, parsec, process
          , QuickCheck, quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
-         , template-haskell, text, text-format, th-lift-instances, time
-         , time-units, transformers, transformers-base, transformers-lift
-         , universum, unliftio-core, unordered-containers, vector
+         , template-haskell, text, text-format, th-lift, th-lift-instances
+         , time, time-units, transformers, transformers-base
+         , transformers-lift, universum, unliftio-core, unordered-containers
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-util";
@@ -7619,7 +7620,7 @@ inherit (pkgs) mesa;};
              log-warper lrucache megaparsec mmorph mtl parsec process QuickCheck
              quickcheck-instances random reflection resourcet safe-exceptions
              semigroups serokell-util stm tagged template-haskell text
-             text-format th-lift-instances time time-units transformers
+             text-format th-lift th-lift-instances time time-units transformers
              transformers-base transformers-lift universum unliftio-core
              unordered-containers vector
            ];

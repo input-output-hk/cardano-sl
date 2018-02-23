@@ -83,7 +83,9 @@ detectCycleOnAddition toAdd
         next <- lift $ getPsk $ addressHash cur
         identity %= HS.insert cur
         let stop = pure Nothing
-        let panicRevoke p = error $ "dlgMemPoolDetectCycle: found revoke psk: " <> pretty p
+        let panicRevoke p =
+                -- TODO [CSL-2173]: Clarify
+                error $ "dlgMemPoolDetectCycle: found revoke psk: " <> pretty p
         maybe stop (\psk -> bool (trav $ pskDelegatePk psk)
                                  (panicRevoke psk)
                                  (isRevokePsk psk))

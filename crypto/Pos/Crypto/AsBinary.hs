@@ -30,6 +30,7 @@ import           Pos.Crypto.SecretSharing (DecShare (..), EncShare (..), Secret 
 
 checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
+    -- TODO [CSL-2173]: Clarify
     maybe bs error $ checkLenImpl action name len $ BS.length bs
 
 checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text

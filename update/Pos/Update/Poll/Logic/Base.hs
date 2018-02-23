@@ -296,6 +296,7 @@ calcSoftforkThreshold ::
     -> Coin
 calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag -> confirmedEpoch)
     | curEpoch < confirmedEpoch =
+        -- TODO [CSL-2173]: Clarify
         error
             "calcSoftforkThreshold: logical error, curEpoch < confirmedEpoch, can't happen"
     | otherwise = applyCoinPortionUp portion totalStake

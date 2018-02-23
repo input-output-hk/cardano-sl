@@ -87,7 +87,9 @@ recomputeStakes plusDistr minusDistr = do
     minusAt hm (key, c) =
         HM.alter (maybe err (\v -> Just (v - coinToInteger c))) key hm
       where
-        err = error ("recomputeStakes: no stake for " <> show key)
+        err =
+            -- TODO [CSL-2173]: Clarify
+            error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
 concatStakes :: HasGenesisData => [(TxAux, TxUndo)] -> (StakesList, StakesList)

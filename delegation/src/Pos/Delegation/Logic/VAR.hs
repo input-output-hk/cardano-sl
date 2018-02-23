@@ -193,6 +193,7 @@ calculateTransCorrections eActions = do
         -- Step 3.
         -- Some unsafe functions (чтобы жизнь медом не казалась)
         let lookupUnsafe k =
+                -- TODO [CSL-2173]: Clarify
                 fromMaybe (error $ "transChangeset shouldn't happen but happened: " <> pretty k) .
                 HM.lookup k
             toTheseUnsafe :: StakeholderId
@@ -200,6 +201,7 @@ calculateTransCorrections eActions = do
                           -> These StakeholderId StakeholderId
             toTheseUnsafe a = \case
                 (Nothing,Nothing) ->
+                    -- TODO [CSL-2173]: Clarify
                     error $ "Tried to convert (N,N) to These with affected user: " <> pretty a
                 (Just x, Nothing) -> This x
                 (Nothing, Just x) -> That x

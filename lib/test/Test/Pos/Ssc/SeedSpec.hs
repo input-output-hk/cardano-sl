@@ -94,6 +94,7 @@ recoverSecretsProp
     -> Property
 recoverSecretsProp n n_openings n_shares n_overlap
     | any (< 0) [n, n_openings, n_shares, n_overlap] =
+          -- TODO [CSL-2173]: Clarify
           error "recoverSecretsProp: negative"
     | n < 4 =
           error "recoverSecretsProp: n < 4"
@@ -204,7 +205,9 @@ generateKeysAndMpc
     :: Threshold
     -> Int
     -> IO ([SecretKey], NonEmpty VssKeyPair, [Commitment], [Opening])
-generateKeysAndMpc _         0 = error "generateKeysAndMpc: 0 is passed"
+generateKeysAndMpc _         0 =
+    -- TODO [CSL-2173]: Clarify
+    error "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- sortWith toVssPublicKey <$> generate (nonrepeating n)
@@ -233,7 +236,9 @@ getDecryptedShares
     :: MonadRandom m
     => NonEmpty VssKeyPair -> Commitment -> m [(VssKeyPair, [DecShare])]
 getDecryptedShares vssKeys comm = do
-    let shares = fromMaybe (error "getDecryptedShares: can't decode shares")
+    let shares =
+                 -- TODO [CSL-2173]: Clarify
+                 fromMaybe (error "getDecryptedShares: can't decode shares")
                            (getCommShares comm)
     forM shares $ \(pubKey, encShares) -> do
         let secKey = case find ((== pubKey) . toVssPublicKey) vssKeys of

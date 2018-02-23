@@ -63,7 +63,9 @@ lockP (PriorityLock vstate) prio = do
 unlockP :: MonadIO m => PriorityLock -> m ()
 unlockP (PriorityLock vstate) =
     atomically $ readTVar vstate >>= \case
-        Unlocked -> error "Pos.Util.PriorityLock.unlockP: lock is already unlocked"
+        Unlocked ->
+            -- TODO [CSL-2173]: Clarify
+            error "Pos.Util.PriorityLock.unlockP: lock is already unlocked"
 
         Locked hwaiters lwaiters
 

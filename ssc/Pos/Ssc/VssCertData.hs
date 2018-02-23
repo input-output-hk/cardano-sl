@@ -182,6 +182,7 @@ expireById contains id wExp vcd@VssCertData{..}
         (S.delete (expiry, id) whenExpire)
         (S.insert (wExp, (id, ins, cert)) expiredCerts)
      | contains =
+        -- TODO [CSL-2173]: Clarify
         error $ sformat ("Could not find expected certificate with id = "%build) id
      | otherwise = vcd
 
@@ -204,6 +205,7 @@ setSmallerLKS lks vcd@VssCertData{..}
               & _whenInsMap %~ HM.delete id
               & _whenInsSet .~ rest
               & _whenExpire %~ S.delete
+                    -- TODO [CSL-2173]: Clarify
                     (fromMaybe (error "No such id in VCD")
                                (expiryEoS <$> lookupVss id certs), id)
     | Just ((sl, (id, insSlot, cert)), restExp) <- S.maxView expiredCerts

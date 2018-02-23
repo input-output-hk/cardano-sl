@@ -335,7 +335,9 @@ intAndVerify pc = runTranslateT $ do
           Right () -> return $ Disagreement fpcLedger (UnexpectedError e)
           Left e'  -> return $ ExpectedInvalid e' (Right e)
       Right (chain', ctxt) -> do
-        let chain'' = fromMaybe (error "intAndVerify: Nothing")
+        let chain'' =
+                      -- TODO [CSL-2173]: Clarify
+                      fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of

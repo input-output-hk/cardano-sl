@@ -16,6 +16,7 @@ module Pos.Launcher.Runner
 
 import           Universum
 
+import           Control.Exception.Safe (withException)
 import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
@@ -40,6 +41,7 @@ import           Pos.Logic.Full (LogicWorkMode, logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
+import           Pos.Reporting (reportOrLogE)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
 import           Pos.Reporting.Statsd (withStatsd)
 import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
@@ -128,7 +130,7 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
+    reportExc . exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
@@ -140,6 +142,7 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
                     maybeWithStatsd $
                     act (diffusion diffusionLayer)
   where
+    reportExc m = m `withException` reportOrLogE "runServer"
     exitOnShutdown action = do
         _ <- race waitForShutdown action
         exitWith (ExitFailure 20) -- special exit code to indicate an update

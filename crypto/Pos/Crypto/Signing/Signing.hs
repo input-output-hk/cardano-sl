@@ -142,6 +142,7 @@ proxySign
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
 proxySign t sk@(SecretKey delegateSk) psk m
     | toPublic sk /= pskDelegatePk psk =
+        -- TODO [CSL-2173]: Clarify
         error $ sformat ("proxySign called with irrelevant certificate "%
                          "(psk delegatePk: "%build%", real delegate pk: "%build%")")
                         (pskDelegatePk psk) (toPublic sk)

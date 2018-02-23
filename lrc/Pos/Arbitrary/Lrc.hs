@@ -61,6 +61,7 @@ genRichmenStakes thd = do
     delimiters <- replicateM (n - 1) (choose (0, restCoins))
     let coins = map (unsafeAddCoin $ mkCoin minStake) $ generateCoins restCoins 0 $ sort delimiters
     when (length coins /= n) $
+        -- TODO [CSL-2173]: Clarify
         error "Illegal length of coins"
     stakeholders <- vector n
     pure $ HM.fromList $ zip stakeholders coins

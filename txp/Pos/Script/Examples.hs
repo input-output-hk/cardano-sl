@@ -40,75 +40,73 @@ import           Pos.Core (HasConfiguration, StakeholderId, TxSigData)
 import           Pos.Crypto (SafeSigner, SignTag (SignTx), deterministicKeyGen, fullPublicKeyHexF,
                              fullSignatureHexF, hashHexF, safeSign, safeToPublic, signRaw, signTag)
 import           Pos.Script (Script, parseRedeemer, parseValidator)
-
-fromE :: Either String Script -> Script
-fromE = either (error . toText) identity
+import           Pos.Util.Util (liftE)
 
 ----------------------------------------------------------------------------
 -- Trivial validators/redeemers
 ----------------------------------------------------------------------------
 
 alwaysSuccessValidator :: Script
-alwaysSuccessValidator = fromE $ parseValidator [text|
+alwaysSuccessValidator = $(liftE $ parseValidator [text|
     validator : Int -> Comp Unit {
         validator x = success MkUnit }
-    |]
+    |])
 
 alwaysFailureValidator :: Script
-alwaysFailureValidator = fromE $ parseValidator [text|
+alwaysFailureValidator = $(liftE $ parseValidator [text|
     validator : Int -> Comp Unit {
         validator x = failure }
-    |]
+    |])
 
 idValidator :: Script
-idValidator = fromE $ parseValidator [text|
+idValidator = $(liftE $ parseValidator [text|
     validator : Comp Int -> Comp Int {
         validator x = x }
-    |]
+    |])
 
 ----------------------------------------------------------------------------
 -- Int validator/redeemer pairs
 ----------------------------------------------------------------------------
 
 intValidator :: Script
-intValidator = fromE $ parseValidator [text|
+intValidator = $(liftE $ parseValidator [text|
     data Foo = { Foo }
 
     validator : Int -> Comp Foo {
         validator x = case !equalsInt x 1 of {
             True  -> success Foo ;
             False -> failure } }
-    |]
+    |])
 
 goodIntRedeemer :: Script
-goodIntRedeemer = fromE $ parseRedeemer [text|
+goodIntRedeemer = $(liftE $ parseRedeemer [text|
     redeemer : Comp Int {
         redeemer = success 1 }
-    |]
+    |])
 
 badIntRedeemer :: Script
-badIntRedeemer = fromE $ parseRedeemer [text|
+badIntRedeemer = $(liftE $ parseRedeemer [text|
     redeemer : Comp Int {
         redeemer = success 0 }
-    |]
+    |])
 
 ----------------------------------------------------------------------------
 -- A pair that uses stdlib
 ----------------------------------------------------------------------------
 
 stdlibValidator :: Script
-stdlibValidator = fromE $ parseValidator [text|
+stdlibValidator = $(liftE $ parseValidator [text|
     validator : Bool -> Comp Bool {
         validator x = case not (not x) of {
             True  -> success True ;
             False -> failure } }
-    |]
+    |])
 
 goodStdlibRedeemer :: Script
-goodStdlibRedeemer = fromE $ parseRedeemer [text|
+goodStdlibRedeemer = $(liftE $ parseRedeemer [text|
     redeemer : Comp Bool {
         redeemer = success (not False) }
-    |]
+    |])
 
 ----------------------------------------------------------------------------
 -- Multisig
@@ -124,7 +122,7 @@ goodStdlibRedeemer = fromE $ parseRedeemer [text|
 
 -- #5820 is prefix for encoded bytestrings (of length 32)
 multisigValidator :: HasConfiguration => Int -> [StakeholderId] -> Script
-multisigValidator n ids = fromE $ parseValidator [text|
+multisigValidator n ids = unwrap $ parseValidator [text|
     validator : List (Maybe (Pair ByteString ByteString)) -> Comp Unit {
         validator sigs = verifyMultiSig
             ${shownN} ${shownIds}
@@ -139,9 +137,15 @@ multisigValidator n ids = fromE $ parseValidator [text|
     mkCons h s = sformat ("(Cons #"%hashHexF%" "%build%")") h s
     shownIds = foldr mkCons "Nil" ids
     shownTag = sformat ("#"%base16F) (signTag SignTx)
+    unwrap (Right a) = a
+    unwrap (Left s) =
+        -- This case is impossible because the input string to 'parseValidator'
+        -- is always a valid script regardless of arguments passed to
+        -- 'multisigValidator'.
+        error ("multisigValidator: impossible, failed to parse: " <> s)
 
 multisigRedeemer :: HasConfiguration => TxSigData -> [Maybe SafeSigner] -> Script
-multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
+multisigRedeemer txSigData sks = unwrap $ parseRedeemer [text|
     redeemer : Comp (List (Maybe (Pair ByteString ByteString))) {
         redeemer = success ${shownSigs} }
     |]
@@ -152,13 +156,19 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
                 %build%")") pk sig s
     sigs = map (fmap (\k -> (safeToPublic k, safeSign SignTx k txSigData))) sks
     shownSigs = foldr mkCons "Nil" sigs
+    unwrap (Right a) = a
+    unwrap (Left s) =
+        -- This case is impossible because the input string for 'parseRedeemer'
+        -- is always a valid script regardless of arguments passed to
+        -- 'multisigRedeemer'.
+        error ("multisigRedeemer: impossible, failed to parse: " <> s)
 
 ----------------------------------------------------------------------------
 -- A pair with extra names
 ----------------------------------------------------------------------------
 
 intValidatorWithBlah :: Script
-intValidatorWithBlah = fromE $ parseValidator [text|
+intValidatorWithBlah = $(liftE $ parseValidator [text|
     data Foo = { Foo }
 
     validator : Int -> Comp Foo {
@@ -168,16 +178,16 @@ intValidatorWithBlah = fromE $ parseValidator [text|
 
     blah : Int -> Int {
       blah x = x }
-    |]
+    |])
 
 goodIntRedeemerWithBlah :: Script
-goodIntRedeemerWithBlah = fromE $ parseRedeemer [text|
+goodIntRedeemerWithBlah = $(liftE $ parseRedeemer [text|
     redeemer : Comp Int {
       redeemer = success 1 }
 
     blah : Int -> Int {
       blah x = x }
-    |]
+    |])
 
 ----------------------------------------------------------------------------
 -- Stress testing
@@ -189,7 +199,7 @@ goodIntRedeemerWithBlah = fromE $ parseRedeemer [text|
 -- that more petrol would be spent on hashing and less – on substraction and
 -- function calls.
 shaStressRedeemer :: Int -> Script
-shaStressRedeemer n = fromE $ parseRedeemer [text|
+shaStressRedeemer n = unwrap $ parseRedeemer [text|
     shaLoop : Int -> ByteString -> ByteString {
       shaLoop i x = case !equalsInt i 0 of {
         True  -> x ;
@@ -206,10 +216,16 @@ shaStressRedeemer n = fromE $ parseRedeemer [text|
     |]
   where
     ns = show (n `div` 10)
+    unwrap (Right a) = a
+    unwrap (Left s) =
+        -- This case is impossible because the input string for 'parseRedeemer'
+        -- is always a valid script regardless of arguments passed to
+        -- 'shaStressRedeemer'.
+        error ("shaStressRedeemer: impossible, failed to parse: " <> s)
 
 -- | Checks a signature N times. Should be used with 'idValidator'.
 sigStressRedeemer :: HasConfiguration => Int -> Script
-sigStressRedeemer n = fromE $ parseRedeemer [text|
+sigStressRedeemer n = unwrap $ parseRedeemer [text|
     sigLoop : Int -> Bool {
       sigLoop i = case !equalsInt i 0 of {
         True  -> True ;
@@ -230,3 +246,10 @@ sigStressRedeemer n = fromE $ parseRedeemer [text|
 
     keyS = sformat fullPublicKeyHexF pk
     sigS = sformat fullSignatureHexF sig
+
+    unwrap (Right a) = a
+    unwrap (Left s) =
+        -- This case is impossible because the input string for 'parseRedeemer'
+        -- is always a valid script regardless of arguments passed to
+        -- 'sigStressRedeemer'.
+        error ("sigStressRedeemer: impossible, failed to parse: " <> s)

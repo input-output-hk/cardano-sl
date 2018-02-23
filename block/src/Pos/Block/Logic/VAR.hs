@@ -156,8 +156,10 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (ShouldCallBListener True) (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
-            Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
-                             \verification of one block produced more than one undo"
+            Right _ ->
+                -- TODO [CSL-2173]: Clarify
+                error "verifyAndApplyBlocksInternal: applyAMAP: \
+                      \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback
         :: ApplyBlocksException

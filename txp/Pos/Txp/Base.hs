@@ -55,6 +55,7 @@ txOutStake TxOut {..} =
     -- be 1.
     computeMultiKeyDistr :: [(StakeholderId, CoinPortion)] -> StakesList
     computeMultiKeyDistr [] =
+        -- TODO [CSL-2173]: Clarify
         error $ "txOutStake: impossible happened, " <>
         "multi key distribution is empty"
     computeMultiKeyDistr ((headStakeholder, _):rest) =
@@ -109,7 +110,9 @@ bootstrapEraDistr c
     GenesisWStakeholders bootWHolders = gdBootStakeholders genesisData
     foldrFunc (s,w) r@(totalSum, res) = case compare totalSum cval of
         EQ -> r
-        GT -> error "bootstrapEraDistr: totalSum > cval can't happen"
+        GT ->
+            -- TODO [CSL-2173]: Clarify
+            error "bootstrapEraDistr: totalSum > cval can't happen"
         LT -> let w' = (fromIntegral w :: Word64)
                   toInclude = bool w' (cval - totalSum) (totalSum + w' > cval)
               in (totalSum + toInclude

@@ -36,7 +36,9 @@ stripHashMap lim m'
   where
     -- given two maps m and n where size of m is less than
     -- limit it tries to add as much as possible to it from n
-    populate m _ | biSize m > lim = error "getLocalPayload@takeFromMap@populate"
+    populate m _ | biSize m > lim =
+        -- TODO [CSL-2173]: Clarify
+        error "getLocalPayload@takeFromMap@populate"
     populate m n | HM.null n = m
     populate m n | HM.size n == 1 =
         let merged = m <> n

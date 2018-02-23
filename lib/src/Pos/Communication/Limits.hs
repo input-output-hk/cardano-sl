@@ -97,6 +97,7 @@ instance Applicative m => MessageLimited Scrape.Proof m where
 
 instance (Applicative m, HashAlgorithm algo) => MessageLimited (AbstractHash algo a) m where
     getMsgLenLimit _ = pure $ fromInteger $
+        -- TODO [CSL-2173]: Clarify
         toInteger (hashDigestSize (error "getMsgLenLimit AbstractHash" :: algo))
         + 4
 

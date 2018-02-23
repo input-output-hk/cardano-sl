@@ -36,7 +36,9 @@ embedYamlObject name marker parser = do
         mdir <- findConfigDir srcFP
         case mdir of
             Just dir -> return (dir </> name)
-            Nothing  -> error $ toText $
+            Nothing  ->
+                -- TODO [CSL-2173]: Clarify
+                error $ toText $
                 "Could not find " ++ marker ++ " for path: " ++ srcFP
     TH.qAddDependentFile path
     TH.runIO (Y.decodeFileEither path) >>= \case

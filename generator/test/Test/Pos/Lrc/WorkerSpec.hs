@@ -167,6 +167,7 @@ checkRichmen = do
   where
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe
+        -- TODO [CSL-2173]: Clarify
         (error "genesis secrets are unknown in tests")
     poorStakeholders :: HasConfigurations => [StakeholderId]
     poorStakeholders = toStakeholders genesisSecretKeysPoor

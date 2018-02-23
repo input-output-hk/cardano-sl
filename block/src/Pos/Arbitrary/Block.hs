@@ -359,7 +359,9 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                 case atMost2HeadersAndLeaders of
                     [h]      -> (Nothing, h)
                     [h1, h2] -> (Just h1, h2)
-                    _        -> error "[BlockSpec] the headerchain doesn't have enough headers"
+                    _        ->
+                        -- TODO [CSL-2173]: Clarify
+                        error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to
             -- drop all all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral epochSlots *

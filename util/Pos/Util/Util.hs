@@ -1,6 +1,7 @@
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Pos.Util.Util
        (
@@ -18,6 +19,8 @@ module Pos.Util.Util
        , parsecError
        , toCerealError
        , cerealError
+       , liftE
+       , pattern Exc
 
        -- * Ether
        , ether
@@ -90,6 +93,7 @@ import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Lift as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
@@ -164,6 +168,31 @@ toParsecError = external_api_fail
 
 parsecError :: P.Stream s => Text -> P.ParsecT e s m a
 parsecError = toParsecError . Left
+
+liftE :: TH.Lift a => Either Text a -> TH.ExpQ
+liftE = TH.lift <=< toTemplateHaskellError
+
+-- | A pseudo-constructor for 'SomeException'. Can be used to match on
+-- exceptions of different types, or to construct 'SomeException'.
+--
+-- @
+-- data A = A deriving (..)
+-- instance Exception A
+--
+-- data B = B deriving (..)
+-- instance Exception B
+--
+-- match :: SomeException -> ...
+-- match = \case
+--   Exc A -> ...
+--   Exc B -> ...
+--   _ -> ...
+-- @
+--
+pattern Exc :: Exception e => e -> SomeException
+pattern Exc e <- (E.fromException -> Just e)
+  where
+    Exc e = E.toException e
 
 ----------------------------------------------------------------------------
 -- Ether

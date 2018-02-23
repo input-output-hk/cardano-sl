@@ -73,11 +73,13 @@ cborCanonicalRep a = property $ do
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
+    -- TODO [CSL-2173]: Clarify
     either (error . toText) identity
         (runGet safeGet $ runPut $ safePut a) === a
 
 serDeserId :: forall t . (Show t, Eq t, AsBinaryClass t) => t -> Property
 serDeserId a =
+    -- TODO [CSL-2173]: Clarify
     either (error . toText) identity
         (fromBinary $ asBinary @t a) === a
 
@@ -141,6 +143,7 @@ canonicalJsonTest =
         -> Property
     canonicalJsonDecodeAndCompare x encodedX =
         let decodedValue =
+                -- TODO [CSL-2173]: Clarify
                 either (error . toText) identity $
                 CanonicalJSON.parseCanonicalJSON encodedX
             decodedX =

@@ -107,6 +107,7 @@ instance Buildable.Buildable (AbstractHash algo a) where
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo
+    -- TODO [CSL-2173]: Clarify
     (error "Pos.Crypto.Hashing.hashDigestSize': HashAlgorithm value is evaluated!")
 
 reifyHashDigestSize

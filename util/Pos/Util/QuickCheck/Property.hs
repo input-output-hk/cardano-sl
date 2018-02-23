@@ -107,7 +107,9 @@ maybeStopProperty msg =
 -- | Split given list into chunks with size up to given value.
 -- TODO: consider using `sumEquals maxSize (length items)`
 splitIntoChunks :: Monad m => Word -> [a] -> PropertyM m [NonEmpty a]
-splitIntoChunks 0 _ = error "splitIntoChunks: maxSize is 0"
+splitIntoChunks 0 _ =
+    -- TODO [CSL-2173]: Clarify
+    error "splitIntoChunks: maxSize is 0"
 splitIntoChunks maxSize items = do
     sizeMinus1 <- pick $ choose (0, maxSize - 1)
     let (chunk, rest) = splitAt (fromIntegral sizeMinus1 + 1) items
@@ -131,6 +133,7 @@ expectedOne desc = \case
 -- TODO: improve naming!
 splitWord :: Word64 -> Word64 -> Gen [Word64]
 splitWord total parts | total < parts =
+    -- TODO [CSL-2173]: Clarify
     error $ "splitWord: can't split " <> show total <> " into " <> show parts <> " parts."
                       | otherwise = map succ . take iParts <$> ((<> replicate iParts 0) <$> (sumEquals (total `div` parts + 1) $ total - parts))
   where

@@ -374,6 +374,7 @@ ensureTxMakesSense (_, neTxOut) utxo _ = do
 
 unsafeIntegerToTxId :: Integer -> TxId
 unsafeIntegerToTxId n =
+    -- TODO [CSL-2173]: Clarify
     leftToPanic "unsafeIntegerToTxId: " $ decodeHash $
         sformat (left 64 '0' %. hex) n
 

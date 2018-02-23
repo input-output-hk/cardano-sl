@@ -208,7 +208,9 @@ instance HasLens DB.DBPureVar ExplorerTestContext DB.DBPureVar where
             DB.PureDB pdb -> pdb
         setter _ pdb = DB.PureDB pdb
         pureDBLens = lens getter setter
-        realDBInTestsError = error "You are using real db in tests"
+        realDBInTestsError =
+            -- TODO [CSL-2173]: Clarify
+            error "You are using real db in tests"
 
 -- We need to define the full transformer stack type.
 type instance MempoolExt ExplorerExtraTestMode = ExplorerExtra

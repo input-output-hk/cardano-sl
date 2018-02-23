@@ -200,7 +200,9 @@ followTheSatoshiM
     -> Coin
     -> ConduitT (StakeholderId, Coin) Void m SlotLeaders
 followTheSatoshiM _ totalCoins
-    | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
+    | totalCoins == mkCoin 0 =
+        -- TODO [CSL-2173]: Clarify
+        error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
     ftsState <- ftsStateInit <$> nextStakeholder
     let sortedCoinIndices = sortWith snd (assignToSlots coinIndices)
@@ -236,4 +238,6 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 modify (ftsStateUpdate s)
                 findLeader coinIndex
 
-    nextStakeholder = fromMaybe (error "followTheSatoshiM: indices out of range") <$> await
+    nextStakeholder =
+        -- TODO [CSL-2173]: Clarify
+        fromMaybe (error "followTheSatoshiM: indices out of range") <$> await

@@ -62,6 +62,7 @@ readDhtPeersFile path = do
     xs <- lines <$> readFile path
     let parseLine x = case parse (dhtNodeParser <* eof) "" x of
             Left err -> throwString $ formatToString
+                -- TODO [CSL-2173]: Clarify
                 ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err
             Right a -> return a

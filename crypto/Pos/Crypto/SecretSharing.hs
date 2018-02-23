@@ -152,7 +152,9 @@ genSharedSecret
     -> NonEmpty VssPublicKey
     -> m (Secret, SecretProof, [(VssPublicKey, EncShare)])
 genSharedSecret t ps
-    | t <= 1     = error "genSharedSecret: threshold must be > 1"
+    | t <= 1     =
+        -- TODO [CSL-2173]: Clarify
+        error "genSharedSecret: threshold must be > 1"
     | t >= n - 1 = error "genSharedSecret: threshold must be < n-1"
     | otherwise  = convertRes <$> Scrape.escrow t (coerce sorted)
   where
@@ -242,8 +244,12 @@ verifyEncShares
     -> [(VssPublicKey, EncShare)]
     -> m Bool
 verifyEncShares SecretProof{..} threshold (sortWith fst -> pairs)
-    | threshold <= 1     = error "verifyEncShares: threshold must be > 1"
-    | threshold >= n - 1 = error "verifyEncShares: threshold must be < n-1"
+    | threshold <= 1     =
+        -- TODO [CSL-2173]: Clarify
+        error "verifyEncShares: threshold must be > 1"
+    | threshold >= n - 1 =
+        -- TODO [CSL-2173]: Clarify
+        error "verifyEncShares: threshold must be < n-1"
     | otherwise =
           Scrape.verifyEncryptedShares
               spExtraGen

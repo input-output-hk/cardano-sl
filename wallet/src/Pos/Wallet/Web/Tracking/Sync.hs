@@ -53,9 +53,9 @@ import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, mo
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
-                           HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
-                           headerSlotL, timestampToPosix)
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..), HeaderHash,
+                           Timestamp, blkSecurityParam, genesisHash, headerHash, headerSlotL,
+                           timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
@@ -193,7 +193,9 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
             else pure wTipH
         withStateLockNoMetrics HighPriority $ \tip -> do
             logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
-            tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
+            tipH <-
+                -- TODO [CSL-2173]: Clarify
+                maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
             syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
@@ -298,7 +300,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
   where
     firstGenesisHeader :: m BlockHeader
     firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeader) >>=
+        -- TODO [CSL-2173]: Clarify
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
+            -- TODO [CSL-2173]: Clarify
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 
 constructAllUsed

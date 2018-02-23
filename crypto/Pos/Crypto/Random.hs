@@ -47,7 +47,9 @@ deterministic seed gen = fst $ withDRG chachaSeed gen
 -- be divisible by n, and thus applying 'mod' to it will be safe.
 randomNumber :: MonadRandom m => Integer -> m Integer
 randomNumber n
-    | n <= 0 = error "randomNumber: n <= 0"
+    | n <= 0 =
+        -- TODO [CSL-2173]: Clarify
+        error "randomNumber: n <= 0"
     | otherwise = gen
   where
     size = max 4 (numBytes n)             -- size of integers, in bytes
@@ -59,5 +61,7 @@ randomNumber n
 -- | Generate a random number in range [a, b].
 randomNumberInRange :: MonadRandom m => Integer -> Integer -> m Integer
 randomNumberInRange a b
-    | a > b     = error "randomNumberInRange: a > b"
+    | a > b     =
+        -- TODO [CSL-2173]: Clarify
+        error "randomNumberInRange: a > b"
     | otherwise = (a +) <$> randomNumber (b - a + 1)

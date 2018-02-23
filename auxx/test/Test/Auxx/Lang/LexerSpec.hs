@@ -71,4 +71,6 @@ unitLexerSample2 = map snd (tokenize input) `shouldBe` output
         , TokenAddress . discardErrorText . decodeTextAddress $
             "Ae2tdPwUPEZ3Fd8HkQabvTJo3Ues7o2kNXXcK6LgGBfYwTM3pxpn5pijrBu"
         ]
-    discardErrorText = either (\(_ :: Text) -> error "impossible") identity
+    discardErrorText = either (\(_ :: Text) ->
+                                 -- TODO [CSL-2173]: Refactor
+                                 error "impossible") identity

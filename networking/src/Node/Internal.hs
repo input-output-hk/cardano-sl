@@ -876,7 +876,9 @@ nodeDispatcher node handlerInOut =
             let outbounds = nonceMaps >>= Map.elems
             forM_ outbounds $ \(_, dumpBytes, _, peerDataVar, _, _, acked) -> do
                 when (not acked) $ do
-                   _ <- tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
+                   _ <- tryPutSharedExclusive peerDataVar
+                      -- TODO [CSL-2173]: Clarify
+                      (error "no peer data because local node has gone down")
                    dumpBytes Nothing
             return (st, ())
 

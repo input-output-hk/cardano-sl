@@ -145,14 +145,24 @@ dummyLogicLayer = LogicLayer
 
     dummyLogic :: Applicative m => Logic m
     dummyLogic = Logic
-        { ourStakeholderId   = error "dummy: no stakeholder id"
+        {
+          -- TODO [CSL-2173]: Clarify
+          ourStakeholderId   = error "dummy: no stakeholder id"
+          -- TODO [CSL-2173]: Clarify
         , getBlock           = \_ -> pure (error "dummy: can't get block")
+          -- TODO [CSL-2173]: Clarify
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
+          -- TODO [CSL-2173]: Clarify
         , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
+          -- TODO [CSL-2173]: Clarify
         , getLcaMainChain    = \_ -> pure Nothing
+          -- TODO [CSL-2173]: Clarify
         , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
+          -- TODO [CSL-2173]: Clarify
         , getTip             = pure (error "dummy: can't get tip")
+          -- TODO [CSL-2173]: Clarify
         , getTipHeader       = pure (error "dummy: can't get tip header")
+          -- TODO [CSL-2173]: Clarify
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")
         , postBlockHeader    = \_ _ -> pure ()
         , postPskHeavy       = \_ -> pure False
@@ -169,7 +179,9 @@ dummyLogicLayer = LogicLayer
 
     dummyKeyVal :: Applicative m => KeyVal key val m
     dummyKeyVal = KeyVal
-        { toKey      = \_ -> error "dummy: can't make key"
+        { toKey      = \_ ->
+            -- TODO [CSL-2173]: Clarify
+            error "dummy: can't make key"
         , handleInv  = \_ -> pure False
         , handleReq  = \_ -> pure Nothing
         , handleData = \_ -> pure False

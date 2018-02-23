@@ -137,7 +137,7 @@ txGen size = do
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
     let tx = UnsafeTx inputs outputs (mkAttributes ())
-    -- FIXME can't we convince ourselves that the Tx we made is valid?
+    -- TODO: [CSL-2173] can't we convince ourselves that the Tx we made is valid?
     case checkTx tx of
         Left e   -> error $ "txGen: something went wrong: " <> e
         Right () -> pure tx

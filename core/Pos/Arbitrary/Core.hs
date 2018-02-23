@@ -103,6 +103,7 @@ instance Arbitrary Types.EpochIndex where
 
 instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
     arbitrary =
+        -- TODO [CSL-2173]: Clarify
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink
@@ -132,6 +133,7 @@ instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
             maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
         leftEpoch <- Types.EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
+            -- TODO [CSL-2173]: Clarify
             leftToPanic "arbitrary@EoSToIntOverflow" .
             Types.mkLocalSlotIndex .
             fromIntegral <$> choose (minMod, toInteger epochSlots)
@@ -195,7 +197,9 @@ instance Arbitrary Types.AddrStakeDistribution where
         oneof
             [ pure Types.BootstrapEraDistr
             , Types.SingleKeyDistr <$> arbitrary
-            , leftToPanic "arbitrary @AddrStakeDistribution: " .
+            ,
+              -- TODO [CSL-2173]: Clarify
+              leftToPanic "arbitrary @AddrStakeDistribution: " .
               Types.mkMultiKeyDistr <$>
               genMultiKeyDistr
             ]

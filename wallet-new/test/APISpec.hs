@@ -152,10 +152,11 @@ testV1Context =
     testAddrCIdHashes :: IO AddrCIdHashes
     testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
 
-    -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
-    -- for now to leave it unimplemented.
     testRealModeContext :: IO (RealModeContext WalletMempoolExt)
-    testRealModeContext = return (error "testRealModeContext is currently unimplemented")
+    testRealModeContext = return $
+        -- For some categories of tests we won't hit the 'RealModeContext', so
+        -- that's safe for now to leave it unimplemented.
+        error "testRealModeContext is currently unimplemented"
 
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/

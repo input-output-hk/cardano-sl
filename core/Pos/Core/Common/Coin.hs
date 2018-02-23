@@ -49,6 +49,7 @@ unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = Coin res
     | otherwise =
+      -- TODO [CSL-2173]: Clarify
       error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
   where
     res = a+b
@@ -63,14 +64,18 @@ subCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
 
 -- | Only use if you're sure there'll be no underflow.
 unsafeSubCoin :: Coin -> Coin -> Coin
-unsafeSubCoin a b = fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
+unsafeSubCoin a b =
+    -- TODO [CSL-2173]: Clarify
+    fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
 {-# INLINE unsafeSubCoin #-}
 
 -- | Only use if you're sure there'll be no overflow.
 unsafeMulCoin :: Integral a => Coin -> a -> Coin
 unsafeMulCoin (unsafeGetCoin -> a) b
     | res <= coinToInteger (maxBound @Coin) = Coin (fromInteger res)
-    | otherwise = error "unsafeMulCoin: overflow"
+    | otherwise =
+        -- TODO [CSL-2173]: Clarify
+        error "unsafeMulCoin: overflow"
   where
     res = toInteger a * toInteger b
 
@@ -85,7 +90,9 @@ integerToCoin n
     | otherwise = Left $ "integerToCoin: value is too big (" <> show n <> ")"
 
 unsafeIntegerToCoin :: Integer -> Coin
-unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
+unsafeIntegerToCoin n =
+    -- TODO [CSL-2173]: Clarify
+    leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
 ----------------------------------------------------------------------------

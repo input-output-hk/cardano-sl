@@ -361,7 +361,9 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
                     Just (Listener action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
-                    Nothing -> error ("handlerInOut : no listener for " ++ show msgCode)
+                    Nothing ->
+                        -- TODO [CSL-2173]: Clarify
+                        error ("handlerInOut : no listener for " ++ show msgCode)
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.

@@ -503,7 +503,9 @@ instance GSerialiseEncode G.V1 where
     gencode _ = E.encodeNull
 
 instance GSerialiseDecode G.V1 where
-    gdecode   = error "G.V1 don't have contructors" <$ D.decodeNull
+    gdecode   =
+        -- TODO [CSL-2173]: Clarify
+        error "G.V1 don't have contructors" <$ D.decodeNull
 
 instance GSerialiseEncode G.U1 where
     -- Constructors without fields are serialised as null value

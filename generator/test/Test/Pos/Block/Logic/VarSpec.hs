@@ -105,7 +105,9 @@ verifyValidBlocks = do
             OldestFirst $
             case blocks of
                 -- impossible because of precondition (see 'pre' above)
-                [] -> error "verifyValidBlocks: impossible"
+                [] ->
+                    -- TODO [CSL-2173]: Clarify
+                    error "verifyValidBlocks: impossible"
                 (block0:otherBlocks) ->
                     let (otherBlocks', _) = span isRight otherBlocks
                     in block0 :| otherBlocks'
@@ -389,7 +391,9 @@ genSingleFork fd = do
     --
     -- in this example, q=7, d=5, i=2, dj=4
     let
-        nonEmptyCuz r [] = error ("Requirement failed: " <> r)
+        nonEmptyCuz r [] =
+            -- TODO [CSL-2173]: Clarify
+            error ("Requirement failed: " <> r)
         nonEmptyCuz _ xs = NE.fromList xs
         commonPrefix = pathSequence mempty $
             OldestFirst . nonEmptyCuz "i > 0" $ replicate i "B"

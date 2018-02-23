@@ -41,8 +41,8 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
@@ -409,7 +409,10 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
-        let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+        let secrets =
+                -- TODO [CSL-2173]: Refactor. This error can happen depending
+                -- on external configuration.
+                fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i
             addSecretKey $ noPassEncrypt key
@@ -429,7 +432,10 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpExec = \AddKeyParams {..} -> do
         secret <- readUserSecret akpFile
         if akpPrimary then do
-            let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+            let primSk =
+                  -- TODO [CSL-2173]: Refactor. The 'secret' is an external
+                  -- input, all possible values must be handled.
+                  fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk
         else do
             let ks = secret ^. usKeys

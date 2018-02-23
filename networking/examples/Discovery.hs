@@ -71,7 +71,9 @@ worker anId generator discovery = pingWorker generator
                     received <- recv cactions maxBound
                     case received of
                         Just (Pong _) -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
-                        Nothing -> error "Unexpected end of input"
+                        Nothing ->
+                            -- TODO [CSL-2173]: Clarify
+                            error "Unexpected end of input"
             loop gen'
 
 listeners
@@ -120,7 +122,9 @@ main = runProduction $ do
     args <- liftIO getArgs
     number <- case args of
         [arg0] | Just number <- read arg0 -> return number
-        _ -> error "Input argument must be a number"
+        _ ->
+            -- TODO [CSL-2173]: Refactor
+            error "Input argument must be a number"
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 

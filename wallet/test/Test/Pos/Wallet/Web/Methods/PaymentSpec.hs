@@ -84,7 +84,9 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
-        _                              -> error "unknown fee policy"
+        _                              ->
+            -- TODO [CSL-2173]: Clarify
+            error "unknown fee policy"
     txAux <- expectedOne "sent TxAux" =<< lift getSentTxs
     TxFee fee <- lift (runExceptT $ txToLinearFee txLinearPolicy txAux) >>= \case
         Left er -> stopProperty $ "Couldn't compute tx fee by tx, reason: " <> pretty er

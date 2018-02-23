@@ -170,6 +170,7 @@ processProxySKHeavyInternal psk = do
     let cedeModifier = emptyCedeModifier & cmPskMods .~ pskMods
     (verificationError, pskValid) <-
         fmap (either (,False)
+                     -- TODO [CSL-2173]: Clarify
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
         runExceptT $

@@ -151,6 +151,7 @@ data DelegationOp
 instance HasConfiguration => RocksBatchOp DelegationOp where
     toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
         | isRevokePsk psk =
+          -- TODO [CSL-2173]: Clarify
           error $ "RocksBatchOp DelegationOp: malformed " <>
                   "revoke psk in DlgEdgeAdd: " <> pretty psk
         | otherwise =

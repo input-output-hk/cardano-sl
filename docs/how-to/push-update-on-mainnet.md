@@ -274,6 +274,8 @@ Upload installers to S3 bucket:
     * URL: https://update.cardano-mainnet.iohk.io
     * S3 Bucket: `update.cardano-mainnet.iohk.io` in mainnet AWS role
 
+Make sure you made installers public.
+
 Download server URL is passed to the launcher/node in the following way:
 https://github.com/input-output-hk/daedalus/blob/eb713a66eb2c0445fbe8c2faa59f0884edd83712/installers/Launcher.hs#L68
 

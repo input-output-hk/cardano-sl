@@ -31,6 +31,7 @@ import           Util.Validated
 import           Wallet.Abstract
 import qualified Wallet.Incremental as Incr
 import qualified Wallet.Spec as Spec
+import qualified Wallet.SpecRollback as Roll
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -109,7 +110,9 @@ testPureWallet = do
         forAll genInductive $ \wallet -> conjoin
           [ isValidated $ walletInvariants specEmpty wallet
           , isValidated $ walletInvariants incrEmpty wallet
+          , isValidated $ walletInvariants rollEmpty wallet
           , isValidated $ walletEquivalent specEmpty incrEmpty WalletEmpty
+          , isValidated $ walletEquivalent specEmpty rollEmpty WalletEmpty
           ]
   where
     transCtxt = runTranslateNoErrors ask
@@ -128,6 +131,9 @@ testPureWallet = do
 
     incrEmpty :: Incr.Wallet GivenHash Addr
     incrEmpty = Incr.walletEmpty isOurs
+
+    rollEmpty :: Roll.Wallet GivenHash Addr
+    rollEmpty = Roll.walletEmpty isOurs
 
     isOurs :: Ours Addr
     isOurs addr = do

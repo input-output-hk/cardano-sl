@@ -57,11 +57,3 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
   applyBlock :: Block h a -> Wallet h a -> Wallet h a
   applyBlock b w = w & walletState . stateUtxo    %~ updateUtxo (ours w) b
                      & walletState . statePending %~ updatePending       b
-
-updateUtxo :: forall h a. Hash h a
-           => Ours a -> Block h a -> Utxo h a -> Utxo h a
-updateUtxo p b = remSpent . addNew
-  where
-    addNew, remSpent :: Utxo h a -> Utxo h a
-    addNew   = utxoUnion (utxoRestrictToOurs p (txOuts b))
-    remSpent = utxoRemoveInputs (txIns b)

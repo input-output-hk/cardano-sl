@@ -246,6 +246,7 @@ test-suite wallet-unit-tests
                       UTxO.Verify
                       Wallet.Abstract
                       Wallet.Spec
+                      Wallet.SpecRollback
                       Wallet.Incremental
   default-language:   Haskell2010
   default-extensions: BangPatterns

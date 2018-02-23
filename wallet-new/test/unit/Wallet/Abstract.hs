@@ -10,6 +10,8 @@ module Wallet.Abstract (
     IsWallet(..)
   , Ours
   , Pending
+    -- * Abstract definition of rollback
+  , Rollback(..)
     -- * Inductive wallet definition
   , Inductive(..)
   , interpret
@@ -27,6 +29,7 @@ module Wallet.Abstract (
   , balance
   , txIns
   , txOuts
+  , updateUtxo
   , updatePending
   , utxoRestrictToOurs
   ) where
@@ -99,6 +102,13 @@ class (Hash h a, Ord a) => IsWallet w h a where
 -- that do not belong to us
 newPending' :: IsWallet w h a => Transaction h a -> w h a -> w h a
 newPending' tx w = fromMaybe w $ newPending tx w
+
+{-------------------------------------------------------------------------------
+  Rollback
+-------------------------------------------------------------------------------}
+
+class IsWallet w h a => Rollback w h a where
+  rollback :: w h a -> w h a
 
 {-------------------------------------------------------------------------------
   Interlude: "functor" over different wallet types (internal use only)
@@ -243,6 +253,14 @@ txIns = Set.unions . map trIns . Fold.toList
 
 txOuts :: (Hash h a, Foldable f) => f (Transaction h a) -> Utxo h a
 txOuts = utxoUnions . map trUtxo . Fold.toList
+
+updateUtxo :: forall h a. Hash h a
+           => Ours a -> Block h a -> Utxo h a -> Utxo h a
+updateUtxo p b = remSpent . addNew
+  where
+    addNew, remSpent :: Utxo h a -> Utxo h a
+    addNew   = utxoUnion (utxoRestrictToOurs p (txOuts b))
+    remSpent = utxoRemoveInputs (txIns b)
 
 updatePending :: forall h a. Hash h a => Block h a -> Pending h a -> Pending h a
 updatePending b = Set.filter $ \t -> disjoint (trIns t) (txIns b)

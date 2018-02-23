@@ -17,22 +17,22 @@ module UTxO.Translate (
   , MonadGState(..)
   ) where
 
-import Universum
-import Control.Exception (throw)
-import Control.Monad.Except
-import Data.Constraint (Dict(..))
+import           Control.Exception (throw)
+import           Control.Monad.Except
+import           Data.Constraint (Dict (..))
+import           Universum
 
-import Pos.Block.Error
-import Pos.Block.Types
-import Pos.Core
-import Pos.DB.Class (MonadGState(..))
-import Pos.Txp.Toil
-import Pos.Update
-import Pos.Util.Chrono
+import           Pos.Block.Error
+import           Pos.Block.Types
+import           Pos.Core
+import           Pos.DB.Class (MonadGState (..))
+import           Pos.Txp.Toil
+import           Pos.Update
+import           Pos.Util.Chrono
 
-import UTxO.Context
-import UTxO.Verify (Verify)
-import Util.Validated
+import           Util.Validated
+import           UTxO.Context
+import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
 
 {-------------------------------------------------------------------------------
@@ -42,10 +42,7 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import Test.Pos.Configuration (
-    withDefConfiguration
-  , withDefUpdateConfiguration
-  )
+import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
 
 {-------------------------------------------------------------------------------
   Translation monad

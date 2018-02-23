@@ -18,11 +18,11 @@ module Util.Buildable.Hspec (
   , H.it
   ) where
 
-import           Universum
 import qualified Test.Hspec as H
+import           Universum
 
-import           Util.Validated
 import           Util.Buildable
+import           Util.Validated
 
 {-------------------------------------------------------------------------------
   Wrappers around Test.HSpec.Expectations

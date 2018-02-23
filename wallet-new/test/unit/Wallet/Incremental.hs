@@ -1,3 +1,5 @@
+{-# LANGUAGE InstanceSigs #-}
+
 -- | Incremental yet pure version of the wallet
 --
 -- This is intended to be one step between the spec and the implementation.
@@ -8,11 +10,11 @@ module Wallet.Incremental (
   , walletEmpty
   ) where
 
-import Universum hiding (State)
 import qualified Data.Set as Set
+import           Universum hiding (State)
 
-import UTxO.DSL
-import Wallet.Abstract
+import           UTxO.DSL
+import           Wallet.Abstract
 
 {-------------------------------------------------------------------------------
   Representation

@@ -4,13 +4,13 @@ module UTxO.Bootstrap (
   , isBootstrapTransaction
   ) where
 
-import Universum
-import Data.Bifunctor (bimap)
+import           Data.Bifunctor (bimap)
 import qualified Data.Set as Set
+import           Universum
 
-import Pos.Core
+import           Pos.Core
 
-import UTxO.Context
+import           UTxO.Context
 import qualified UTxO.DSL as DSL
 
 -- | Construct the bootstrap transaction

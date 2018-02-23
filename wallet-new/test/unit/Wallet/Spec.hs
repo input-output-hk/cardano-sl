@@ -1,14 +1,16 @@
+{-# LANGUAGE InstanceSigs #-}
+
 -- | Pure specification of the wallet
 module Wallet.Spec (
     Wallet -- TODO: Not sure if we want to keep this opaque or not
   , walletEmpty
   ) where
 
-import Universum hiding (State)
 import qualified Data.Set as Set
+import           Universum hiding (State)
 
-import UTxO.DSL
-import Wallet.Abstract
+import           UTxO.DSL
+import           Wallet.Abstract
 
 {-------------------------------------------------------------------------------
   Representation

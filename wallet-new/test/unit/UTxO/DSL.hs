@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass       #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Idealized specification of UTxO-style accounting
 module UTxO.DSL (
@@ -68,21 +68,21 @@ module UTxO.DSL (
   , chainToLedger
   ) where
 
-import Universum
-import Control.Exception (throw)
-import Control.Monad.Except (MonadError(..))
-import Data.List (tail)
-import Data.Map.Strict (Map)
-import Data.Set (Set)
-import Formatting (sformat, bprint, build, (%))
-import Pos.Util.Chrono
-import Serokell.Util (listJson, mapJson)
-import Prelude (Show(..))
+import           Control.Exception (throw)
+import           Control.Monad.Except (MonadError (..))
+import           Data.List (tail)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import qualified Data.Set        as Set
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, (%))
+import           Pos.Util.Chrono
+import           Prelude (Show (..))
+import           Serokell.Util (listJson, mapJson)
+import           Universum
 
-import Util.Validated
+import           Util.Validated
 
 {-------------------------------------------------------------------------------
   Parameters
@@ -208,8 +208,8 @@ trBalance a t l = received - spent
                                          AddrTreasury -> trFee t
                                          _otherwise   -> 0
     spent    = total outputsSpent    + case a of
-                                         AddrGenesis  -> trFresh t
-                                         _otherwise   -> 0
+                                         AddrGenesis -> trFresh t
+                                         _otherwise  -> 0
 
     outputsReceived, outputsSpent :: [Output a]
     outputsReceived = our $                            trOuts t

@@ -3,9 +3,9 @@ module Util.Buildable (
     ShowThroughBuild(..)
   ) where
 
-import           Universum
 import           Formatting (build, sformat)
 import           Prelude (Show (..))
+import           Universum
 
 newtype ShowThroughBuild a = STB { unSTB :: a }
   deriving (Eq)

@@ -11,18 +11,18 @@ module UTxO.PreChain (
   , fromPreChain
   ) where
 
-import Universum
+import           Universum
 
-import Pos.Core
-import Pos.Client.Txp
-import Pos.Txp.Toil
-import Pos.Util.Chrono
+import           Pos.Client.Txp
+import           Pos.Core
+import           Pos.Txp.Toil
+import           Pos.Util.Chrono
 
-import UTxO.Bootstrap
-import UTxO.Context
-import UTxO.DSL
-import UTxO.Interpreter
-import UTxO.Translate
+import           UTxO.Bootstrap
+import           UTxO.Context
+import           UTxO.DSL
+import           UTxO.Interpreter
+import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
   Chain with some information still missing

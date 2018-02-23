@@ -154,7 +154,7 @@ runServer runIO NodeParams {..} ekgNodeMetrics act = do
                 maybeWithStatsd $
                 -- The 'act' is in 'm', and needs a 'Diffusion m'. We can hoist
                 -- that, since 'm' is 'MonadIO'.
-                runIO (act (hoistDiffusion liftIO (diffusion diffusionLayer)))
+                runIO (act (hoistDiffusion liftIO runIO (diffusion diffusionLayer)))
   where
     fdconf lname = FullDiffusionConfiguration
         { fdcProtocolMagic = protocolMagic

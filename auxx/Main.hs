@@ -149,7 +149,7 @@ action opts@AuxxOptions {..} command = do
                     -- We're back in 'AuxxMode' again. We run the logic
                     -- layer using a hoisted diffusion layer (liftIO).
                     runDiffusionLayer diffusionLayer $ runIO $
-                        auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))
+                        auxxModeAction (hoistDiffusion liftIO runIO (diffusion diffusionLayer))
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =

@@ -9,6 +9,7 @@ module Pos.Binary.Communication
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Word (Word32)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
@@ -17,7 +18,8 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+                                    MsgHeaders (..), MsgStream (..), MsgStreamStart (..),
+                                    MsgStreamUpdate (..), MsgStreamBlock (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), MsgSubscribe1 (..),
                                                    VerInfo (..))
@@ -65,6 +67,44 @@ instance Bi MsgBlock where
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
             t -> cborError $ "MsgBlock wrong tag: " <> show t
+
+deriveSimpleBi ''MsgStreamStart [
+    Cons 'MsgStreamStart [
+        Field [| mssFrom   :: [HeaderHash] |],
+        Field [| mssTo     :: HeaderHash |],
+        Field [| mssWindow :: Word32 |]
+    ]]
+
+deriveSimpleBi ''MsgStreamUpdate [
+    Cons 'MsgStreamUpdate [
+        Field [| msuWindow :: Word32 |]
+    ]]
+
+instance Bi MsgStream where
+    encode = \case
+        (MsgStart s)  -> encodeListLen 2 <> encode (0 :: Word8) <> encode s
+        (MsgUpdate u) -> encodeListLen 2 <> encode (1 :: Word8) <> encode u
+    decode = do
+        enforceSize "MsgStream" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStart  <$> decode
+            1 -> MsgUpdate <$> decode
+            t -> cborError $ "MsgStream wrong tag: " <> show t
+
+instance Bi MsgStreamBlock where
+    encode = \case
+        (MsgStreamBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        (MsgStreamNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+        MsgStreamEnd -> encodeListLen 2 <> encode (2 :: Word8)
+    decode = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStreamBlock <$> decode
+            1 -> MsgStreamNoBlock <$> decode
+            2 -> return MsgStreamEnd
+            t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

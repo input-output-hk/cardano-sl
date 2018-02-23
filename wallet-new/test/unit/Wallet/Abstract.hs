@@ -30,18 +30,19 @@ module Wallet.Abstract (
   , utxoRestrictToOurs
   ) where
 
-import           Universum hiding (Show, show)
+import           Universum
 
 import qualified Data.Foldable as Fold
 import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Formatting (build, sformat, shown, (%))
-import           GHC.Show (Show (..))
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Test.QuickCheck
 
+import           Util.Validated
 import           UTxO.Context
 import           UTxO.Crypto
 import           UTxO.DSL
@@ -117,32 +118,22 @@ data Inductive h a =
   | NewPending (Transaction h a) (Inductive h a)
   deriving Eq
 
-instance
-    ( Buildable (Transaction h a)
-    , Buildable (Block h a)
-    ) => Show (Inductive h a) where
-    show i = toString $ case i of
-      WalletEmpty    -> "WalletEmpty"
-      ApplyBlock b n -> sformat ("ApplyBlock (" % build % ") (" % shown % ")") b n
-      NewPending t n -> sformat ("NewPending (" % build % ") (" % shown % ")") t n
-
-
 -- | Interpreter for 'Inductive'
 --
 -- Given (one or more) empty wallets, evaluate an 'Inductive' wallet, checking
 -- the given property at each step.
 interpret :: forall ws h a.
-             Wallets ws h a                      -- ^ Empty wallet
-          -> (Wallets ws h a -> Either Text ())  -- ^ Predicate to check
-          -> Inductive h a -> Either Text (Wallets ws h a)
+             Wallets ws h a                         -- ^ Empty wallet
+          -> (Wallets ws h a -> Validated Text ())  -- ^ Predicate to check
+          -> Inductive h a -> Validated Text (Wallets ws h a)
 interpret es p = go
   where
-    go :: Inductive h a -> Either Text (Wallets ws h a)
+    go :: Inductive h a -> Validated Text (Wallets ws h a)
     go WalletEmpty      = verify es
     go (ApplyBlock b w) = go w >>= verify . walletsMap (applyBlock b)
     go (NewPending t w) = go w >>= verify . walletsMap (newPending' t)
 
-    verify :: Wallets ws h a -> Either Text (Wallets ws h a)
+    verify :: Wallets ws h a -> Validated Text (Wallets ws h a)
     verify ws = p ws >> return ws
 
 {-------------------------------------------------------------------------------
@@ -157,13 +148,13 @@ interpret es p = go
 --
 -- In order to evaluate the inductive definition we need the empty wallet
 -- to be passed as a starting point.
-type Invariant h a = Inductive h a -> Either Text ()
+type Invariant h a = Inductive h a -> Validated Text ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
 invariant :: IsWallet w h a => Text -> w h a -> (w h a -> Bool) -> Invariant h a
 invariant err e p = void . interpret (One e) p'
   where
-    p' (One w) = if p w then Right () else Left err
+    p' (One w) = unless (p w) $ throwError err
 
 {-------------------------------------------------------------------------------
   Specific invariants
@@ -211,7 +202,7 @@ walletEquivalent :: forall w w' h a. (IsWallet w h a, IsWallet w' h a)
                  => w h a -> w' h a -> Invariant h a
 walletEquivalent e e' = void . interpret (Two e e') p
   where
-    p :: Wallets '[w,w'] h a -> Either Text ()
+    p :: Wallets '[w,w'] h a -> Validated Text ()
     p (Two w w') = sequence_ [
           cmp "pending"          pending
         , cmp "utxo"             utxo
@@ -225,8 +216,8 @@ walletEquivalent e e' = void . interpret (Two e e') p
         cmp :: Eq b
             => Text
             -> (forall w''. IsWallet w'' h a => w'' h a -> b)
-            -> Either Text ()
-        cmp err f = if f w == f w' then Right () else Left err
+            -> Validated Text ()
+        cmp err f = unless (f w == f w') $ throwError err
 
 {-------------------------------------------------------------------------------
   Auxiliary operations
@@ -256,6 +247,10 @@ utxoRestrictToOurs p = utxoRestrictToAddr (isJust . p)
 -- This is available out of the box from containters >= 0.5.11
 disjoint :: Ord a => Set a -> Set a -> Bool
 disjoint a b = Set.null (a `Set.intersection` b)
+
+{-------------------------------------------------------------------------------
+  Generation
+-------------------------------------------------------------------------------}
 
 -- $generation
 --
@@ -373,6 +368,8 @@ chainToApplyBlocks =
 -- * The transaction must be before the block that confirms it, if any
 --   blocks confirm it. It is not necessary that the transaction gets
 --   confirmed eventually!
+--
+-- See Note [Intersperse]
 intersperseTransactions
     :: Hash h Addr
     => Set Addr
@@ -474,3 +471,62 @@ transactionMaxIndex addrs txn chain ledger =
 
 liftGen :: Gen a -> InductiveGen h a
 liftGen = InductiveGen . lift
+
+{- Note [Intersperse]
+~~~~~~~~~~~~~~~~~~~~~
+Given a list of blocks
+
+> [ applyBlock_0, applyBlock_1, applyBlock_2, applyBlock_3, applyBlock_4 ]
+
+we construct an 'IntMap' out of them where the index in the intmap is the
+original index of that block in the chain:
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1]
+> , 2 -> [applyBlock_2]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+Then, when we select an index between @lo@ (the latest block to confirm an input
+in the transaction) and @hi@ (the index of the block that confirms the
+transaction itself), we can 'insertWith' at that index. Suppose we have a
+transaction @t@ where the input was provided in block 1 and is confirmed in
+block 3. That means we can have @NewPending t@ inserted into either index 1 or
+2:
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1] <> [newPending t] = [applyBlock_1, newPending t]
+> , 2 -> [applyBlock_2]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+or
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1]
+> , 2 -> [applyBlock_2] <> [newPending t] = [applyBlock_2, newPending t]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+Then, when we finally go to 'conssec' the @IntMap [Action h a]@ back into a
+@[Action h a]@, we get:
+
+> [ applyBlock_0
+> , applyBlock_1
+> , applyBlock_2, newPending t
+> , applyBlock_3
+> , applyBlock_4
+> ]
+-}
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (Inductive h a) where
+    build WalletEmpty      = "WalletEmpty"
+    build (ApplyBlock b n) = bprint ("ApplyBlock (" % build % ") (" % build % ")") b n
+    build (NewPending t n) = bprint ("NewPending (" % build % ") (" % build % ")") t n

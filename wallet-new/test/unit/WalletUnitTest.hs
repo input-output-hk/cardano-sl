@@ -1,38 +1,36 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Wallet unit tests
 --
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
 module Main (main) where
 
-import Universum
-import Formatting (sformat, bprint, build, (%), shown)
-import Test.Hspec
-import Test.Hspec.QuickCheck
-import Test.QuickCheck
-import Prelude (Show(..))
-import Serokell.Util (mapJson)
-import qualified Data.Text.Buildable
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, shown, (%))
+import           Serokell.Util (mapJson)
+import           Test.Hspec.QuickCheck
+import           Universum
 
-import Pos.Util.Chrono
 import qualified Pos.Block.Error as Cardano
-import qualified Pos.Txp.Toil    as Cardano
+import qualified Pos.Txp.Toil as Cardano
+import           Pos.Util.Chrono
 
-import qualified Cardano.Wallet.Kernel           as Kernel
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 
-import UTxO.Bootstrap
-import UTxO.Context
-import UTxO.DSL
-import UTxO.Interpreter
-import UTxO.PreChain
-import UTxO.Translate
-import UTxO.BlockGen
+import           UTxO.BlockGen
+import           UTxO.Bootstrap
+import           UTxO.Context
+import           UTxO.DSL
+import           UTxO.Interpreter
+import           UTxO.PreChain
+import           UTxO.Translate
 
-import Wallet.Abstract
-import qualified Wallet.Spec        as Spec
+import           Util.Buildable.Hspec
+import           Util.Buildable.QuickCheck
+import           Util.Validated
+import           Wallet.Abstract
 import qualified Wallet.Incremental as Incr
+import qualified Wallet.Spec as Spec
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -59,19 +57,18 @@ _showContext = do
 
 tests :: Spec
 tests = describe "Wallet unit tests" $ do
-    sanityCheckTranslation
-    quickCheckTranslation
-    sanityCheckPureWallet
-    sanityCheckPassiveWallet
-    sanityCheckActiveWallet
+    testTranslation
+    testPureWallet
+    testPassiveWallet
+    testActiveWallet
 
 {-------------------------------------------------------------------------------
   UTxO->Cardano translation tests
 -------------------------------------------------------------------------------}
 
-sanityCheckTranslation :: Spec
-sanityCheckTranslation =
-    describe "Test sanity checks" $ do
+testTranslation :: Spec
+testTranslation = do
+    describe "Translation sanity checks" $ do
       it "can construct and verify empty block" $
         intAndVerifyPure emptyBlock `shouldSatisfy` expectValid
 
@@ -87,14 +84,8 @@ sanityCheckTranslation =
       it "can reject double spending" $
         intAndVerifyPure doublespend `shouldSatisfy` expectInvalid
 
-quickCheckTranslation :: Spec
-quickCheckTranslation =
-    describe "QuickCheck sanity checks" $ do
-      prop "can construct and verify block with one arbitrary transaction" $
-        forAll
-          (intAndVerifyGen genOneTrans)
-          expectValid
-      prop "DSL and Cardano agree on randomly generated chains" $
+    describe "Translation QuickCheck tests" $ do
+      prop "can translate randomly generated chains" $
         forAll
           (intAndVerifyGen genValidBlockchain)
           expectValid
@@ -103,27 +94,22 @@ quickCheckTranslation =
   Pure wallet tests
 -------------------------------------------------------------------------------}
 
--- | Sanity checks for the pure wallet implementations
---
--- TODO: We should have QuickCheck generators for InductiveWallets, and then do
--- the same three checks (simple wallet satisfies invariants, incremental wallet
--- satisfies invariants, and equivalence between simple and incremental wallet).
-sanityCheckPureWallet :: Spec
-sanityCheckPureWallet = do
+testPureWallet :: Spec
+testPureWallet = do
     describe "Pure wallet sanity checks" $ do
-      it "simple empty wallet satisfies invariants" $
-        walletInvariants specEmpty WalletEmpty `shouldBe` Right ()
-      it "incremental empty wallet satisfies invariants" $
-        walletInvariants incrEmpty WalletEmpty `shouldBe` Right ()
-      it "simple and incremental empty wallets are equivalent" $
-        walletEquivalent specEmpty incrEmpty WalletEmpty `shouldBe` Right ()
+      valid "simple empty wallet satisfies invariants" $
+        walletInvariants specEmpty WalletEmpty
+      valid "incremental empty wallet satisfies invariants" $
+        walletInvariants incrEmpty WalletEmpty
+      valid "simple and incremental empty wallets are equivalent" $
+        walletEquivalent specEmpty incrEmpty WalletEmpty
 
     describe "Inductive Wallet Generation" $ do
       prop "constructed inductive wallet satisfies invariants" $ do
         forAll genInductive $ \wallet -> conjoin
-          [ walletInvariants specEmpty wallet `shouldBe` Right ()
-          , walletInvariants incrEmpty wallet `shouldBe` Right ()
-          , walletEquivalent specEmpty incrEmpty WalletEmpty `shouldBe` Right ()
+          [ isValidated $ walletInvariants specEmpty wallet
+          , isValidated $ walletInvariants incrEmpty wallet
+          , isValidated $ walletEquivalent specEmpty incrEmpty WalletEmpty
           ]
   where
     transCtxt = runTranslateNoErrors ask
@@ -157,8 +143,8 @@ sanityCheckPureWallet = do
   Passive wallet tests
 -------------------------------------------------------------------------------}
 
-sanityCheckPassiveWallet  :: Spec
-sanityCheckPassiveWallet = around bracketPassiveWallet $
+testPassiveWallet  :: Spec
+testPassiveWallet = around bracketPassiveWallet $
     describe "Passive wallet sanity checks" $ do
       it "can be initialized" $ \w ->
         Kernel.init w
@@ -174,8 +160,8 @@ bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
   Active wallet tests
 -------------------------------------------------------------------------------}
 
-sanityCheckActiveWallet :: Spec
-sanityCheckActiveWallet = around bracketWallet $
+testActiveWallet :: Spec
+testActiveWallet = around bracketWallet $
     describe "Active wallet sanity checks" $ do
       it "initially has no pending transactions" $ \w ->
         Kernel.hasPending w `shouldReturn` False
@@ -192,32 +178,6 @@ bracketWallet test =
     diffusion =  Kernel.WalletDiffusion {
           walletSendTx = \_tx -> return False
         }
-
-{-------------------------------------------------------------------------------
-  Example QuickCheck generated chains
--------------------------------------------------------------------------------}
-
--- | Chain with a single transaction that transfers an arbitrary amount from
--- the first rich actor to the second.
-genOneTrans :: Hash h Addr => PreChain h Gen
-genOneTrans = PreChain $ \boot -> do
-    -- TODO: The actual range we can use here is @(1, initR0 - fee)@ where
-    -- @fee@ is the fee of the transaction. Sadly, however, we don't know
-    -- this fee in advance. Hence, any QuickCheck generators for transactions
-    -- will need to be a little bit conservative (possibly using some kind of
-    -- @maxFee@ upper bound).
-    value <- choose (1, 1000)
-    return $ \((fee : _) : _) ->
-      let t1 = Transaction {
-                   trFresh = 0
-                 , trFee   = fee
-                 , trHash  = 1
-                 , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-                 , trOuts  = [ Output r1 value
-                             , Output r0 (initR0 - value - fee)
-                             ]
-                 }
-      in OldestFirst [OldestFirst [t1]]
 
 {-------------------------------------------------------------------------------
   Example hand-constructed chains
@@ -357,17 +317,17 @@ intAndVerifyChain pc = runTranslateT $ do
     case intResult of
       Left e ->
         case dslIsValid of
-          Right () -> returnWith $ Disagreement fpcLedger (UnexpectedError e)
-          Left e'  -> returnWith $ ExpectedInvalid e' (Right e)
+          Valid   () -> returnWith $ Disagreement fpcLedger (UnexpectedError e)
+          Invalid e' -> returnWith $ ExpectedInvalid' e' e
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
-          (Left  e' , Left  e) -> returnWith $ ExpectedInvalid e' (Left e)
-          (Left  e' , Right _) -> returnWith $ Disagreement fpcLedger (UnexpectedValid e')
-          (Right () , Left  e) -> returnWith $ Disagreement fpcLedger (UnexpectedInvalid e)
-          (Right () , Right (_undo, finalUtxo)) -> do
+          (Invalid e' , Invalid e) -> returnWith $ ExpectedInvalid e' e
+          (Invalid e' , Valid   _) -> returnWith $ Disagreement fpcLedger (UnexpectedValid e')
+          (Valid   () , Invalid e) -> returnWith $ Disagreement fpcLedger (UnexpectedInvalid e)
+          (Valid   () , Valid   (_undo, finalUtxo)) -> do
             (finalUtxo', _) <- runIntT ctxt dslUtxo
             if finalUtxo == finalUtxo'
               then returnWith $ ExpectedValid
@@ -386,13 +346,16 @@ data ValidationResult h a =
     ExpectedValid
 
     -- | We expected the chain to be invalid; DSL and Cardano both agree
-    --
-    -- We record the error message from the DSL validator and the error message
-    -- we get from Cardano. Note that some invalid chains cannot even be
-    -- constructed (for example, when we try to overspend).
   | ExpectedInvalid {
         validationErrorDsl     :: Text
-      , validationErrorCardano :: Either Cardano.VerifyBlocksException IntException
+      , validationErrorCardano :: Cardano.VerifyBlocksException
+      }
+
+    -- | Variation on 'ExpectedInvalid', where we cannot even /construct/
+    -- the Cardano chain, much less validate it.
+  | ExpectedInvalid' {
+        validationErrorDsl :: Text
+      , validationErrorInt :: IntException
       }
 
     -- | Disagreement between the DSL and Cardano
@@ -449,12 +412,6 @@ expectInvalid _otherwise            = False
   Pretty-printing
 -------------------------------------------------------------------------------}
 
-instance (Hash h a, Buildable a) => Show (ValidationResult h a) where
-  show = toString . pretty
-
-instance (Hash h a, Buildable a) => Show (Disagreement h a) where
-  show = toString . pretty
-
 instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
   build ExpectedValid = "ExpectedValid"
   build ExpectedInvalid{..} = bprint
@@ -465,6 +422,14 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationErrorDsl
       validationErrorCardano
+  build ExpectedInvalid'{..} = bprint
+      ( "ExpectedInvalid'"
+      % ", errorDsl: " % build
+      % ", errorInt: " % build
+      % "}"
+      )
+      validationErrorDsl
+      validationErrorInt
   build Disagreement{..} = bprint
       ( "Disagreement "
       % "{ ledger: "       % build
@@ -473,10 +438,6 @@ instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
       )
       validationLedger
       validationDisagreement
-
-instance Buildable (Either Cardano.VerifyBlocksException IntException) where
-  build (Left  e) = bprint build e
-  build (Right e) = bprint shown e
 
 instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
   build (UnexpectedInvalid e) = bprint ("UnexpectedInvalid " % build) e

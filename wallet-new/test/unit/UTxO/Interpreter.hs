@@ -16,9 +16,11 @@ module UTxO.Interpreter (
 
 import Universum
 import Data.Default (def)
+import Formatting (bprint, shown)
 import Prelude (Show(..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict    as Map
+import qualified Data.Text.Buildable
 
 import Pos.Block.Logic
 import Pos.Client.Txp
@@ -51,6 +53,9 @@ data IntException =
   deriving (Show)
 
 instance Exception IntException
+
+instance Buildable IntException where
+  build = bprint shown
 
 {-------------------------------------------------------------------------------
   Interpretation context

@@ -32,6 +32,7 @@ import Pos.Util.Chrono
 
 import UTxO.Context
 import UTxO.Verify (Verify)
+import Util.Validated
 import qualified UTxO.Verify as Verify
 
 {-------------------------------------------------------------------------------
@@ -138,16 +139,16 @@ catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
 -- | Run the verifier
 verify :: Monad m
        => (HasConfiguration => Verify e a)
-       -> TranslateT e' m (Either e (a, Utxo))
+       -> TranslateT e' m (Validated e (a, Utxo))
 verify ma = withConfig $ do
     utxo <- asks (ccUtxo . tcCardano)
-    return $ Verify.verify utxo ma
+    return $ validatedFromEither (Verify.verify utxo ma)
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
 verifyBlocksPrefix
   :: Monad m
   => OldestFirst NE Block
-  -> TranslateT e' m (Either VerifyBlocksException (OldestFirst NE Undo, Utxo))
+  -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
 verifyBlocksPrefix blocks = do
     CardanoContext{..} <- asks tcCardano
     let tip         = ccHash0

@@ -231,7 +231,11 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      UTxO.BlockGen
+  other-modules:      Util.Buildable
+                      Util.Buildable.Hspec
+                      Util.Buildable.QuickCheck
+                      Util.Validated
+                      UTxO.BlockGen
                       UTxO.Bootstrap
                       UTxO.Context
                       UTxO.Crypto

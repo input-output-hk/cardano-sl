@@ -9,7 +9,7 @@ module Pos.Block.Network.Retrieval
 import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
-                                         tryTakeTMVar)
+                                         tryTakeTMVar, readTBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -31,8 +31,8 @@ import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, i
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
+import           Pos.Diffusion.Types (Diffusion, StreamEntry (..))
+import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks, streamBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
@@ -173,7 +173,7 @@ retrievalWorkerImpl diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -315,3 +315,24 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
                   else pure False
           when exitedRecovery $
               logInfo "Recovery mode exited gracefully on receiving block we needed"
+
+streamProcessBlocks
+    :: forall ctx m.
+       (BlockWorkMode ctx m)
+    => Diffusion m
+    -> NodeId
+    -> HeaderHash
+    -> [HeaderHash]
+    -> m ()
+streamProcessBlocks diffusion nodeId desired checkpoints = do
+    _ <- Diffusion.streamBlocks diffusion nodeId desired checkpoints loop
+    return ()
+  where
+    loop blockChan = do
+        streamEntry <- atomically $ readTBQueue blockChan
+        case streamEntry of
+          StreamEnd         -> return ()
+          StreamBlock block -> do
+            handleBlocks nodeId (OldestFirst (block :| [])) diffusion
+            loop blockChan
+

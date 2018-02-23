@@ -7,7 +7,7 @@ module Pos.Diffusion.Full.Block
     , requestTip
     , announceBlockHeader
     , handleHeadersCommunication
-
+    , streamBlocks
     , blockListeners
     ) where
 
@@ -25,16 +25,18 @@ import qualified Data.Text.Buildable as B
 import           Data.Time.Units (toMicroseconds, fromMicroseconds)
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
+import           Mockable.Concurrent (async, wait)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logWarning)
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+                                    MsgHeaders (..), MsgStreamStart (..), MsgStreamUpdate (..),
+                                    MsgStream (..), MsgStreamBlock (..))
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
-                                           mlMsgGetHeaders)
+                                           mlMsgGetHeaders, mlMsgStreamBlock, mlMsgStream)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners (..),
                                              MsgType (..), NodeId, Origin (..), OutSpecs,
@@ -46,6 +48,7 @@ import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, block
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
+import           Pos.Diffusion.Types (StreamEntry (..))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)
@@ -264,6 +267,112 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints 
               Just (MsgBlock block) -> do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
+streamBlocks
+    :: forall d t .
+       ( Monoid t
+       , DiffusionWorkMode d
+       )
+    => Logic d
+    -> EnqueueMsg d
+    -> NodeId
+    -> HeaderHash
+    -> [HeaderHash]
+    -> (Conc.TBQueue StreamEntry -> d t)
+    -> d t
+streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
+
+    blockChan <- atomically $ Conc.newTBQueue $ fromIntegral windowSize
+    -- XXX Is this the third or forth thread needed to read and write to a socket?
+    threadId <- async (requestBlocks blockChan)
+    x <- k blockChan
+    _ <- wait threadId
+    return x
+  where
+
+    mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
+    mkStreamStart chain wantedBlock =
+        MsgStart $ MsgStreamStart
+        { mssFrom = chain
+        , mssTo = wantedBlock
+        , mssWindow = 8 -- XXX
+        }
+
+    requestBlocks :: Conc.TBQueue StreamEntry -> d ()
+    requestBlocks blockChan = enqueueMsgSingle
+        enqueue
+        (MsgRequestBlocks (S.singleton nodeId))
+        (Conversation $ requestBlocksConversation blockChan)
+
+    windowSize = 8 :: Word32 -- XXX
+
+    requestBlocksConversation
+        :: Conc.TBQueue StreamEntry
+        -> ConversationActions MsgStream MsgStreamBlock d
+        -> d ()
+    requestBlocksConversation blockChan conv = do
+        let newestHash = headerHash tipHeader
+
+        logDebug $ sformat ("streamBlocks: Requesting stream of blocks from "%listJson%" to "%shortHashF)
+                           checkpoints
+                           newestHash
+        send conv $ mkStreamStart checkpoints newestHash
+        bvd <- getAdoptedBVData logic
+        retrieveBlocks bvd blockChan conv windowSize
+
+        return ()
+
+    -- A piece of the block retrieval conversation in which the blocks are
+    -- pulled in one-by-one.
+    retrieveBlocks
+        :: BlockVersionData
+        -> Conc.TBQueue StreamEntry
+        -> ConversationActions MsgStream MsgStreamBlock d
+        -> Word32
+        -> d ()
+    retrieveBlocks bvd blockChan conv window = do
+        window' <- if window < windowSize `div` 2
+                          then do
+                              let w' = windowSize
+                              logDebug $ sformat ("Updating Window: "%int%" to "%int) window w'
+                              send conv $ MsgUpdate $ MsgStreamUpdate $ w'
+                              return (w' - 1)
+                    else return $ window - 1
+        block <- retrieveBlock bvd conv
+        case block of
+             MsgStreamNoBlock t -> do
+                 let msg = sformat ("MsgStreamNoBlock "%stext) t
+                 logWarning msg
+                 throwM $ DialogUnexpected msg
+             MsgStreamEnd -> do
+                 atomically $ Conc.writeTBQueue blockChan StreamEnd
+                 return ()
+             MsgStreamBlock b -> do
+                 logDebug $ sformat ("Read block "%shortHashF) (headerHash b)
+                 atomically $ Conc.writeTBQueue blockChan (StreamBlock b)
+                 retrieveBlocks bvd blockChan conv window'
+
+    retrieveBlock
+        :: BlockVersionData
+        -> ConversationActions MsgStream MsgStreamBlock d
+        -> d MsgStreamBlock
+    retrieveBlock bvd conv = do
+        chainE <- runExceptT (retrieveBlockDo bvd conv)
+        case chainE of
+            Left e -> do
+                let msg = sformat ("Error retrieving blocks from peer: "%build% " "%stext) nodeId e
+                logWarning msg
+                throwM $ DialogUnexpected msg
+            Right block -> return block
+
+    retrieveBlockDo
+        :: BlockVersionData
+        -> ConversationActions MsgStream MsgStreamBlock d
+        -> ExceptT Text d MsgStreamBlock
+    retrieveBlockDo bvd conv = lift (recvLimited conv (mlMsgStreamBlock bvd)) >>= \case
+              Nothing ->
+                  throwError $ sformat ("Block retrieval cut short by peer")
+              Just block -> return block
+
 requestTip
     :: forall d .
        ( DiffusionWorkMode d )
@@ -416,6 +525,7 @@ blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer 
     , handleGetBlocks logic recoveryHeadersMessage oq
       -- Peer has a block header for us (yes, singular only).
     , handleBlockHeaders logic oq recoveryHeadersMessage keepaliveTimer
+    , handleStreamStart logic oq
     ]
 
 ----------------------------------------------------------------------------
@@ -479,6 +589,84 @@ handleGetBlocks logic recoveryHeadersMessage oq = listenerConv oq $ \__ourVerInf
     failMalformed =
         throwM $ DBMalformed $
         "handleGetBlocks: getHashesRange returned header that doesn't " <>
+        "have corresponding block in storage."
+
+handleStreamStart
+    :: forall pack m.
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> OQ.OutboundQ pack NodeId Bucket
+    -> (ListenerSpec m, OutSpecs)
+handleStreamStart logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
+    msMsg <- recvLimited conv mlMsgStream
+    whenJust msMsg $ \ms -> do
+        case ms of
+             MsgStart s -> do
+                 logDebug $ sformat ("Streaming Request from node "%build) nodeId
+                 stream nodeId conv (mssFrom s) (mssTo s) (mssWindow s)
+             MsgUpdate _ -> do
+                 send conv $ MsgStreamNoBlock "MsgUpdate without MsgStreamStart"
+                 logDebug $ sformat ("MsgStream without MsgStreamStart from node "%build)
+                                    nodeId
+                 return ()
+
+  where
+    stream nodeId conv [] _ _ = do
+        send conv $ MsgStreamNoBlock "MsgStreamStart with empty from chain"
+        logDebug $ sformat ("MsgStreamStart with empty from chain from node "%build) nodeId
+        return ()
+    stream nodeId conv (cl:cxs) to_ window = do
+        headersE <- getBlockHeaders logic Nothing (cl:|cxs) (Just to_)
+        case headersE of
+             Left _ -> do
+                 send conv $ MsgStreamNoBlock "Failed to get block headers"
+                 logDebug $ sformat ("getBlockHeaders failed for "%listJson) (cl:cxs)
+                 return ()
+             Right headers -> do
+                 let lca = headers ^. _NewestFirst . _neLast
+                 let to' = headers ^. _NewestFirst . _neHead
+                 hashesM <- getHashesRange logic Nothing (headerHash lca) (headerHash to')
+                 case hashesM of
+                      Left e       -> do
+                          send conv $ MsgStreamNoBlock "Get hash range failed"
+                          logDebug $ sformat ("getHashesRange failed for "%build%" error "%shown)
+                                             nodeId e
+                          return ()
+                      Right hashes -> do
+                            logDebug $ sformat ("handleStreamStart: started sending "%int%
+                                                " blocks to "%build%" one-by-one")
+                                               (length hashes) nodeId
+                            loop nodeId conv (toList hashes) window
+
+    loop nodeId conv [] _ = do
+        send conv MsgStreamEnd
+        logDebug $ sformat ("Streaming Done for node"%build) nodeId
+    loop nodeId conv hashes  0 = do
+        logDebug "handleStreamStart:loop waiting on window update"
+        msMsg <- recvLimited conv mlMsgStream
+        whenJust msMsg $ \ms -> do
+             case ms of
+                  MsgStart _ -> do
+                      send conv $ MsgStreamNoBlock ("MsgStreamStart, expected MsgStreamUpdate")
+                      logDebug $ sformat ("handleStreamStart:loop MsgStart, expected MsgStreamUpdate from "%build)
+                                         nodeId
+                      return ()
+                  MsgUpdate u -> do
+                      logDebug $ sformat ("handleStreamStart:loop new window "%shown%" from "%build)
+                                         u nodeId
+                      loop nodeId conv hashes (msuWindow u)
+    loop nodeId conv (hash:hashes) window = do
+        getBlock logic hash >>= \case
+            Just b -> do
+                send conv $ MsgStreamBlock b
+                loop nodeId conv hashes (window - 1)
+            Nothing  -> do
+                send conv $ MsgStreamNoBlock ("Couldn't retrieve block with hash " <> pretty hash)
+                failMalformed
+
+    failMalformed =
+        throwM $ DBMalformed $
+        "handleStreamStart: getHashesRange returned header that doesn't " <>
         "have corresponding block in storage."
 
 ----------------------------------------------------------------------------

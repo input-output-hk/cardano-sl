@@ -29,7 +29,8 @@ import           Node.Conversation (Converse, converseWith, Conversation)
 import           System.Random (newStdGen)
 import           System.Wlog (WithLogger, CanLog, usingLoggerName)
 
-import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock)
+import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock, MsgStream,
+                                    MsgStreamBlock)
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
                                     EnqueueMsg, makeEnqueueMsg, bipPacking, Listener,
                                     MkListeners (..), HandlerSpecs, InSpecs (..),
@@ -58,7 +59,7 @@ import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), StreamEntry)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
@@ -266,11 +267,16 @@ diffusionLayerFullExposeInternals runIO
             , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
                                                             (Proxy :: Proxy MsgBlock)
                                                     ]
+            , streamBlockHeaderOuts
             ]
 
         announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
                                                      (Proxy :: Proxy MsgGetHeaders)
                                              ]
+
+        streamBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgStream)
+                                                   (Proxy :: Proxy MsgStreamBlock)
+                                           ]
 
         -- Plainly mempty from the definition of allWorkers.
         slottingWorkerOutSpecs = mempty
@@ -344,6 +350,15 @@ diffusionLayerFullExposeInternals runIO
                   -> [HeaderHash]
                   -> d (OldestFirst [] Block)
         getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue
+
+        streamBlocks :: forall t .
+                        ( Monoid t)
+                     => NodeId
+                     -> HeaderHash
+                     -> [HeaderHash]
+                     -> (STM.TBQueue StreamEntry -> d t)
+                     -> d t
+        streamBlocks = Diffusion.Block.streamBlocks logic enqueue
 
         requestTip :: d (Map NodeId (d BlockHeader))
         requestTip = Diffusion.Block.requestTip logic enqueue recoveryHeadersMessage

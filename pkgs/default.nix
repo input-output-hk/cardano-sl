@@ -7342,8 +7342,8 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, base, base64-bytestring, bytestring
          , cardano-report-server, cardano-sl-binary, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-networking
-         , cardano-sl-util, conduit, containers, cpphs, directory, dns
-         , ekg-core, ekg-statsd, ekg-wai, ether, exceptions, filepath
+         , cardano-sl-util, clock, conduit, containers, cpphs, directory
+         , dns, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, filepath
          , formatting, generic-arbitrary, hashable, http-client
          , http-client-tls, iproute, kademlia, lens, log-warper
          , lzma-conduit, monad-control, mtl, network-info, network-transport
@@ -7359,8 +7359,8 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              aeson base base64-bytestring bytestring cardano-report-server
              cardano-sl-binary cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-networking cardano-sl-util conduit containers directory
-             dns ekg-core ekg-statsd ekg-wai ether exceptions filepath
+             cardano-sl-networking cardano-sl-util clock conduit containers
+             directory dns ekg-core ekg-statsd ekg-wai ether exceptions filepath
              formatting generic-arbitrary hashable http-client http-client-tls
              iproute kademlia lens log-warper lzma-conduit monad-control mtl
              network-info network-transport network-transport-tcp

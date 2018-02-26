@@ -38,9 +38,6 @@ module Pos.Core.Txp
        , txpTxs
        , txpWitnesses
 
-       -- * Verification
-       , mkTxPayloadMerkleTree
-
        -- * Undo
        , TxUndo
        , TxpUndo
@@ -66,7 +63,7 @@ import           Pos.Core.Common (Address (..), Coin (..), Script, addressHash, 
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Merkle (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot)
+import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -319,11 +316,6 @@ mkTxPayload txws = do
 -- | Check a TxPayload by checking all of the Txs it contains.
 checkTxPayload :: MonadError Text m => TxPayload -> m ()
 checkTxPayload it = forM_ (_txpTxs it) checkTx
-
--- | Construct a merkle tree from the transactions in a 'TxPayload'
--- Use with care; this can be very expensive.
-mkTxPayloadMerkleTree :: (Bi Tx) => TxPayload -> MerkleTree Tx
-mkTxPayloadMerkleTree UnsafeTxPayload {..} = mkMerkleTree _txpTxs
 
 ----------------------------------------------------------------------------
 -- Undo

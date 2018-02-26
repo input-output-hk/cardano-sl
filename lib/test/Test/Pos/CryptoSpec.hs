@@ -16,7 +16,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, ioProperty, pro
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
-import           Pos.Arbitrary.Crypto (SharedSecrets (..))
 import           Pos.Binary (AsBinary, Bi)
 import           Pos.Core (HasConfiguration, protocolMagic)
 import           Pos.Communication.Limits (mlVssPublicKey, mlAbstractHash, mlDecShare,
@@ -27,9 +26,12 @@ import           Pos.SafeCopy ()
 import           Pos.Ssc ()
 
 import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
+import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode,
                                    safeCopyTest, serDeserId)
+
+
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

@@ -26,7 +26,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof, sc
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Crypto (genSignature, genRedeemSignature)
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
@@ -38,6 +37,8 @@ import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
+
+import           Test.Pos.Crypto.Arbitrary (genSignature, genRedeemSignature)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types

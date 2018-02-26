@@ -1,6 +1,6 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
-module Pos.Arbitrary.Crypto
+module Test.Pos.Arbitrary.Crypto
        ( SharedSecrets (..)
        ) where
 
@@ -12,7 +12,6 @@ import           Data.List.NonEmpty (fromList)
 import           Test.QuickCheck (Arbitrary (..), elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.AsBinary ()
@@ -24,17 +23,18 @@ import           Pos.Crypto.Random (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretProof, Threshold,
                                            VssKeyPair, VssPublicKey, decryptShare, genSharedSecret,
                                            toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.Signing (ProxyCert, ProxySecretKey, ProxySignature, PublicKey,
-                                     SecretKey, Signature, Signed, keyGen, mkSigned, proxySign,
-                                     sign, toPublic)
+import           Pos.Crypto.Signing (EncryptedSecretKey (..), PassPhrase, ProxyCert, ProxySecretKey,
+                                     ProxySignature, PublicKey, SecretKey, Signature, Signed,
+                                     SignTag (..), createProxyCert, createPsk, keyGen, mkSigned,
+                                     noPassEncrypt, proxySign, sign, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
                                             redeemKeyGen, redeemSign)
-import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
-import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), noPassEncrypt)
-import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
+
 import           Pos.Util.Orphans ()
 import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
                                                 sublistN)
+
+import           Test.Pos.Arbitrary.Crypto.Unsafe ()
 
 deriving instance Arbitrary ProtocolMagic
 

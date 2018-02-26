@@ -7,7 +7,7 @@ module Pos.DHT.Configuration
 
 import           Universum
 
--- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
+-- | Minimum number of neighbours to send to.
 neighborsSendThreshold :: (Integral a) => a
 neighborsSendThreshold = 2
 

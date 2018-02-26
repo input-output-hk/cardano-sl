@@ -52,6 +52,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          GenesisNonAvvmBalances (..), GenesisSpec,
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants, TestnetBalanceOptions,
+                                         VssMaxTTL (..), VssMinTTL (..),
                                          unGenesisDelegation)
 import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap,
                                validateVssCertificatesMap)
@@ -103,6 +104,18 @@ instance FromJSON GenesisDelegation where
     parseJSON = parseJSON >=> \v -> do
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
         toAesonError $ recreateGenesisDelegation elems
+
+instance ToJSON VssMaxTTL where
+    toJSON = toJSON . getVssMaxTTL
+
+instance FromJSON VssMaxTTL where
+    parseJSON = fmap VssMaxTTL . parseJSON
+
+instance ToJSON VssMinTTL where
+    toJSON = toJSON . getVssMinTTL
+
+instance FromJSON VssMinTTL where
+    parseJSON = fmap VssMinTTL . parseJSON
 
 deriveJSON defaultOptions ''FakeAvvmOptions
 deriveJSON defaultOptions ''TestnetBalanceOptions

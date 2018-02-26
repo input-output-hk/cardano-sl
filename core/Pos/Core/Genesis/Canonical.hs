@@ -34,7 +34,7 @@ import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         ProtocolConstants (..))
+                                         ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
@@ -76,6 +76,12 @@ instance Monad m => ToJSON m Word16 where
 
 instance Monad m => ToJSON m Word32 where
     toJSON = pure . JSNum . fromIntegral
+
+instance Monad m => ToJSON m VssMaxTTL where
+    toJSON = toJSON . getVssMaxTTL
+
+instance Monad m => ToJSON m VssMinTTL where
+    toJSON = toJSON . getVssMinTTL
 
 instance Monad m => ToJSON m Word64 where
     toJSON = pure . JSString . show
@@ -302,6 +308,12 @@ instance (ReportSchemaErrors m) => FromJSON m Word16 where
 instance (ReportSchemaErrors m) => FromJSON m Word32 where
     fromJSON (JSNum i) = pure . fromIntegral $ i
     fromJSON val       = expectedButGotValue "Word32" val
+
+instance (ReportSchemaErrors m) => FromJSON m VssMaxTTL where
+    fromJSON = fmap VssMaxTTL . fromJSON
+
+instance (ReportSchemaErrors m) => FromJSON m VssMinTTL where
+    fromJSON = fmap VssMinTTL . fromJSON
 
 instance (ReportSchemaErrors m) => FromJSON m Word64 where
     fromJSON = tryParseString readUnsignedDecimal

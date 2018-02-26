@@ -37,37 +37,39 @@ import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (HasCryptoConfiguration, SecretKey, SignTag (SignVssCert),
+import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (SignVssCert),
                              VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
 mkVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex)
-    => SecretKey
+    :: (Bi EpochIndex)
+    => ProtocolMagic
+    -> SecretKey
     -> AsBinary VssPublicKey
     -> EpochIndex
     -> VssCertificate
-mkVssCertificate sk vk expiry =
+mkVssCertificate pm sk vk expiry =
     UnsafeVssCertificate vk expiry signature (toPublic sk)
   where
-    signature = sign SignVssCert sk (vk, expiry)
+    signature = sign pm SignVssCert sk (vk, expiry)
 
 -- | Check a 'VssCertificate' for validity.
 checkVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
-    => VssCertificate
+    :: (Bi EpochIndex, MonadError Text m)
+    => ProtocolMagic
+    -> VssCertificate
     -> m ()
-checkVssCertificate it =
-    unless (checkCertSign it) $ throwError "checkVssCertificate: invalid sign"
+checkVssCertificate pm it =
+    unless (checkCertSign pm it) $ throwError "checkVssCertificate: invalid sign"
 
 -- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
-checkCertSign UnsafeVssCertificate {..} =
-    checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
+checkCertSign :: (Bi EpochIndex) => ProtocolMagic -> VssCertificate -> Bool
+checkCertSign pm UnsafeVssCertificate {..} =
+    checkSig pm SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 getCertId :: VssCertificate -> StakeholderId
 getCertId = addressHash . vcSigningKey
@@ -85,11 +87,12 @@ mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
 -- 'vcVssKey's. Also checks every VssCertificate in the map (see
 -- 'checkVssCertificate').
 checkVssCertificatesMap
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
-    => VssCertificatesMap
+    :: (Bi EpochIndex, MonadError Text m)
+    => ProtocolMagic
+    -> VssCertificatesMap
     -> m ()
-checkVssCertificatesMap vssCertsMap = do
-    forM_ certs checkVssCertificate
+checkVssCertificatesMap pm vssCertsMap = do
+    forM_ certs (checkVssCertificate pm)
     unless (allDistinct (map vcSigningKey certs))
         (throwError "VssCertificatesMap: two certs have the same signing key")
     unless (allDistinct (map vcVssKey certs))

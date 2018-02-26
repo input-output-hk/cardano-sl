@@ -21,6 +21,9 @@ module Pos.Core.Genesis.Types
 
        -- * GenesisData
        , GenesisData (..)
+
+       , VssMaxTTL (..)
+       , VssMinTTL (..)
        ) where
 
 import           Universum
@@ -191,10 +194,18 @@ data ProtocolConstants = ProtocolConstants
       -- | Magic constant for separating real/testnet.
     , pcProtocolMagic :: !ProtocolMagic
       -- | VSS certificates max timeout to live (number of epochs).
-    , pcVssMaxTTL     :: !Word32
+    , pcVssMaxTTL     :: !VssMaxTTL
       -- | VSS certificates min timeout to live (number of epochs).
-    , pcVssMinTTL     :: !Word32
+    , pcVssMinTTL     :: !VssMinTTL
     } deriving (Show, Eq, Generic)
+
+newtype VssMaxTTL = VssMaxTTL
+    { getVssMaxTTL :: Word32
+    } deriving (Eq, Show, Generic)
+
+newtype VssMinTTL = VssMinTTL
+    { getVssMinTTL :: Word32
+    } deriving (Eq, Show, Generic)
 
 -- | Specification how to generate full genesis data.
 data GenesisSpec = UnsafeGenesisSpec

@@ -32,7 +32,6 @@ import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
                                          GenesisInitializer (..), GenesisSpec (..))
 import           Pos.Core.Slotting.Types (Timestamp)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
 
@@ -44,7 +43,6 @@ type HasConfiguration =
     , HasGeneratedSecrets
     , HasGenesisBlockVersionData
     , HasProtocolConstants
-    , HasCryptoConfiguration
     )
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
@@ -71,8 +69,8 @@ prettyGenesisJson theGenesisData =
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-withCoreConfigurations ::
-       forall m r.
+withCoreConfigurations
+    :: forall m r.
        ( MonadThrow m
        , MonadIO m
        , Canonical.FromJSON (Either SchemaError) GenesisData
@@ -156,7 +154,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
             let
                 -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData (gsInitializer spec) (gsAvvmDistr spec)
+                    generateGenesisData E.protocolMagic (gsInitializer spec) (gsAvvmDistr spec)
 
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation

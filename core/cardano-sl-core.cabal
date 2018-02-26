@@ -137,6 +137,7 @@ library
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cborg

@@ -15,11 +15,11 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Pos.Aeson.Crypto
-                       Pos.Arbitrary.Crypto
                        Pos.Binary.Crypto
 
                        Pos.Crypto
 
+                       Pos.Crypto.AsBinary
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
@@ -31,9 +31,6 @@ library
                        Pos.Crypto.Signing.Signing
 
   other-modules:
-                       Pos.Arbitrary.Crypto.Unsafe
-
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Encryption
                        Pos.Crypto.Scrypt
 
@@ -45,8 +42,7 @@ library
                        Pos.Crypto.Signing.Types.Signing
                        Pos.Crypto.Signing.Types.Tag
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , autoexporter
                      , base
                      , binary

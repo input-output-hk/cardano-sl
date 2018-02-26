@@ -47,6 +47,7 @@ import           Pos.Util (HasLens', lensOf')
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Test.QuickCheck
 
+import           Util
 import           Util.Validated
 import           UTxO.Context
 import           UTxO.Crypto
@@ -267,16 +268,6 @@ updatePending b = Set.filter $ \t -> disjoint (trIns t) (txIns b)
 
 utxoRestrictToOurs :: Ours a -> Utxo h a -> Utxo h a
 utxoRestrictToOurs p = utxoRestrictToAddr (isJust . p)
-
-{-------------------------------------------------------------------------------
-  Util
--------------------------------------------------------------------------------}
-
--- | Check that two sets are disjoint
---
--- This is available out of the box from containters >= 0.5.11
-disjoint :: Ord a => Set a -> Set a -> Bool
-disjoint a b = Set.null (a `Set.intersection` b)
 
 {-------------------------------------------------------------------------------
   Generation

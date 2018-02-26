@@ -82,6 +82,7 @@ import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum
 
+import           Util
 import           Util.Validated
 
 {-------------------------------------------------------------------------------
@@ -592,17 +593,6 @@ instance (Buildable a, Hash h a) => Buildable (Utxo h a) where
 {-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}
-
-at :: [a] -> Int -> Maybe a
-at []     _ = Nothing
-at (x:_)  0 = Just x
-at (_:xs) i = at xs (i - 1)
-
-withoutKeys :: Ord k => Map k a -> Set k -> Map k a
-m `withoutKeys` s = m `Map.difference` Map.fromSet (const ()) s
-
-restrictKeys :: Ord k => Map k a -> Set k -> Map k a
-m `restrictKeys` s = m `Map.intersection` Map.fromSet (const ()) s
 
 data UtxoException = UtxoException CallStack Text
 

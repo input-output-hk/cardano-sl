@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Wallet.SpecRollback (
+-- | Specification of rollback
+module Wallet.Rollback (
     Wallet -- opaque
   , walletEmpty
   ) where
@@ -64,6 +65,11 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
             _stateUtxo    = updateUtxo (ours w) b (w ^. currentState . stateUtxo)
           , _statePending = updatePending       b (w ^. currentState . statePending)
           }
+
+  -- TODO: This version is incorrect. We need to modify the definition of
+  -- 'change' (see section 7.3., "Available and change", of the spec.)
+  -- Intentially leaving this bug in here for now so that we can make sure
+  -- unit tests catch it before fixing it.
 
 instance (Hash h a, Ord a) => Rollback Wallet h a where
   rollback w = w & walletState %~ aux

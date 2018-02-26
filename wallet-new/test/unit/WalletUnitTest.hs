@@ -30,9 +30,11 @@ import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
 import           Wallet.Abstract
+-- import qualified Wallet.Full as Full
 import qualified Wallet.Incremental as Incr
+import qualified Wallet.Prefiltered as Pref
+import qualified Wallet.Rollback as Roll
 import qualified Wallet.Spec as Spec
-import qualified Wallet.SpecRollback as Roll
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -114,11 +116,15 @@ testPureWallet = do
           shouldBeValidated . walletInvariants incrEmpty
         it "rollEmpty" $
           shouldBeValidated . walletInvariants rollEmpty
+        it "prefEmpty" $
+          shouldBeValidated . walletInvariants rollEmpty
       describe "Wallets are equivalent after interpretation" $ do
         it "spec and incr" $
           shouldBeValidated . walletEquivalent specEmpty incrEmpty
         it "spec and roll" $
           shouldBeValidated . walletEquivalent specEmpty rollEmpty
+        it "spec and pref" $
+          shouldBeValidated . walletEquivalent specEmpty prefEmpty
   where
     transCtxt = runTranslateNoErrors ask
 
@@ -139,6 +145,9 @@ testPureWallet = do
 
     rollEmpty :: Roll.Wallet GivenHash Addr
     rollEmpty = Roll.walletEmpty isOurs
+
+    prefEmpty :: Pref.Wallet GivenHash Addr
+    prefEmpty = Pref.walletEmpty isOurs
 
     isOurs :: Ours Addr
     isOurs addr = do

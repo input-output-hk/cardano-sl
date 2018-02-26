@@ -8,6 +8,9 @@
 module Wallet.Incremental (
     Wallet
   , walletEmpty
+    -- * Internals
+  , applyBlock'
+  , walletState
   ) where
 
 import           Universum hiding (State)
@@ -16,6 +19,7 @@ import           Control.Lens.TH
 import qualified Data.Set as Set
 import           Pos.Util
 
+import           Util
 import           UTxO.DSL
 import           Wallet.Abstract
 
@@ -64,21 +68,9 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
   utxo = view (walletState . stateUtxo)
   ours = view walletOurs
 
-  applyBlock b w = w & walletState %~ aux
+  applyBlock b w = w & walletState %~ applyBlock' (txIns b, utxoNew)
     where
-     aux :: State h a -> State h a
-     aux State{..} = State {
-           _stateUtxo        = utxo'
-         , _stateUtxoBalance = balance'
-         , _statePending     = pending'
-         }
-       where
-         pending' = updatePending b _statePending
-         utxoNew  = utxoRestrictToOurs (ours w) (txOuts b)
-         unionNew = _stateUtxo `utxoUnion` utxoNew
-         utxoRem  = utxoRestrictToInputs (txIns b) unionNew
-         utxo'    = utxoRemoveInputs     (txIns b) unionNew
-         balance' = _stateUtxoBalance + balance utxoNew - balance utxoRem
+      utxoNew = utxoRestrictToOurs (ours w) (txOuts b)
 
   -- We can also replace some default methods with more efficient versions
 
@@ -89,3 +81,17 @@ instance (Hash h a, Ord a) => IsWallet Wallet h a where
 
   totalBalance :: Wallet h a -> Value
   totalBalance w = availableBalance w + balance (change w)
+
+applyBlock' :: Hash h a => (Set (Input h a), Utxo h a) -> State h a -> State h a
+applyBlock' (ins, outs) State{..} = State {
+      _stateUtxo        = utxo'
+    , _stateUtxoBalance = balance'
+    , _statePending     = pending'
+    }
+  where
+    pending' = Set.filter (\t -> disjoint (trIns t) ins) _statePending
+    utxoNew  = outs
+    unionNew = _stateUtxo `utxoUnion` utxoNew
+    utxoRem  = utxoRestrictToInputs ins unionNew
+    utxo'    = utxoRemoveInputs     ins unionNew
+    balance' = _stateUtxoBalance + balance utxoNew - balance utxoRem

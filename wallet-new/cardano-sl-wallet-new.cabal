@@ -231,7 +231,8 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Util.Buildable
+  other-modules:      Util
+                      Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
                       Util.Validated
@@ -245,9 +246,11 @@ test-suite wallet-unit-tests
                       UTxO.Translate
                       UTxO.Verify
                       Wallet.Abstract
-                      Wallet.Spec
-                      Wallet.SpecRollback
+                      Wallet.Full
                       Wallet.Incremental
+                      Wallet.Prefiltered
+                      Wallet.Rollback
+                      Wallet.Spec
   default-language:   Haskell2010
   default-extensions: BangPatterns
                       ConstraintKinds

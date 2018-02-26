@@ -17,11 +17,11 @@ import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (Bi (..), fromBinary)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap, Opening, SscPayload (..),
                                      SscProof (..), VssCertificate, VssCertificatesMap (..))
 import           Pos.Core.Ssc.Vss (checkVssCertificatesMap)
-import           Pos.Crypto (EncShare, VssPublicKey, hash, HasCryptoConfiguration)
+import           Pos.Core.Slotting.Types (EpochIndex)
+import           Pos.Crypto (EncShare, ProtocolMagic, VssPublicKey, hash)
 
 -- | Get commitment shares.
 getCommShares :: Commitment -> Maybe [(VssPublicKey, NonEmpty EncShare)]
@@ -32,8 +32,7 @@ getCommShares =
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
 mkSscProof
-    :: ( HasConfiguration
-       , Bi VssCertificatesMap
+    :: ( Bi VssCertificatesMap
        , Bi CommitmentsMap
        , Bi Opening
        , Bi VssCertificate
@@ -53,7 +52,8 @@ mkSscProof payload =
         constr (hash hm) (hash certs)
 
 checkSscPayload
-    :: ( HasCryptoConfiguration, MonadError Text m )
-    => SscPayload
+    :: ( MonadError Text m, Bi EpochIndex )
+    => ProtocolMagic
+    -> SscPayload
     -> m ()
-checkSscPayload payload = checkVssCertificatesMap (spVss payload)
+checkSscPayload pm payload = checkVssCertificatesMap pm (spVss payload)

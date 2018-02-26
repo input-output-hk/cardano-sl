@@ -2,9 +2,11 @@
 
 module Pos.Core.Slotting.Util
        ( flattenSlotId
+       , flattenSlotIdExplicit
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
+       , unflattenSlotIdExplicit
        , diffEpochOrSlot
        , flatSlotId
        , crucialSlot
@@ -31,8 +33,11 @@ import           Pos.Util.Util (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: HasProtocolConstants => SlotId -> FlatSlotId
-flattenSlotId SlotId {..} = fromIntegral $
-    fromIntegral siEpoch * epochSlots +
+flattenSlotId = flattenSlotIdExplicit epochSlots
+
+flattenSlotIdExplicit :: SlotCount -> SlotId -> FlatSlotId
+flattenSlotIdExplicit es SlotId {..} = fromIntegral $
+    fromIntegral siEpoch * es +
     fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
@@ -52,6 +57,15 @@ unflattenSlotId n =
             n `divMod` fromIntegral epochSlots
         siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
     in SlotId {..}
+
+-- | Construct a 'SlotId' from a flattened variant, using a given 'SlotCount'
+-- modulus.
+unflattenSlotIdExplicit :: SlotCount -> FlatSlotId -> SlotId
+unflattenSlotIdExplicit es n =
+    let (fromIntegral -> siEpoch, fromIntegral -> slot) =
+            n `divMod` fromIntegral es
+        siSlot = UnsafeLocalSlotIndex slot
+    in  SlotId {..}
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
 -- second slot is older. An epoch is considered the same as the 0th slot of

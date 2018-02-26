@@ -25,7 +25,6 @@ import           Pos.Core.Block.Main.Types (MainBlock, MainBlockchain, MainExtra
 import           Pos.Core.Block.Union.Types (Block, BlockHeader, BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..))
 import           Pos.Core.Common (ChainDifficulty)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Slotting.Types (SlotId (..))
 import           Pos.Core.Ssc (SscPayload, SscProof, mkSscProof)
@@ -33,8 +32,7 @@ import           Pos.Core.Txp (TxPayload, TxProof, mkTxProof)
 import           Pos.Core.Update (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Crypto (Hash, PublicKey, hash)
 
-instance ( HasConfiguration
-         , Bi BlockHeader
+instance ( Bi BlockHeader
          , Bi (BodyProof MainBlockchain)
          , IsMainHeader (GenericBlockHeader MainBlockchain)) =>
          Blockchain MainBlockchain where

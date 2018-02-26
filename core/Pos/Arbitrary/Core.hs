@@ -48,7 +48,7 @@ import           Pos.Core.Slotting.Types (Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
-import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
+import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
@@ -102,17 +102,15 @@ instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
-    arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
-        choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
+instance Arbitrary Types.LocalSlotIndex where
+    arbitrary = Types.UnsafeLocalSlotIndex <$> arbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary Types.SlotId where
+instance Arbitrary Types.SlotId where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary Types.EpochOrSlot where
+instance Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
@@ -499,19 +497,20 @@ instance Arbitrary G.FakeAvvmOptions where
         faoOneBalance <- choose (5, 30)
         return G.FakeAvvmOptions {..}
 
-instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
+instance Arbitrary ProtocolMagic => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
                                                         -- we want too many items, because
                                                         -- life is hard
+            pm <- arbitrary
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert pm (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk issuer delegatePk (HeavyDlgIndex 0)
+        mkCert pm delegatePk issuer = createPsk pm issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -522,12 +521,17 @@ instance Arbitrary G.GenesisAvvmBalances where
 instance Arbitrary G.GenesisNonAvvmBalances where
     arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
 
-instance Arbitrary G.ProtocolConstants where
+instance (Arbitrary ProtocolMagic, Arbitrary G.VssMinTTL, Arbitrary G.VssMaxTTL)
+    => Arbitrary G.ProtocolConstants where
     arbitrary =
         G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
         arbitrary
 
-instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisData where
+instance 
+    ( Arbitrary ProtocolMagic
+    , Arbitrary G.VssMaxTTL
+    , Arbitrary G.VssMinTTL
+    ) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -578,8 +582,8 @@ instance Arbitrary LightDlgIndices where
 -- SSC
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+instance (Arbitrary ProtocolMagic) => Arbitrary VssCertificate where
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

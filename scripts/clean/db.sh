@@ -19,6 +19,6 @@ rm -rf wdb-testnet-public/
 rm -rf db-mainnet/
 rm -rf wdb-mainnet/
 rm -rf node-*.*key*
-#rm -rf kademlia-abc.dump
-#rm kademlia.dump
+rm -rf kademlia-abc.dump
+rm kademlia.dump
 

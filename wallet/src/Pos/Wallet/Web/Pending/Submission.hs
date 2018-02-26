@@ -108,11 +108,16 @@ type TxSubmissionMode ctx m =
 -- | Covering the `submitAndSave` code paths (end states) with types so we can test it.
 data TxSubmissionResult
     = TxApplying
-    | TxStillApplying
+    -- ^ The transaction is being applied.
     | TxTimeoutWhenApplying PtxPoolInfo PendingTx
+    -- ^ The application tried to re-apply several times and was
+    -- timed out.
     | TxMinorError Text SomeException
+    -- ^ A minor error occured, this is not critical, we can continue.
     | TxNonReclaimableError SomeException
+    -- ^ A major error occured, this is critical, full stop.
     | TxCreationFailed
+    -- ^ A transaction creation failed.
     deriving (Show)
 
 
@@ -135,12 +140,11 @@ submitAndSavePtx submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
 
     case submissionResult of
 
-        TxTimeoutWhenApplying poolInfo ptx' -> submitAndSaveTxApplying poolInfo ptx'
+        TxTimeoutWhenApplying poolInfo ptx' -> cancelPtxWithTimeout poolInfo ptx'
         TxMinorError desc e -> minorError desc e
         TxNonReclaimableError e -> nonReclaimableError e
         TxCreationFailed -> creationFailedHandler
 
-        TxStillApplying -> pure ()
         TxApplying -> do
             ack <- submitTx _ptxTxAux
             reportSubmitted ack
@@ -194,15 +198,15 @@ submitAndSavePtxStates ptx@PendingTx{..} now mSaveTx =
 
     case _ptxCond of
 
-      PtxApplying poolInfo -> do
-          let Just creationTime = poolInfo ^. thTimestamp
-          if diffTimestamp now creationTime > hour 1
-              then pure $ TxTimeoutWhenApplying poolInfo ptx
-              else pure $ TxStillApplying
+      -- This case is just the case when we have a timeout transaction
+      PtxApplying poolInfo  | let Just creationTime = poolInfo ^. thTimestamp
+                            , diffTimestamp now creationTime > hour 1 ->
+                                pure $ TxTimeoutWhenApplying poolInfo ptx
 
       _ -> do
           addOnlyNewPendingTx ptx
-          (mSaveTx (_ptxTxId, _ptxTxAux) `catches` handlers) `onException` creationFailedHandler
+          (mSaveTx (_ptxTxId, _ptxTxAux) `catches` handlers)
+              `onException` creationFailedHandler
   where
     handlers =
         [ Handler $ \e ->
@@ -211,22 +215,22 @@ submitAndSavePtxStates ptx@PendingTx{..} now mSaveTx =
                 else nonReclaimableError (SomeException e)
 
         , Handler $ \e@SomeException{} ->
-            -- I don't know where this error can came from,
-            -- but it's better to try with tx again than to regret, right?
+            -- This case covers an @Exception@ we didn't enumerate, but
+            -- we still need to catch.
             minorError "unknown error" e
         ]
 
-    minorError desc e = pure $ TxMinorError desc e
+    minorError desc e     = pure $ TxMinorError desc e
     nonReclaimableError e = pure $ TxNonReclaimableError e
     creationFailedHandler = pure $ TxCreationFailed
 
 
-submitAndSaveTxApplying
+cancelPtxWithTimeout
     :: TxSubmissionMode ctx m
     => PtxPoolInfo
     -> PendingTx
     -> m ()
-submitAndSaveTxApplying poolInfo PendingTx{..} = do
+cancelPtxWithTimeout poolInfo PendingTx{..} = do
     let newCond = PtxWontApply "1h limit exceeded" poolInfo
     void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
     logInfo $

@@ -51,12 +51,12 @@ normalApplicationSpec = walletPropertySpec decription $ do
                       (\_ -> pure TxApplying)
 
     assertProperty (testState result) $
-        ("Tx should be in state TxStillApplying, in state " <> show result)
+        ("Tx should be in state TxApplying, in state " <> show result)
   where
-    decription = "Normal application: `PtxApplying -> TxStillApplying`"
+    decription = "Normal application: `PtxApplying -> TxApplying`"
 
-    testState TxStillApplying = True
-    testState _               = False
+    testState TxApplying = True
+    testState _          = False
 
 
 txTimeoutSpec :: (HasCompileInfo, HasConfigurations) => Spec

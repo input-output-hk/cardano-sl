@@ -70,7 +70,7 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefa
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
+import           Pos.Reporting.Methods (retrieveLogFiles, sendReport, withCompressedLogs)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
@@ -661,7 +661,7 @@ reportNodeCrash exitCode logConfPath reportServ = do
             ExitSuccess   -> 0
             ExitFailure n -> n
     let handler = logError . sformat ("Failed to report node crash: "%build)
-    bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
+    withCompressedLogs logFiles $ \txz ->
         sendReport [txz] (RCrash ec) "cardano-node" reportServ `catchAny` handler
 
 -- Taken from the 'turtle' library and modified

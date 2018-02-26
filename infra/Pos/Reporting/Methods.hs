@@ -21,7 +21,7 @@ module Pos.Reporting.Methods
        -- E. g. to report crash from launcher.
        , sendReport
        , retrieveLogFiles
-       , compressLogs
+       , withCompressedLogs
        ) where
 
 import           Universum
@@ -56,7 +56,7 @@ import           System.Directory (canonicalizePath, doesFileExist, getTemporary
                                    removeFile)
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
-import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
+import           System.IO (IOMode (WriteMode), hClose)
 import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
                               logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
                               retrieveLogContent)
@@ -147,19 +147,23 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
         in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
 
 -- | Pass a list of absolute paths to log files. This function will
--- archive and compress these files and put resulting file into log
--- directory (returning filepath is absolute).
-compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
-compressLogs files = liftIO $ do
-    tar <- tarPackIndependently files
+-- archive and compress these files and put resulting file into
+-- temporary directory (returning filepath is absolute).
+withCompressedLogs ::
+       (MonadIO m, MonadMask m)
+    => [FilePath]
+    -> (FilePath -> m a)
+    -> m a
+withCompressedLogs files action = do
+    tar <- liftIO $ tarPackIndependently files
     tarxz <-
+        liftIO $
         BS.concat <$>
         runConduitRes (yield tar .| Lzma.compress (Just 0) .| consume)
     aName <- getArchiveName
-    withFile aName WriteMode $ \handle -> do
-        BS.hPut handle tarxz
-        hFlush handle
-    pure aName
+    bracket (openFile aName WriteMode)
+            (\h -> liftIO (hClose h >> removeFile aName))
+            (\h -> liftIO (BS.hPut h tarxz >> hClose h) >> action aName)
   where
     tarPackIndependently :: [FilePath] -> IO ByteString
     tarPackIndependently paths = do
@@ -174,21 +178,20 @@ compressLogs files = liftIO $ do
             Tar.packFileEntry pabs tPath
         pure $ BSL.toStrict $ Tar.write entries
     getArchiveName = liftIO $ do
+        -- Name can't be too long since there's a limitation on key size (32).
+        -- See ParseRequestBodyOptions in wai-extra.
         curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
         tempDir <- getTemporaryDirectory
-        pure $ tempDir <//> ("report-" <> curTime <> ".tar.lzma")
+        pure $ tempDir <//> ("report-" <> take 6 curTime <> ".tar.lzma")
 
 -- | Creates a temp file from given text
 withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
 withTempLogFile rawLogs action = do
     withSystemTempFile "main.log" $ \tempFp tempHandle -> do
-        let getArchivePath = liftIO $ do
-                TIO.hPutStrLn tempHandle rawLogs
-                hClose tempHandle
-                archivePath <- compressLogs [tempFp]
-                canonicalizePath archivePath
-            removeArchive = liftIO . removeFile
-        bracket getArchivePath removeArchive action
+        liftIO $ do
+            TIO.hPutStrLn tempHandle rawLogs
+            hClose tempHandle
+        withCompressedLogs [tempFp] action
 
 ----------------------------------------------------------------------------
 -- Node-specific

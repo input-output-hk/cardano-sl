@@ -70,38 +70,10 @@ As result of this build, we get an installer for Windows and for MacOS.
 
 #### Preparing confinguration.yaml
 As first step you should add to `configuration.yaml` in cardano-sl repository new configurations: one for Windows, one for MacOS.
-It should be derived from cluster configuration, for instance if you deployed `devnet` configuration these two configurations should be based
-on `devnet`.
+It should be derived from cluster configuration. For `devnet` configuration `devnet_staging_win64` and `devnet_staging_macos64`
+already exist.
 
-So these following configuration should be added for `devnet`:
-
-```
-devnet_staging_win64:
-  <<: *devnet
-  update:
-    <<:
-    applicationName: csl-daedalus
-    applicationVersion: 0
-    lastKnownBlockVersion:
-      bvMajor: 0
-      bvMinor: 0
-      bvAlt: 0
-    systemTag: win64
-
-devnet_staging_macos64:
-  <<: *devnet
-  update:
-    <<:
-    applicationName: csl-daedalus
-    applicationVersion: 0
-    lastKnownBlockVersion:
-      bvMajor: 0
-      bvMinor: 0
-      bvAlt: 0
-    systemTag: macos64
-```
-
-Configuration names don't matter, however, it matters those protocol parameters of these configurations are the same for `devnet`, so
+Configuration names don't matter, however, it matters those protocol parameters of these configurations are the same for base configuration, so
 you should add configurations carefully.
 
 After you added them, you should push commit with these changes on github, 

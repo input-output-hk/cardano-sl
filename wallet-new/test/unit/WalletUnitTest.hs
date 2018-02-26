@@ -8,6 +8,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
+import           Test.QuickCheck (generate)
 import           Universum
 
 import qualified Pos.Block.Error as Cardano
@@ -105,15 +106,19 @@ testPureWallet = do
       valid "simple and incremental empty wallets are equivalent" $
         walletEquivalent specEmpty incrEmpty WalletEmpty
 
-    describe "Inductive Wallet Generation" $ do
-      prop "constructed inductive wallet satisfies invariants" $ do
-        forAll genInductive $ \wallet -> conjoin
-          [ isValidated $ walletInvariants specEmpty wallet
-          , isValidated $ walletInvariants incrEmpty wallet
-          , isValidated $ walletInvariants rollEmpty wallet
-          , isValidated $ walletEquivalent specEmpty incrEmpty WalletEmpty
-          , isValidated $ walletEquivalent specEmpty rollEmpty WalletEmpty
-          ]
+    beforeAll (generate genInductive) $ do
+      describe "Inductive wallet generations satisfy invariants" $ do
+        it "specEmpty " $
+          shouldBeValidated . walletInvariants specEmpty
+        it "incrEmpty" $
+          shouldBeValidated . walletInvariants incrEmpty
+        it "rollEmpty" $
+          shouldBeValidated . walletInvariants rollEmpty
+      describe "Wallets are equivalent after interpretation" $ do
+        it "spec and incr" $
+          shouldBeValidated . walletEquivalent specEmpty incrEmpty
+        it "spec and roll" $
+          shouldBeValidated . walletEquivalent specEmpty rollEmpty
   where
     transCtxt = runTranslateNoErrors ask
 

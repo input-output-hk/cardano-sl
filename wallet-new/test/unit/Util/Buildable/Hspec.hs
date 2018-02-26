@@ -9,6 +9,7 @@ module Util.Buildable.Hspec (
   , shouldReturn
     -- * Working with Validated
   , valid
+  , shouldBeValidated
     -- * Re-exports
   , H.Expectation
   , H.Spec
@@ -16,6 +17,8 @@ module Util.Buildable.Hspec (
   , H.describe
   , H.hspec
   , H.it
+  , H.beforeAll
+  , H.parallel
   ) where
 
 import qualified Test.Hspec as H

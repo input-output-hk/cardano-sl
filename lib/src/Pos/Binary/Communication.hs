@@ -21,7 +21,7 @@ import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHead
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), MsgSubscribe1 (..),
                                                    VerInfo (..))
-import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
+import           Pos.Core (BlockVersion, HeaderHash)
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
@@ -42,7 +42,7 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance HasConfiguration => Bi MsgHeaders where
+instance Bi MsgHeaders where
     encode = \case
         (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -54,7 +54,7 @@ instance HasConfiguration => Bi MsgHeaders where
             1 -> MsgNoHeaders <$> decode
             t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
-instance HasConfiguration => Bi MsgBlock where
+instance Bi MsgBlock where
     encode = \case
         (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t

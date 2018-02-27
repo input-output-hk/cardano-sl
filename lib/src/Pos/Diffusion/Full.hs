@@ -14,7 +14,7 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
-import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Time.Units (Microsecond, Millisecond, Second, convertUnit)
 import           Formatting (Format)
 import           Mockable (withAsync, link)
 import qualified Network.Broadcast.OutboundQueue as OQ
@@ -34,10 +34,9 @@ import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
                                     makeSendActions, SendActions, Msg)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Util (wrapListener)
-import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
-import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy, StakeholderId)
+import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy,
+                           StakeholderId, ProtocolConstants (..))
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core.Configuration (protocolMagic)
 import           Pos.Core.Ssc (Opening, InnerSharesMap, SignedCommitment, VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
@@ -87,11 +86,13 @@ diffusionLayerFull
     => (forall y . d y -> IO y)
     -> NetworkConfig KademliaParams
     -> BlockVersion -- For making the VerInfo.
+    -> ProtocolConstants -- Certain protocol constants affect networking (accidental/historical; will fix soon).
+    -> Word
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeMetrics expectLogic =
+diffusionLayerFull runIO networkConfig lastKnownBlockVersion protocolConstants recoveryHeadersMessage transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
@@ -107,15 +108,17 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
+            --
+            -- Known bug: if the block version changes, the VerInfo will be
+            -- out of date, as it's immutable.
+            -- Solution: don't put it in the VerInfo. Other clients don't need
+            -- to know the peer's latest adopted block version, they need only
+            -- know what software version its running.
             ourVerInfo :: VerInfo
-            -- TODO pull protocol magic from an explicit configuration argument
-            -- rather than from a magic Data.Reflection instance.
-            -- The lastKnownBlockVersion can go into that configuration record
-            -- as well. Goal: eliminate all Has*Configuration constraints from
-            -- full diffusion layer.
-            -- Ah but that won't be so easy, because serialization instances
-            -- currently depend on these... so defer it for later.
-            ourVerInfo = VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins (outs <> workerOuts)
+            ourVerInfo = VerInfo (getProtocolMagic (pcProtocolMagic protocolConstants))
+                                 lastKnownBlockVersion
+                                 ins
+                                 (outs <> workerOuts)
 
             ins :: HandlerSpecs
             InSpecs ins = inSpecs mkL
@@ -209,7 +212,7 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
 
             mkL :: MkListeners d
             mkL = mconcat $
-                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic oq keepaliveTimer
+                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer
                 , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
                 , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
                 , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
@@ -232,6 +235,9 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
             currentSlotDuration :: d Millisecond
             currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
+            convEstablishTimeout :: Microsecond
+            convEstablishTimeout = convertUnit (15 :: Second)
+
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.
             runDiffusionLayer :: forall y . d y -> d y
@@ -239,6 +245,7 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
                 runIO
                 networkConfig
                 transport
+                convEstablishTimeout
                 ourVerInfo
                 mEkgNodeMetrics
                 oq
@@ -255,13 +262,13 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
                       -> BlockHeader
                       -> [HeaderHash]
                       -> d (OldestFirst [] Block)
-            getBlocks = Diffusion.Block.getBlocks logic enqueue
+            getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue
 
             requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
-            requestTip = Diffusion.Block.requestTip enqueue
+            requestTip = Diffusion.Block.requestTip logic enqueue
 
             announceBlockHeader :: MainBlockHeader -> d ()
-            announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic enqueue
+            announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic protocolConstants recoveryHeadersMessage enqueue
 
             sendTx :: TxAux -> d Bool
             sendTx = Diffusion.Txp.sendTx enqueue
@@ -320,6 +327,7 @@ runDiffusionLayerFull
     => (forall y . d y -> IO y)
     -> NetworkConfig KademliaParams
     -> Transport d
+    -> Microsecond -- ^ Conversation establish timeout
     -> VerInfo
     -> Maybe (EkgNodeMetrics d)
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
@@ -328,9 +336,9 @@ runDiffusionLayerFull
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull runIO networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
+runDiffusionLayerFull runIO networkConfig transport convEstablishTimeout ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
-        timeWarpNode transport ourVerInfo listeners $ \nd converse ->
+        timeWarpNode transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
             withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse runIO converse)) $ \dthread -> do
                 link dthread
                 case mEkgNodeMetrics of
@@ -368,11 +376,12 @@ timeWarpNode
     :: forall d t .
        ( DiffusionWorkMode d, MonadFix d )
     => Transport d
+    -> Microsecond -- Timeout.
     -> VerInfo
     -> (VerInfo -> [Listener d])
     -> (Node d -> Converse PackingType PeerData d -> d t)
     -> d t
-timeWarpNode transport ourVerInfo listeners k = do
+timeWarpNode transport convEstablishTimeout ourVerInfo listeners k = do
     stdGen <- liftIO newStdGen
     node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \theNode ->
         NodeAction listeners $ k theNode
@@ -380,14 +389,14 @@ timeWarpNode transport ourVerInfo listeners k = do
     mkTransport = simpleNodeEndPoint transport
     mkReceiveDelay = const (pure Nothing)
     mkConnectDelay = const (pure Nothing)
-    nodeEnv = defaultNodeEnvironment { nodeAckTimeout = conversationEstablishTimeout }
+    nodeEnv = defaultNodeEnvironment { nodeAckTimeout = convEstablishTimeout }
 
 ----------------------------------------------------------------------------
 -- Kademlia
 ----------------------------------------------------------------------------
 
 createKademliaInstance ::
-       (HasNodeConfiguration, MonadIO m, MonadCatch m, CanLog m)
+       (MonadIO m, MonadCatch m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> m KademliaDHTInstance
@@ -399,7 +408,7 @@ createKademliaInstance kp defaultPort =
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
-    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
+    :: (MonadIO m, MonadMask m, CanLog m)
     => KademliaParams
     -> Word16 -- ^ Default port to bind to.
     -> (KademliaDHTInstance -> m a)
@@ -410,7 +419,7 @@ bracketKademliaInstance kp defaultPort action =
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
 bracketKademlia
-    :: (HasNodeConfiguration, MonadIO m, MonadMask m, CanLog m)
+    :: (MonadIO m, MonadMask m, CanLog m)
     => NetworkConfig KademliaParams
     -> (NetworkConfig KademliaDHTInstance -> m a)
     -> m a

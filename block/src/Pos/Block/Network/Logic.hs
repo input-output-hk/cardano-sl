@@ -29,22 +29,23 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockInstancesConstraint, BlockWorkMode)
-import           Pos.Block.Configuration (criticalForkThreshold)
+import           Pos.Block.Configuration (criticalForkThreshold, recoveryHeadersMessage)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
                                   verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
-import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), mlMsgHeaders)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Communication.Limits.Types (recvLimited)
+--import           Pos.Communication.Limits.Types (recvLimited)
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs, convH,
-                                             toOutSpecs)
+                                             toOutSpecs, recvLimited)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
+import           Pos.DB (gsAdoptedBVData)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
@@ -107,8 +108,8 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
            throwM e
     logDebug "Finished requesting tips for recovery"
 
-requestTipOuts :: BlockInstancesConstraint m => Proxy m -> OutSpecs
-requestTipOuts _ =
+requestTipOuts :: BlockInstancesConstraint => OutSpecs
+requestTipOuts =
     toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
                        (Proxy :: Proxy MsgHeaders) ]
 
@@ -121,9 +122,11 @@ requestTip
     -> ConversationActions MsgGetHeaders MsgHeaders m
     -> m ()
 requestTip nodeId conv = do
+    bvd <- gsAdoptedBVData
+    let numHeaders = recoveryHeadersMessage
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
-    whenJustM (recvLimited conv) handleTip
+    whenJustM (recvLimited conv (mlMsgHeaders bvd numHeaders)) handleTip
   where
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)

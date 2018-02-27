@@ -14,8 +14,7 @@ import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Delegation (genDlgPayload)
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
+import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw, biSize)
@@ -23,26 +22,22 @@ import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog.Types (SlogUndo)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey, PublicKey, SecretKey,
+                             createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
-
-newtype BodyDependsOnSlot b = BodyDependsOnSlot
-    { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
-    }
 
 ------------------------------------------------------------------------------------------
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary T.BlockHeader where
+instance (Arbitrary SscPayload, Arbitrary SscProof, Arbitrary ProtocolMagic) => Arbitrary T.BlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof, Arbitrary ProtocolMagic) =>
     Arbitrary T.BlockSignature where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -59,7 +54,7 @@ instance Arbitrary T.GenesisExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary T.GenesisBlockHeader where
+instance Arbitrary ProtocolMagic => Arbitrary T.GenesisBlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -71,19 +66,16 @@ instance Arbitrary (T.ConsensusData T.GenesisBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (BodyDependsOnSlot T.GenesisBlockchain) where
-    arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
-
 instance Arbitrary (T.Body T.GenesisBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance ( Arbitrary SscProof
          , Arbitrary SscPayload
-         , HasConfiguration
+         , Arbitrary ProtocolMagic
          ) =>
          Arbitrary T.GenesisBlock where
-    arbitrary = T.mkGenesisBlock <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = T.mkGenesisBlock <$> arbitrary <*> (Right <$> arbitrary) <*> arbitrary <*> arbitrary
     shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
@@ -92,12 +84,12 @@ instance ( Arbitrary SscProof
 
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof
+         , Arbitrary ProtocolMagic
          , Bi Raw
-         , HasConfiguration
          ) =>
          Arbitrary T.MainBlockHeader where
     arbitrary =
-        T.mkMainHeader <$> arbitrary <*> arbitrary <*> arbitrary <*>
+        T.mkMainHeader <$> arbitrary <*> (Right <$> arbitrary) <*> arbitrary <*> arbitrary <*>
         -- TODO: do not hardcode Nothing
         pure Nothing <*>
         arbitrary <*>
@@ -112,7 +104,7 @@ instance Arbitrary T.MainExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof) =>
     Arbitrary (T.BodyProof T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink T.MainProof {..} =
@@ -121,12 +113,12 @@ instance (HasConfiguration, Arbitrary SscProof) =>
             shrink (mpTxProof, mpMpcProof, mpProxySKsProof, mpUpdateProof)
         ]
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof, Arbitrary ProtocolMagic) =>
     Arbitrary (T.ConsensusData T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) => Arbitrary T.MainToSign where
+instance (Arbitrary SscProof) => Arbitrary T.MainToSign where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -145,17 +137,18 @@ instance (HasConfiguration, Arbitrary SscProof) => Arbitrary T.MainToSign where
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (HasConfiguration, Arbitrary SscPayloadDependsOnSlot) =>
+{-
+instance (Arbitrary SscPayloadDependsOnSlot) =>
          Arbitrary (BodyDependsOnSlot T.MainBlockchain) where
-    arbitrary = pure $ BodyDependsOnSlot $ \slotId -> do
+    arbitrary = do
         txPayload   <- arbitrary
-        generator   <- genPayloadDependsOnSlot <$> arbitrary
-        mpcData     <- generator slotId
-        dlgPayload  <- genDlgPayload $ Core.siEpoch slotId
+        mpcData     <- arbitrary
+        dlgPayload  <- arbitrary -- genDlgPayload $ Core.siEpoch slotId
         mpcUpload   <- arbitrary
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
+-}
 
-instance (HasConfiguration, Arbitrary SscPayload) => Arbitrary (T.Body T.MainBlockchain) where
+instance (Arbitrary SscPayload, Arbitrary ProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink mb =
         [ T.MainBody txp sscp dlgp updp
@@ -168,14 +161,12 @@ instance (HasConfiguration, Arbitrary SscPayload) => Arbitrary (T.Body T.MainBlo
 
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof
-         , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
+         , Arbitrary ProtocolMagic
          ) =>
          Arbitrary T.MainBlock where
     arbitrary = do
         slot <- arbitrary
-        BodyDependsOnSlot {..} <- arbitrary
-        body <- genBodyDepsOnSlot slot
+        body <- arbitrary
         extraBodyData <- arbitrary
         extraHeaderData <- T.MainExtraHeaderData
             <$> arbitrary
@@ -183,7 +174,7 @@ instance ( Arbitrary SscPayload
             <*> arbitrary
             <*> pure (hash extraBodyData)
         header <-
-            T.mkMainHeader <$> arbitrary <*> pure slot <*> arbitrary <*>
+            T.mkMainHeader <$> arbitrary <*> (Right <$> arbitrary) <*> pure slot <*> arbitrary <*>
             pure Nothing <*>
             pure body <*>
             pure extraHeaderData
@@ -226,29 +217,34 @@ instance Buildable T.BlockHeader => Show BlockHeaderList where
 --     genesis kind.
 recursiveHeaderGen
     :: ( Arbitrary SscPayload
-       , HasConfiguration
+       , Arbitrary ProtocolMagic
+       , Arbitrary Core.GenesisHash
        )
-    => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
+    => ProtocolMagic
+    -> Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey)]
     -> [Core.SlotId]
     -> [T.BlockHeader]
     -> Gen [T.BlockHeader]
-recursiveHeaderGen genesis
+recursiveHeaderGen pm
+                   genesis
                    (eitherOfLeader : leaders)
                    (Core.SlotId{..} : rest)
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          prevHeader <- maybe (Left <$> arbitrary) (pure . Right) (head blockchain)
+          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader pm prevHeader siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
-          recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
+          recursiveHeaderGen pm True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
           curHeader <- genMainHeader (head blockchain)
-          recursiveHeaderGen True leaders rest (curHeader : blockchain)
+          recursiveHeaderGen pm True leaders rest (curHeader : blockchain)
   where
-    genMainHeader prevHeader = do
+    genMainHeader mPrevHeader = do
         body <- arbitrary
         extraHData <- arbitrary
+        prevHeader <- maybe (Left <$> arbitrary) (pure . Right) mPrevHeader
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
@@ -258,13 +254,13 @@ recursiveHeaderGen genesis
                 Right (issuerSK, delegateSK) ->
                     let delegatePK = toPublic delegateSK
                         toPsk :: Bi w => w -> ProxySecretKey w
-                        toPsk = createPsk issuerSK delegatePK
+                        toPsk = createPsk pm issuerSK delegatePK
                         proxy = (toPsk siEpoch, toPublic issuerSK)
                     in (delegateSK, Just proxy)
         pure $ T.BlockHeaderMain $
-            T.mkMainHeader prevHeader slotId leader proxySK body extraHData
-recursiveHeaderGen _ [] _ b = return b
-recursiveHeaderGen _ _ [] b = return b
+            T.mkMainHeader pm prevHeader slotId leader proxySK body extraHData
+recursiveHeaderGen _ _ [] _ b = return b
+recursiveHeaderGen _ _ _ [] b = return b
 
 
 -- | Maximum start epoch in block header verification tests
@@ -293,17 +289,21 @@ bhlEpochs = 2
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
 instance ( Arbitrary SscPayload
-         , HasConfiguration
+         , Arbitrary Core.GenesisHash
+         , Arbitrary ProtocolMagic
+         , Core.HasProtocolConstants
          ) =>
          Arbitrary BlockHeaderList where
     arbitrary = do
-        incompleteEpochSize <- choose (1, epochSlots - 1)
+        incompleteEpochSize <- choose (1, Core.epochSlots - 1)
         let slot = Core.SlotId 0 minBound
-        generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
+        generateBHL True slot (Core.epochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
     :: ( Arbitrary SscPayload
-       , HasConfiguration
+       , Arbitrary Core.GenesisHash
+       , Arbitrary ProtocolMagic
+       , Core.HasProtocolConstants
        )
     => Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
@@ -321,9 +321,10 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
             take (fromIntegral slotCount) $
-            map Core.unflattenSlotId [Core.flattenSlotId startSlot ..]
+            map (Core.unflattenSlotId) [Core.flattenSlotId startSlot ..]
     (, actualLeaders) <$>
         recursiveHeaderGen
+            Core.protocolMagic
             createInitGenesis
             leadersList
             slotIdsRange
@@ -342,7 +343,7 @@ newtype HeaderAndParams = HAndP
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance (Arbitrary SscPayload, HasConfiguration) =>
+instance (Arbitrary SscPayload, Arbitrary ProtocolMagic, Arbitrary Core.GenesisHash, Core.HasProtocolConstants) =>
     Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
@@ -362,7 +363,7 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                     _        -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to
             -- drop all all leaders of headers from previous epochs.
-            thisEpochStartIndex = fromIntegral epochSlots *
+            thisEpochStartIndex = fromIntegral Core.epochSlots *
                                   fromIntegral (header ^. Core.epochIndexL)
             thisHeadersEpoch = drop thisEpochStartIndex leaders
             -- A helper function. Given integers 'x' and 'y', it chooses a
@@ -413,6 +414,6 @@ instance Arbitrary SlogUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary Undo where
+instance Arbitrary ProtocolMagic => Arbitrary Undo where
     arbitrary = genericArbitrary
     shrink = genericShrink

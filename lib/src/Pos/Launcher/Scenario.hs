@@ -14,12 +14,13 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Mockable (mapConcurrently)
+import           NTP.Client (NtpClientSettings (NtpSyncUnavailable))
 import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logDebug, logInfo, logWarning)
 
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..), wrapActionSpec)
-import           Pos.Context (getOurPublicKey)
+import           Pos.Context (NodeContext (ncNodeParams), NodeParams (npNTPChecks), getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
@@ -101,7 +102,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
-    ntpCheck = withNtpCheck $ ntpSettings onNtpStatusLogWarning
+    ntpCheck =
+        if npNTPChecks $ ncNodeParams nrContext
+            then withNtpCheck $ ntpSettings onNtpStatusLogWarning
+            else withNtpCheck NtpSyncUnavailable
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

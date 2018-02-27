@@ -86,7 +86,8 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = updateServers commonArgs
             }
-        , npUseNTP = not noNTP
+        , npUseNTP = not noNTP && not noNTPChecks
+        , npNTPChecks = not noNTPChecks
         , npRoute53Params = route53Params
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams

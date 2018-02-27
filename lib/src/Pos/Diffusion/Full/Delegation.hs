@@ -13,7 +13,7 @@ import           Universum
 import qualified Network.Broadcast.OutboundQueue as OQ
 
 import           Pos.Binary ()
-import           Pos.Communication.Limits ()
+import           Pos.Communication.Limits (mlHeavyDlgIndex, mlProxySecretKey)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), NodeId, EnqueueMsg,
                                              MkListeners, OutSpecs)
@@ -56,7 +56,12 @@ pskHeavyRelay
     :: ( DiffusionWorkMode m )
     => Logic m
     -> Relay m
-pskHeavyRelay logic = Data $ DataParams MsgTransaction $ \_ _ -> postPskHeavy logic
+pskHeavyRelay logic = Data $ DataParams
+    MsgTransaction
+    (\_ _ -> postPskHeavy logic)
+    -- The message size limit for ProxySKHeavy: a ProxySecretKey with an
+    -- EpochIndex.
+    (pure (mlProxySecretKey mlHeavyDlgIndex))
 
 sendPskHeavy
     :: forall m .

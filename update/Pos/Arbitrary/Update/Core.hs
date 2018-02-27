@@ -14,12 +14,11 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
                                   UpdateProposalToSign (..), UpdateVote (..),
                                   mkUpdateProposalWSign, mkUpdateVote)
-import           Pos.Crypto (fakeSigner)
+import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
@@ -33,12 +32,13 @@ instance Arbitrary SystemTag where
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary UpdateVote where
-    arbitrary = mkUpdateVote <$> arbitrary <*> arbitrary <*> arbitrary
+instance Arbitrary ProtocolMagic => Arbitrary UpdateVote where
+    arbitrary = mkUpdateVote <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary UpdateProposal where
+instance Arbitrary ProtocolMagic => Arbitrary UpdateProposal where
     arbitrary = do
+        protocolMagic <- arbitrary
         upBlockVersion <- arbitrary
         upBlockVersionMod <- arbitrary
         upSoftwareVersion <- arbitrary
@@ -47,6 +47,7 @@ instance HasConfiguration => Arbitrary UpdateProposal where
         ss <- fakeSigner <$> arbitrary
         pure $
             mkUpdateProposalWSign
+                protocolMagic
                 upBlockVersion
                 upBlockVersionMod
                 upSoftwareVersion
@@ -67,6 +68,6 @@ instance Arbitrary UpdateData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary UpdatePayload where
+instance Arbitrary ProtocolMagic => Arbitrary UpdatePayload where
     arbitrary = genericArbitrary
     shrink = genericShrink

@@ -36,7 +36,6 @@ import           Instances.TH.Lift ()
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Types (checkCoinPortion)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
                                         BlockVersionModifier (..), SoftforkRule (..),

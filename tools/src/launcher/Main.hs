@@ -302,7 +302,7 @@ main =
   do
     LO {..} <- getLauncherOptions
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
-    let realNodeArgs = propagateOptions loNodeDbPath loConfiguration $
+    let realNodeArgs = propagateOptions loReportServer loNodeDbPath loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -349,14 +349,17 @@ main =
     -- user passes these options to the node explicitly, then we
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
-    propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
+    propagateOptions :: Maybe String -> FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions maybeReportServer nodeDbPath (ConfigurationOptions path key systemStart seed) =
+        addReportServerOption maybeReportServer .
         addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed
 
+    addReportServerOption =
+        maybe identity (maybeAddOption "--report-server" . toText)
     addNodeDbPath nodeDbPath =
         maybeAddOption "--db-path" (toText nodeDbPath)
     addConfFileOption filePath =

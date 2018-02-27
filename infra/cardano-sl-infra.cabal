@@ -52,7 +52,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
-                        Pos.DHT.Configuration
+                        Pos.DHT.Constants
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Real
@@ -62,7 +62,7 @@ library
                         Pos.DHT.Real.CLI
 
                         -- Pos.Communication
-                        Pos.Communication.Configuration
+                        Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP

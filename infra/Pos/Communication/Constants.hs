@@ -1,4 +1,4 @@
-module Pos.Communication.Configuration
+module Pos.Communication.Constants
        ( maxReqSize
        , maxMempoolMsgSize
        , maxInvSize

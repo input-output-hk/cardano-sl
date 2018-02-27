@@ -36,8 +36,8 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logD
 
 import           Pos.Binary.Class (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Configuration (enhancedMessageBroadcast, enhancedMessageTimeout,
-                                        neighborsSendThreshold)
+import           Pos.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout,
+                                    neighborsSendThreshold)
 import           Pos.DHT.Model.Types (DHTData, DHTException (..), DHTKey, DHTNode (..),
                                       randomDHTKey)
 import           Pos.DHT.Real.Param (KademliaParams (..))

@@ -1,4 +1,4 @@
-module Pos.DHT.Configuration
+module Pos.DHT.Constants
        ( enhancedMessageTimeout
        , neighborsSendThreshold
        , kademliaDumpInterval

@@ -83,13 +83,14 @@ diffusionLayerFull
        )
     => NetworkConfig KademliaParams
     -> BlockVersion -- For making the VerInfo.
+    -> ProtocolMagic
     -> ProtocolConstants -- Certain protocol constants affect networking (accidental/historical; will fix soon).
     -> Word
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull networkConfig lastKnownBlockVersion protocolConstants recoveryHeadersMessage transport mEkgNodeMetrics expectLogic =
+diffusionLayerFull networkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
@@ -108,7 +109,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion protocolConstants recover
             -- to know the peer's latest adopted block version, they need only
             -- know what software version its running.
             ourVerInfo :: VerInfo
-            ourVerInfo = VerInfo (getProtocolMagic (pcProtocolMagic protocolConstants))
+            ourVerInfo = VerInfo (getProtocolMagic protocolMagic)
                                  lastKnownBlockVersion
                                  ins
                                  (outs <> workerOuts)

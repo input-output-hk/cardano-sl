@@ -34,7 +34,8 @@ import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+                                         GenesisProtocolConstants (..))
+import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
@@ -199,14 +200,14 @@ instance Monad m => ToJSON m GenesisWStakeholders where
 instance Monad m => ToJSON m GenesisDelegation where
     toJSON = toJSON . unGenesisDelegation
 
-instance Monad m => ToJSON m ProtocolConstants where
-    toJSON ProtocolConstants {..} =
+instance Monad m => ToJSON m GenesisProtocolConstants where
+    toJSON GenesisProtocolConstants {..} =
         mkObject
             -- 'k' definitely won't exceed the limit
-            [ ("k", pure . JSNum . fromIntegral $ pcK)
-            , ("protocolMagic", toJSON (getProtocolMagic pcProtocolMagic))
-            , ("vssMaxTTL", toJSON pcVssMaxTTL)
-            , ("vssMinTTL", toJSON pcVssMinTTL)
+            [ ("k", pure . JSNum . fromIntegral $ gpcK)
+            , ("protocolMagic", toJSON (getProtocolMagic gpcProtocolMagic))
+            , ("vssMaxTTL", toJSON gpcVssMaxTTL)
+            , ("vssMinTTL", toJSON gpcVssMinTTL)
             ]
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
@@ -436,13 +437,13 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
         psks <- fromJSON val
         wrapConstructor $ recreateGenesisDelegation psks
 
-instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
+instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
     fromJSON obj = do
-        pcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        pcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
-        pcVssMaxTTL <- fromJSField obj "vssMaxTTL"
-        pcVssMinTTL <- fromJSField obj "vssMinTTL"
-        return ProtocolConstants {..}
+        gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
+        gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
+        gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
+        gpcVssMinTTL <- fromJSField obj "vssMinTTL"
+        return GenesisProtocolConstants {..}
 
 instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
     fromJSON = fmap GenesisAvvmBalances . fromJSON

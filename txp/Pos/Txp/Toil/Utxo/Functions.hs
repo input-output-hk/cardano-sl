@@ -18,14 +18,15 @@ import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatF
                                 verResToMonadError, verifyGeneric)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
-                           isRedeemAddress, isUnknownAddressType, protocolMagic, sumCoins)
+import           Pos.Core (AddrType (..), Address (..), addressF, integerToCoin,
+                           isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
                                isTxInUnknown)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
                              redeemCheckSig)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..), WitnessVerFailure (..))
@@ -173,7 +174,7 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).
 verifyKnownInputs ::
-       (HasConfiguration)
+       (HasProtocolMagic)
     => VTxContext
     -> NonEmpty (TxIn, TxOutAux)
     -> TxAux
@@ -192,7 +193,7 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
 
     checkInput
-        :: (HasConfiguration)
+        :: (HasProtocolMagic)
         => Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
@@ -212,7 +213,7 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
-    checkWitness :: HasConfiguration => TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
+    checkWitness :: HasProtocolMagic => TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
     checkWitness _txOutAux witness = case witness of
         PkWitness{..} ->
             unless (checkSig protocolMagic SignTx twKey txSigData twSig) $

@@ -31,6 +31,8 @@ library
 
                        Pos.Core
 
+                       Pos.Core.ProtocolConstants
+
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain
                        Pos.Core.Block.Genesis

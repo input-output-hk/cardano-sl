@@ -24,7 +24,7 @@ import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress, ma
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
 import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, toPublic, unsafeHash,
-                             withHash)
+                             withHash, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
 import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
@@ -210,7 +210,7 @@ signatureIsValid tx (PkWitness{..}, Just TxOutAux{..}) =
     let txSigData = TxSigData
             { txSigTxHash = hash tx }
     in checkPubKeyAddress twKey (txOutAddress toaOut) &&
-       checkSig SignTx twKey txSigData twSig
+       checkSig protocolMagic SignTx twKey txSigData twSig
 signatureIsValid _ _ = False
 
 signatureIsNotValid

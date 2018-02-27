@@ -30,6 +30,7 @@ import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
@@ -123,6 +124,7 @@ runServer
        , LogicWorkMode ctx m
        , HasShutdownContext ctx
        , MonadFix m
+       , HasProtocolMagic
        , HasProtocolConstants
        , HasBlockConfiguration
        , HasNodeConfiguration
@@ -135,7 +137,7 @@ runServer
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
-            diffusionLayerFull npNetworkConfig lastKnownBlockVersion protocolConstants recoveryHeadersMessage transport (Just ekgNodeMetrics) $ \withLogic -> do
+            diffusionLayerFull npNetworkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
                 when npEnableMetrics (registerEkgMetrics ekgStore)
                 runLogicLayer logicLayer $

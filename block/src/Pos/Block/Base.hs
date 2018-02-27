@@ -15,8 +15,8 @@ import           Universum
 import           Data.Default (Default (def))
 
 import           Pos.Block.BHelpers ()
-import           Pos.Core (EpochIndex, HasConfiguration, HasDifficulty (..), LocalSlotIndex, SlotId,
-                           SlotLeaders)
+import           Pos.Core (BlockVersion, EpochIndex, HasDifficulty (..), LocalSlotIndex, SlotId,
+                           SlotLeaders, SoftwareVersion, GenesisHash (..), HasProtocolConstants)
 import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock, GenesisBlockHeader,
                                  GenesisBlockchain, GenesisExtraBodyData (..),
                                  GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
@@ -24,14 +24,11 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  MainToSign (..), mkGenericHeader, GenericBlock (..))
 import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
-import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
-import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors
@@ -39,24 +36,24 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVe
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: HasConfiguration
-    => Maybe BlockHeader
+    :: ProtocolMagic
+    -> Either GenesisHash BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body MainBlockchain
     -> MainExtraHeaderData
     -> MainBlockHeader
-mkMainHeader prevHeader slotId sk pske body extra =
-    mkGenericHeader prevHeader body consensus extra
+mkMainHeader pm prevHeader slotId sk pske body extra =
+    mkGenericHeader pm prevHeader body consensus extra
   where
-    difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    difficulty = either (const 0) (succ . view difficultyL) prevHeader
     makeSignature toSign (psk,_) =
-        BlockPSignatureHeavy $ proxySign SignMainBlockHeavy sk psk toSign
+        BlockPSignatureHeavy $ proxySign pm SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
         in maybe
-               (BlockSignature $ sign SignMainBlock sk toSign)
+               (BlockSignature $ sign pm SignMainBlock sk toSign)
                (makeSignature toSign)
                pske
     leaderPk = maybe (toPublic sk) snd pske
@@ -69,20 +66,19 @@ mkMainHeader prevHeader slotId sk pske body extra =
         }
 
 -- | Smart constructor for 'MainBlock'.
---
--- FIXME TBD do we need to verify here? This is not used on untrusted data,
--- so why bother?
 mkMainBlock
-    :: (HasUpdateConfiguration, HasConfiguration)
-    => Maybe BlockHeader
+    :: ProtocolMagic
+    -> BlockVersion
+    -> SoftwareVersion
+    -> Either GenesisHash BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body MainBlockchain
     -> MainBlock
-mkMainBlock prevHeader slotId sk pske body =
+mkMainBlock pm bv sv prevHeader slotId sk pske body =
     UnsafeGenericBlock
-        (mkMainHeader prevHeader slotId sk pske body extraH)
+        (mkMainHeader pm prevHeader slotId sk pske body extraH)
         body
         extraB
   where
@@ -91,14 +87,14 @@ mkMainBlock prevHeader slotId sk pske body =
     extraH :: MainExtraHeaderData
     extraH =
         MainExtraHeaderData
-            lastKnownBlockVersion
-            curSoftwareVersion
+            bv
+            sv
             (mkAttributes ())
             (hash extraB)
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
 emptyMainBody
-    :: HasConfiguration
+    :: HasProtocolConstants
     => LocalSlotIndex
     -> Body MainBlockchain
 emptyMainBody slot =
@@ -115,37 +111,38 @@ emptyMainBody slot =
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: HasConfiguration
-    => Maybe BlockHeader
+    :: ProtocolMagic
+    -> Either GenesisHash BlockHeader
     -> EpochIndex
     -> Body GenesisBlockchain
     -> GenesisBlockHeader
-mkGenesisHeader prevHeader epoch body =
+mkGenesisHeader pm prevHeader epoch body =
     -- here we know that genesis header construction can not fail
     mkGenericHeader
+        pm
         prevHeader
         body
         consensus
         (GenesisExtraHeaderData $ mkAttributes ())
   where
-    difficulty = maybe 0 (view difficultyL) prevHeader
+    difficulty = either (const 0) (view difficultyL) prevHeader
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
 -- | Smart constructor for 'GenesisBlock'.
 mkGenesisBlock
-    :: HasConfiguration
-    => Maybe BlockHeader
+    :: ProtocolMagic
+    -> Either GenesisHash BlockHeader
     -> EpochIndex
     -> SlotLeaders
     -> GenesisBlock
-mkGenesisBlock prevHeader epoch leaders =
+mkGenesisBlock pm prevHeader epoch leaders =
     UnsafeGenericBlock header body extra
   where
-    header = mkGenesisHeader prevHeader epoch body
+    header = mkGenesisHeader pm prevHeader epoch body
     body = GenesisBody leaders
     extra = GenesisExtraBodyData $ mkAttributes ()
 
 -- | Creates the very first genesis block.
-genesisBlock0 :: HasConfiguration => GenesisBlock
-genesisBlock0 = mkGenesisBlock Nothing 0 genesisLeaders
+genesisBlock0 :: ProtocolMagic -> GenesisHash -> SlotLeaders -> GenesisBlock
+genesisBlock0 pm genesisHash leaders = mkGenesisBlock pm (Left genesisHash) 0 leaders

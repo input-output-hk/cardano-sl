@@ -52,7 +52,8 @@ import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text (listBuilderJSON)
-import           System.Directory (canonicalizePath, doesFileExist, removeFile)
+import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
+                                   removeFile)
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
@@ -174,7 +175,8 @@ compressLogs files = liftIO $ do
         pure $ BSL.toStrict $ Tar.write entries
     getArchiveName = liftIO $ do
         curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
-        pure $ "report-" <> curTime <> ".tar.lzma"
+        tempDir <- getTemporaryDirectory
+        pure $ tempDir <//> ("report-" <> curTime <> ".tar.lzma")
 
 -- | Creates a temp file from given text
 withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a

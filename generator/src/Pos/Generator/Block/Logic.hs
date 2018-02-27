@@ -24,9 +24,8 @@ import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal, no
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
-                           getSlotIndex)
+                           getSlotIndex, protocolMagic)
 import           Pos.Core.Block (Block)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
@@ -55,7 +54,6 @@ type BlockTxpGenMode g ctx m =
     , HasLens' ctx TxpGlobalSettings
     , Default (MempoolExt m)
     , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-    , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
     )
 
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
@@ -96,7 +94,6 @@ genBlock ::
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
@@ -109,7 +106,7 @@ genBlock eos = withCompileInfo def $ do
         EpochOrSlot (Left _) -> do
             tipHeader <- lift DB.getTipHeader
             let slot0 = SlotId epoch minBound
-            let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
+            let genesisBlock = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot

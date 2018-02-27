@@ -50,14 +50,15 @@ import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
                            StakeholderId, addressHash, unsafeMkLocalSlotIndex)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolMagic, slotSecurityParam,
-                                         vssMaxTTL, vssMinTTL)
+import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL, vssMinTTL,
+                                         slotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
 import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment),
                              Threshold, VssPublicKey, checkSig, genSharedSecret,
                              getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Util.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
@@ -184,7 +185,11 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- | Verify signature in SignedCommitment using epoch index.
 --
 -- #checkSig
-verifyCommitmentSignature :: (HasProtocolConstants, Bi Commitment) => EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature
+    :: (HasProtocolMagic, Bi Commitment)
+    => EpochIndex
+    -> SignedCommitment
+    -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig protocolMagic SignCommitment pk (epoch, comm) commSig
 
@@ -194,7 +199,7 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: (HasProtocolConstants, Bi Commitment)
+    :: (HasProtocolMagic, Bi Commitment)
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes

@@ -19,10 +19,11 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, IsMai
                            LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
                            VssCertificate, epochIndexL, epochOrSlot, getEpochOrSlot,
                            getVssCertificatesMap, headerSlotL, mkCoin,
-                           mkVssCertificatesMapSingleton, protocolMagic, slotSecurityParam)
+                           mkVssCertificatesMapSingleton, slotSecurityParam)
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
                                SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
                                checkSscPayload)
+import           Pos.Crypto.Configuration (protocolMagic)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)

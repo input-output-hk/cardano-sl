@@ -30,14 +30,18 @@ import           Pos.Core.Genesis.Canonical (SchemaError)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
-                                         GenesisInitializer (..), GenesisSpec (..))
+                                         GenesisInitializer (..), GenesisSpec (..),
+                                         GenesisProtocolConstants (..),
+                                         genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Slotting.Types (Timestamp)
+import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
-    ( HasCoreConfiguration
+    ( HasProtocolMagic
+    , HasCoreConfiguration
     , HasGenesisData
     , HasGenesisHash
     , HasGeneratedSecrets
@@ -106,12 +110,15 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
             Right it -> return it
 
         let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
+            pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts theGenesisData)
+            pm = gpcProtocolMagic (gdProtocolConsts theGenesisData)
         when (theGenesisHash /= expectedHash) $
             throwM $ GenesisHashMismatch
                      (show theGenesisHash) (show expectedHash)
 
         withCoreConfiguration conf $
-            withProtocolConstants (gdProtocolConsts theGenesisData) $
+            withProtocolMagic pm $
+            withProtocolConstants pc $
             withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
             withGenesisData theGenesisData $
             withGenesisHash theGenesisHash $
@@ -149,12 +156,13 @@ withGenesisSpec
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
     GCSrc {} -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
-        withProtocolConstants (gsProtocolConstants spec) $
+        withProtocolMagic pm $
+        withProtocolConstants pc $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
             let
                 -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData E.protocolMagic (gsInitializer spec) (gsAvvmDistr spec)
+                    generateGenesisData protocolMagic (gsInitializer spec) (gsAvvmDistr spec)
 
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation
@@ -171,7 +179,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                       , gdVssCerts         = ggdVssCerts
                       , gdNonAvvmBalances  = ggdNonAvvm
                       , gdBlockVersionData = genesisBlockVersionData
-                      , gdProtocolConsts   = protocolConstants
+                      , gdProtocolConsts   = gsProtocolConstants spec
                       , gdAvvmDistr        = ggdAvvm
                       , gdFtsSeed          = gsFtsSeed spec
                       }
@@ -182,6 +190,9 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                   withGenesisHash theGenesisHash $
                   withGeneratedSecrets (Just ggdSecrets) $
                   withGenesisData theGenesisData val
+      where
+        pm = gpcProtocolMagic (gsProtocolConstants spec)
+        pc = genesisProtocolConstantsToProtocolConstants (gsProtocolConstants spec)
 
 data ConfigurationError =
       -- | A system start time must be given when a testnet genesis is used.

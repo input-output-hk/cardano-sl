@@ -14,11 +14,12 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
+import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
                                   UpdateProposalToSign (..), UpdateVote (..),
                                   mkUpdateProposalWSign, mkUpdateVote)
-import           Pos.Crypto (ProtocolMagic, fakeSigner)
+import           Pos.Crypto (fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
@@ -32,13 +33,12 @@ instance Arbitrary SystemTag where
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
     shrink = genericShrink
 
-instance Arbitrary ProtocolMagic => Arbitrary UpdateVote where
-    arbitrary = mkUpdateVote <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+instance HasProtocolMagic => Arbitrary UpdateVote where
+    arbitrary = mkUpdateVote protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
     shrink = genericShrink
 
-instance Arbitrary ProtocolMagic => Arbitrary UpdateProposal where
+instance HasProtocolMagic => Arbitrary UpdateProposal where
     arbitrary = do
-        protocolMagic <- arbitrary
         upBlockVersion <- arbitrary
         upBlockVersionMod <- arbitrary
         upSoftwareVersion <- arbitrary
@@ -68,6 +68,6 @@ instance Arbitrary UpdateData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary ProtocolMagic => Arbitrary UpdatePayload where
+instance HasProtocolMagic => Arbitrary UpdatePayload where
     arbitrary = genericArbitrary
     shrink = genericShrink

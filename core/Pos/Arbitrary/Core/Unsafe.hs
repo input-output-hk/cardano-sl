@@ -10,13 +10,14 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), AddrType (..),
                            Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),
                            SlotId (..), mkCoin)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex
 
-instance ArbitraryUnsafe LocalSlotIndex where
+instance HasProtocolConstants => ArbitraryUnsafe LocalSlotIndex where
 
 instance ArbitraryUnsafe Coin where
     arbitraryUnsafe = mkCoin <$> arbitraryUnsafe
@@ -33,5 +34,5 @@ instance ArbitraryUnsafe Address where
         let addrType = ATPubKey
         return Address {..}
 
-instance ArbitraryUnsafe SlotId where
+instance HasProtocolConstants => ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

@@ -51,9 +51,9 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          GenesisDelegation, GenesisInitializer,
                                          GenesisNonAvvmBalances (..), GenesisSpec,
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         ProtocolConstants, TestnetBalanceOptions,
-                                         VssMaxTTL (..), VssMinTTL (..),
-                                         unGenesisDelegation)
+                                         GenesisProtocolConstants (..),
+                                         TestnetBalanceOptions, unGenesisDelegation)
+import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap,
                                validateVssCertificatesMap)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk, redeemPkB64UrlF)
@@ -120,5 +120,5 @@ instance FromJSON VssMinTTL where
 deriveJSON defaultOptions ''FakeAvvmOptions
 deriveJSON defaultOptions ''TestnetBalanceOptions
 deriveJSON defaultOptions ''GenesisInitializer
-deriveJSON defaultOptions ''ProtocolConstants
+deriveJSON defaultOptions ''GenesisProtocolConstants
 deriveJSON defaultOptions ''GenesisSpec

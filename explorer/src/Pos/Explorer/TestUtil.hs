@@ -38,7 +38,7 @@ import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
                            HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
                            SlotLeaders, StakeholderId, difficultyL, headerHash,
-                           makePubKeyAddressBoot)
+                           makePubKeyAddressBoot, protocolMagic, GenesisHash (..), genesisHash)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
@@ -281,7 +281,10 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         (epochGenesisBlock, epochBlocks)
       where
         epochGenesisBlock :: GenesisBlock
-        epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
+        epochGenesisBlock = mkGenesisBlock protocolMagic
+                                           (maybe (Left (GenesisHash genesisHash)) Right mBlockHeader)
+                                           epochIndex
+                                           producedSlotLeaders
 
         epochBlocks :: [MainBlock]
         epochBlocks = do

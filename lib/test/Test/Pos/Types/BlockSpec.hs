@@ -8,6 +8,7 @@ module Test.Pos.Types.BlockSpec
 
 import           Universum
 
+import           Data.Default (def)
 import           Serokell.Util (isVerSuccess)
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
@@ -51,7 +52,7 @@ spec = withDefConfiguration $ describe "Block properties" $ do
         => NewestFirst [] T.BlockHeader
         -> Spec
     emptyHeaderChain l =
-        it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders Nothing l
+        it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders def Nothing l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.
@@ -147,10 +148,10 @@ validateGoodMainHeader
     :: HasConfiguration
     => T.HeaderAndParams -> Bool
 validateGoodMainHeader (T.getHAndP -> (params, header)) =
-    isVerSuccess $ T.verifyHeader params header
+    isVerSuccess $ T.verifyHeader def params header
 
 validateGoodHeaderChain
     :: HasConfiguration
     => T.BlockHeaderList -> Bool
 validateGoodHeaderChain (T.BHL (l, _)) =
-    isVerSuccess $ T.verifyHeaders Nothing (NewestFirst l)
+    isVerSuccess $ T.verifyHeaders def Nothing (NewestFirst l)

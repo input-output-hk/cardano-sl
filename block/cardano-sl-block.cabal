@@ -16,6 +16,7 @@ library
                         Pos.Arbitrary.Block
 
                         Pos.Block.Base
+                        Pos.Block.Behavior
                         Pos.Block.BHelpers
                         Pos.Block.BListener
                         Pos.Block.Configuration

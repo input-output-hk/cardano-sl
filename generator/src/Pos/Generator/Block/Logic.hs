@@ -19,12 +19,13 @@ import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Base (mkGenesisBlock)
+import           Pos.Block.Behavior (BlockBehavior)
 import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal, normalizeMempool,
                                   verifyBlocksPrefix)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
-import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Communication.Message ()
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
                            getSlotIndex)
 import           Pos.Core.Block (Block)
@@ -138,7 +139,10 @@ genBlock eos = withCompileInfo def $ do
                              (lift $ genMainBlock slot (swap <$> transCert))
   where
     genMainBlock ::
-        HasCompileInfo =>
+        ( HasCompileInfo
+        , MonadReader ctx m
+        , HasLens' ctx BlockBehavior
+        ) =>
         SlotId ->
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
@@ -147,7 +151,10 @@ genBlock eos = withCompileInfo def $ do
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply ::
-        HasCompileInfo =>
+        ( HasCompileInfo
+        , MonadReader ctx m
+        , HasLens' ctx BlockBehavior
+        ) =>
         Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case

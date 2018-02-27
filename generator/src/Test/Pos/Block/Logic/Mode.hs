@@ -59,6 +59,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioPrope
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
+import           Pos.Block.Behavior (BlockBehavior)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
@@ -211,6 +212,7 @@ data BlockTestContext = BlockTestContext
     , btcDelegation        :: !DelegationVar
     , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     , btcAllSecrets        :: !AllSecrets
+    , btcBlockBehavior     :: !BlockBehavior
     }
 
 
@@ -272,6 +274,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                         Nothing ->
                             error "initBlockTestContext: no genesisSecretKeys"
                         Just ks -> ks
+            let btcBlockBehavior = def
             let btcAllSecrets = mkAllSecretsSimple secretKeys
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
@@ -413,6 +416,9 @@ instance HasLens TestParams BlockTestContext TestParams where
 
 instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
       lensOf = btcSSlottingVarL
+
+instance HasLens BlockBehavior BlockTestContext BlockBehavior where
+    lensOf = btcBlockBehaviorL
 
 instance HasReportingContext BlockTestContext where
     reportingContext = btcReportingContextL

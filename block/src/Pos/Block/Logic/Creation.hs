@@ -23,6 +23,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Block.Behavior (BlockBehavior (..), ForgeHeaderParams (..))
 import           Pos.Block.Base (mkGenesisBlock, mkMainBlock)
 import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
@@ -37,7 +38,7 @@ import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (SecretKey, keyGen)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
@@ -246,12 +247,15 @@ createMainBlockInternal sId pske = do
     createMainBlockFinish :: BlockHeader -> ExceptT Text m MainBlock
     createMainBlockFinish prevHeader = do
         rawPay <- lift $ getRawPayload (headerHash prevHeader) sId
-        sk <- getOurSecretKey
+        blockBehavior <- view $ lensOf @BlockBehavior
+        (pske', sk) <- case bbForgeHeader blockBehavior of
+            HeaderNormal -> (pske,) <$> getOurSecretKey
+            HeaderWrongLeader -> (Nothing,) . snd <$> keyGen
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
-        block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
+        block <- createMainBlockPure sizeLimit prevHeader pske' sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block

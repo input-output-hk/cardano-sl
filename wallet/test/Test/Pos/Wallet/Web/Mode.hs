@@ -35,6 +35,7 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
+import           Pos.Block.Behavior (BlockBehavior (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, ProgressHeader,
@@ -88,7 +89,7 @@ import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes(..))
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (MonadWalletDB, WalletState, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
@@ -154,6 +155,7 @@ data WalletTestContext = WalletTestContext
     -- ^ Sent transactions via MonadWalletSendActions
     , wtcHashes           :: !AddrCIdHashes
     -- ^ Address hashes ref
+    , wtcBlockBehavior    :: !BlockBehavior
     }
 
 makeLensesWith postfixLFields ''WalletTestContext
@@ -191,7 +193,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
             wtcHashes <- AddrCIdHashes <$> newIORef mempty
-            pure WalletTestContext {..}
+            pure WalletTestContext {wtcBlockBehavior = def, ..}
         callback wtc
 
 runWalletTestMode ::
@@ -355,6 +357,9 @@ instance HasLens ProgressHeaderTag WalletTestContext ProgressHeader where
 
 instance HasLens ConnectedPeers WalletTestContext ConnectedPeers where
     lensOf = wtcConnectedPeers_L
+
+instance HasLens BlockBehavior WalletTestContext BlockBehavior where
+    lensOf = wtcBlockBehavior_L
 
 -- For reporting
 instance HasNodeType WalletTestContext where

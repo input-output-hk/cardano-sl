@@ -24,6 +24,7 @@ import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
 import           System.Wlog (WithLogger, logDebug)
 
+import           Pos.Block.Behavior (BlockBehavior (..))
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
 import           Pos.Block.Pure (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
@@ -43,7 +44,7 @@ import           Pos.Lrc.Context (HasLrcContext)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
-import           Pos.Util (buildListBounds, _neHead, _neLast)
+import           Pos.Util (HasLens', buildListBounds, lensOf, _neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 
@@ -75,8 +76,8 @@ classifyNewHeader
     ( HasConfiguration
     , MonadSlots ctx m
     , MonadDBRead m
-    , MonadSlots ctx m
     , HasLrcContext ctx
+    , HasLens' ctx BlockBehavior
     )
     => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
@@ -124,7 +125,8 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     }
-            case verifyHeader vhp (Right header) of
+            blockBehavior <- view $ lensOf @BlockBehavior
+            case verifyHeader blockBehavior vhp (Right header) of
                 VerFailure errors -> throwError $ mkCHRinvalid errors
                 _                 -> pass
 
@@ -168,6 +170,7 @@ classifyHeaders ::
        , MonadSlots ctx m
        , WithLogger m
        , HasConfiguration
+       , HasLens' ctx BlockBehavior
        )
     => Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
@@ -177,9 +180,10 @@ classifyHeaders inRecovery headers = do
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.getHeader oldestParentHash
     leaders <- LrcDB.getLeadersForEpoch oldestHeaderEpoch
+    blockBehavior <- view $ lensOf @BlockBehavior
     let headersValid =
             isVerSuccess $
-            verifyHeaders leaders (headers & _NewestFirst %~ toList)
+            verifyHeaders blockBehavior leaders (headers & _NewestFirst %~ toList)
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of

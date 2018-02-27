@@ -6974,7 +6974,7 @@ inherit (pkgs) mesa;};
          , parser-combinators, QuickCheck, quickcheck-instances, random
          , reflection, safe-exceptions, scientific, serokell-util, split
          , stdenv, stm, temporary, text, text-format, time-units
-         , transformers, universum, unix, unordered-containers
+         , transformers, universum, unix, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-auxx";
@@ -6993,7 +6993,7 @@ inherit (pkgs) mesa;};
              neat-interpolation optparse-applicative parser-combinators
              QuickCheck quickcheck-instances random reflection safe-exceptions
              scientific serokell-util split stm text text-format time-units
-             transformers universum unix unordered-containers
+             transformers universum unix unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            executableHaskellDepends = [

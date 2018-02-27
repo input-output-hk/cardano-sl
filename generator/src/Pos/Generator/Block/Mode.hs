@@ -29,6 +29,7 @@ import           Data.Default (Default)
 import           Mockable (MonadMockable, Promise)
 import           System.Wlog (WithLogger, logWarning)
 
+import           Pos.Block.Behavior (BlockBehavior)
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -62,7 +63,7 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, Tx
                           mkTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
-import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
+import           Pos.Util (HasLens (..), HasLens', newInitFuture, postfixLFields)
 
 
 ----------------------------------------------------------------------------
@@ -93,6 +94,7 @@ type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
        , Rand.MonadRandom m
+       , HasLens' ctx BlockBehavior
 
        , HasSlottingVar ctx
        , HasSlogGState ctx
@@ -135,6 +137,7 @@ data BlockGenContext ext = BlockGenContext
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
     , bgcReportingContext  :: !ReportingContext
+    , bgcBlockBehavior     :: !BlockBehavior
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -171,6 +174,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
                  then view GS.gStateContext
                  else GS.cloneGStateContext =<< view GS.gStateContext
     bgcSystemStart <- view slottingTimestamp
+    bgcBlockBehavior <- view $ lensOf @BlockBehavior
     (initSlot, putInitSlot) <- newInitFuture "initSlot"
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = _bgpTxpGlobalSettings
@@ -290,6 +294,9 @@ instance HasLens TxpGlobalSettings (BlockGenContext ext) TxpGlobalSettings where
 
 instance HasReportingContext (BlockGenContext ext) where
     reportingContext = bgcReportingContext_L
+
+instance HasLens BlockBehavior (BlockGenContext ext) BlockBehavior where
+    lensOf = bgcBlockBehavior_L
 
 -- Let's assume that block-gen is core node, though it shouldn't
 -- really matter (needed for reporting, which is not used in block-gen

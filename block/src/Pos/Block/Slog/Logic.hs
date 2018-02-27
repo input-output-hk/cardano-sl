@@ -32,6 +32,7 @@ import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Core ()
+import           Pos.Block.Behavior (BlockBehavior (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Pure (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
@@ -54,7 +55,7 @@ import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
-import           Pos.Util (_neHead, _neLast)
+import           Pos.Util (HasLens', lensOf, _neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst)
 
@@ -104,6 +105,7 @@ type MonadSlogBase ctx m =
     , MonadIO m
     , MonadDBRead m
     , WithLogger m
+    , HasLens' ctx BlockBehavior
     , HasConfiguration
     , HasUpdateConfiguration
     )
@@ -144,8 +146,9 @@ slogVerifyBlocks blocks = do
             when (block ^. genBlockLeaders /= leaders) $
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    blockBehavior <- view $ lensOf @BlockBehavior
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+        verifyBlocks blockBehavior curSlot dataMustBeKnown adoptedBVD leaders blocks
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.

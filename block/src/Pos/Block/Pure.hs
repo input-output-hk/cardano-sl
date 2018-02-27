@@ -25,6 +25,7 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
+import           Pos.Block.Behavior (BlockBehavior (..), ForgeHeaderParams (..))
 import           Pos.Block.BHelpers ()
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
@@ -66,8 +67,8 @@ maybeMempty = maybe mempty
 -- 'BlockHeader'.
 verifyHeader
     :: HasConfiguration
-    => VerifyHeaderParams -> BlockHeader -> VerificationRes
-verifyHeader VerifyHeaderParams {..} h =
+    => BlockBehavior -> VerifyHeaderParams -> BlockHeader -> VerificationRes
+verifyHeader blockBehavior VerifyHeaderParams {..} h =
     verifyGeneric checks
   where
     checks =
@@ -141,9 +142,10 @@ verifyHeader VerifyHeaderParams {..} h =
 
     -- CHECK: Checks that the block leader is the expected one.
     relatedToLeaders leaders =
-        case h of
-            Left _ -> []
-            Right mainHeader ->
+        case (bbForgeHeader blockBehavior, h) of
+            (HeaderWrongLeader, _) -> []
+            (_, Left _) -> []
+            (_, Right mainHeader) ->
                 [ ( (Just (addressHash $ mainHeader ^. mainHeaderLeaderKey) ==
                      leaders ^?
                      ix (fromIntegral $ getSlotIndex $
@@ -166,11 +168,12 @@ verifyHeader VerifyHeaderParams {..} h =
 -- linking checks are performed!
 verifyHeaders ::
        HasConfiguration
-    => Maybe SlotLeaders
+    => BlockBehavior
+    -> Maybe SlotLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
-verifyHeaders _ (NewestFirst []) = mempty
-verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
+verifyHeaders _ _ (NewestFirst []) = mempty
+verifyHeaders blockBehavior leaders (NewestFirst (headers@(_:xh))) =
     snd $
     foldr foldFoo (leaders,mempty) $ headers `zip` (map Just xh ++ [Nothing])
   where
@@ -180,7 +183,7 @@ verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
                              (Left _) -> Nothing
                              _        -> prevLeaders
 
-        in (curLeaders, verifyHeader (toVHP curLeaders prev) cur <> res)
+        in (curLeaders, verifyHeader blockBehavior (toVHP curLeaders prev) cur <> res)
     toVHP l p =
         VerifyHeaderParams
         { vhpPrevHeader = p
@@ -213,10 +216,10 @@ data VerifyBlockParams = VerifyBlockParams
 -- #verifyHeader
 verifyBlock
     :: HasConfiguration
-    => VerifyBlockParams -> Block -> VerificationRes
-verifyBlock VerifyBlockParams {..} blk =
+    => BlockBehavior -> VerifyBlockParams -> Block -> VerificationRes
+verifyBlock blockBehavior VerifyBlockParams {..} blk =
     mconcat
-        [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
+        [ verifyHeader blockBehavior vbpVerifyHeader (getBlockHeader blk)
         , checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
@@ -256,13 +259,14 @@ verifyBlocks
        , NontrivialContainer t
        , HasConfiguration
        )
-    => Maybe SlotId
+    => BlockBehavior
+    -> Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
     -> OldestFirst f Block
     -> VerificationRes
-verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks blockBehavior curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
@@ -291,4 +295,4 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
                 , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock blockBehavior vbp blk)

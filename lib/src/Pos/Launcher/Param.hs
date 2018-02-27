@@ -16,6 +16,7 @@ import           Ether.Internal (HasLens (..))
 import           System.Wlog (LoggerName)
 
 import           Pos.Behavior (BehaviorConfig (..))
+import           Pos.Block.Behavior (BlockBehavior)
 import           Pos.Core (HasPrimaryKey (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DHT.Real.Param (KademliaParams)
@@ -78,6 +79,8 @@ instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npBehaviorConfig_L . bcSecurityParams_L
 instance HasLens SscBehavior NodeParams SscBehavior where
     lensOf = npBehaviorConfig_L . bcSscBehavior_L
+instance HasLens BlockBehavior NodeParams BlockBehavior where
+    lensOf = npBehaviorConfig_L . bcBlockBehavior_L
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L

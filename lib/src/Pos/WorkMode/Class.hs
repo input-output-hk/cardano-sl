@@ -18,6 +18,7 @@ import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
+import           Pos.Block.Behavior (BlockBehavior (..))
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
@@ -74,6 +75,7 @@ type WorkMode ctx m
       , MonadReader ctx m
       , MonadKnownPeers m
       , MonadFormatPeers m
+      , HasLens' ctx BlockBehavior
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics

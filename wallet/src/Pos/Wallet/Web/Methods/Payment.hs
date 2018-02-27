@@ -7,6 +7,8 @@ module Pos.Wallet.Web.Methods.Payment
        ( newPayment
        , newPaymentBatch
        , getTxFee
+         -- * Required for dbgen and maybe other internal usage
+       , unsafeNewPayment
        ) where
 
 import           Universum
@@ -70,6 +72,25 @@ import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds,
                                                    getWalletAddrsDetector)
+
+
+-- Required for non-blocking internal usage in dbgen. DO NOT USE!
+unsafeNewPayment
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> PassPhrase
+    -> AccountId
+    -> CId Addr
+    -> Coin
+    -> InputSelectionPolicy
+    -> m CTx
+unsafeNewPayment sa passphrase srcAccount dstAccount coin policy =
+    sendMoney
+        sa
+        passphrase
+        (AccountMoneySource srcAccount)
+        (one (dstAccount, coin))
+        policy
 
 newPayment
     :: MonadWalletWebMode m

@@ -18,7 +18,7 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
-                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
+                           addressHash, mkMultiKeyDistr, unsafeGetCoin, protocolMagic)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
@@ -369,7 +369,7 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
             Nothing -> logError "Invalid passphrase"
             Just ss -> do
-                let psk = safeCreatePsk ss delegatePk curEpoch
+                let psk = safeCreatePsk protocolMagic ss delegatePk curEpoch
                 if dry
                 then do
                     printAction $

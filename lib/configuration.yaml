@@ -71,15 +71,6 @@ dev: &dev
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
 
-    neighboursSendThreshold: 2
-    kademliaDumpInterval: 4
-    enhancedMessageTimeout: 360 # 6 mins
-    enhancedMessageBroadcast: 2
-
-    maxReqSize: 102 # 102 bytes
-    maxInvSize: 102 # 102 bytes
-    maxMempoolMsgSize: 100 # 100 bytes
-
   update: &dev_update
     applicationName: cardano-sl
     applicationVersion: 0
@@ -259,15 +250,6 @@ mainnet_base: &mainnet_base
     # NTP checking
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
-
-    neighboursSendThreshold: 2
-    kademliaDumpInterval: 4
-    enhancedMessageTimeout: 360 # 6 mins
-    enhancedMessageBroadcast: 2
-
-    maxReqSize: 102 # 102 bytes
-    maxInvSize: 102 # 102 bytes
-    maxMempoolMsgSize: 100 # 100 bytes
 
   update: &mainnet_base_update
     applicationName: cardano-sl

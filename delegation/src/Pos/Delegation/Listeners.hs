@@ -16,7 +16,6 @@ import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Delegation ()
-import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol (Message)
 import           Pos.Communication.Relay (DataMsg)
 import           Pos.Core (ProxySKHeavy)
@@ -29,9 +28,8 @@ import           Pos.StateLock (StateLock)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.
-type DlgMessageConstraint m
+type DlgMessageConstraint
      = ( Message (DataMsg ProxySKHeavy)
-       , MessageLimited (DataMsg ProxySKHeavy) m
        )
 
 -- | This is a subset of 'WorkMode'.
@@ -47,7 +45,7 @@ type DlgListenerConstraint ctx m
        , HasLens' ctx StateLock
        , HasLrcContext ctx
        , WithLogger m
-       , DlgMessageConstraint m
+       , DlgMessageConstraint
        , HasDlgConfiguration
        )
 

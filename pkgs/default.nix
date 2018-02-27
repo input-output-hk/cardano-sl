@@ -7019,10 +7019,10 @@ inherit (pkgs) mesa;};
            ];
            libraryToolDepends = [ cpphs ];
            executableHaskellDepends = [
-             cardano-sl cardano-sl-core cardano-sl-infra cardano-sl-networking
-             cardano-sl-txp cardano-sl-update cardano-sl-util constraints
-             formatting log-warper network-transport-tcp safe-exceptions
-             temporary universum unix
+             cardano-sl cardano-sl-block cardano-sl-core cardano-sl-infra
+             cardano-sl-networking cardano-sl-txp cardano-sl-update
+             cardano-sl-util constraints formatting log-warper
+             network-transport-tcp safe-exceptions temporary universum unix
            ];
            executableToolDepends = [ cpphs ];
            testHaskellDepends = [

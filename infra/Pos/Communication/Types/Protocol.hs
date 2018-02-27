@@ -36,6 +36,9 @@ module Pos.Communication.Types.Protocol
        , Msg
        , MsgSubscribe (..)
        , MsgSubscribe1 (..)
+       , mlMsgSubscribe
+       , mlMsgSubscribe1
+       , recvLimited
        ) where
 
 import           Universum
@@ -60,6 +63,7 @@ import           Serokell.Util.Text (listJson, mapJson)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Communication.BiP (BiP)
+import           Pos.Communication.Limits.Types (Limit (..))
 import           Pos.Core.Update (BlockVersion)
 import           Pos.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 import           Pos.Util.Util (toAesonError)
@@ -325,3 +329,14 @@ data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
 -- | Old version of MsgSubscribe.
 data MsgSubscribe1 = MsgSubscribe1
     deriving (Generic, Show, Eq)
+
+mlMsgSubscribe :: Limit MsgSubscribe
+mlMsgSubscribe = 0
+
+mlMsgSubscribe1 :: Limit MsgSubscribe1
+mlMsgSubscribe1 = 0
+
+recvLimited
+    :: forall rcv snd m .
+       N.ConversationActions snd rcv m -> Limit rcv -> m (Maybe rcv)
+recvLimited conv = N.recv conv . getLimit

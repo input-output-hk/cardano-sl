@@ -18,7 +18,7 @@ import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Binary.Core ()
 import           Pos.Core (AddrType (..), Address (..), HasConfiguration, integerToCoin,
-                           isRedeemAddress, isUnknownAddressType, sumCoins)
+                           isRedeemAddress, isUnknownAddressType, protocolMagic, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
@@ -203,10 +203,10 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
     checkWitness :: HasConfiguration => TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
     checkWitness _txOutAux witness = case witness of
         PkWitness{..} ->
-            unless (checkSig SignTx twKey txSigData twSig) $
+            unless (checkSig protocolMagic SignTx twKey txSigData twSig) $
                 throwError WitnessWrongSignature
         RedeemWitness{..} ->
-            unless (redeemCheckSig SignRedeemTx twRedeemKey txSigData twRedeemSig) $
+            unless (redeemCheckSig protocolMagic SignRedeemTx twRedeemKey txSigData twRedeemSig) $
                 throwError WitnessWrongSignature
         ScriptWitness{..} -> do
             let valVer = scrVersion twValidator

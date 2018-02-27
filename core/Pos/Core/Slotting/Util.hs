@@ -16,6 +16,9 @@ module Pos.Core.Slotting.Util
        , epochOrSlotToSlot
        , mkLocalSlotIndex
        , addLocalSlotIndex
+
+       , localSlotIndexMinBound
+       , localSlotIndexMaxBound
        ) where
 
 import           Universum
@@ -25,6 +28,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import           System.Random (Random (..))
 
 import           Pos.Core.Class (HasEpochIndex (..), HasEpochOrSlot (..), getEpochOrSlot)
+import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
                                                   slotSecurityParam)
 import           Pos.Core.Slotting.Types (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
@@ -52,11 +56,7 @@ flattenEpochOrSlot =
 
 -- | Construct 'SlotId' from a flattened variant.
 unflattenSlotId :: HasProtocolConstants => FlatSlotId -> SlotId
-unflattenSlotId n =
-    let (fromIntegral -> siEpoch, fromIntegral -> slot) =
-            n `divMod` fromIntegral epochSlots
-        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
-    in SlotId {..}
+unflattenSlotId = unflattenSlotIdExplicit epochSlots
 
 -- | Construct a 'SlotId' from a flattened variant, using a given 'SlotCount'
 -- modulus.
@@ -64,7 +64,7 @@ unflattenSlotIdExplicit :: SlotCount -> FlatSlotId -> SlotId
 unflattenSlotIdExplicit es n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
             n `divMod` fromIntegral es
-        siSlot = UnsafeLocalSlotIndex slot
+        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndexThrow_ es slot
     in  SlotId {..}
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
@@ -166,13 +166,26 @@ instance HasProtocolConstants => Bounded LocalSlotIndex where
     minBound = UnsafeLocalSlotIndex 0
     maxBound = UnsafeLocalSlotIndex (fromIntegral epochSlots - 1)
 
-mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
-mkLocalSlotIndex idx
-    | idx < fromIntegral epochSlots = pure (UnsafeLocalSlotIndex idx)
-    | otherwise =
-        throwError $
+localSlotIndexMinBound :: LocalSlotIndex
+localSlotIndexMinBound = UnsafeLocalSlotIndex 0
+
+localSlotIndexMaxBound :: ProtocolConstants -> LocalSlotIndex
+localSlotIndexMaxBound pc = UnsafeLocalSlotIndex (fromIntegral (pcEpochSlots pc) - 1)
+
+mkLocalSlotIndex_ :: SlotCount -> Word16 -> Maybe LocalSlotIndex
+mkLocalSlotIndex_ es idx
+    | idx < fromIntegral es = Just (UnsafeLocalSlotIndex idx)
+    | otherwise = Nothing
+
+mkLocalSlotIndexThrow_ :: MonadError Text m => SlotCount -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndexThrow_ es idx = case mkLocalSlotIndex_ es idx of
+    Just it -> pure it
+    Nothing -> throwError $
         "local slot is greater than or equal to the number of slots in epoch: " <>
         show idx
+
+mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
+mkLocalSlotIndex = mkLocalSlotIndexThrow_ epochSlots
 
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.

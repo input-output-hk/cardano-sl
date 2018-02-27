@@ -11,10 +11,10 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Class (biSize)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.Update.MemState as Upd
 
-instance Arbitrary ProtocolMagic => Arbitrary Upd.MemPool where
+instance HasConfiguration => Arbitrary Upd.MemPool where
     arbitrary = do
         proposals <- arbitrary
         votes <- arbitrary

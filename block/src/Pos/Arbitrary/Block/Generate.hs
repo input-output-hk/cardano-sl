@@ -6,14 +6,12 @@ module Pos.Arbitrary.Block.Generate
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary, arbitrary)
+import           Test.QuickCheck (arbitrary)
 import qualified Test.QuickCheck.Gen as QC
 import qualified Test.QuickCheck.Random as QC
 
+import           Pos.Core (MainBlock, HasConfiguration)
 import qualified Pos.Arbitrary.Block ()
-import qualified Pos.Arbitrary.Ssc ()
-import           Pos.Core (MainBlock)
-import           Pos.Crypto (ProtocolMagic)
 
 -- The arbitrary instances requires configuration, unfortunately.
 -- That's because it does verification. Yes, indeed, the arbitrary instance
@@ -21,7 +19,7 @@ import           Pos.Crypto (ProtocolMagic)
 
 
 generateBlock
-    :: ( Arbitrary ProtocolMagic )
+    :: ( HasConfiguration )
     => Int -- ^ Seed for random generator.
     -> Int -- ^ Size of the generated value (see QuickCheck docs).
     -> MainBlock

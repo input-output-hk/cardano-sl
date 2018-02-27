@@ -11,13 +11,13 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Txp ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
-instance HasConfiguration => Arbitrary TxMsgContents where
+instance Arbitrary ProtocolMagic => Arbitrary TxMsgContents where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary (DataMsg TxMsgContents) where
+instance Arbitrary ProtocolMagic => Arbitrary (DataMsg TxMsgContents) where
     arbitrary = DataMsg <$> arbitrary
     shrink = genericShrink

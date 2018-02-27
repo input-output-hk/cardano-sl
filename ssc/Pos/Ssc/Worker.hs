@@ -28,10 +28,11 @@ import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), Stakeholde
                            VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
-                           vssMaxTTL, protocolMagic)
+                           vssMaxTTL)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
                                getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
+import           Pos.Crypto.Configuration (protocolMagic)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Diffusion.Types (Diffusion (..))

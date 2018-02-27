@@ -20,13 +20,12 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (EpochIndex, HasProtocolConstants, HeavyDlgIndex (..),
-                           ProxySKHeavy, StakeholderId, addressHash, gbhConsensus,
-                           protocolMagic)
+import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy,
+                           StakeholderId, addressHash, gbhConsensus, protocolMagic)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, psigPsk,
-                             validateProxySecretKey)
+import           Pos.Crypto (HasProtocolMagic, ProxySecretKey (..), PublicKey,
+                             psigPsk, protocolMagic, validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)
@@ -152,7 +151,7 @@ newtype CheckForCycle = CheckForCycle Bool
 
 -- | Verify consistent heavy PSK.
 dlgVerifyPskHeavy ::
-       (HasProtocolConstants, MonadCedeRead m)
+       (HasProtocolMagic, MonadCedeRead m)
     => RichmenSet
     -> CheckForCycle
     -> EpochIndex

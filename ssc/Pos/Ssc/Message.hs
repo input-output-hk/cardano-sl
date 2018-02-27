@@ -24,9 +24,8 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Node.Message.Class (Message)
 
-import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg, ReqOrRes)
-import           Pos.Core (HasConfiguration, StakeholderId, VssCertificate, addressHash, getCertId)
+import           Pos.Communication.Types.Relay (InvOrData, ReqMsg, ReqOrRes)
+import           Pos.Core (StakeholderId, VssCertificate, addressHash, getCertId)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
 import           Pos.Ssc.Toss.Types (SscTag (..))
 
@@ -80,13 +79,8 @@ instance HasSscTag MCVssCertificate where
 
 -- TODO: someone who knows networking should take a look because this really
 -- doesn't look like something that anyone should ever have to write
-type SscMessageConstraints m =
-    ( MessageLimited (DataMsg MCCommitment) m
-    , MessageLimited (DataMsg MCCommitment) m
-    , MessageLimited (DataMsg MCOpening) m
-    , MessageLimited (DataMsg MCShares) m
-    , MessageLimited (DataMsg MCVssCertificate) m
-    , Each '[Message]
+type SscMessageConstraints =
+    ( Each '[Message]
         [ InvOrData (Tagged MCCommitment     StakeholderId) MCCommitment
         , InvOrData (Tagged MCOpening        StakeholderId) MCOpening
         , InvOrData (Tagged MCShares         StakeholderId) MCShares
@@ -101,5 +95,4 @@ type SscMessageConstraints m =
         , ReqOrRes (Tagged MCOpening        StakeholderId)
         , ReqOrRes (Tagged MCShares         StakeholderId)
         , ReqOrRes (Tagged MCVssCertificate StakeholderId) ]
-    , HasConfiguration
     )

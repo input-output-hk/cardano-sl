@@ -36,7 +36,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Binary.Core ()
-import           Pos.Core (HasConfiguration, StakeholderId, TxSigData)
+import           Pos.Core (HasConfiguration, StakeholderId, TxSigData, protocolMagic)
 import           Pos.Crypto (SafeSigner, SignTag (SignTx), deterministicKeyGen, fullPublicKeyHexF,
                              fullSignatureHexF, hashHexF, safeSign, safeToPublic, signRaw, signTag)
 import           Pos.Script (Script, parseRedeemer, parseValidator)
@@ -138,7 +138,7 @@ multisigValidator n ids = fromE $ parseValidator [text|
     shownN = show n
     mkCons h s = sformat ("(Cons #"%hashHexF%" "%build%")") h s
     shownIds = foldr mkCons "Nil" ids
-    shownTag = sformat ("#"%base16F) (signTag SignTx)
+    shownTag = sformat ("#"%base16F) (signTag protocolMagic SignTx)
 
 multisigRedeemer :: HasConfiguration => TxSigData -> [Maybe SafeSigner] -> Script
 multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
@@ -150,7 +150,7 @@ multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
     mkCons (Just (pk, sig)) s = sformat
         ("(Cons (Just (MkPair #"%fullPublicKeyHexF%" #"%fullSignatureHexF%")) "
                 %build%")") pk sig s
-    sigs = map (fmap (\k -> (safeToPublic k, safeSign SignTx k txSigData))) sks
+    sigs = map (fmap (\k -> (safeToPublic k, safeSign protocolMagic SignTx k txSigData))) sks
     shownSigs = foldr mkCons "Nil" sigs
 
 ----------------------------------------------------------------------------
@@ -226,7 +226,7 @@ sigStressRedeemer n = fromE $ parseRedeemer [text|
   where
     ns = show n
     (pk, sk) = deterministicKeyGen (BS.replicate 32 0)
-    sig = signRaw Nothing sk (BS.pack [0])
+    sig = signRaw protocolMagic Nothing sk (BS.pack [0])
 
     keyS = sformat fullPublicKeyHexF pk
     sigS = sformat fullSignatureHexF sig

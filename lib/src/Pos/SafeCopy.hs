@@ -36,6 +36,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -67,6 +68,8 @@ getCopyBi = contain $ do
 ----------------------------------------------------------------------------
 -- Core types
 ----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
 deriveSafeCopySimple 0 'base ''ApplicationName
@@ -177,14 +180,16 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhPrevBlock <- safeGet
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhPrevBlock
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus
            safePut _gbhExtra

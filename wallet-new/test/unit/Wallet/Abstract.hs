@@ -361,7 +361,7 @@ genFromBlockchainPickingAccounts i fpc = do
         $ sformat
             ( "No eligible addresses!\n\n"
             % "All addresses: " % build
-            ) (concatMap show allAddrs)
+            ) (intercalate ", " (map show allAddrs))
         else pure ()
 
     addrs <- Set.fromList <$> sublistN i eligibleAddrs
@@ -371,7 +371,7 @@ genFromBlockchainPickingAccounts i fpc = do
         $ sformat
             ( "No addresses!\n\n"
             % "All addresses: " % build
-            ) (concatMap show allAddrs)
+            ) (intercalate ", " (map show allAddrs))
         else pure ()
 
     genFromBlockchain addrs fpc
@@ -379,15 +379,12 @@ genFromBlockchainPickingAccounts i fpc = do
 genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
 genInductiveFor addrs = do
     chain <- getBlockchain
-    let initialActions = chainToApplyBlocks chain
-    if null addrs then error "why is this happening" else pure ()
-    intersperseTransactions addrs initialActions
+    intersperseTransactions addrs (chainToApplyBlocks chain)
 
 -- | The first step in converting a 'Chain into an 'Inductive' wallet is
 -- to sequence the existing blocks using 'ApplyBlock' constructors.
 chainToApplyBlocks :: Chain h a -> [Action h a]
-chainToApplyBlocks =
-    toList . map ApplyBlock' . chainBlocks
+chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
 
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There

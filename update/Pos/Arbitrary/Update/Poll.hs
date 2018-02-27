@@ -16,7 +16,7 @@ import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Common (HeaderHash)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
@@ -28,7 +28,7 @@ instance Arbitrary HeaderHash => Arbitrary UpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary UndecidedProposalState where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary UndecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -36,15 +36,15 @@ instance Arbitrary HeaderHash => Arbitrary DpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary DecidedProposalState where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary DecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary ConfirmedProposalState where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary ConfirmedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary ProposalState  where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary ProposalState  where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -52,17 +52,17 @@ instance Arbitrary HeaderHash => Arbitrary BlockVersionState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary PollModifier where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary PollModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary PollState where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary PollState where
     arbitrary = do
         ps <- genericArbitrary
         return (ps & psActivePropsIdx %~ HM.filter (not . null))
     shrink = genericShrink
 
-instance (Arbitrary HeaderHash, HasConfiguration) => Arbitrary USUndo where
+instance (Arbitrary HeaderHash, Arbitrary ProtocolMagic) => Arbitrary USUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

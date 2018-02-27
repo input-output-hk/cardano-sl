@@ -5,6 +5,14 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
+       , mlGenesisBlockHeader
+       , mlMainBlockHeader
+       , mlBlockHeader
+       , mlGenesisBlock
+       , mlMainBlock
+       , mlBlock
+       , mlMsgBlock
+       , mlMsgHeaders
        ) where
 
 import qualified Data.Text.Buildable
@@ -12,9 +20,11 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 import           Universum
 
-import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Util.Chrono (NE, NewestFirst)
+import           Pos.Communication.Limits.Types (Limit (..), vectorOfNE, mlEither)
+import           Pos.Core (HeaderHash, BlockVersionData (..))
+import           Pos.Core.Block (Block, BlockHeader (..), MainBlock, GenesisBlock,
+                                 MainBlockHeader, GenesisBlockHeader)
+import           Pos.Util.Chrono (NE, NewestFirst (..))
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.
@@ -71,3 +81,30 @@ data MsgBlock
     = MsgBlock Block
     | MsgNoBlock Text
     deriving (Eq, Show, Generic)
+
+mlGenesisBlockHeader :: BlockVersionData -> Limit GenesisBlockHeader
+mlGenesisBlockHeader = Limit . fromIntegral . bvdMaxHeaderSize
+
+mlMainBlockHeader :: BlockVersionData -> Limit MainBlockHeader
+mlMainBlockHeader = Limit . fromIntegral . bvdMaxHeaderSize
+
+mlBlockHeader :: BlockVersionData -> Limit BlockHeader
+mlBlockHeader bvd = 1 + max (BlockHeaderGenesis <$> mlGenesisBlockHeader bvd)
+                            (BlockHeaderMain    <$> mlMainBlockHeader bvd)
+
+mlGenesisBlock :: BlockVersionData -> Limit GenesisBlock
+mlGenesisBlock = Limit . fromIntegral . bvdMaxBlockSize
+
+mlMainBlock :: BlockVersionData -> Limit MainBlock
+mlMainBlock = Limit . fromIntegral . bvdMaxBlockSize
+
+mlBlock :: BlockVersionData -> Limit Block
+mlBlock bvd = mlEither (mlGenesisBlock bvd) (mlMainBlock bvd)
+
+mlMsgBlock :: BlockVersionData -> Limit MsgBlock
+mlMsgBlock = fmap MsgBlock . mlBlock
+
+-- FIXME this has always been wrong. It doesn't account for the
+-- MsgNoHeaders variant.
+mlMsgHeaders :: BlockVersionData -> Int -> Limit MsgHeaders
+mlMsgHeaders bvd maxListSize = MsgHeaders . NewestFirst <$> vectorOfNE maxListSize (mlBlockHeader bvd)

@@ -220,7 +220,7 @@ recoveryTriggerWorker ::
        forall ctx m. (BlockWorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 recoveryTriggerWorker =
-    worker (requestTipOuts (Proxy :: Proxy m)) recoveryTriggerWorkerImpl
+    worker requestTipOuts recoveryTriggerWorkerImpl
 
 recoveryTriggerWorkerImpl
     :: forall ctx m.

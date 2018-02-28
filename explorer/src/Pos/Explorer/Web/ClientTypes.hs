@@ -77,7 +77,7 @@ import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.GState as GS
 import qualified Pos.Lrc as Lrc (getLeader)
-import           Pos.Merkle (getMerkleRoot, mtRoot)
+import           Pos.Merkle (getMerkleRoot, mtRoot, mkMerkleTree)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -273,7 +273,7 @@ toBlockSummary blund@(blk, _) = do
     let blockTxs      = blk ^. mainBlockTxPayload . txpTxs
 
     let cbsPrevHash   = toCHash $ blk ^. prevBlockL
-    let cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blockTxs
+    let cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot . mkMerkleTree $ blockTxs
 
     return CBlockSummary {..}
 

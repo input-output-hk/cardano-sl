@@ -98,6 +98,8 @@ do
   # --no-nix = don't use Nix
   elif [[ $var == "--no-nix" ]]; then
     no_nix=true
+  elif [[ $var == "--watch" ]]; then
+    file_watch=true
   # --ram = use more RAM
   elif [[ $var == "--ram" ]]; then
     ram=true
@@ -153,6 +155,9 @@ if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
+if [[ $file_watch == true ]]; then
+  watch="--file-watch"
+fi
 
 if [[ $no_fast == true ]]; then
   fast=""
@@ -227,7 +232,7 @@ for prj in $to_build; do
     ghc_opts_2="$ghc_opts"
   fi
 
-  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args $prj"
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args $prj"
   echo -e "$sbuild\n"
 
   eval $sbuild 2>&1                         \
@@ -236,7 +241,7 @@ for prj in $to_build; do
 done
 
 if [[ $to_build == "" ]]; then
-  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args"
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args"
   echo -e "$sbuild\n"
   eval $sbuild 2>&1                         \
     | perl -pe "$xperl"                     \

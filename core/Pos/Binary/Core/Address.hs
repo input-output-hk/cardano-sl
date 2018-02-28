@@ -1,22 +1,20 @@
 -- | Binary serialization of 'Address' and related types.
 
-module Pos.Binary.Core.Address () where
+module Pos.Binary.Core.Address (encodeAddr, encodeAddrCRC32) where
 
 import           Universum
 import           Unsafe (unsafeFromJust)
 
 import           Codec.CBOR.Encoding (Encoding)
-import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
-import qualified Data.ByteString as BS
-import           Data.Digest.CRC32 (CRC32 (..))
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word8)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
-                                   decodeUnknownCborDataItem, deserialize', encodeCrcProtected,
+                                   decodeUnknownCborDataItem, deserialize, encodeCrcProtected,
                                    encodeListLen, encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
+                                   serialize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
@@ -78,7 +76,7 @@ instance Bi AddrSpendingData where
             UnknownASD tag payload ->
                 -- `encodeListLen 2` is semantically equivalent to encode (x,y)
                 -- but we need to "unroll" it in order to apply CBOR's tag 24 to `payload`.
-                encodeListLen 2 <> encode tag <> encodeUnknownCborDataItem payload
+                encodeListLen 2 <> encode tag <> encodeUnknownCborDataItem (LBS.fromStrict payload)
     decode = do
         enforceSize "AddrSpendingData" 2
         decode @Word8 >>= \case
@@ -119,23 +117,30 @@ For address there are two attributes:
 -}
 
 instance Bi (Attributes AddrAttributes) where
+    -- FIXME @avieth it was observed that for a 150kb block, this call to
+    -- encodeAttributes allocated 3.685mb
+    -- Try using serialize rather than serialize', to avoid the
+    -- toStrict call.
+    -- Also consider using a custom builder strategy; serialized attributes are
+    -- probably small, right?
     encode attrs@(Attributes {attrData = AddrAttributes derivationPath stakeDistr}) =
         encodeAttributes listWithIndices attrs
       where
-        listWithIndices :: [(Word8, AddrAttributes -> BS.ByteString)]
+        listWithIndices :: [(Word8, AddrAttributes -> LBS.ByteString)]
         listWithIndices =
             stakeDistributionListWithIndices <> derivationPathListWithIndices
         stakeDistributionListWithIndices =
             case stakeDistr of
                 BootstrapEraDistr -> []
-                _                 -> [(0, serialize' . aaStakeDistribution)]
+                _                 -> [(0, serialize . aaStakeDistribution)]
         derivationPathListWithIndices =
             case derivationPath of
                 Nothing -> []
                 -- 'unsafeFromJust' is safe, because 'case' ensures
                 -- that derivation path is 'Just'.
                 Just _ ->
-                    [(1, serialize' . unsafeFromJust . aaPkDerivationPath)]
+                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
+
     decode = decodeAttributes initValue go
       where
         initValue =
@@ -145,8 +150,8 @@ instance Bi (Attributes AddrAttributes) where
             }
         go n v acc =
             case n of
-                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize' v
-                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize' v
+                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize v
+                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize v
                 _ -> pure Nothing
 
 -- We don't need a special encoding for 'Address'', GND is what we want.
@@ -167,10 +172,6 @@ An address is serialized as a tuple consisting of:
 4. CRC32 checksum.
 -}
 
-instance CRC32 Address where
-    crc32Update seed =
-        crc32Update seed . CBOR.Write.toLazyByteString . encodeAddr
-
 -- Encodes the `Address` __without__ the CRC32.
 -- It's important to keep this function separated from the `encode`
 -- definition to avoid that `encode` would call `crc32` and
@@ -180,10 +181,10 @@ encodeAddr :: Address -> Encoding
 encodeAddr Address {..} =
     encode addrRoot <> encode addrAttributes <> encode addrType
 
--- Note: we are using 'Buildable' constraint here, which in turn
--- relies on 'Bi', but it uses only encoding, while 'Buildable' is
--- used here only in decoding.
-instance Buildable Address => Bi Address where
+encodeAddrCRC32 :: Address -> Encoding
+encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
+
+instance Bi Address where
     encode Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
     decode = do
         (addrRoot, addrAttributes, addrType) <- decodeCrcProtected

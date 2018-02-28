@@ -6,8 +6,6 @@
 
 module Pos.Data.Attributes
        ( UnparsedFields(..)
-       , fromRaw
-       , toRaw
        , Attributes (..)
        , areAttributesKnown
        , encodeAttributes
@@ -17,7 +15,7 @@ module Pos.Data.Attributes
 
 import           Universum
 
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Default (Default (..))
 import qualified Data.Hashable as H
 import qualified Data.Map as M
@@ -31,24 +29,14 @@ import           Pos.Binary.Class
 -- | Representation of unparsed fields in Attributes. Newtype wrapper is used
 -- for clear backward compatibility between previous representation (which was
 -- just a single ByteString) during transition from Store to CBOR.
-newtype UnparsedFields = UnparsedFields (Map Word8 ByteString)
+newtype UnparsedFields = UnparsedFields (Map Word8 LBS.ByteString)
     deriving (Eq, Ord, Show, Generic, Typeable, NFData)
 
 instance Hashable UnparsedFields where
     hashWithSalt salt = H.hashWithSalt salt . M.toList . fromUnparsedFields
 
-fromUnparsedFields :: UnparsedFields -> Map Word8 ByteString
+fromUnparsedFields :: UnparsedFields -> Map Word8 LBS.ByteString
 fromUnparsedFields (UnparsedFields m) = m
-
--- | Convert from Store format.
-fromRaw :: BS.ByteString -> UnparsedFields
-fromRaw = \case
-    "" -> UnparsedFields $ M.empty
-    bs -> UnparsedFields $ M.singleton maxBound bs
-
--- | Extract Store format.
-toRaw :: UnparsedFields -> BS.ByteString
-toRaw = fromMaybe BS.empty . M.lookup maxBound . fromUnparsedFields
 
 ----------------------------------------
 
@@ -98,7 +86,7 @@ areAttributesKnown :: Attributes __ -> Bool
 areAttributesKnown = M.null . fromUnparsedFields . attrRemain
 
 unknownAttributesLength :: Attributes __ -> Int
-unknownAttributesLength = sum . map BS.length . fromUnparsedFields . attrRemain
+unknownAttributesLength = fromIntegral . sum . map LBS.length . fromUnparsedFields . attrRemain
 
 {- NOTE: Attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -149,15 +137,15 @@ version would be able to parse it).
 -}
 
 encodeAttributes
-    :: forall t. [(Word8, t -> BS.ByteString)]
+    :: forall t. [(Word8, t -> LBS.ByteString)]
     -> Attributes t
     -> Encoding
 encodeAttributes encs Attributes{..} =
     encode $ foldr go (fromUnparsedFields attrRemain) encs
   where
-    go :: (Word8, t -> BS.ByteString)
-       -> Map Word8 BS.ByteString
-       -> Map Word8 BS.ByteString
+    go :: (Word8, t -> LBS.ByteString)
+       -> Map Word8 LBS.ByteString
+       -> Map Word8 LBS.ByteString
     go (k, f) = M.alter (insertCheck $ f attrData) k
         where
           insertCheck v Nothing   = Just v
@@ -166,13 +154,13 @@ encodeAttributes encs Attributes{..} =
 
 decodeAttributes
     :: forall t s. t
-    -> (Word8 -> BS.ByteString -> t -> Decoder s (Maybe t))
+    -> (Word8 -> LBS.ByteString -> t -> Decoder s (Maybe t))
     -> Decoder s (Attributes t)
 decodeAttributes initval updater = do
-    raw <- decode @(Map Word8 BS.ByteString)
+    raw <- decode @(Map Word8 LBS.ByteString)
     foldrM go (Attributes initval $ UnparsedFields raw) $ M.toList raw
   where
-    go :: (Word8, BS.ByteString) -> Attributes t -> Decoder s (Attributes t)
+    go :: (Word8, LBS.ByteString) -> Attributes t -> Decoder s (Attributes t)
     go (k, v) attr@Attributes{..} = do
         updaterData <- updater k v attrData
         pure $ case updaterData of

@@ -9,6 +9,8 @@ module Pos.Delegation.Cede.Types
        , CedeModifier (..)
        , cmPskMods
        , cmHasPostedThisEpoch
+       , cmLookupCache
+       , emptyCedeModifier
        ) where
 
 import           Control.Lens (makeLenses)
@@ -45,7 +47,7 @@ dlgEdgeActionIssuer = \case
     (DlgEdgeDel sId) -> sId
     (DlgEdgeAdd psk) -> addressHash (pskIssuerPk psk)
 
--- TODO should it use Pos.Util.Modifier ?
+-- Pos.Util.Modifier is something similar.
 -- | A set of modifications for dlg-related component to implement
 -- Cede-related typeclasses.
 data CedeModifier = CedeModifier
@@ -53,11 +55,18 @@ data CedeModifier = CedeModifier
       -- ^ PSK modifications (added/overwritten or deleted)
     , _cmHasPostedThisEpoch :: !(HashMap StakeholderId Bool)
       -- ^ 'True' means user has posted psk, 'False' means he didn't.
+    , _cmLookupCache        :: !(HashMap StakeholderId (Maybe ProxySKHeavy))
+      -- ^ This is a hacky cache to make things faster (it actually
+      -- does). It can also make things slower in the future. Cache
+      -- invalidation is hard, so we will erase the value of @k@ every
+      -- time something is written to @k@. So writes will be a little
+      -- bit slower, but it optimizes reads significantly. In other
+      -- words, cache only holds db query result unless something
+      -- comes into cmPskMods, then we drop the value from cache.
     }
 
 makeLenses ''CedeModifier
 
-instance Monoid CedeModifier where
-    mempty = CedeModifier mempty mempty
-    mappend (CedeModifier a b) (CedeModifier c e) =
-        CedeModifier (a <> c) (b <> e)
+-- | Create a completely empty 'CedeModifier'.
+emptyCedeModifier :: CedeModifier
+emptyCedeModifier = CedeModifier mempty mempty mempty

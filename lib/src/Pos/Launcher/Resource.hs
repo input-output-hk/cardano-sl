@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP            #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE Rank2Types     #-}
 {-# LANGUAGE TypeOperators  #-}
-{-# LANGUAGE KindSignatures #-}
 
 -- | Resources used by node and ways to deal with them.
 
@@ -27,11 +27,12 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..))
 import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
-import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
-                              defaultHandleAction, logDebug, logInfo, maybeLogsDirB,
-                              productionB, removeAllHandlers, setupLogging, showTidB)
+import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
+                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
+                              setupLogging, showTidB)
 
 import           Pos.Binary ()
+import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Block.Slog (mkSlogContext)
 import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
@@ -97,6 +98,7 @@ allocateNodeResources
        , HasInfraConfiguration
        , HasSscConfiguration
        , HasDlgConfiguration
+       , HasBlockConfiguration
        )
     => NetworkConfig KademliaParams
     -> NodeParams
@@ -185,6 +187,7 @@ bracketNodeResources :: forall ext a.
       , HasInfraConfiguration
       , HasSscConfiguration
       , HasDlgConfiguration
+      , HasBlockConfiguration
       )
     => NodeParams
     -> SscParams
@@ -243,7 +246,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ext .
-      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration)
+      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, HasBlockConfiguration)
     => AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store

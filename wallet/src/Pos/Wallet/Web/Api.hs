@@ -483,8 +483,8 @@ data WSettingsApiRecord route = WSettingsApiRecord
   , _localTimeDifference :: route
     :- "time"
     :> "difference"
-    :> Summary "Get local time difference in milliseconds."
-    :> WRes Get Word
+    :> Summary "Get local time difference in microseconds."
+    :> WRes Get Integer
   }
   deriving (Generic)
 

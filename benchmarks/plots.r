@@ -60,7 +60,7 @@ if (hasTrxTimes) {
 
 # prep and read in benchmark parameters
 system(paste("sed -e 's/, /\\\n/g' ", fname3, " > ", fname3, "2", sep=''))
-params <- read.csv(paste(fname3, "2", sep=''), header=FALSE, 
+params <- read.csv(paste(fname3, "2", sep=''), header=FALSE,
                    col.names = c("parameter","value"), sep="=",
                    stringsAsFactor=FALSE)
 
@@ -89,7 +89,7 @@ readData <- function(filename, run=RUN) {
     tFirstBlock <- min(txWritten$time)
     tFirstBlock <- trunc((tFirstBlock - t0) / 1000 / EPOCHLENGTH) * EPOCHLENGTH * 1000 + t0
     data <- filter(data, time >= tFirstBlock)
-    
+
     # time after start of experiment, in seconds
     data$t <- (data$time - t0) %/% 1e6
     data$clustersize <- as.factor(data$clustersize)
@@ -232,12 +232,12 @@ plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC, lin=TRUE, min
 plotOverview <- function(d, report, run=RUN, desc=DESC) {
   def.par <- par(no.readonly = TRUE)
   layout(mat = matrix(c(1,1,1,1,2,3,4,4,5,5,6,6), 3, 4, byrow = TRUE), heights=c(2,3,4))
-  
+
   textplot(paste("\nBenchmark of ", run), cex = 2, valign = "top")
   bp <- barplot(as.matrix(report[,2]), col=c("green", "blue", "red"))
   textplot(report, show.rownames = FALSE)
   textplot(params, show.rownames = FALSE)
-  
+
   histTxs(data)
 
   par(def.par)
@@ -298,18 +298,18 @@ plotMessages <- function(d, run=RUN, desc=DESC) {
   summsg <- sum(written_by_node[,2])
   #written_by_node[maxparam+1,1] <- "sum"
   written_by_node[maxparam+1,2] <- summsg
-  
+
   def.par <- par(no.readonly = TRUE)
   layout(mat = matrix(c(1,1,1,1,2,2,3,4,5,6,7,0), 3, 4, byrow = TRUE), heights=c(2,4,3))
-  
+
   layout(matrix(c(1,1,1,2,3,4,5,6,7), 3, 3, byrow = TRUE))
   textplot(paste("\nMessage counts of ", run), cex = 2, valign = "top")
-  
+
   defborder <- c(1,0,1,1)
   textplot(messages_by_type, show.rownames = FALSE, mar=defborder, cex=1, valign="top")
   textplot(submitted_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
   textplot(written_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
-  
+
   if (! is.null(rollbackwait_by_node)) {
     textplot(rollbackwait_by_node, show.rownames = FALSE, mar=defborder, cex=1.1, valign="top")
   }
@@ -369,3 +369,67 @@ plotMempools(data %>% filter(!(node %in% relays)), 'core')
 plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
 
 plotTimes(data %>% filter(!(node %in% relays)), 'core')
+
+readOSmetrics <- function(nodename) {
+ fn <- paste(bp, '/', nodename, '-ts.log', sep='')
+ metrics <- {}
+  if (file.exists(fn)) {
+    # add to read.csv?   stringsAsFactors=FALSE
+    metrics <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, sep=" ")
+    colnames(metrics)[1:2] <- c("time", "stats")
+    metrics$io <- select(metrics %>% filter(stats %in% c("io")), time : V9)
+    colnames(metrics$io) <- c("time", "stats", "rchar", "wchar", "syscr", "syscw", "readbytes", "writebytes", "cxwbytes")
+    # plot(as.numeric(as.character(osmetrics_io$wchar)))
+    metrics$statm <- select(metrics %>% filter(stats %in% c("statm")), time : V9)
+    colnames(metrics$statm) <- c("time", "stats", "size", "resident", "shared", "text", "lib", "data", "dt")
+    # plot(osmetrics_statm$size)
+    metrics$stat <- metrics %>% filter(stats %in% c("stat"))
+    colnames(metrics$stat) <- c("time", "stats", "pid", "comm", "state", "ppid", "pgrp", "session", "tty", "tpgid", "flags", "minflt","cminflt","majflt","cmajflt", "utime", "stime", "cutime", "cstime", "priority", "nice", "nthr", "itrv", "starttime", "vsize", "rss", "rsslim", "startcode", "endcode", "startstack", "kstkesp", "kstkeip", "signal",
+                                  "blocked", "sigignore", "sigcatch", "wchan", "nswap", "cnswap", "exitsig", "processor", "rtprio", "policy", "delayio", "guesttime", "cguesttime", "startdata", "enddata", "startbrk", "argstart", "argend", "envstart", "envend", "exitcode")
+    # plot(osmetrics_stat$nthr)
+    # plot(osmetrics_stat$vsize)
+
+  }
+  metrics
+}
+
+plotStatMetrics <- function(d, run=RUN, desc=DESC) {
+    ggplot(d, aes(x=time-d[1, "time"], y=d$utime+d$stime)) +
+        geom_point(aes(colour=node)) +
+        geom_smooth() +
+        ggtitle(paste(
+            'CPU times for core nodes'
+         , run, desc, sep = ' ')) +
+        xlab("t [s]") +
+        ylab("Time spent for CPU") +
+        guides(size = "none", colour = "legend", alpha = "none")
+}
+
+plotIOMetrics <- function(d, run=RUN, desc=DESC) {
+    ggplot(d, aes(x=time-d[1, "time"], y=wchar)) +
+        geom_point(aes(colour=node)) +
+        geom_smooth() +
+        ggtitle(paste(
+            'IO writes for core nodes'
+         , run, desc, sep = ' ')) +
+        xlab("t [s]") +
+        ylab("IO write operations") +
+        guides(size = "none", colour = "legend", alpha = "none")
+}
+
+stat <- {}
+io   <- {}
+stam <- {}
+for (n in coreNodes) {
+    temp <- readOSmetrics(n)
+    temp$statm$node <- n
+    temp$io$node    <- n
+    temp$stat$node  <- n
+    stat  <- rbind(stat, temp$stat)
+    io    <- rbind(io, temp$io)
+    statm <- rbind(stam, temp$statm)
+}
+plotStatMetrics(stat)
+ggsave(paste('stat-', RUN, '.png', sep=''))
+plotIOMetrics(io)
+ggsave(paste('io-', RUN, '.png', sep=''))

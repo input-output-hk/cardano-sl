@@ -40,10 +40,12 @@ import qualified Data.Set as Set
 import           Universum
 
 import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
 import qualified Data.List as List
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util (HasLens', lensOf')
+import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Test.QuickCheck
 
@@ -310,6 +312,9 @@ getBlockchain = fpcChain <$> getFromPreChain
 getLedger :: InductiveGen h (Ledger h Addr)
 getLedger = fpcLedger <$> getFromPreChain
 
+getBootTransaction :: InductiveGen h (Transaction h Addr)
+getBootTransaction = fpcBoot <$> getFromPreChain
+
 -- | The 'Inductive' data type is isomorphic to a linked list of this
 -- 'Action' type. It is more convenient to operate on this type, as it can
 -- vary the sequence representation and reuse sequence functions.
@@ -377,6 +382,22 @@ genInductiveFor addrs = do
 chainToApplyBlocks :: Chain h a -> [Action h a]
 chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
 
+-- | Returns a list of ledgers corresponding to the blockchain with the
+-- given number of blocks applied. The count of blocks @i@ is also the
+-- index in the list of blocks in the original chain.
+mkLedgerAtIndex :: forall h. InductiveGen h [(Int, Ledger h Addr)]
+mkLedgerAtIndex = do
+    boot <- getBootTransaction
+    blocks <- toList . chainBlocks <$> getBlockchain
+
+    pure
+        . map (\(i, blocks) -> (,) (i - 1)
+            . chainToLedger boot
+            . Chain . OldestFirst
+            . take i
+            $ blocks)
+        $ zip [1 .. length blocks] (repeat blocks)
+
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There
 -- are some properties that the inserted events must satisfy:
@@ -394,7 +415,6 @@ intersperseTransactions
     -> [Action h Addr]
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions addrs actions = do
-    if null addrs then error "what the fuck" else pure ()
     chain <- getBlockchain
     let ourTxns = findOurTransactions addrs chain
     let allTxnCount = length ourTxns
@@ -419,7 +439,7 @@ intersperseTransactions addrs actions = do
 
     let txnsWithRange =
             mapMaybe
-                (\(i, t) -> (,,) t i <$> transactionMaxIndex addrs t chain ledger)
+                (\(i, t) -> (,,) t i <$> transactionFullyConfirmedAt addrs t chain ledger)
                 txnsToDisperse
 
     txnsWithIndex <-
@@ -433,6 +453,35 @@ intersperseTransactions addrs actions = do
             (\(t, i) -> IntMap.insertWith (<>) i [NewPending' t])
             (dissect actions)
         $ txnsWithIndex
+
+mkNonConfirmedTransaction
+    :: InductiveGen h (Transaction h Addr)
+mkNonConfirmedTransaction = do
+    randomHash <- selectHash
+    pure Transaction
+        { trFresh = 0
+        -- because the transaction is unconfirmed and therefore doesn't
+        -- really need to be valid, we have a fee of 0.
+        , trFee = 0
+        , trHash = randomHash
+        , trIns = undefined
+        , trOuts = undefined
+        }
+
+-- | Generates a random hash that is not part of the current blockchain.
+selectHash :: InductiveGen h Int
+selectHash = do
+    hashes <- hashesInChain <$> getBlockchain
+    liftGen $ arbitrary `suchThat` (`IntSet.notMember` hashes)
+
+hashesInChain :: Chain h a -> IntSet
+hashesInChain =
+    foldMap IntSet.singleton
+        . map trHash
+        . concatMap toList
+        . toList
+        . chainBlocks
+
 
 -- | Construct an 'IntMap' consisting of the index of the element in the
 -- input list pointing to a singleton list of the element the original
@@ -471,14 +520,14 @@ blockReceivedIndex i =
 -- 'Chain' that confirms that 'Input'. Take the maximum index and return
 -- that -- that is the earliest this transaction may appear as a pending
 -- transaction.
-transactionMaxIndex
+transactionFullyConfirmedAt
     :: Hash h Addr
     => Set Addr
     -> Transaction h Addr
     -> Chain h Addr
     -> Ledger h Addr
     -> Maybe Int
-transactionMaxIndex addrs txn chain ledger =
+transactionFullyConfirmedAt addrs txn chain ledger =
     let inps = Set.filter inputInAddrs (trIns txn)
         inputInAddrs i =
             case inpSpentOutput i ledger of

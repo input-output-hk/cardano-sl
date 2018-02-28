@@ -194,6 +194,7 @@ library
                       , text-format
                       , time
                       , time-units
+                      , tls
                       , transformers
                       , transformers-base
                       , transformers-lift
@@ -203,6 +204,9 @@ library
                       , wai
                       , warp
                       , warp-tls
+                      , x509
+                      , x509-store
+                      , x509-validation
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs

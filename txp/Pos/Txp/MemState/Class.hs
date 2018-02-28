@@ -36,6 +36,7 @@ import           Pos.Core.Txp (TxAux, TxId, TxUndo)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.Reporting (MonadReporting)
 import           Pos.Slotting (MonadSlots (..))
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..), GenericTxpLocalDataPure)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Txp.Toil.Types (MemPool (..), UtxoModifier)
@@ -146,4 +147,5 @@ type TxpLocalWorkMode ctx m =
     , MonadMask m
     , MonadReporting ctx m
     , HasConfiguration
+    , HasTxpConfiguration
     )

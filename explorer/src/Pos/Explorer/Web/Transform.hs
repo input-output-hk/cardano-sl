@@ -28,9 +28,10 @@ import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Recovery ()
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Txp (MempoolExt, MonadTxpLocal (..))
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 import           Pos.Worker.Types (WorkerSpec, worker)
 
@@ -51,12 +52,12 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtra
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx

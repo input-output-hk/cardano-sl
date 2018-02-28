@@ -6,9 +6,8 @@ module Test.Pos.ConstantsSpec
 
 import           Universum
 
-import           Pos.Core                 (mkSystemTag)
+import           Pos.Core                 (SystemTag (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourSystemTag)
-import qualified Pos.Update.Constants     as C
 
 import           Test.Hspec               (Expectation, Spec, describe, it, shouldSatisfy)
 import           Test.Pos.Configuration   (withDefUpdateConfiguration)
@@ -21,15 +20,11 @@ import           Test.Pos.Configuration   (withDefUpdateConfiguration)
 -- @cardano-sl-1.0.4@, something has gone wrong.
 systemTagCheck :: HasUpdateConfiguration => Expectation
 systemTagCheck = do
-    sysTags <- mapM (either error return . mkSystemTag) ["linux64", "macos64", "win64"]
-    let felem = flip elem
+    let sysTags = map SystemTag ["linux64", "macos64", "win64"]
+        felem = flip elem
     ourSystemTag `shouldSatisfy` felem sysTags
 
 spec :: Spec
 spec = withDefUpdateConfiguration $ describe "Constants" $ do
     describe "Configuration constants" $ do
         it "currentSystemTag" $ systemTagCheck
-    describe "UpdateConstants" $ do
-        it "genesisAppNames" $ do
-            for_ C.genesisAppNames $ \(_, name) ->
-                name `shouldSatisfy` isRight

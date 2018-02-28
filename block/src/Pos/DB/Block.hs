@@ -45,7 +45,7 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Block.Types ()
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull', serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SerializedBlund, SlogUndo (..), Undo (..))
@@ -153,7 +153,7 @@ decodeOrFailPureDB
     :: HasConfiguration
     => ByteString
     -> Either Text (Block, Undo)
-decodeOrFailPureDB = decodeFull
+decodeOrFailPureDB = decodeFull'
 
 dbGetBlundPureDefault ::
        (HasConfiguration, MonadPureDB ctx m)
@@ -185,7 +185,7 @@ dbPutSerBlundsPureDefault ::
     -> m ()
 dbPutSerBlundsPureDefault (toList -> blunds) = do
     forM_ blunds $ \(blk, serUndo) -> do
-        undo <- eitherToThrow $ first DBMalformed $ decodeFull $ unSerialized serUndo
+        undo <- eitherToThrow $ first DBMalformed $ decodeFull' $ unSerialized serUndo
         let blund :: Blund -- explicit signature is required
             blund = (blk,undo)
         (var :: DBPureVar) <- view (lensOf @DBPureVar)

@@ -13,7 +13,7 @@ import           Universum
 
 import qualified Data.Text.Buildable as Buildable
 
-import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..))
+import           Pos.Core.Block.Blockchain (Blockchain (..))
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,
                                                GenesisExtraBodyData, GenesisExtraHeaderData)
 import           Pos.Core.Block.Union.Types (Block, BlockHeader)
@@ -49,10 +49,6 @@ instance Blockchain GenesisBlockchain where
 
 instance Buildable (BodyProof GenesisBlockchain) where
     build (GenesisProof h) = Buildable.build h
-
-instance BlockchainHelpers GenesisBlockchain where
-    verifyBBlockHeader _ = pure ()
-    verifyBBlock _ = pure ()
 
 instance NFData (BodyProof GenesisBlockchain)
 instance NFData (ConsensusData GenesisBlockchain)

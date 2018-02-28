@@ -1,7 +1,8 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Wallet unit tests
 --
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
-{-# LANGUAGE NoMonomorphismRestriction #-}
 module Main (main) where
 
 import Universum
@@ -27,6 +28,7 @@ import UTxO.DSL
 import UTxO.Interpreter
 import UTxO.PreChain
 import UTxO.Translate
+import UTxO.BlockGen
 
 import Wallet.Abstract
 import qualified Wallet.Spec        as Spec
@@ -90,6 +92,12 @@ quickCheckTranslation =
     describe "QuickCheck sanity checks" $ do
       prop "can construct and verify block with one arbitrary transaction" $
         expectValid <$> intAndVerifyGen genOneTrans
+      prop "can construct and verify block with one arbitrary transaction" $
+        expectValid <$> intAndVerifyGen genOneTrans
+      prop "DSL and Cardano agree on randomly generated chains" $
+        forAll
+          (intAndVerifyGen genValidBlockchain)
+          expectValid
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
@@ -178,8 +186,8 @@ genOneTrans :: Hash h Addr => PreChain h Gen
 genOneTrans = PreChain $ \boot -> do
     -- TODO: The actual range we can use here is @(0, initR0 - fee)@ where
     -- @fee@ is the fee of the transaction. Sadly, however, we don't know
-    -- this fee in advantage. Hence, any QuickCheck generators for transactions
-    -- will need to be a little bit conversative (possibly using some kind of
+    -- this fee in advance. Hence, any QuickCheck generators for transactions
+    -- will need to be a little bit conservative (possibly using some kind of
     -- @maxFee@ upper bound).
     value <- choose (0, 1000)
     return $ \((fee : _) : _) ->
@@ -307,15 +315,15 @@ r2 = Addr (IxRich 2) 0
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: PreChain GivenHash Identity -> ValidationResult
+intAndVerifyPure :: PreChain GivenHash Identity -> ValidationResult GivenHash Addr
 intAndVerifyPure = runIdentity . intAndVerify
 
-intAndVerifyGen :: PreChain GivenHash Gen -> Gen ValidationResult
+intAndVerifyGen :: PreChain GivenHash Gen -> Gen (ValidationResult GivenHash Addr)
 intAndVerifyGen = intAndVerify
 
 -- | Interpret and verify a chain, given the bootstrap transactions
 intAndVerify :: (Hash h Addr, Monad m)
-             => PreChain h m -> m ValidationResult
+             => PreChain h m -> m (ValidationResult h Addr)
 intAndVerify pc = runTranslateT $ do
     FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
@@ -323,22 +331,22 @@ intAndVerify pc = runTranslateT $ do
     intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
     case intResult of
       Left e ->
-        if dslIsValid
-          then return $ Disagreement (UnexpectedError e)
-          else return $ ExpectedInvalid (Right e)
+        case dslIsValid of
+          Right () -> return $ Disagreement fpcLedger (UnexpectedError e)
+          Left e'  -> return $ ExpectedInvalid e' (Right e)
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
-          (False, Left e)  -> return $ ExpectedInvalid (Left e)
-          (False, Right _) -> return $ Disagreement UnexpectedValid
-          (True,  Left e)  -> return $ Disagreement (UnexpectedInvalid e)
-          (True,  Right (_undo, finalUtxo)) -> do
+          (Left  e' , Left  e) -> return $ ExpectedInvalid e' (Left e)
+          (Left  e' , Right _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
+          (Right () , Left  e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
+          (Right () , Right (_undo, finalUtxo)) -> do
             (finalUtxo', _) <- runIntT ctxt dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement UnexpectedUtxo {
+              else return $ Disagreement fpcLedger UnexpectedUtxo {
                          utxoDsl     = dslUtxo
                        , utxoCardano = finalUtxo
                        , utxoInt     = finalUtxo'
@@ -348,16 +356,19 @@ intAndVerify pc = runTranslateT $ do
   Chain verification test result
 -------------------------------------------------------------------------------}
 
-data ValidationResult =
+data ValidationResult h a =
     -- | We expected the chain to be valid; DSL and Cardano both agree
     ExpectedValid
 
     -- | We expected the chain to be invalid; DSL and Cardano both agree
     --
-    -- We record the error message we get from Cardano (the DSL just reports
-    -- true or false). Note that some invalid chains cannot even be constructed
-    -- (for example, when we try to overspend).
-  | ExpectedInvalid (Either Cardano.VerifyBlocksException IntException)
+    -- We record the error message from the DSL validator and the error message
+    -- we get from Cardano. Note that some invalid chains cannot even be
+    -- constructed (for example, when we try to overspend).
+  | ExpectedInvalid {
+        validationErrorDsl     :: Text
+      , validationErrorCardano :: Either Cardano.VerifyBlocksException IntException
+      }
 
     -- | Disagreement between the DSL and Cardano
     --
@@ -369,15 +380,18 @@ data ValidationResult =
     -- * There is a bug in the Cardano implementation
     --
     -- We record the error message from Cardano, if Cardano thought the chain
-    -- was invalid
-  | Disagreement Disagreement
+    -- was invalid, as well as the ledger that causes the problem.
+  | Disagreement {
+        validationLedger       :: Ledger h a
+      , validationDisagreement :: Disagreement h a
+      }
 
 -- | Disagreement between Cardano and the DSL
 --
 -- We consider something to be "unexpectedly foo" when Cardano says it's
 -- " foo " but the DSL says it's " not foo "; the DSL is the spec, after all
 -- (of course that doesn't mean that it cannot contain bugs :).
-data Disagreement =
+data Disagreement h a =
     -- | Cardano reported the chain as invalid, but the DSL reported it as
     -- valid. We record the error message from Cardano.
     UnexpectedInvalid Cardano.VerifyBlocksException
@@ -388,44 +402,61 @@ data Disagreement =
 
     -- | Cardano reported the chain as valid, but the DSL reported it as
     -- invalid.
-  | UnexpectedValid
+  | UnexpectedValid Text
 
     -- | Both Cardano and the DSL reported the chain as valid, but they computed
     -- a different UTxO
-  | forall h. Hash h Addr => UnexpectedUtxo {
-        utxoDsl     :: Utxo h Addr
+  | UnexpectedUtxo {
+        utxoDsl     :: Utxo h a
       , utxoCardano :: Cardano.Utxo
       , utxoInt     :: Cardano.Utxo
       }
 
-expectValid :: ValidationResult -> Bool
+expectValid :: ValidationResult h a -> Bool
 expectValid ExpectedValid = True
 expectValid _otherwise    = False
 
-expectInvalid :: ValidationResult -> Bool
-expectInvalid (ExpectedInvalid _) = True
-expectInvalid _otherwise          = False
+expectInvalid :: ValidationResult h a -> Bool
+expectInvalid (ExpectedInvalid _ _) = True
+expectInvalid _otherwise            = False
 
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
 
-instance Show ValidationResult where
+instance (Hash h a, Buildable a) => Show (ValidationResult h a) where
   show = toString . pretty
 
-instance Show Disagreement where
+instance (Hash h a, Buildable a) => Show (Disagreement h a) where
   show = toString . pretty
 
-instance Buildable ValidationResult where
-  build ExpectedValid               = "ExpectedValid"
-  build (ExpectedInvalid (Left e))  = bprint ("ExpectedInvalid " % build) e
-  build (ExpectedInvalid (Right e)) = bprint ("ExpectedInvalid " % shown) e
-  build (Disagreement d)            = bprint ("Disagreement " % build) d
+instance (Hash h a, Buildable a) => Buildable (ValidationResult h a) where
+  build ExpectedValid = "ExpectedValid"
+  build ExpectedInvalid{..} = bprint
+      ( "ExpectedInvalid"
+      % ", errorDsl:     " % build
+      % ", errorCardano: " % build
+      % "}"
+      )
+      validationErrorDsl
+      validationErrorCardano
+  build Disagreement{..} = bprint
+      ( "Disagreement "
+      % "{ ledger: "       % build
+      % ", disagreement: " % build
+      % "}"
+      )
+      validationLedger
+      validationDisagreement
 
-instance Buildable Disagreement where
+instance Buildable (Either Cardano.VerifyBlocksException IntException) where
+  build (Left  e) = bprint build e
+  build (Right e) = bprint shown e
+
+instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
   build (UnexpectedInvalid e) = bprint ("UnexpectedInvalid " % build) e
   build (UnexpectedError e)   = bprint ("UnexpectedError " % shown) e
-  build UnexpectedValid       = "UnexpectedValid"
+  build (UnexpectedValid e)   = bprint ("UnexpectedValid " % shown) e
   build UnexpectedUtxo{..}    = bprint
       ( "UnexpectedUtxo"
       % "{ dsl:     " % build

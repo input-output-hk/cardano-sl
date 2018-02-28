@@ -39,6 +39,7 @@ import           Pos.Infra.Configuration (infraConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
+import           Pos.Txp.Configuration (txpConfiguration)
 import           Pos.Update.Configuration (updateConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.TimeWarp (addrParser)
@@ -110,6 +111,7 @@ dumpConfiguration = do
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration
             , ccDlg = dlgConfiguration
+            , ccTxp = txpConfiguration
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
             }

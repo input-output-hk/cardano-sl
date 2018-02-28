@@ -6,10 +6,13 @@ module Pos.Core.Ssc.Util
        (
          getCommShares
        , mkSscProof
+
+       , checkSscPayload
        ) where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
@@ -17,7 +20,8 @@ import           Pos.Binary.Class (Bi (..), fromBinary)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap, Opening, SscPayload (..),
                                      SscProof (..), VssCertificate, VssCertificatesMap (..))
-import           Pos.Crypto (EncShare, VssPublicKey, hash)
+import           Pos.Core.Ssc.Vss (checkVssCertificatesMap)
+import           Pos.Crypto (EncShare, VssPublicKey, hash, HasCryptoConfiguration)
 
 -- | Get commitment shares.
 getCommShares :: Commitment -> Maybe [(VssPublicKey, NonEmpty EncShare)]
@@ -47,3 +51,9 @@ mkSscProof payload =
   where
     proof constr hm (getVssCertificatesMap -> certs) =
         constr (hash hm) (hash certs)
+
+checkSscPayload
+    :: ( HasCryptoConfiguration, MonadError Text m )
+    => SscPayload
+    -> m ()
+checkSscPayload payload = checkVssCertificatesMap (spVss payload)

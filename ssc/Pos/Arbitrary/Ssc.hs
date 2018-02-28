@@ -32,7 +32,7 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
-import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), makeSmall, sublistN)
+import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -137,7 +137,6 @@ instance HasConfiguration => Arbitrary SscProof where
 
 instance HasConfiguration => Arbitrary SscPayload where
     arbitrary =
-        makeSmall $
         oneof
             [ CommitmentsPayload <$> arbitrary <*> arbitrary
             , OpeningsPayload <$> arbitrary <*> arbitrary
@@ -151,13 +150,13 @@ instance HasConfiguration => Arbitrary SscPayloadDependsOnSlot where
       where
         payloadGen slot
             | isCommitmentId slot =
-                makeSmall $ CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
+                CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
             | isOpeningId slot =
-                makeSmall $ OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
+                OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
             | isSharesId slot =
-                makeSmall $ SharesPayload <$> arbitrary <*> (genVssCerts slot)
+                SharesPayload <$> arbitrary <*> (genVssCerts slot)
             | otherwise =
-                makeSmall $ CertificatesPayload <$> (genVssCerts slot)
+                CertificatesPayload <$> (genVssCerts slot)
         genCommitments slot =
             mkCommitmentsMap .
             map (genValidComm slot) <$>
@@ -177,11 +176,11 @@ instance HasConfiguration => Arbitrary VssCertificatesMap where
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary VssCertData where
-    arbitrary = makeSmall genericArbitrary
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary SscGlobalState where
-    arbitrary = makeSmall genericArbitrary
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary SscSecretStorage where
@@ -189,7 +188,7 @@ instance HasConfiguration => Arbitrary SscSecretStorage where
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary TossModifier where
-    arbitrary = makeSmall genericArbitrary
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 ------------------------------------------------------------------------------------------

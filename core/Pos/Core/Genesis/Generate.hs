@@ -150,7 +150,7 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
 
     -- VSS certificates
     vssCertsList <- mapM generateVssCert richmenSecrets
-    let toVss = either error identity . mkVssCertificatesMap
+    let toVss = mkVssCertificatesMap
         vssCerts = GenesisVssCertificatesMap $ toVss vssCertsList
 
     -- Non AVVM balances

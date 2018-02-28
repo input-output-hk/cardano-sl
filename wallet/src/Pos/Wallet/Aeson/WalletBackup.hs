@@ -76,7 +76,7 @@ instance FromJSON IndexedAccountMeta where
 
 instance FromJSON WalletBackup where
     parseJSON = withObject "WalletBackup" $ \o -> do
-        let decodeBase64 x = toAesonError (B64.decode x) >>= toAesonError . Bi.decodeFull
+        let decodeBase64 x = toAesonError (B64.decode x) >>= toAesonError . Bi.decodeFull'
             collectAccMap = foldlM parseAddAcc HM.empty
             parseAddAcc accMap v = do
                 IndexedAccountMeta idx meta <- parseJSON v

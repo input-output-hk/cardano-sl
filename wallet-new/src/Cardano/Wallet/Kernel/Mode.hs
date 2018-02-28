@@ -1,13 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Cardano.Wallet.Kernel.Mode (
-    WalletMode
-  , WalletContext -- opaque
-  , runWalletMode
-  , getWallet
-  ) where
+module Cardano.Wallet.Kernel.Mode
+    ( WalletMode
+    , WalletContext -- opaque
+    , runWalletMode
+    , getWallet
+    ) where
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           System.Wlog
 import           Universum
 
 import           Mockable
@@ -27,6 +28,7 @@ import           Pos.Network.Types
 import           Pos.Reporting
 import           Pos.Shutdown
 import           Pos.Slotting
+import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
@@ -71,6 +73,7 @@ walletApplyBlocks :: PassiveWallet
 walletApplyBlocks _w _bs = do
     -- TODO: Call into the wallet. This should be an asynchronous operation
     -- because 'onApplyBlocks' gets called with the block lock held.
+    logError "walletApplyBlocks not implemented"
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -85,6 +88,7 @@ walletRollbackBlocks :: PassiveWallet
 walletRollbackBlocks _w _bs = do
     -- TODO: Call into the wallet. This should be an asynchronous operation
     -- because 'onRollbackBlocks' gets called with the block lock held.
+    logError "walletRollbackBlocks not implemented"
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -208,7 +212,7 @@ instance MonadFormatPeers WalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo)
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

@@ -7,8 +7,7 @@ module Pos.Update.Constants
 
 import           Universum
 
-import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..),
-                           mkApplicationName)
+import           Pos.Core (ApplicationName (..), BlockVersion (..), SoftwareVersion (..))
 
 ----------------------------------------------------------------------------
 -- Genesis constants
@@ -27,12 +26,9 @@ genesisBlockVersion =
 genesisSoftwareVersions :: [SoftwareVersion]
 genesisSoftwareVersions = map f genesisAppNames
   where
-    f (nameStr, Left err) =
-        error $
-        "Failed to create ApplicationName for " <> nameStr <> ": " <> err
-    f (_, Right appName) = SoftwareVersion {svAppName = appName, svNumber = 0}
+    f (_, appName) = SoftwareVersion {svAppName = appName, svNumber = 0}
 
-genesisAppNames :: [(Text, Either Text ApplicationName)]
+genesisAppNames :: [(Text, ApplicationName)]
 genesisAppNames = map f ["cardano-sl", "csl-daedalus"]
   where
-    f name = (name, mkApplicationName name)
+    f name = (name, ApplicationName name)

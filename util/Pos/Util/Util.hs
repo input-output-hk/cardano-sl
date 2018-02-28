@@ -64,6 +64,8 @@ module Pos.Util.Util
        , divRoundUp
        , sleep
 
+       , tMeasureLog
+       , tMeasureIO
        ) where
 
 import           Universum
@@ -83,7 +85,7 @@ import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
-import           Data.Time.Clock (NominalDiffTime, UTCTime)
+import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
@@ -93,7 +95,7 @@ import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logError, logInfo, usingLoggerName)
+import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
@@ -388,3 +390,26 @@ median l = NE.sort l NE.!! middle
 -}
 sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
+
+-- | 'tMeasure' with 'logDebug'.
+tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a
+tMeasureLog = tMeasure logDebug
+
+-- | 'tMeasure' with 'putText'. For places you don't have
+-- 'WithLogger' constraint.
+tMeasureIO :: (MonadIO m) => Text -> m a -> m a
+tMeasureIO = tMeasure putText
+
+-- | Takes the first time sample, executes action (forcing its
+-- result), takes the second time sample, logs it.
+tMeasure :: (MonadIO m) => (Text -> m ()) -> Text -> m a -> m a
+tMeasure logAction label action = do
+    before <- liftIO getCurrentTime
+    !x <- action
+    after <- liftIO getCurrentTime
+    let d0 :: Integer
+        d0 = round $ 10000 * toRational (after `diffUTCTime` before)
+    let d1 = d0 `div` 10
+    let d2 = d0 `mod` 10
+    logAction $ "tMeasure " <> label <> ": " <> show d1 <> "." <> show d2 <> "ms"
+    pure x

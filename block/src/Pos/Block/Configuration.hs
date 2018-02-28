@@ -11,6 +11,15 @@ module Pos.Block.Configuration
     -- * Constants mentioned in paper
     , networkDiameter
 
+    -- * Chain quality
+    , nonCriticalCQBootstrap
+    , criticalCQBootstrap
+    , nonCriticalCQ
+    , criticalCQ
+    , criticalForkThreshold
+    , fixedTimeCQ
+    , fixedTimeCQSec
+
     -- * Other constants
     , recoveryHeadersMessage
     ) where
@@ -19,9 +28,11 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
+
+import           Pos.Aeson.Core ()
 
 type HasBlockConfiguration = Given BlockConfiguration
 
@@ -37,6 +48,28 @@ data BlockConfiguration = BlockConfiguration
       -- ^ Estimated time for broadcasting messages
     , ccRecoveryHeadersMessage :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+
+      -- Chain quality thresholds and other constants to detect
+      -- suspicious things.
+
+      -- | If chain quality in bootstrap era is less than this value,
+      -- non critical misbehavior will be reported.
+    , ccNonCriticalCQBootstrap :: !Double
+      -- | If chain quality in bootstrap era is less than this value,
+      -- critical misbehavior will be reported.
+    , ccCriticalCQBootstrap    :: !Double
+      -- | If chain quality after bootstrap era is less than this
+      -- value, non critical misbehavior will be reported.
+    , ccNonCriticalCQ          :: !Double
+      -- | If chain quality after bootstrap era is less than this
+      -- value, critical misbehavior will be reported.
+    , ccCriticalCQ             :: !Double
+      -- | Number of blocks such that if so many blocks are rolled
+      -- back, it requires immediate reaction.
+    , ccCriticalForkThreshold  :: !Int
+      -- | Chain quality will be also calculated for this amount of seconds.
+    , ccFixedTimeCQ            :: !Second
+
     } deriving (Show, Generic)
 
 instance ToJSON BlockConfiguration where
@@ -53,6 +86,43 @@ instance FromJSON BlockConfiguration where
 -- other nodes. Also see 'Pos.NodeConfiguration.ccNetworkDiameter'.
 networkDiameter :: HasBlockConfiguration => Microsecond
 networkDiameter = sec . ccNetworkDiameter $ blockConfiguration
+
+----------------------------------------------------------------------------
+-- Chain quality
+----------------------------------------------------------------------------
+
+-- | If chain quality in bootstrap era is less than this value,
+-- non critical misbehavior will be reported.
+nonCriticalCQBootstrap :: HasBlockConfiguration => Double
+nonCriticalCQBootstrap = ccNonCriticalCQBootstrap blockConfiguration
+
+-- | If chain quality in bootstrap era is less than this value,
+-- critical misbehavior will be reported.
+criticalCQBootstrap :: HasBlockConfiguration => Double
+criticalCQBootstrap = ccCriticalCQBootstrap blockConfiguration
+
+-- | If chain quality after bootstrap era is less than this
+-- value, non critical misbehavior will be reported.
+nonCriticalCQ :: HasBlockConfiguration => Double
+nonCriticalCQ = ccNonCriticalCQ blockConfiguration
+
+-- | If chain quality after bootstrap era is less than this
+-- value, critical misbehavior will be reported.
+criticalCQ :: HasBlockConfiguration => Double
+criticalCQ = ccCriticalCQ blockConfiguration
+
+-- | If chain quality after bootstrap era is less than this
+-- value, critical misbehavior will be reported.
+criticalForkThreshold :: (HasBlockConfiguration, Integral i) => i
+criticalForkThreshold = fromIntegral . ccCriticalForkThreshold $ blockConfiguration
+
+-- | Chain quality will be also calculated for this amount of time.
+fixedTimeCQ :: HasBlockConfiguration => Microsecond
+fixedTimeCQ = convertUnit fixedTimeCQSec
+
+-- | 'fixedTimeCQ' expressed as seconds.
+fixedTimeCQSec :: HasBlockConfiguration => Second
+fixedTimeCQSec = ccFixedTimeCQ blockConfiguration
 
 ----------------------------------------------------------------------------
 -- Other constants

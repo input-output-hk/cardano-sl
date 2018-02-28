@@ -82,7 +82,6 @@ import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (Tx, TxPayload, TxWitness, txpTxs, txpWitnesses)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload)
 import           Pos.Crypto (Hash, PublicKey)
-import           Pos.Merkle (MerkleTree)
 
 ----------------------------------------------------------------------------
 -- MainToSign
@@ -159,7 +158,7 @@ mainHeaderEBDataProof = gbhExtra . mehEBDataProof
 makeLenses 'MainBody
 
 -- | Lens for transaction tree in main block body.
-mbTxs :: Lens' (Body MainBlockchain) (MerkleTree Tx)
+mbTxs :: Lens' (Body MainBlockchain) ([Tx])
 mbTxs = mbTxPayload . txpTxs
 
 -- | Lens for witness list in main block body.

@@ -24,7 +24,6 @@ import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockCount, HasConfiguration, HasDifficulty (difficultyL),
                            HasPrevBlock (prevBlockL), HeaderHash)
 import           Pos.Core.Block (Block, BlockHeader)
-import qualified Pos.Core.Block as CB
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.Block (getBlund)
@@ -38,7 +37,6 @@ import           Pos.Util.Util (maybeThrow)
 type LoadHeadersMode m =
     ( HasConfiguration
     , MonadDBRead m
-    , CB.BlockchainHelpers CB.MainBlockchain
     )
 
 ----------------------------------------------------------------------------

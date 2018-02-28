@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
-import           Data.Time.Units (Millisecond, Second)
+import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Formatting (Format)
 import           Mockable (withAsync, link)
 import qualified Network.Broadcast.OutboundQueue as OQ
@@ -96,7 +96,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
 
         -- Timer is in microseconds.
-        keepaliveTimer :: Timer <- newTimer 20000000
+        keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.

@@ -6,6 +6,7 @@
 -- * Function 'Pos.Client.Txp.Util.stabilizeTxFee'
 module UTxO.PreChain (
     PreChain(..)
+  , hoistPreChain
   , FromPreChain(..)
   , fromPreChain
   ) where
@@ -51,6 +52,10 @@ import UTxO.Translate
 newtype PreChain h m = PreChain {
       runPreChain :: Transaction h Addr -> m ([[Fee]] -> Blocks h Addr)
     }
+
+-- | Transform the underlying monad in the 'PreChain'.
+hoistPreChain :: (forall x. m x -> n x) -> PreChain h m -> PreChain h n
+hoistPreChain k (PreChain f) = PreChain (k . f)
 
 data FromPreChain h = FromPreChain {
       fpcBoot   :: Transaction h Addr
@@ -125,7 +130,7 @@ calcFees boot f = do
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ f (repeat [0..])
+    (txs, _) <- runIntBoot boot $ f (repeat (repeat 0))
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where

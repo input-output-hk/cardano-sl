@@ -41,7 +41,7 @@ import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
 import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
-                               dbPutSerBlundSumDefault)
+                               dbPutSerBlundsSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
@@ -226,7 +226,7 @@ instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutSerBlund = dbPutSerBlundSumDefault
+    dbPutSerBlunds = dbPutSerBlundsSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
@@ -307,7 +307,7 @@ instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutSerBlund = DB.dbPutSerBlundSumDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
       => MonadSlots ctx (BlockGenMode ext m)

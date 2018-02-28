@@ -7,12 +7,13 @@ module Pos.Infra.Configuration
        , ntpServers
        ) where
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
-import           Data.Reflection (Given, give, given)
-import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Reflection (Given, give, given)
+import           Serokell.Aeson.Options (defaultOptions)
 
+-- FIXME should be called NTPConfiguration.
 data InfraConfiguration = InfraConfiguration
     {
     --------------------------------------------------------------------------
@@ -24,25 +25,6 @@ data InfraConfiguration = InfraConfiguration
       -- ^ How often send request to NTP server
     , ccNtpMaxError                 :: !Int
     -- ^ Max NTP error (max difference between local and global time, which is trusted)
-
-    , ccNeighboursSendThreshold     :: !Int
-      -- ^ Broadcasting threshold
-    , ccKademliaDumpInterval        :: !Int
-      -- ^ Interval for dumping Kademlia state in slots
-    , ccEnhancedMessageTimeout      :: !Word
-    -- ^ We consider node as known if it was pinged at most @ccEnhancedMessageTimeout@ sec ago
-    , ccEnhancedMessageBroadcast    :: !Word
-      -- ^ Number of nodes from batch for enhanced bessage broadcast
-
-    --------------------------------------------------------------------------
-    -- -- Relay
-    --------------------------------------------------------------------------
-    , ccMaxReqSize                  :: !Word32
-      -- ^ Maximum `ReqMsg` size in bytes
-    , ccMaxInvSize                  :: !Word32
-      -- ^ Maximum `InvMsg` size in bytes
-    , ccMaxMempoolMsgSize           :: !Word32
-      -- ^ Maximum `MempoolMsg` size in bytes
 
     --------------------------------------------------------------------------
     -- -- NTP checking
@@ -56,6 +38,9 @@ data InfraConfiguration = InfraConfiguration
 
 instance FromJSON InfraConfiguration where
     parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON InfraConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 type HasInfraConfiguration = Given InfraConfiguration
 

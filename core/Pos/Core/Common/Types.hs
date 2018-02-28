@@ -33,14 +33,14 @@ module Pos.Core.Common.Types
        , slotLeadersF
 
        -- * Coin
-       , Coin
-       , CoinPortion
+       , Coin (..)
+       , CoinPortion (..)
+       , mkCoin
+       , checkCoin
        , coinF
        , unsafeGetCoin
-       , getCoinPortion
-       , mkCoin
        , coinPortionDenominator
-       , mkCoinPortion
+       , checkCoinPortion
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
@@ -299,12 +299,18 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- | Make Coin from Word64.
+-- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
+-- You can also use 'checkCoin' to do that check.
 mkCoin :: Word64 -> Coin
-mkCoin c
-    | c <= maxCoinVal = Coin c
-    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
+mkCoin c = either error (const coin) (checkCoin coin)
+  where
+    coin = (Coin c)
 {-# INLINE mkCoin #-}
+
+checkCoin :: MonadError Text m => Coin -> m ()
+checkCoin (Coin c)
+    | c <= maxCoinVal = pure ()
+    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -340,14 +346,17 @@ instance Bounded CoinPortion where
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
-mkCoinPortion :: Word64 -> Either Text CoinPortion
-mkCoinPortion x
-    | x <= coinPortionDenominator = Right $ CoinPortion x
-    | otherwise = Left err
+checkCoinPortion
+    :: MonadError Text m
+    => CoinPortion -> m ()
+checkCoinPortion (CoinPortion x)
+    | x <= coinPortionDenominator = pure ()
+    | otherwise = throwError err
   where
-    err = sformat
-        ("mkCoinPortion: value is greater than coinPortionDenominator: "
-        %int) x
+    err =
+        sformat
+            ("CoinPortion: value is greater than coinPortionDenominator: "
+            %int) x
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in
 -- [0..1]. Internally 'CoinPortion' stores 'Word64' which is divided by

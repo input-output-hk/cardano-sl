@@ -6,15 +6,12 @@
 
 module Pos.Core.Block.Blockchain
        ( Blockchain (..)
-       , BlockchainHelpers (..)
        , GenericBlockHeader (..)
        , GenericBlock (..)
 
        -- * Smart constructors
        , mkGenericHeader
-       , recreateGenericHeader
        , mkGenericBlock
-       , recreateGenericBlock
 
        -- * Lenses
        -- ** Header
@@ -87,15 +84,6 @@ class Blockchain p where
                          ", calculated proof: "%build)
                 proof calculatedProof
         unless (calculatedProof == proof) $ throwError errMsg
-
--- | Extension of 'Blockchain' type class with helper functions.
-class Blockchain p => BlockchainHelpers p where
-    -- | Verify consistency of block header. This function should do
-    -- all checks which can be done without any extra data.
-    verifyBBlockHeader :: MonadError Text m => GenericBlockHeader p -> m ()
-    -- | Verify consistency of block. This function should do
-    -- all checks which can be done without any extra data.
-    verifyBBlock :: MonadError Text m => GenericBlock p -> m ()
 
 ----------------------------------------------------------------------------
 -- Generic types
@@ -181,74 +169,42 @@ deriving instance
 
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader
-    :: forall b m.
+    :: forall b .
        ( HasHeaderHash (BBlockHeader b)
-       , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
-       , MonadError Text m
        , HasGenesisHash
+       , Blockchain b
        )
     => Maybe (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
-    -> m (GenericBlockHeader b)
+    -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
-    recreateGenericHeader h proof (consensus h proof) extra
+    UnsafeGenericBlockHeader h proof (consensus h proof) extra
   where
     h :: HeaderHash
     h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
--- | Smart constructor for 'GenericBlockHeader' which allows to recreate it.
-recreateGenericHeader
-    :: forall b m.
-       ( BlockchainHelpers b
-       , MonadError Text m
-       )
-    => BHeaderHash b
-    -> BodyProof b
-    -> ConsensusData b
-    -> ExtraHeaderData b
-    -> m (GenericBlockHeader b)
-recreateGenericHeader _gbhPrevBlock _gbhBodyProof _gbhConsensus _gbhExtra =
-    res <$ verifyBBlockHeader res
-  where
-    res = UnsafeGenericBlockHeader {..}
-
 -- | Smart constructor for 'GenericBlock'.
 mkGenericBlock
-    :: forall b m.
+    :: forall b .
        ( HasHeaderHash (BBlockHeader b)
-       , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
-       , MonadError Text m
        , HasGenesisHash
+       , Blockchain b
        )
     => Maybe (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
-    -> m (GenericBlock b)
-mkGenericBlock prevHeader body consensus extraH extra = do
-    header <- mkGenericHeader prevHeader body consensus extraH
-    recreateGenericBlock header body extra
-
--- | Smart constructor for 'GenericBlock' which allows to recreate it.
-recreateGenericBlock
-    :: forall b m.
-       ( BlockchainHelpers b
-       , MonadError Text m
-       )
-    => (GenericBlockHeader b)
-    -> Body b
-    -> ExtraBodyData b
-    -> m (GenericBlock b)
-recreateGenericBlock _gbHeader _gbBody _gbExtra = do
-    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
-    let res = UnsafeGenericBlock {..}
-    res <$ verifyBBlock res
+    -> GenericBlock b
+mkGenericBlock prevHeader body consensus extraH extra =
+    UnsafeGenericBlock header body extra
+  where
+    header = mkGenericHeader prevHeader body consensus extraH
 
 ----------------------------------------------------------------------------
 -- Lenses

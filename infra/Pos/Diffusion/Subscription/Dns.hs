@@ -3,6 +3,7 @@ module Pos.Diffusion.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Control.Exception (IOException)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
@@ -72,6 +73,33 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeAlts _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
     subscribeAlts dnsPeersVar (index, alts) = do
+        -- Any DNSError is squelched. So are IOExceptions, for good measure.
+        -- This does not include async exceptions.
+        -- It does handle the case in which there's no internet connection, or
+        -- a bad configuration, so that the subscription thread will keep on
+        -- retrying.
+        findAndSubscribe dnsPeersVar index alts
+            `catch` logDNSError
+            `catch` logIOException
+        retryInterval >>= delay
+        subscribeAlts dnsPeersVar (index, alts)
+
+    -- Subscribe to all alternatives, one-at-a-time, until the list is
+    -- exhausted.
+    subscribeToOne :: Alts NodeId -> m ()
+    subscribeToOne dnsPeers = case dnsPeers of
+        [] -> return ()
+        (peer:peers) -> do
+            void $ subscribeTo keepaliveTimer sendActions peer
+            subscribeToOne peers
+
+    -- Resolve a name and subscribe to the node(s) at the addresses.
+    findAndSubscribe
+        :: SharedAtomicT m (Map Int (Alts NodeId))
+        -> Int
+        -> Alts (NodeAddr DNS.Domain)
+        -> m ()
+    findAndSubscribe dnsPeersVar index alts = do
         -- Resolve all of the names and update the known peers in the queue.
         dnsPeersList <- findDnsPeers index alts
         modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
@@ -82,15 +110,14 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
         subscribeToOne dnsPeersList
-        retryInterval >>= delay
-        subscribeAlts dnsPeersVar (index, alts)
 
-    subscribeToOne :: Alts NodeId -> m ()
-    subscribeToOne dnsPeers = case dnsPeers of
-        [] -> return ()
-        (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer sendActions peer
-            subscribeToOne peers
+    logIOException :: IOException -> m ()
+    logIOException ioException =
+        logError $ sformat ("dnsSubscriptionWorker: "%shown) ioException
+
+    logDNSError :: DNS.DNSError -> m ()
+    logDNSError dnsError =
+        logError $ sformat ("dnsSubscriptionWorker: "%shown) dnsError
 
     -- Find peers via DNS, preserving order.
     -- In case multiple addresses are returned for one name, they're flattened

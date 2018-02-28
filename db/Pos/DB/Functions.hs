@@ -23,7 +23,7 @@ import           Universum
 import qualified Data.ByteString as BS (drop, isPrefixOf)
 import           Formatting (bprint, builder, sformat, shown, stext, string, (%))
 
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull', serialize')
 import           Pos.Core.Configuration (HasConfiguration, dbSerializeVersion)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
                                MonadDBRead (..))
@@ -78,9 +78,9 @@ dbDecode :: forall v m. (Bi v, MonadThrow m) => ToDecode -> m v
 dbDecode =
     \case
         ToDecodeKey key ->
-            either (onParseError key Nothing) pure . decodeFull $ key
+            either (onParseError key Nothing) pure . decodeFull' $ key
         ToDecodeValue key val ->
-            either (onParseError key (Just val)) pure . decodeFull $ val
+            either (onParseError key (Just val)) pure . decodeFull' $ val
   where
     onParseError :: ByteString -> Maybe ByteString -> Text -> m a
     onParseError rawKey rawValMaybe errMsg =
@@ -92,7 +92,7 @@ dbDecode =
         ", err: "%stext
 
 dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-dbDecodeMaybe = rightToMaybe . decodeFull
+dbDecodeMaybe = rightToMaybe . decodeFull'
 
 -- Parse maybe
 dbDecodeMaybeWP

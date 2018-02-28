@@ -37,7 +37,7 @@ packages:
 - location:
     git: https://github.com/well-typed/cborg
     # Has support for canonical cbor
-    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+    commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
   subdirs:
   - cborg
   extra-dep: true
@@ -47,7 +47,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
-    commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
@@ -64,7 +64,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 54b2fc0972b34b91a906f65eb22c20245e129a01 # master 0.4.6
+    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
   extra-dep: true
 # These three are needed for cardano-sl-networking
 - location:
@@ -81,7 +81,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
+    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -91,6 +91,10 @@ packages:
     commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
   extra-dep: true
 
+- location:
+    git: https://github.com/haskell-crypto/cryptonite
+    commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
+  extra-dep: true
 # Required for explorer
 - location:
     git: https://github.com/serokell/engine.io.git
@@ -134,6 +138,10 @@ packages:
     git: https://github.com/serokell/servant-multipart.git
     commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
   extra-dep: true
+- location:
+    git: https://github.com/serokell/log-warper.git
+    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -145,7 +153,6 @@ extra-deps:
 - serokell-util-0.5.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.8.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
@@ -189,6 +196,12 @@ extra-deps:
 - unliftio-core-0.1.1.0
 - http-conduit-2.3.0
 - simple-sendfile-0.2.27
+- basement-0.0.6
+- foundation-0.0.19
+- memory-0.14.14
+- criterion-1.3.0.0
+- statistics-0.14.0.2
+
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

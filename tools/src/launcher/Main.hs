@@ -18,6 +18,7 @@ import           Universum
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
                                                        withAsync, withAsyncWithUnmask)
+import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
 import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
@@ -29,7 +30,7 @@ import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
 import qualified Data.Yaml as Y
-import           Formatting (int, sformat, shown, stext, string, (%))
+import           Formatting (build, int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
 import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
                                       execParserPure, footerDoc, fullDesc, handleParseResult,
@@ -56,7 +57,6 @@ import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
@@ -64,7 +64,7 @@ import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundRealDefault)
+                               dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
@@ -283,7 +283,7 @@ instance HasConfiguration => MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutSerBlund = dbPutSerBlundRealDefault
+    dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 newtype NodeDbPath = NodeDbPath FilePath
 
@@ -302,7 +302,7 @@ main =
   do
     LO {..} <- getLauncherOptions
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
-    let realNodeArgs = propagateOptions loNodeDbPath loConfiguration $
+    let realNodeArgs = propagateOptions loReportServer loNodeDbPath loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -352,14 +352,17 @@ main =
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
     loggerName = "launcher"
-    propagateOptions :: FilePath -> ConfigurationOptions -> [Text] -> [Text]
-    propagateOptions nodeDbPath (ConfigurationOptions path key systemStart seed) =
+    propagateOptions :: Maybe String -> FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions maybeReportServer nodeDbPath (ConfigurationOptions path key systemStart seed) =
+        addReportServerOption maybeReportServer .
         addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed
 
+    addReportServerOption =
+        maybe identity (maybeAddOption "--report-server" . toText)
     addNodeDbPath nodeDbPath =
         maybeAddOption "--db-path" (toText nodeDbPath)
     addConfFileOption filePath =
@@ -648,7 +651,7 @@ reportNodeCrash
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
     -> M ()
-reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
+reportNodeCrash exitCode logConfPath reportServ = do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $
@@ -657,8 +660,9 @@ reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    bracket (compressLogs logFiles) removeFile $ \txz ->
-        sendReport [txz] (RCrash ec) "cardano-node" reportServ
+    let handler = logError . sformat ("Failed to report node crash: "%build)
+    bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
+        sendReport [txz] (RCrash ec) "cardano-node" reportServ `catchAny` handler
 
 -- Taken from the 'turtle' library and modified
 system'

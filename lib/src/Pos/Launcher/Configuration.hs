@@ -16,7 +16,8 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON, withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
+                             withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
@@ -26,16 +27,17 @@ import           System.Wlog (WithLogger, logInfo)
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
+import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Util.Config (parseYamlConfig)
 
 import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Delegation.Configuration
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration
+import           Pos.Txp.Configuration
 import           Pos.Update.Configuration
-import           Pos.Util.Config (parseYamlConfig)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
@@ -43,13 +45,17 @@ data Configuration = Configuration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
-    , ccBlock  :: !BlockConfiguration
     , ccDlg    :: !DlgConfiguration
+    , ccTxp    :: !TxpConfiguration
+    , ccBlock  :: !BlockConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
 instance FromJSON Configuration where
     parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON Configuration where
+    toJSON = genericToJSON defaultOptions
 
 type HasConfigurations =
     ( HasConfiguration
@@ -57,6 +63,7 @@ type HasConfigurations =
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
+    , HasTxpConfiguration
     , HasDlgConfiguration
     , HasNodeConfiguration
     )
@@ -110,5 +117,6 @@ withConfigurations co@ConfigurationOptions{..} act = do
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
         withDlgConfiguration ccDlg $
+        withTxpConfiguration ccTxp $
         withBlockConfiguration ccBlock $
         withNodeConfiguration ccNode $ act

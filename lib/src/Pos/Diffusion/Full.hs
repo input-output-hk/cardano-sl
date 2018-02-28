@@ -343,7 +343,7 @@ runDiffusionLayerFull
 runDiffusionLayerFull runIO networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse ->
-            withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
+            withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse runIO converse)) $ \dthread -> do
                 link dthread
                 case mEkgNodeMetrics of
                     Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd

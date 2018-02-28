@@ -40,7 +40,7 @@ import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog (HasLoggerName, LoggerNameBox, WithLogger, askLoggerName, logError,
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
                               logNotice, usingLoggerName)
 
 import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),

@@ -67,7 +67,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     allOf :: [(Int, Alts (NodeAddr DNS.Domain))]
     allOf = zip [1..] dnsDomains
 
-    -- Resolve all of the namtas and try to subscribe to one.
+    -- Resolve all of the names and try to subscribe to one.
     -- If a subscription goes down, try later names.
     -- When the list is exhausted (either because it's empty to begin with, or
     -- because all subscriptions to have failed), wait a while before retrying

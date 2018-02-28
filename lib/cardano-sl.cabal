@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -94,8 +94,6 @@ library
 
                         -- Exposed for tests
                         Test.Pos.Helpers
-                        Test.Pos.Cbor.Canonicity
-                        Test.Pos.Cbor.RefImpl
 
                         -- Util code for tests
                         Test.Pos.Configuration
@@ -153,7 +151,7 @@ library
                       , conduit >= 1.2.8
                       , constraints
                       , containers
-                      , cryptonite >= 0.23 && <= 0.23
+                      , cryptonite >= 0.23 && <= 0.24
                       , data-default
                       , deepseq
                       , directory
@@ -206,6 +204,7 @@ library
                       , transformers
                       , transformers-base
                       , universum >= 0.1.11
+                      , unliftio
                       , unordered-containers
                       , vector
                       , wai
@@ -262,11 +261,7 @@ test-suite cardano-test
                        -- Standard module with some magic
                        Spec
 
-                       -- Something
-                       Test.Pos.BinarySpec
-
                        -- Pos.Block testing
-                       Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Block.DumpSpec
 
@@ -281,7 +276,6 @@ test-suite cardano-test
 
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec
-                       Test.Pos.Ssc.Identity.BinarySpec
                        Test.Pos.Ssc.Identity.SafeCopySpec
                        Test.Pos.Ssc.SeedSpec
                        Test.Pos.Ssc.Toss.BaseSpec
@@ -290,23 +284,16 @@ test-suite cardano-test
 
                        -- Everything else
                        Test.Pos.Cbor.CborSpec
-                       Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.CryptoSpec
-                       Test.Pos.Delegation.Identity.BinarySpec
-                       Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
-                       Test.Pos.Slotting.BinarySpec
                        Test.Pos.Txp.CoreSpec
-                       Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
                        Test.Pos.Types.BlockSpec
-                       Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
-                       Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
@@ -320,6 +307,7 @@ test-suite cardano-test
                      , base
                      , bytestring
                      , canonical-json
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-block
@@ -340,6 +328,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , extra
+                     , filelock
                      , fmt
                      , formatting
                      , generic-arbitrary

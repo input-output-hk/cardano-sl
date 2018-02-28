@@ -16,19 +16,19 @@ import           Test.QuickCheck (Property, (===), (==>))
 import           Pos.Arbitrary.Block as T
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
-import qualified Pos.Block.Pure as T
+import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Crypto (ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..), createPsk,
                              proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Util.Chrono (NewestFirst (..))
-import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 
+-- This tests are quite slow, hence max success is at most 20.
 spec :: Spec
-spec = withDefConfiguration $ describe "Block properties" $ do
+spec = withDefConfiguration $ describe "Block properties" $ modifyMaxSuccess (min 20) $ do
     describe "mkMainHeader" $ do
         prop mainHeaderFormationDesc mainHeaderFormation
     describe "mkGenesisHeader" $ do
@@ -95,9 +95,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
   where
     correctSigner (Left _)        = True
     correctSigner (Right (i,d,_)) = i /= d
-    header =
-        leftToPanic "mainHeaderFormation: " $
-        T.mkGenericHeader prevHeader body consensus extra
+    header = T.mkGenericHeader prevHeader body consensus extra
     manualHeader =
         T.UnsafeGenericBlockHeader
         { T._gbhPrevBlock = h

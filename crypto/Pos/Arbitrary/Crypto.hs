@@ -17,8 +17,8 @@ import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.AsBinary ()
 import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..))
-import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm,
-                                     unsafeCheatingHashCoerce)
+import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
+                                     unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretProof, Threshold,
@@ -30,6 +30,7 @@ import           Pos.Crypto.Signing (ProxyCert, ProxySecretKey, ProxySignature, 
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
                                             redeemKeyGen, redeemSign)
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
+import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), noPassEncrypt)
 import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
 import           Pos.Util.Orphans ()
 import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
@@ -225,3 +226,18 @@ instance Arbitrary HDPassphrase where
 
 instance Arbitrary HDAddressPayload where
     arbitrary = genericArbitrary
+
+----------------------------------------------------------------------------
+-- WithHash
+----------------------------------------------------------------------------
+
+instance (Bi a, Arbitrary a) => Arbitrary (WithHash a) where
+    arbitrary = fmap withHash arbitrary
+    shrink = genericShrink
+
+--------------------------------------------------------------------------
+-- Pos.Crypto.Signing.Types.Safe
+--------------------------------------------------------------------------
+
+instance Arbitrary EncryptedSecretKey where
+    arbitrary = noPassEncrypt <$> arbitrary

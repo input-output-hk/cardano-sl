@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519 as ED25519
+import qualified Crypto.Math.Edwards25519 as ED25519
 import qualified Crypto.Sign.Ed25519 as EDS25519
 import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveSafeCopySimple,
                                 safeGet, safePut)

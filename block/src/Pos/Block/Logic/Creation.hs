@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Block creation logic.
+-- | Functions that retrieve payload from context and create genesis/main blocks
+-- with many validations.
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlockAndApply
@@ -40,8 +41,8 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
-                                 clearDlgMemPool, getDlgMempool, mkDlgPayload)
+import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo,
+                                 clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
@@ -61,7 +62,7 @@ import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.LogSafe (logInfoS)
-import           Pos.Util.Util (HasLens (..), HasLens', leftToPanic)
+import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
@@ -250,7 +251,7 @@ createMainBlockInternal sId pske = do
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
-        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
         block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
@@ -263,7 +264,7 @@ canCreateBlock ::
     -> m (Either Text ())
 canCreateBlock sId tipHeader =
     runExceptT $ do
-        unlessM usCanCreateBlock $
+        unlessM (lift usCanCreateBlock) $
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"
@@ -303,7 +304,7 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pske body
+    pure (mkMainBlock (Just prevHeader) sId sk pske body)
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
@@ -312,8 +313,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
-        musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pske musthaveBody
+        let musthaveBlock =
+                mkMainBlock (Just prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
@@ -447,7 +448,7 @@ createMainBody bodyLimit sId payload =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
-        let dlgPay' = leftToPanic "createMainBlockPure: " $ mkDlgPayload psks'
+        let dlgPay' = UnsafeDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block

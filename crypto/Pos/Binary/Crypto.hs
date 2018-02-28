@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE CPP #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
@@ -7,9 +6,8 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import           Control.Lens (_Left)
 import qualified Cardano.Crypto.Wallet as CC
-import qualified Crypto.ECC.Edwards25519 as Ed25519
+import           Control.Lens (_Left)
 import           Crypto.Hash (digestFromByteString)
 import qualified Crypto.PVSS as Pvss
 import qualified Crypto.SCRAPE as Scrape
@@ -18,6 +16,9 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Formatting (int, sformat, (%))
 
+
+import qualified Codec.CBOR.Decoding as D
+import qualified Codec.CBOR.Encoding as E
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
@@ -26,7 +27,6 @@ import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash 
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
-import           Pos.Crypto.Signing.Check (validateProxySecretKey)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..))
@@ -34,7 +34,7 @@ import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..), RedeemSe
                                                   RedeemSignature (..))
 import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhrase,
                                                 passphraseLength)
-import           Pos.Util.Util (toCborError, cborError)
+import           Pos.Util.Util (cborError, toCborError)
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -45,7 +45,10 @@ instance Bi a => Bi (WithHash a) where
 ----------------------------------------------------------------------------
 
 instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
-    encode (AbstractHash digest) = encode (ByteArray.convert digest :: ByteString)
+    encode (AbstractHash digest) = encode (ByteArray.convert digest :: BS.ByteString)
+    -- FIXME bad decode: it reads an arbitrary-length byte string.
+    -- Better instance: know the hash algorithm up front, read exactly that
+    -- many bytes, fail otherwise. Then convert to a digest.
     decode = do
         bs <- decode @ByteString
         toCborError $ case digestFromByteString bs of
@@ -56,17 +59,35 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
 -- SecretSharing
 ----------------------------------------------------------------------------
 
-#define BiPvss(T, PT) \
-  instance Bi T where {\
-    encode = encodeBinary ;\
-    decode = decodeBinary };\
-  deriving instance Bi PT ;\
+instance Bi Scrape.PublicKey where
+    encode = encodeBinary
+    decode = decodeBinary
 
-BiPvss (Scrape.PublicKey, C.VssPublicKey)
-BiPvss (Scrape.KeyPair, C.VssKeyPair)
-BiPvss (Scrape.Secret, C.Secret)
-BiPvss (Scrape.DecryptedShare, C.DecShare)
-BiPvss (Scrape.EncryptedSi, C.EncShare)
+deriving instance Bi C.VssPublicKey
+
+instance Bi Scrape.KeyPair where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.VssKeyPair
+
+instance Bi Scrape.Secret where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.Secret
+
+instance Bi Scrape.DecryptedShare where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.DecShare
+
+instance Bi Scrape.EncryptedSi where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.EncShare
 
 instance Bi Scrape.ExtraGen where
     encode = encodeBinary
@@ -126,45 +147,43 @@ BiMacro(C.EncShare, encShareBytes)
 -- Signing
 ----------------------------------------------------------------------------
 
-instance Bi Ed25519.PointCompressed where
-    encode (Ed25519.unPointCompressed -> k) = encode k
-    decode = Ed25519.pointCompressed <$> decode
+encodeXSignature :: CC.XSignature -> E.Encoding
+encodeXSignature a = encode $ CC.unXSignature a
 
-instance Bi Ed25519.Scalar where
-    encode (Ed25519.unScalar -> k) = encode k
-    decode = Ed25519.scalar <$> decode
+decodeXSignature :: D.Decoder s CC.XSignature
+decodeXSignature = toCborError . over _Left fromString . CC.xsignature =<< decode
 
-instance Bi Ed25519.Signature where
-    encode (Ed25519.Signature s) = encode s
-    decode = Ed25519.Signature <$> decode
+instance Typeable a => Bi (Signature a) where
+    encode (Signature a) = encodeXSignature a
+    decode = fmap Signature decodeXSignature
 
-instance Bi CC.ChainCode where
-    encode (CC.ChainCode c) = encode c
-    decode = CC.ChainCode <$> decode
+encodeXPub :: CC.XPub -> E.Encoding
+encodeXPub a = encode $ CC.unXPub a
 
-instance Bi CC.XPub where
-    encode (CC.unXPub -> kc) = encode kc
-    decode = toCborError . over _Left fromString . CC.xpub =<< decode
+decodeXPub :: D.Decoder s CC.XPub
+decodeXPub = toCborError . over _Left fromString . CC.xpub =<< decode
 
-instance Bi CC.XPrv where
-    encode (CC.unXPrv -> kc) = encode kc
-    decode = toCborError . over _Left fromString . CC.xprv =<< decode @ByteString
+instance Bi PublicKey where
+    encode (PublicKey a) = encodeXPub a
+    decode = fmap PublicKey decodeXPub
 
-instance Bi CC.XSignature where
-    encode (CC.unXSignature -> bs) = encode bs
-    decode = toCborError . over _Left fromString . CC.xsignature =<< decode
+encodeXPrv :: CC.XPrv -> E.Encoding
+encodeXPrv a = encode $ CC.unXPrv a
 
-deriving instance Typeable a => Bi (Signature a)
-deriving instance Bi PublicKey
-deriving instance Bi SecretKey
+decodeXPrv :: D.Decoder s CC.XPrv
+decodeXPrv = toCborError . over _Left fromString . CC.xprv =<< decode @ByteString
+
+instance Bi SecretKey where
+    encode (SecretKey a) = encodeXPrv a
+    decode = fmap SecretKey decodeXPrv
 
 instance Bi EncryptedSecretKey where
     encode (EncryptedSecretKey sk pph) = encodeListLen 2
-                                      <> encode sk
+                                      <> encodeXPrv sk
                                       <> encode pph
     decode = EncryptedSecretKey
          <$  enforceSize "EncryptedSecretKey" 2
-         <*> decode
+         <*> decodeXPrv
          <*> decode
 
 instance Bi a => Bi (Signed a) where
@@ -176,7 +195,9 @@ instance Bi a => Bi (Signed a) where
          <*> decode
          <*> decode
 
-deriving instance Typeable w => Bi (ProxyCert w)
+instance Typeable w => Bi (ProxyCert w) where
+    encode (ProxyCert a) = encodeXSignature a
+    decode = fmap ProxyCert decodeXSignature
 
 instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
     encode UnsafeProxySecretKey{..} =
@@ -191,18 +212,17 @@ instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
         pskIssuerPk   <- decode
         pskDelegatePk <- decode
         pskCert       <- decode
-        toCborError . over _Left ("decode@ProxySecretKey: " <>) $
-            validateProxySecretKey UnsafeProxySecretKey{..}
+        pure UnsafeProxySecretKey {..}
 
 instance (Typeable a, Bi w, HasCryptoConfiguration) =>
          Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk
-                             <> encode psigSig
+                             <> encodeXSignature psigSig
     decode = ProxySignature
           <$  enforceSize "ProxySignature" 2
           <*> decode
-          <*> decode
+          <*> decodeXSignature
 
 instance Bi PassPhrase where
     encode pp = encode (ByteArray.convert pp :: ByteString)

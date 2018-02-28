@@ -45,7 +45,6 @@ action
     => SimpleNodeArgs
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
     CLI.printInfoOnStart cArgs
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs

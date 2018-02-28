@@ -12,11 +12,11 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.Reflection (give)
 
-import           Pos.Core (Block, BlockHeader (..), BlockVersion (..), BlockVersionData (..),
-                           ExtraBodyData, ExtraHeaderData, GenericBlock (..),
-                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..), mkApplicationName,
-                           unsafeCoinPortionFromDouble)
+import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
+                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData,
+                           GenericBlock (..), GenericBlockHeader (..), HeaderHash,
+                           SoftforkRule (..), SoftwareVersion (..), StakeholderId,
+                           TxFeePolicy (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
@@ -43,10 +43,10 @@ pureLogic
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
     , getBlock           = \_ -> pure (Just block)
-    , getChainFrom       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
+    , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getBlockHeaders'   = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
+    , getLcaMainChain    = \_ -> pure Nothing
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -254,7 +254,7 @@ softwareVersion = SoftwareVersion
     , svNumber  = 0
     }
   where
-    Right appName = mkApplicationName (mempty :: Text)
+    appName = ApplicationName (mempty :: Text)
 
 blockHeaderAttributes :: BlockHeaderAttributes
 blockHeaderAttributes = Attributes

@@ -5,16 +5,15 @@ module Pos.Logic.Types
     ( LogicLayer (..)
     , Logic (..)
     , KeyVal (..)
-    , GetBlockHeadersError (..)
     , dummyLogicLayer
     ) where
 
 import           Universum
 
-import           Data.Conduit (Source)
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
+import           Pos.Block.Logic (GetHashesRangeError, GetHeadersFromManyToError)
 import           Pos.Communication (NodeId, TxMsgContents)
 import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
@@ -27,53 +26,39 @@ import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
 data Logic m = Logic
-    { -- The stakeholder id of our node.
+    { -- | The stakeholder id of our node.
       ourStakeholderId   :: StakeholderId
-      -- Get a block, perhaps from a database.
+      -- | Get a block, perhaps from a database.
     , getBlock           :: HeaderHash -> m (Maybe Block)
-      -- Stream blocks from first hash to second hash.
-      -- Conduit is chosen mainly due to precedent: it's already used in
-      -- cardano-sl.
-    , getChainFrom       :: HeaderHash
-                         -> Source m Block
-      -- Get a block header.
-      -- TBD: necessary? Is it any different/faster than getting the block
-      -- and taking the header?
+      -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
-      -- Inspired by 'getHeadersFromManyTo'.
-      -- Included here because that function is quite complicated; it's not
-      -- clear whether it can be expressed simply in terms of getBlockHeader.:q
+      -- TODO CSL-2089 use conduits in this and the following methods
+      -- | Retrieve block header hashes from specified interval.
+    , getHashesRange     :: Maybe Word -- ^ Optional limit on how many to bring in.
+                         -> HeaderHash
+                         -> HeaderHash
+                         -> m (Either GetHashesRangeError (OldestFirst NE HeaderHash))
+      -- | Interface for 'getHeadersFromManyTo'. Retrieves blocks from
+      -- the checkpoints to some particular point (or tip, if
+      -- 'Nothing').
     , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
-                         -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
-      -- Inspired by 'getHeadersFromToIncl', which is apparently distinct from
-      -- 'getHeadersFromManyTo' (getBlockHeaders without the tick above).
-      -- FIXME we must unify these.
-      -- May want to think about giving a streaming-IO interface (pipes, conduit
-      -- or similar).
-    , getBlockHeaders'   :: Maybe Word -- ^ Optional limit on how many to bring in.
-                         -> HeaderHash
-                         -> HeaderHash
-                         -> m (Either GetBlockHeadersError (OldestFirst NE HeaderHash))
-      -- Get the current tip of chain.
-      -- It's not in Maybe, as getBlock is, because really there should always
-      -- be a tip, whereas trying to get a block that isn't in the database is
-      -- normal.
+                         -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
+      -- | Compute LCA with the main chain.
+    , getLcaMainChain    :: OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
+      -- | Get the current tip of chain.
     , getTip             :: m Block
-      -- Apparently 'getTipHeader' can be cheaper than
-      -- 'headerHash <$> getTip' in some particular cases, so we have
-      -- both.
+      -- | Cheaper version of 'headerHash <$> getTip'.
     , getTipHeader       :: m BlockHeader
-
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
 
-      -- Give a block header to the logic layer.
+      -- | Give a block header to the logic layer.
       -- NodeId is needed for first iteration, but will be removed later.
     , postBlockHeader    :: BlockHeader -> NodeId -> m ()
 
-      -- Tx, update, ssc...
+      -- | Tx, update, ssc...
       -- Common pattern is:
       --   - What to do with it when we receive it (key and data).
       --   - How to get it when it's requested (key).
@@ -93,10 +78,8 @@ data Logic m = Logic
     , postSscShares      :: KeyVal (Tagged MCShares StakeholderId) MCShares m
     , postSscVssCert     :: KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
 
-      -- Give a heavy delegation certificate. Returns False if something
+      -- | Give a heavy delegation certificate. Returns False if something
       -- went wrong.
-      --
-      -- NB light delegation is apparently disabled in master.
     , postPskHeavy       :: ProxySKHeavy -> m Bool
 
       -- Recovery mode related stuff.
@@ -143,12 +126,6 @@ data KeyVal key val m = KeyVal
     , handleData :: val -> m Bool
     }
 
--- | Failure description for getting a block header from the logic layer.
-data GetBlockHeadersError = GetBlockHeadersError Text
-
-deriving instance Show GetBlockHeadersError
-instance Exception GetBlockHeadersError
-
 -- | A diffusion layer: its interface, and a way to run it.
 data LogicLayer m = LogicLayer
     { runLogicLayer :: forall x . m x -> m x
@@ -170,10 +147,10 @@ dummyLogicLayer = LogicLayer
     dummyLogic = Logic
         { ourStakeholderId   = error "dummy: no stakeholder id"
         , getBlock           = \_ -> pure (error "dummy: can't get block")
-        , getChainFrom       = \_ -> error "dummy: can't get chain"
         , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get headers")
-        , getBlockHeaders'   = \_ _ _ -> pure (error "dummy: can't get headers")
+        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
+        , getLcaMainChain    = \_ -> pure Nothing
+        , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
         , getTip             = pure (error "dummy: can't get tip")
         , getTipHeader       = pure (error "dummy: can't get tip header")
         , getAdoptedBVData   = pure (error "dummy: can't get block version data")

@@ -20,7 +20,9 @@ import           Control.Monad.Fix (MonadFix)
 import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           JsonLog (jsonLog)
+import           Mockable (race)
 import           Mockable.Production (Production (..))
+import           System.Exit (ExitCode (..))
 
 import           Pos.Binary ()
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
@@ -40,6 +42,7 @@ import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthChe
 import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
 import           Pos.Reporting.Statsd (withStatsd)
+import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -116,6 +119,7 @@ runServer
     :: forall ctx m t .
        ( DiffusionWorkMode m
        , LogicWorkMode ctx m
+       , HasShutdownContext ctx
        , MonadFix m
        )
     => NodeParams
@@ -124,7 +128,7 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    logicLayerFull jsonLog $ \logicLayer ->
+    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
@@ -136,6 +140,9 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
                     maybeWithStatsd $
                     act (diffusion diffusionLayer)
   where
+    exitOnShutdown action = do
+        _ <- race waitForShutdown action
+        exitWith (ExitFailure 20) -- special exit code to indicate an update
     tcpAddr = ncTcpAddr npNetworkConfig
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of

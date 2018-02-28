@@ -1,8 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Pure functions related to blocks and headers, mostly their verification.
+-- | Verification of headers and blocks, also chain integrity
+-- checks. Almost pure (requires leaders to be explicitly passed).
 
-module Pos.Block.Pure
+module Pos.Block.Logic.Integrity
        (
          -- * Header
          VerifyHeaderParams (..)
@@ -25,7 +26,7 @@ import           Serokell.Util (VerificationRes (..), verifyGeneric)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
-import           Pos.Block.BHelpers ()
+import qualified Pos.Block.BHelpers as BHelpers
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                            HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
@@ -59,6 +60,10 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Eq, Show)
 
+verifyFromEither :: Text -> Either Text b -> VerificationRes
+verifyFromEither txt (Left reason)  = verifyGeneric [(False, txt <> ": " <> reason)]
+verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
+
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
@@ -81,7 +86,8 @@ verifyHeader
     :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-    verifyGeneric checks
+       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader h)
+    <> verifyGeneric checks
   where
     checks =
         mconcat
@@ -236,13 +242,16 @@ data VerifyBlockParams = VerifyBlockParams
 verifyBlock
     :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
-verifyBlock VerifyBlockParams {..} blk =
-    mconcat
-        [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
-        , checkSize vbpMaxSize
-        , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
-        ]
+verifyBlock VerifyBlockParams {..} blk = mconcat
+    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
+    , verifyHeader vbpVerifyHeader (getBlockHeader blk)
+    , checkSize vbpMaxSize
+    , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
+    ]
   where
+    -- Oh no! Verification involves re-searilizing the thing!
+    -- What a tragic waste.
+    -- What shall we do about this?
     blkSize = Bi.biSize blk
     checkSize maxSize = verifyGeneric [
       (blkSize <= maxSize,

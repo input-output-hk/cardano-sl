@@ -3,6 +3,7 @@
 module Pos.Txp
        ( module Pos.Core.Txp
        , module Pos.Txp.Base
+       , module Pos.Txp.Configuration
        , module Pos.Txp.Error
        , module Pos.Txp.Logic
        , module Pos.Txp.MemState
@@ -18,6 +19,7 @@ import           Pos.Arbitrary.Txp.Network ()
 import           Pos.Binary.Txp ()
 import           Pos.Core.Txp
 import           Pos.Txp.Base
+import           Pos.Txp.Configuration
 import           Pos.Txp.Error
 import           Pos.Txp.GenesisUtxo
 import           Pos.Txp.Logic

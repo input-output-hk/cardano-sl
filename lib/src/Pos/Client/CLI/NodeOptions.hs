@@ -49,6 +49,7 @@ data CommonNodeArgs = CommonNodeArgs
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
+    , cnaDumpConfiguration   :: !Bool
     , cnaBlockStorageMirror  :: !(Maybe Text)
     } deriving Show
 
@@ -106,6 +107,9 @@ commonNodeArgsParser = do
     cnaBlockStorageMirror <- optional $ strOption $
         long "block-storage-mirror" <>
         help "URL for a mirror that stores epochs in *.cbor.lzma format."
+    cnaDumpConfiguration <- switch $
+        long "dump-configuration" <>
+        help "Dump configuration and exit."
 
     pure CommonNodeArgs{..}
 

@@ -19,8 +19,9 @@ module Mode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Trans.Resource (transResourceT)
+import           Data.Conduit (transPipe)
 import           Data.Default (def)
 import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
@@ -54,8 +55,8 @@ import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
-                          txProcessTransactionNoLock)
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
+                          txProcessTransaction, txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
@@ -167,7 +168,8 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
-    dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
+    dbIterSource tag p =
+        transPipe (transResourceT realModeToAuxx) (dbIterSource tag p)
     dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
     dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 
@@ -175,7 +177,7 @@ instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-    dbPutSerBlund = realModeToAuxx ... dbPutSerBlund
+    dbPutSerBlunds = realModeToAuxx ... dbPutSerBlunds
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
@@ -191,7 +193,12 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasSscConfiguration, HasCompileInfo) =>
+instance ( HasConfiguration
+         , HasInfraConfiguration
+         , HasSscConfiguration
+         , HasTxpConfiguration
+         , HasCompileInfo
+         ) =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -218,7 +225,12 @@ instance MonadKeys AuxxMode where
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) => MonadTxpLocal AuxxMode where
+instance ( HasConfiguration
+         , HasInfraConfiguration
+         , HasTxpConfiguration
+         , HasCompileInfo
+         ) =>
+         MonadTxpLocal AuxxMode where
     txpNormalize = withReaderT acRealModeContext txNormalize
     txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
 

@@ -16,32 +16,29 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.Conduit.Async as Conduit.Async
-import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import           Ether.Internal (HasLens (..))
 import           Fmt (format, (+|), (|+))
-import           Formatting (build, builder, int, sformat, (%))
+import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
 import qualified Network.HTTP.Simple as Http
-import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (sec)
-import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Binary.Class (biSize)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Dump (decodeBlockDumpC)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, verifyAndApplyBlocksC)
-import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
-                                          MkHeadersRequestResult (..), handleBlocks,
-                                          mkHeadersRequest, triggerRecovery)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..))
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp,
+                                  verifyAndApplyBlocksC)
+import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
+                                          triggerRecovery)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
-import           Pos.Core (EpochIndex, HasHeaderHash (..), HeaderHash, difficultyL, epochIndexL,
-                           getEpochOrSlot, isMoreDifficult, prevBlockL, siSlotL, unEpochOrSlot)
-import           Pos.Core.Block (BlockHeader, blockHeader)
+import           Pos.Core (Block, EpochIndex, HasHeaderHash (..), HeaderHash, difficultyL,
+                           epochIndexL, getEpochOrSlot, isMoreDifficult, prevBlockL, siSlotL,
+                           unEpochOrSlot)
+import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
@@ -50,7 +47,7 @@ import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Slotting.Class (getCurrentSlot)
 import           Pos.StateLock (Priority (HighPriority), modifyStateLock)
 import           Pos.Util ((<//>))
-import           Pos.Util.Chrono (OldestFirst (..), _OldestFirst)
+import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
@@ -122,7 +119,7 @@ retrievalWorkerImpl blockStorageMirror diffusion = do
                 -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
-        thingToDoNext
+        () <- thingToDoNext
         retrievalLoop
     retrievalLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
@@ -174,36 +171,37 @@ retrievalWorkerImpl blockStorageMirror diffusion = do
 
     -----------------
 
-    handleRecoveryWithHandler nodeId header =
-        handleAny (handleRecoveryE nodeId header) $
-        handleRecovery nodeId header
+    handleRecoveryWithHandler nodeId rHeader =
+        handleAny (handleRecoveryE nodeId rHeader) $
+        handleRecovery nodeId rHeader
 
     -- We immediately drop recovery mode/header and request tips
     -- again.
-    handleRecoveryE nodeId header e = do
+    handleRecoveryE nodeId rHeader e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker/recovery.
         reportOrLogW (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
-            nodeId (headerHash header)) e
+            nodeId (headerHash rHeader)) e
         dropRecoveryHeaderAndRepeat diffusion nodeId
 
     -- Recovery handling. We assume that header in the recovery var is
     -- appropriate and just query headers/blocks.
+    handleRecovery :: Maybe NodeId -> BlockHeader -> m ()
     handleRecovery Nothing _ = do
         logWarning "handleRecovery: unexpected 'Nothing' in the recovery \
                    \header (we should only have Nothing there when we're \
                    \doing HTTP sync, but something went wrong)"
         dropRecoveryHeaderAndRepeat diffusion Nothing
-    handleRecovery (Just nodeId) header = do
+    handleRecovery (Just nodeId) rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
-                 \ so we will request more headers and blocks"
-        mkHeadersRequest (headerHash header) >>= \case
-            MhrrBlockAdopted ->
-                -- How did we even get into recovery then?
-                throwM $ DialogUnexpected "handleRecovery: got MhrrBlockAdopted"
-            MhrrWithCheckpoints mgh -> do
-                logDebug "handleRecovery: asking for headers and blocks"
-                getProcessBlocks diffusion nodeId header (mghFrom mgh)
+                 \ so we will fetch more blocks"
+        whenM (fmap isJust $ DB.getHeader $ headerHash rHeader) $
+            -- How did we even get into recovery then?
+            throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
+                                        "already present in db"
+        logDebug "handleRecovery: fetching blocks"
+        checkpoints <- toList <$> getHeadersOlderExp Nothing
+        void $ getProcessBlocks diffusion nodeId rHeader checkpoints
 
 ----------------------------------------------------------------------------
 -- HTTP-based block retrieval
@@ -381,24 +379,20 @@ getProcessBlocks
     -> m ()
 getProcessBlocks diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
-    case getOldestFirst result of
-      [] -> do
-          let msg = sformat ("Error retrieving blocks from "%listJson%
-                             " to "%shortHashF%" from peer "%
-                             build%": unexpected empty list")
-                            checkpoints (headerHash desired) nodeId
+    case OldestFirst <$> nonEmpty (getOldestFirst result) of
+      Nothing -> do
+          let msg = sformat ("getProcessBlocks: diffusion returned []"%
+                             " on request to fetch "%shortHashF%" from peer "%build)
+                            (headerHash desired) nodeId
           throwM $ DialogUnexpected msg
-      (headBlocks : tailBlocks) -> do
-          let blocks = OldestFirst (headBlocks :| tailBlocks)
+      Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
           logDebug $ sformat
-              ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
+              ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-              (unitBuilder $ biSize blocks)
-              (map (headerHash . view blockHeader) blocks)
           handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
-          -- difficulty than ncrecoveryheader, we're
+          -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.
           let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
           exitedRecovery <- atomically $ tryReadTMVar recHeaderVar >>= \case

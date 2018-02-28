@@ -1,5 +1,5 @@
 name:                cardano-sl-util
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
@@ -50,7 +50,7 @@ library
                      , cborg
                      , cereal
                      , concurrent-extra
-                     , conduit-combinators
+                     , conduit
                      , containers
                      , cryptonite
                      , data-default
@@ -90,6 +90,7 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio-core
                      , unordered-containers
                      , vector
 

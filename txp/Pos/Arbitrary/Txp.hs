@@ -24,12 +24,11 @@ import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
-                               TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..), mkTx,
+                               TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
 import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Util.QuickCheck.Arbitrary (makeSmall)
+import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -69,11 +68,7 @@ instance Arbitrary TxIn where
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
 instance Arbitrary Tx where
-    arbitrary =
-        mkTx <$> arbitrary <*> arbitrary <*>
-        pure (mkAttributes ()) <&> \case
-            Left err -> error $ "Arbitrary Tx: " <> err
-            Right res -> res
+    arbitrary = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
     shrink = genericShrink
 
 -- | Type used to generate valid ('verifyTx')
@@ -119,10 +114,7 @@ buildProperTx inputList (inCoin, outCoin) =
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
-    newTx =
-        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
-        either (error "buildProperTx: can't create tx") identity $
-        mkTx ins outs def
+    newTx = UnsafeTx ins outs def
     newTxHash = hash newTx
     ins  = fmap (view _2) txList
     outs = fmap (view _4) txList
@@ -143,10 +135,7 @@ newtype GoodTx = GoodTx
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
-    tx =
-        -- TODO: Describe why we are certain that 'mkTx' cannot fail here.
-        either (error "goodTxToTxAux created malformed tx") identity $
-        mkTx (map (view _2) l) (map (toaOut . view _3) l) def
+    tx = UnsafeTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
 instance HasConfiguration => Arbitrary GoodTx where
@@ -189,12 +178,8 @@ instance Arbitrary (MerkleNode Tx) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (MerkleTree Tx) where
-    arbitrary = mkMerkleTree <$> arbitrary
-    shrink = genericShrink
-
 instance Arbitrary TxProof where
-    arbitrary = makeSmall genericArbitrary
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary TxAux where
@@ -211,11 +196,7 @@ txOutDistGen =
         txInW <- arbitrary
         txIns <- arbitrary
         txOuts <- arbitrary
-        let tx =
-                either
-                    (error . mappend "failed to create tx in txOutDistGen: ")
-                    identity $
-                mkTx txIns txOuts (mkAttributes ())
+        let tx = UnsafeTx txIns txOuts (mkAttributes ())
         return $ TxAux tx (txInW)
 
 instance HasConfiguration => Arbitrary TxPayload where

@@ -1,5 +1,5 @@
 name:                cardano-sl-auxx
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL - Auxx
 description:         Cardano SL - Auxx
 license:             MIT
@@ -38,11 +38,12 @@ library
                        Plugin
                        Repl
   build-depends:
-                       QuickCheck
-                     , Earley
+                       Earley
                      , MonadRandom
+                     , QuickCheck
                      , ansi-wl-pprint
                      , async
+                     , aeson
                      , base
                      , bytestring
                      , canonical-json
@@ -59,7 +60,7 @@ library
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
-                     , conduit-combinators
+                     , conduit
                      , constraints
                      , containers
                      , data-default
@@ -139,7 +140,6 @@ executable cardano-auxx
                      , cardano-sl-txp
                      , cardano-sl-util
                      , cardano-sl-update
-                     , conduit-combinators
                      , constraints
                      , formatting
                      , log-warper
@@ -206,7 +206,6 @@ test-suite cardano-auxx-test
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , conduit-combinators
                      , hspec
                      , universum >= 0.1.11
 

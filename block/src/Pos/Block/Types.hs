@@ -38,7 +38,7 @@ data Undo = Undo
     , undoDlg  :: !DlgUndo
     , undoUS   :: !USUndo
     , undoSlog :: !SlogUndo
-    } deriving (Generic)
+    } deriving (Eq, Show, Generic)
 
 instance NFData Undo
 

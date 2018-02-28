@@ -47,7 +47,7 @@ import qualified Codec.CBOR.Decoding as Cbor hiding (DecodeAction (..))
 import qualified Codec.CBOR.Encoding as Cbor
 import qualified Codec.CBOR.Read as Cbor
 import qualified Codec.CBOR.Write as Cbor
-import           Conduit (Conduit, Consumer, Producer, runConduit, yield, (.|))
+import           Conduit (ConduitT, runConduit, yield, (.|))
 import qualified Conduit
 import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.Text.Buildable
@@ -69,7 +69,7 @@ import           Pos.Util.Chrono (OldestFirst (..))
 -- | Encode a block dump. The blocks should be coming oldest-first.
 encodeBlockDumpC
     :: (Bi BlockNoProof, Conduit.MonadResource m)
-    => Conduit Block m ByteString
+    => ConduitT Block ByteString m ()
 encodeBlockDumpC = (encodeDumpHeader >> encodeBlockStream)
                .| Lzma.compress Nothing
 
@@ -82,7 +82,9 @@ encodeBlockDump blocks = Conduit.runResourceT $ runConduit $
     .| encodeBlockDumpC
     .| Conduit.sinkLazy
 
-encodeDumpHeader :: Monad m => Producer m ByteString
+encodeDumpHeader
+    :: forall i m . (Monad m)
+    => ConduitT i ByteString m ()
 encodeDumpHeader = yield $ Cbor.toStrictByteString $
     Cbor.encodeListLen 2 <>                     -- tuple with 2 elements
     Cbor.encodeWord16 0 <>                      -- 1st element: version
@@ -90,7 +92,7 @@ encodeDumpHeader = yield $ Cbor.toStrictByteString $
 
 encodeBlockStream
     :: (Bi BlockNoProof, Monad m)
-    => Conduit Block m ByteString
+    => ConduitT Block ByteString m ()
 encodeBlockStream = Conduit.mapC (serialize' . stripProof)
 
 ----------------------------------------------------------------------------
@@ -141,7 +143,7 @@ instance Buildable BlockDumpDecodeError where
 -- /Throws:/ 'BlockDumpDecodeError'
 decodeBlockDumpC
     :: (Bi BlockNoProof, Conduit.MonadResource m, MonadThrow m)
-    => Conduit ByteString m Block
+    => ConduitT ByteString Block m ()
 decodeBlockDumpC =
     Lzma.decompress memlimit .| do
         ver <- decodeDumpHeader
@@ -164,8 +166,8 @@ decodeBlockDump dump = fmap OldestFirst $ Conduit.runResourceT $ runConduit $
 -- | Deserialize the header of a dump and return data decoded from the
 -- header (i.e. block version).
 decodeDumpHeader
-    :: (MonadThrow m, MonadIO m)
-    => Consumer ByteString m Word16
+    :: forall o m . (MonadThrow m, MonadIO m)
+    => ConduitT ByteString o m Word16
 decodeDumpHeader =
     Bi.awaitCbor decoder >>= \case
         Nothing ->
@@ -185,10 +187,10 @@ decodeDumpHeader =
 -- | Decode a stream of blocks.
 decodeBlockStream
     :: forall m. (Bi BlockNoProof, MonadIO m, MonadThrow m)
-    => Conduit ByteString m Block
+    => ConduitT ByteString Block m ()
 decodeBlockStream = go 0
   where
-    go :: Bi BlockNoProof => Int -> Conduit ByteString m Block
+    go :: Bi BlockNoProof => Int -> ConduitT ByteString Block m ()
     go i = Bi.awaitBi >>= \case
         Nothing ->
             pure ()
@@ -227,7 +229,7 @@ instance ( Typeable b
          , Bi (C.ExtraHeaderData b)
          , Bi (C.Body b)
          , Bi (C.ExtraBodyData b)
-         , C.BlockchainHelpers b
+         , C.Blockchain b
          , HasCryptoConfiguration
          , C.HasProtocolConstants
          ) =>
@@ -251,10 +253,8 @@ instance ( Typeable b
         body  <- decode
         extra <- decode
         let bodyProof = C.mkBodyProof body
-        header <- Bi.toCborError $
-            C.recreateGenericHeader prevBlock bodyProof consensus headerExtra
-        block <- Bi.toCborError $
-            C.recreateGenericBlock header body extra
+            header = C.UnsafeGenericBlockHeader prevBlock bodyProof consensus headerExtra
+            block = C.UnsafeGenericBlock header body extra
         pure $ GenericBlockNoProof block
       where
         decodeHeader = do

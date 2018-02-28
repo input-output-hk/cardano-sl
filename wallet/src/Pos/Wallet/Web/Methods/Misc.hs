@@ -40,7 +40,7 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
 import           Serokell.Util (listJson, sec)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
@@ -56,6 +56,7 @@ import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
@@ -137,12 +138,18 @@ requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)
 -- Sync progress
 ----------------------------------------------------------------------------
 
-syncProgress :: MonadBlockchainInfo m => m SyncProgress
-syncProgress =
-    SyncProgress
-    <$> localChainDifficulty
-    <*> networkChainDifficulty
-    <*> connectedPeers
+syncProgress
+    :: (MonadIO m, WithLogger m, MonadBlockchainInfo m)
+    => m SyncProgress
+syncProgress = do
+    _spLocalCD <- localChainDifficulty
+    _spNetworkCD <- networkChainDifficulty
+    _spPeers <- connectedPeers
+    -- servant already logs this, but only to secret logs
+    logInfoUnsafeP $
+        sformat ("Current sync progress: "%build%"/"%build)
+        _spLocalCD _spNetworkCD
+    return SyncProgress{..}
 
 ----------------------------------------------------------------------------
 -- NTP (Network Time Protocol) based time difference

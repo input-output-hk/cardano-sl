@@ -1,8 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
 
--- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
--- lrc requires to apply and rollback blocks, but applying many blocks
+-- | Unsafe functions for block application/rollback, some constraint sets
+-- and some utilities. Mostly needed for use in 'Pos.Lrc' -- using lrc
+-- requires applying and rolling back blocks, but applying many blocks
 -- requires triggering lrc recalculations.
 
 module Pos.Block.Logic.Internal
@@ -30,6 +31,7 @@ import qualified Crypto.Random as Rand
 import           Formatting (sformat, (%))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
@@ -65,6 +67,7 @@ import           Pos.Util.Util (HasLens', lensOf)
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ctx m
      = ( MonadSlogBase ctx m
+       , MonadUnliftIO m
        -- Needed because SSC state is fully stored in memory.
        , MonadSscMem ctx m
        -- Needed to load blocks (at least delegation does it).
@@ -90,6 +93,7 @@ type MonadBlockVerify ctx m = MonadBlockBase ctx m
 type MonadBlockApply ctx m
      = ( MonadBlockBase ctx m
        , MonadSlogApply ctx m
+       , MonadUnliftIO m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.
@@ -102,6 +106,7 @@ type MonadBlockApply ctx m
 
 type MonadMempoolNormalization ctx m
     = ( MonadSlogBase ctx m
+      , MonadUnliftIO m
       , MonadTxpLocal m
       , MonadSscMem ctx m
       , HasLrcContext ctx

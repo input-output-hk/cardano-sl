@@ -1,7 +1,8 @@
 {-# LANGUAGE RankNTypes   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Verify|apply|rollback logic.
+-- | Center of where block verification/application/rollback happens.
+-- Unifies VAR for all components (slog, ssc, txp, dlg, us).
 
 module Pos.Block.Logic.VAR
        ( verifyBlocksPrefix
@@ -18,7 +19,7 @@ module Pos.Block.Logic.VAR
 
 import           Universum
 
-import           Conduit (Consumer, (.|))
+import           Conduit (ConduitT, (.|))
 import qualified Conduit
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (_Wrapped)
@@ -40,8 +41,8 @@ import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBloc
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
-import           Pos.Ssc (sscVerifyBlocks)
-import           Pos.Txp.Settings (TxpGlobalSettings (..))
+import           Pos.Ssc.Logic (sscVerifyBlocks)
+import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
@@ -61,6 +62,13 @@ import           Pos.Util.Util (HasLens (..))
 -- header, body, extra data, etc.
 --
 -- LRC must be already performed for the epoch from which blocks are.
+--
+-- Algorithm:
+-- 1.  Ensure that the parent of the oldest block that we want to apply
+--     matches the current tip.
+-- 2.  Perform verification component-wise (@slog@, @ssc@, @txp@, @dlg@, @us@).
+-- 3.  Ensure that the number of undos from @txp@ and @dlg@ is the same.
+-- 4.  Return all undos.
 verifyBlocksPrefix
     :: forall ctx m.
        (MonadBlockVerify ctx m)
@@ -69,21 +77,25 @@ verifyBlocksPrefix
 verifyBlocksPrefix blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
-    adoptedBV <- GS.getAdoptedBV
+    adoptedBV <- lift GS.getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown adoptedBV
 
-    -- And then we run verification of each component.
-    slogUndos <- withExceptT VerifyBlocksError $ slogVerifyBlocks blocks
+    -- Run verification of each component.
+    -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
+    -- the internal consistency checks formerly done in the 'Bi' instance
+    -- 'decode'.
+    slogUndos <- withExceptT VerifyBlocksError $
+        ExceptT $ slogVerifyBlocks blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
+        ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
@@ -102,19 +114,21 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- | Union of constraints required by block processing and LRC.
 type BlockLrcMode ctx m = (MonadBlockApply ctx m, LrcModeFull ctx m)
 
--- | Applies blocks if they're valid. Takes one boolean flag
--- "rollback". Returns header hash of last applied block (new tip) on
--- success. Failure behaviour depends on "rollback" flag. If it's on,
--- all blocks applied inside this function will be rollbacked, so it
--- will do effectively nothing and return 'Left error'. If it's off,
--- it will try to apply as much blocks as it's possible and return
--- header hash of new tip. It's up to caller to log warning that
--- partial application happened.
+-- | Applies a list of blocks (not necessarily from a single epoch) if they
+-- are valid. Takes one boolean flag @rollback@. On success, normalizes all
+-- mempools except the delegation one and returns the header hash of the last
+-- applied block (the new tip). Failure behavior depends on the @rollback@
+-- flag. If it's on, all blocks applied inside this function will be rolled
+-- back, so it will do effectively nothing and return @Left error@. If it's
+-- off, it will try to apply as many blocks as possible. If the very first
+-- block cannot be applied, it will throw an exception, otherwise it will
+-- return the header hash of the new tip. It's up to the caller to log a
+-- warning that partial application has occurred.
 verifyAndApplyBlocks
     :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
     => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
 verifyAndApplyBlocks rollback blocks = runExceptT $ do
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
@@ -122,6 +136,12 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     lift $ normalizeMempool
     pure hh
   where
+    -- Spans input into @(a, b)@ where @a@ is either a single genesis
+    -- block or a maximum prefix of main blocks from the same epoch.
+    -- Examples (where g is for genesis and m is for main):
+    -- * gmmgm → g, mmgm
+    -- * mmgm → mm, gm
+    -- * ggmmg → g, gmmg
     spanEpoch ::
            OldestFirst NE Block
         -> (OldestFirst NE Block, OldestFirst [] Block)
@@ -130,11 +150,11 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
                 spanSafe ((==) `on` view epochIndexL) .      -- do work
                 getOldestFirst                               -- unwrap argument
-    -- Applies as much blocks from failed prefix as possible. Argument
+    -- Applies as many blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
     applyAMAP e (OldestFirst []) True                   = throwError e
-    applyAMAP _ (OldestFirst []) False                  = GS.getTip
+    applyAMAP _ (OldestFirst []) False                  = lift GS.getTip
     applyAMAP e (OldestFirst (block:xs)) nothingApplied =
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
@@ -154,11 +174,11 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
     -- This function tries to apply a new portion of blocks (prefix
-    -- and suffix). It also has aggregating parameter blunds which is
-    -- collected to rollback blocks if correspondent flag is on. First
-    -- list is packs of blunds -- head of this list represents blund
-    -- to rollback first. This function also tries to apply as much as
-    -- possible if the flag is on.
+    -- and suffix). It also has an aggregating parameter @blunds@ which is
+    -- collected to rollback blocks if correspondent flag is on. The first
+    -- list is packs of blunds. The head of this list is the blund that should
+    -- be rolled back first. This function also tries to apply as much as
+    -- possible if the @rollback@ flag is on.
     rollingVerifyAndApply
         :: [NewestFirst NE Blund]
         -> (OldestFirst NE Block, OldestFirst [] Block)
@@ -187,7 +207,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
                 case getOldestFirst suffix of
                     [] -> do
                         logDebug "Rolling: Applying done"
-                        GS.getTip
+                        lift GS.getTip
                     (genesis:xs) -> do
                         logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
@@ -206,11 +226,11 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
 -- blocks, the first batch won't be rolled back. Therefore we always return
 -- the current tip, and optionally an exception (if it happened).
 verifyAndApplyBlocksC
-    :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
-    => Bool -> Consumer Block m (Maybe ApplyBlocksException, HeaderHash)
+    :: forall ctx m o . (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
+    => Bool -> ConduitT Block o m (Maybe ApplyBlocksException, HeaderHash)
 verifyAndApplyBlocksC rollback = do
     tip <- lift GS.getTip
-    splitC 1000 .| Conduit.mapC OldestFirst .| processBatches tip
+    Conduit.transPipe liftIO (splitC 1000) .| Conduit.mapC OldestFirst .| processBatches tip
   where
     processBatches tip = Conduit.await >>= \case
         Nothing     -> pure (Nothing, tip)
@@ -219,7 +239,7 @@ verifyAndApplyBlocksC rollback = do
             Right newTip -> processBatches newTip
 
 -- | Apply definitely valid sequence of blocks. At this point we must
--- have verified all predicates regarding block (including txs and ssc
+-- have verified all predicates regarding block (including txp and ssc
 -- data checks). We also must have taken lock on block application
 -- and ensured that chain is based on our tip. Blocks will be applied
 -- per-epoch, calculating lrc when needed if flag is set.
@@ -267,7 +287,7 @@ applyWithRollback
     -> OldestFirst NE Block        -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
 applyWithRollback toRollback toApply = runExceptT $ do
-    tip <- GS.getTip
+    tip <- lift GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
 

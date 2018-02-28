@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -52,7 +52,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
-                        Pos.DHT.Configuration
+                        Pos.DHT.Constants
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Real
@@ -62,7 +62,7 @@ library
                         Pos.DHT.Real.CLI
 
                         -- Pos.Communication
-                        Pos.Communication.Configuration
+                        Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
@@ -144,7 +144,7 @@ library
                       , cardano-sl-db
                       , cardano-sl-networking
                       , cardano-sl-util
-                      , cardano-report-server >= 0.3.0
+                      , cardano-report-server >= 0.4.5
                       , conduit
                       , containers
                       , directory

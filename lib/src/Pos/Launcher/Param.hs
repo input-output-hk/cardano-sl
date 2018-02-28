@@ -54,7 +54,7 @@ data NodeParams = NodeParams
     , npSecretKey          :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret         :: !UserSecret           -- ^ All node secret keys
     , npBaseParams         :: !BaseParams           -- ^ See 'BaseParams'
-    , npJLFile             :: !(Maybe FilePath)     -- TODO COMMENT
+    , npJLFile             :: !(Maybe FilePath)     -- ^ File to use for JSON logging.
     , npReportServers      :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams       :: !UpdateParams         -- ^ Params for update system
     , npUseNTP             :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.

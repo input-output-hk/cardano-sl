@@ -10,16 +10,19 @@
 module Pos.Util.LogSafe
        ( -- * Logging functions
          SelectiveLogWrapped(..)
+       , logMessageS
        , logDebugS
        , logInfoS
        , logNoticeS
        , logWarningS
        , logErrorS
+       , logMessageUnsafeP
        , logDebugUnsafeP
        , logInfoUnsafeP
        , logNoticeUnsafeP
        , logWarningUnsafeP
        , logErrorUnsafeP
+       , logMessageSP
        , logDebugSP
        , logInfoSP
        , logNoticeSP
@@ -200,7 +203,6 @@ secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
         if null l
         then "[]"
         else bprint ("[... ("%build%" item(s))]") $ length l
-
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
 -- to terminal). Use it along with 'logMessageS' when want to specify

@@ -23,11 +23,11 @@ import           Universum
 import           Control.Lens.TH (makeLensesWith)
 import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Random.Strict (RandT)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
 import           Mockable (MonadMockable, Promise)
 import           System.Wlog (WithLogger, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
@@ -41,7 +41,7 @@ import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
 import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
-                               dbPutSerBlundSumDefault)
+                               dbPutSerBlundsSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
@@ -75,7 +75,7 @@ type MonadBlockGenBase m
      = ( WithLogger m
        , MonadMask m
        , MonadIO m
-       , MonadBaseControl IO m
+       , MonadUnliftIO m
        , MonadFormatPeers m
        , MonadMockable m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
@@ -226,7 +226,7 @@ instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutSerBlund = dbPutSerBlundSumDefault
+    dbPutSerBlunds = dbPutSerBlundsSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
@@ -307,7 +307,7 @@ instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutSerBlund = DB.dbPutSerBlundSumDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
       => MonadSlots ctx (BlockGenMode ext m)

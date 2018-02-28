@@ -1,5 +1,5 @@
 name:                cardano-sl-binary
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL - binary serialization
 description:         This package defines a type class for binary serialization,
                      helpers and instances.
@@ -17,6 +17,9 @@ library
                        Pos.Binary.Class
                        Pos.Binary.Conduit
 
+                       Test.Pos.Cbor.Canonicity
+                       Test.Pos.Cbor.RefImpl
+
   other-modules:
                        Pos.Binary.Class.Core
                        Pos.Binary.Class.Primitive
@@ -28,10 +31,11 @@ library
                      , binary
                      , bytestring
                      , cborg
-                     , conduit-combinators
+                     , conduit
                      , containers
                      , digest
                      , formatting
+                     , half
                      , hashable
                      , lens
                      , mmorph

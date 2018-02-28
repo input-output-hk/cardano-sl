@@ -14,8 +14,16 @@ module Test.Pos.Cbor.CborSpec
 
 import           Universum
 
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString as BS
-import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, pendingWith, shouldBe)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Fixed (Nano)
+import           Data.Tagged (Tagged)
+import           Data.Time.Units (Microsecond, Millisecond)
+import           Serokell.Data.Memory.Units (Byte)
+import           System.FileLock (FileLock)
+import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -23,7 +31,9 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import qualified Codec.CBOR.FlatTerm as CBOR
 
 import           Pos.Arbitrary.Block ()
+import           Pos.Arbitrary.Block.Message ()
 import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -35,12 +45,33 @@ import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
+import qualified Pos.Block.Network as BT
+import qualified Pos.Block.Types as BT
+import qualified Pos.Communication as C
+import qualified Pos.Communication.Relay as R
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import qualified Pos.Core as T
+import qualified Pos.Core.Block as BT
 import           Pos.Core.Common (ScriptVersion)
+import qualified Pos.Core.Ssc as Ssc
+import qualified Pos.Crypto as Crypto
+import           Pos.Crypto.Hashing (WithHash)
+import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import qualified Test.Pos.Cbor.RefImpl as R
-import           Test.Pos.Helpers (binaryTest)
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Pos.Delegation (DlgPayload, DlgUndo)
+import qualified Pos.DHT.Model as DHT
+import           Pos.Merkle (MerkleTree)
+import           Pos.Slotting.Types (SlottingData)
+import qualified Pos.Ssc as Ssc
+import qualified Pos.Txp as T
+import qualified Pos.Update as U
+import           Pos.Util (SmallGenerator)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.QuickCheck.Property (expectationError)
+import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
+import qualified Test.Pos.Cbor.RefImpl as R
+import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
 
 data User
     = Login { login :: String
@@ -60,6 +91,10 @@ deriveSimpleBi ''User [
         Field [| lastName  :: String |],
         Field [| sex       :: Bool   |]
     ]]
+
+----------------------------------------
+type VoteId' = Tagged U.UpdateVote U.VoteId
+type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 ----------------------------------------
 data ARecord = ARecord String Int ARecord
@@ -139,7 +174,7 @@ deriveSimpleBi ''MyScript [
 data U = U Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U where
-    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
+    encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         decodeListLenCanonicalOf 2
         U <$> decode <*> decodeUnknownCborDataItem
@@ -151,7 +186,7 @@ instance Arbitrary U where
 data U24 = U24 Word8 BS.ByteString deriving (Show, Eq)
 
 instance Bi U24 where
-    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem bs
+    encode (U24 word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         decodeListLenCanonicalOf 2
         U24 <$> decode <*> decodeUnknownCborDataItem
@@ -173,16 +208,16 @@ instance Arbitrary X2 where
     shrink = genericShrink
 
 instance Bi (Attributes X1) where
-    encode = encodeAttributes [(0, serialize' . x1A)]
+    encode = encodeAttributes [(0, serialize . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        0 -> pure $ Just $ acc { x1A = unsafeDeserialize v }
         _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
-    encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
+    encode = encodeAttributes [(0, serialize . x2A), (1, serialize . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
-        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        0 -> return $ Just $ acc { x2A = unsafeDeserialize v }
+        1 -> return $ Just $ acc { x2B = unsafeDeserialize v }
         _ -> return $ Nothing
 
 ----------------------------------------
@@ -301,7 +336,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = withDefConfiguration $ do
+spec = withDefInfraConfiguration $ withDefConfiguration $ do
     describe "Reference implementation" $ do
         describe "properties" $ do
             prop "encoding/decoding initial byte"    R.prop_InitialByte
@@ -321,48 +356,309 @@ spec = withDefConfiguration $ do
                 -- all the Halfs) but it doesn't work for some reason.
                 prop "Numeric.Half to/from Float"    R.prop_halfToFromFloat
 
-    describe "Cbor.Bi instances" $ modifyMaxSuccess (const 1000) $ do
-        describe "Test instances" $ do
-            prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
-            binaryTest @MyScript
-            prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
-        describe "Generic deriving" $ do
-            testARecord
-            testAUnit
-            testANewtype
-            binaryTest @ARecord
-            binaryTest @AUnit
-            binaryTest @ANewtype
-        describe "Lib/core instances" $ do
-            binaryTest @(Attributes X1)
-            binaryTest @(Attributes X2)
+    describe "Cbor.Bi instances" $ do
+        modifyMaxSuccess (const 1000) $ do
+            describe "Test instances" $ do
+                prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
+                binaryTest @MyScript
+                prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
+            describe "Generic deriving" $ do
+                testARecord
+                testAUnit
+                testANewtype
+                binaryTest @ARecord
+                binaryTest @AUnit
+                binaryTest @ANewtype
+            describe "Lib/core instances" $ do
+                binaryTest @(Attributes X1)
+                binaryTest @(Attributes X2)
+                brokenDisabled $ binaryTest @UserSecret
+                modifyMaxSuccess (min 50) $ do
+                    binaryTest @WalletUserSecret
+                    binaryTest @EncryptedSecretKey
+                binaryTest @(WithHash ARecord)
 
-            -- Pending specs which doesn't have an `Arbitrary` or `Eq` instance defined.
-            it "UserSecret" $ pendingWith "No Eq instance defined"
-            it "WalletUserSecret" $ pendingWith "No Eq instance defined"
-            pendingNoArbitrary "Undo"
-            pendingNoArbitrary "DataMsg (UpdateProposal, [UpdateVote])"
-            pendingNoArbitrary "DataMsg UpdateVote"
-            pendingNoArbitrary "MsgGetHeaders"
-            pendingNoArbitrary "MsgGetBlocks"
-            pendingNoArbitrary "WithHash"
-            pendingNoArbitrary "Pvss.PublicKey"
-            pendingNoArbitrary "Pvss.KeyPair"
-            pendingNoArbitrary "Pvss.Secret"
-            pendingNoArbitrary "Pvss.DecryptedShare"
-            pendingNoArbitrary "Pvss.EncryptedShare"
-            pendingNoArbitrary "Pvss.Proof"
-            pendingNoArbitrary "Ed25519.PointCompressed"
-            pendingNoArbitrary "Ed25519.Scalar"
-            pendingNoArbitrary "Ed25519.Signature"
-            pendingNoArbitrary "CC.ChainCode"
-            pendingNoArbitrary "CC.XPub"
-            pendingNoArbitrary "CC.XPrv"
-            pendingNoArbitrary "CC.XSignature"
-            pendingNoArbitrary "EdStandard.PublicKey"
-            pendingNoArbitrary "EdStandard.SecretKey"
-            pendingNoArbitrary "EdStandard.Signature"
-            pendingNoArbitrary "EncryptedSecretKey"
+            describe "Primitive instances" $ do
+                binaryTest @()
+                binaryTest @Bool
+                binaryTest @Char
+                binaryTest @Integer
+                binaryTest @Word
+                binaryTest @Word8
+                binaryTest @Word16
+                binaryTest @Word32
+                binaryTest @Word64
+                binaryTest @Int
+                binaryTest @Float
+                binaryTest @Int32
+                binaryTest @Int64
+                binaryTest @Nano
+                binaryTest @Millisecond
+                binaryTest @Microsecond
+                binaryTest @Byte
+                binaryTest @(Map Int Int)
+                binaryTest @(HashMap Int Int)
+                binaryTest @(Set Int)
+                binaryTest @(HashSet Int)
 
-pendingNoArbitrary :: String -> Spec
-pendingNoArbitrary ty = it ty $ pendingWith "Arbitrary instance required"
+        describe "Types" $ do
+          -- 100 is not enough to catch some bugs (e.g. there was a bug with
+          -- addresses that only manifested when address's CRC started with 0x00)
+          describe "Bi instances" $ do
+              describe "Core.Address" $ do
+                  binaryTest @T.Address
+                  binaryTest @T.Address'
+                  binaryTest @T.AddrType
+                  binaryTest @T.AddrStakeDistribution
+                  binaryTest @T.AddrSpendingData
+              describe "Core.Types" $ do
+                  binaryTest @T.Timestamp
+                  binaryTest @T.TimeDiff
+                  binaryTest @T.EpochIndex
+                  binaryTest @T.Coin
+                  binaryTest @T.CoinPortion
+                  binaryTest @T.LocalSlotIndex
+                  binaryTest @T.SlotId
+                  binaryTest @T.EpochOrSlot
+                  binaryTest @T.SharedSeed
+                  binaryTest @T.ChainDifficulty
+                  binaryTest @T.SoftforkRule
+                  binaryTest @T.BlockVersionData
+                  binaryTest @(Attributes ())
+                  binaryTest @(Attributes T.AddrAttributes)
+              describe "Core.Fee" $ do
+                  binaryTest @T.Coeff
+                  binaryTest @T.TxSizeLinear
+                  binaryTest @T.TxFeePolicy
+              describe "Core.Script" $ do
+                  binaryTest @T.Script
+              describe "Core.Vss" $ do
+                  binaryTest @T.VssCertificate
+              describe "Core.Version" $ do
+                  binaryTest @T.ApplicationName
+                  binaryTest @T.SoftwareVersion
+                  binaryTest @T.BlockVersion
+              describe "Util" $ do
+                  binaryTest @(NewestFirst NE U)
+                  binaryTest @(OldestFirst NE U)
+          describe "Message length limit" $ do
+              msgLenLimitedTest @T.VssCertificate
+        describe "Block types" $ do
+            describe "Bi instances" $ do
+                describe "Undo" $ do
+                    binaryTest @BT.SlogUndo
+                    modifyMaxSuccess (min 50) $ do
+                        binaryTest @BT.Undo
+                describe "Block network types" $ modifyMaxSuccess (min 10) $ do
+                    binaryTest @BT.MsgGetHeaders
+                    binaryTest @BT.MsgGetBlocks
+                    binaryTest @BT.MsgHeaders
+                    binaryTest @BT.MsgBlock
+                describe "Blockchains and blockheaders" $ do
+                    modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
+                        describe "GenesisBlockHeader" $ do
+                            binaryTest @BT.GenesisBlockHeader
+                        describe "MainBlockHeader" $ do
+                            binaryTest @BT.MainBlockHeader
+                    describe "GenesisBlockchain" $ do
+                        describe "BodyProof" $ do
+                            binaryTest @BT.GenesisExtraHeaderData
+                            binaryTest @BT.GenesisExtraBodyData
+                            binaryTest @(BT.BodyProof BT.GenesisBlockchain)
+                        describe "ConsensusData" $ do
+                            binaryTest @(BT.ConsensusData BT.GenesisBlockchain)
+                        describe "Body" $ do
+                            binaryTest @(BT.Body BT.GenesisBlockchain)
+                    describe "MainBlockchain" $ do
+                        describe "BodyProof" $ do
+                            binaryTest @(BT.BodyProof BT.MainBlockchain)
+                        describe "BlockSignature" $ do
+                            binaryTest @BT.BlockSignature
+                        describe "ConsensusData" $ do
+                            binaryTest @(BT.ConsensusData BT.MainBlockchain)
+                        modifyMaxSuccess (min 10) $ describe "Body" $ do
+                            binaryTest @(BT.Body BT.MainBlockchain)
+                        describe "MainToSign" $ do
+                            binaryTest @BT.MainToSign
+                        describe "Extra data" $ do
+                            binaryTest @BT.MainExtraHeaderData
+                            binaryTest @BT.MainExtraBodyData
+        describe "Communication" $ do
+            describe "Bi instances" $ do
+                binaryTest @C.HandlerSpec
+                binaryTest @C.VerInfo
+                binaryTest @C.MessageCode
+            describe "Bi extension" $ do
+                prop "HandlerSpec" (extensionProperty @C.HandlerSpec)
+        describe "Merkle" $ do
+            binaryTest @(MerkleTree Int32)
+        describe "Crypto" $ do
+            describe "Hashing" $ do
+                binaryTest @(Crypto.Hash Word64)
+            describe "Signing" $ do
+                describe "Bi instances" $ do
+                    binaryTest @Crypto.SecretKey
+                    binaryTest @Crypto.PublicKey
+                    binaryTest @(Crypto.Signature ())
+                    binaryTest @(Crypto.Signature U)
+                    binaryTest @(Crypto.ProxyCert Int32)
+                    binaryTest @(Crypto.ProxySecretKey Int32)
+                    binaryTest @(Crypto.ProxySecretKey U)
+                    binaryTest @(Crypto.ProxySignature Int32 Int32)
+                    binaryTest @(Crypto.ProxySignature U U)
+                    binaryTest @(Crypto.Signed Bool)
+                    binaryTest @(Crypto.Signed U)
+                    binaryTest @Crypto.RedeemSecretKey
+                    binaryTest @Crypto.RedeemPublicKey
+                    binaryTest @(Crypto.RedeemSignature Bool)
+                    binaryTest @(Crypto.RedeemSignature U)
+                    binaryTest @Crypto.Threshold
+                    binaryTest @Crypto.VssPublicKey
+                    binaryTest @Crypto.PassPhrase
+                    binaryTest @Crypto.VssKeyPair
+                    binaryTest @Crypto.Secret
+                    binaryTest @Crypto.DecShare
+                    binaryTest @Crypto.EncShare
+                    binaryTest @Crypto.SecretProof
+                    binaryTest @Crypto.HDAddressPayload
+                    binaryTest @(Crypto.AbstractHash Blake2b_224 U)
+                    binaryTest @(Crypto.AbstractHash Blake2b_256 U)
+                    binaryTest @(AsBinary Crypto.VssPublicKey)
+                    binaryTest @(AsBinary Crypto.Secret)
+                    binaryTest @(AsBinary Crypto.DecShare)
+                    binaryTest @(AsBinary Crypto.EncShare)
+        describe "DHT.Model" $ do
+            describe "Bi instances" $ do
+                binaryTest @DHT.DHTKey
+                binaryTest @DHT.DHTData
+        describe "Delegation types" $ do
+            describe "Bi instances" $ do
+                binaryTest @DlgPayload
+                binaryTest @DlgUndo
+            describe "Network" $ do
+                binaryTest @(DataMsg T.ProxySKHeavy)
+        describe "Slotting types" $ do
+            binaryTest @SlottingData
+        describe "Ssc" $ do
+            describe "Bi instances" $ do
+                binaryTest @Ssc.Commitment
+                binaryTest @Ssc.CommitmentsMap
+                binaryTest @Ssc.Opening
+                modifyMaxSuccess (min 10) $ do
+                    binaryTest @Ssc.SscPayload
+                    binaryTest @Ssc.TossModifier
+                    binaryTest @Ssc.VssCertData
+                    binaryTest @Ssc.SscGlobalState
+                binaryTest @Ssc.SscProof
+                binaryTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId))
+                binaryTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId))
+                binaryTest @(R.MempoolMsg Ssc.MCCommitment)
+                binaryTest @(R.DataMsg Ssc.MCCommitment)
+                binaryTest @(R.DataMsg Ssc.MCOpening)
+                binaryTest @(R.DataMsg Ssc.MCShares)
+                binaryTest @(R.DataMsg Ssc.MCVssCertificate)
+                binaryTest @Ssc.SscTag
+                binaryTest @Ssc.SscSecretStorage
+            describe "Message length limit" $ do
+                msgLenLimitedTest @Ssc.Opening
+                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId))
+                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId))
+                msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment)
+                -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCCommitment))
+                --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
+                --     "MCCommitment"
+                --     (has Ssc._MCCommitment . R.dmContents . C.getOfMaxSize)
+                -- msgLenLimitedTest' @(R.DataMsg Ssc.MCOpening)
+                --     (R.DataMsg <$> C.mcOpeningLenLimit)
+                --     "MCOpening"
+                --     (has Ssc._MCOpening . R.dmContents)
+                -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCShares))
+                --     (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
+                --     "MCShares"
+                --     (has Ssc._MCShares . R.dmContents . C.getOfMaxSize)
+                -- msgLenLimitedTest' @(R.DataMsg Ssc.MCVssCertificate)
+                --     (R.DataMsg <$> C.mcVssCertificateLenLimit)
+                --     "MCVssCertificate"
+                --     (has Ssc._MCVssCertificate . R.dmContents)
+        describe "Txp (transaction processing) system" $ do
+            describe "Bi instances" $ do
+                describe "Core" $ do
+                    binaryTest @T.TxIn
+                    binaryTest @T.TxOut
+                    binaryTest @T.TxOutAux
+                    binaryTest @T.Tx
+                    binaryTest @T.TxInWitness
+                    binaryTest @T.TxSigData
+                    binaryTest @T.TxAux
+                    binaryTest @T.TxProof
+                    binaryTest @(SmallGenerator T.TxPayload)
+                    binaryTest @T.TxpUndo
+                describe "Network" $ do
+                    binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
+                    binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
+                    binaryTest @(R.MempoolMsg T.TxMsgContents)
+                    binaryTest @(R.DataMsg T.TxMsgContents)
+            describe "Bi extension" $ do
+                prop "TxInWitness" (extensionProperty @T.TxInWitness)
+            describe "Message length limit" $ do
+                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
+                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
+                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents)
+                -- No check for (DataMsg T.TxMsgContents) since overal message size
+                -- is forcely limited
+        describe "Update system" $ do
+            describe "Bi instances" $ do
+                describe "Core" $ do
+                    binaryTest @U.BlockVersionModifier
+                    binaryTest @U.SystemTag
+                    binaryTest @U.UpdateVote
+                    binaryTest @U.UpdateData
+                    binaryTest @U.UpdateProposal
+                    binaryTest @U.UpdateProposalToSign
+                    binaryTest @U.UpdatePayload
+                    binaryTest @U.VoteState
+                    binaryTest @U.UpId
+                describe "Poll" $ do
+                    binaryTest @(U.PrevValue ())
+                    binaryTest @(U.PrevValue U)
+                    binaryTest @U.USUndo
+                    binaryTest @U.UpsExtra
+                    binaryTest @U.DpsExtra
+                    binaryTest @U.UndecidedProposalState
+                    binaryTest @U.DecidedProposalState
+                    binaryTest @U.ProposalState
+                    binaryTest @U.ConfirmedProposalState
+                    binaryTest @U.BlockVersionState
+                describe "Network" $ do
+                    binaryTest @(R.InvMsg VoteId')
+                    binaryTest @(R.ReqMsg VoteId')
+                    binaryTest @(R.MempoolMsg U.UpdateVote)
+                    binaryTest @(R.DataMsg U.UpdateVote)
+                    binaryTest @(R.InvMsg UpId')
+                    binaryTest @(R.ReqMsg UpId')
+                    binaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
+                    binaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
+                describe "Message length limit" $ do
+                    msgLenLimitedTest @(R.InvMsg VoteId')
+                    msgLenLimitedTest @(R.ReqMsg VoteId')
+                    msgLenLimitedTest @(R.MempoolMsg U.UpdateVote)
+                    msgLenLimitedTest @(R.InvMsg UpId')
+                    msgLenLimitedTest @(R.ReqMsg UpId')
+                    msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
+                    -- TODO [CSL-859]
+                    -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
+                    msgLenLimitedTest @(R.DataMsg U.UpdateVote)
+                    -- msgLenLimitedTest @U.UpdateProposal
+
+instance {-# OVERLAPPING #-} Arbitrary (Maybe FileLock) where
+    arbitrary = pure Nothing
+
+-- | This instance is unsafe, as it allows a timing attack. But it's OK for
+-- tests.
+instance Eq CC.XPrv where
+    (==) = (==) `on` CC.unXPrv
+
+-- | Mark a test case as broken. The intended use is for tests that are
+-- themselves valid, but the code they're testing turned out to be buggy.
+brokenDisabled :: Monad m => m a -> m ()
+brokenDisabled _ = return ()

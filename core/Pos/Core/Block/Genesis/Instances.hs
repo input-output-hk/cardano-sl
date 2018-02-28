@@ -10,7 +10,7 @@ import           Universum
 
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))
-import           Serokell.Util (Color (Magenta), colorize, listJson)
+import           Serokell.Util (Color (Magenta), colorize)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Block ()
@@ -22,7 +22,7 @@ import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader,
 import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
-import           Pos.Core.Common (HeaderHash)
+import           Pos.Core.Common (HeaderHash, slotLeadersF)
 import           Pos.Core.Slotting.Types (EpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
 
@@ -62,7 +62,7 @@ instance Bi BlockHeader => Buildable GenesisBlock where
         GenesisBody {..} = _gbBody
         formatIfNotNull formatter l = if null l then mempty else sformat formatter l
         formatLeaders = formatIfNotNull
-            ("  leaders: "%listJson%"\n") _gbLeaders
+            ("  leaders: "%slotLeadersF%"\n") (toList _gbLeaders)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Class

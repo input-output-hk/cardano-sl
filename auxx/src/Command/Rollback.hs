@@ -7,12 +7,12 @@ module Command.Rollback
 import           Universum
 
 import           Control.Lens (_Wrapped)
+import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 import           System.Wlog (logInfo)
 
-import           Pos.Binary (serialize)
 import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
@@ -49,7 +49,7 @@ rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -
                     flattenTxPayload $ mainBlock ^. mainBlockTxPayload
             let allTxs :: [TxAux]
                 allTxs = concatMap extractTxs blunds
-            liftIO $ BSL.writeFile outFile (serialize allTxs)
+            liftIO $ BSL.writeFile outFile (encode allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
             rollbackBlocksUnsafe (BypassSecurityCheck True) (ShouldCallBListener True) blunds

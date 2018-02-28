@@ -10,10 +10,10 @@ import           Universum
 
 import qualified Codec.CBOR.Decoding as Cbor hiding (DecodeAction (..))
 import qualified Codec.CBOR.Read as Cbor
-import           Conduit (Consumer)
+import           Conduit (ConduitT)
 import qualified Conduit as C
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.ST (RealWorld, ST)
+import           Data.Conduit (transPipe)
 import           Data.NonNull (toNullable)
 
 import           Pos.Binary.Class (Bi)
@@ -23,8 +23,8 @@ import qualified Pos.Binary.Class as Bi
 --
 -- Returns a 'Nothing' if there's no input left.
 awaitBi
-    :: (MonadIO m, Bi a)
-    => Consumer ByteString m (Maybe (Either Cbor.DeserialiseFailure a))
+    :: forall o m a . (MonadIO m, Bi a)
+    => ConduitT ByteString o m (Maybe (Either Cbor.DeserialiseFailure a))
 awaitBi = awaitCbor Bi.decode
 
 -- | Like 'awaitBi', but allows supplying a custom decoder.
@@ -33,10 +33,10 @@ awaitBi = awaitCbor Bi.decode
 -- how. (On the other hand, see <https://redd.it/1vcvxe> – maybe it's
 -- impossible after all.)
 awaitCbor
-    :: MonadIO m
+    :: forall o m a . (MonadIO m)
     => Cbor.Decoder RealWorld a
-    -> Consumer ByteString m (Maybe (Either Cbor.DeserialiseFailure a))
-awaitCbor decoder = hoist stToIO $ do
+    -> ConduitT ByteString o m (Maybe (Either Cbor.DeserialiseFailure a))
+awaitCbor decoder = transPipe stToIO $ do
     mbChunk <- awaitNonNull
     case mbChunk of
         Nothing    -> pure Nothing
@@ -45,9 +45,10 @@ awaitCbor decoder = hoist stToIO $ do
             initResult <- lift (Cbor.deserialiseIncremental decoder)
             Just <$> go False initResult
   where
-    go :: Bool                    -- ^ End of input reached?
-       -> Bi.IDecode RealWorld a  -- ^ Result of decoding so far
-       -> Consumer ByteString (ST RealWorld) (Either Cbor.DeserialiseFailure a)
+    go :: forall o1 a1
+        . Bool                    -- ^ End of input reached?
+       -> Bi.IDecode RealWorld a1  -- ^ Result of decoding so far
+       -> ConduitT ByteString o1 (ST RealWorld) (Either Cbor.DeserialiseFailure a1)
     go eof = \case
         Cbor.Fail rest _ failure -> do
             C.leftover rest

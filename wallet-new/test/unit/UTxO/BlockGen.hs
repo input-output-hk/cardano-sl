@@ -5,6 +5,8 @@
 
 module UTxO.BlockGen
     ( genValidBlockchain
+    , divvyUp
+    , selectDestinations'
     ) where
 
 import           Universum hiding (use)
@@ -124,10 +126,19 @@ selectSomeInputs = do
             pure (inp : rest)
 
 selectDestinations :: Hash h Addr => Set (Input h Addr) -> BlockGen h (NonEmpty Addr)
-selectDestinations notThese = do
-    utxo <- uses bgcNonAvvmUtxo (utxoRemoveInputs notThese)
-    addr1 <- liftGen $ elements (map (outAddr . snd) (utxoToList utxo))
-    pure (addr1 :| [])
+selectDestinations notThese =
+    liftGen . selectDestinations' notThese =<< use bgcCurrentUtxo
+
+selectDestinations'
+    :: Hash h Addr
+    => Set (Input h Addr)
+    -> Utxo h Addr
+    -> Gen (NonEmpty Addr)
+selectDestinations' notThese =
+    fmap pure . elements
+        . map (outAddr . snd) . utxoToList
+        . utxoRestrictToAddr (not . isAvvmAddr)
+        . utxoRemoveInputs notThese
 
 -- | Create a fresh transaction that depends on the fee provided to it.
 newTransaction :: Hash h Addr => BlockGen h (Value -> Transaction h Addr)

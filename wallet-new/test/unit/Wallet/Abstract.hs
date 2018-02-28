@@ -51,6 +51,7 @@ import           Test.QuickCheck
 
 import           Util
 import           Util.Validated
+import           UTxO.BlockGen (divvyUp, selectDestinations')
 import           UTxO.Context
 import           UTxO.Crypto
 import           UTxO.DSL
@@ -293,18 +294,23 @@ newtype InductiveGen h a
 runInductiveGen :: FromPreChain h -> InductiveGen h a -> Gen a
 runInductiveGen fpc ig = runReaderT (unInductiveGen ig) (initializeCtx fpc)
 
-newtype InductiveCtx h
+data InductiveCtx h
     = InductiveCtx
-    { icFromPreChain :: FromPreChain h
+    { icFromPreChain  :: !(FromPreChain h)
+    , icHashesInChain :: !IntSet
     }
 
 initializeCtx :: FromPreChain h -> InductiveCtx h
 initializeCtx fpc@FromPreChain{..} = InductiveCtx{..}
   where
     icFromPreChain = fpc
+    icHashesInChain = hashesInChain fpcChain
 
 getFromPreChain :: InductiveGen h (FromPreChain h)
 getFromPreChain = asks icFromPreChain
+
+getHashesInChain :: InductiveGen h IntSet
+getHashesInChain = asks icHashesInChain
 
 getBlockchain :: InductiveGen h (Chain h Addr)
 getBlockchain = fpcChain <$> getFromPreChain
@@ -452,25 +458,52 @@ intersperseTransactions addrs actions = do
                 (dissect actions)
                 txnsWithIndex
 
-    toInductive . conssect <$> synthesizeTransactions withPendings
+    toInductive . conssect <$> synthesizeTransactions addrs withPendings
 
 synthesizeTransactions
-    :: IntMap [Action h Addr]
+    :: Hash h Addr
+    => Set Addr
+    -> IntMap [Action h Addr]
     -> InductiveGen h (IntMap [Action h Addr])
-synthesizeTransactions actions = do
-    _ix'ledgers <- mkLedgerAtIndex
-    _hashs <- selectHash
+synthesizeTransactions addrs actions = do
+    ix'ledgers <- mkLedgerAtIndex
 
-    -- map over the ix'ledgers and get the UTxO for each ledger
+    let ix'ourUtxo =
+            map
+                (map (utxoRestrictToAddr (`Set.member` addrs) . ledgerUtxo))
+                ix'ledgers
+
+    fakes <- map (IntMap.fromList . catMaybes) . forM ix'ourUtxo $ \(i, utxos) -> do
+        pct <- liftGen $ choose (0, 100 :: Int)
+        if pct < 5
+            then do
+                io <- liftGen . elements $ utxoToList utxos
+                h <- selectHash
+                fee <- liftGen $ choose (10000, 180000)
+                dests <- liftGen $ selectDestinations' Set.empty utxos
+                let (ins, outs) = divvyUp (pure io) dests fee
+                let txn = Transaction
+                        { trFee = fee
+                        , trFresh = 0
+                        , trHash = h
+                        , trIns = ins
+                        , trOuts = outs
+                        }
+
+                pure $ Just (i, [NewPending' txn])
+            else do
+                pure Nothing
+
+
     -- for some unspent input in the utxo, create a fake transaction
     -- find the appropriate index for that transaction
     -- insert it into the map
-    pure actions
+    pure (IntMap.unionWith mappend actions fakes)
 
 -- | Generates a random hash that is not part of the current blockchain.
 selectHash :: InductiveGen h Int
 selectHash = do
-    hashes <- hashesInChain <$> getBlockchain
+    hashes <- getHashesInChain
     liftGen $ arbitrary `suchThat` (`IntSet.notMember` hashes)
 
 hashesInChain :: Chain h a -> IntSet

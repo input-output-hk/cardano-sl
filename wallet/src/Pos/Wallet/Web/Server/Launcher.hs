@@ -69,7 +69,7 @@ walletServer
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
 walletServer diffusion nat = do
-    mapM_ (\addr -> findKey addr >>= syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
+    mapM_ (findKey addr >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
     return $ servantHandlersWithSwagger submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.

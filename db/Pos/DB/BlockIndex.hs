@@ -12,8 +12,7 @@ import           Universum
 import           Data.ByteArray (convert)
 
 import qualified Database.RocksDB as Rocks
-import           Pos.Core (BlockHeader, BlockchainHelpers, HasConfiguration, HeaderHash,
-                           MainBlockchain, headerHash)
+import           Pos.Core (BlockHeader, HasConfiguration, HeaderHash, headerHash)
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead, MonadDB (..))
 import           Pos.DB.Functions (dbGetBi, dbSerializeValue)
 import           Pos.DB.GState.Common (getTipSomething)
@@ -29,7 +28,7 @@ getTipHeader :: MonadBlockDBRead m => m BlockHeader
 getTipHeader = getTipSomething "header" getHeader
 
 -- | Writes batch of headers into the block index db.
-putHeadersIndex :: (MonadDB m, BlockchainHelpers MainBlockchain) => [BlockHeader] -> m ()
+putHeadersIndex :: (MonadDB m) => [BlockHeader] -> m ()
 putHeadersIndex =
     dbWriteBatch BlockIndexDB .
     map (\h -> Rocks.Put (blockIndexKey $ headerHash h) (dbSerializeValue h))

@@ -7,12 +7,13 @@ module Pos.Core.Ssc.Vss
        , VssCertificatesMap (..)
        -- * Certificates
        , mkVssCertificate
-       , recreateVssCertificate
+       , checkVssCertificate
        , checkCertSign
        , getCertId
 
        -- * Certificate maps
        -- ** Creating maps
+       , checkVssCertificatesMap
        , mkVssCertificatesMap
        , mkVssCertificatesMapLossy
        , mkVssCertificatesMapSingleton
@@ -36,8 +37,8 @@ import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
-                             Signature, VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Crypto (HasCryptoConfiguration, SecretKey, SignTag (SignVssCert),
+                             VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
@@ -52,26 +53,13 @@ mkVssCertificate sk vk expiry =
   where
     signature = sign SignVssCert sk (vk, expiry)
 
--- | Recreate 'VssCertificate' from its contents. Returns a 'Left' if the
--- data is invalid.
-recreateVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex)
-    => AsBinary VssPublicKey
-    -> EpochIndex
-    -> Signature (AsBinary VssPublicKey, EpochIndex)
-    -> PublicKey
-    -> Either Text VssCertificate
-recreateVssCertificate vssKey epoch sig pk =
-    res <$
-    (unless (checkCertSign res) $ Left "recreateVssCertificate: invalid sign")
-  where
-    res =
-        UnsafeVssCertificate
-        { vcVssKey = vssKey
-        , vcExpiryEpoch = epoch
-        , vcSignature = sig
-        , vcSigningKey = pk
-        }
+-- | Check a 'VssCertificate' for validity.
+checkVssCertificate
+    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
+    => VssCertificate
+    -> m ()
+checkVssCertificate it =
+    unless (checkCertSign it) $ throwError "checkVssCertificate: invalid sign"
 
 -- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
@@ -88,15 +76,26 @@ getCertId = addressHash . vcSigningKey
 toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
 toCertPair vc = (getCertId vc, vc)
 
--- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
--- with duplicate signing keys or with duplicate 'vcVssKey's.
-mkVssCertificatesMap :: [VssCertificate] -> Either Text VssCertificatesMap
-mkVssCertificatesMap certs = do
-    unless (allDistinct (map vcSigningKey certs)) $
-        Left "mkVssCertificatesMap: two certs have the same signing key"
-    unless (allDistinct (map vcVssKey certs)) $
-        Left "mkVssCertificatesMap: two certs have the same VSS key"
-    pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
+-- | Construct a 'VssCertificatesMap' from a list of certs by making a
+-- hashmap on certificate identifiers.
+mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
+mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
+
+-- | Guard against certificates with duplicate signing keys or with duplicate
+-- 'vcVssKey's. Also checks every VssCertificate in the map (see
+-- 'checkVssCertificate').
+checkVssCertificatesMap
+    :: (HasCryptoConfiguration, Bi EpochIndex, MonadError Text m)
+    => VssCertificatesMap
+    -> m ()
+checkVssCertificatesMap vssCertsMap = do
+    forM_ certs checkVssCertificate
+    unless (allDistinct (map vcSigningKey certs))
+        (throwError "VssCertificatesMap: two certs have the same signing key")
+    unless (allDistinct (map vcVssKey certs))
+        (throwError "VssCertificatesMap: two certs have the same VSS key")
+  where
+    certs = HM.elems (getVssCertificatesMap vssCertsMap)
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.

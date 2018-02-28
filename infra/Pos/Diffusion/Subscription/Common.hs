@@ -13,6 +13,7 @@ import           Universum
 
 import           Control.Exception.Safe (try)
 import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (convertUnit, Second)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
@@ -59,6 +60,7 @@ subscribeTo
     => Timer -> SendActions m -> NodeId -> m SubscriptionTerminationReason
 subscribeTo keepAliveTimer sendActions peer = do
     logNotice $ msgSubscribingTo peer
+    -- 'try' is from safe-exceptions, so it won't catch asyncs.
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
         -- the highest available version of the conversation is picked.
@@ -81,7 +83,7 @@ subscribeTo keepAliveTimer sendActions peer = do
             -- If there is a suspicion that subscriptions are no longer valid,
             -- we want to start sending keep-alive packets more frequently. Use
             -- 20 seconds as we don't have access to slot duration here.
-            setTimerDuration keepAliveTimer $ 20 * 1000000
+            setTimerDuration keepAliveTimer $ convertUnit (20 :: Second)
 
     convMsgSubscribe1 :: ConversationActions MsgSubscribe1 Void m -> m (Maybe Void)
     convMsgSubscribe1 conv = do

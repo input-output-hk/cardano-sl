@@ -30,7 +30,6 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           System.Wlog (WithLogger)
-import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
@@ -104,7 +103,6 @@ mustDataBeKnown adoptedBV =
 type MonadSlogBase ctx m =
     ( MonadSlots ctx m
     , MonadIO m
-    , MonadUnliftIO m
     , MonadDBRead m
     , WithLogger m
     , HasConfiguration

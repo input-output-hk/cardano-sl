@@ -17,7 +17,6 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, Local
 import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderHash, getBlockHeader, mbTxs,
                                  _gbBody, _gbhConsensus, _mcdLeaderKey)
 import           Pos.Crypto (PublicKey)
-import           Pos.Merkle (MerkleTree (..))
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl (Alignment (..), Decoration (..), Environment (EnvAscii), tabl)
 import           Types (DBFolderStat, prevBlock)
@@ -160,8 +159,8 @@ getLeader :: BlockHeader -> Maybe PublicKey
 getLeader (BlockHeaderGenesis _) = Nothing
 getLeader (BlockHeaderMain bh)   = Just . _mcdLeaderKey . _gbhConsensus $ bh
 
-getTxs :: Block -> MerkleTree Tx
-getTxs (Left _)          = MerkleEmpty
+getTxs :: Block -> [Tx]
+getTxs (Left _)          = []
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
 getHeaderSize :: HasConfiguration => BlockHeader -> Integer

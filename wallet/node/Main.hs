@@ -90,7 +90,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
          in (ActionSpec $ \s -> init >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
-    syncWallets = getWalletAddresses >>= mapM_ (\addr -> getSKById addr >>= syncWallet . eskToWalletDecrCredentials)
+    syncWallets = getWalletAddresses >>= mapM_ (getSKById >=> syncWallet . eskToWalletDecrCredentials)
     resubmitterPlugins = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)

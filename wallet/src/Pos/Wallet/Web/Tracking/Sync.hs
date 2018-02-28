@@ -127,6 +127,8 @@ type WalletTrackingEnv ctx m =
      , MonadWalletDB ctx m
      )
 
+-- | A 'SyncQueue' is a bounded queue where we store incoming 'SyncRequest', and
+-- we process them asynchronously.
 type SyncQueue = TBQueue SyncRequest
 
 data SyncRequest = RestoreWalletHistory WalletDecrCredentials
@@ -174,7 +176,7 @@ submitSyncRequest :: ( MonadIO m
                      ) => SyncRequest -> m ()
 submitSyncRequest syncRequest = do
     requestQueue <- view (lensOf @(TBQueue SyncRequest))
-    liftIO $ atomically $ writeTBQueue requestQueue syncRequest
+    atomically $ writeTBQueue requestQueue syncRequest
 
 processSyncRequest :: ( MonadWalletDB ctx m
                       , BlockLockMode ctx m
@@ -183,7 +185,7 @@ processSyncRequest :: ( MonadWalletDB ctx m
                       , MonadIO m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
-    newRequest <- liftIO $ atomically $ readTBQueue syncQueue
+    newRequest <- atomically (readTBQueue syncQueue)
     case newRequest of
         RestoreWalletHistory credentials -> do
           results <- syncWalletsFromGState [credentials]

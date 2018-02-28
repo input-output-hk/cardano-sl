@@ -20,6 +20,7 @@ import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
@@ -141,6 +142,7 @@ testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
                          <*> testAddrCIdHashes
+                         <*> testSyncQueue
                          <*> testRealModeContext
   where
     testStorage :: IO WalletState
@@ -151,6 +153,9 @@ testV1Context =
 
     testAddrCIdHashes :: IO AddrCIdHashes
     testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
+
+    testSyncQueue :: IO SyncQueue
+    testSyncQueue = STM.newTBQueueIO 50
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.

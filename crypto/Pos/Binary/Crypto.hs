@@ -27,7 +27,6 @@ import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash 
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
-import           Pos.Crypto.Signing.Check (validateProxySecretKey)
 import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
                                            PublicKey (..), SecretKey (..), Signature (..),
                                            Signed (..))
@@ -46,7 +45,10 @@ instance Bi a => Bi (WithHash a) where
 ----------------------------------------------------------------------------
 
 instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
-    encode (AbstractHash digest) = encode (ByteArray.convert digest :: ByteString)
+    encode (AbstractHash digest) = encode (ByteArray.convert digest :: BS.ByteString)
+    -- FIXME bad decode: it reads an arbitrary-length byte string.
+    -- Better instance: know the hash algorithm up front, read exactly that
+    -- many bytes, fail otherwise. Then convert to a digest.
     decode = do
         bs <- decode @ByteString
         toCborError $ case digestFromByteString bs of
@@ -57,17 +59,35 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
 -- SecretSharing
 ----------------------------------------------------------------------------
 
-#define BiPvss(T, PT) \
-  instance Bi T where {\
-    encode = encodeBinary ;\
-    decode = decodeBinary };\
-  deriving instance Bi PT ;\
+instance Bi Scrape.PublicKey where
+    encode = encodeBinary
+    decode = decodeBinary
 
-BiPvss (Scrape.PublicKey, C.VssPublicKey)
-BiPvss (Scrape.KeyPair, C.VssKeyPair)
-BiPvss (Scrape.Secret, C.Secret)
-BiPvss (Scrape.DecryptedShare, C.DecShare)
-BiPvss (Scrape.EncryptedSi, C.EncShare)
+deriving instance Bi C.VssPublicKey
+
+instance Bi Scrape.KeyPair where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.VssKeyPair
+
+instance Bi Scrape.Secret where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.Secret
+
+instance Bi Scrape.DecryptedShare where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.DecShare
+
+instance Bi Scrape.EncryptedSi where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriving instance Bi C.EncShare
 
 instance Bi Scrape.ExtraGen where
     encode = encodeBinary
@@ -192,8 +212,7 @@ instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
         pskIssuerPk   <- decode
         pskDelegatePk <- decode
         pskCert       <- decode
-        toCborError . over _Left ("decode@ProxySecretKey: " <>) $
-            validateProxySecretKey UnsafeProxySecretKey{..}
+        pure UnsafeProxySecretKey {..}
 
 instance (Typeable a, Bi w, HasCryptoConfiguration) =>
          Bi (ProxySignature w a) where

@@ -55,8 +55,8 @@ import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
-                          txProcessTransactionNoLock)
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
+                          txProcessTransaction, txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
@@ -193,7 +193,12 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasSscConfiguration, HasCompileInfo) =>
+instance ( HasConfiguration
+         , HasInfraConfiguration
+         , HasSscConfiguration
+         , HasTxpConfiguration
+         , HasCompileInfo
+         ) =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -220,7 +225,12 @@ instance MonadKeys AuxxMode where
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) => MonadTxpLocal AuxxMode where
+instance ( HasConfiguration
+         , HasInfraConfiguration
+         , HasTxpConfiguration
+         , HasCompileInfo
+         ) =>
+         MonadTxpLocal AuxxMode where
     txpNormalize = withReaderT acRealModeContext txNormalize
     txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
 

@@ -11,7 +11,6 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-
 -- Spec for testing `development` endpoints
 module DevelopmentSpec where
 
@@ -33,6 +32,8 @@ import           Test.Pos.Configuration (withDefConfigurations)
 import           Cardano.Wallet.API.Development.LegacyHandlers (deleteSecretKeys)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Servant
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
 spec =

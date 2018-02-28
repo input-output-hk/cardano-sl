@@ -385,17 +385,17 @@ chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
 -- | Returns a list of ledgers corresponding to the blockchain with the
 -- given number of blocks applied. The count of blocks @i@ is also the
 -- index in the list of blocks in the original chain.
-mkLedgerAtIndex :: forall h. InductiveGen h [(Int, Ledger h Addr)]
+mkLedgerAtIndex :: InductiveGen h [(Int, Ledger h Addr)]
 mkLedgerAtIndex = do
     boot <- getBootTransaction
     blocks <- toList . chainBlocks <$> getBlockchain
 
     pure
-        . map (\(i, blocks) -> (,) (i - 1)
+        . map (\(i, bs) -> (,) (i - 1)
             . chainToLedger boot
             . Chain . OldestFirst
             . take i
-            $ blocks)
+            $ bs)
         $ zip [1 .. length blocks] (repeat blocks)
 
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
@@ -446,27 +446,26 @@ intersperseTransactions addrs actions = do
         forM txnsWithRange $ \(t, hi, lo) ->
             (,) t <$> liftGen (choose (lo, hi))
 
-    pure
-        . toInductive
-        . conssect
-        . foldr
-            (\(t, i) -> IntMap.insertWith (<>) i [NewPending' t])
-            (dissect actions)
-        $ txnsWithIndex
+    let withPendings =
+            foldr
+                (\(t, i) -> IntMap.insertWith (<>) i [NewPending' t])
+                (dissect actions)
+                txnsWithIndex
 
-mkNonConfirmedTransaction
-    :: InductiveGen h (Transaction h Addr)
-mkNonConfirmedTransaction = do
-    randomHash <- selectHash
-    pure Transaction
-        { trFresh = 0
-        -- because the transaction is unconfirmed and therefore doesn't
-        -- really need to be valid, we have a fee of 0.
-        , trFee = 0
-        , trHash = randomHash
-        , trIns = undefined
-        , trOuts = undefined
-        }
+    toInductive . conssect <$> synthesizeTransactions withPendings
+
+synthesizeTransactions
+    :: IntMap [Action h Addr]
+    -> InductiveGen h (IntMap [Action h Addr])
+synthesizeTransactions actions = do
+    _ix'ledgers <- mkLedgerAtIndex
+    _hashs <- selectHash
+
+    -- map over the ix'ledgers and get the UTxO for each ledger
+    -- for some unspent input in the utxo, create a fake transaction
+    -- find the appropriate index for that transaction
+    -- insert it into the map
+    pure actions
 
 -- | Generates a random hash that is not part of the current blockchain.
 selectHash :: InductiveGen h Int
@@ -481,7 +480,6 @@ hashesInChain =
         . concatMap toList
         . toList
         . chainBlocks
-
 
 -- | Construct an 'IntMap' consisting of the index of the element in the
 -- input list pointing to a singleton list of the element the original

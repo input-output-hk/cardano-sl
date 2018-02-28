@@ -126,7 +126,7 @@ action opts@AuxxOptions {..} command = do
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
+                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                                   (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)

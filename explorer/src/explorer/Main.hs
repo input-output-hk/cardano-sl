@@ -92,7 +92,12 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             ekgNodeMetrics = EkgNodeMetrics
                 nrEkgStore
                 (runProduction . elim . explorerModeToRealMode)
-            serverRealMode = explorerModeToRealMode (runServer ncNodeParams ekgNodeMetrics outSpecs go)
+            serverRealMode = explorerModeToRealMode $ runServer
+                (runProduction . elim . explorerModeToRealMode)
+                ncNodeParams
+                ekgNodeMetrics
+                outSpecs
+                go
         in  elim serverRealMode
 
     nodeArgs :: NodeArgs

@@ -73,7 +73,7 @@ module Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
     ) where
 
 import           Control.Concurrent
-import           Control.Exception.Safe (Exception, throwM)
+import           Control.Exception (Exception, throwIO)
 import           Control.Lens
 import           Control.Monad
 import           Data.IORef
@@ -622,7 +622,7 @@ assertEq :: HasCallStack => Eq a => a -> a -> IO ()
 assertEq expected actual =
     if expected == actual
       then return ()
-      else throwM $ AssertionFailure ?callStack
+      else throwIO $ AssertionFailure ?callStack
 
 data AssertionFailure = AssertionFailure CallStack
   deriving (Show)

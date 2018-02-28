@@ -50,6 +50,11 @@ relays <- c('r-a-1', 'r-a-2', 'r-a-3'
           , 'u-a-1', 'u-b-1', 'u-c-1'
             )
 
+# names of unprivileged relay nodes
+uRelays <- c('u-a-1', 'u-b-1', 'u-c-1')
+
+coreNodes <- c('c-a-1', 'c-a-2', 'c-a-3', 'c-b-1', 'c-b-2', 'c-c-1', 'c-c-2')
+
 # read in transaction times
 if (hasTrxTimes) {
   times <- read.csv(fname4, header=FALSE, col.names=c("time", "cumm"))
@@ -110,6 +115,54 @@ readData <- function(filename, run=RUN) {
     levels(data$txType)[levels(data$txType)=="mp_ProcessTransaction_SizeAfter"] <- "size after tx"
 
     return(data)
+}
+
+# reads os metrics from a file per node and returns dataframe with (io, statm, stat)
+readOSmetrics <- function(nodename) {
+  fn <- paste(bp, '/', nodename, '-ts.log', sep='')
+  metrics <- {}
+  if (file.exists(fn)) {
+    # add to read.csv?   stringsAsFactors=FALSE
+    metrics_csv <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, sep=" ")
+    mlen <- dim(metrics_csv)[1]
+    colnames(metrics_csv)[1:2] <- c("time", "stats")
+    metrics_csv <- cbind(nodename, metrics_csv[1:(mlen-2),])
+    metrics_csv$stats <- as.factor(metrics_csv$stats)
+    metrics_csv$time <- as.numeric(metrics_csv$time)
+    
+    metrics$io <- select(metrics_csv %>% filter(stats %in% c("io")), nodename : V9)
+    colnames(metrics$io) <- c("nodename", "time", "stats", "rchar", "wchar", "syscr", "syscw", "readbytes", "writebytes", "cxwbytes")
+    # convert columns from char to numeric
+    metrics$io$rchar <- as.numeric(metrics$io$rchar)
+    metrics$io$wchar <- as.numeric(metrics$io$wchar)
+    metrics$io$syscr <- as.numeric(metrics$io$syscr)
+    
+    metrics$mstat <- select(metrics_csv %>% filter(stats %in% c("statm")), nodename : V9)
+    colnames(metrics$mstat) <- c("nodename", "time", "stats", "size", "resident", "shared", "text", "lib", "data", "dt")
+    # convert columns from char to numeric
+    metrics$mstat$size <- as.numeric(metrics$mstat$size)
+    metrics$mstat$resident <- as.numeric(metrics$mstat$resident)
+    metrics$mstat$shared <- as.numeric(metrics$mstat$shared)
+    #plot(metrics$statm$size)
+    
+    metrics$stat <- metrics_csv %>% filter(stats %in% c("stat"))
+    colnames(metrics$stat) <- c("nodename", "time", "stats", "pid", "comm", "state", "ppid", "pgrp", "session", "tty", "tpgid", "flags", "minflt","cminflt","majflt","cmajflt", "utime", "stime", "cutime", "cstime", "priority", "nice", "nthr", "itrv", "starttime", "vsize", "rss", "rsslim", "startcode", "endcode", "startstack", "kstkesp", "kstkeip", "signal",
+                                "blocked", "sigignore", "sigcatch", "wchan", "nswap", "cnswap", "exitsig", "processor", "rtprio", "policy", "delayio", "guesttime", "cguesttime", "startdata", "enddata", "startbrk", "argstart", "argend", "envstart", "envend", "exitcode")
+    metrics$stat$pid <- as.factor(metrics$stat$pid)
+    metrics$stat$comm <- as.factor(metrics$stat$comm)
+    metrics$stat$state <- as.factor(metrics$stat$state)
+    metrics$stat$ppid <- as.factor(metrics$stat$ppid)
+    metrics$stat$pgrp <- as.factor(metrics$stat$pgrp)
+    metrics$stat$session <- as.factor(metrics$stat$session)
+    metrics$stat$tty <- as.factor(metrics$stat$tty)
+    metrics$stat$tpgid <- as.factor(metrics$stat$tpgid)
+    metrics$stat$priority <- as.factor(metrics$stat$priority)
+    metrics$stat$starttime <- as.factor(metrics$stat$starttime)
+    metrics$stat$policy <- as.factor(metrics$stat$policy)
+    #plot(metrics$stat$nthr)
+    #plot(metrics$stat$vsize)
+  }
+  return(metrics)
 }
 
 # dashed vertical lines at the epoch boundaries
@@ -325,109 +378,116 @@ data <- readData(fname)
 
 
 png(filename=paste('overview-', RUN, '.png', sep=''))
-plotOverview(data, report)
+#plotOverview(data, report)
 dev.off()
-plotOverview(data, report)
+#plotOverview(data, report)
 
 png(filename=paste('msgcount-', RUN, '.png', sep=''))
-plotMessages(data)
+#plotMessages(data)
 dev.off()
-plotMessages(data)
+#plotMessages(data)
 
 if (hasTrxTimes) {
   png(filename=paste('duration-', RUN, '.png', sep=''))
-  plotDuration()
+  #plotDuration()
   dev.off()
-  plotDuration()
+  #plotDuration()
 }
 
 plotTxs(data)
 #ggsave(paste('txs-', RUN, '.svg', sep=''))
-ggsave(paste('txs-', RUN, '.png', sep=''))
+#ggsave(paste('txs-', RUN, '.png', sep=''))
 
 plotMempools(data)
 #ggsave(paste('mempools-', RUN, '.svg', sep=''))
-ggsave(paste('mempools-', RUN, '.png', sep=''))
+#ggsave(paste('mempools-', RUN, '.png', sep=''))
 
 plotTimes(data, lin=FALSE)
 #ggsave(paste('times-', RUN, '.svg', sep=''))
-ggsave(paste('times-', RUN, '.png', sep=''))
+#ggsave(paste('times-', RUN, '.png', sep=''))
 
 plotTimes(data, lin=TRUE, minfilter=1e+03)
 #ggsave(paste('times-', RUN, '.svg', sep=''))
-ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
+#ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
 
 #observe only core nodes:
-plotMempools(data %>% filter(!(node %in% relays)), 'core')
+#plotMempools(data %>% filter(!(node %in% relays)), 'core')
 
 #observe only unprivileged relays:
 #plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
 
 #observe only privileged relays:
-plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
+#plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
 
-plotTimes(data %>% filter(!(node %in% relays)), 'core')
+#plotTimes(data %>% filter(!(node %in% relays)), 'core')
 
-readOSmetrics <- function(nodename) {
- fn <- paste(bp, '/', nodename, '-ts.log', sep='')
- metrics <- {}
-  if (file.exists(fn)) {
-    # add to read.csv?   stringsAsFactors=FALSE
-    metrics <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, sep=" ")
-    colnames(metrics)[1:2] <- c("time", "stats")
-    metrics$io <- select(metrics %>% filter(stats %in% c("io")), time : V9)
-    colnames(metrics$io) <- c("time", "stats", "rchar", "wchar", "syscr", "syscw", "readbytes", "writebytes", "cxwbytes")
-    # plot(as.numeric(as.character(osmetrics_io$wchar)))
-    metrics$statm <- select(metrics %>% filter(stats %in% c("statm")), time : V9)
-    colnames(metrics$statm) <- c("time", "stats", "size", "resident", "shared", "text", "lib", "data", "dt")
-    # plot(osmetrics_statm$size)
-    metrics$stat <- metrics %>% filter(stats %in% c("stat"))
-    colnames(metrics$stat) <- c("time", "stats", "pid", "comm", "state", "ppid", "pgrp", "session", "tty", "tpgid", "flags", "minflt","cminflt","majflt","cmajflt", "utime", "stime", "cutime", "cstime", "priority", "nice", "nthr", "itrv", "starttime", "vsize", "rss", "rsslim", "startcode", "endcode", "startstack", "kstkesp", "kstkeip", "signal",
-                                  "blocked", "sigignore", "sigcatch", "wchan", "nswap", "cnswap", "exitsig", "processor", "rtprio", "policy", "delayio", "guesttime", "cguesttime", "startdata", "enddata", "startbrk", "argstart", "argend", "envstart", "envend", "exitcode")
-    # plot(osmetrics_stat$nthr)
-    # plot(osmetrics_stat$vsize)
 
-  }
-  metrics
-}
-
-plotStatMetrics <- function(d, run=RUN, desc=DESC) {
-    ggplot(d, aes(x=time-d[1, "time"], y=d$utime+d$stime)) +
-        geom_point(aes(colour=node)) +
-        geom_smooth() +
+# plot the rate of sent and written transactions
+plotOSMetrics <- function(d, run=RUN, labx="", laby="", desc=DESC) {
+     ggplot(d, aes(x=(time/1000), y=metrics)) +
+        geom_point(colour = "blue", size=0.1) +
         ggtitle(paste(
-            'CPU times for core nodes'
-         , run, desc, sep = ' ')) +
-        xlab("t [s]") +
-        ylab("Time spent for CPU") +
+            desc
+          , run, sep = ' ')) +
+        #if (is.null(labx)) { xlab("t [s]") } else { xlab(labx) } +
+        xlab(if (labx == "") {"t [s]"} else labx) +
+        ylab(if (laby == "") {"bytes"} else laby) +
+#        scale_x_date(date_labels = "%H:%M:%S") +
+        facet_grid(node ~ category, scales = "fixed") +
+#        epochs(d) + kslots(d) +
         guides(size = "none", colour = "legend", alpha = "none")
-}
+    }
 
-plotIOMetrics <- function(d, run=RUN, desc=DESC) {
-    ggplot(d, aes(x=time-d[1, "time"], y=wchar)) +
-        geom_point(aes(colour=node)) +
-        geom_smooth() +
-        ggtitle(paste(
-            'IO writes for core nodes'
-         , run, desc, sep = ' ')) +
-        xlab("t [s]") +
-        ylab("IO write operations") +
-        guides(size = "none", colour = "legend", alpha = "none")
-}
+# first block was written
+t1stBlock <- min(trunc(data$time/1000/1000))
+tlastBlock <- max(trunc(data$time/1000/1000))
 
-stat <- {}
-io   <- {}
-stam <- {}
+# read in OS metrics from all core nodes
+osmetrics = {}
 for (n in coreNodes) {
-    temp <- readOSmetrics(n)
-    temp$statm$node <- n
-    temp$io$node    <- n
-    temp$stat$node  <- n
-    stat  <- rbind(stat, temp$stat)
-    io    <- rbind(io, temp$io)
-    statm <- rbind(stam, temp$statm)
+    m <- readOSmetrics(n)
+    osmetrics$io <- rbind(osmetrics$io, m$io)
+    osmetrics$mstat <- rbind(osmetrics$mstat, m$mstat)
+    osmetrics$stat <- rbind(osmetrics$stat, m$stat)
 }
-plotStatMetrics(stat)
-ggsave(paste('stat-', RUN, '.png', sep=''))
-plotIOMetrics(io)
-ggsave(paste('io-', RUN, '.png', sep=''))
+
+# skip first 20 datapoins (start up of process)
+tmin <- min(osmetrics$io$time)
+tstartup <- 20
+osmetrics$io <- osmetrics$io %>% filter(time >= tmin + tstartup)
+osmetrics$mstat <- osmetrics$mstat %>% filter(time >= tmin + tstartup)
+osmetrics$stat <- osmetrics$stat %>% filter(time >= tmin + tstartup)
+
+# prepare plot data (I/O)
+plotdata <- {}
+for (n in coreNodes) {
+  # extract node's data and sort it by the 'time' column:
+  d <- osmetrics$io %>% filter(nodename == n) %>% arrange_all(c(time))
+  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$rchar)), category='read'))
+  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$wchar)), category='written'))
+}
+
+plotOSMetrics(plotdata %>% filter(metrics > 0), laby="bytes", desc="I/O metrics for core nodes")
+ggsave(paste('os-io-', RUN, '.png', sep=''))
+
+# prepare plot data (CPU)
+plotdata <- {}
+for (n in coreNodes) {
+  # extract node's data and sort it by the 'time' column:
+  d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
+  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$utime + d$stime)), category='CPU (ticks)'))
+}
+
+plotOSMetrics(plotdata %>% filter(metrics > 0), laby="ticks", desc="CPU metrics for core nodes")
+ggsave(paste('os-cpu-', RUN, '.png', sep=''))
+
+# prepare plot data (memory)
+plotdata <- {}
+for (n in coreNodes) {
+  # extract node's data and sort it by the 'time' column:
+  d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
+  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=d$rss, category='memory (RSS)'))
+}
+
+plotOSMetrics(plotdata %>% filter(metrics > 0), laby="blocks", desc="Memory metrics for core nodes")
+ggsave(paste('os-mem-', RUN, '.png', sep=''))

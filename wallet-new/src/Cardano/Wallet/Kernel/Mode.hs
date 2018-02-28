@@ -117,7 +117,12 @@ runWalletMode nr wallet (action, outSpecs) =
           (runProduction . elimRealMode nr . walletModeToRealMode wallet)
 
     serverWalletMode :: WalletMode a
-    serverWalletMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
+    serverWalletMode = runServer
+        (runProduction . elimRealMode nr . walletModeToRealMode wallet)
+        ncNodeParams
+        ekgNodeMetrics
+        outSpecs
+        action
 
     serverRealMode :: RealMode EmptyMempoolExt a
     serverRealMode = walletModeToRealMode wallet serverWalletMode

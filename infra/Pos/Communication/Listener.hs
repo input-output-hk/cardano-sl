@@ -39,7 +39,7 @@ listenerConv oq h = (lspec, mempty)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
           N.Listener $ \peerVerInfo' nNodeId conv -> checkProtocolMagic ourVerInfo peerVerInfo' $ do
-              OQ.clearFailureOf oq nNodeId
+              liftIO $ OQ.clearFailureOf oq nNodeId
               checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
                   h ourVerInfo nNodeId conv
 

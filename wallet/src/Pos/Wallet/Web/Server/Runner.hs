@@ -64,7 +64,12 @@ runWRealMode db conn ref res (action, outSpecs) =
         (nrEkgStore res)
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
     serverWalletWebMode :: WalletWebMode a
-    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
+    serverWalletWebMode = runServer
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        ncNodeParams
+        ekgNodeMetrics
+        outSpecs
+        action
     serverRealMode :: RealMode WalletMempoolExt a
     serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
 

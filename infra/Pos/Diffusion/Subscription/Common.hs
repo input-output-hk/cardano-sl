@@ -72,6 +72,7 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
     alterPeerSubStatus (Just Subscribing)
     logNotice $ msgSubscribingTo peer
     subStarted <- liftIO $ getTime Monotonic
+    -- 'try' is from safe-exceptions, so it won't catch asyncs.
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
         -- the highest available version of the conversation is picked.

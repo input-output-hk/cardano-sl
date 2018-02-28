@@ -24751,8 +24751,8 @@ inherit (pkgs) which;};
          }) {};
       "log-warper" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, base, containers, deepseq
-         , directory, dlist, errors, exceptions, extra, filepath, fmt
-         , formatting, hashable, lens, markdown-unlit, mmorph, monad-control
+         , directory, dlist, errors, exceptions, extra, fetchgit, filepath
+         , fmt, formatting, hashable, lens, mmorph, monad-control
          , monad-loops, mtl, network, stdenv, text, text-format, time
          , transformers, transformers-base, universum, unix
          , unordered-containers, vector, yaml
@@ -24760,18 +24760,17 @@ inherit (pkgs) which;};
          mkDerivation {
            pname = "log-warper";
            version = "1.8.0";
-           sha256 = "370274f1420405e34e135dfcb73b6ed90dd2d6f8704d3c25811baa43a27db32c";
-           isLibrary = true;
-           isExecutable = true;
+           src = fetchgit {
+             url = "https://github.com/serokell/log-warper.git";
+             sha256 = "1rqpkid2c58pk813kb7wjcibsxf97cn7vjf3bv3dma1k5b818ana";
+             rev = "7f95c6990ef93a289678755cb1db71c2a4ecdfb5";
+           };
            libraryHaskellDepends = [
              aeson ansi-terminal base containers deepseq directory dlist errors
              exceptions extra filepath fmt formatting hashable lens mmorph
              monad-control monad-loops mtl network text text-format time
              transformers transformers-base universum unix unordered-containers
              vector yaml
-           ];
-           executableHaskellDepends = [
-             base exceptions markdown-unlit text universum yaml
            ];
            doHaddock = false;
            doCheck = false;

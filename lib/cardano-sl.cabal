@@ -189,6 +189,7 @@ library
                       , text-format
                       , time
                       , time-units
+                      , tls
                       , transformers
                       , universum >= 0.1.11
                       , unliftio
@@ -196,6 +197,9 @@ library
                       , wai
                       , warp
                       , warp-tls
+                      , x509
+                      , x509-store
+                      , x509-validation
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs

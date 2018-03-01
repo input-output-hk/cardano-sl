@@ -28,9 +28,10 @@ import           Universum
 import qualified Data.HashMap.Strict          as HM
 import           Data.List                    (findIndex)
 import qualified Data.Set                     as S
+import qualified Data.Map.Strict              as M
 import           Data.Time.Clock.POSIX        (getPOSIXTime)
-import           Formatting                   (build, sformat, (%))
-import           System.Wlog                  (logDebug)
+import           Formatting                   (build, sformat, (%), int, shown, stext)
+import           System.Wlog                  (logDebug, logInfo)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
@@ -38,7 +39,7 @@ import           Pos.Core                     (Address, Coin, mkCoin, sumCoins,
                                                unsafeIntegerToCoin)
 import           Pos.Crypto                   (PassPhrase, changeEncPassphrase,
                                                checkPassMatches, emptyPassphrase)
-import           Pos.Txp                      (applyUtxoModToAddrCoinMap)
+import           Pos.Txp                      (applyUtxoModToAddrCoinMap, Utxo, AddrCoinMap)
 import           Pos.Util                     (maybeThrow)
 import qualified Pos.Util.Modifier            as MM
 import           Pos.Util.Servant             (encodeCType)
@@ -116,13 +117,18 @@ getAccountMod
     -> AccountId
     -> m CAccount
 getAccountMod balAndUtxo accMod accId = do
+    logInfo $ sformat ("getAccountMod: Account " % build % " has accMod: " % build) accId accMod
     dbAddrs    <- getAccountAddrsOrThrow Existing (NeedSorting True) accId
+    logInfo $ sformat ("getAccountMod: dbAddrs count: " % build) $ length dbAddrs
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
+    logInfo $ sformat ("getAccountMod: allAddrIds (dbAddrd + unknownMemAddrs) count: " % build)
+            $ length allAddrIds
     logDebug "getAccountMod: gathering info about addresses.."
     allAddrs <- mapM (getWAddress balAndUtxo accMod) allAddrIds
     logDebug "getAccountMod: info about addresses gathered"
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                mapM (decodeCTypeOrFail . cadAmount) allAddrs
+    logInfo $ sformat ("getAccountMod: Account " % build % " has balance: " % build) accId balance
     meta <- getAccountMetaOrThrow accId
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
@@ -144,17 +150,32 @@ getAccountsIncludeUnready
 getAccountsIncludeUnready includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMetaIncludeUnready includeUnready cAddr `whenNothingM_` noWallet cAddr
     accIds <- maybe getAccountIds getWalletAccountIds mCAddr
+    logInfo $ sformat ("getAccountsIncludeUnready: Computing balance for " % shown) accIds
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
+    logInfo $ sformat ("getAccountsIncludeUnready: Grouped AccountId(s) " % shown) groupedAccIds
     balAndUtxo <- WS.getWalletBalancesAndUtxo
-    concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
-         fixCachedAccModifierFor wid $ \accMod ->
-             mapM (getAccountMod balAndUtxo accMod) walAccIds
+    logInfo $ sformat ("getAccountsIncludeUnready: " % stext) (renderUtxo    . snd $ balAndUtxo)
+    logInfo $ sformat ("getAccountsIncludeUnready: " % stext) (renderBalance . fst $ balAndUtxo)
+    cAccounts <- concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
+                     fixCachedAccModifierFor wid $ \accMod ->
+                         mapM (getAccountMod balAndUtxo accMod) walAccIds
+    forM_ cAccounts $ \CAccount{..} -> logInfo $ sformat ("Account " % build % " has balance " % build) caId caAmount
+    pure cAccounts
   where
     noWallet cAddr = throwM . RequestError $
         -- TODO No WALLET with id ...
         -- dunno whether I can fix and not break compatible w/ daedalus
         sformat ("No account with id "%build%" found") cAddr
+
+    renderBalance :: AddrCoinMap -> Text
+    renderBalance coinMap =
+        sformat ("Entries in the AddrCoinMap: " % int) (HM.size coinMap)
+
+    renderUtxo :: Utxo -> Text
+    renderUtxo utxo =
+        sformat ("Entries in the Utxo: " % int) (M.size utxo)
+
 
 getAccounts
     :: MonadWalletWebMode m
@@ -166,8 +187,10 @@ getWalletIncludeUnready includeUnready cAddr = do
     meta       <- getWalletMetaIncludeUnready includeUnready cAddr >>= maybeThrow noWallet
     accounts   <- getAccountsIncludeUnready includeUnready (Just cAddr)
     let accountsNum = length accounts
+    logInfo $ sformat ("getWalletIncludeUnready: Computing balance out of " % int % " accounts..") accountsNum
     balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCTypeOrFail . caAmount) accounts
+    logInfo $ sformat ("getWalletIncludeUnready: Balance is " % build % ".") balance
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWallet
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU

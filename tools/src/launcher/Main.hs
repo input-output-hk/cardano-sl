@@ -539,7 +539,7 @@ spawnNode
     :: NodeData
     -> Bool -- Wallet logging
     -> M (ProcessHandle, Async ExitCode)
-spawnNode nd doesWalletLogToConsole = do
+spawnNode nd _doesWalletLogToConsole = do
     let path = ndPath nd
         args = ndArgs nd
         mLogPath = ndLogPath nd
@@ -557,9 +557,14 @@ spawnNode nd doesWalletLogToConsole = do
             -- See DAEF-12.
             -- printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
         Nothing -> do
-            let cr = if doesWalletLogToConsole then
+#ifdef mingw32_HOST_OS
+       -- Always redirect node's output to nowhere on windows as a workaround.
+            let cr = Process.NoStream
+#else
+            let cr = if _doesWalletLogToConsole then
                         Process.CreatePipe
                     else Process.Inherit
+#endif
             return $ createProc cr path args
     phvar <- newEmptyMVar
     asc <- async (system' phvar cr mempty ENode)

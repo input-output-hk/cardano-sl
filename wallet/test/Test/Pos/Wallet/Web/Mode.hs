@@ -93,6 +93,7 @@ import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet,
 import           Pos.Wallet.Web.State (MonadWalletDB, WalletState, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
+import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
@@ -153,6 +154,8 @@ data WalletTestContext = WalletTestContext
     -- ^ Sent transactions via MonadWalletSendActions
     , wtcHashes           :: !AddrCIdHashes
     -- ^ Address hashes ref
+    , wtcSyncQueue        :: !SyncQueue
+    -- ^ STM queue for wallet sync requests.
     }
 
 makeLensesWith postfixLFields ''WalletTestContext
@@ -189,6 +192,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
             wtcHashes <- AddrCIdHashes <$> newIORef mempty
+            wtcSyncQueue <- STM.newTBQueueIO 50
             pure WalletTestContext {..}
         callback wtc
 
@@ -243,6 +247,9 @@ instance HasLens AddrCIdHashes WalletTestContext AddrCIdHashes where
 
 instance HasLens BlockTestContextTag WalletTestContext BlockTestContext where
     lensOf = wtcBlockTestContext_L
+
+instance HasLens SyncQueue WalletTestContext SyncQueue where
+    lensOf = wtcSyncQueue_L
 
 instance HasAllSecrets WalletTestContext where
     allSecrets = wtcBlockTestContext_L . allSecrets

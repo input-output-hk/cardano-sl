@@ -30,7 +30,7 @@ dhtSubscriptionWorker
     -> NodeType
     -> Int -- ^ valency
     -> Int -- ^ fallbacks
-    -> SendActions m
+    -> SendActions
     -> m ()
 dhtSubscriptionWorker oq kademliaInst peerType valency fallbacks _sendActions = do
     logNotice "Kademlia subscription worker started"

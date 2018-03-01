@@ -5,6 +5,7 @@ module Pos.Diffusion.Types
     ( DiffusionLayer (..)
     , Diffusion (..)
     , SubscriptionStatus (..)
+    , hoistDiffusion
     , dummyDiffusionLayer
     ) where
 
@@ -89,6 +90,24 @@ data Diffusion m = Diffusion
 data DiffusionLayer m = DiffusionLayer
     { runDiffusionLayer :: forall x . m x -> m x
     , diffusion         :: Diffusion m
+    }
+
+hoistDiffusion :: Functor m => (forall t . m t -> n t) -> Diffusion m -> Diffusion n
+hoistDiffusion nat orig = Diffusion
+    { getBlocks = \nid bh hs -> nat $ getBlocks orig nid bh hs
+    , requestTip = nat $ (fmap . fmap) nat (requestTip orig)
+    , announceBlockHeader = nat . announceBlockHeader orig
+    , sendTx = nat . sendTx orig
+    , sendUpdateProposal = \upid upp upvs -> nat $ sendUpdateProposal orig upid upp upvs
+    , sendVote = nat . sendVote orig
+    , sendSscCert = nat . sendSscCert orig
+    , sendSscOpening = nat . sendSscOpening orig
+    , sendSscShares = nat . sendSscShares orig
+    , sendSscCommitment = nat . sendSscCommitment orig
+    , sendPskHeavy = nat . sendPskHeavy orig
+    , healthStatus = nat $ healthStatus orig
+    , formatPeers = \fmt -> nat $ formatPeers orig fmt
+    , subscriptionStatus = subscriptionStatus orig
     }
 
 -- | A diffusion layer that does nothing.

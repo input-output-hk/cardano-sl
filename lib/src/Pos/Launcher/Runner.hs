@@ -23,6 +23,7 @@ import           JsonLog (jsonLog)
 import           Mockable (race)
 import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
+import           System.Wlog (askLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
@@ -32,13 +33,12 @@ import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
-import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoistDiffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (LogicWorkMode, logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
+import           Pos.Logic.Types (LogicLayer (..), hoistLogic)
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
@@ -50,6 +50,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
+import           Pos.Util.Trace (wlogTrace)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -74,7 +75,7 @@ runRealMode nr@NodeResources {..} (actionSpec, outSpecs) =
     elimRealMode nr $ runServer
         (runProduction . elimRealMode nr)
         ncNodeParams
-        (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode nr))
+        (EkgNodeMetrics nrEkgStore)
         outSpecs
         actionSpec
   where
@@ -120,8 +121,7 @@ elimRealMode NodeResources {..} action = do
 -- number.
 runServer
     :: forall ctx m t .
-       ( DiffusionWorkMode m
-       , LogicWorkMode ctx m
+       ( LogicWorkMode ctx m
        , HasShutdownContext ctx
        , MonadFix m
        , HasProtocolMagic
@@ -130,28 +130,33 @@ runServer
        , HasNodeConfiguration
        )
     => (forall y . m y -> IO y)
+       -- ^ MonadIO is up in that constraint somewhere. So basically your 'm'
+       -- is a reader or IO itself.
     -> NodeParams
-    -> EkgNodeMetrics m
+    -> EkgNodeMetrics
     -> OutSpecs
     -> ActionSpec m t
     -> m t
-runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
+runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) = do
+    lname <- askLoggerName
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
-        diffusionLayerFull runIO fdconf npNetworkConfig (Just ekgNodeMetrics) (logic logicLayer) $ \diffusionLayer -> do
+        liftIO $ diffusionLayerFull (fdconf lname) npNetworkConfig (Just ekgNodeMetrics) (hoistLogic runIO (logic logicLayer)) $ \diffusionLayer -> do
             when npEnableMetrics (registerEkgMetrics ekgStore)
-            runLogicLayer logicLayer $
+            runIO $ runLogicLayer logicLayer $ liftIO $
                 runDiffusionLayer diffusionLayer $
-                maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
+                maybeWithRoute53 (healthStatus (diffusion diffusionLayer)) $
                 maybeWithEkg $
                 maybeWithStatsd $
-                act (diffusion diffusionLayer)
+                runIO (act (hoistDiffusion liftIO (diffusion diffusionLayer)))
+                -- Whew that's a lot of lifting
   where
-    fdconf = FullDiffusionConfiguration
+    fdconf lname = FullDiffusionConfiguration
         { fdcProtocolMagic = protocolMagic
         , fdcProtocolConstants = protocolConstants
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
+        , fdcTrace = wlogTrace (lname <> "diffusion")
         }
     exitOnShutdown action = do
         _ <- race waitForShutdown action

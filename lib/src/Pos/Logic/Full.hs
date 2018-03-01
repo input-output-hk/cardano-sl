@@ -17,7 +17,7 @@ import           System.Wlog (WithLogger, logDebug)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import qualified Pos.Block.Logic as Block
-import qualified Pos.Block.Network.Logic as Block
+import qualified Pos.Block.Network as Block
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,

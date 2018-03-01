@@ -63,7 +63,6 @@ runWRealMode db conn ref res (action, outSpecs) =
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)

@@ -2,11 +2,13 @@
 
 module Pos.Core.Slotting.Timestamp
        ( Timestamp (..)
+       , _Timestamp
        , timestampF
        , getCurrentTimestamp
        , diffTimestamp
        , addMicrosecondsToTimestamp
        , timestampToPosix
+       , timestampSeconds
 
        , TimeDiff (..)
        , addTimeDiffToTimestamp
@@ -15,11 +17,13 @@ module Pos.Core.Slotting.Timestamp
 
 import           Universum
 
+import           Control.Lens (Iso', iso, makePrisms)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
 import           Mockable (CurrentTime, Mockable, currentTime)
+import           Numeric.Lens (dividing)
 import qualified Prelude
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -30,6 +34,8 @@ import qualified Prelude
 newtype Timestamp = Timestamp
     { getTimestamp :: Microsecond
     } deriving (Num, Eq, Ord, Enum, Real, Integral, Typeable, Generic)
+
+makePrisms ''Timestamp
 
 instance Show Timestamp where
     -- If we try to 'show' Microsecond it adds an “µ”, which breaks things
@@ -60,8 +66,19 @@ diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
 addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
 addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }
 
+-- | Lens to convert timestamp to fractional seconds and vice versa.
+--
+-- >>> (Timestamp $ fromMicroseconds 12340000) ^. timestampSeconds
+-- 12.34
+-- >>> (1 :: Double) ^. from timestampSeconds :: Timestamp
+-- 1000000
+timestampSeconds
+    :: (Eq a, RealFrac a)
+    => Iso' Timestamp a
+timestampSeconds = _Timestamp . iso fromIntegral round . dividing 1e6
+
 timestampToPosix :: Timestamp -> POSIXTime
-timestampToPosix (Timestamp ts) = fromIntegral ts / 1000000
+timestampToPosix = view timestampSeconds
 
 -- | Difference between two timestamps
 newtype TimeDiff = TimeDiff

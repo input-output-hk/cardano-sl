@@ -74,6 +74,7 @@ flattenSortOperations (SortOp f fs) = show f : flattenSortOperations fs
 -- much sense, so we restrict ourselves.
 type family SortParams (syms :: [Symbol]) (r :: *) :: [*] where
     SortParams '["balance"] Wallet = '[Core.Coin]
+    SortParams '["id"] Transaction = '[Core.Timestamp]
 
 -- | Handy typeclass to reconcile type and value levels by building a list of 'SortOperation' out of
 -- a type level list.

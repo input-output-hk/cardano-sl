@@ -82,6 +82,7 @@ data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
 -- indices, so that we can later on reify them into a list of valid indices.
 type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
+    FilterParams '["id", "created_at"] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a

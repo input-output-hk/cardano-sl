@@ -90,6 +90,7 @@ library
                      , swagger2
                      , template-haskell
                      , time
+                     , time-units
                      , text
                      , text-format
                      , transformers

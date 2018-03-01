@@ -52,6 +52,7 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                tmShares, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
                                 sscGlobal, sscLocal)
+import           Pos.Util.Verification (runPVerifyText)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
@@ -286,8 +287,10 @@ sscProcessDataDo richmenData bvd gs payload =
             ExceptT $
             evalPureTossWithLogger gs $
             supplyPureTossEnv (multiRichmen, bvd) $
-            runExceptT $
-            execTossT oldTM $ verifyAndApplySscPayload (Left storedEpoch) payload
+            runExceptT $ do
+               -- Check the payload for internal consistency.
+               whenJust (runPVerifyText payload) $ throwError . SscInvalidPayload
+               execTossT oldTM $ verifyAndApplySscPayload (Left storedEpoch) payload
         ldModifier .= newTM
         -- If mempool was exhausted, it's easier to recompute total size.
         -- Otherwise (most common case) we don't want to spend time on it and

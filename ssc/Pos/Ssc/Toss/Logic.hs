@@ -9,7 +9,7 @@ module Pos.Ssc.Toss.Logic
        ) where
 
 import           Control.Lens (at)
-import           Control.Monad.Except (MonadError, runExceptT, throwError)
+import           Control.Monad.Except (MonadError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
@@ -32,18 +32,17 @@ import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)
-import           Pos.Util.Verification (runPVerifyText)
 
 -- | Verify 'SscPayload' with respect to data provided by
--- MonadToss. If data is valid it is also applied.  Otherwise
+-- MonadToss. If data is valid it is also applied. Otherwise
 -- SscVerifyError is thrown using 'MonadError' type class.
+--
+-- This funciton doesn't do pure verification of the payload.
 verifyAndApplySscPayload
     :: (HasSscConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m,
         MonadError SscVerifyError m, MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
-    -- Check the payload for internal consistency.
-    whenJust (runPVerifyText payload) $ throwError . SscInvalidPayload
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
     whenLeft eoh $ const $ verifySscPayload eoh payload

@@ -35,7 +35,6 @@ import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProp
                                         DpsExtra (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..), psProposal)
 import           Pos.Util.Some (Some (..))
-import           Pos.Util.Verification (runPVerifyText)
 
 type ApplyMode m =
     ( MonadError PollVerFailure m
@@ -64,12 +63,9 @@ verifyAndApplyUSPayload ::
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
-    -- First of all, we verify data.
-    whenJust (runPVerifyText upp) $ throwError . PollInvalidUpdatePayload
-
+verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader UpdatePayload {..} = do
+    -- We first check header, then payload, then we do implicit checks.
     whenRight slotOrHeader $ verifyHeader lastAdopted
-
     unless isEmptyPayload $ do
         -- Then we split all votes into groups. One group consists of
         -- votes for proposal from payload. Each other group consists of

@@ -138,14 +138,17 @@ processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
         atomically $ writeTVar var newSD
 
 -- | Verify whether sequence of blocks can be applied to US part of
--- current GState DB.  This function doesn't make pure checks, they
--- are assumed to be done earlier, most likely during objects
--- construction.
+-- current GState DB.
 --
 -- If the first argument is 'True' it means that all data must be
 -- known. Currently it only means that 'UpdateProposal's must have
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
+--
+-- Important preconditions:
+--
+-- This function doesn't make pure verification, it is assumed to be
+-- done earlier.
 --
 -- All blocks must be from the same epoch.
 usVerifyBlocks ::

@@ -15,6 +15,9 @@ import           Data.Maybe (fromJust)
 import           Formatting (build, sformat, (%))
 import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
+#ifdef mingw32_HOST_OS
+import qualified System.IO.Silently as Silently
+#endif
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
@@ -147,7 +150,15 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
 
 
 main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+main =
+  withCompileInfo $(retrieveCompileTimeInfo) $
+#ifdef mingw32_HOST_OS
+  -- We don't output anything to console on Windows because we suspect that on Windows
+  -- cardano-node can be considered a “GUI application” and so stdout and stderr
+  -- don't even exist.
+  Silently.hSilence [stdout, stderr] $
+#endif
+  do
     args <- getWalletNodeOptions
     let loggingParams = CLI.loggingParams loggerName (wnaCommonNodeArgs args)
     loggerBracket loggingParams . logException "node" . runProduction $ do

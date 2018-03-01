@@ -62,6 +62,9 @@ import           Pos.Util.Util (lensOf)
 -- Exceptions
 ----------------------------------------------------------------------------
 
+-- FIXME this same thing is defined in full diffusion layer.
+-- Must finish the proper factoring. There should be no 'Block.Network'
+-- in cardano-sl-block; it should just use the Diffusion and Logic interfaces.
 data BlockNetLogicException
     = DialogUnexpected Text
       -- ^ Node's response in any network/block related logic was

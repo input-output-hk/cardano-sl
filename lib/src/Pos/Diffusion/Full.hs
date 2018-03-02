@@ -449,8 +449,3 @@ joinKademlia networkConfig = case topologyRunKademlia (ncTopology networkConfig)
   where
     retryInterval :: Second
     retryInterval = 5
-
-data MissingKademliaParams = MissingKademliaParams
-    deriving (Show)
-
-instance Exception MissingKademliaParams

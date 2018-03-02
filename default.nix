@@ -87,7 +87,7 @@ let
       });
     };
   });
-  connect = args: import ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  connect = args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
   other = rec {
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {

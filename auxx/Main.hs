@@ -89,7 +89,7 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
     let runWithoutNode = rawExec Nothing opts Nothing command
-    printAction <- either getPrintAction (const $ return putText) command
+    printAction <- return $ either printAction (const putText) command
 
     let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
         configToDict = return (Just Dict)

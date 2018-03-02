@@ -22,7 +22,8 @@ Currently the only way to generate an updated `swagger.json` is to run the `card
 the updated Swagger file will be written on disk. For example:
 
 ```
-stack exec cardano-node-new -- --topology=wallet-new/topology-examples/testnet.yaml --configuration-key mainnet_staging_short_epoch_full --wallet-debug --rebuild-db
+stack exec cardano-node-new -- --topology=wallet-new/topology-examples/testnet.yaml \
+  --configuration-key mainnet_staging_short_epoch_full --wallet-debug --rebuild-db
 ```
 
 Running the command above *from the root of the Cardano project* will store an updated `swagger.json` into

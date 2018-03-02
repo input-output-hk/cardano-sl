@@ -56,6 +56,27 @@ evidence that this `ByteString` is a valid encoding. The typed API should
 accept either the serializable value, or the serialization and the proof that
 it's a valid encoding.
 
+Comment: Duncan
+
+> I don't see that this solves the problem. Take the example above of 
+> 
+>     data MsgGetBlock = MsgBlock Block | MsgNoBlocks
+> 
+> What we receive is one of these messages, and we want to decode it to find out which constructor it is (and in other examples we may need to decide other bits of the message) but we do not want to decode the block.
+> 
+> So getting the bytestring of the whole thing still isn't useful, it's the bytestring of the block we want. So the simplest approach is to use the CBOR-in-CBOR trick and have the `MsgBlock` message's binary encoding contain a bytestring, which itself is a further encoded thing. So this gives us an envelope/payload style thing.
+> 
+> That can be typed with some wrapper like:
+> 
+>     -- | A thing of type @a@, but still in encoded form.
+>     newtype Payload a = Payload ByteString
+> 
+> And this can have a binary/bi instance that read the thing as a bytestring but does not decode it. So then we'd use:
+> 
+>     data MsgGetBlock = MsgBlock (Payload Block) | MsgNoBlocks
+> 
+> This trick does change the CBOR encoding, so it is not directly backwards compatible, but assuming we use the normal protocol versioning then that's ok.
+
 Maybe something like this:
 
 ```Haskell
@@ -75,7 +96,13 @@ data Serialized t where
   Serialized :: Serializable t => ByteString -> Serialized t
   Deserialized :: Serializable t => t -> Serialized t
   Both :: Serializable t => ByteString -> t -> Serialized t
+```
 
+Comment: Philipp
+
+> I like this approach.
+
+```
 decode :: Serializable t => ByteString -> Serialized t
 
 encode :: Serializable t => t -> Serialized t
@@ -123,6 +150,10 @@ serialize :: SumOfProducts (Decomposed it) -> ByteString
 This is just one approach I've been toying with. It's more complicated than
 I'd like but maybe it will inspire some sort of compromise or all around better
 solution.
+
+Comment: Duncan
+
+> Yeah, lets discuss the various options.
 
 ## Discussion
 

@@ -8,6 +8,10 @@ The esimate must be exposed (read-only) to the user of network-transport-tcp.
 It's not determined what exactly that data should be. The distribution itself?
 The s, g, and v components?
 
+Comment: Duncan
+
+> To check with Neil. I'd guess the latter is most useful.
+
 ```Haskell
 -- Send some bytes and enclose it in some measure control codes, updating
 -- some state when the measurement is done.
@@ -30,6 +34,10 @@ codes would be defined in order to delimit these windows, i.e. indicate a
 leading and trailing edge. This allows for an estimation of the s component
 of delta-Q (latency as a function of the amount of data sent).
 
+Comment: Duncan
+
+> We already preserve message boundaries on lightweight channels.
+
 The `sendAndMeasure` function would send a control code immediately before and
 immediately after the data itself (leading edge and trailing edge), recording
 timestamps for each, and the peer would respond with another control code as
@@ -48,6 +56,10 @@ To get a precise timestamp for a receive, we can use the SIOCGSTAMP ioctl.
 This is the timestamp of the last packet delivered to userspace. We would call
 it after receiving a leading or trailing edge, and before doing the next
 `recv`.
+
+Comment: Duncan
+
+> It may be tricky to work out how these match up with the message boundaries. We'll have to read the docs on what this ioclt means exactly for tcp connections.
 
 Must discuss further with Neil and Peter, and understand the documents they've
 provided.
@@ -71,6 +83,10 @@ are we trying to estimate only TCP round-trip-time, or network-transport-tcp
 round-trip-time? Neither option poses any extra challenge, it's only a matter
 of deciding when to respond to the control message: before or after the
 enqueue.
+
+Comment: Duncan
+
+> Good Q. Another point to discuss with Neil.
 
 ## Egress queueing
 

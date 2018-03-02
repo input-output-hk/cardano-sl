@@ -81,8 +81,20 @@ Transitions:
   - TTL on the key expires.
     If in state 1, this makes no sense, since we don't have the key.
     If in state 2, forget `v` and enter state 1.
+
+Comment: Marcin
+
+> I think it should be "forget k", v is unknown at this state.
+
       This is dodgy. It means the publisher failed to deliver before TTL.
     If in state 3, forget `k` and `v` and enter state 1.
+
+Comment: Marcin
+
+> We could also relay `k` not yet knowing `v` and then queue the requests for `v` until we know it. But this would complicate matters when we fail to get `v`, so it's better to start with the proposed machine.
+> 
+> There should be a fallback when the request for `v` fails, anyway. So maybe we should have three states for `v`: `unknown`, `failed` and `known`?
+
 
 ### Stretch: privacy considerations
 
@@ -91,6 +103,10 @@ cryptocurrencies including bitcoin) which exploit predictable patterns of
 broadcast. It's not a requirement for Shelley, but eventually we may want to
 use a mitigating broadcast scheme. Such a solution could include bouncing
 new transactions through other edge nodes, by way of an intermediate core node.
+
+Comment: Marcin
+
+> Do you foresee something like cardano on top of tor-like network?
 
 ## Implementation
 
@@ -118,6 +134,13 @@ and is missing some that we will need.
     The publisher will send messages (start conversations) of a type determined
     by the topic, to every subscriber of the topic.
 
+Comment: Duncan
+
+> It's not obvious to me if we want to independently subscribe to each topic we are interested in, or to do one subscription that says in the opening message which topics we are interested in. We should consider both I think and pick the best.
+> 
+> Note also that we are not bound by the previous approach of having a subscription conversation that simply sits idle while publish events take place completely independently as separate individual conversations. If publish messages are small (individual, block headers, transactions, mpc etc) then its plausible to have these messages arrive as part of the subscription conversation itself. Indeed I think that would be the more traditional design. It's an approach we should consider.
+
+
   - It decides where to route messages according to a policy and peer
     classification (`NodeType`) based on a topology configuration.
     We'll get rid of this and replace it with a simple policy in which every
@@ -131,11 +154,21 @@ and is missing some that we will need.
     by independent users. With pub/sub there will only be one `Peers`
     (`Subscribers`) value and one modifier: the subscription listener.
 
+Comment: Duncan
+
+> So if we want to have non-kademlia based links, e.g. I have a number of nodes that I want to talk to each other directly, how will I do it? I think the answer is easy actually: we tell nodes by static configuration to also subscribe to these other nodes. So then yes, on the side responding to subscribers there is still only one set of subscribers. It's just on the side deciding who to subscribe to that we can add in extra nodes we want to subscribe to.
+> 
+> So I think this is fine, but we should mention this, that we will need private peering arrangements, but this can work by subscribing to additional peers, and there's no need to make bucket distinctions when looking at the set of subscribers.
+
   - Rate limiting, precedence, max ahead will probably still be useful, both
     for publishing and for requesting.
 
   - Enqueue and dequeue policies aren't useful as is, because there is no
     `NodeType`.
+
+Comment: Duncan
+
+> Hmm, doesn't it just mean there's only one policy rather than lots? And actually we'll have to think about that carefully, whether we will still need some distinctions. For example a relay on the edge of the core DIF, will it not need to treat the code node it knows about differently from other nodes?
 
   - Failure policy isn't relevant for for pub/sub. If the peer fails then the
     subscription is gone and won't return unless the subscriber tries again.
@@ -143,6 +176,10 @@ and is missing some that we will need.
     it is relevant for request/reponse. However, it won't be a part of pub/sub,
     but rather the QoS/delta-Q system and peer roster, where failures will
     lower the estimate and eventually cause the peer to fall out of favour.
+
+Comment: Duncan
+
+> Hmm, I'll have to think about that. Not obvious to me yet.
 
   - The mechanism for enqueueing requests (conversations) can remain as is
     besides changing the form of enqueue and dequeue policies, and making sure
@@ -172,6 +209,10 @@ initially is subscribed to no topics.
 Should the publisher acknowledge add/remove topic?
 If a subscriber adds a topic and then removes it, there may be announces for
 that topic inbound.
+
+Comment: Marcin
+
+> We could send them back with the ack message for remove, or if we don't want them, remove the subscriber only after the queue was cleared up to remove request. If we have all the requests in a FIFO this property will hold.
 
 ## Interface
 
@@ -243,6 +284,10 @@ messages. The publisher can send keys and values.
 The goal should be to do minimal changes to time-warp. It already enables
 what we need to do, but not in the most efficient or straightforward way.
 
+Comment: Duncan
+
+> There will be a new requirement (eventually, not necessarily top priority) to be able to limit the bandwidth that all other peers can force this node into providing. Consider running a node at home without a firewall so that other nodes can contact you. That's fine so long as it does not consume all your home DSL upload bandwidth, otherwise you'd be annoyed. So we would need to be able to cap that. Timewarp does know (in principle) the amount of data sent to peers as responses to conversations, so it could in principle impose an aggregate bandwidth cap.
+
 ### Topic filtering
 
 Should this be done at publisher or subscriber?
@@ -253,12 +298,20 @@ probably best to do it at the publisher.
 
 Decided: do it publisher side.
 
+Comment: Duncan
+
+> Agree. Lets do it at the publisher side. The most expensive resource is the network traffic.
+
 ### Dead subscriptions due to half-open connections
 
 cardano-sl pull request
 [#1852](https://github.com/input-output-hk/cardano-sl/pull/1852) was made to fix
 [CSL-1676] and is relevant to pub/sub. We'll keep this solution or something
 like it in order to detect dead subscriptions.
+
+Comment: Duncan
+
+> Yes we'll need something like this. It may become simpler by using the same subscription channel for the notification messages.
 
 ### Number of subscribers
 
@@ -281,3 +334,10 @@ https://github.com/haskell-distributed/network-transport/issues/17
 
 The `ConcurrentMultiQueue` used now to enqueue conversations may not be
 suitable for use with a large number of subscribers.
+
+Comment: Duncan
+
+> We may need something on the inbound side, at the network-transport-tcp level to reject incoming tcp connections, and/or at the time-warp layer to reject after doing the initial peer data handshake. It depends on what basis we need to reject.
+
+> Obviously there's a cost per tcp connection (not just in the app but also the kernel) and rejecting at this stage is cheaper. We will probably need something simple like an absolute limit at the network-transport-tcp level, so that we simply do not accept more connections once we hit a limit. But if we also want to filter on the basis of info then we would need to accept, do the peer data handshake and then close the connection if we are choosing to reject that peer. That would be implemented at the time-warp layer, but we would need a network-transport extension to drop an existing heavyweight connection to a peer.
+

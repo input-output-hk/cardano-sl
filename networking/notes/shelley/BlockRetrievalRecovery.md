@@ -28,6 +28,14 @@ a `NodeId` of the provenance of the block, but that's only there so it
 knows who to ask for the body, so it should be removed because it's the
 diffusion layer's responsibility to know where to find the body.
 
+Comment: Duncan
+
+> And are we confident that the block cache layer can indeed do this. Will it need to track where it knows it can fetch new blocks from?
+
+Comment: Alex
+
+> Yes I imagine that's how it would work. Included in the cache would be a set of NodeIds for peers which have announced that header.
+
 ## `retrievalWorker`
 
 The block retrieval queue (sourced by `handleBlockHeaders`) is cleared by
@@ -124,3 +132,7 @@ just request the blocks. Should we make that improvement now, or later? If
 we defer it, we'll need to put a `getHeaders` into the synchronous diffusion
 layer interface (only a similar one for `getBlocks` is there, and a block
 contains its header).
+
+Comment: Duncan
+
+> If we can do it all at the same time without causing too much chaos, that'd be preferable.

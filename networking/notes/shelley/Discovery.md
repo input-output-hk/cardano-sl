@@ -6,9 +6,13 @@ cardano-sl as it stands today.
 Andrzej will look into the original froozen/kademlia, and serokell/kademlia
 fork, and come up with an implementation.
 
+Comment: Duncan
+
+> This is a design doc, not a planning one, so we don't need to say who is doing what. Imagine someone reading this in 6 months time, trying to get up to speed with the design of the network layer.
+
 ## Required feature: discovery without join.
 
-A peer which is not publicly addressable (behind NAT) must be able to
+A peer which is not publicly addressable (behind NAT or firewall) must be able to
 discover peers using the typical method, without tainting the network:
 its observed IP address should not be treated as the address of a reachable
 peer (recorded in the index), as it is in the current implementation.
@@ -25,6 +29,10 @@ even behind common NAT setups. The callback port is known, so the initiator
 can simply send some data to the peer on a UDP socket bound on that port
 before joining. Typical UDP hole punching NATs will admit the server's
 response.~~
+
+Comment: Duncan
+
+> I think it's not necessary to say what our "original" design idea was here, or at least not necessary to say it was the original design. We can present two options and explain why we pick one, or just present our chosen one and justify the design.
 
 ~~Since it's so easy to lie, we may as well take the joiner's word for it, and
 use a simpler join/discover protocol instead.
@@ -52,11 +60,22 @@ capable of setting firewall rules, and therefore ought to have the technical
 capacity required to pass an extra command line argument to cardano-node
 indicating the public address.
 
+Comment: Duncan
+
+> You don't need to say this. Can simply state the assumption (the assumption you think is silly).
+
 Nodes will not choose their own identifiers. Allowing this would open the
 door to easy eclipse attacks. Instead, peers derive the identifiers of their
 peers as a hash of their observed addresses.
 Relevant paper detailing some attacks:
 https://syssec.kaist.ac.kr/~yongdaek/doc/kad_attack_securecomm.pdf
+
+
+Comment: Duncan
+
+> Given the suggested options in the paper, we should explain why we go for hash(IP) rather than hash (PK).
+
+> This is a mix of design and development plan, we should ideally separate these aspects.
 
 ## Details
 

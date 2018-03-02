@@ -98,11 +98,7 @@ let
       });
     };
   });
-  connect = let
-      walletConfigFile = ./custom-wallet-config.nix;
-      walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
-    in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
+  connect = args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
   other = rec {
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };

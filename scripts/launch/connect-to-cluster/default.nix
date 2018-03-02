@@ -9,10 +9,9 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
-, ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
-, additionalNodeArgs ? ""
 , confKey ? null
 , relays ? null
+, extraParams ? ""
 }:
 
 with localLib;
@@ -30,9 +29,6 @@ let
     mainnet-staging = {
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
-    };
-    demo = {
-      confKey = "dev";
     };
     override = {
       inherit relays confKey;
@@ -96,7 +92,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
     --topology "${configFiles}/topology.yaml"                      \
     --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"                                     \
+    --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \

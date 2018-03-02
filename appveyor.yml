@@ -9,16 +9,16 @@ environment:
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
-    CACHE_S3_VERSION: v0.1.1
+    CACHE_S3_VERSION: v0.1.3
     AWS_REGION: us-west-1
-    S3_BUCKET: appveyor-ci-cache              
-    AWS_ACCESS_KEY_ID: 
-      secure: 0OtMCUmJ4V7fNRPvKjzYxSO19I200rPG8WRW/qn1QPk=
+    S3_BUCKET: appveyor-ci-cache
+    AWS_ACCESS_KEY_ID:
+      secure: sQWt5CpaN0H+jwUVoTsrET46pADUDEcrJ5D9MHmKX0M=
     AWS_SECRET_ACCESS_KEY:
-      secure: EmPAMpga8gjXxPMfJSsdq2sof8SLwyga1rrYuZDlPoriMS1iEFLvCNLA70JqHSna
+      secure: m5sQYd16K8HA0zoZaD0gOl4EEWUso1D51L5rp+kT3hLaIE3tt4iT+b+iW8F4F0FU
 
 init:
-- ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne ""))
+- ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne "") -and ("$env:AWS_ACCESS_KEY_ID" -ne "") -and ("$env:AWS_SECRET_ACCESS_KEY" -ne ""))
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
@@ -114,11 +114,3 @@ artifacts:
   - path: daedalus/
     name: CardanoSL
     type: zip
-
-notifications:
-  - provider: Slack
-    incoming_webhook:
-      secure: 3KXYR8gCzuhyML2adCU1HayVFPi5TfDUhiQcffkf8QNcwqmZRL+IY/idxf951NNYJ8+GJQDhek7LWLhKrr4d08J9erBw8GePrCwTaBfwQkQ=
-    on_build_success: false
-    on_build_failure: false
-    on_build_status_changed: true

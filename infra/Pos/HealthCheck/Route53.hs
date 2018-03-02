@@ -4,7 +4,7 @@ module Pos.HealthCheck.Route53
 
 import qualified Options.Applicative as Opt
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           Universum
 
 route53HealthCheckOption :: Opt.Parser NetworkAddress

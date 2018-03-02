@@ -33,6 +33,7 @@ library
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
+                       Pos.Util.OptParse
                        Pos.Util.Orphans
                        Pos.Util.Queue
                        Pos.Util.Some
@@ -68,6 +69,7 @@ library
                      , megaparsec
                      , mmorph
                      , mtl
+                     , optparse-applicative
                      , parsec
                      , primitive
                      , process

@@ -7607,13 +7607,13 @@ inherit (pkgs) mesa;};
          , cardano-sl-networking, cborg, cereal, concurrent-extra, conduit
          , containers, cpphs, cryptonite, data-default, deepseq, directory
          , ether, exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, lrucache, megaparsec, mmorph, mtl, parsec, primitive
-         , process, QuickCheck, quickcheck-instances, random, reflection
-         , resourcet, safe-exceptions, semigroups, serokell-util, stdenv
-         , stm, tagged, template-haskell, text, text-format
-         , th-lift-instances, time, time-units, transformers
-         , transformers-base, transformers-lift, universum, unliftio-core
-         , unordered-containers, vector
+         , log-warper, lrucache, megaparsec, mmorph, mtl
+         , optparse-applicative, parsec, primitive, process, QuickCheck
+         , quickcheck-instances, random, reflection, resourcet
+         , safe-exceptions, semigroups, serokell-util, stdenv, stm, tagged
+         , template-haskell, text, text-format, th-lift-instances, time
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unliftio-core, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-util";
@@ -7623,12 +7623,13 @@ inherit (pkgs) mesa;};
              aeson autoexporter base bytestring cardano-sl-networking cborg
              cereal concurrent-extra conduit containers cryptonite data-default
              deepseq directory ether exceptions filepath formatting hashable
-             hspec lens log-warper lrucache megaparsec mmorph mtl parsec
-             primitive process QuickCheck quickcheck-instances random reflection
-             resourcet safe-exceptions semigroups serokell-util stm tagged
-             template-haskell text text-format th-lift-instances time time-units
-             transformers transformers-base transformers-lift universum
-             unliftio-core unordered-containers vector
+             hspec lens log-warper lrucache megaparsec mmorph mtl
+             optparse-applicative parsec primitive process QuickCheck
+             quickcheck-instances random reflection resourcet safe-exceptions
+             semigroups serokell-util stm tagged template-haskell text
+             text-format th-lift-instances time time-units transformers
+             transformers-base transformers-lift universum unliftio-core
+             unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;

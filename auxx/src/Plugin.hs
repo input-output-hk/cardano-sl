@@ -65,7 +65,6 @@ rawExec ::
     -> m ()
 rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Left WithCommandAction{..} -> do
-        printAction <- getPrintAction
         printAction "... the auxx plugin is ready"
         forever $ withCommand $ runCmd mHasAuxxMode mDiffusion printAction
     Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd

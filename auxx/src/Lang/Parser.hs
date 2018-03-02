@@ -19,6 +19,7 @@ import           Lang.Lexer (BracketSide, Token, getFilePath', tokenize, _Bracke
                              _TokenHash, _TokenKey, _TokenName, _TokenNumber, _TokenParenthesis,
                              _TokenPublicKey, _TokenSemicolon, _TokenSoftwareVersion,
                              _TokenStakeholderId, _TokenString)
+import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
 
 tok :: Getting (First a) Token a -> Prod r e (s, Token) a
@@ -31,7 +32,7 @@ inBrackets
 inBrackets p r =
     tok (p . _BracketSideOpening) *> r <* tok (p . _BracketSideClosing)
 
-gExpr :: Grammar r (Prod r Text (s, Token) Expr)
+gExpr :: Grammar r (Prod r Text (s, Token) (Expr Name))
 gExpr = mdo
     ntName <- rule $ tok _TokenName
     ntKey <- rule $ tok _TokenKey
@@ -67,7 +68,7 @@ gExpr = mdo
         ] <?> "atom"
     return ntExpr
 
-pExpr :: Parser Text [(s, Token)] Expr
+pExpr :: Parser Text [(s, Token)] (Expr Name)
 pExpr = parser gExpr
 
 data ParseError = ParseError
@@ -76,7 +77,7 @@ data ParseError = ParseError
     }
     deriving (Eq, Show)
 
-parse :: Text -> Either ParseError Expr
+parse :: Text -> Either ParseError (Expr Name)
 parse str = first (ParseError str) . toEither . fullParses pExpr . tokenize $ str
   where
     toEither = \case

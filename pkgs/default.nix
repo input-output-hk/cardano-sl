@@ -6994,7 +6994,7 @@ inherit (pkgs) mesa;};
          , quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, scientific, serokell-util, split, stdenv, stm
          , temporary, text, text-format, time-units, transformers, universum
-         , unix, unordered-containers
+         , unix, unordered-containers, validation
          }:
          mkDerivation {
            pname = "cardano-sl-auxx";
@@ -7014,7 +7014,7 @@ inherit (pkgs) mesa;};
              parser-combinators QuickCheck quickcheck-instances random
              reflection resourcet safe-exceptions scientific serokell-util split
              stm text text-format time-units transformers universum unix
-             unordered-containers
+             unordered-containers validation
            ];
            libraryToolDepends = [ cpphs ];
            executableHaskellDepends = [
@@ -40581,14 +40581,14 @@ inherit (pkgs) which;};
          }:
          mkDerivation {
            pname = "validation";
-           version = "0.5.4";
-           sha256 = "8b785f5d9e35285b2fbc35039799410bf3a9c7179735c232e573485cb98f74a3";
+           version = "0.6.1";
+           sha256 = "08781003c12c5dc807af1a69e66e7adf67e7706013868cd7b5245a7910a3d427";
            libraryHaskellDepends = [
              base bifunctors lens mtl semigroupoids semigroups transformers
            ];
            doHaddock = false;
            doCheck = false;
-           homepage = "https://github.com/NICTA/validation";
+           homepage = "https://github.com/qfpl/validation";
            description = "A data-type like Either but with an accumulating Applicative";
            license = stdenv.lib.licenses.bsd3;
          }) {};

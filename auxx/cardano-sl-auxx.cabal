@@ -90,6 +90,7 @@ library
                      , transformers
                      , universum >= 0.1.11
                      , unordered-containers
+                     , validation
 
   default-language:    Haskell2010
   ghc-options:        -Wall

@@ -431,7 +431,7 @@ Compatibility between major versions is not _guaranteed_, i.e. the request & res
 
 ## Trying out API examples
 
-All API endpoints in this document have `Try it out` button which should produce `curl` command that can be use to
+All API endpoints in this document have a `Try it out` button which should produce `curl` command that can be used to
 make a request to the wallet. Provided `curl` command given by `Try it out` button doesn't use TLS options so in order to
 try out the exact command examples make sure to turn of TLS. You can disable TLS by providing `--no-tls` flag to the
 wallet or by running a wallet in debug mode with `--wallet-debug`.

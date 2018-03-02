@@ -11,6 +11,9 @@
 , ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
+, confKey ? null
+, relays ? null
+, extraParams ? ""
 }:
 
 with localLib;

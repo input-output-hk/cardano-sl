@@ -7,7 +7,7 @@ module Pos.Statistics.Statsd
 
 import qualified Options.Applicative as Opt
 import           Pos.Util.TimeWarp (NetworkAddress, addrParserNoWildcard)
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           Universum
 
 data StatsdParams = StatsdParams

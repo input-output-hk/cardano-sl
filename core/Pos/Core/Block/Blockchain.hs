@@ -4,6 +4,8 @@
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.
 
+
+
 module Pos.Core.Block.Blockchain
        ( Blockchain (..)
        , GenericBlockHeader (..)
@@ -48,11 +50,26 @@ import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash
 class Blockchain p where
     -- | Proof of data stored in the body. Ensures immutability.
     data BodyProof p :: *
-    -- | Consensus data which can be used to check consensus properties.
+    -- | Consensus data which can be used to check consensus properties which is accessible via the Block Header.
+    -- * 'Signature' via 'mainHeaderSignature'
+    -- * 'ChainDifficulty' via 'mainHeaderDifficulty'
+    -- * 'SlotId' via 'mainHeaderSlot'
+    -- * 'PublicKey' via 'mainHeaderLeaderKey'
+      
     data ConsensusData p :: *
-    -- | Whatever extra data.
+    -- | the type family 'ExtraHeaderData' contains whatever extra header data is required.
+    -- There are currently two instances of this type family 
+    -- * type instance ExtraHeaderData MainBlockchain = MainExtraHeaderData from core/Pos/Core/Block/Main/Chain.hs:63:10
+    -- * type instance ExtraHeaderData GenesisBlockchain = accessible from core/Pos/Core/Block/Genesis/Chain.hs:37:10
+    -- The fields currently accessible via lenses in the instance MainExtraHeaderData instance for the main block are
+    -- * The 'BlockVersion' via 'mainHeaderBlockVersion'
+    -- * The 'SoftwareVersion' via 'mainHeaderSoftwareVersion'
+    -- * Extra Address data in 'BlockHeaderAttributes' via 'mainHeaderAttributes'
+    -- * The proof data 'MainExtraBodyData' via 'mainHeaderEBDataProof''
+    -- The instance GenesisBlockchain contains only 'GenesisHeaderAttributes' via 'genHeaderAttributes'
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
+      
     -- | Block header used in this blockchain.
     type BBlockHeader p :: *
     type BBlockHeader p = GenericBlockHeader p
@@ -62,13 +79,14 @@ class Blockchain p where
 
     -- | Body contains payload and other heavy data.
     data Body p :: *
-    -- | Whatever extra data.
+    -- | Whatever extra body data is required.
     type ExtraBodyData p :: *
     type ExtraBodyData p = ()
     -- | Block used in this blockchain.
     type BBlock p :: *
     type BBlock p = GenericBlock p
 
+    -- | The function 'mkBodyProof' creates a 'BodyProof' from a 'Body'
     mkBodyProof :: Body p -> BodyProof p
 
     -- | Check whether 'BodyProof' corresponds to 'Body.
@@ -91,7 +109,7 @@ class Blockchain p where
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
---
+-- There are lenses(accessors) for these fields.
 -- The constructor has `Unsafe' prefix in its name, because there in
 -- general there may be some invariants which must hold for the
 -- contents of header.
@@ -102,7 +120,7 @@ data GenericBlockHeader b = UnsafeGenericBlockHeader
       _gbhBodyProof :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
       _gbhConsensus :: !(ConsensusData b)
-    , -- | Any extra data.
+    , -- | Any extra header data that is required.
       _gbhExtra     :: !(ExtraHeaderData b)
     } deriving (Generic)
 
@@ -208,6 +226,7 @@ mkGenericBlock prevHeader body consensus extraH extra =
 
 ----------------------------------------------------------------------------
 -- Lenses
+-- accessor functions
 ----------------------------------------------------------------------------
 
 makeLenses ''GenericBlockHeader
@@ -232,3 +251,5 @@ gbBodyProof = gbHeader . gbhBodyProof
 -- | Lens from 'GenericBlock' to 'ConsensusData'.
 gbConsensus :: Lens' (GenericBlock b) (ConsensusData b)
 gbConsensus = gbHeader . gbhConsensus
+
+

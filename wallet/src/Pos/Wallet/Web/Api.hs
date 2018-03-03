@@ -80,6 +80,7 @@ import           Servant.API                 ((:<|>), (:>), Capture, Delete, Get
 import           Servant.API.ContentTypes    (OctetStream)
 import           Servant.Server              (HasServer (..))
 import           Servant.Swagger.UI          (SwaggerSchemaUI)
+
 import           Universum
 
 -------
@@ -133,6 +134,7 @@ instance ( HasServer (Verb mt st ct $ ApiModifiedRes WalletVerbTag a) ctx
         \(paramsInfo, handler) ->
             handler & serverHandlerL' %~ modifyApiResult (Proxy @WalletVerbTag)
                     & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
+
 
 -- | Specifes servant logging config.
 data WalletLoggingConfig

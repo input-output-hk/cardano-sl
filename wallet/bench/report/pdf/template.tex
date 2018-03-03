@@ -1,0 +1,166 @@
+% Строим книгу.
+\documentclass[11pt,oneside]{book}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Подгружаем необходимые пакеты
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Общие настройки шрифтов.
+\usepackage{fontspec}
+% Поддержка русского языка с переносами слов.
+\usepackage{polyglossia}
+% Для красивых колонтитулов.
+\usepackage{fancyhdr}
+% Абзацы без горизонтального отступа, но с вертиальным отступом.
+\usepackage[parfill]{parskip}
+% Для метаданных книги и характеристик гиперссылок.
+\usepackage{hyperref}
+% Для цитат (в данном случае тех самых твитов в начале глав)
+\usepackage{csquotes}
+% Для увеличенного интерлиньяжа.
+\usepackage{setspace}
+% Для примеров кода.
+\usepackage{listings}
+\usepackage{courier}
+% Для работы с цветом.
+\usepackage{color}
+% Для настройки имён глав (чтобы у глав не было "Глава 1" и т.д., в данном случае это не нужно).
+\usepackage{titlesec}
+% Задаём формат страниц и все отступы.
+\usepackage[margin=0.8in,headsep=0.5in,paper=a4paper]{geometry}
+% Для работы с расширенными символами в тексте.
+\usepackage{textcomp}
+% Для рисования пояснительных диаграмм.
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usepackage{pgfplots}
+% For tables.
+\usepackage{booktabs}
+\usepackage[
+singlelinecheck=false % <-- important
+]{caption}
+% For tables.
+\usepackage{longtable}\setlength{\LTleft}{1em}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For enumerations.
+\def\tightlist{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Задаём шрифты и языки.
+\defaultfontfeatures{Ligatures=TeX}
+
+\setmainfont{PT Serif}
+\setsansfont{PT Sans}
+\setmonofont[Scale=1.0]{PT Mono}
+
+\setdefaultlanguage[]{english}
+\setotherlanguage[]{english}
+\newfontfamily\cyrillicfont{PT Serif}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Задаём метаданные книги и характеристики гиперссылок.
+\PassOptionsToPackage{usenames,dvipsnames}{color} % color is loaded by hyperref
+
+\hypersetup{
+    unicode=true,
+    pdftitle={Cardano Wallet Web API v0 Benchmarking},
+    pdfauthor={Middleware Team},
+    pdfsubject={Cardano Wallet Web API v0 Benchmarking},
+    pdfborder={0 0 0},
+    breaklinks=true
+}
+
+% Шрифт гиперссылок остаётся обычным, не моноширинным.
+\urlstyle{same}
+
+% Делаем гиперссылки сносками внизу страниц.
+\renewcommand{\href}[2]{#2\footnote{\url{#1}}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Настройки "пустых" названий глав, а также размера шрифта фактических названий.
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries}{}{0pt}{\huge}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Настройки для рисования диаграмм.
+% Загружаем библиотеки.
+\usetikzlibrary{arrows,chains,matrix,positioning,scopes,babel}
+% Шрифт во всех диаграммах.
+\tikzstyle{every node}=[font=\LARGE]
+\tikzcdset{every label/.append style = {font = \large}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Настройки собственных вспомогательных команд.
+\newcommand{\tweetbegin}{\begin{displayquote}}  % Начало твита.
+\newcommand{\tweetend}{\end{displayquote}}      % Конец твита.
+\newcommand{\betweentables}{\vspace{8mm}}          % Вертикальный отступ после твитов в начале главы.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Настройки для титульной страницы книги.
+\newcommand*{\mtweetsltitlepage}{\begingroup
+\newlength{\drop} % Command for generating a specific amount of whitespace
+\drop=0.1\textheight % Define the command as 10% of the total text height
+
+\vspace{\drop} % Вертикальный отступ.
+\centering % Выравниваем по центру.
+{\Huge Cardano SL Wallet}\\[0.5\baselineskip]
+\vspace{15pt}
+{\Large Web API Benchmarking}\par
+\vspace{15pt}
+{\large \texttt{API v0}}
+
+\vspace{0.25\drop}
+\rule{0.3\textwidth}{0.4pt}\par
+\vspace{\drop}
+
+{\large \textsc{Middleware Team}}\par
+\endgroup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Начало документа
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+% Титульная и лицензионная страницы - без нумерации.
+\pagestyle{empty}
+\mtweetsltitlepage
+\newpage
+\pagestyle{empty}
+
+% Нестандартное название Оглавления.
+% \renewcommand\contentsname{Твиты}
+% Устанавливаем цвет ссылок в Оглавлении.
+\hypersetup{linkcolor=black}
+% Части глав не нумеруются, только главы.
+\setcounter{secnumdepth}{0}
+\setcounter{tocdepth}{1}
+\pagestyle{empty}
+
+% Оглавление
+\doublespacing
+\tableofcontents
+\singlespacing
+
+\thispagestyle{empty}
+\clearpage
+
+% Устанавливаем колонтитулы (в данном случае используется только верхний).
+\pagestyle{fancy}
+\fancyhf{}
+% В верхнем левом углу - название текущей главы.
+\fancyhead[L]{\fontsize{10}{12} \selectfont \rmfamily{\nouppercase\leftmark}}
+% В верхнем правом углу - номер текущей страницы.
+\fancyhead[R]{\fontsize{10}{12} \selectfont \rmfamily{\thepage}}
+
+% Включаем сюда главы.
+
+$body$
+
+\end{document}

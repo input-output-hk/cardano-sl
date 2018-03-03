@@ -49,7 +49,7 @@ focusF tx = f <$> allF <*> blocksF
       where
         step :: Set BlockHash -> IndexedJLTimedEvent -> Set BlockHash
         step s IndexedJLTimedEvent{..} = case ijlEvent of
-            (JLCreatedBlock JLBlock{..}) -> if tx `elem` [T.take 8 tx' | tx' <- jlTxs]
+            (JLCreatedBlock JLBlock{..}) -> if tx `elem` [T.take 16 tx' | tx' <- jlTxs]
                                                 then S.insert jlHash s
                                                 else s
             _                            ->  s

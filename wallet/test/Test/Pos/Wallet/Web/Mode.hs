@@ -71,7 +71,8 @@ import           Pos.Ssc.Types (SscState)
 import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), MemPoolModifyReason,
                           TxpGlobalSettings, TxpHolderTag, recordTxpMetrics,
-                          txNormalize, txProcessTransactionNoLock, txpTip)
+                          txNormalize, txProcessTransactionNoLock, txpTip, txpMemPool)
+import qualified System.Metrics as Metrics
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -188,7 +189,8 @@ initWalletTestContext WalletTestParams {..} callback =
             -- some kind of kostil to get tip
             tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
             wtcStateLock <- newStateLock tip
-            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
+            store <- liftIO $ Metrics.newStore
+            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
             wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcProgressHeader <- STM.newEmptyTMVarIO

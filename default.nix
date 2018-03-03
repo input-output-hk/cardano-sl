@@ -93,7 +93,7 @@ let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
     in
-      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;

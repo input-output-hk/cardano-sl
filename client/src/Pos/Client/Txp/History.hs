@@ -19,6 +19,7 @@ module Pos.Client.Txp.History
        -- * History derivation
        , getBlockHistoryDefault
        , getLocalHistoryDefault
+       , SaveTxException (..)
        , saveTxDefault
 
        , txHistoryListToMap
@@ -29,6 +30,7 @@ module Pos.Client.Txp.History
 
 import           Universum
 
+import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (makeLenses)
 import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
@@ -51,11 +53,11 @@ import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, Tx (..), TxAux (..), TxId, TxOut,
-                          TxOutAux (..), TxWitness, TxpError (..), UtxoLookup, UtxoM, UtxoModifier,
-                          applyTxToUtxo, buildUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
-                          getLocalTxs, runUtxoM, topsortTxs, txOutAddress, txpProcessTx,
-                          unGenesisUtxo, utxoGet, utxoToLookup)
+import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
+                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
+                          UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
+                          flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
+                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 
@@ -246,10 +248,19 @@ getLocalHistoryDefault addrs = do
         evalUtxoM mempty utxoLookup $
         getRelatedTxsByAddrs addrs Nothing Nothing topsorted
 
+data SaveTxException =
+    SaveTxToilFailure !ToilVerFailure
+    deriving (Show)
+
+instance Exception SaveTxException where
+    displayException =
+        \case
+            SaveTxToilFailure x -> toString (pretty x)
+
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
     res <- txpProcessTx txw
-    eitherToThrow res
+    eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry
 txHistoryListToMap = M.fromList . map (\tx -> (_thTxId tx, tx))

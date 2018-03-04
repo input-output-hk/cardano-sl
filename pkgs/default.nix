@@ -7111,8 +7111,8 @@ inherit (pkgs) mesa;};
              cardano-sl-db cardano-sl-infra cardano-sl-networking cardano-sl-txp
              cardano-sl-update cardano-sl-util containers data-default ether
              formatting lens log-warper monad-control mtl QuickCheck
-             serokell-util stm text-format transformers universum
-             unordered-containers vector
+             safe-exceptions serokell-util stm text-format transformers
+             universum unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [

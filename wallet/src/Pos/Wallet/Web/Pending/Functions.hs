@@ -16,7 +16,7 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
-import           Pos.Client.Txp.History (TxHistoryEntry)
+import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Txp (ToilVerFailure (..))
@@ -62,8 +62,8 @@ mkPendingTx wid _ptxTxId _ptxTxAux th = do
 
 -- | Whether formed transaction ('TxAux') has reasonable chances to be applied
 -- later after specified error.
-isReclaimableFailure :: ToilVerFailure -> Bool
-isReclaimableFailure = \case
+isReclaimableFailure :: SaveTxException -> Bool
+isReclaimableFailure (SaveTxToilFailure tvf) = case tvf of
     -- We consider all cases explicitly here to prevent changing
     -- constructors set blindly
     ToilKnown                -> True

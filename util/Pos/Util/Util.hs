@@ -1,5 +1,7 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Util.Util
@@ -19,6 +21,7 @@ module Pos.Util.Util
        , parsecError
        , toCerealError
        , cerealError
+       , DisallowException
 
        -- * Ether
        , ether
@@ -93,6 +96,7 @@ import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
+import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
@@ -176,6 +180,19 @@ toParsecError = external_api_fail
 
 parsecError :: P.Stream s => Text -> P.ParsecT e s m a
 parsecError = toParsecError . Left
+
+type family DisallowException t :: ErrorMessage where
+    DisallowException t =
+             'ShowType t ':<>:
+             'Text " intentionally doesn't have an 'Exception' instance."
+        ':$$: 'Text
+             "This type shouldn't be thrown as a runtime exception."
+        ':$$: 'Text
+             "If you want to throw it, consider defining your own exception \
+             \type with a constructor storing a value of this type."
+        ':$$: 'Text
+             "See the exception handling guidelines for more details."
+        ':$$: 'Text ""
 
 ----------------------------------------------------------------------------
 -- Ether

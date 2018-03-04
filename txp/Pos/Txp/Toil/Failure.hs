@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
 -- | Toil failures.
@@ -11,6 +12,7 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, shown, stext, (%))
+import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
@@ -19,6 +21,7 @@ import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
 import           Pos.Data.Attributes (UnparsedFields)
 import           Pos.Script (PlutusError)
 import           Pos.Txp.Toil.Types (TxFee)
+import           Pos.Util (DisallowException)
 
 ----------------------------------------------------------------------------
 -- ToilVerFailure
@@ -69,7 +72,8 @@ data ToilVerFailure
     | ToilRepeatedInput
     deriving (Show, Eq)
 
-instance Exception ToilVerFailure
+instance TypeError (DisallowException ToilVerFailure) =>
+         Exception ToilVerFailure
 
 instance Buildable ToilVerFailure where
     build ToilKnown =

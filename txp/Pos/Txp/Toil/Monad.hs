@@ -51,7 +51,7 @@ module Pos.Txp.Toil.Monad
 import           Universum
 
 import           Control.Lens (at, magnify, makeLenses, zoom, (%=), (+=), (.=))
-import           Control.Monad.Free (Free (..), foldFree)
+import           Control.Monad.Free.Church (F (..), foldF)
 import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
@@ -185,7 +185,7 @@ data GlobalToilEnv = GlobalToilEnv
 makeLenses ''GlobalToilEnv
 
 -- | Base monad in which global Toil happens.
-type GlobalToilMBase = NamedPureLogger (Free StakesLookupF)
+type GlobalToilMBase = NamedPureLogger (F StakesLookupF)
 
 -- | Monad in which global Toil happens.
 type GlobalToilM
@@ -198,11 +198,11 @@ runGlobalToilMBase ::
     => (StakeholderId -> m (Maybe Coin))
     -> GlobalToilMBase a
     -> m a
-runGlobalToilMBase stakeGetter = launchNamedPureLog foldFree'
+runGlobalToilMBase stakeGetter = launchNamedPureLog foldF'
   where
-    foldFree' :: forall x. Free StakesLookupF x -> m x
-    foldFree' =
-        foldFree $ \case
+    foldF' :: forall x. F StakesLookupF x -> m x
+    foldF' =
+        foldF $ \case
             StakesLookupF sId f -> f <$> stakeGetter sId
 
 -- | Run 'GlobalToilM' action in some monad capable of getting
@@ -223,7 +223,8 @@ getStake id =
     (<|>) <$> use (gtsStakesView . svStakes . at id) <*> baseLookup id
   where
     baseLookup :: StakeholderId -> GlobalToilM (Maybe Coin)
-    baseLookup i = lift $ lift $ lift $ Free $ StakesLookupF i pure
+    baseLookup i =
+        lift $ lift $ lift $ F $ \kPure kFree -> kFree (StakesLookupF i kPure)
 
 -- | Get total stake of all stakeholders.
 getTotalStake :: GlobalToilM Coin
@@ -265,5 +266,5 @@ utxoMToGlobalToilM = mapReaderT f . magnify gteUtxo
   where
     f :: forall a.
          State UtxoModifier a
-      -> StateT GlobalToilState (NamedPureLogger (Free StakesLookupF)) a
+      -> StateT GlobalToilState (NamedPureLogger (F StakesLookupF)) a
     f = state . runState . zoom gtsUtxoModifier

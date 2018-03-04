@@ -28,7 +28,7 @@ module Pos.Explorer.Txp.Toil.Monad
 import           Universum
 
 import           Control.Lens (at, magnify, zoom, (%=), (.=))
-import           Control.Monad.Free (Free (..))
+import           Control.Monad.Free.Church (F (..))
 import           Control.Monad.Morph (generalize, hoist)
 import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
@@ -106,5 +106,5 @@ type EGlobalToilM
 explorerExtraMToEGlobalToilM :: ExplorerExtraM a -> EGlobalToilM a
 explorerExtraMToEGlobalToilM = mapReaderT (mapStateT f . zoom _2) . magnify _2
   where
-    f :: NamedPureLogger Identity a -> NamedPureLogger (Free StakesLookupF) a
+    f :: NamedPureLogger Identity a -> NamedPureLogger (F StakesLookupF) a
     f = hoist generalize

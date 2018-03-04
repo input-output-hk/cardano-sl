@@ -34,11 +34,9 @@ import           Control.Exception.Safe (Exception (..), try)
 import           Control.Lens (each, to)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Conduit (runConduitRes, yield, (.|))
-import           Data.Conduit.List (consume)
-import qualified Data.Conduit.Lzma as Lzma
+import           Codec.Compression.Lzma (compressWith, defaultCompressParams,
+                                         compressLevel, CompressionLevel(..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
@@ -156,16 +154,13 @@ withCompressedLogs ::
     -> m a
 withCompressedLogs files action = do
     tar <- liftIO $ tarPackIndependently files
-    tarxz <-
-        liftIO $
-        BS.concat <$>
-        runConduitRes (yield tar .| Lzma.compress (Just 0) .| consume)
+    let tarxz = compressing tar
     aName <- getArchiveName
     bracket (openFile aName WriteMode)
             (\h -> liftIO (hClose h >> removeFile aName))
-            (\h -> liftIO (BS.hPut h tarxz >> hClose h) >> action aName)
+            (\h -> liftIO (BSL.hPut h tarxz >> hClose h) >> action aName)
   where
-    tarPackIndependently :: [FilePath] -> IO ByteString
+    tarPackIndependently :: [FilePath] -> IO BSL.ByteString
     tarPackIndependently paths = do
         entries <- forM paths $ \p -> do
             unlessM (doesFileExist p) $ throwM $
@@ -176,13 +171,16 @@ withCompressedLogs files action = do
                             (Tar.toTarPath False $ takeFileName p)
             pabs <- canonicalizePath p
             Tar.packFileEntry pabs tPath
-        pure $ BSL.toStrict $ Tar.write entries
+        pure $ Tar.write entries
     getArchiveName = liftIO $ do
         -- Name can't be too long since there's a limitation on key size (32).
         -- See ParseRequestBodyOptions in wai-extra.
         curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
         tempDir <- getTemporaryDirectory
         pure $ tempDir <//> ("report-" <> take 6 curTime <> ".tar.lzma")
+    compressing = compressWith
+                  defaultCompressParams
+                  { compressLevel = CompressionLevel0 }
 
 -- | Creates a temp file from given text
 withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a

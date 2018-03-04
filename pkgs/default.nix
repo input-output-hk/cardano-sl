@@ -7342,15 +7342,15 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, base, base64-bytestring, bytestring
          , cardano-report-server, cardano-sl-binary, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-networking
-         , cardano-sl-util, conduit, containers, cpphs, directory, dns
-         , ekg-core, ekg-statsd, ekg-wai, ether, exceptions, filepath
-         , formatting, generic-arbitrary, hashable, http-client
-         , http-client-tls, iproute, kademlia, lens, log-warper
-         , lzma-conduit, monad-control, mtl, network-info, network-transport
-         , network-transport-tcp, optparse-applicative, parsec, QuickCheck
-         , reflection, safe-exceptions, serokell-util, stdenv, stm, tagged
-         , tar, text, text-format, time, time-units, transformers, universum
-         , unix, unordered-containers, yaml
+         , cardano-sl-util, containers, cpphs, directory, dns, ekg-core
+         , ekg-statsd, ekg-wai, ether, exceptions, filepath, formatting
+         , generic-arbitrary, hashable, http-client, http-client-tls
+         , iproute, kademlia, lens, log-warper, lzma, monad-control, mtl
+         , network-info, network-transport, network-transport-tcp
+         , optparse-applicative, parsec, QuickCheck, reflection
+         , safe-exceptions, serokell-util, stdenv, stm, tagged, tar, text
+         , text-format, time, time-units, transformers, universum, unix
+         , unordered-containers, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-infra";
@@ -7359,14 +7359,14 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              aeson base base64-bytestring bytestring cardano-report-server
              cardano-sl-binary cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-networking cardano-sl-util conduit containers directory
-             dns ekg-core ekg-statsd ekg-wai ether exceptions filepath
-             formatting generic-arbitrary hashable http-client http-client-tls
-             iproute kademlia lens log-warper lzma-conduit monad-control mtl
-             network-info network-transport network-transport-tcp
-             optparse-applicative parsec QuickCheck reflection safe-exceptions
-             serokell-util stm tagged tar text text-format time time-units
-             transformers universum unix unordered-containers yaml
+             cardano-sl-networking cardano-sl-util containers directory dns
+             ekg-core ekg-statsd ekg-wai ether exceptions filepath formatting
+             generic-arbitrary hashable http-client http-client-tls iproute
+             kademlia lens log-warper lzma monad-control mtl network-info
+             network-transport network-transport-tcp optparse-applicative parsec
+             QuickCheck reflection safe-exceptions serokell-util stm tagged tar
+             text text-format time time-units transformers universum unix
+             unordered-containers yaml
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -24977,26 +24977,23 @@ inherit (pkgs) which;};
            platforms = stdenv.lib.platforms.none;
          }) {};
       "lzma-conduit" = callPackage
-        ({ mkDerivation, base, bytestring, conduit, fetchgit, lzma
+        ({ mkDerivation, base, bindings-DSL, bytestring, conduit, lzma
          , resourcet, stdenv, transformers
          }:
          mkDerivation {
            pname = "lzma-conduit";
-           version = "1.2.1";
-           src = fetchgit {
-             url = "https://github.com/serokell/lzma-conduit.git";
-             sha256 = "1nxvnfz6ci9apqqd00iy604492q1laqkcyzz48b9jg57hxmakm9s";
-             rev = "0f6a8754bcd97c701465d71f4a0ad83f2c11aaf4";
-           };
+           version = "1.1.3.3";
+           sha256 = "17cc0669639891a86fdae101b785f614fbd8560c170b4f8a88929134f2936da5";
            libraryHaskellDepends = [
-             base bytestring conduit lzma resourcet transformers
+             base bindings-DSL bytestring conduit resourcet transformers
            ];
+           librarySystemDepends = [ lzma ];
            doHaddock = false;
            doCheck = false;
            homepage = "http://github.com/alphaHeavy/lzma-conduit";
            description = "Conduit interface for lzma/xz compression";
            license = stdenv.lib.licenses.bsd3;
-         }) {};
+         }) {inherit (pkgs) lzma;};
       "machines" = callPackage
         ({ mkDerivation, adjunctions, base, Cabal, cabal-doctest, comonad
          , containers, distributive, mtl, pointed, profunctors

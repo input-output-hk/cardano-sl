@@ -145,7 +145,6 @@ library
                       , cardano-sl-networking
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5
-                      , conduit
                       , containers
                       , directory
                       , dns
@@ -157,7 +156,7 @@ library
                       , filepath
                       , formatting
                       , generic-arbitrary
-                      , lzma-conduit
+                      , lzma
                       , hashable
                       , http-client
                       , http-client-tls

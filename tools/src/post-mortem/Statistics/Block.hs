@@ -92,7 +92,7 @@ txBlocksF = Fold step MS.empty id
          -> IndexedJLTimedEvent
          -> SMap Text [(Microsecond, Text)]
     step m IndexedJLTimedEvent{..} = case ijlEvent of
-        JLCreatedBlock JLBlock{..} -> foldl' (f ijlTimestamp jlHash) m [T.take 8 x | x <- jlTxs]
+        JLCreatedBlock JLBlock{..} -> foldl' (f ijlTimestamp jlHash) m [T.take 16 x | x <- jlTxs]
         _                          -> m
 
     f :: Timestamp

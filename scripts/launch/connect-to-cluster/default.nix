@@ -11,6 +11,7 @@
 , ekgListen ? "127.0.0.1:8000"
 , confKey ? null
 , relays ? null
+, extraParams ? ""
 }:
 
 with localLib;
@@ -86,7 +87,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
     --topology "${configFiles}/topology.yaml"                      \
     --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"                                     \
+    --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \

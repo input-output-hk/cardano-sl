@@ -21,23 +21,22 @@ import           Formatting                 (build, sformat, (%))
 import           Servant.Server             (err405, errReasonPhrase)
 
 import           Pos.Configuration          (HasNodeConfiguration, walletProductionApi)
-import           Pos.Core                   (BlockCount)
+import           Pos.Core                   (Address, BlockCount)
 import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, CAccountMeta,
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, Wal,
                                              cwAssurance)
 
 
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode(..), AddressInfo (..),
+import           Pos.Wallet.Web.State       (AddressInfo (..), AddressLookupMode (..),
                                              CurrentAndRemoved (getCurrent, getRemoved),
-                                             WalletSnapshot,
+                                             WAddressMeta (..), WalletSnapshot,
                                              getAccountAddrMaps, getAccountIds,
-                                             getAccountWAddresses, getWAddresses, getWalletMeta,
-                                             getAccountMeta)
+                                             getAccountMeta, getAccountWAddresses,
+                                             getWAddresses, getWalletMeta)
 
 getAccountMetaOrThrow :: MonadThrow m => WalletSnapshot -> AccountId -> m CAccountMeta
 getAccountMetaOrThrow ws accId = maybeThrow noAccount (getAccountMeta ws accId)
@@ -63,14 +62,14 @@ getWalletAddrMetas
     :: WalletSnapshot
     -> AddressLookupMode
     -> CId Wal
-    -> [CWAddressMeta]
+    -> [WAddressMeta]
 getWalletAddrMetas ws lookupMode cWalId =
-  map adiCWAddressMeta $ getWAddresses ws lookupMode cWalId
+  map adiWAddressMeta $ getWAddresses ws lookupMode cWalId
 
-getWalletAddrs :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [CId Addr]
-getWalletAddrs ws mode wid = cwamId <$> getWalletAddrMetas ws mode wid
+getWalletAddrs :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [Address]
+getWalletAddrs ws mode wid = _wamAddress <$> getWalletAddrMetas ws mode wid
 
-getWalletAddrsDetector :: WalletSnapshot -> AddressLookupMode -> CId Wal -> (CId Addr -> Bool)
+getWalletAddrsDetector :: WalletSnapshot -> AddressLookupMode -> CId Wal -> (Address -> Bool)
 getWalletAddrsDetector ws lookupMode cWalId = do
     let accIds = getWalletAccountIds ws cWalId
     let accAddrMaps = map (getAccountAddrMaps ws) accIds

@@ -49,9 +49,8 @@ import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CCoin, CId,
-                                                   CTx (..), CWAddressMeta (..),
-                                                   NewBatchPayment (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
+                                                   CTx (..), NewBatchPayment (..), Wal,
+                                                   mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
                                                    getCurChainDifficulty)
@@ -59,13 +58,14 @@ import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs,
                                                    getPendingAddresses, rewrapTxError,
                                                    submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode,
-                                                   convertCIdTOAddrs)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressInfo (..),
                                                    AddressLookupMode (Ever, Existing),
-                                                   WalletSnapshot, askWalletDB,
-                                                   askWalletSnapshot, getWalletSnapshot)
+                                                   WAddressMeta, WalletSnapshot,
+                                                   askWalletDB, askWalletSnapshot,
+                                                   getWalletSnapshot, wamAccount,
+                                                   wamAddress, wamWalletId)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds,
@@ -129,14 +129,16 @@ getTxFee srcAccount dstAccount coin policy = do
 data MoneySource
     = WalletMoneySource (CId Wal)
     | AccountMoneySource AccountId
-    | AddressMoneySource CWAddressMeta
+    | AddressMoneySource WAddressMeta
     deriving (Show, Eq)
 
 getMoneySourceAddresses :: MonadThrow m
-                        => WalletSnapshot -> MoneySource -> m [CWAddressMeta]
+                        => WalletSnapshot
+                        -> MoneySource
+                        -> m [WAddressMeta]
 getMoneySourceAddresses _ (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses ws (AccountMoneySource accId) =
-    map adiCWAddressMeta <$> getAccountAddrsOrThrow ws Existing accId
+    map adiWAddressMeta <$> getAccountAddrsOrThrow ws Existing accId
 getMoneySourceAddresses ws (WalletMoneySource wid) =
     concatMapM (getMoneySourceAddresses ws . AccountMoneySource)
                (getWalletAccountIds ws wid)
@@ -144,7 +146,7 @@ getMoneySourceAddresses ws (WalletMoneySource wid) =
 getSomeMoneySourceAccount :: MonadThrow m
                           => WalletSnapshot -> MoneySource -> m AccountId
 getSomeMoneySourceAccount _ (AddressMoneySource addrId) =
-    return $ addrMetaToAccount addrId
+    return $ addrId ^. wamAccount
 getSomeMoneySourceAccount _ (AccountMoneySource accId) = return accId
 getSomeMoneySourceAccount ws (WalletMoneySource wid) = do
     wAddr <- maybeThrow noWallets (head (getWalletAccountIds ws wid))
@@ -153,7 +155,7 @@ getSomeMoneySourceAccount ws (WalletMoneySource wid) = do
     noWallets = InternalError "Wallet has no accounts"
 
 getMoneySourceWallet :: MoneySource -> CId Wal
-getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
+getMoneySourceWallet (AddressMoneySource addrId) = addrId ^. wamWalletId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
@@ -164,7 +166,7 @@ getMoneySourceUtxo :: MonadWalletWebMode m
                    -> m Utxo
 getMoneySourceUtxo ws updates =
     getMoneySourceAddresses ws >=>
-    mapM (decodeCTypeOrFail . cwamId) >=>
+    mapM (return . view wamAddress) >=>
     getOwnUtxos ws updates
 
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
@@ -184,8 +186,8 @@ instance
         -- TODO(adinapoli) This looks like a code smell, can we
         -- remove this typeclass entirely?
         ws <- askWalletSnapshot
-        cAddrMeta <- L.newAddress_ ws RandomSeed passphrase accId
-        decodeCTypeOrFail (cwamId cAddrMeta)
+        wam <- L.newAddress_ ws RandomSeed passphrase accId
+        return $ wam ^. wamAddress
 
 sendMoney
     :: MonadWalletWebMode m
@@ -212,7 +214,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    srcAddrs <- convertCIdTOAddrs $ map cwamId addrMetas
+    let srcAddrs = map (view wamAddress) addrMetas
 
     logDebug "sendMoney: processed addrs"
 

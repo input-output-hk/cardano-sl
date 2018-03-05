@@ -7,17 +7,12 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
-       , convertCIdTOAddrs
-       , convertCIdTOAddr
-       , AddrCIdHashes(AddrCIdHashes)
        ) where
 
 import           Universum
 
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
-import qualified Data.Foldable                    as Foldable
-import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..))
@@ -28,7 +23,7 @@ import           Pos.Block.Slog                   (HasSlogContext (..),
 import           Pos.Block.Types                  (Undo)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Context                      (HasNodeContext (..))
-import           Pos.Core                         (Address, HasConfiguration,
+import           Pos.Core                         (HasConfiguration,
                                                    HasPrimaryKey (..), IsHeader)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.DB.Block                     (dbGetBlockDefault,
@@ -81,8 +76,6 @@ import           Pos.Wallet.Redirect            (MonadBlockchainInfo (..),
                                                  networkChainDifficultyWebWallet,
                                                  waitForUpdateWebWallet)
 import           Pos.Wallet.SscType             (WalletSscType)
-import           Pos.Wallet.Web.ClientTypes     (Addr, CHash, CId (..), cIdToAddress)
-import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State.State     (WalletDB)
 import           Pos.Wallet.Web.Tracking        (MonadBListener (..), onApplyTracking,
@@ -95,45 +88,10 @@ import           Pos.WorkMode                   (RealModeContext (..))
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletDB
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcHashes          :: !AddrCIdHashes
     , wwmcRealModeContext :: !(RealModeContext WalletSscType)
     }
 
-newtype AddrCIdHashes = AddrCIdHashes { unAddrCIdHashes :: (IORef (Map CHash Address)) }
-
 makeLensesWith postfixLFields ''WalletWebModeContext
-
-instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
-    lensOf = wwmcHashes_L
-
-convertCIdTOAddr :: (MonadWalletWebMode m) => CId Addr -> m Address
-convertCIdTOAddr i@(CId id) = do
-    hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    maddr <- atomicModifyIORef' hmRef $ \hm ->
-      case id `M.lookup` hm of
-       Just addr -> (hm, Right addr)
-       _         -> case cIdToAddress i of
-                    -- decoding can fail, but we don't cache failures
-                      Right addr -> (M.insert id addr hm, Right addr)
-                      Left  err  -> (hm,                  Left err)
-    either (throwM . DecodeError) pure maddr
-
-convertCIdTOAddrs :: (MonadWalletWebMode m, Traversable t) => t (CId Addr) -> m (t Address)
-convertCIdTOAddrs cids = do
-    hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    maddrs <- atomicModifyIORef' hmRef $ \hm ->
-      let lookups = map (\cid@(CId h) -> (h, M.lookup h hm, cIdToAddress cid)) cids
-          hm'     = Foldable.foldl' accum hm lookups
-
-          accum m (cid, Nothing, Right addr) = M.insert cid addr m
-          accum m _                          = m
-
-          result (_, Just addr, _)   = Right addr
-          result (_, Nothing, maddr) = maddr
-
-       in (hm', map result lookups)
-
-    mapM (either (throwM . DecodeError) pure) maddrs
 
 instance HasSscContext WalletSscType WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext

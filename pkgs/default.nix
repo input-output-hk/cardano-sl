@@ -7349,13 +7349,13 @@ inherit (pkgs) mesa;};
          , cardano-sl-update, containers, cpphs, data-default, directory
          , dlist, ether, exceptions, filepath, formatting, lens, log-warper
          , mtl, network-transport, network-transport-tcp, node-sketch
-         , optparse-applicative, parsec, purescript-bridge, random
-         , reflection, safe-exceptions, semver, serokell-util, servant
-         , servant-multipart, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, stm-containers, string-qq
-         , swagger2, text, text-format, time, time-units, transformers
-         , universum, unix, unordered-containers, wai, wai-websockets
-         , websockets
+         , optparse-applicative, parsec, purescript-bridge, QuickCheck
+         , random, reflection, safe-exceptions, safecopy, semver
+         , serokell-util, servant, servant-multipart, servant-server
+         , servant-swagger, servant-swagger-ui, stdenv, stm, stm-containers
+         , string-qq, swagger2, tasty, tasty-quickcheck, text, text-format
+         , time, time-units, transformers, universum, unix
+         , unordered-containers, wai, wai-websockets, websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
@@ -7392,6 +7392,10 @@ inherit (pkgs) mesa;};
              websockets
            ];
            executableToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base cardano-sl cardano-sl-core cardano-sl-txp QuickCheck safecopy
+             tasty tasty-quickcheck universum unordered-containers
+           ];
            doHaddock = false;
            description = "Cardano SL - wallet";
            license = stdenv.lib.licenses.mit;

@@ -28,14 +28,14 @@ import           Formatting                   (bprint, build, (%))
 import           Serokell.Util                (listJson, listJsonIndent)
 
 import           Pos.Client.Txp.History       (TxHistoryEntry (..))
-import           Pos.Core                     (HeaderHash)
+import           Pos.Core                     (Address, HeaderHash)
 import           Pos.Txp.Core                 (TxId)
 import           Pos.Txp.Toil                 (UtxoModifier)
 import           Pos.Util.Modifier            (MapModifier)
 import qualified Pos.Util.Modifier            as MM
 
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CWAddressMeta)
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
+import           Pos.Wallet.Web.State         (WAddressMeta)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -58,9 +58,9 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
+    { camAddresses            :: !(IndexedMapModifier WAddressMeta)
+    , camUsed                 :: !(VoidModifier (Address, HeaderHash))
+    , camChange               :: !(VoidModifier (Address, HeaderHash))
     , camUtxo                 :: !UtxoModifier
     , camAddedHistory         :: !(DList TxHistoryEntry)
     , camDeletedHistory       :: !(DList TxHistoryEntry)

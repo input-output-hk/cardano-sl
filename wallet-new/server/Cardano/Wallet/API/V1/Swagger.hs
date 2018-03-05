@@ -429,14 +429,14 @@ This means that _omitting_ the version number would call the old version of the 
 
 Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
 
-## Trying out API examples
+## Running API examples
 
-All API endpoints in this document have a `Try it out` button which should produce `curl` command that can be used to
-make a request to the wallet. Provided `curl` command given by `Try it out` button doesn't use TLS options so in order to
-try out the exact command examples make sure to turn of TLS. You can disable TLS by providing `--no-tls` flag to the
-wallet or by running a wallet in debug mode with `--wallet-debug`.
+All API endpoints in this document have a `Try it out` button which produce a `curl` command that can be used to
+make a request to the wallet. These `curl` commands do not use TLS options so ensure that you have turned off TLS when running
+these examples. You can disable TLS by providing the `--no-tls` flag to the
+wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
 
-Use with care! We don't recommended disabling TLS for anything other then testing and trying out API examples from this document.
+**Caution:** We do not recommended disabling TLS for anything other than testing API examples outlined in this document.
 
 ## Response format (V1 onwards)
 

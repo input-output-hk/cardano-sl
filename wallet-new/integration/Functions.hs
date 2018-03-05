@@ -33,19 +33,19 @@ chooseAction aProb = do
     prob <- liftIO chooseProb
 
     -- @choice@ from random-extras-0.2?
-    let distributedActions :: ActionProbabilities
+    let distributedActions :: [Action]
         distributedActions = concatMap replDistribution aProb
 
-    maybe actionNotFound pure (distributedActions ^? ix prob . _1)
+    maybe actionNotFound pure (distributedActions ^? ix prob)
   where
     chooseProb :: IO Int
     chooseProb = getStdRandom (randomR (1,100))
 
     replDistribution
         :: (Action,Probability)
-        -> ActionProbabilities
+        -> [Action]
     replDistribution (action,prob) =
-        replicate (getProbability prob) (action,prob)
+        replicate (getProbability prob) action
 
     actionNotFound :: (MonadThrow m) => m Action
     actionNotFound = throwM $ Internal "The selected action was not found!"

@@ -3,12 +3,13 @@ module Cardano.Wallet.API.V1.Accounts where
 import           Servant
 
 import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 
-type API
-    =    "accounts" :> Capture "accountIndex" AccountIndex
+type API = Tags '["Accounts"] :>
+    (    "accounts" :> Capture "accountIndex" AccountIndex
                     :> Summary "Deletes an Account."
                     :> DeleteNoContent '[ValidJSON] NoContent
     :<|> "accounts" :> Capture "accountIndex" AccountIndex
@@ -24,3 +25,4 @@ type API
                     :> Summary "Update an Account for the given Wallet."
                     :> ReqBody '[ValidJSON] (Update Account)
                     :> Put '[ValidJSON] (WalletResponse Account)
+    )

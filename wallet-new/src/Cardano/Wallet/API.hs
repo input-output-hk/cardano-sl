@@ -1,4 +1,3 @@
-
 module Cardano.Wallet.API
        ( WalletAPI
        , walletAPI
@@ -8,7 +7,6 @@ module Cardano.Wallet.API
 import           Servant ((:<|>), (:>), Proxy (..))
 
 import qualified Cardano.Wallet.API.Development as Dev
-import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1 as V1
 
@@ -29,16 +27,11 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- * 'Cardano.Wallet.API.Development.Handlers' contains all the @Handler@s serving the Dev API;
 
 type ExternalAPI =
-            "api" :> Tags '["V0 (Deprecated)"]
-                  :> V0.API
-      :<|>  "api" :> "v1"
-                  :> Tags '["V1"]
-                  :> V1.API
+            "api"         :> V0.API
+      :<|>  "api" :> "v1" :> V1.API
 
 type InternalAPI =
-            "api" :> "development"
-                  :> Tags '["Development"]
-                  :> Dev.API
+            "api" :> "development" :> Dev.API
 
 type WalletAPI = ExternalAPI :<|> InternalAPI
 

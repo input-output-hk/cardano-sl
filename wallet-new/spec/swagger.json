@@ -2345,9 +2345,7 @@
                     }
                 ],
                 "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
+                    "Accounts"
                 ]
             },
             "delete": {
@@ -2380,9 +2378,7 @@
                     }
                 ],
                 "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
+                    "Accounts"
                 ]
             },
             "put": {
@@ -2432,9 +2428,7 @@
                     }
                 ],
                 "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
+                    "Accounts"
                 ]
             }
         },
@@ -2469,7 +2463,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2491,7 +2485,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2531,7 +2525,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2561,7 +2555,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2592,7 +2586,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "delete": {
@@ -2618,7 +2612,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "put": {
@@ -2661,7 +2655,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2701,7 +2695,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2721,7 +2715,7 @@
                 ],
                 "description": "Fetch info about local chain difficulty, network chain difficulty and connected peers.",
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2761,7 +2755,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2791,7 +2785,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             },
@@ -2817,7 +2810,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             },
@@ -2860,7 +2852,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             }
@@ -2882,7 +2873,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -2912,7 +2903,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "delete": {
@@ -2937,7 +2928,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "put": {
@@ -2979,7 +2970,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3023,9 +3014,7 @@
                     }
                 ],
                 "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
+                    "Accounts"
                 ]
             },
             "get": {
@@ -3073,9 +3062,7 @@
                     }
                 ],
                 "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
+                    "Accounts"
                 ]
             }
         },
@@ -3094,8 +3081,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "Updates",
-                    "V1"
+                    "Updates"
                 ]
             }
         },
@@ -3112,7 +3098,7 @@
                 ],
                 "description": "For all transactions in CPtxWontApply condition, reset them to CPtxApplying condition so that they will be passed to resubmition",
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3131,7 +3117,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3182,7 +3168,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3201,7 +3187,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3261,7 +3247,7 @@
                 ],
                 "description": "Evaluate fee which would be used for transaction created with given parameters. Note that fee may change on any operation on wallet occurs. Transaction will not be actually created.",
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3303,7 +3289,7 @@
                 ],
                 "description": "Wallet may be later restored from this file with  endpoint above.",
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3322,7 +3308,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3386,7 +3372,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3455,7 +3441,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3490,7 +3476,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             },
@@ -3550,7 +3535,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             }
@@ -3567,7 +3551,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3629,8 +3613,7 @@
                     }
                 ],
                 "tags": [
-                    "Transactions",
-                    "V1"
+                    "Transactions"
                 ]
             }
         },
@@ -3652,7 +3635,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3673,7 +3656,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3717,7 +3700,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
                     "Wallets"
                 ]
             }
@@ -3758,7 +3740,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3793,8 +3775,7 @@
                     }
                 ],
                 "tags": [
-                    "Transactions",
-                    "V1"
+                    "Transactions"
                 ]
             }
         },
@@ -3834,7 +3815,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3850,7 +3831,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3880,8 +3861,7 @@
                     }
                 ],
                 "tags": [
-                    "Addresses",
-                    "V1"
+                    "Addresses"
                 ]
             }
         },
@@ -3921,7 +3901,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3940,8 +3920,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "Updates",
-                    "V1"
+                    "Updates"
                 ]
             }
         },
@@ -3957,7 +3936,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -3997,7 +3976,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "get": {
@@ -4027,7 +4006,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4043,7 +4022,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4078,8 +4057,7 @@
                     }
                 ],
                 "tags": [
-                    "Transactions",
-                    "V1"
+                    "Transactions"
                 ]
             }
         },
@@ -4111,7 +4089,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4130,8 +4108,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "Settings",
-                    "V1"
+                    "Settings"
                 ]
             }
         },
@@ -4166,8 +4143,7 @@
                     }
                 ],
                 "tags": [
-                    "Addresses",
-                    "V1"
+                    "Addresses"
                 ]
             },
             "get": {
@@ -4206,8 +4182,7 @@
                     }
                 ],
                 "tags": [
-                    "Addresses",
-                    "V1"
+                    "Addresses"
                 ]
             }
         },
@@ -4247,7 +4222,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4287,7 +4262,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4306,8 +4281,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "Info",
-                    "V1"
+                    "Info"
                 ]
             }
         },
@@ -4342,7 +4316,7 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             },
             "get": {
@@ -4359,7 +4333,7 @@
                     "application/json;charset=utf-8"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4378,7 +4352,7 @@
                     "application/octet-stream"
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         },
@@ -4405,9 +4379,9 @@
                     }
                 ],
                 "tags": [
-                    "V0 (Deprecated)"
+                    "Deprecated"
                 ]
             }
         }
     }
-}
+  }

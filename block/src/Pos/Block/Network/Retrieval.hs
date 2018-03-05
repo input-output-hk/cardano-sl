@@ -79,10 +79,9 @@ retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
     => Timer -> SendActions m -> m ()
-retrievalWorkerImpl keepAliveTimer SendActions {..} =
-    handleAny mainLoopE $ do
-        logInfo "Starting retrievalWorker loop"
-        mainLoop
+retrievalWorkerImpl keepAliveTimer SendActions {..} = do
+    logInfo "Starting retrievalWorker loop"
+    mainLoop
   where
     mainLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
@@ -110,27 +109,26 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
         slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
         setTimerDuration keepAliveTimer $ 3 * slotDuration
         startTimer keepAliveTimer
+        -- Exception handlers are installed locally, on the 'thingToDoNext',
+        -- to ensure that network troubles, for instance, do not kill the
+        -- worker.
         thingToDoNext
-        mainLoop
-    mainLoopE e = do
-        -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
-        reportOrLogE "retrievalWorker mainLoopE: error caught " e
-        delay (sec 1)
         mainLoop
 
     -----------------
 
     -- That's the first queue branch (task dispatching).
-    handleBlockRetrieval nodeId BlockRetrievalTask{..} = do
-        logDebug $ sformat
-            ("Block retrieval queue task received, nodeId="%build%
-             ", header="%build%", continues="%build)
-            nodeId
-            (headerHash brtHeader)
-            brtContinues
-        (if brtContinues then handleContinues else handleAlternative)
-            nodeId
-            brtHeader
+    handleBlockRetrieval nodeId BlockRetrievalTask{..} =
+        handleAny (handleRetrievalE nodeId brtHeader) $ do
+            logDebug $ sformat
+                ("Block retrieval queue task received, nodeId="%build%
+                 ", header="%build%", continues="%build)
+                nodeId
+                (headerHash brtHeader)
+                brtContinues
+            (if brtContinues then handleContinues else handleAlternative)
+                nodeId
+                brtHeader
 
     -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do
@@ -159,6 +157,13 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
                 logDebug "handleAlternative: considering header for recovery mode"
                 -- CSL-1514
                 updateRecoveryHeader nodeId header
+
+    -- Squelch the exception and continue. Used with 'handleAny' from
+    -- safe-exceptions so it will let async exceptions pass.
+    handleRetrievalE nodeId cHeader e = do
+        reportOrLogW (sformat
+            ("handleRetrievalE: error handling nodeId="%build%", header="%build%": ")
+            nodeId (headerHash cHeader)) e
 
     -----------------
 

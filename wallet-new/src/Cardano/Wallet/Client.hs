@@ -1,11 +1,18 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StrictData #-}
+
 -- | This module defines a client for the Cardano new-wallet.
 module Cardano.Wallet.Client
     ( -- * The abstract client
       WalletClient(..)
     , getWalletIndex
     , Resp
+    , hoistClient
+    , liftClient
     -- * The type of errors that the client might return
+    , ClientError(..)
     , WalletError(..)
+    , ServantError(..)
     -- * Reexports
     , module Cardano.Wallet.API.V1.Types
     , module Cardano.Wallet.API.V1.Parameters
@@ -14,9 +21,10 @@ module Cardano.Wallet.Client
 
 import           Universum
 
-import           Cardano.Wallet.API.Response
+import           Servant.Client (ServantError (..))
 
 import           Cardano.Wallet.API.Request.Pagination
+import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
@@ -67,10 +75,52 @@ data WalletClient m
     , getNodeInfo :: Resp m NodeInfo
     }
 
+-- | Run the given natural transformation over the 'WalletClient'.
+hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
+hoistClient phi wc = WalletClient
+    { getAddressIndex      = phi (getAddressIndex wc)
+    , postAddress          = phi . postAddress wc
+    , getAddressValidity   = phi . getAddressValidity wc
+    , postWallet           = phi . postWallet wc
+    , getWalletIndexPaged  = \x -> phi . getWalletIndexPaged wc x
+    , updateWalletPassword = \x -> phi . updateWalletPassword wc x
+    , deleteWallet         = phi . deleteWallet wc
+    , getWallet            = phi . getWallet wc
+    , updateWallet         = \x -> phi . updateWallet wc x
+    , deleteAccount        = \x -> phi . deleteAccount wc x
+    , getAccount           = \x -> phi . getAccount wc x
+    , getAccountIndexPaged = \x mp -> phi . getAccountIndexPaged wc x mp
+    , updateAccount        = \x y -> phi . updateAccount wc x y
+    , postTransaction      = phi . postTransaction wc
+    , getTranasactionIndex = \wid maid maddr mp -> phi . getTranasactionIndex wc wid maid maddr mp
+    , getTransactionFee    = phi . getTransactionFee wc
+    , getNextUpdate        = phi (getNextUpdate wc)
+    , postWalletUpdate     = phi (postWalletUpdate wc)
+    , getNodeSettings      = phi (getNodeSettings wc)
+    , getNodeInfo          = phi (getNodeInfo wc)
+    }
+
+-- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>
+-- 'WalletClient' m@.
+liftClient :: MonadIO m => WalletClient IO -> WalletClient m
+liftClient = hoistClient liftIO
+
 -- | Calls 'getWalletIndexPaged' using the 'Default' values for 'Page' and
 -- 'PerPage'.
 getWalletIndex :: WalletClient m -> Resp m [Wallet]
 getWalletIndex wc = getWalletIndexPaged wc Nothing Nothing
 
 -- | A type alias shorthand for the response from the 'WalletClient'.
-type Resp m a = m (Either WalletError (WalletResponse a))
+type Resp m a = m (Either ClientError (WalletResponse a))
+
+-- | The type of errors that the wallet might return.
+data ClientError
+    = ClientWalletError WalletError
+    -- ^ The 'WalletError' type represents known failures that the API
+    -- might return.
+    | ClientHttpError ServantError
+    -- ^ We directly expose the 'ServantError' type as part of this
+    | UnknownError SomeException
+    -- ^ This constructor is used when the API client reports an error that
+    -- isn't represented in either the 'ServantError' HTTP errors or the
+    -- 'WalletError' for API errors.

@@ -54,6 +54,7 @@ library
                        Cardano.Wallet.API.V0.Types
 
                        Cardano.Wallet.Client
+                       Cardano.Wallet.Client.Http
 
                        Cardano.Wallet.Util
 

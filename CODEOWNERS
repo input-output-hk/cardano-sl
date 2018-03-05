@@ -30,21 +30,10 @@ scripts/set_nixpath.sh          @iohk-devops
 
 Delegation/                     @volhovm
 
-txp/                            @gromakovsky @pva701 @neongreen
+txp/                            @gromakovsky @pva701
 update/                         @gromakovsky @pva701
 lrc/                            @pva701
-ssc/                            @gromakovsky @neongreen
-
-core/Pos/Binary/                @neongreen
-core/Pos/Crypto/                @neongreen
-core/Pos/Merkle.hs              @neongreen
-
-core/Pos/Util/Config.hs         @neongreen
-core/Pos/Util/Config/           @neongreen
-lib/src/Pos/CompileConfig/      @neongreen
-
-scripts/build/cardano-sl.sh     @neongreen
-HLint.hs                        @neongreen
+ssc/                            @gromakovsky
 
 lib/test/                       @rockbmb
 lib/test/Test/Pos/Block/Logic/  @gromakovsky

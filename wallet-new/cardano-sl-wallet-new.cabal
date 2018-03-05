@@ -369,3 +369,89 @@ test-suite wallet-new-specs
                     , text
                     , universum
                     , unordered-containers
+
+benchmark cardano-sl-wallet-new-bench
+  hs-source-dirs:      bench
+  main-is:             Main.hs
+  other-modules:       Bench.Cardano.Wallet.Config
+                       Bench.Cardano.Wallet.Config.CLI
+                       Bench.Cardano.Wallet.Config.Endpoints
+                       Bench.Cardano.Wallet.Config.Wallets
+                       Bench.Cardano.Wallet.Random
+                       Bench.Cardano.Wallet.Run
+                       Bench.Cardano.Wallet.Types
+
+                       Client.Cardano.Wallet.Web.Analyze
+                       Client.Cardano.Wallet.Web.Endpoint
+                       Client.Cardano.Wallet.Web.Endpoint.GetAccounts
+                       Client.Cardano.Wallet.Web.Endpoint.GetHistory
+                       Client.Cardano.Wallet.Web.Endpoint.GetSyncProgress
+                       Client.Cardano.Wallet.Web.Endpoint.GetWallet
+                       Client.Cardano.Wallet.Web.Endpoint.GetWallets
+                       Client.Cardano.Wallet.Web.Endpoint.IsValidAddress
+                       Client.Cardano.Wallet.Web.Endpoint.NewAddress
+                       Client.Cardano.Wallet.Web.Endpoint.NewPayment
+                       Client.Cardano.Wallet.Web.Endpoint.NewWallet
+
+                       Client.Cardano.Wallet.Web.Api
+                       Client.Cardano.Wallet.Web.Run
+
+  type:                exitcode-stdio-1.0
+  build-depends:       aeson
+                     , async
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-wallet
+                     , cardano-sl-wallet-new
+                     , cassava
+                     , connection
+                     , cryptonite
+                     , data-default
+                     , gauge
+                     , http-client
+                     , http-client-tls
+                     , optparse-applicative
+                     , random
+                     , QuickCheck
+                     , semigroups
+                     , servant
+                     , servant-client
+                     , servant-client-core
+                     , servant-generic
+                     , text
+                     , time
+                     , tls
+                     , universum >= 0.1.11
+                     , vector
+                     , yaml
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables

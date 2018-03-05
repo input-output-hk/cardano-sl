@@ -7637,8 +7637,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, cryptonite, data-default, directory, dlist, ether
-         , exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, memory, monad-control, MonadRandom, mtl
+         , exceptions, filepath, formatting, generic-arbitrary, hashable
+         , hspec, lens, log-warper, memory, monad-control, MonadRandom, mtl
          , optparse-applicative, QuickCheck, quickcheck-instances, random
          , reflection, safe-exceptions, safecopy, semver, serokell-util
          , servant, servant-generic, servant-multipart, servant-server
@@ -7681,8 +7681,9 @@ inherit (pkgs) mesa;};
              cardano-sl-generator cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util containers data-default ether
-             formatting hspec lens log-warper MonadRandom mtl QuickCheck
-             serokell-util stm text-format universum unordered-containers
+             formatting generic-arbitrary hspec lens log-warper MonadRandom mtl
+             QuickCheck serokell-util stm text-format universum
+             unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

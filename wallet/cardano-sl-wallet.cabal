@@ -347,11 +347,14 @@ test-suite cardano-wallet-test
                        Test.Pos.Wallet.Web.Methods.PaymentSpec
                        Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
 
+                       Test.Pos.Wallet.Web.Pending.SubmissionSpec
+
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
+                     , generic-arbitrary
                      , base
                      , cardano-sl
                      , cardano-sl-block
@@ -380,8 +383,8 @@ test-suite cardano-wallet-test
                      , mtl
                      , serokell-util >= 0.1.3.4
                      , stm
-                     , unordered-containers
                      , text-format
+                     , unordered-containers
                      , universum >= 0.1.11
 
   hs-source-dirs:      test

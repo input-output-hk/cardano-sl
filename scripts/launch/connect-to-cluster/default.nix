@@ -9,6 +9,8 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , ekgListen ? "127.0.0.1:8000"
+, confKey ? null
+, relays ? null
 }:
 
 with localLib;
@@ -26,6 +28,9 @@ let
     mainnet-staging = {
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
+    };
+    override = {
+      inherit relays confKey;
     };
   };
   executables =  {

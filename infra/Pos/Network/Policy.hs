@@ -61,13 +61,14 @@ defaultEnqueuePolicyRelay = go
         EnqueueAll NodeCore  (MaxAhead 2) PHigh
       , EnqueueAll NodeRelay (MaxAhead 2) PHigh
       ]
+    -- We can request for headers from edge nodes, if we received one
+    -- unsolicited from them. In that case, we'll have 'Just' here.
     go (MsgRequestBlockHeaders (Just _)) = [
-        -- We never ask for data from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 3) PHigh
+        EnqueueOne [NodeRelay, NodeCore, NodeEdge] (MaxAhead 3) PHigh
       ]
+    -- Just as for headers, we can request blocks from edge nodes as well.
     go (MsgRequestBlocks _) = [
-        -- We never ask for blocks from edge nodes
-        EnqueueOne [NodeRelay, NodeCore] (MaxAhead 3) PHigh
+        EnqueueOne [NodeRelay, NodeCore, NodeEdge] (MaxAhead 3) PHigh
       ]
     go (MsgTransaction _) = [
         EnqueueAll NodeCore  (MaxAhead 200) PLow

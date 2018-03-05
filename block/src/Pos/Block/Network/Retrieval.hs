@@ -64,8 +64,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Diffusion m -> m ()
-retrievalWorkerImpl diffusion = do
+    => Timer -> SendActions m -> m ()
+retrievalWorkerImpl keepAliveTimer SendActions {..} = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -89,11 +89,16 @@ retrievalWorkerImpl diffusion = do
                 -- No tasks & the recovery header is set => do the recovery
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
-
+        -- Restart the timer for sending keep-alive like packets to node(s)
+        -- we're subscribed to as when we keep receiving blocks from them it
+        -- means the connection is sound.
+        slotDuration <- fromIntegral . toMicroseconds <$> getCurrentEpochSlotDuration
+        setTimerDuration keepAliveTimer $ 3 * slotDuration
+        startTimer keepAliveTimer
         -- Exception handlers are installed locally, on the 'thingToDoNext',
         -- to ensure that network troubles, for instance, do not kill the
         -- worker.
-        () <- thingToDoNext
+        thingToDoNext
         mainLoop
 
     -----------------
@@ -298,7 +303,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

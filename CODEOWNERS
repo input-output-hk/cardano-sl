@@ -30,8 +30,6 @@ scripts/set_nixpath.sh          @iohk-devops
 
 Delegation/                     @volhovm
 
-Wallet/                         @akegalj @adinapoli-iohk
-
 txp/                            @gromakovsky @pva701 @neongreen
 update/                         @gromakovsky @pva701
 lrc/                            @pva701
@@ -60,12 +58,9 @@ networking/                     @dcoutts @avieth
 scripts/bench                   @kantp @avieth
 
 # Wallet
-wallet/src                      @martoon @akegalj @adinapoli-iohk
-wallet/purescript               @akegalj @adinapoli-iohk
+wallet/                         @martoon @akegalj @adinapoli-iohk
 wallet/web-api-swagger          @martoon @adinapoli-iohk
 wallet-new/                     @adinapoli-iohk
 
 ## Auxx
 auxx                            @int-index
-
-genesis-info/                   @georgeee

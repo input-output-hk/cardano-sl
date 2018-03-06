@@ -82,6 +82,7 @@ library
                      , servant-server
                      , servant-quickcheck
                      , string-conv
+                     , swagger2
                      , template-haskell
                      , time
                      , text

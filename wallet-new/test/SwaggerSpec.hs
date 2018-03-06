@@ -52,4 +52,3 @@ validateEveryToJSON' _ = props
   (Proxy :: Proxy [ToJSON, ToSchema])
   (null . validateToJSON)
   (Proxy :: Proxy (BodyTypes ValidJSON api))
-

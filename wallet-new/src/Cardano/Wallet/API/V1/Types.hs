@@ -61,6 +61,7 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Char as C
+import Data.Swagger hiding (constructorTagModifier)
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
@@ -152,6 +153,12 @@ instance FromJSON (V1 BackupPhrase) where
     parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
     parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
 
+instance ToSchema (V1 BackupPhrase) where
+    declareNamedSchema _ = do
+        return $ NamedSchema (Just "V1 BackupPhrase") $ mempty
+            & type_ .~ SwaggerArray
+            & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
+
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of
@@ -177,6 +184,12 @@ instance FromJSON (V1 Core.PassPhrase) where
 
 instance Arbitrary (V1 Core.PassPhrase) where
     arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.PassPhrase) where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "V1 PassPhrase") $ mempty
+            & type_ .~ SwaggerString
+            & pattern .~ Just "abcd"
 
 instance ToJSON (V1 Core.Coin) where
     toJSON (V1 c) = toJSON . Core.unsafeGetCoin $ c
@@ -230,6 +243,12 @@ instance Arbitrary AssuranceLevel where
 deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
                                    } ''AssuranceLevel
 
+instance ToSchema AssuranceLevel where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "AssuranceLevel") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ .~ Just ["normal", "strict"]
+
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
@@ -258,6 +277,11 @@ instance Arbitrary WalletOperation where
 deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
+instance ToSchema WalletOperation where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "WalletOperation") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ .~ Just ["create", "restore"]
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {

@@ -27,7 +27,8 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevisi
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens ((?~))
+import qualified Data.Char as Char
+import           Control.Lens ((?~), ix)
 import           Data.Aeson (ToJSON (..), Value (Number, Object))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.HashMap.Strict as HM
@@ -372,7 +373,11 @@ instance ToSchema Wallet where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema NewWallet where
-  declareNamedSchema = annotate fromExampleJSON
+    declareNamedSchema =
+        genericDeclareNamedSchema defaultSchemaOptions
+            { fieldLabelModifier =
+                over (ix 0) Char.toLower . drop 6 {- length "newwal" -}
+            }
 
 instance ToSchema NewAddress where
   declareNamedSchema = annotate fromExampleJSON

@@ -4,19 +4,23 @@
 -- wallet integration tests.
 
 module Error
-    ( IntegrationTestError (..)
+    ( WalletTestError (..)
     ) where
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 import           Universum
 
-newtype IntegrationTestError =
-    -- | Some internal error.
-    Internal Text
-    deriving (Show, Generic)
 
-instance Exception IntegrationTestError
+data WalletTestError
+    = Internal Text
+    | ServerConnectionFailed
+    deriving (Show, Eq, Generic)
 
-instance Buildable IntegrationTestError where
-    build (Internal msg) = bprint ("Internal integration test error ("%stext%")") msg
+
+instance Exception WalletTestError
+
+
+instance Buildable WalletTestError where
+    build (Internal msg) = bprint ("Wallet test error ("%stext%")") msg
+    build (ServerConnectionFailed) = bprint "Server connection failed"

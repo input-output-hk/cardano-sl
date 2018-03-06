@@ -7682,16 +7682,17 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-wallet-new" = callPackage
-        ({ mkDerivation, aeson, aeson-pretty, base, bytestring, cardano-sl
-         , cardano-sl-binary, cardano-sl-block, cardano-sl-client
-         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
-         , cardano-sl-delegation, cardano-sl-infra, cardano-sl-networking
-         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-wallet, constraints, containers
-         , data-default, ether, exceptions, formatting, generics-sop, hspec
-         , http-api-data, http-client, http-types, insert-ordered-containers
-         , ixset-typed, json-sop, lens, log-warper, memory, MonadRandom, mtl
-         , neat-interpolation, network-uri, optparse-applicative, QuickCheck
+        ({ mkDerivation, aeson, aeson-pretty, base, bytestring
+         , cardano-crypto, cardano-sl, cardano-sl-binary, cardano-sl-block
+         , cardano-sl-client, cardano-sl-core, cardano-sl-crypto
+         , cardano-sl-db, cardano-sl-delegation, cardano-sl-infra
+         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
+         , cardano-sl-update, cardano-sl-util, cardano-sl-wallet
+         , constraints, containers, data-default, ether, exceptions
+         , formatting, generics-sop, hspec, http-api-data, http-client
+         , http-types, insert-ordered-containers, ixset-typed, json-sop
+         , lens, log-warper, memory, MonadRandom, mtl, neat-interpolation
+         , network-uri, optparse-applicative, QuickCheck
          , quickcheck-instances, safe-exceptions, serokell-util, servant
          , servant-client, servant-quickcheck, servant-server
          , servant-swagger, stdenv, stm, string-conv, swagger2
@@ -7725,9 +7726,10 @@ inherit (pkgs) mesa;};
              data-default exceptions formatting http-api-data http-types
              insert-ordered-containers ixset-typed lens log-warper memory
              MonadRandom mtl neat-interpolation optparse-applicative QuickCheck
-             serokell-util servant servant-server servant-swagger stm
-             string-conv swagger2 text text-format time-units universum
-             unordered-containers wai wai-cors wai-extra warp
+             safe-exceptions serokell-util servant servant-server
+             servant-swagger stm string-conv swagger2 text text-format
+             time-units universum unordered-containers wai wai-cors wai-extra
+             warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-crypto cardano-sl

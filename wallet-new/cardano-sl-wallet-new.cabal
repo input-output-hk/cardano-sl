@@ -23,6 +23,7 @@ library
                        Cardano.Wallet.Orphans.Arbitrary
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
+                       Cardano.Wallet.API.Development
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
@@ -132,7 +133,10 @@ executable cardano-new
                        -Wall
                        -fno-warn-orphans
                        -O2
-  other-modules:       Cardano.Wallet.API.V0.Handlers
+  other-modules:       Cardano.Wallet.API.Development.Handlers
+                       Cardano.Wallet.API.Development.Helpers
+                       Cardano.Wallet.API.Development.LegacyHandlers
+                       Cardano.Wallet.API.V0.Handlers
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.LegacyHandlers
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
@@ -180,6 +184,7 @@ executable cardano-new
                      , mtl
                      , neat-interpolation
                      , optparse-applicative
+                     , safe-exceptions
                      , servant
                      , servant-server
                      , servant-swagger
@@ -291,10 +296,13 @@ test-suite wallet-new-specs
   main-is:          Spec.hs
   hs-source-dirs:   server test
 
-  other-modules:    SwaggerSpec
-                    APISpec
+  other-modules:    APISpec
+                    DevelopmentSpec
                     MarshallingSpec
+                    SwaggerSpec
 
+                    Cardano.Wallet.API.Development.Helpers
+                    Cardano.Wallet.API.Development.LegacyHandlers
                     Cardano.Wallet.API.V0.Handlers
                     Cardano.Wallet.API.V1.LegacyHandlers
                     Cardano.Wallet.API.V1.LegacyHandlers.Accounts
@@ -306,6 +314,7 @@ test-suite wallet-new-specs
                     Cardano.Wallet.API.V1.LegacyHandlers.Updates
                     Cardano.Wallet.API.V1.Swagger
                     Cardano.Wallet.API.V1.Swagger.Example
+                    Cardano.Wallet.Server.CLI
 
   default-language: Haskell2010
   default-extensions: TypeOperators
@@ -331,6 +340,7 @@ test-suite wallet-new-specs
                     , aeson
                     , aeson-pretty
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-client
                     , cardano-sl-core
@@ -354,7 +364,9 @@ test-suite wallet-new-specs
                     , insert-ordered-containers
                     , ixset-typed
                     , lens
+                    , log-warper
                     , neat-interpolation
+                    , optparse-applicative
                     , quickcheck-instances
                     , memory
                     , safe-exceptions
@@ -367,5 +379,6 @@ test-suite wallet-new-specs
                     , stm
                     , swagger2
                     , text
+                    , time-units
                     , universum
                     , unordered-containers

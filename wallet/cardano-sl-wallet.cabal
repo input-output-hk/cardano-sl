@@ -19,7 +19,7 @@ Flag for-installer
                installer)
 
 library
-  hs-source-dirs:     src
+  hs-source-dirs:     src test
   exposed-modules:    Pos.Arbitrary.Wallet.Web.ClientTypes
                       Pos.Wallet
                       Pos.Wallet.Redirect
@@ -98,6 +98,9 @@ library
                       Pos.Util.BackupPhrase
                       Pos.Util.Mnemonics
 
+                      -- shared test sources needed by tests of wallet-new
+                      Test.Pos.Wallet.Web.Mode
+
   other-modules:        Paths_cardano_sl_wallet
 
   build-depends:        QuickCheck
@@ -112,6 +115,8 @@ library
                       , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
+                      , cardano-sl-delegation
+                      , cardano-sl-generator
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-ssc
@@ -129,6 +134,7 @@ library
                       , filepath
                       , formatting
                       , hashable
+                      , hspec
                       , lens
                       , log-warper
                       , memory

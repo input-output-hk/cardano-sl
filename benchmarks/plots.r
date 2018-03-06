@@ -18,6 +18,7 @@ library(gridExtra)
 
 if (INTERACTIVE) {
   #library('ggedit')    # only if interactive editing
+  pdf(NULL)   # prevent PDF output
   fnames <- file.choose()
   fname <- fnames[1]
   RUN <- sub('.*run-([-_0-9]+).csv', '\\1', fname)
@@ -27,15 +28,22 @@ if (INTERACTIVE) {
   RUN <- args[1]
   bp <- "."
   fname <- paste('run-', RUN, '.csv', sep='')
+  pdf(paste("BM-",RUN,".pdf",sep=''), onefile=TRUE, compress=TRUE, paper="a4")   # PDF output to file
 }
 fname2 <- paste(bp, '/report_', RUN, '.txt', sep='')
 fname3 <- paste(bp, '/bench-settings', sep='')
 fname4 <- paste(bp, '/times.csv', sep='')
 
 DESC=''                    # Add custom text to titles
-k <- 6 #12 #24             # Protocol parameters determining
+k <- 6 #6 #12 #24             # Protocol parameters determining
 SLOTLENGTH <- 20           # the length of an epoch
 EPOCHLENGTH <- 10*k*SLOTLENGTH
+
+# general constants which should correspond to the recording script
+# these are defaults to which we fall back if they cannot be extracted from the log
+#recDelay0 <- 5   # seconds
+recCpuTicks0 <- 100  # `getconf CLK_TCK`
+recPageSize0 <- 4096 # memory is indicated in pages
 
 # have trx times?
 hasTrxTimes <- FALSE
@@ -122,11 +130,16 @@ readOSmetrics <- function(nodename) {
   fn <- paste(bp, '/', nodename, '-ts.log', sep='')
   metrics <- {}
   if (file.exists(fn)) {
+    isNewFile <- TRUE
     # add to read.csv?   stringsAsFactors=FALSE
-    metrics_csv <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, sep=" ")
+    if (isNewFile) {
+      metrics_csv <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=7, sep=" ")
+    } else {
+      metrics_csv <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, sep=" ")
+    }
     mlen <- dim(metrics_csv)[1]
     colnames(metrics_csv)[1:2] <- c("time", "stats")
-    metrics_csv <- cbind(nodename, metrics_csv[1:(mlen-2),])
+    metrics_csv <- cbind(nodename, metrics_csv[1:(mlen-2),])  # skip last 2 lines
     metrics_csv$stats <- as.factor(metrics_csv$stats)
     metrics_csv$time <- as.numeric(metrics_csv$time)
     
@@ -159,6 +172,33 @@ readOSmetrics <- function(nodename) {
     metrics$stat$priority <- as.factor(metrics$stat$priority)
     metrics$stat$starttime <- as.factor(metrics$stat$starttime)
     metrics$stat$policy <- as.factor(metrics$stat$policy)
+    
+    # kernel constants per node; read from log file once they are there
+    if (isNewFile) {
+      metrics_params <- read.csv(fn, as.is = c(TRUE), header=FALSE, skip=5, nrows=1, sep=" ")
+      metrics_params <- strsplit(t(metrics_params), "=")
+      for (q in metrics_params) {
+        if (q[1] == "PAGESIZE") { metrics$pagesize[nodename] <- as.numeric(q[2]); }
+        if (q[1] == "CLKTCK") { metrics$clktck[nodename] <- as.numeric(q[2]); }
+      }
+      if (is.na(metrics$pagesize[nodename])) {
+        metrics$pagesize[nodename] <- recPageSize0;
+      }
+      if (is.na(metrics$clktck[nodename])) { metrics$clktck[nodename] <- recCpuTicks0; }
+    } else {
+      metrics$pagesize[nodename] <- recPageSize0
+      #metrics$delay[nodename] <- recDelay0
+      metrics$clktck[nodename] <- recCpuTicks0
+    }
+    
+    # adjust
+    recPageSize <- recPageSize0
+    if (! is.null(metrics$pagesize[nodename])) { recPageSize <- metrics$pagesize[nodename] }
+    recCpuTicks <- recCpuTicks0
+    if (! is.null(metrics$clktck[nodename])) { recCpuTicks <- metrics$clktck[nodename] }
+    metrics$stat$rss <- metrics$stat$rss * recPageSize
+    metrics$stat$utime <- metrics$stat$utime / recCpuTicks * 100
+    metrics$stat$stime <- metrics$stat$stime / recCpuTicks * 100
     #plot(metrics$stat$nthr)
     #plot(metrics$stat$vsize)
   }
@@ -183,7 +223,7 @@ kslots <- function(d) {
   tmin <- trunc(tmin / EPOCHLENGTH) * EPOCHLENGTH
   kslots <- data.frame(start=seq(from=tmin, to=max(d$t), by=k*SLOTLENGTH))
     geom_vline(data=kslots,
-               aes(xintercept = start, alpha=0.55)
+               aes(xintercept = start, alpha=0.65)
              , colour='red'
              , linetype='dotted'
                )
@@ -227,7 +267,7 @@ plotTxs <- function(d, run=RUN, desc=DESC) {
         ggtitle(paste(
             'Transaction frequency for core and relay nodes, run at '
           , run, desc, sep = ' ')) +
-        xlab("t [s]") +
+        xlab("t [s] after start of experiment") +
         ylab("transaction rate [Hz]") +
         facet_grid(txType ~ run) +
         epochs(d) + kslots(d) +
@@ -245,7 +285,7 @@ plotMempools <- function(d, str='core and relay', run=RUN, desc=DESC) {
         ggtitle(paste(
             'Mempool sizes for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
-        xlab("t [s]") +
+        xlab("t [s] after start of experiment") +
         ylab("Mempool size [# of transactions]") +
         facet_grid(txType ~ isRelay, scales= "free", space = "free") +
         epochs(d) +
@@ -272,7 +312,7 @@ plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC, lin=TRUE, min
         ggtitle(paste(
             'Wait and work times for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
-        xlab("t [s]") +
+        xlab("t [s] after start of experiment") +
         ylab("Times waiting for/holding the lock [microseconds]") +
         (if (lin) { scale_y_continuous(); } else { scale_y_log10(); }) +     ###  <<<<<<
         facet_grid(txType ~ isRelay) +
@@ -376,118 +416,157 @@ report <- readReport(fname2)
 data <- readData(fname)
 
 
-
-png(filename=paste('overview-', RUN, '.png', sep=''))
-#plotOverview(data, report)
-dev.off()
-#plotOverview(data, report)
-
-png(filename=paste('msgcount-', RUN, '.png', sep=''))
-#plotMessages(data)
-dev.off()
-#plotMessages(data)
-
-if (hasTrxTimes) {
-  png(filename=paste('duration-', RUN, '.png', sep=''))
-  #plotDuration()
+if (TRUE) {
+  png(filename=paste('overview-', RUN, '.png', sep=''))
+  plotOverview(data, report)
   dev.off()
-  #plotDuration()
-}
-
-plotTxs(data)
-#ggsave(paste('txs-', RUN, '.svg', sep=''))
-#ggsave(paste('txs-', RUN, '.png', sep=''))
-
-plotMempools(data)
-#ggsave(paste('mempools-', RUN, '.svg', sep=''))
-#ggsave(paste('mempools-', RUN, '.png', sep=''))
-
-plotTimes(data, lin=FALSE)
-#ggsave(paste('times-', RUN, '.svg', sep=''))
-#ggsave(paste('times-', RUN, '.png', sep=''))
-
-plotTimes(data, lin=TRUE, minfilter=1e+03)
-#ggsave(paste('times-', RUN, '.svg', sep=''))
-#ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
-
-#observe only core nodes:
-#plotMempools(data %>% filter(!(node %in% relays)), 'core')
-
-#observe only unprivileged relays:
-#plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
-
-#observe only privileged relays:
-#plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
-
-#plotTimes(data %>% filter(!(node %in% relays)), 'core')
-
+  p1 <- plotOverview(data, report)
+  
+  png(filename=paste('msgcount-', RUN, '.png', sep=''))
+  plotMessages(data)
+  dev.off()
+  p2 <- plotMessages(data)
+  
+  p3 <- if (hasTrxTimes) {
+    png(filename=paste('duration-', RUN, '.png', sep=''))
+    plotDuration()
+    dev.off()
+    plotDuration()
+  }
+  
+  p4 <- plotTxs(data)
+  #ggsave(paste('txs-', RUN, '.svg', sep=''))
+  ggsave(paste('txs-', RUN, '.png', sep=''))
+  
+  p5 <- plotMempools(data)
+  #ggsave(paste('mempools-', RUN, '.svg', sep=''))
+  ggsave(paste('mempools-', RUN, '.png', sep=''))
+  
+  p6 <- plotTimes(data, lin=FALSE)
+  #ggsave(paste('times-', RUN, '.svg', sep=''))
+  ggsave(paste('times-', RUN, '.png', sep=''))
+  
+  p7 <- plotTimes(data, lin=TRUE, minfilter=1e+03)
+  #ggsave(paste('times-', RUN, '.svg', sep=''))
+  ggsave(paste('times-', RUN, '-linear_scale.png', sep=''))
+  
+  #observe only core nodes:
+  #plotMempools(data %>% filter(!(node %in% relays)), 'core')
+  
+  #observe only unprivileged relays:
+  #plotMempools(data %>% filter(node %in% uRelays), 'unprivileged relay')
+  
+  #observe only privileged relays:
+  #plotMempools(data %>% filter((node %in% relays) & (!(node %in% uRelays))), 'privileged relay')
+  
+  #plotTimes(data %>% filter(!(node %in% relays)), 'core')
+  list(p1,p2,p3,p4,p5,p6,p7)
+}  
 
 # plot the rate of sent and written transactions
 plotOSMetrics <- function(d, run=RUN, labx="", laby="", desc=DESC) {
-     ggplot(d, aes(x=(time/1000), y=metrics)) +
+     ggplot(d, aes(x=(time), y=metrics)) +
         geom_point(colour = "blue", size=0.1) +
         ggtitle(paste(
             desc
           , run, sep = ' ')) +
-        #if (is.null(labx)) { xlab("t [s]") } else { xlab(labx) } +
-        xlab(if (labx == "") {"t [s]"} else labx) +
-        ylab(if (laby == "") {"bytes"} else laby) +
+        xlab(if (labx == "") {"t [s] since start of experiment"} else labx) +
+        ylab(if (laby == "") {"[??]"} else laby) +
 #        scale_x_date(date_labels = "%H:%M:%S") +
+#        scale_x_datetime() +
         facet_grid(node ~ category, scales = "fixed") +
-#        epochs(d) + kslots(d) +
+        epochs(data) + kslots(data) +
         guides(size = "none", colour = "legend", alpha = "none")
     }
 
 # first block was written
-t1stBlock <- min(trunc(data$time/1000/1000))
-tlastBlock <- max(trunc(data$time/1000/1000))
+#t1stBlock <- min(trunc(data$time/1000/1000))
+#tlastBlock <- max(trunc(data$time/1000/1000))
 
-# read in OS metrics from all core nodes
-osmetrics = {}
-for (n in coreNodes) {
-    m <- readOSmetrics(n)
-    osmetrics$io <- rbind(osmetrics$io, m$io)
-    osmetrics$mstat <- rbind(osmetrics$mstat, m$mstat)
-    osmetrics$stat <- rbind(osmetrics$stat, m$stat)
+prepareOSMetrics4nodes <- function (nodes, target, title) {
+  # read in OS metrics from all core nodes
+  osmetrics = {}
+  for (n in nodes) {
+      m <- readOSmetrics(n)
+      osmetrics$io <- rbind(osmetrics$io, m$io)
+      osmetrics$mstat <- rbind(osmetrics$mstat, m$mstat)
+      osmetrics$stat <- rbind(osmetrics$stat, m$stat)
+  }
+  
+  # we only run this if there are some ts data
+  # older runs that lack them can still be analyzed
+  if (! is.null(osmetrics$io)) {
+    # skip first 20 datapoins (start up of process)
+    tmin <- min(osmetrics$io$time)
+    tmax <- max(osmetrics$io$time)
+    tstartup <- 20
+    osmetrics$io <- osmetrics$io %>% filter(time >= tmin + tstartup)
+    osmetrics$mstat <- osmetrics$mstat %>% filter(time >= tmin + tstartup)
+    osmetrics$stat <- osmetrics$stat %>% filter(time >= tmin + tstartup)
+  
+    # epoch start time, aligned to times in `data`
+    t0 <- round(data$time[1] / 1e6) - data$t[1]
+    
+    osmetrics$io$time0 <- osmetrics$io$time
+    osmetrics$mstat$time0 <- osmetrics$mstat$time
+    osmetrics$stat$time0 <- osmetrics$stat$time
+    osmetrics$io$time <- osmetrics$io$time - t0
+    osmetrics$mstat$time <- osmetrics$mstat$time - t0
+    osmetrics$stat$time <- osmetrics$stat$time - t0
+
+    osmetrics$io <- osmetrics$io %>% filter(time >= 0)
+    osmetrics$mstat <- osmetrics$mstat %>% filter(time >= 0)
+    osmetrics$stat <- osmetrics$stat %>% filter(time >= 0)
+    
+  # prepare plot data (I/O)
+    plotdata <- {}
+    for (n in nodes) {
+      #recDelay <- recDelay0
+      #if (! is.null(osmetrics$delay[n])) { recDelay <- osmetrics$delay[n] }
+      # extract node's data and sort it by the 'time' column:
+      d <- osmetrics$io %>% filter(nodename == n) %>% arrange_all(c(time))
+      td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
+      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$rchar) / td), category='read'))
+      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$wchar) / td), category='written'))
+    }
+  
+    p1 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="bytes per s", desc=paste("I/O metrics", title, sep=" "))
+    ggsave(paste('os-io-', target, "-", RUN, '.png', sep=''))
+  
+  # prepare plot data (CPU)
+    plotdata <- {}
+    for (n in nodes) {
+      #recDelay <- recDelay0
+      #if (! is.null(osmetrics$delay[n])) { recDelay <- osmetrics$delay[n] }
+      # extract node's data and sort it by the 'time' column:
+      d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
+      td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
+      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$utime) / td), category='CPU (user time)'))
+      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$stime) / td), category='CPU (kernel time)'))
+    }
+  
+    p2 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="single CPU %", desc=paste("CPU metrics", title, sep=" "))
+    ggsave(paste('os-cpu-', target, "-", RUN, '.png', sep=''))
+  
+  # prepare plot data (memory)
+    plotdata <- {}
+    for (n in nodes) {
+      # extract node's data and sort it by the 'time' column:
+      d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
+      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=(d$rss / 1024), category='memory (RSS)'))
+    }
+  
+    p3 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="kilobytes", desc=paste("Memory usage", title, sep=" "))
+    ggsave(paste('os-mem-', target, "-", RUN, '.png', sep=''))
+
+    list(p1,p2,p3);
+  }
 }
 
-# skip first 20 datapoins (start up of process)
-tmin <- min(osmetrics$io$time)
-tstartup <- 20
-osmetrics$io <- osmetrics$io %>% filter(time >= tmin + tstartup)
-osmetrics$mstat <- osmetrics$mstat %>% filter(time >= tmin + tstartup)
-osmetrics$stat <- osmetrics$stat %>% filter(time >= tmin + tstartup)
+prepareOSMetrics4nodes(coreNodes, "core", "for core nodes")
 
-# prepare plot data (I/O)
-plotdata <- {}
-for (n in coreNodes) {
-  # extract node's data and sort it by the 'time' column:
-  d <- osmetrics$io %>% filter(nodename == n) %>% arrange_all(c(time))
-  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$rchar)), category='read'))
-  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$wchar)), category='written'))
-}
+prepareOSMetrics4nodes(relays, "relays", "for relay nodes")
 
-plotOSMetrics(plotdata %>% filter(metrics > 0), laby="bytes", desc="I/O metrics for core nodes")
-ggsave(paste('os-io-', RUN, '.png', sep=''))
+print("all done.")
+dev.off()
 
-# prepare plot data (CPU)
-plotdata <- {}
-for (n in coreNodes) {
-  # extract node's data and sort it by the 'time' column:
-  d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
-  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$utime + d$stime)), category='CPU (ticks)'))
-}
-
-plotOSMetrics(plotdata %>% filter(metrics > 0), laby="ticks", desc="CPU metrics for core nodes")
-ggsave(paste('os-cpu-', RUN, '.png', sep=''))
-
-# prepare plot data (memory)
-plotdata <- {}
-for (n in coreNodes) {
-  # extract node's data and sort it by the 'time' column:
-  d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
-  plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=d$rss, category='memory (RSS)'))
-}
-
-plotOSMetrics(plotdata %>% filter(metrics > 0), laby="blocks", desc="Memory metrics for core nodes")
-ggsave(paste('os-mem-', RUN, '.png', sep=''))

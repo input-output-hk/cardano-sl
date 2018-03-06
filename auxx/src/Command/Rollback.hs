@@ -25,16 +25,13 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
 import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Mode (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
 rollbackAndDump
-    :: ( MonadAuxxMode m
-       , HasCompileInfo
-       )
+    :: MonadAuxxMode m
     => Word
     -> FilePath
     -> m ()

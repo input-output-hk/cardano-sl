@@ -70,6 +70,6 @@ type MonadLastKnownHeader ctx m
      = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx LastKnownHeader)
 
 data RecoveryHeaderTag
-type RecoveryHeader = STM.TMVar (NodeId, BlockHeader)
+type RecoveryHeader = STM.TMVar (Maybe NodeId, BlockHeader)
 type MonadRecoveryHeader ctx m
      = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx RecoveryHeader)

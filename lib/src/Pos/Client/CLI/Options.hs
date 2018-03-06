@@ -67,11 +67,11 @@ configurationOptionsParser = do
         Opt.help    "Path to a yaml configuration file" <>
         Opt.value   (cfoFilePath def)
     keyParser :: Opt.Parser Text
-    keyParser = fmap toText $ Opt.strOption $
+    keyParser = Opt.strOption $
         Opt.long    "configuration-key" <>
         Opt.metavar "TEXT" <>
         Opt.help    "Key within the configuration file to use" <>
-        Opt.value   (toString (cfoKey def))
+        Opt.value   (cfoKey def)
     systemStartParser :: Opt.Parser (Maybe Timestamp)
     systemStartParser = Opt.option (Just . Timestamp . sec <$> Opt.auto) $
         Opt.long    "system-start" <>
@@ -125,7 +125,6 @@ portOption portNum =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -135,7 +134,6 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from.")
 

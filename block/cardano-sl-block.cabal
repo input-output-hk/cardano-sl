@@ -22,6 +22,7 @@ library
                         Pos.Block.BListener
                         Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
+                        Pos.Block.Dump
                         Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.RetrievalQueue
@@ -102,10 +103,14 @@ library
                       , ether
                       , exceptions
                       , filepath
+                      , fmt
                       , formatting
                       , generic-arbitrary
+                      , http-conduit
                       , lens
                       , log-warper
+                      , lzma-conduit
+                      , mmorph
                       , mtl
                       , random
                       , reflection
@@ -113,10 +118,12 @@ library
                       , safe-exceptions
                       , serokell-util
                       , stm
+                      , stm-conduit
                       , text
                       , text-format
                       , time-units
                       , transformers
+                      , transformers-base
                       , universum
                       , unliftio
                       , unordered-containers
@@ -175,3 +182,4 @@ Benchmark bench-block
                    , formatting
                    , universum
                    , deepseq
+    default-language:     Haskell2010

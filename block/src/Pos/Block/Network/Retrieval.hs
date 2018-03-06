@@ -8,41 +8,54 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
+import           Conduit ((.|))
+import qualified Conduit as C
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
+import qualified Data.Conduit.Async as Conduit.Async
 import qualified Data.List.NonEmpty as NE
+import           Ether.Internal (HasLens (..))
+import           Fmt (format, (+|), (|+))
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
+import qualified Network.HTTP.Simple as Http
 import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
+import           Pos.Block.Dump (decodeBlockDumpC)
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp,
+                                  verifyAndApplyBlocksC)
 import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
                                           triggerRecovery)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, EpochIndex, HasHeaderHash (..), HeaderHash, difficultyL,
+                           epochIndexL, getEpochOrSlot, isMoreDifficult, prevBlockL, siSlotL,
+                           unEpochOrSlot)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
+import           Pos.Slotting.Class (getCurrentSlot)
+import           Pos.StateLock (Priority (HighPriority), modifyStateLock)
+import           Pos.Util ((<//>))
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
-import           Pos.Util.Util (HasLens (..))
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
+    => Maybe Text -> (WorkerSpec m, OutSpecs)
+retrievalWorker blockStorageMirror =
+    worker outs (retrievalWorkerImpl blockStorageMirror)
   where
     outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
                              (Proxy :: Proxy MsgBlock)
@@ -61,16 +74,32 @@ retrievalWorker = worker outs retrievalWorkerImpl
 --
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
+-- Note: if we haven't caught up with the blockchain yet, the worker will
+-- try to download and apply blockchain dumps, and only if it fails it'll
+-- switch to requesting headers/blocks.
+--
 retrievalWorkerImpl
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Diffusion m -> m ()
-retrievalWorkerImpl diffusion =
-    handleAny mainLoopE $ do
-        logInfo "Starting retrievalWorker loop"
-        mainLoop
+    => Maybe Text -> Diffusion m -> m ()
+retrievalWorkerImpl blockStorageMirror diffusion = do
+    whenJust blockStorageMirror $ \dumpUrl ->
+        handleAny downloadBlockDumpE $ do
+            epoch <- view epochIndexL <$> DB.getTipHeader
+            downloadBlockDump epoch (toString dumpUrl)
+    -- It would make some sense to do HTTP sync inside the 'retrievalLoop'
+    -- (either we download blocks from a node or from a server), but
+    --
+    -- 1. I don't feel confident enough about 'retrievalLoop' to modify it
+    -- 2. hopefully, soon enough we'll get rid of HTTP sync
+    handleAny retrievalLoopE $ do
+        logInfo "Starting retrieval loop"
+        retrievalLoop
   where
-    mainLoop = do
+    downloadBlockDumpE e =
+        reportOrLogE "retrievalWorker downloadBlockDumpE: error caught " e
+
+    retrievalLoop = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -91,12 +120,12 @@ retrievalWorkerImpl diffusion =
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
         () <- thingToDoNext
-        mainLoop
-    mainLoopE e = do
+        retrievalLoop
+    retrievalLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
-        reportOrLogE "retrievalWorker mainLoopE: error caught " e
+        reportOrLogE "retrievalWorker retrievalLoopE: error caught " e
         delay (sec 1)
-        mainLoop
+        retrievalLoop
 
     -----------------
 
@@ -138,7 +167,7 @@ retrievalWorkerImpl diffusion =
             _ -> do
                 logDebug "handleAlternative: considering header for recovery mode"
                 -- CSL-1514
-                updateRecoveryHeader nodeId header
+                updateRecoveryHeader (Just nodeId) header
 
     -----------------
 
@@ -155,14 +184,19 @@ retrievalWorkerImpl diffusion =
             nodeId (headerHash rHeader)) e
         dropRecoveryHeaderAndRepeat diffusion nodeId
 
-    -- Recovery handling. We assume that header in the recovery variable is
+    -- Recovery handling. We assume that header in the recovery var is
     -- appropriate and just query headers/blocks.
-    handleRecovery :: NodeId -> BlockHeader -> m ()
-    handleRecovery nodeId rHeader = do
+    handleRecovery :: Maybe NodeId -> BlockHeader -> m ()
+    handleRecovery Nothing _ = do
+        logWarning "handleRecovery: unexpected 'Nothing' in the recovery \
+                   \header (we should only have Nothing there when we're \
+                   \doing HTTP sync, but something went wrong)"
+        dropRecoveryHeaderAndRepeat diffusion Nothing
+    handleRecovery (Just nodeId) rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will fetch more blocks"
         whenM (fmap isJust $ DB.getHeader $ headerHash rHeader) $
-            -- How did we even got into recovery then?
+            -- How did we even get into recovery then?
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
@@ -170,17 +204,77 @@ retrievalWorkerImpl diffusion =
         void $ getProcessBlocks diffusion nodeId rHeader checkpoints
 
 ----------------------------------------------------------------------------
+-- HTTP-based block retrieval
+----------------------------------------------------------------------------
+
+-- | Try to download and apply blockchain dumps, starting from the given
+-- epoch. Halts after having downloaded enough dumps for the current slot to
+-- become known.
+downloadBlockDump
+    :: forall ctx m. BlockWorkMode ctx m
+    => EpochIndex  -- ^ The first epoch for which to download blocks
+    -> String      -- ^ URL of a folder with block dumps
+    -> m ()
+downloadBlockDump epoch dumpUrl = whenNothingM_ getCurrentSlot $ do
+    let epochUrl = dumpUrl <//> format "epoch{}.cbor.lzma" (toInteger epoch)
+    logInfo ("Downloading blockchain dump for epoch "+|epoch|+
+             " from "+|epochUrl|+"")
+    isSuccess <- modifyStateLock HighPriority "tryDownload" $ \tip -> do
+        updateRecoveryHeader Nothing =<< DB.getTipHeader
+        slot <- getEpochOrSlot <$> DB.getTipHeader
+        -- When we're already in the epoch we're going to be downloading
+        -- blocks from, it's possible that we're in slot 10000 or
+        -- something and we'll have to skip 10000 blocks before we can
+        -- show any progress. In this case let's warn about it.
+        whenRight (unEpochOrSlot slot) $ \slotId ->
+            when (slotId ^. epochIndexL == epoch) $
+                logDebug ("Going to download blocks and skip until slot "
+                          +|view siSlotL slotId|+", this may take some time")
+        let applyDump
+                = decodeBlockDumpC
+               .| (C.dropWhileC ((/= tip) . view prevBlockL)
+               >> C.transPipe lift (verifyAndApplyBlocksC True))
+        -- We use Data.Conduit.Async to keep a buffer of downloaded data and
+        -- apply blocks in parallel with downloading them. The buffer size
+        -- is 32 kB * 320 = 10 MB.
+        --
+        -- (32 kB is the default chunk size from Data.ByteString.Lazy and 10
+        -- MB is approximate epoch size. Also, 10 MB is one order of
+        -- magnitude less than the memory usually used by the node.)
+        request <- Http.parseRequest epochUrl
+        (mbErr, newTip) <- C.runResourceT $
+            Conduit.Async.buffer 320
+                (Http.httpSource request Http.getResponseBody
+                 .| C.chunksOfCE 32768)
+                applyDump
+        updateRecoveryHeader Nothing =<< DB.getTipHeader
+        -- TODO: abort if downloading is too slow and we haven't gotten
+        -- any blocks in e.g. last minute
+        case mbErr of
+            Just err -> do
+                logError ("Failed to apply the dump: "+|err|+"")
+                pure (newTip, False)
+            Nothing ->
+                pure (newTip, True)
+    when isSuccess $ downloadBlockDump (succ epoch) dumpUrl
+
+----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
 ----------------------------------------------------------------------------
 
 -- | Result of attempt to update recovery header.
-data UpdateRecoveryResult ssc
-    = RecoveryStarted NodeId BlockHeader
+data UpdateRecoveryResult
+    = RecoveryStarted (Maybe NodeId) BlockHeader
       -- ^ Recovery header was absent, so we've set it.
-    | RecoveryShifted NodeId BlockHeader NodeId BlockHeader
+    | RecoveryShifted
+        { urrOldNodeId :: Maybe NodeId
+        , urrOldHeader :: BlockHeader
+        , urrNewNodeId :: Maybe NodeId
+        , urrNewHeader :: BlockHeader
+        }
       -- ^ Header was present, but we've replaced it with another
       -- (more difficult) one.
-    | RecoveryContinued NodeId BlockHeader
+    | RecoveryContinued (Maybe NodeId) BlockHeader
       -- ^ Header is good, but is irrelevant, so recovery variable is
       -- unchanged.
 
@@ -190,7 +284,7 @@ data UpdateRecoveryResult ssc
 -- indefinitely.
 updateRecoveryHeader
     :: BlockWorkMode ctx m
-    => NodeId
+    => Maybe NodeId
     -> BlockHeader
     -> m ()
 updateRecoveryHeader nodeId hdr = do
@@ -206,18 +300,22 @@ updateRecoveryHeader nodeId hdr = do
                 let needUpdate = hdr `isMoreDifficult` oldHdr
                 if needUpdate
                     then swapTMVar recHeaderVar (nodeId, hdr) $>
-                         RecoveryShifted oldNodeId oldHdr nodeId hdr
+                         RecoveryShifted
+                           { urrOldNodeId = oldNodeId
+                           , urrOldHeader = oldHdr
+                           , urrNewNodeId = nodeId
+                           , urrNewHeader = hdr }
                     else return $ RecoveryContinued oldNodeId oldHdr
     logDebug $ case updated of
         RecoveryStarted rNodeId rHeader -> sformat
             ("Recovery started with nodeId="%build%" and tip="%build)
             rNodeId
             (headerHash rHeader)
-        RecoveryShifted rNodeId' rHeader' rNodeId rHeader -> sformat
+        RecoveryShifted{..} -> sformat
             ("Recovery shifted from nodeId="%build%" and tip="%build%
              " to nodeId="%build%" and tip="%build)
-            rNodeId' (headerHash rHeader')
-            rNodeId  (headerHash rHeader)
+            urrOldNodeId (headerHash urrOldHeader)
+            urrNewNodeId (headerHash urrNewHeader)
         RecoveryContinued rNodeId rHeader -> sformat
             ("Recovery continued with nodeId="%build%" and tip="%build)
             rNodeId
@@ -234,7 +332,7 @@ updateRecoveryHeader nodeId hdr = do
 -- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
     :: BlockWorkMode ctx m
-    => NodeId
+    => Maybe NodeId
     -> m Bool
 dropRecoveryHeader nodeId = do
     recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -254,7 +352,7 @@ dropRecoveryHeader nodeId = do
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
     :: (BlockWorkMode ctx m)
-    => Diffusion m -> NodeId -> m ()
+    => Diffusion m -> Maybe NodeId -> m ()
 dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
@@ -292,7 +390,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

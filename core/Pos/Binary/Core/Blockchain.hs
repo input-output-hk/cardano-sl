@@ -14,9 +14,10 @@ import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Core.Block.Union.Types (BlockHeader (..))
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, getProtocolMagic, protocolMagic)
+import           Pos.Crypto.Configuration (HasCryptoConfiguration, protocolMagic)
 import           Pos.Util.Util (cborError)
 
+-- When changing this instance, also change the one in Pos.Block.Dump
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)
@@ -26,7 +27,7 @@ instance ( Typeable b
          ) =>
          Bi (T.GenericBlockHeader b) where
     encode bh =  encodeListLen 5
-              <> encode (getProtocolMagic protocolMagic)
+              <> encode protocolMagic
               <> encode (T._gbhPrevBlock bh)
               <> encode (T._gbhBodyProof bh)
               <> encode (T._gbhConsensus bh)
@@ -37,7 +38,7 @@ instance ( Typeable b
         -- TODO include ProtocolMagic in the definition of GenericBlockHeader,
         -- and decode it, eliminating this failure case. Protocol magic checks
         -- must not happen in decoding.
-        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
+        when (blockMagic /= protocolMagic) $ cborError $
             "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
         _gbhPrevBlock <- decode
         _gbhBodyProof <- decode
@@ -45,6 +46,7 @@ instance ( Typeable b
         _gbhExtra     <- decode
         pure T.UnsafeGenericBlockHeader {..}
 
+-- When changing this instance, also change the one in Pos.Block.Dump
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
          , Bi (T.BodyProof b)

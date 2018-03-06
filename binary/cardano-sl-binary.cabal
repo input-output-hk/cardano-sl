@@ -15,6 +15,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Pos.Binary.Class
+                       Pos.Binary.Conduit
 
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.RefImpl
@@ -30,12 +31,15 @@ library
                      , binary
                      , bytestring
                      , cborg
+                     , conduit
                      , containers
                      , digest
                      , formatting
                      , half
                      , hashable
                      , lens
+                     , mmorph
+                     , mono-traversable
                      , mtl
                      , parsec
                      , process

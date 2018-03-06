@@ -33,6 +33,7 @@ import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usK
 import           Pos.Util.Util (eitherToThrow)
 
 import           Command.BlockGen (generateBlocks)
+import qualified Command.DumpBlockchain as DumpBlockchain
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
@@ -41,15 +42,15 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
-import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
-                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), Value (..))
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), DumpBlockchainParams (..),
+                             GenBlocksParams (..), ProposeUpdateParams (..),
+                             ProposeUpdateSystem (..), RollbackParams (..), Value (..))
 import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
@@ -268,6 +269,20 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
                \ using secret key #i"
     },
 
+    let name = "apply-blockchain-dump" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = getArg tyFilePath "path"
+    , cpExec = \path -> do
+        DumpBlockchain.applyBlockchainDump path
+        return ValueUnit
+    , cpHelp = "take a single .cbor.lzma file containing a blockchain dump \
+               \(or a folder with such files), and apply all blocks from \
+               \those files as if they were received from the network"
+    },
+
     return CommandProc
     { cpName = "bvm"
     , cpArgumentPrepare = identity
@@ -452,6 +467,38 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         Rollback.rollbackAndDump rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
+    },
+
+    let name = "dump-blockchain" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        dumpOutFolder <- getArg tyFilePath "dump-folder"
+        pure DumpBlockchainParams{..}
+    , cpExec = \DumpBlockchainParams{..} -> do
+        DumpBlockchain.dumpBlockchain Nothing Nothing dumpOutFolder
+        return ValueUnit
+    , cpHelp = "dump all available blocks as a number of .cbor.lzma files, \
+               \each corresponding to a single epoch (the last epoch might \
+               \be truncated"
+    },
+
+    let name = "dump-blockchain-loop" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        dumpOutFolder <- getArg tyFilePath "dump-folder"
+        pure DumpBlockchainParams{..}
+    , cpExec = \DumpBlockchainParams{..} -> do
+        DumpBlockchain.dumpBlockchainLoop dumpOutFolder
+        return ValueUnit
+    , cpHelp = "run a loop that will dump epochs as soon as they become \
+               \stable (immutable); each epoch will be dumped as a \
+               \.cbor.lzma file"
     },
 
     let name = "listaddr" in

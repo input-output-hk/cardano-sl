@@ -6,7 +6,7 @@ module Pos.GState.SanityCheck
 
 import           Universum
 
-import           System.Wlog (WithLogger)
+import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDBRead)
@@ -22,7 +22,9 @@ sanityCheckDB ::
        , MonadReader ctx m
        )
     => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
+sanityCheckDB = inAssertMode $ do
+    sanityCheckGStateDB
+    logDebug "Finished sanity check"
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB ::

@@ -68,11 +68,11 @@ import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 -- | All workers specific to block processing.
 blkWorkers
     :: BlockWorkMode ctx m
-    => ([WorkerSpec m], OutSpecs)
-blkWorkers =
+    => Maybe Text -> ([WorkerSpec m], OutSpecs)
+blkWorkers blockStorageMirror =
     merge $ [ blkCreatorWorker
             , informerWorker
-            , retrievalWorker
+            , retrievalWorker blockStorageMirror
             , recoveryTriggerWorker
             ]
   where

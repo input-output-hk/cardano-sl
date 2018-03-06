@@ -14,7 +14,7 @@ import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (wrapActionSpec)
 -- Message instances.
 import           Pos.Communication.Message ()
-import           Pos.Context (NodeContext (..))
+import           Pos.Context (NodeContext (..), NodeParams (..))
 import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Network.CLI (launchStaticConfigMonitoring)
@@ -40,7 +40,7 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers
+    , wrap' "block"      $ blkWorkers (npBlockStorageMirror ncNodeParams)
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "StaticConfigMonitoring" $

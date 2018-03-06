@@ -11,6 +11,7 @@ module Mockable.Instances
 
 import           Control.Lens (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))
+import           Control.Monad.Trans.Resource.Internal (ResourceT (..))
 import           Serokell.Util.Lens (WrappedM (..), _UnwrappedM)
 import           System.Wlog (LoggerName, LoggerNameBox)
 
@@ -37,6 +38,9 @@ instance ( Mockable d m
          ) => Mockable d (LoggerNameBox m) where
     liftMockable = liftMockableWrappedM
 
+instance (Mockable d m, MFunctor' d (ResourceT m) m) => Mockable d (ResourceT m) where
+    liftMockable dmt = ResourceT $ \r -> liftMockable $ hoist' (flip unResourceT r) dmt
+
 type instance ThreadId (LoggerNameBox m) = ThreadId m
 type instance Promise (LoggerNameBox m) = Promise m
 type instance SharedAtomicT (LoggerNameBox m) = SharedAtomicT m
@@ -54,3 +58,12 @@ type instance ChannelT (ReaderT r m) = ChannelT m
 type instance Gauge (ReaderT r m) = Gauge m
 type instance Counter (ReaderT r m) = Counter m
 type instance Distribution (ReaderT r m) = Distribution m
+
+type instance ThreadId (ResourceT m) = ThreadId m
+type instance Promise (ResourceT m) = Promise m
+type instance SharedAtomicT (ResourceT m) = SharedAtomicT m
+type instance SharedExclusiveT (ResourceT m) = SharedExclusiveT m
+type instance ChannelT (ResourceT m) = ChannelT m
+type instance Gauge (ResourceT m) = Gauge m
+type instance Counter (ResourceT m) = Counter m
+type instance Distribution (ResourceT m) = Distribution m

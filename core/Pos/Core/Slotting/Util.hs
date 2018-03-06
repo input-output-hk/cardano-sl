@@ -76,8 +76,8 @@ instance HasProtocolConstants => Enum SlotId where
 instance HasEpochIndex SlotId where
     epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
 
--- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
--- are stable.
+-- | Slot such that at the beginning of given epoch, blocks
+-- with SlotId ≤ this slot are stable.
 crucialSlot :: HasProtocolConstants => EpochIndex -> SlotId
 crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
 crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}

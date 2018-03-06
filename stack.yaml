@@ -201,7 +201,11 @@ extra-deps:
 - memory-0.14.14
 - criterion-1.3.0.0
 - statistics-0.14.0.2
-
+# From CSL-2129
+- optparse-applicative-0.14.0.0   # to get nicer 'strOptions'
+- diagrams-svg-1.4.1.1            # because of optparse-applicative bump
+- stm-conduit-4.0.0
+- cereal-conduit-0.8.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

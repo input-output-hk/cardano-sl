@@ -8,6 +8,7 @@ module Pos.Crypto.Configuration
 
 import           Universum
 
+import           Data.Text.Buildable (Buildable)
 import           Data.Reflection (Given (..), given)
 
 -- | Magic number which should differ for different clusters. It's
@@ -15,7 +16,7 @@ import           Data.Reflection (Given (..), given)
 -- things (e. g. it's part of a serialized block).
 newtype ProtocolMagic = ProtocolMagic
     { getProtocolMagic :: Int32
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Buildable)
 
 type HasCryptoConfiguration = Given ProtocolMagic
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Types
     ( Probability
@@ -7,17 +8,30 @@ module Types
     , getProbability
     , Action (..)
     , WalletState (..)
+    , wallets
+    , actionsNum
     , TestResult (..)
     , ActionWalletState
     , ActionProbabilities
-    , WIntTestMode
+    , WalletTestMode
+    -- * EDSL
+    , Expr (..)
+    , createActionDistribution
+    , createActionHandler
+    , createActionError
+    , testEval
     ) where
 
 import Universum
 
+import Control.Lens (makeLenses)
+
 import Cardano.Wallet.API.V1.Types (Wallet)
 
-type WIntTestMode m =
+import Error
+
+
+type WalletTestMode m =
     ( MonadIO m
     , MonadThrow m
     )
@@ -32,9 +46,7 @@ data Probability = Probability { getProbability :: Int }
 -- | Safe constructor that checks the values.
 createProbability :: Int -> Probability
 createProbability prob
-    -- TODO(ks): Maybe we should @throwM@ or @either@ here.
-    | prob <= 0 || prob > 100 =
-        error "Probability should be between 1 - 100."
+    | prob <= 0 || prob > 100 = error "Invalid range. 0 - 100."
     | otherwise               = Probability prob
 
 
@@ -59,9 +71,12 @@ type ActionProbabilities = [(Action, Probability)]
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { wallets       :: [Wallet]
-    , actionsNum    :: Int
-    }
+    { _wallets       :: [Wallet]
+    , _actionsNum    :: Int
+    } deriving (Show, Eq, Generic)
+
+
+makeLenses ''WalletState
 
 
 -- | The type that has the action probabilities to execute along
@@ -84,5 +99,37 @@ data TestResult
     = NewWalletResult Wallet
     | ErrorResult Text
     deriving (Show, Eq)
+
+
+-- | This is helpful.
+type ActionResult = Action -> TestResult
+type Invariant    = [ActionResult -> Bool]
+
+
+-- | The EDSL for using this.
+data Expr
+    = ActionDistribution [(Action,Probability)]
+    | ActionHandler Action ActionResult Invariant
+    | ActionError WalletTestError
+    deriving (Generic)
+
+
+createActionDistribution :: [(Action,Probability)] -> Expr
+createActionDistribution = ActionDistribution
+
+
+createActionHandler :: Action -> ActionResult -> Invariant -> Expr
+createActionHandler = ActionHandler
+
+
+createActionError :: WalletTestError -> Expr
+createActionError = ActionError
+
+
+-- | Testing evaluation.
+testEval :: Expr -> Text
+testEval (ActionDistribution aDistr) = "ActionDistribution " <> show aDistr
+testEval (ActionHandler action _ _)  = "ActionHandler " <> show action
+testEval (ActionError actionErr)     = "ActionError " <> show actionErr
 
 

@@ -54,13 +54,13 @@ Installer is file which can install Daedalus on your machine (`*.exe` file for W
 
 ### Which parts Daedalus consists of
 Before the process of preparing installers will be described I would like to say which parts Daedalus consists of.
-There are three parts: `launcher`, `cardano-node` and Daedalus frontend.
+There are three parts: `cardano-launcher`, `cardano-node` and Daedalus frontend.
 `cardano-node` is like application which is launched on cluster, however, it also provides API to maintain your wallets, secret keys and etc.
 So essentially it's backend for Daedalus frontend.
 
-When you open Daedalus on your machine `launcher` is launched and it launches `cardano-node` and Daedalus frontend which uses provided API.
+When you open Daedalus on your machine `cardano-launcher` is launched and it launches `cardano-node` and Daedalus frontend which uses provided API.
 So installer contains all these three parts.
-`cardano-node` and `launcher` come from [cardano-sl repository](https://github.com/input-output-hk/cardano-sl), 
+`cardano-node` and `cardano-launcher` come from [cardano-sl repository](https://github.com/input-output-hk/cardano-sl), 
 Daedalus fronted comes from [daedalus repository](https://github.com/input-output-hk/daedalus).
 
 ### How to build installers
@@ -89,11 +89,11 @@ After build from the previous step is ready, you should proceed the following ac
    This branch should be branch from the previous step and should contain added configurations.
    Make sure that backed API compatiable with Daedalus frontend, [this page](https://github.com/input-output-hk/internal-documentation/wiki/Daedalus-installer-history) may be useful. It reflects  correspondence between cardano revisions and Daedalus revisions.
    
-   In `appveyor.yml` in [this line](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/appveyor.yml#L26)
+   In `appveyor.yml` in [this line](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/appveyor.yml#L26)
    you should specify your branch instead of `release/1.1.0`.
    
-   In `.buildkite/pipeline.yml` in [this](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/.buildkite/pipeline.yml#L6) and 
-   [this](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/.buildkite/pipeline.yml#L14) lines
+   In `.buildkite/pipeline.yml` in [this](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/.buildkite/pipeline.yml#L6) and 
+   [this](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/.buildkite/pipeline.yml#L14) lines
    you need to specify your branch instead of `release/1.1.0`.
 3. Specify IP address of relay node in `installers/wallet-topology.yaml`.
 
@@ -118,15 +118,15 @@ After build from the previous step is ready, you should proceed the following ac
    There are two configs: `installers/launcher-config-mac.yaml` and `installers/launcher-config-windows.yaml` which should be updated.
    First of all you need to know system start. You can take it from `config.yaml`'s `systemStart` contents.
    
-   You need to specify `key` [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-mac.yaml#L42) as `devnet_staging_macos64`, 
-   and `key` [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-windows.yaml#L42) as `devnet_staging_win64`. 
+   You need to specify `key` [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-mac.yaml#L42) as `devnet_macos64`, 
+   and `key` [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-windows.yaml#L41) as `devnet_win64`. 
    To be more precisely you should specify them as your configuration names which you created in `configuration.yaml`.
    
-   You need to specify `systemStart` [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-mac.yaml#L43) and [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-windows.yaml#L42).
+   You need to specify `systemStart` [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-mac.yaml#L43) and [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-windows.yaml#L42).
    
-   You need to specify `--update-server` [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-mac.yaml#L12) and [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-windows.yaml#L12) as `https://s3.eu-central-1.amazonaws.com/update-system-testing`.
+   You need to specify `--update-server` [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-mac.yaml#L12) and [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-windows.yaml#L12) as `https://s3.eu-central-1.amazonaws.com/update-system-testing`.
    
-   You need to specify `reportServer` key [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-mac.yaml#L37) and [here](https://github.com/input-output-hk/daedalus/blob/release/0.9.0/installers/launcher-config-windows.yaml#L36) as `http://report-server.awstest.iohkdev.io:8080`.
+   You need to specify `reportServer` key [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-mac.yaml#L37) and [here](https://github.com/input-output-hk/daedalus/blob/ba037d30491803500cca05829e6dce7533b1b021/installers/launcher-config-windows.yaml#L36) as `http://report-server.awstest.iohkdev.io:8080`.
    
 Example of all changes you can find [here](https://github.com/input-output-hk/daedalus/commit/0f9eb4140eb9bd57f974878ac648bce349d824c2).
    

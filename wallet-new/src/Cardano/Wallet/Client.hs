@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-}
 
--- | This module defines a client for the Cardano new-wallet.
+-- | This module defines a client interface for the Cardano wallet.
 module Cardano.Wallet.Client
     ( -- * The abstract client
       WalletClient(..)
@@ -47,57 +47,82 @@ import qualified Pos.Core as Core
 data WalletClient m
     = WalletClient
     { -- address endpoints
-      getAddressIndex :: Resp m [Address]
-    , postAddress :: NewAddress -> Resp m WalletAddress
-    , getAddressValidity :: Text -> Resp m AddressValidity
+      getAddressIndex
+         :: Resp m [Address]
+    , postAddress
+         :: NewAddress -> Resp m WalletAddress
+    , getAddressValidity
+         :: Text -> Resp m AddressValidity
     -- wallets endpoints
-    , postWallet :: New Wallet -> Resp m Wallet
-    , getWalletIndexPaged :: Maybe Page -> Maybe PerPage -> Resp m [Wallet]
-    , updateWalletPassword :: WalletId -> PasswordUpdate -> Resp m Wallet
-    , deleteWallet :: WalletId -> Resp m ()
-    , getWallet :: WalletId -> Resp m Wallet
-    , updateWallet :: WalletId -> Update Wallet -> Resp m Wallet
+    , postWallet
+         :: New Wallet -> Resp m Wallet
+    , getWalletIndexPaged
+         :: Maybe Page -> Maybe PerPage -> Resp m [Wallet]
+    , updateWalletPassword
+         :: WalletId -> PasswordUpdate -> Resp m Wallet
+    , deleteWallet
+         :: WalletId -> Resp m ()
+    , getWallet
+         :: WalletId -> Resp m Wallet
+    , updateWallet
+         :: WalletId -> Update Wallet -> Resp m Wallet
     -- account endpoints
-    , deleteAccount :: WalletId -> AccountIndex -> Resp m ()
-    , getAccount :: WalletId -> AccountIndex -> Resp m Account
-    , getAccountIndexPaged :: WalletId -> Maybe Page -> Maybe PerPage -> Resp m [Account]
-    , updateAccount :: WalletId -> AccountIndex -> Update Account -> Resp m Account
+    , deleteAccount
+         :: WalletId -> AccountIndex -> Resp m ()
+    , getAccount
+         :: WalletId -> AccountIndex -> Resp m Account
+    , getAccountIndexPaged
+         :: WalletId -> Maybe Page -> Maybe PerPage -> Resp m [Account]
+    , updateAccount
+         :: WalletId -> AccountIndex -> Update Account -> Resp m Account
     -- transactions endpoints
-    , postTransaction :: Payment -> Resp m Transaction
-    , getTranasactionIndex :: WalletId -> Maybe AccountIndex -> Maybe (V1 Core.Address) -> Maybe Page -> Maybe PerPage -> Resp m [Transaction]
-    , getTransactionFee :: Payment -> Resp m EstimatedFees
+    , postTransaction
+         :: Payment -> Resp m Transaction
+    , getTransactionIndex
+         :: WalletId
+         -> Maybe AccountIndex
+         -> Maybe (V1 Core.Address)
+         -> Maybe Page
+         -> Maybe PerPage
+         -> Resp m [Transaction]
+    , getTransactionFee
+         :: Payment -> Resp m EstimatedFees
     -- updates
-    , getNextUpdate :: Resp m WalletUpdate
-    , postWalletUpdate :: Resp m WalletUpdate
+    , getNextUpdate
+         :: Resp m WalletUpdate
+    , postWalletUpdate
+         :: Resp m WalletUpdate
     -- settings
-    , getNodeSettings :: Resp m NodeSettings
+    , getNodeSettings
+         :: Resp m NodeSettings
     -- info
-    , getNodeInfo :: Resp m NodeInfo
+    , getNodeInfo
+         :: Resp m NodeInfo
     }
 
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
 hoistClient phi wc = WalletClient
-    { getAddressIndex      = phi (getAddressIndex wc)
-    , postAddress          = phi . postAddress wc
-    , getAddressValidity   = phi . getAddressValidity wc
-    , postWallet           = phi . postWallet wc
-    , getWalletIndexPaged  = \x -> phi . getWalletIndexPaged wc x
-    , updateWalletPassword = \x -> phi . updateWalletPassword wc x
-    , deleteWallet         = phi . deleteWallet wc
-    , getWallet            = phi . getWallet wc
-    , updateWallet         = \x -> phi . updateWallet wc x
-    , deleteAccount        = \x -> phi . deleteAccount wc x
-    , getAccount           = \x -> phi . getAccount wc x
-    , getAccountIndexPaged = \x mp -> phi . getAccountIndexPaged wc x mp
-    , updateAccount        = \x y -> phi . updateAccount wc x y
-    , postTransaction      = phi . postTransaction wc
-    , getTranasactionIndex = \wid maid maddr mp -> phi . getTranasactionIndex wc wid maid maddr mp
-    , getTransactionFee    = phi . getTransactionFee wc
-    , getNextUpdate        = phi (getNextUpdate wc)
-    , postWalletUpdate     = phi (postWalletUpdate wc)
-    , getNodeSettings      = phi (getNodeSettings wc)
-    , getNodeInfo          = phi (getNodeInfo wc)
+    { getAddressIndex       = phi (getAddressIndex wc)
+    , postAddress           = phi . postAddress wc
+    , getAddressValidity    = phi . getAddressValidity wc
+    , postWallet            = phi . postWallet wc
+    , getWalletIndexPaged   = \x -> phi . getWalletIndexPaged wc x
+    , updateWalletPassword  = \x -> phi . updateWalletPassword wc x
+    , deleteWallet          = phi . deleteWallet wc
+    , getWallet             = phi . getWallet wc
+    , updateWallet          = \x -> phi . updateWallet wc x
+    , deleteAccount         = \x -> phi . deleteAccount wc x
+    , getAccount            = \x -> phi . getAccount wc x
+    , getAccountIndexPaged  = \x mp -> phi . getAccountIndexPaged wc x mp
+    , updateAccount         = \x y -> phi . updateAccount wc x y
+    , postTransaction       = phi . postTransaction wc
+    , getTransactionIndex   = \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
+    , getTransactionFee     = phi . getTransactionFee wc
+    , getNextUpdate         = phi (getNextUpdate wc)
+    , postWalletUpdate      = phi (postWalletUpdate wc)
+    , getNodeSettings       = phi (getNodeSettings wc)
+    , getNodeInfo           = phi (getNodeInfo wc)
     }
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>

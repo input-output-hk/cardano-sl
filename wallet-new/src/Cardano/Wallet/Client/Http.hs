@@ -1,6 +1,6 @@
 module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
-      -- * Absract Client export
+      -- * Abstract Client export
     , module Cardano.Wallet.Client
     ) where
 

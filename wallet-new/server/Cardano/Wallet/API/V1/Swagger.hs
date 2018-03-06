@@ -363,9 +363,6 @@ instance ToSchema AddressValidity where
 instance ToSchema (V1 Core.Address) where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema WalletId where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToSchema Metadata where
   declareNamedSchema = annotate fromExampleJSON
 
@@ -378,9 +375,6 @@ instance ToSchema NewWallet where
             { fieldLabelModifier =
                 over (ix 0) Char.toLower . drop 6 {- length "newwal" -}
             }
-
-instance ToSchema NewAddress where
-  declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromExampleJSON

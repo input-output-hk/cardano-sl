@@ -57,11 +57,12 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
+import           Control.Lens (ix)
 import           Data.Aeson
-import           Data.Aeson.TH
+import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Char as C
-import Data.Swagger hiding (constructorTagModifier)
+import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
@@ -254,6 +255,9 @@ newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletId
 
+instance ToSchema WalletId where
+  declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+
 instance Arbitrary WalletId where
   arbitrary =
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
@@ -412,6 +416,12 @@ data NewAddress = NewAddress
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NewAddress
+
+instance ToSchema NewAddress where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier = over (ix 0) C.toLower
+                               . drop 7 -- length "newaddr"
+        }
 
 instance Arbitrary NewAddress where
   arbitrary = NewAddress <$> arbitrary

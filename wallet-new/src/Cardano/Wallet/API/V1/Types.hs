@@ -608,7 +608,7 @@ instance ToJSON (V1 Core.ApplicationName) where
 
 instance FromJSON (V1 Core.ApplicationName) where
     parseJSON (String svAppName) = pure (V1 (Core.ApplicationName svAppName))
-    parseJSON x = typeMismatch "Not a valid ApplicationName" x
+    parseJSON x                  = typeMismatch "Not a valid ApplicationName" x
 
 instance ToJSON (V1 Core.SoftwareVersion) where
     toJSON (V1 Core.SoftwareVersion{..}) =
@@ -630,14 +630,14 @@ instance Arbitrary NodeSettings where
                              <*> pure "0e1c9322a"
 
 -- | The different between the local time and the remote NTP server.
-newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Word)
+newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Integer)
                             deriving (Show, Eq)
 
-mkLocalTimeDifference :: Word -> LocalTimeDifference
+mkLocalTimeDifference :: Integer -> LocalTimeDifference
 mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
 
 instance Arbitrary LocalTimeDifference where
-    arbitrary = mkLocalTimeDifference <$> choose (minBound, maxBound)
+    arbitrary = mkLocalTimeDifference <$> arbitrary
 
 instance ToJSON LocalTimeDifference where
     toJSON (LocalTimeDifference (MeasuredIn w)) =

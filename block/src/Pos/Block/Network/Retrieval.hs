@@ -10,7 +10,7 @@ import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
                                          tryTakeTMVar)
-import           Control.Exception.Safe (handleAny)
+import           Control.Exception.Safe (handleAny, try)
 import           Control.Lens (to, _Wrapped)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM (retry)
@@ -19,7 +19,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Data.Time.Units (toMicroseconds)
 import           Ether.Internal (HasLens (..))
-import           Formatting (build, builder, int, sformat, stext, (%))
+import           Formatting (build, builder, int, sformat, stext, shown, (%))
 import           Mockable (delay)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (sec)
@@ -122,15 +122,38 @@ retrievalWorkerImpl keepAliveTimer SendActions {..} =
 
     -- That's the first queue branch (task dispatching).
     handleBlockRetrieval nodeId BlockRetrievalTask{..} = do
+        let hHash = headerHash brtHeader
         logDebug $ sformat
             ("Block retrieval queue task received, nodeId="%build%
-             ", header="%build%", continues="%build)
+             ", header="%build)
             nodeId
-            (headerHash brtHeader)
-            brtContinues
-        (if brtContinues then handleContinues else handleAlternative)
-            nodeId
-            brtHeader
+            hHash
+        classificationRes <- try (classifyNewHeader brtHeader)
+        case classificationRes of
+            Right CHContinues -> do
+                logDebug $ sformat continuesFormat hHash
+                handleContinues nodeId brtHeader
+            Right CHAlternative -> do
+                logDebug $ sformat alternativeFormat hHash
+                handleAlternative nodeId brtHeader
+            Right (CHUseless reason) -> logDebug $ sformat uselessFormat hHash reason
+            Right (CHInvalid reason) -> logWarning $ sformat invalidFormat hHash reason
+            -- 'try' is from safe-exceptions so we don't take asyncs here.
+            Left (err :: SomeException) -> logError $ sformat exceptionFormat hHash err
+
+      where
+        continuesFormat =
+            "Header "%shortHashF%
+            " is an immediate continuation of our chain, will process"
+        alternativeFormat =
+            "Header "%shortHashF%
+            " potentially represents a good alternative chain, will process"
+        uselessFormat =
+            "Header "%shortHashF%" is useless for the following reason: "%stext
+        invalidFormat =
+            "Header "%shortHashF%" is invalid for the following reason: "%stext
+        exceptionFormat =
+            "Header "%shortHashF%" could not be classified: "%shown
 
     -- When we have a continuation of the chain, just try to get and apply it.
     handleContinues nodeId header = do

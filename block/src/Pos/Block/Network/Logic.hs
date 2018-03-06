@@ -38,8 +38,8 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockInstancesConstraint, BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
-import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..), classifyHeaders,
-                                  classifyNewHeader, getHeadersOlderExp, lcaWithMainChain,
+import           Pos.Block.Logic (ClassifyHeadersRes (..), classifyHeaders,
+                                  getHeadersOlderExp, lcaWithMainChain,
                                   verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
 import           Pos.Block.Network.Announce (announceBlock)
@@ -186,32 +186,9 @@ handleUnsolicitedHeader
     -> m ()
 handleUnsolicitedHeader header nodeId = do
     logDebug $ sformat
-        ("handleUnsolicitedHeader: single header was propagated, processing:\n"
+        ("handleUnsolicitedHeader: adding header to retrieval queue:\n"
          %build) header
-    classificationRes <- classifyNewHeader header
-    -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
-    case classificationRes of
-        CHContinues -> do
-            logDebug $ sformat continuesFormat hHash
-            addHeaderToBlockRequestQueue nodeId header True
-        CHAlternative -> do
-            logDebug $ sformat alternativeFormat hHash
-            addHeaderToBlockRequestQueue nodeId header False
-        CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
-        CHInvalid _ -> do
-            logWarning $ sformat ("handleUnsolicited: header "%shortHashF%
-                                " is invalid") hHash
-            pass -- TODO: ban node for sending invalid block.
-  where
-    hHash = headerHash header
-    continuesFormat =
-        "Header " %shortHashF %
-        " is a good continuation of our chain, will process"
-    alternativeFormat =
-        "Header " %shortHashF %
-        " potentially represents good alternative chain, will process"
-    uselessFormat =
-        "Header " %shortHashF % " is useless for the following reason: " %stext
+    addHeaderToBlockRequestQueue nodeId header
 
 -- | Result of 'matchHeadersRequest'
 data MatchReqHeadersRes
@@ -397,9 +374,8 @@ addHeaderToBlockRequestQueue
        (BlockWorkMode ctx m)
     => NodeId
     -> BlockHeader
-    -> Bool -- ^ Was the block classified as chain continuation?
     -> m ()
-addHeaderToBlockRequestQueue nodeId header continues = do
+addHeaderToBlockRequestQueue nodeId header = do
     let hHash = headerHash header
     logDebug $ sformat ("addToBlockRequestQueue, : "%shortHashF) hHash
     queue <- view (lensOf @BlockRetrievalQueueTag)
@@ -407,7 +383,7 @@ addHeaderToBlockRequestQueue nodeId header continues = do
     added <- atomically $ do
         updateLastKnownHeader lastKnownH header
         addTaskToBlockRequestQueue nodeId queue $
-            BlockRetrievalTask { brtHeader = header, brtContinues = continues }
+            BlockRetrievalTask { brtHeader = header }
     if added
     then logDebug $ sformat ("Added headers to block request queue: nodeId="%build%
                              ", header="%build)

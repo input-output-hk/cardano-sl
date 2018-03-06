@@ -393,6 +393,12 @@ instance Arbitrary NewAccount where
   arbitrary = NewAccount <$> arbitrary
                          <*> arbitrary
 
+instance ToSchema NewAccount where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier =
+            over (ix 0) C.toLower . drop 4 -- length "nacc"
+        }
+
 -- | Summary about single address.
 data WalletAddress = WalletAddress
   { addrId            :: !(V1 Core.Address)

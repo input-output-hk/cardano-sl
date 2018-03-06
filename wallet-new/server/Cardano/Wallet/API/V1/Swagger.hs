@@ -354,9 +354,6 @@ instance ToSchema WalletAddress where
 instance ToSchema AccountUpdate where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema NewAccount where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToSchema AddressValidity where
   declareNamedSchema = annotate fromExampleJSON
 

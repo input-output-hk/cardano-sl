@@ -9,7 +9,7 @@ waiting for a response and measure the time. Technically, this time period inclu
 following actions:
 
 1. Prepare arguments for request as a Haskell-values.
-2. Establish TLS-connection with wallet backend. 
+2. Establish TLS-connection with wallet backend.
 3. Send serialized request.
 4. Get the response from wallet backend.
 5. Deserialize it into Haskell-values.
@@ -19,12 +19,12 @@ We use [gauge](https://hackage.haskell.org/package/gauge) package as a benchmark
 
 ## Benchmarking Tool Structure
 
-1. Module `Bench.Pos.Wallet.Run` contains a function we use to send request and measure it as a complete IO-action.
-2. Module `Bench.Pos.Wallet.Random` contains functions we use to pick (pseudo)random values from the config (see below).
-3. Modules `Bench.Pos.Wallet.Config` contain functions we use to work with command-line arguments and two configuration files.
-4. Module `Client.Pos.Wallet.Web.Run` contains a function we use for actual sending of request (via `servant-client`).
-5. Module `Client.Pos.Wallet.Web.Api` contains Servant-based API which includes all endpoints we can benchmark.
-6. Modules `Client.Pos.Wallet.Web.Endpoint` contain functions we use to run benchmarking for particular endpoints.
+1. Module `Bench.Cardano.Wallet.Run` contains a function we use to send request and measure it as a complete IO-action.
+2. Module `Bench.Cardano.Wallet.Random` contains functions we use to pick (pseudo)random values from the config (see below).
+3. Modules `Bench.Cardano.Wallet.Config` contain functions we use to work with command-line arguments and two configuration files.
+4. Module `Client.Cardano.Wallet.Web.Run` contains a function we use for actual sending of request (via `servant-client`).
+5. Module `Client.Cardano.Wallet.Web.Api` contains Servant-based API which includes all endpoints we can benchmark.
+6. Modules `Client.Cardano.Wallet.Web.Endpoint` contain functions we use to run benchmarking for particular endpoints.
 
 ## Configuration Files
 
@@ -48,7 +48,8 @@ endpoint will be benchmarked.
 
 Supported `BenchName`s are defined [here](https://github.com/input-output-hk/cardano-sl/blob/feature/cbr23-wallet-bench/wallet/bench/Bench/Pos/Wallet/Types.hs).
 
-`NumberOfMeasures` corresponds 
+`NumberOfMeasures` corresponds to number of iterations `gauge` makes to measure time. For example, if we set 10 measurements,
+it means that actually ~56 iterations will be performed, if 20 measurements - ~211 iterations, if 30 measurements - ~460 iterations.
 
 `MinDelayBetweenCalls` and `MaxDelayBetweenCalls` are the values (in seconds) for (pseudo)random delay between calls.
 For example, if we want to send `NewWallet` request once in ~2 seconds, we can define `MinDelayBetweenCalls` as `1.8`,
@@ -91,7 +92,7 @@ Please note that each wallet contains at least one account, and each account con
 Please run:
 
 ```
-$ stack bench cardano-sl-wallet --benchmark-arguments "--help"
+$ stack bench cardano-sl-wallet-new --benchmark-arguments "--help"
 ```
 
 to see all supported options.
@@ -101,10 +102,10 @@ to see all supported options.
 Example of the full command:
 
 ```
-$ stack bench cardano-sl-wallet --benchmark-arguments "--tls-pub-cert=$PWD/scripts/tls-files/ca.crt \
-                                                       --tls-priv-key=$PWD/scripts/tls-files/server.key \
-                                                       --wal-conf=$PWD/wallet/bench/config/Wallets.yaml \
-                                                       --ep-conf=$PWD/wallet/bench/config/Endpoints.csv \
-                                                       --analyze \
-                                                       --async"
+$ stack bench cardano-sl-wallet-new --benchmark-arguments "--tls-pub-cert=$PWD/scripts/tls-files/ca.crt \
+                                                           --tls-priv-key=$PWD/scripts/tls-files/server.key \
+                                                           --wal-conf=$PWD/wallet/bench/config/Wallets.yaml \
+                                                           --ep-conf=$PWD/wallet/bench/config/Endpoints.csv \
+                                                           --analyze \
+                                                           --async"
 ```

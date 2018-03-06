@@ -28,7 +28,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
 import           Mockable (LowLevelAsync, Mockable, Production)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 

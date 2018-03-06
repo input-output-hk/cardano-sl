@@ -23,14 +23,7 @@ module Pos.Wallet.Web.Tracking.Sync
        , trackingRollbackTxs
        , applyModifierToWallet
        , rollbackModifierFromWallet
-       , SyncQueue
-       , SyncRequest
-       , BlockLockMode
-       , WalletTrackingEnv
 
-       , restoreWalletBalance
-       , asynchronouslyRestoreWalletHistory
-       , restoreGenesisAddresses
        , txMempoolToModifier
 
        , fixingCachedAccModifier
@@ -47,7 +40,7 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
 
-import           Control.Concurrent.STM (TBQueue, readTBQueue, writeTBQueue)
+import           Control.Concurrent.STM (readTBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
@@ -64,8 +57,7 @@ import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..)
                            Timestamp, blkSecurityParam, genesisHash, headerHash, headerSlotL,
                            timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
-import           Pos.Core.Txp (TxAux (..), TxIn, TxOut (..), TxOutAux (..), TxUndo, toaOut,
-                               txOutAddress)
+import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.Block.Load as GS
@@ -75,9 +67,7 @@ import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
-import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
-                          unGenesisUtxo, utxoToModifier, _txOutputs)
-import           Pos.Txp.DB.Utxo (filterUtxo)
+import           Pos.Txp (flattenTxPayload, getLocalTxsNUndo, topsortTxs, _txOutputs)
 import           Pos.Util (HasLens (..))
 import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningSP, secretOnlyF,
@@ -86,62 +76,22 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (getKeys)
 
-import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
                                              addrMetaToAccount)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), MonadWalletDB, WalletTip (..),
-                                       updateWalletBalancesAndUtxo)
+import           Pos.Wallet.Web.State (CustomAddressType (..), MonadWalletDB, WalletTip (..))
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
-                                                  buildTHEntryExtra, decryptAddress,
-                                                  eskToWalletDecrCredentials, isTxEntryInteresting,
-                                                  selectOwnAddresses)
+                                                  buildTHEntryExtra, eskToWalletDecrCredentials,
+                                                  isTxEntryInteresting)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    VoidModifier, deleteAndInsertIMM,
                                                    deleteAndInsertMM, deleteAndInsertVM,
                                                    indexedDeletions, sortedInsertions)
-
-type BlockLockMode ctx m =
-     ( WithLogger m
-     , MonadDBRead m
-     , MonadReader ctx m
-     , HasLens StateLock ctx StateLock
-     , MonadMask m
-     )
-
-type WalletTrackingEnvRead ctx m =
-     ( BlockLockMode ctx m
-     , MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletDBRead ctx m
-     , MonadSlotsData ctx m
-     , WithLogger m
-     , HasConfiguration
-     )
-
-type WalletTrackingEnv ctx m =
-     ( WalletTrackingEnvRead ctx m
-     , MonadWalletDB ctx m
-     )
-
--- | A 'SyncQueue' is a bounded queue where we store incoming 'SyncRequest', and
--- we process them asynchronously.
-type SyncQueue = TBQueue SyncRequest
-
-data SyncRequest = RestoreWalletHistory WalletDecrCredentials
-
-data SyncResult = SyncSucceeded
-                -- ^ The sync succeed without errors.
-                | NoSyncTipAvailable (CId Wal)
-                -- ^ There was no sync tip available for this wallet.
-                | NotSyncable (CId Wal) WalletError
-                -- ^ The given wallet cannot be synced due to an unexpected error.
-                -- The routine was not even started.
-                | SyncFailed  (CId Wal) SomeException
-                -- ^ The sync process failed abruptly during the sync process.
+import           Pos.Wallet.Web.Tracking.Types
 
 -- | Sync a wallet with the last state of the blockchain, given its 'WalletDecrCredentials'.
 -- The update of the balance will be done immediately and synchronously, the transaction history
@@ -155,29 +105,10 @@ syncWallet :: ( MonadWalletDB ctx m
               , MonadSlotsData ctx m
               , MonadUnliftIO m
               ) => WalletDecrCredentials -> m ()
-syncWallet credentials = do
-    restoreWalletBalance credentials
-    asynchronouslyRestoreWalletHistory credentials
+syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 
--- | Asynchronously restores the full history for a wallet, given its 'WalletDecrCredentials'.
-asynchronouslyRestoreWalletHistory :: ( MonadWalletDB ctx m
-                                      , MonadDBRead m
-                                      , WithLogger m
-                                      , HasLens StateLock ctx StateLock
-                                      , HasLens SyncQueue ctx SyncQueue
-                                      , MonadMask m
-                                      , MonadSlotsData ctx m
-                                      ) => WalletDecrCredentials -> m ()
-asynchronouslyRestoreWalletHistory credentials = submitSyncRequest (RestoreWalletHistory credentials)
-
-submitSyncRequest :: ( MonadIO m
-                     , MonadReader ctx m
-                     , HasLens SyncQueue ctx SyncQueue
-                     ) => SyncRequest -> m ()
-submitSyncRequest syncRequest = do
-    requestQueue <- view (lensOf @(TBQueue SyncRequest))
-    atomically $ writeTBQueue requestQueue syncRequest
-
+-- | Asynchronously process a 'SyncRequest' by reading incoming
+-- requests from a 'SyncQueue', in an infinite loop.
 processSyncRequest :: ( MonadWalletDB ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
@@ -186,26 +117,9 @@ processSyncRequest :: ( MonadWalletDB ctx m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTBQueue syncQueue)
-    case newRequest of
-        RestoreWalletHistory credentials -> do
-          results <- syncWalletsFromGState [credentials]
-          mapM_ processSyncResult results
+    result     <- syncWalletsFromGState newRequest
+    processSyncResult result
     processSyncRequest syncQueue
-
--- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
--- each unspent output address. If we get a match, it means it belongs to us.
-restoreWalletBalance :: ( MonadWalletDB ctx m
-                        , MonadDBRead m
-                        , MonadUnliftIO m
-                        ) => WalletDecrCredentials -> m ()
-restoreWalletBalance credentials = do
-    utxo <- filterUtxo walletUtxo
-    updateWalletBalancesAndUtxo (utxoToModifier utxo)
-    where
-      walletUtxo :: (TxIn, TxOutAux) -> Bool
-      walletUtxo (_, TxOutAux (TxOut addr _)) =
-          isJust (decryptAddress credentials addr)
-
 
 txMempoolToModifier :: WalletTrackingEnvRead ctx m => WalletDecrCredentials -> m CAccModifier
 txMempoolToModifier credentials = do
@@ -231,12 +145,9 @@ txMempoolToModifier credentials = do
                 trackingApplyTxs credentials dbUsed getDiff getTs getPtxBlkInfo $
                 map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
-----------------------------------------------------------------------------
--- Logic
-----------------------------------------------------------------------------
 
-
--- | TODO(adn): Process the exceptions rather than just logging them.
+-- | Process each 'SyncResult'. The current implementation just logs the errors without exposing it
+-- to the upper layers.
 processSyncResult :: ( WithLogger m
                      , MonadIO m
                      ) => SyncResult -> m ()
@@ -263,31 +174,24 @@ syncWalletsFromGState
     , MonadSlotsData ctx m
     , HasConfiguration
     )
-    => [WalletDecrCredentials] -> m [SyncResult]
-syncWalletsFromGState creds = processEncryptedKeys creds []
+    => SyncRequest
+    -> m SyncResult
+syncWalletsFromGState syncRequest = do
+    let (_, walletId) = srCredentials syncRequest
+    let onError       = pure . SyncFailed walletId
+    handleAny onError $ do
+        WS.getWalletSyncTip walletId >>= \case
+            Nothing                -> pure (NoSyncTipAvailable walletId)
+            Just NotSynced         -> syncDo Nothing
+            Just (SyncedWith wTip) -> DB.getHeader wTip >>= \case
+                Nothing ->
+                    let err = InternalError $
+                              sformat ("Couldn't get block header of wallet by last synced hh: "%build) wTip
+                    in pure (NotSyncable walletId err)
+                Just wHeader -> syncDo (Just wHeader)
   where
-    processEncryptedKeys :: [WalletDecrCredentials] -> [SyncResult] -> m [SyncResult]
-    processEncryptedKeys [] !aux = pure aux
-    processEncryptedKeys (credentials : rest) !aux = do
-        let (_, walletId) = credentials
-        let onError ex = processEncryptedKeys rest (SyncFailed walletId ex : aux)
-        handleAny onError $ do
-            WS.getWalletSyncTip walletId >>= \case
-                Nothing                -> processEncryptedKeys rest (NoSyncTipAvailable walletId : aux)
-                Just NotSynced         -> do
-                    res <- syncDo credentials Nothing
-                    processEncryptedKeys rest (res : aux)
-                Just (SyncedWith wTip) -> DB.getHeader wTip >>= \case
-                    Nothing ->
-                        let err = InternalError $
-                                  sformat ("Couldn't get block header of wallet by last synced hh: "%build) wTip
-                        in processEncryptedKeys rest (NotSyncable walletId err : aux)
-                    Just wHeader -> do
-                        res <- syncDo credentials (Just wHeader)
-                        processEncryptedKeys rest (res : aux)
-
-    syncDo :: WalletDecrCredentials -> Maybe BlockHeader -> m SyncResult
-    syncDo credentials wTipH = do
+    syncDo :: Maybe BlockHeader -> m SyncResult
+    syncDo wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
         gstateTipH <- DB.getTipHeader
         -- If account's syncTip is before the current gstate's tip,
@@ -295,7 +199,7 @@ syncWalletsFromGState creds = processEncryptedKeys creds []
         -- syncTip can be before gstate's the current tip
         -- when we call @syncWalletSetWithTip@ at the first time
         -- or if the application was interrupted during rollback.
-        -- We don't load all blocks explicitly, because blockain can be long.
+        -- We don't load all blocks explicitly, because blockchain can be long.
         (syncResult, wNewTip) <-
             if (gstateTipH ^. difficultyL > fromIntegral blkSecurityParam + fromIntegral wdiff) then do
                 -- Wallet tip is "far" from gState tip,
@@ -306,14 +210,14 @@ syncWalletsFromGState creds = processEncryptedKeys creds []
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)
-                result <- syncHistoryWithGStateUnsafe credentials wTipH bh
+                result <- syncHistoryWithGStateUnsafe syncRequest wTipH bh
                 pure $ (Just result, Just bh)
             else pure (Nothing, wTipH)
 
         let finaliseSyncUnderBlockLock = withStateLockNoMetrics HighPriority $ \tip -> do
                 logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
                 tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
-                syncHistoryWithGStateUnsafe credentials wNewTip tipH
+                syncHistoryWithGStateUnsafe syncRequest wNewTip tipH
 
         case syncResult of
             Nothing            -> finaliseSyncUnderBlockLock
@@ -334,12 +238,13 @@ syncHistoryWithGStateUnsafe
     , MonadSlotsData ctx m
     , HasConfiguration
     )
-    => WalletDecrCredentials
+    => SyncRequest
     -> Maybe BlockHeader       -- ^ Block header corresponding to wallet's tip.
                                --   Nothing when wallet's tip is genesisHash
     -> BlockHeader             -- ^ GState header hash
     -> m SyncResult
-syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLogger $ do
+syncHistoryWithGStateUnsafe syncRequest wTipHeader gstateH = setLogger $ do
+    let credentials@(_, walletId) = srCredentials syncRequest
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
 
@@ -402,8 +307,6 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
                      logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
                      return mempty
 
-    whenNothing_ wTipHeader $ restoreGenesisAddresses credentials
-
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet walletId (headerHash gstateH) mapModifier
@@ -417,15 +320,6 @@ syncHistoryWithGStateUnsafe credentials@(_, walletId) wTipHeader gstateH = setLo
     firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeader) >>=
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
-
--- | Restores the genesis addresses for a wallet, given its 'WalletDecrCredentials'.
-restoreGenesisAddresses :: (HasConfiguration, MonadWalletDB ctx m, Monad m) => WalletDecrCredentials -> m ()
-restoreGenesisAddresses credentials =
-    let ownGenesisData =
-            selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
-            M.toList $ unGenesisUtxo genesisUtxo
-        ownGenesisAddrs = map snd ownGenesisData
-    in mapM_ WS.addWAddress ownGenesisAddrs
 
 constructAllUsed
     :: [(CId Addr, HeaderHash)]

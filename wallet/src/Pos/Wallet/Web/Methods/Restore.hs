@@ -45,8 +45,8 @@ import           Pos.Wallet.Web.State (AddressLookupMode (Ever), createAccount,
                                        getAccountWAddresses, getWalletMeta, removeHistoryCache,
                                        setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue, asynchronouslyRestoreWalletHistory,
-                                               restoreGenesisAddresses, restoreWalletBalance)
+import qualified Pos.Wallet.Web.Tracking.Restore as Restore
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           UnliftIO (MonadUnliftIO)
 
@@ -94,23 +94,17 @@ restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
                          , HasLens SyncQueue ctx SyncQueue
                          ) => PassPhrase -> CWalletInit -> m CWallet
 restoreWalletFromSeed passphrase cwInit = do
-    (sk, _) <- newWallet passphrase cwInit False -- TODO(adn) readyness must be changed into richer type.
+    (sk, _) <- newWallet passphrase cwInit False
     restoreWallet sk
 
--- | Restores a Wallet by fetching by:
--- 1. Restoring the genesis addresses
--- 2. Restoring the balance (via Utxo)
--- 3. Restore (asynchronously) the histrory.
 restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
-                 ) => EncryptedSecretKey ->  m CWallet
+                 ) => EncryptedSecretKey -> m CWallet
 restoreWallet sk = do
     let credentials@(_, wId) = eskToWalletDecrCredentials sk
-    restoreGenesisAddresses credentials
-    restoreWalletBalance credentials
+    Restore.restoreWallet credentials
     WS.setWalletReady wId True
-    asynchronouslyRestoreWalletHistory credentials
     L.getWallet wId
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m

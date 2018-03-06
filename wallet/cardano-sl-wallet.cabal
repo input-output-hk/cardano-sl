@@ -91,7 +91,9 @@ library
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Decrypt
                       Pos.Wallet.Web.Tracking.Sync
+                      Pos.Wallet.Web.Tracking.Restore
                       Pos.Wallet.Web.Tracking.Modifier
+                      Pos.Wallet.Web.Tracking.Types
 
                       Pos.Wallet.Web.Util
 

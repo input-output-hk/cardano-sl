@@ -80,7 +80,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
          in (ActionSpec $ \s -> init >> f s, outs)
 
     syncWallets :: WalletWebMode ()
-    syncWallets = getWalletAddresses >>= mapM_ (getSKById addr >=> syncWallet . eskToWalletDecrCredentials)
+    syncWallets = getWalletAddresses >>= mapM_ (getSKById >=> syncWallet . eskToWalletDecrCredentials)
 
     plugins :: HasConfigurations => Plugins.Plugin WalletWebMode
     plugins = mconcat [ Plugins.conversation wArgs

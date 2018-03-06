@@ -41,7 +41,7 @@ import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletState)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
 

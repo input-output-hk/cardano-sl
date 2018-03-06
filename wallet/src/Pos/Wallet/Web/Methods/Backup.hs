@@ -19,7 +19,7 @@ import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant.API.ContentTypes (NoContent (..))
 import           UnliftIO (MonadUnliftIO)
 

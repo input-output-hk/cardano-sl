@@ -17,7 +17,7 @@ import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
 

@@ -40,7 +40,8 @@ import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalle
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue, processSyncRequest, syncWallet)
+import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)

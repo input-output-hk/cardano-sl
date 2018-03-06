@@ -33,8 +33,18 @@ import           Test.QuickCheck (Arbitrary)
 instance {-# OVERLAPPABLE #-} Buildable a => Prelude.Show a where
     show = toS . pretty
 
+-- | This instance is a little weird -- we have defined 'NoContent' to have
+-- a 'ToJSON' instance that reuses @'toJSON' ()@, which gives @[]@:
+--
+-- @
+-- >>> toJSON NoContent
+-- Array []
+-- @
 instance ToSchema NoContent where
-    declareNamedSchema _ = pure (NamedSchema Nothing mempty)
+    declareNamedSchema _ =
+        pure $ NamedSchema Nothing $ mempty
+            & type_ .~ SwaggerArray
+            & maxLength .~ Just 0
 
 spec :: Spec
 spec = modifyMaxSuccess (const 10) $

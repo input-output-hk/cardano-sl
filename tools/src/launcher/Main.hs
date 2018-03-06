@@ -45,7 +45,7 @@ import qualified System.IO as IO
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
-import           System.Wlog (logError, logInfo, logNotice, logWarning)
+import           System.Wlog (LoggerName, logError, logInfo, logNotice, logWarning, usingLoggerName)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
@@ -288,8 +288,14 @@ instance HasConfiguration => MonadDB LauncherMode where
 
 newtype NodeDbPath = NodeDbPath FilePath
 
+launcherLoggerName :: LoggerName
+launcherLoggerName = "launcher"
+
 bracketNodeDBs :: NodeDbPath -> (NodeDBs -> IO a) -> IO a
-bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNodeDBs
+bracketNodeDBs (NodeDbPath dbPath) =
+    bracket
+        (openNodeDBs False dbPath)
+        (usingLoggerName launcherLoggerName . closeNodeDBs)
 
 main :: IO ()
 main =
@@ -319,7 +325,7 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
-    logException loggerName . Log.usingLoggerName loggerName $
+    logException launcherLoggerName . Log.usingLoggerName launcherLoggerName $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
@@ -356,7 +362,6 @@ main =
     -- user passes these options to the node explicitly, then we
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    loggerName = "launcher"
     propagateOptions
         :: Maybe String -> FilePath -> Maybe FilePath -> ConfigurationOptions -> [Text] -> [Text]
     propagateOptions maybeReportServer nodeDbPath logPrefix (ConfigurationOptions path key systemStart seed) =

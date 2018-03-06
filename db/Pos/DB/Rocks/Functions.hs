@@ -39,6 +39,7 @@ import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                                    removeDirectoryRecursive)
 import           System.FilePath ((</>))
+import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Configuration (HasConfiguration)
@@ -98,9 +99,11 @@ openNodeDBs recreate fp = do
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 -- | Safely close all databases from 'NodeDBs'.
-closeNodeDBs :: MonadIO m => NodeDBs -> m ()
-closeNodeDBs NodeDBs {..} =
+closeNodeDBs :: (MonadIO m, WithLogger m) => NodeDBs -> m ()
+closeNodeDBs NodeDBs {..} = do
+    logInfo "Closing databases..."
     mapM_ closeRocksDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
+    logInfo "Closed databases"
 
 usingReadOptions
     :: MonadRealDB ctx m

@@ -43,6 +43,7 @@ library
                      , filepath
                      , formatting
                      , lens
+                     , log-warper
                      , memory
                      , monad-control
                      , mmorph

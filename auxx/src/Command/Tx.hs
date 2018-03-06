@@ -153,7 +153,10 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)
-                      Nothing -> logInfo "No more transactions in the queue."
+                      Nothing -> do
+                          logInfo "No more transactions in the queue."
+                          sendTxs 0
+
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
         -- pre construct the first batch of transactions. Otherwise,
         -- we'll be CPU bound and will not achieve high transaction

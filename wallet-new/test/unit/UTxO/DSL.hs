@@ -48,6 +48,7 @@ module UTxO.DSL (
     -- ** UTxO
   , Utxo(..)
   , utxoEmpty
+  , utxoApply
   , utxoFromMap
   , utxoFromList
   , utxoToList
@@ -354,7 +355,7 @@ ledgerUtxo l = go (ledgerToNewestFirst l)
   where
     go :: [Transaction h a] -> Utxo h a
     go []     = utxoEmpty
-    go (t:ts) = utxoRemoveInputs (trSpentOutputs t) (go ts) `utxoUnion` trUtxo t
+    go (t:ts) = utxoApply t (go ts)
 
 -- | Ledger validity
 ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Validated Text ()
@@ -416,8 +417,17 @@ newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
 
 deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
 
+-- | Empty UTxO
 utxoEmpty :: Utxo h a
 utxoEmpty = Utxo Map.empty
+
+-- | Apply a transaction to a UTxO
+--
+-- We have that
+--
+-- > utxoApply t utxoEmpty == trUtxo t
+utxoApply :: Hash h a => Transaction h a -> Utxo h a -> Utxo h a
+utxoApply t u = utxoRemoveInputs (trSpentOutputs t) u `utxoUnion` trUtxo t
 
 -- | Construct a 'Utxo' from a 'Map' of 'Input's. The 'Output' that each
 -- 'Input' in the map point to should represent the total value of that

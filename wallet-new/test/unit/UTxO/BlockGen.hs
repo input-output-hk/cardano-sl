@@ -15,7 +15,7 @@ import           Control.Lens hiding (elements)
 import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.Chrono
 import           Test.QuickCheck
 
 import           Util.DepIndep
@@ -40,8 +40,6 @@ data BlockGenCtx h
     -- ^ The mapping of current addresses and their current account values.
     , _bgcFreshHash              :: !Int
     -- ^ A fresh hash value for each new transaction.
-    , _bgcCurrentBlockchain      :: !(Ledger h Addr)
-    -- ^ The accumulated blockchain thus far.
     , _bgcInputPartiesUpperLimit :: !Int
     -- ^ The upper limit on the number of parties that may be selected as
     -- inputs to a transaction
@@ -83,11 +81,10 @@ runBlockGenWith settings boot m =
 
 -- | Create an initial context from the boot transaction.
 initializeCtx :: Hash h Addr => Transaction h Addr -> BlockGenCtx h
-initializeCtx boot@Transaction{..} = BlockGenCtx {..}
+initializeCtx boot = BlockGenCtx {..}
   where
-    _bgcCurrentUtxo = ledgerUtxo _bgcCurrentBlockchain
+    _bgcCurrentUtxo = trUtxo boot
     _bgcFreshHash = 1
-    _bgcCurrentBlockchain = ledgerSingleton boot
     _bgcInputPartiesUpperLimit = 1
 
 -- | Lift a 'Gen' action into the 'BlockGen' monad.
@@ -158,9 +155,8 @@ newTransaction = do
                 }
 
     -- we assume that the fee is 0 for initializing these transactions
-    bgcCurrentBlockchain %= ledgerAdd (txn 0)
-    ledger <- use bgcCurrentBlockchain
-    bgcCurrentUtxo .= ledgerUtxo ledger
+    -- TODO: This means that the UTxO we maintain is actually inaccurate :/
+    bgcCurrentUtxo %= utxoApply (txn 0)
     pure txn
 
 divvyUp

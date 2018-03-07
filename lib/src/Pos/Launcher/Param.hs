@@ -58,6 +58,7 @@ data NodeParams = NodeParams
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
+    , npNTPChecks      :: !Bool                 -- ^ Check clock synchronization using NTP.
     , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.

@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -45,26 +46,29 @@ import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, nt
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
-data NtpClientSettings m = NtpClientSettings
-    { ntpServers         :: [String]
-      -- ^ list of servers addresses
-    , ntpHandler         :: (Microsecond, Microsecond) -> m ()
-      -- ^ got time callback (margin, time when client sent request)
-    , ntpLogName         :: LoggerName
-      -- ^ logger name modifier
-    , ntpResponseTimeout :: Microsecond
-      -- ^ delay between making requests and response collection
-    , ntpPollDelay       :: Microsecond
-      -- ^ how often to send responses to server
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
-      -- ^ way to sumarize results received from different servers.
-      -- this may accept list of lesser size than @length ntpServers@ in case some servers
-      -- failed to respond in time, but never an empty list
-    }
+data NtpClientSettings m =
+      NtpClientSettings
+        { ntpServers         :: [String]
+        -- ^ list of servers addresses
+        , ntpHandler         :: (Microsecond, Microsecond) -> m ()
+        -- ^ got time callback (margin, time when client sent request)
+        , ntpLogName         :: LoggerName
+        -- ^ logger name modifier
+        , ntpResponseTimeout :: Microsecond
+        -- ^ delay between making requests and response collection
+        , ntpPollDelay       :: Microsecond
+        -- ^ how often to send responses to server
+        , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+        -- ^ way to sumarize results received from different servers.
+        -- this may accept list of lesser size than @length ntpServers@ in case some servers
+        -- failed to respond in time, but never an empty list
+        }
+    | NtpSyncUnavailable
 
 hoistNtpClientSettings
     :: (m () -> n ()) -> NtpClientSettings m -> NtpClientSettings n
-hoistNtpClientSettings f settings =
+hoistNtpClientSettings _ NtpSyncUnavailable = NtpSyncUnavailable
+hoistNtpClientSettings f settings@NtpClientSettings {} =
     settings { ntpHandler = f . ntpHandler settings }
 
 data NtpClient m = NtpClient
@@ -73,11 +77,12 @@ data NtpClient m = NtpClient
     , ncSettings :: NtpClientSettings m
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (NtpClient m)
-mkNtpClient ncSettings sock = liftIO $ do
+mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (Maybe (NtpClient m))
+mkNtpClient NtpSyncUnavailable _ = return Nothing
+mkNtpClient ncSettings@NtpClientSettings {} sock = liftIO $ do
     ncSockets <- newTVarIO sock
     ncState  <- newTVarIO Nothing
-    return NtpClient{..}
+    return $ Just NtpClient{..}
 
 instance Monad m => Default (NtpClientSettings m) where
     def = NtpClientSettings
@@ -171,15 +176,16 @@ startSend addrs cli = do
     startSend addrs cli
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: forall m . NtpMonad m => NtpClientSettings m -> m Sockets
-mkSockets settings = do
+mkSockets :: forall m . NtpMonad m => NtpClientSettings m -> m (Maybe Sockets)
+mkSockets NtpSyncUnavailable = return Nothing
+mkSockets settings@NtpClientSettings {} = do
     (sock1MB, sock2MB) <- doMkSockets `catchAny` handlerE
     whenJust sock1MB logging
     whenJust sock2MB logging
     case (fst <$> sock1MB, fst <$> sock2MB) of
-        (Just sock1, Just sock2) -> pure $ BothSock sock1 sock2
-        (Just sock1, Nothing)    -> pure $ IPv4Sock sock1
-        (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
+        (Just sock1, Just sock2) -> pure $ Just $ BothSock sock1 sock2
+        (Just sock1, Nothing)    -> pure $ Just $ IPv4Sock sock1
+        (Nothing, Just sock2)    -> pure $ Just $ IPv6Sock sock2
         (_, _)                   -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
             liftIO $ threadDelay (5 :: Second)
@@ -259,21 +265,26 @@ startReceive cli = do
          flip mergeSockets .
          constr $ sock)
 
-spawnNtpClient :: NtpMonad m => NtpClientSettings m -> m ()
-spawnNtpClient settings =
+spawnNtpClient :: forall m. NtpMonad m => NtpClientSettings m -> m ()
+spawnNtpClient NtpSyncUnavailable = return ()
+spawnNtpClient settings@NtpClientSettings {} =
     withSocketsDoLifted $
-    modifyLoggerName (<> ntpLogName settings) $
-    bracket (mkSockets settings) closeSockets $ \sock -> do
-        cli <- mkNtpClient settings sock
-
-        addrs <- catMaybes <$> mapM (resolveHost $ socketsToBoolDescr sock)
-                                    (ntpServers settings)
-        when (null addrs) $ throwM NoHostResolved
-        () <$ startReceive cli `concurrently`
-              startSend addrs cli `concurrently`
-              logInfo "Launched NTP client"
+    modifyLoggerName (<> ntpLogName settings) $ 
+    bracket (mkSockets settings) closeSockets $ \case
+        Nothing -> return ()
+        Just sock -> mkNtpClient settings sock >>= \case
+            Nothing -> return ()
+            Just cli -> do
+                addrs <- catMaybes <$> mapM (resolveHost $ socketsToBoolDescr sock)
+                    (ntpServers settings)
+                when (null addrs) $ throwM NoHostResolved
+                () <$ startReceive cli `concurrently`
+                    startSend addrs cli `concurrently`
+                    logInfo "Launched NTP client"
   where
-    closeSockets sockets = do
+    closeSockets :: Maybe Sockets -> m ()
+    closeSockets Nothing = return ()
+    closeSockets (Just sockets) = do
         logInfo "NTP client is stopped"
         forM_ (socketsToList sockets) (liftIO . close)
     resolveHost sockDescr host = do
@@ -291,7 +302,8 @@ spawnNtpClient settings =
 ntpSingleShot
     :: (NtpMonad m)
     => NtpClientSettings m -> m ()
-ntpSingleShot settings =
+ntpSingleShot NtpSyncUnavailable = return ()
+ntpSingleShot settings@NtpClientSettings {} =
     () <$ timeout (ntpResponseTimeout settings) (spawnNtpClient settings)
 
 -- Store created sockets.

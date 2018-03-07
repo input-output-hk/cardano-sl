@@ -25,6 +25,7 @@ import           NTP.Client (NtpClientSettings (..), spawnNtpClient)
 type WorkMode = LoggerNameBox Production
 
 runNtpClientIO :: NtpClientSettings WorkMode -> IO ()
+runNtpClientIO NtpSyncUnavailable = return ()
 runNtpClientIO settings = do
     setupLogging Nothing $
         defaultConfig "ntp-example" <> termSeveritiesOutB (severityPlus Debug)

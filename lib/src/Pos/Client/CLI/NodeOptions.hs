@@ -44,6 +44,7 @@ data CommonNodeArgs = CommonNodeArgs
     , updateLatestPath       :: !FilePath
     , updateWithPackage      :: !Bool
     , noNTP                  :: !Bool
+    , noNTPChecks            :: !Bool
     , route53Params          :: !(Maybe NetworkAddress)
     , enableMetrics          :: !Bool
     , ekgParams              :: !(Maybe EkgParams)
@@ -88,7 +89,10 @@ commonNodeArgsParser = do
         help "Enable updating via installer."
     noNTP <- switch $
         long "no-ntp" <>
-        help "Whether to use real NTP servers to synchronise time or rely on local time"
+        help "Disable use of NTP servers for slotting."
+    noNTPChecks <- switch $
+        long "no-ntp-checks" <>
+        help "Disable NTP checks. Implies --no-ntp."
 
     route53Params <- optional route53HealthCheckOption
 

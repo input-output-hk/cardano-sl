@@ -29,6 +29,7 @@ type NtpCheckMonad m =
     )
 
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings m -> m a -> m a
+withNtpCheck NtpSyncUnavailable action = action
 withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action)
 
 ntpSettings :: NtpCheckMonad m => (NtpStatus -> m ()) -> NtpClientSettings m
@@ -70,6 +71,9 @@ getNtpStatusOnce :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
 getNtpStatusOnce = do
     status <- newEmptyMVar
     let onStatusHandler = putMVar status
-    let initNtp = spawnNtpClient $ ntpSettings onStatusHandler
-    withAsync initNtp $ \_ ->
-        readMVar status
+    case ntpSettings onStatusHandler of
+        NtpSyncUnavailable
+            -> return NtpSyncOk
+        settings
+            -> withAsync (spawnNtpClient settings)
+                $ \_ -> readMVar status

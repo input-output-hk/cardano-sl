@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
-import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
 
@@ -50,7 +50,7 @@ runWRealMode
        ( HasConfigurations
        , HasCompileInfo
        )
-    => WalletState
+    => WalletDB
     -> ConnectionsVar
     -> AddrCIdHashes
     -> NodeResources WalletMempoolExt

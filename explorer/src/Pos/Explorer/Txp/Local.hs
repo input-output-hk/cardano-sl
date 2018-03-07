@@ -21,7 +21,8 @@ import           Pos.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Txp.Logic.Local (ProcessTxContext (..), buildProccessTxContext, ptcExtra,
                                       txNormalizeAbstract, txProcessTransactionAbstract)
-import           Pos.Txp.MemState (MempoolExt, MonadTxpMem, TxpLocalWorkMode, getTxpExtra)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpMem, TxpLocalWorkMode, getTxpExtra,
+                                   withTxpLocalData)
 import           Pos.Txp.Toil (ToilVerFailure (..))
 import           Pos.Util.Chrono (NewestFirst (..))
 import qualified Pos.Util.Modifier as MM
@@ -113,7 +114,7 @@ eTxNormalize ::
        )
     => m ()
 eTxNormalize = do
-    extra <- getTxpExtra
+    extra <- withTxpLocalData getTxpExtra
     let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
     txNormalizeAbstract $ \e localTxs -> do
         let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras

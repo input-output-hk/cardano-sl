@@ -60,7 +60,8 @@ import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, MonadUtxo, MonadUtxoRead, ToilT,
                           Tx (..), TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           applyTxToUtxo, evalToilTEmpty, flattenTxPayload, genesisUtxo, getLocalTxs,
-                          runDBToil, topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet)
+                          runDBToil, topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet,
+                          withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 
@@ -253,7 +254,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
             (WithHash taTx txid, taWitness)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
-    ltxs <- lift $ map mapper <$> getLocalTxs
+    ltxs <- lift $ map mapper <$> withTxpLocalData getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ txs

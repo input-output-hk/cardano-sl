@@ -20,7 +20,7 @@ import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (getAccountMeta, getWalletMeta)
+import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta, getWalletMeta)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 currentBackupFormatVersion :: V.Version
@@ -54,15 +54,18 @@ instance Arbitrary WalletBackup where
             , wbAccounts = HM.singleton wbInt (AccountMetaBackup CAccountMeta {..})
             }
 
-getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
-getWalletBackup wId = do
+getWalletBackup :: AccountMode ctx m
+                => WalletSnapshot
+                -> CId Wal
+                -> m WalletBackup
+getWalletBackup ws wId = do
     sk <- getSKById wId
-    meta <- maybeThrow (InternalError "Wallet has no meta") =<<
-            getWalletMeta wId
-    accountIds <- getWalletAccountIds wId
-    accountMetas <- forM accountIds $
-        maybeThrow (InternalError "Account has no meta") <=<
-        getAccountMeta
+    meta <- maybeThrow (InternalError "Wallet have no meta") $
+            getWalletMeta ws wId
+    let accountIds = getWalletAccountIds ws wId
+    accountMetas <- forM accountIds $ \accid ->
+        maybeThrow (InternalError "Account have no meta") $
+        getAccountMeta ws accid
 
     let accountsMap = HM.fromList $ zip
             (map (fromInteger . fromIntegral . aiIndex) accountIds)

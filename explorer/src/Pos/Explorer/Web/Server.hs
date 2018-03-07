@@ -64,7 +64,8 @@ import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPay
 import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
                                _txOutputs)
 import           Pos.Slotting (MonadSlots (..), getSlotStart)
-import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs)
+import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs,
+                          withTxpLocalData)
 import           Pos.Util (divRoundUp, maybeThrow)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Web (serveImpl)
@@ -779,7 +780,7 @@ fetchTxFromMempoolOrFail txId = do
         :: (MonadIO m, MonadTxpMem ext ctx m)
         => m TxMap
     localMemPoolTxs = do
-      memPool <- getMemPool
+      memPool <- withTxpLocalData getMemPool
       pure $ memPool ^. mpLocalTxs
 
 getMempoolTxs :: ExplorerMode ctx m => m [TxInternal]
@@ -792,7 +793,7 @@ getMempoolTxs = do
         forM mextra $ \extra -> pure $ TxInternal extra (taTx txAux)
   where
     tlocalTxs :: (MonadIO m, MonadTxpMem ext ctx m) => m [(TxId, TxAux)]
-    tlocalTxs = getLocalTxs
+    tlocalTxs = withTxpLocalData getLocalTxs
 
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid

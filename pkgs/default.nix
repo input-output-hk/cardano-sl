@@ -7490,21 +7490,23 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-tools" = callPackage
-        ({ mkDerivation, aeson, ansi-wl-pprint, array, async, attoparsec
-         , base, base58-bytestring, bytestring, canonical-json
-         , cardano-report-server, cardano-sl, cardano-sl-binary
-         , cardano-sl-block, cardano-sl-core, cardano-sl-crypto
-         , cardano-sl-db, cardano-sl-infra, cardano-sl-lrc
-         , cardano-sl-networking, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, Chart, Chart-diagrams, containers, cpphs
-         , cryptonite, data-default, directory, ed25519, fgl, filepath
-         , foldl, formatting, Glob, graphviz, kademlia, lens, lifted-async
-         , log-warper, MonadRandom, mtl, neat-interpolation
-         , optparse-applicative, parsec, pipes, pipes-bytestring
-         , pipes-interleave, pipes-safe, process, QuickCheck, random
-         , random-shuffle, safe-exceptions, serokell-util, silently, stdenv
-         , stm, tabl, tar, text, time, time-units, universum, unix
-         , unix-compat, unordered-containers, vector, yaml
+        ({ mkDerivation, acid-state, aeson, ansi-terminal, ansi-wl-pprint
+         , array, async, attoparsec, base, base58-bytestring, bytestring
+         , canonical-json, cardano-report-server, cardano-sl
+         , cardano-sl-binary, cardano-sl-block, cardano-sl-client
+         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
+         , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
+         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
+         , cardano-sl-util, cardano-sl-wallet, Chart, Chart-diagrams
+         , containers, cpphs, cryptonite, data-default, directory, ed25519
+         , fgl, filepath, foldl, formatting, Glob, graphviz, kademlia, lens
+         , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
+         , optparse-applicative, optparse-generic, parsec, pipes
+         , pipes-bytestring, pipes-interleave, pipes-safe, process
+         , QuickCheck, random, random-shuffle, safe-exceptions
+         , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
+         , text, time, time-units, universum, unix, unix-compat
+         , unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
@@ -7513,19 +7515,20 @@ inherit (pkgs) mesa;};
            isLibrary = false;
            isExecutable = true;
            executableHaskellDepends = [
-             aeson ansi-wl-pprint array async attoparsec base base58-bytestring
-             bytestring canonical-json cardano-report-server cardano-sl
-             cardano-sl-binary cardano-sl-block cardano-sl-core
-             cardano-sl-crypto cardano-sl-db cardano-sl-infra cardano-sl-lrc
-             cardano-sl-networking cardano-sl-txp cardano-sl-update
-             cardano-sl-util Chart Chart-diagrams containers cryptonite
+             acid-state aeson ansi-terminal ansi-wl-pprint array async
+             attoparsec base base58-bytestring bytestring canonical-json
+             cardano-report-server cardano-sl cardano-sl-binary cardano-sl-block
+             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-infra cardano-sl-lrc cardano-sl-networking
+             cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
+             cardano-sl-wallet Chart Chart-diagrams containers cryptonite
              data-default directory ed25519 fgl filepath foldl formatting Glob
              graphviz kademlia lens lifted-async log-warper MonadRandom mtl
-             neat-interpolation optparse-applicative parsec pipes
-             pipes-bytestring pipes-interleave pipes-safe process QuickCheck
-             random random-shuffle safe-exceptions serokell-util silently stm
-             tabl tar text time time-units universum unix unix-compat
-             unordered-containers vector yaml
+             neat-interpolation optparse-applicative optparse-generic parsec
+             pipes pipes-bytestring pipes-interleave pipes-safe process
+             QuickCheck random random-shuffle safe-exceptions serokell-util
+             silently stm string-conv tabl tar text time time-units universum
+             unix unix-compat unordered-containers vector yaml
            ];
            executableToolDepends = [ cpphs ];
            doHaddock = false;

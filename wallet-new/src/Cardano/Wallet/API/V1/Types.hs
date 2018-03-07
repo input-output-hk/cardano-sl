@@ -5,6 +5,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
+-- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
+-- is merged
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.Wallet.API.V1.Types (
     V1 (..)
   -- * Swagger & REST-related types
@@ -201,6 +205,22 @@ instance FromJSON (V1 Core.Coin) where
 instance Arbitrary (V1 Core.Coin) where
     arbitrary = fmap V1 arbitrary
 
+instance ToSchema (V1 Core.Coin) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1 Coin") $ mempty
+            & type_ .~ SwaggerNumber
+            & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
+
+-- Orphan instance copied from a PR.
+--
+-- TODO: remove and use upstream when this PR is merged
+-- <https://github.com/GetShopTV/swagger2/pull/141>
+instance ToSchema a => ToSchema (NonEmpty a) where
+     declareNamedSchema _ = do
+        listSchema <- declareSchema (Proxy :: Proxy [a])
+        pure $ NamedSchema Nothing $ listSchema
+            & minItems .~ Just 1
+
 instance ToJSON (V1 Core.Address) where
     toJSON (V1 c) = String $ sformat addressF c
 
@@ -212,6 +232,12 @@ instance FromJSON (V1 Core.Address) where
 
 instance Arbitrary (V1 Core.Address) where
     arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.Address) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1 Address") $ mempty
+            & type_ .~ SwaggerString
+            -- TODO: any other constraints we can have here?
 
 instance FromHttpApiData (V1 Core.Address) where
     parseQueryParam = fmap (fmap V1) Core.decodeTextAddress
@@ -465,9 +491,15 @@ instance Arbitrary EstimatedFees where
 data PaymentDistribution = PaymentDistribution {
       pdAddress :: V1 (Core.Address)
     , pdAmount  :: V1 (Core.Coin)
-    } deriving (Show, Ord, Eq)
+    } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
+
+instance ToSchema PaymentDistribution where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier =
+            over (ix 0) C.toLower . drop 2 -- length "pd"
+        }
 
 instance Arbitrary PaymentDistribution where
   arbitrary = PaymentDistribution <$> arbitrary
@@ -481,6 +513,12 @@ data PaymentSource = PaymentSource
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentSource
+
+instance ToSchema PaymentSource where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier =
+            over (ix 0) C.toLower . drop 2 -- length "ps"
+        }
 
 instance Arbitrary PaymentSource where
   arbitrary = PaymentSource <$> arbitrary
@@ -507,6 +545,12 @@ instance FromJSON (V1 Core.InputSelectionPolicy) where
     parseJSON (String "OptimizeForHighThroughput") = pure (V1 Core.OptimizeForHighThroughput)
     parseJSON x = typeMismatch "Not a valid InputSelectionPolicy" x
 
+instance ToSchema (V1 Core.InputSelectionPolicy) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1 InputSelectionPolicy") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ .~ Just ["OptimizeForSecurity", "OptimizeForHighThroughput"]
+
 instance Arbitrary (V1 Core.InputSelectionPolicy) where
     arbitrary = fmap V1 arbitrary
 
@@ -517,6 +561,12 @@ instance Arbitrary Payment where
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
+
+instance ToSchema Payment where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier =
+            over (ix 0) C.toLower . drop 3 -- length "pmt"
+        }
 
 ----------------------------------------------------------------------------
 -- TxId

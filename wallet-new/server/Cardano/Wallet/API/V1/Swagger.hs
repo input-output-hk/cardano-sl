@@ -357,9 +357,6 @@ instance ToSchema AccountUpdate where
 instance ToSchema AddressValidity where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema (V1 Core.Address) where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToSchema Metadata where
   declareNamedSchema = annotate fromExampleJSON
 
@@ -383,9 +380,6 @@ instance ToSchema EstimatedFees where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema Transaction where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Payment where
   declareNamedSchema = annotate fromExampleJSON
 
 instance ToSchema WalletSoftwareUpdate where

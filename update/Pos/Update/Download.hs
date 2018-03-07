@@ -199,7 +199,7 @@ downloadHash updateServers h = do
         go errs (serv:rest) = do
             let uri = toString serv <//> showHash h
             logDebug $ "Trying url " <> show uri
-            liftIO (withTimeOut ((fromInteger . toMicroseconds) maxLatency) (downloadUri manager uri h)) >>= \case
+            liftIO (withTimeout maxLatency (downloadUri manager uri h)) >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
 
@@ -216,13 +216,14 @@ downloadHash updateServers h = do
     showHash :: Hash a -> FilePath
     showHash = toString . B16.encode . BA.convert
 
-    withTimeOut :: Int
+    withTimeout :: Minute
                 -> IO (Either Text LByteString)
                 -> IO (Either Text LByteString)
-    withTimeOut maxLatency action = do
-        timeout maxLatency action <&> \case
+    withTimeout maxLatency action = do
+        timeout ((fromInteger . toMicroseconds) maxLatency) action <&> \case
             Nothing -> Left "Timeout occured while downloading an update"
             Just anything -> anything
+
 
 -- Download a file and check its hash.
 downloadUri :: Manager

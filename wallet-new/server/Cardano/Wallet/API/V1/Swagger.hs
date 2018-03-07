@@ -20,26 +20,19 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Core as Core
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), Value (Object))
+import           Data.Aeson (ToJSON (..))
 import           Data.Aeson.Encode.Pretty
-import qualified Data.HashMap.Strict as HM
-import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
-import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
-import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.String.Conv
 import           Data.Swagger hiding (Example, Header, example)
-import qualified Data.Swagger as S
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import           Data.Typeable
@@ -66,70 +59,6 @@ fromExampleJSON :: (ToJSON a, Typeable a, Example a)
 fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
-
--- | Renders the inner type of a proxy as a `Text`, using Typeable's `typeRep` internally.
-renderType :: Typeable a => proxy a -> T.Text
-renderType = fromString . show . typeRep
-
--- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
-withExample :: (ToJSON a, Example a) => proxy a -> T.Text -> T.Text
-withExample (_ :: proxy a) desc =
-  desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
-
--- | Generates a description suitable to be used for "Update" types.
-updateDescr :: Typeable a => proxy a -> T.Text
-updateDescr (p :: proxy a) =
-    "A type representing an update for an existing " <> renderType p <> "."
-
--- | Generates a description suitable to be used for "New" types.
-newDescr :: Typeable a => proxy a -> T.Text
-newDescr (p :: proxy a) =
-    "A type representing an request for creating a(n) " <> renderType p <> "."
-
--- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
--- given types.
-readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Example a, ToJSON a, Example b, ToJSON b)
-                       => proxy a -> Set T.Text
-readOnlyFieldsFromJSON _ =
-    case (toJSON (genExample @a), toJSON (genExample @b)) of
-        (Object o1, Object o2) -> (Set.fromList $ HM.keys o1) `Set.difference` (Set.fromList $ HM.keys o2)
-        _                      -> mempty
-
--- | Enrich a Swagger `Schema` with a list of readOnly fields.
-setReadOnlyFields :: ToDocs a
-                  => proxy a
-                  -> (InsOrdHashMap Text (Referenced Schema))
-                  -> (InsOrdHashMap Text (Referenced Schema))
-setReadOnlyFields p hm =
-  let fields = readOnlyFields p
-  in InsOrdHM.mapWithKey (setRO fields) hm
-  where
-    setRO :: Set (T.Text) -> T.Text -> Referenced Schema -> Referenced Schema
-    setRO _ _  r@(Ref _)    = r
-    setRO flds f r@(Inline s) =
-      if f `Set.member` flds then Inline (s & readOnly ?~ (f `Set.member` flds)) else r
-
---
--- Extra Typeclasses
---
-
-
--- TODO: Writing instances this way is a bit verbose. Is there a better way?
-class (ToJSON a, Typeable a, Example a) => ToDocs a where
-  annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
-           -> proxy a
-           -> Declare (Definitions Schema) NamedSchema
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ descriptionFor p)
-               . (schema . S.example ?~ toJSON @a genExample)
-               . (over (schema . properties) (setReadOnlyFields p))
-
-  descriptionFor :: proxy a -> T.Text
-  descriptionFor p = "A " <> renderType p <> "."
-
-  readOnlyFields :: proxy a -> Set T.Text
-  readOnlyFields _ = mempty
 
 --
 -- Instances
@@ -195,11 +124,6 @@ instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (Sor
                        }
                 }
 
-sortDescription :: Text -> Text -> Text
-sortDescription resource allowedKeys = [text|
-A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
-|]
-
 instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @(WithWalletRequestParams subApi))
@@ -211,6 +135,23 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
                     Nothing -> Inline p
                     Just d  -> Inline (p & description .~ Just d)
             toDescription x = x
+
+instance ToParamSchema WalletId
+
+instance ToSchema Core.Address where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
+
+instance ToParamSchema Core.Address where
+  toParamSchema _ = mempty
+    & type_ .~ SwaggerString
+
+instance ToParamSchema (V1 Core.Address) where
+  toParamSchema _ = toParamSchema (Proxy @Core.Address)
+
+
+--
+-- Descriptions
+--
 
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
@@ -231,120 +172,11 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-instance ToParamSchema WalletId
+sortDescription :: Text -> Text -> Text
+sortDescription resource allowedKeys = [text|
+A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
+|]
 
-instance ToSchema Core.Address where
-    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
-
-instance ToParamSchema Core.Address where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerString
-
-instance ToParamSchema (V1 Core.Address) where
-  toParamSchema _ = toParamSchema (Proxy @Core.Address)
-
-instance ToDocs Metadata where
-  descriptionFor _ = "Metadata returned as part of an <b>WalletResponse</b>."
-
-instance ToDocs Account where
-  readOnlyFields   = readOnlyFieldsFromJSON
-  descriptionFor _ = "An Account."
-
-instance ToDocs WalletAddress where
-  readOnlyFields   = readOnlyFieldsFromJSON
-  descriptionFor _ = "An Address with meta information related to it."
-
-instance ToDocs AccountUpdate where
-  descriptionFor _ = updateDescr (Proxy @Account)
-
-instance ToDocs NewAccount where
-  descriptionFor _ = newDescr (Proxy @Account)
-
-instance ToDocs AddressValidity where
-  descriptionFor _ = "Verifies that an address is base58 decodable."
-
-instance ToDocs (V1 Core.Address) where
-  descriptionFor _ = "A base58-encoded Address."
-
-instance ToDocs Core.Address where
-  descriptionFor _ = "A base58-encoded Address."
-
-instance ToDocs WalletId where
-  descriptionFor _ = "A Wallet ID."
-
-instance ToDocs Wallet where
-  readOnlyFields = readOnlyFieldsFromJSON
-
-instance ToDocs NewWallet where
-  descriptionFor _ = newDescr (Proxy @Wallet)
-
-instance ToDocs NewAddress where
-  descriptionFor _ = newDescr (Proxy @WalletAddress)
-
-instance ToDocs WalletUpdate where
-  descriptionFor _ = updateDescr (Proxy @Wallet)
-
-instance ToDocs PasswordUpdate where
-  descriptionFor _ = "A PasswordUpdate incapsulate a request for changing a Wallet's password."
-
-instance ToDocs EstimatedFees where
-  descriptionFor _ = "Estimated fees for a `Payment`."
-
-instance ToDocs Payment where
-  descriptionFor _ = "A transfer of `Coin`(s) from one source to one or more destinations."
-
-instance ToDocs PaymentDistribution where
-  descriptionFor _ = "Maps an `Address` to some `Coin`s and it's typically "
-                  <> "used to specify where to send money during a `Payment`."
-
-instance ToDocs Transaction where
-  descriptionFor _ = "A Wallet Transaction."
-
-instance ToDocs WalletSoftwareUpdate where
-  descriptionFor _ = "A programmed update to the system."
-
-instance ToDocs NodeSettings where
-  descriptionFor _ = "A collection of static settings for this wallet node."
-
-instance ToDocs BlockchainHeight where
-  descriptionFor _ = "The height of the blockchain."
-
-instance ToDocs SyncProgress where
-  descriptionFor _ = "The sync progress with the blockchain."
-
-instance ToDocs SlotDuration where
-  descriptionFor _ = "The duration for a slot."
-
-instance ToDocs LocalTimeDifference where
-  descriptionFor _ = "The time difference between this node clock and the NTP server."
-
-instance ToDocs NodeInfo where
-  descriptionFor _ = "A collection of dynamic information for this wallet node."
-
-instance ToDocs WalletStateSnapshot where
-  descriptionFor _ = "Dump current wallet state"
-
-instance ToDocs (V1 InputSelectionPolicy) where
-  descriptionFor _ = "A policy to be passed to each new `Payment` request to "
-                  <> "determine how a `Transaction` is assembled. "
-                  <> "Possible values: [" <> possibleValuesOf @(V1 InputSelectionPolicy) Proxy <> "]."
-
-possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
-possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
-
--- ToSchema instances
-
-instance ToDocs a => ToDocs (WalletResponse a) where
-  annotate f p = (f p)
-
-instance (ToDocs a) => ToDocs [a] where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A list of " <> renderType p <> ".")
-
---
--- The API
---
 
 highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
@@ -437,23 +269,13 @@ $deWalletErrorTable
 
 |]
 
-type TableHeader = [T.Text]
-type TableRow = [T.Text]
 
--- | Creates markdown table
--- TODO: test edge cases:
---  * TableHeader == []
---  * no TableRow
---  * when list of rows contains elements with different length (different number of columns)
-markdownTable :: TableHeader -> [TableRow] -> T.Text
-markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
-  where
-    header = makeRow h                             -- corresponds to "a|b|c"
-    headerSplitter = makeRow $ map (const "---") h -- corresponds to "---|---|---"
-    makeRow = T.intercalate "|"
+--
+-- The API
+--
 
-data DescriptionEnvironment = DescriptionEnvironment {
-    deErrorExample          :: !T.Text
+data DescriptionEnvironment = DescriptionEnvironment
+  { deErrorExample          :: !T.Text
   , deDefaultPerPage        :: !T.Text
   , deWalletResponseExample :: !T.Text
   , deWalletErrorTable      :: !T.Text
@@ -470,15 +292,17 @@ api walletApi = toSwagger walletApi
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      deErrorExample = toS $ encodePretty Errors.WalletNotFound
-    , deDefaultPerPage = fromString (show defaultPerPageEntries)
+  & info.description ?~ (highLevelDescription $ DescriptionEnvironment
+    { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
+    , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
-    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
-    , deGitRevision = ctiGitRevision compileInfo
-    , deSoftwareVersion = fromString $ show curSoftwareVersion
+    , deWalletErrorTable      = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map (\e -> [surroundedBy "`" e, "-", "-"]) Errors.allErrorsList -- TODO Fully document errors
+    , deGitRevision           = ctiGitRevision compileInfo
+    , deSoftwareVersion       = fromString $ show curSoftwareVersion
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
   where
-    makeRow err = [surroundedBy "`" err, "-", "-"]
     surroundedBy wrap context = wrap <> context <> wrap
+    markdownTable h rows = unlines $ (mkRow h):(mkSplit h):(map mkRow rows)
+    mkSplit h = mkRow $ map (const "---") h -- e.g. ---|---|---
+    mkRow = T.intercalate "|" -- e.g. a|b|c

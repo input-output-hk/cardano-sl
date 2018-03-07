@@ -2,7 +2,7 @@ module Pos.Wallet.Web.Tracking.Types
        ( SyncQueue
        , SyncRequest  (..)
        , TrackingOperation (..)
-       , SyncResult (..)
+       , SyncError (..)
        , BlockLockMode
        , WalletTrackingEnv
        , WalletTrackingEnvRead
@@ -80,18 +80,21 @@ newRestoreRequest creds = SyncRequest RestoreWallet creds
 newSyncRequest :: WalletDecrCredentials -> SyncRequest
 newSyncRequest creds = SyncRequest SyncWallet creds
 
--- | The result of a sync, as initiated from 'syncWallet'. Such result is handled
--- internally at at the moment the result is just logged and flushed away, but could
--- be later exposed to the frontend to offer more fine-grained diagnostics.
-data SyncResult = SyncSucceeded
-                -- ^ The sync succeed without errors.
-                | NoSyncTipAvailable (CId Wal)
-                -- ^ There was no sync tip available for this wallet.
-                | NotSyncable (CId Wal) WalletError
-                -- ^ The given wallet cannot be synced due to an unexpected error.
-                -- The routine was not even started.
-                | SyncFailed  (CId Wal) SomeException
-                -- ^ The sync process failed abruptly during the sync process.
+
+-- | An enumerations of the errors the syncing process can yield.
+-- Such errors are handled internally at the moment, where an error is just logged and flushed away,
+-- but could be later exposed to the frontend to offer more fine-grained diagnostics.
+data SyncError = GenesisBlockHeaderNotFound
+               -- ^ Fetching the genesis block header failed.
+               | GenesisHeaderHashNotFound
+               -- ^ Fetching the genesis header hash failed.
+               | NoSyncTipAvailable (CId Wal)
+               -- ^ There was no sync tip available for this wallet.
+               | NotSyncable (CId Wal) WalletError
+               -- ^ The given wallet cannot be synced due to an unexpected error.
+               -- The routine was not even started.
+               | SyncFailed  (CId Wal) SomeException
+               -- ^ The sync process failed abruptly during the sync process.
 
 -- | Submit a 'SyncRequest' to the asynchronous worker.
 submitSyncRequest :: ( MonadIO m

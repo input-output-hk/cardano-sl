@@ -36,6 +36,7 @@ module Pos.Wallet.Web.Tracking.Sync
        , evalChange
        ) where
 
+import           Control.Monad.Except (MonadError (throwError))
 import           Universum
 import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
@@ -49,7 +50,8 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
-import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, modifyLoggerName)
+import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
+                              modifyLoggerName)
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
@@ -117,8 +119,7 @@ processSyncRequest :: ( MonadWalletDB ctx m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTBQueue syncQueue)
-    result     <- syncWalletsFromGState newRequest
-    processSyncResult result
+    syncWalletWithBlockchain newRequest >>= either processSyncError pure
     processSyncRequest syncQueue
 
 txMempoolToModifier :: WalletTrackingEnvRead ctx m => WalletDecrCredentials -> m CAccModifier
@@ -146,13 +147,12 @@ txMempoolToModifier credentials = do
                 map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 
--- | Process each 'SyncResult'. The current implementation just logs the errors without exposing it
+-- | Process each 'SyncError'. The current implementation just logs the errors without exposing it
 -- to the upper layers.
-processSyncResult :: ( WithLogger m
-                     , MonadIO m
-                     ) => SyncResult -> m ()
-processSyncResult sr = case sr of
-    SyncSucceeded -> return ()
+processSyncError :: ( WithLogger m , MonadIO m ) => SyncError -> m ()
+processSyncError sr = case sr of
+    GenesisBlockHeaderNotFound -> logError "Couldn't extract the genesis block header from the database."
+    GenesisHeaderHashNotFound  -> logError "Couldn't extract the genesis header hash from the database."
     NoSyncTipAvailable walletId ->
         logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) walletId
     NotSyncable walletId walletError -> do
@@ -166,8 +166,8 @@ processSyncResult sr = case sr of
         logErrorSP $ \sl -> sformat (errMsg sl) walletId exception
 
 -- | Iterates over blocks (using forward links) and reconstructs the transaction
--- history for the given wallets.
-syncWalletsFromGState
+-- history for the given wallet.
+syncWalletWithBlockchain
     :: forall ctx m.
     ( MonadWalletDB ctx m
     , BlockLockMode ctx m
@@ -175,24 +175,26 @@ syncWalletsFromGState
     , HasConfiguration
     )
     => SyncRequest
-    -> m SyncResult
-syncWalletsFromGState syncRequest = do
+    -> m (Either SyncError ())
+syncWalletWithBlockchain syncRequest = do
     let (_, walletId) = srCredentials syncRequest
-    let onError       = pure . SyncFailed walletId
+    let onError       = pure . Left . SyncFailed walletId
     handleAny onError $ do
         WS.getWalletSyncTip walletId >>= \case
-            Nothing                -> pure (NoSyncTipAvailable walletId)
-            Just NotSynced         -> syncDo Nothing
+            Nothing                -> pure $ Left (NoSyncTipAvailable walletId)
+            Just NotSynced         -> do
+                genesisHeader <- firstGenesisHeader
+                either (pure . Left . identity) syncDo genesisHeader
             Just (SyncedWith wTip) -> DB.getHeader wTip >>= \case
                 Nothing ->
                     let err = InternalError $
                               sformat ("Couldn't get block header of wallet by last synced hh: "%build) wTip
-                    in pure (NotSyncable walletId err)
-                Just wHeader -> syncDo (Just wHeader)
+                    in pure $ Left (NotSyncable walletId err)
+                Just wHeader -> syncDo wHeader
   where
-    syncDo :: Maybe BlockHeader -> m SyncResult
-    syncDo wTipH = do
-        let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
+    syncDo :: BlockHeader -> m (Either SyncError ())
+    syncDo walletTipHeader = do
+        let wdiff = (fromIntegral . ( ^. difficultyL) $ walletTipHeader) :: Word32
         gstateTipH <- DB.getTipHeader
         -- If account's syncTip is before the current gstate's tip,
         -- then it loads accounts and addresses starting with @wHeader@.
@@ -210,9 +212,9 @@ syncWalletsFromGState syncRequest = do
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)
-                result <- syncHistoryWithGStateUnsafe syncRequest wTipH bh
-                pure $ (Just result, Just bh)
-            else pure (Nothing, wTipH)
+                result <- syncHistoryWithGStateUnsafe syncRequest walletTipHeader bh
+                pure $ (Just result, bh)
+            else pure (Nothing, walletTipHeader)
 
         let finaliseSyncUnderBlockLock = withStateLockNoMetrics HighPriority $ \tip -> do
                 logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
@@ -220,9 +222,9 @@ syncWalletsFromGState syncRequest = do
                 syncHistoryWithGStateUnsafe syncRequest wNewTip tipH
 
         case syncResult of
-            Nothing            -> finaliseSyncUnderBlockLock
-            Just SyncSucceeded -> finaliseSyncUnderBlockLock
-            Just failedSync    -> pure failedSync
+            Nothing         -> finaliseSyncUnderBlockLock
+            Just (Right ()) -> finaliseSyncUnderBlockLock
+            Just failedSync -> pure failedSync
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.
@@ -239,10 +241,13 @@ syncHistoryWithGStateUnsafe
     , HasConfiguration
     )
     => SyncRequest
-    -> Maybe BlockHeader       -- ^ Block header corresponding to wallet's tip.
-                               --   Nothing when wallet's tip is genesisHash
-    -> BlockHeader             -- ^ GState header hash
-    -> m SyncResult
+    -> BlockHeader
+    -- ^ Block header corresponding to wallet's tip. It can map
+    -- to the genesis BlockHeader if this is a brand new wallet being
+    -- synced or restored.
+    -> BlockHeader
+    -- ^ GState header hash
+    -> m (Either SyncError ())
 syncHistoryWithGStateUnsafe syncRequest wTipHeader gstateH = setLogger $ do
     let credentials@(_, walletId) = srCredentials syncRequest
     systemStart  <- getSystemStartM
@@ -307,19 +312,23 @@ syncHistoryWithGStateUnsafe syncRequest wTipHeader gstateH = setLogger $ do
                      logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
                      return mempty
 
-    startFromH <- maybe firstGenesisHeader pure wTipHeader
-    mapModifier@CAccModifier{..} <- computeAccModifier startFromH
+    mapModifier@CAccModifier{..} <- computeAccModifier wTipHeader
     applyModifierToWallet walletId (headerHash gstateH) mapModifier
     logInfoSP $ \sl ->
         sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                 %shortHashF%", "%buildSafe sl)
-                walletId (maybe genesisHash headerHash wTipHeader) mapModifier
-    pure SyncSucceeded
-  where
-    firstGenesisHeader :: m BlockHeader
-    firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeader) >>=
-        maybe (error "Unexpected state: genesisHash doesn't have forward link")
-            (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
+                walletId (headerHash wTipHeader) mapModifier
+    pure $ Right ()
+
+
+firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
+firstGenesisHeader = runExceptT $ do
+    genesisHeaderHash  <- resolveForwardLink (genesisHash @BlockHeader)
+    case genesisHeaderHash of
+        Nothing  -> throwError GenesisHeaderHashNotFound
+        Just ghh -> do
+            genesisBlockHeader <- DB.getHeader ghh
+            maybe (throwError GenesisBlockHeaderNotFound) pure genesisBlockHeader
 
 constructAllUsed
     :: [(CId Addr, HeaderHash)]

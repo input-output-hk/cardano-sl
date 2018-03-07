@@ -540,4 +540,4 @@ api = toSwagger walletAPI
         ]
     surroundedBy wrap context = wrap <> context <> wrap
     errorCode ServantErr{..} = errHTTPCode
-    toSingleLine = T.unwords . T.lines
+    toSingleLine = unwords . lines

@@ -28,6 +28,7 @@ import           UTxO.Translate
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
+import           Util.DepIndep
 import           Util.Validated
 import           Wallet.Abstract
 -- import qualified Wallet.Full as Full
@@ -204,11 +205,11 @@ bracketWallet test =
 -------------------------------------------------------------------------------}
 
 emptyBlock :: Hash h Addr => PreChain h Identity
-emptyBlock = PreChain $ \_boot -> return $ \_fees ->
+emptyBlock = DepIndep $ \_boot -> return $ \_fees ->
     OldestFirst [OldestFirst []]
 
 oneTrans :: Hash h Addr => PreChain h Identity
-oneTrans = PreChain $ \boot -> return $ \((fee : _) : _) ->
+oneTrans = DepIndep $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -222,7 +223,7 @@ oneTrans = PreChain $ \boot -> return $ \((fee : _) : _) ->
 
 -- Try to transfer from R0 to R1, but leaving R0's balance the same
 overspend :: Hash h Addr => PreChain h Identity
-overspend = PreChain $ \boot -> return $ \((fee : _) : _) ->
+overspend = DepIndep $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -239,7 +240,7 @@ overspend = PreChain $ \boot -> return $ \((fee : _) : _) ->
 -- outputs at all; but in practice this breaks stuff because now we have
 -- two identical transactions which would therefore get identical IDs?
 doublespend :: Hash h Addr => PreChain h Identity
-doublespend = PreChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
+doublespend = DepIndep $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee1
@@ -274,7 +275,7 @@ doublespend = PreChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
 -- ordinary address. This currently has no equivalent in Cardano, so we omit
 -- it.
 example1 :: Hash h Addr => PreChain h Identity
-example1 = PreChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
+example1 = DepIndep $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
     let t3 = Transaction {
                  trFresh = 0
                , trFee   = fee3

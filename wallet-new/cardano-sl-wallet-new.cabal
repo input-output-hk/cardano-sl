@@ -235,6 +235,7 @@ test-suite wallet-unit-tests
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
+                      Util.DepIndep
                       Util.Validated
                       UTxO.BlockGen
                       UTxO.Bootstrap
@@ -296,6 +297,7 @@ test-suite wallet-unit-tests
                     , hspec
                     , lens
                     , log-warper
+                    , mmorph
                     , mtl
                     , QuickCheck
                     , serokell-util

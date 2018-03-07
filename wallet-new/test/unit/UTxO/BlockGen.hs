@@ -18,6 +18,7 @@ import qualified Data.Set as Set
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Test.QuickCheck
 
+import           Util.DepIndep
 import           UTxO.Context
 import           UTxO.DSL
 import           UTxO.PreChain
@@ -62,7 +63,7 @@ toPreChainWith
     => (BlockGenCtx h -> BlockGenCtx h)
     -> BlockGen h [[Value -> Transaction h Addr]]
     -> PreChain h Gen
-toPreChainWith settings bg = PreChain $ \boot -> do
+toPreChainWith settings bg = DepIndep $ \boot -> do
     ks <- runBlockGenWith settings boot bg
     return
         $ OldestFirst

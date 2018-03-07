@@ -5,8 +5,7 @@
 -- * Module "Pos.Core.Common.Fee"
 -- * Function 'Pos.Client.Txp.Util.stabilizeTxFee'
 module UTxO.PreChain (
-    PreChain(..)
-  , hoistPreChain
+    PreChain
   , FromPreChain(..)
   , fromPreChain
   ) where
@@ -18,6 +17,7 @@ import           Pos.Core
 import           Pos.Txp.Toil
 import           Pos.Util.Chrono
 
+import           Util.DepIndep
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.DSL
@@ -30,11 +30,13 @@ import           UTxO.Translate
 
 -- | A chain with "holes" for the bootstrap transaction and the fees
 --
--- NOTE: The position of @m@ here is very deliberate. If we used
+-- We use the 'DepIndep' monad transformer here to make sure that the
+-- effects can depend on the bootstrap transaction, but not on the fees.
+-- This is important. Suppose we used
 --
 -- > Transaction h Addr -> [[Fee]] -> m (Blocks h Addr)
 --
--- instead then we'd have to execute the action that generates the blocks
+-- instead: we'd have to execute the action that generates the blocks
 -- /twice/ (once before we know the fees, and once again after we computed
 -- the fees), and the second time around we may in fact generate a very
 -- different chain (think @m@ = QuickCheck 'Gen', for instance) -- which
@@ -45,18 +47,13 @@ import           UTxO.Translate
 -- instead, then (thinking @m@ = 'Gen' again) we could not generate different
 -- chains for different bootstrap transactions, which would also be no good.
 --
--- By having the @m@ parameter after the bootstrap transaction but before
--- the fees we avoid having to run the generator twice. It is still the
--- responsibility of the 'PreChain' author to make sure that the structure of
--- the blockchain does not depend on the fees that are passed.
-newtype PreChain h m = PreChain {
-      runPreChain :: Transaction h Addr -> m ([[Fee]] -> Blocks h Addr)
-    }
+-- It is still the responsibility of the 'PreChain' author to make sure that the
+-- structure of the blockchain does not depend on the fees that are passed.
+type PreChain h m = DepIndep (Transaction h Addr) [[Fee]] m (Blocks h Addr)
 
--- | Transform the underlying monad in the 'PreChain'.
-hoistPreChain :: (forall x. m x -> n x) -> PreChain h m -> PreChain h n
-hoistPreChain k (PreChain f) = PreChain (k . f)
-
+-- | Result of translating a 'PreChain'
+--
+-- See 'fromPreChain'
 data FromPreChain h = FromPreChain {
       fpcBoot   :: Transaction h Addr
     , fpcChain  :: Chain       h Addr
@@ -65,9 +62,9 @@ data FromPreChain h = FromPreChain {
 
 fromPreChain :: (Hash h Addr, Monad m)
              => PreChain h m -> TranslateT IntException m (FromPreChain h)
-fromPreChain (PreChain f) = do
+fromPreChain preChain = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot =<< lift (f fpcBoot)
+    txs <- calcFees fpcBoot =<< lift (runDepIndep preChain fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}

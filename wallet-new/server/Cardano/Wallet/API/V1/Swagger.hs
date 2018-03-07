@@ -79,12 +79,12 @@ withExample (_ :: proxy a) desc =
 -- | Generates a description suitable to be used for "Update" types.
 updateDescr :: Typeable a => proxy a -> T.Text
 updateDescr (p :: proxy a) =
-    "A type represending an update for an existing " <> renderType p <> "."
+    "A type representing an update for an existing " <> renderType p <> "."
 
 -- | Generates a description suitable to be used for "New" types.
 newDescr :: Typeable a => proxy a -> T.Text
 newDescr (p :: proxy a) =
-    "A type represending an request for creating a(n) " <> renderType p <> "."
+    "A type representing an request for creating a(n) " <> renderType p <> "."
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
@@ -333,39 +333,6 @@ possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
 possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
 -- ToSchema instances
-
-instance ToSchema Account where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletAddress where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema AccountUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema AddressValidity where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Wallet where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema PasswordUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema EstimatedFees where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Transaction where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletSoftwareUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NodeSettings where
-  declareNamedSchema = annotate fromExampleJSON
 
 instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)

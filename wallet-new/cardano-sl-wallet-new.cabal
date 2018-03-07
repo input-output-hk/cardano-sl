@@ -126,7 +126,7 @@ library
                       UndecidableInstances
                       MonadFailDesugaring
 
-executable cardano-new
+executable cardano-node
   hs-source-dirs:      server
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts

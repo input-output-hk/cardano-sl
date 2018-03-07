@@ -7638,20 +7638,18 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, cryptonite, data-default, directory, dlist, ether
          , exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, memory, monad-control, MonadRandom, mtl
-         , optparse-applicative, QuickCheck, quickcheck-instances, random
-         , reflection, safe-exceptions, safecopy, semver, serokell-util
-         , servant, servant-generic, servant-multipart, servant-server
-         , servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text
-         , text-format, time, time-units, transformers, universum, unix
-         , unliftio, unordered-containers, wai, wai-websockets, websockets
+         , log-warper, memory, monad-control, MonadRandom, mtl, QuickCheck
+         , quickcheck-instances, random, reflection, safe-exceptions
+         , safecopy, semver, serokell-util, servant, servant-generic
+         , servant-multipart, servant-server, servant-swagger
+         , servant-swagger-ui, stdenv, stm, swagger2, text, text-format
+         , time, time-units, transformers, universum, unix, unliftio
+         , unordered-containers, wai, wai-websockets, websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
            version = "1.1.0";
            src = ./../wallet;
-           isLibrary = true;
-           isExecutable = true;
            libraryHaskellDepends = [
              acid-state aeson async base base58-bytestring bytestring cardano-sl
              cardano-sl-block cardano-sl-client cardano-sl-core
@@ -7668,14 +7666,6 @@ inherit (pkgs) mesa;};
              wai-websockets websockets
            ];
            libraryToolDepends = [ cpphs ];
-           executableHaskellDepends = [
-             aeson base bytestring cardano-sl cardano-sl-core cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp cardano-sl-util
-             formatting lens log-warper optparse-applicative servant
-             servant-multipart servant-server servant-swagger servant-swagger-ui
-             swagger2 text time-units universum
-           ];
-           executableToolDepends = [ cpphs ];
            testHaskellDepends = [
              base cardano-sl cardano-sl-block cardano-sl-client cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation

@@ -70,6 +70,10 @@ dev: &dev
     # NTP checking
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &dev_update
     applicationName: cardano-sl
@@ -250,6 +254,10 @@ mainnet_base: &mainnet_base
     # NTP checking
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &mainnet_base_update
     applicationName: cardano-sl

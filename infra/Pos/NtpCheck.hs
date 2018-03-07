@@ -33,7 +33,7 @@ withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action
 
 ntpSettings :: NtpCheckMonad m => (NtpStatus -> m ()) -> NtpClientSettings m
 ntpSettings onStatus = NtpClientSettings
-    { ntpServers         = Infra.ntpServers
+    { ntpServers         = Infra.ntpcServers ntpConfiguration
     , ntpHandler         = ntpCheckHandler onStatus
     , ntpLogName         = "ntp-check"
     , ntpResponseTimeout = sec 5

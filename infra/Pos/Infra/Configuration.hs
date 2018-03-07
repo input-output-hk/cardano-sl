@@ -4,7 +4,6 @@ module Pos.Infra.Configuration
        , HasNtpConfiguration
        , ntpConfiguration
        , withNtpConfiguration
-       , ntpServers
        ) where
 
 import           Universum
@@ -33,6 +32,8 @@ data NtpConfiguration = NtpConfiguration
     , nptcTimeDifferenceWarnThreshold :: !Integer
       -- ^ Maximum tolerable difference between NTP time
       -- and local time, microseconds
+    , ntpcServers                     :: [String]
+      -- ^ List of ntp servers
     } deriving (Show, Generic)
 
 instance FromJSON NtpConfiguration where
@@ -48,11 +49,3 @@ withNtpConfiguration = give
 
 ntpConfiguration :: HasNtpConfiguration => NtpConfiguration
 ntpConfiguration = given
-
-ntpServers :: [String]
-ntpServers =
-    [ "0.pool.ntp.org"
-    , "2.pool.ntp.org"
-    , "3.pool.ntp.org"
-    ]
-    -- need only 3 servers :shrug:

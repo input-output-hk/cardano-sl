@@ -14,6 +14,11 @@ import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsend)
+import           Pos.Aeson.Core ()
+import           Pos.Arbitrary.Core ()
+import qualified Pos.Core as Core
+import           Test.QuickCheck.Gen
+import           Test.QuickCheck.Random
 
 --
 -- Error handling
@@ -48,7 +53,7 @@ import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsen
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }
-    | OutputIsRedeem { weAddress :: !Text }
+    | OutputIsRedeem { weAddress :: !Core.Address }
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
@@ -73,7 +78,7 @@ instance Exception WalletError where
 instance Arbitrary WalletError where
     arbitrary = oneof
         [ NotEnoughMoney <$> arbitrary
-        , OutputIsRedeem <$> pure "address"
+        , OutputIsRedeem <$> arbitrary
         , SomeOtherError <$> pure "blah" <*> arbitrary
         , MigrationFailed <$> pure "migration"
         , JSONValidationFailed <$> pure "Expected String, found Null."
@@ -87,6 +92,25 @@ instance Arbitrary WalletError where
 -- | List of all existing error tags. Populates automatically
 allErrorsList :: [Text]
 allErrorsList = gconsNames (Proxy :: Proxy WalletError)
+
+-- | Needed for error table in swagger documentation
+-- TODO:
+--  * consider using class Example for this use case
+--  * consider using genExample from V1/Swagger.hs
+--  * auto generate - see CSL-2275
+allErrorsExamples :: [WalletError]
+allErrorsExamples = map genExample errorsConstructors
+  where genExample e = (unGen (resize 3 e)) (mkQCGen 42) 42
+        -- | List of all existing error constructors
+        -- | TODO: We don't want to show all Errors here - so this is a good candidate for Example.
+        errorsConstructors :: [Gen WalletError]
+        errorsConstructors =
+            [ NotEnoughMoney <$> arbitrary
+            , OutputIsRedeem <$> arbitrary
+            , MigrationFailed <$> pure "migration"
+            , JSONValidationFailed <$> pure "Expected String, found Null."
+            , pure WalletNotFound
+            ]
 
 -- | Function which determines which HTTP error corresponds to each
 -- `WalletError`.

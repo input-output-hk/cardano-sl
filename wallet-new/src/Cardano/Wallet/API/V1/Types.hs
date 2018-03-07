@@ -7,7 +7,7 @@
 
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
-{-# LANGUAGE NoPatternSynonyms #-}
+{-# LANGUAGE NoPatternSynonyms          #-}
 
 -- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
 -- is merged
@@ -71,18 +71,17 @@ import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
-import Data.Swagger.Declare (Declare)
-import Data.Swagger.Internal.Schema (GToSchema)
+import           Data.Swagger.Declare (Declare)
+import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
-import           GHC.Generics (Generic)
+import           GHC.Generics (Generic, Rep)
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
 import           Test.QuickCheck
 import           Web.HttpApiData
-import GHC.Generics (Rep)
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()

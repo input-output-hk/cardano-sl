@@ -27,9 +27,8 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevisi
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import qualified Data.Char as Char
-import           Control.Lens ((?~), ix)
-import           Data.Aeson (ToJSON (..), Value (Number, Object))
+import           Control.Lens ((?~))
+import           Data.Aeson (ToJSON (..), Value (Object))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.HashMap.Strict as HM
 import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
@@ -232,20 +231,10 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-instance ToParamSchema PerPage where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
-    & minimum_ ?~ 1
-    & maximum_ ?~ (fromIntegral maxPerPageEntries)
-
-instance ToParamSchema Page where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number 1) -- Always show the first page by default.
-    & minimum_ ?~ 1
-
 instance ToParamSchema WalletId
+
+instance ToSchema Core.Address where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
 
 instance ToParamSchema Core.Address where
   toParamSchema _ = mempty
@@ -357,18 +346,8 @@ instance ToSchema AccountUpdate where
 instance ToSchema AddressValidity where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema Metadata where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToSchema Wallet where
   declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NewWallet where
-    declareNamedSchema =
-        genericDeclareNamedSchema defaultSchemaOptions
-            { fieldLabelModifier =
-                over (ix 0) Char.toLower . drop 6 {- length "newwal" -}
-            }
 
 instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromExampleJSON
@@ -388,14 +367,8 @@ instance ToSchema WalletSoftwareUpdate where
 instance ToSchema NodeSettings where
   declareNamedSchema = annotate fromExampleJSON
 
-instance ToSchema NodeInfo where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)
-
-instance (ToJSON a, ToDocs a, Typeable a, Example a) => ToSchema (WalletResponse a) where
-  declareNamedSchema = annotate fromExampleJSON
 
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do

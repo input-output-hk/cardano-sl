@@ -334,6 +334,13 @@ instance Arbitrary NewWallet where
                         <*> pure "My Wallet"
                         <*> arbitrary
 
+instance ToSchema NewWallet where
+    declareNamedSchema =
+        genericDeclareNamedSchema defaultSchemaOptions
+            { S.fieldLabelModifier =
+                over (ix 0) C.toLower . drop 6 {- length "newwal" -}
+            }
+
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
       uwalAssuranceLevel :: !AssuranceLevel
@@ -738,6 +745,22 @@ instance ToJSON LocalTimeDifference where
 instance FromJSON LocalTimeDifference where
     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
 
+instance ToSchema LocalTimeDifference where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & ix "quantity" .~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    )
+                & ix "unit" .~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & pattern .~ Just "microseconds"
+                    )
+                )
+
+
 -- | The sync progress with the blockchain.
 newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
                      deriving (Show, Eq)
@@ -756,6 +779,23 @@ instance ToJSON SyncProgress where
 
 instance FromJSON SyncProgress where
     parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
+
+instance ToSchema SyncProgress where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "SyncProgress") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & ix "quantity" .~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & maximum_ .~ Just 100
+                    & minimum_ .~ Just 0
+                    )
+                & ix "unit" .~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & pattern .~ Just "percent"
+                    )
+                )
 
 -- | The absolute or relative height of the blockchain, measured in number
 -- of blocks.
@@ -777,6 +817,23 @@ instance FromJSON BlockchainHeight where
     parseJSON = withObject "BlockchainHeight" $ \sl ->
         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
 
+instance ToSchema BlockchainHeight where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "BlockchainHeight") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & ix "quantity" .~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & maximum_ .~ Just (fromIntegral (maxBound :: Word64))
+                    & minimum_ .~ Just (fromIntegral (minBound :: Word64))
+                    )
+                & ix "unit" .~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & pattern .~ Just "blocks"
+                    )
+                )
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncProgress
@@ -785,13 +842,22 @@ data NodeInfo = NodeInfo {
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    -- ^ The local blockchain "height", in blocks.
    , nfoLocalTimeDifference   :: !LocalTimeDifference
-   } deriving (Show, Eq)
+   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
 
+instance ToSchema NodeInfo where
+    declareNamedSchema prx = do
+        genericDeclareNamedSchema defaultSchemaOptions
+            { S.fieldLabelModifier =
+                over (ix 0) C.toLower . drop 3 -- length "nfo"
+            } prx
+
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
-                         <*> arbitrary
+                         -- TODO: The JSON validation stuff is currently
+    -- failing because
+                         <*> map Just arbitrary
                          <*> arbitrary
                          <*> arbitrary
 

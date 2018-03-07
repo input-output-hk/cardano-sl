@@ -208,11 +208,6 @@ function node_cmd {
   if [[ "$REPORT_SERVER" != "" ]]; then
     report_server=" --report-server $REPORT_SERVER "
   fi
-  if [[ $i == "0" ]]; then
-    if [[ $CARDANO_WEB != "" ]]; then
-      web=" --web "
-    fi
-  fi
   if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi

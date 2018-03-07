@@ -20,7 +20,6 @@ stack exec -- cardano-node                                 \
     --tlscert ./scripts/tls-files/server.crt               \
     --tlskey ./scripts/tls-files/server.key                \
     --tlsca ./scripts/tls-files/ca.crt                     \
-    --web                                                  \
     --no-ntp                                               \
     --topology "${TOPOLOGY_YAML}"                          \
     --log-config log-configs/connect-to-cluster.yaml       \

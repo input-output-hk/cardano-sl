@@ -44,6 +44,19 @@ Most important code changes which made to release 1.1.0.
 
 - Improved automated issue reporting for some previously uncovered cases of Cardano node failures.
 
+### Other work
+
+- Migrated from Travis to Buildkite with nix-based workers as a CI solution.
+
+- Applied few minor fixes were applied to consensus logic.
+
+- Introduced auxx: tooling suite for developers to be able to quickly test and closely interact with node or network.
+
+- Introduced technical documentation for various parts of system, technical documentation is located at https://github.com/input-output-hk/cardano-sl/tree/release/1.1.0/docs.
+
+- Performed a series of huge refactorings to have better code decomposition, type definitions.
+
+- Implemented first methods for v1 wallet API (prototype).
 
 ## Mainnet 1.0.3
 

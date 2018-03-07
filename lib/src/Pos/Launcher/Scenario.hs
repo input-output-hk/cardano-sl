@@ -11,21 +11,23 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
+import           Control.Concurrent.STM (retry)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (mapConcurrently)
+import           Mockable (Mockable, Async, withAsync, mapConcurrently)
 import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logDebug, logInfo, logWarning)
 
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..), wrapActionSpec)
-import           Pos.Context (getOurPublicKey)
+import           Pos.Context (getOurPublicKey, ncNodeParams, ncNtpConfig)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
+import           Pos.Launcher.Param (npNtpChecks)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.NtpCheck (NtpStatus (..), ntpSettings, withNtpCheck)
 import           Pos.Reporting (reportError)
@@ -44,13 +46,15 @@ import           Pos.WorkMode.Class (WorkMode)
 -- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ext ctx m.
-       ( HasCompileInfo, WorkMode ctx m
+       ( HasCompileInfo
+       , WorkMode ctx m
+       , Mockable Async m
        )
     => NodeResources ext
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCheck $ do
+runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCheck (npNtpChecks $ ncNodeParams nrContext) $ do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -101,7 +105,18 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
-    ntpCheck = withNtpCheck $ ntpSettings onNtpStatusLogWarning
+
+    ntpCheck False action = action
+    ntpCheck True action = do
+        tvar <- newTVarIO Nothing
+        let settings = ntpSettings (ncNtpConfig nrContext) tvar
+        withAsync
+            (do
+                st <- atomically $ readTVar tvar >>= \case
+                    Nothing -> retry
+                    Just st -> return st
+                onNtpStatusLogWarning st)
+            (\_ -> withNtpCheck settings action)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

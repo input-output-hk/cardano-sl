@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE NoImplicitPrelude   #-}
@@ -17,7 +18,6 @@ module NTP.Client
 
 import           Universum
 
-import           Control.Concurrent.MVar (modifyMVar_)
 import           Control.Concurrent.STM (check, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
 import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
@@ -50,7 +50,7 @@ data NtpStatus = NtpSyncOk | NtpDesync Microsecond
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpStatus          :: MVar NtpStatus
+    , ntpStatus          :: TVar (Maybe NtpStatus)
       -- ^ got time callback (margin, time when client sent request)
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
@@ -121,10 +121,10 @@ handleCollectedResponses cli = do
         -- If the @absolute@ time difference between the NTP time and the local time is
         -- bigger than the given threshold, it effectively means we are not synced, as we are
         -- either behind or ahead of the NTP time.
-        let status
+        let !status
                 | timeDiff > (ntpTimeDifferenceWarnThreshold . ncSettings $ cli) = NtpDesync timeDiff
                 | otherwise = NtpSyncOk
-        liftIO $ modifyMVar_ (ntpStatus . ncSettings $ cli) (\_ -> return $! status)
+        atomically $ writeTVar (ntpStatus . ncSettings $ cli) (Just status)
 
 
 allResponsesGathered :: NtpClient -> STM Bool
@@ -137,7 +137,7 @@ allResponsesGathered cli = do
 
 doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
 doSend addr cli = do
-    sock   <- liftIO $ readTVarIO $ ncSockets cli
+    sock   <- readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
     handleAny handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
   where
@@ -160,7 +160,7 @@ startSend addrs cli = do
 
     _ <- concurrently (threadDelay poll) $ do
         logDebug "Sending requests"
-        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Just []
+        atomically . modifyTVarS (ncState cli) $ identity .= Just []
         let sendRequests = forConcurrently addrs (flip doSend cli)
         let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
@@ -168,7 +168,7 @@ startSend addrs cli = do
 
         logDebug "Collecting responses"
         handleCollectedResponses cli
-        liftIO . atomically . modifyTVarS (ncState cli) $ identity .= Nothing
+        atomically . modifyTVarS (ncState cli) $ identity .= Nothing
 
     startSend addrs cli
 
@@ -184,7 +184,7 @@ mkSockets settings = do
         (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
         (_, _)                   -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
-            liftIO $ threadDelay (5 :: Second)
+            threadDelay (5 :: Second)
             mkSockets settings
   where
     logging (_, addrInfo) = logInfo $
@@ -199,7 +199,7 @@ mkSockets settings = do
         logWarning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay (5 :: Second)
         doMkSockets
 
 handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
@@ -211,7 +211,7 @@ handleNtpPacket cli packet = do
     logDebug $ sformat ("Received time delta "%shown%" mcs")
         (toMicroseconds clockOffset)
 
-    late <- liftIO . atomically . modifyTVarS (ncState cli) $ do
+    late <- atomically . modifyTVarS (ncState cli) $ do
         _Just %= ((clockOffset, ntpOriginTime packet) :)
         gets isNothing
     when late $
@@ -231,7 +231,7 @@ doReceive sock cli = forever $ do
 
 startReceive :: NtpMonad m => NtpClient -> m ()
 startReceive cli = do
-    sockets <- liftIO . atomically . readTVar $ ncSockets cli
+    sockets <- atomically . readTVar $ ncSockets cli
     case sockets of
         BothSock sIPv4 sIPv6 ->
             () <$ runDoReceive True sIPv4 `concurrently` runDoReceive False sIPv6
@@ -244,7 +244,7 @@ startReceive cli = do
         logDebug $ sformat ("doReceive failed on socket"%shown%
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
-        liftIO $ threadDelay (5 :: Second)
+        threadDelay (5 :: Second)
         serveraddrs <- liftIO udpLocalAddresses
         newSockMB <- liftIO $
             if isIPv4 then
@@ -255,8 +255,7 @@ startReceive cli = do
             Nothing      -> logWarning "Recreating of socket failed" >> handleE isIPv4 sock e
             Just newSock -> runDoReceive isIPv4 newSock
     overwriteSocket constr sock = sock <$
-        (liftIO .
-         atomically .
+        (atomically .
          modifyTVar' (ncSockets cli) .
          flip mergeSockets .
          constr $ sock)

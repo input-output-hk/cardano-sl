@@ -43,7 +43,7 @@ import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.DHT.Real (KademliaParams (..))
 import qualified Pos.GState as GS
-import           Pos.Infra.Configuration (HasNtpConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration, ntpConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..))
@@ -305,6 +305,7 @@ allocateNodeContext ancd txpSettings ekgStore = do
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig
             , ncMisbehaviorMetrics = Just mm
+            , ncNtpConfig = ntpConfiguration
             , ..
             }
     return ctx

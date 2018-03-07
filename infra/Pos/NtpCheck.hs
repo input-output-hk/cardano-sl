@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.NtpCheck
@@ -11,6 +12,7 @@ module Pos.NtpCheck
 
 import           Universum
 
+import           Control.Concurrent.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond)
 import           Mockable (CurrentTime, Delay, Mockable, Mockables, withAsync)
@@ -30,7 +32,7 @@ type NtpCheckMonad m =
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings -> m a -> m a
 withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action)
 
-ntpSettings :: NtpConfiguration -> MVar NtpStatus -> NtpClientSettings
+ntpSettings :: NtpConfiguration -> TVar (Maybe NtpStatus) -> NtpClientSettings
 ntpSettings ntpConfig ntpStatus = NtpClientSettings
     { ntpServers         = Infra.ntpcServers ntpConfig
     , ntpLogName         = "ntp-check"
@@ -53,7 +55,10 @@ timeDifferenceWarnThreshold = fromIntegral . Infra.nptcTimeDifferenceWarnThresho
 getNtpStatusOnce :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
     => m NtpStatus
 getNtpStatusOnce = do
-    ntpStatus <- newEmptyMVar
+    ntpStatus <- atomically $ newTVar Nothing
     let initNtp = spawnNtpClient $ ntpSettings ntpConfiguration ntpStatus
     withAsync initNtp $ \_ ->
-        readMVar ntpStatus
+        atomically $ do
+            readTVar ntpStatus >>= \case
+                Nothing -> retry
+                Just st -> return st

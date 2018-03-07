@@ -60,6 +60,8 @@ import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
                               ReflectMethod (..), ReqBody, Summary, Verb)
+import           Servant.Client (Client, HasClient (..))
+import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
@@ -279,6 +281,25 @@ instance ( HasServer (apiType a :> res) ctx
 instance HasSwagger (apiType a :> res) =>
     HasSwagger (WithDefaultApiArg apiType a :> res) where
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
+-------------------------------------------------------------------------
+-- HasClient instances we need for benchmarking.
+-------------------------------------------------------------------------
+
+instance HasClient m (apiType a :> res) => HasClient m (CDecodeApiArg apiType a :> res) where
+    type Client m (CDecodeApiArg apiType a :> res) = Client m (apiType a :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(apiType a :> res)) req
+
+instance HasClient m (apiType a :> res) =>
+         HasClient m (WithDefaultApiArg apiType a :> res) where
+    type Client m (WithDefaultApiArg apiType a :> res) = Client m (apiType a :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(apiType a :> res)) req
+
+instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
+         HasClient m (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    type Client m (VerbMod mod (Verb mt st ct a)) = Client m (Verb mt st ct $ ApiModifiedRes mod a)
+    clientWithRoute p _ req =
+        clientWithRoute p (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
 
 -------------------------------------------------------------------------
 -- Logging

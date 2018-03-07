@@ -6936,11 +6936,11 @@ inherit (pkgs) mesa;};
          , mtl, neat-interpolation, network-transport, network-transport-tcp
          , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
          , random, reflection, resourcet, rocksdb-haskell-ng
-         , safe-exceptions, safecopy, serokell-util, servant, servant-server
-         , servant-swagger, stdenv, stm, systemd, tagged, template-haskell
-         , text, text-format, time, time-units, transformers
-         , transformers-base, universum, unix, unliftio
-         , unordered-containers, vector, wai, warp, warp-tls, yaml
+         , safe-exceptions, safecopy, serokell-util, servant, servant-client
+         , servant-client-core, servant-server, servant-swagger, stdenv, stm
+         , systemd, tagged, template-haskell, text, text-format, time
+         , time-units, transformers, transformers-base, universum, unix
+         , unliftio, unordered-containers, vector, wai, warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6960,10 +6960,11 @@ inherit (pkgs) mesa;};
              mtl neat-interpolation network-transport network-transport-tcp
              optparse-applicative parsec plutus-prototype pvss QuickCheck random
              reflection resourcet rocksdb-haskell-ng safe-exceptions safecopy
-             serokell-util servant servant-server servant-swagger stm systemd
-             tagged template-haskell text text-format time time-units
-             transformers transformers-base universum unix unliftio
-             unordered-containers vector wai warp warp-tls yaml
+             serokell-util servant servant-client servant-client-core
+             servant-server servant-swagger stm systemd tagged template-haskell
+             text text-format time time-units transformers transformers-base
+             universum unix unliftio unordered-containers vector wai warp
+             warp-tls yaml
            ];
            testHaskellDepends = [
              base bytestring canonical-json cardano-crypto cardano-sl-binary
@@ -14407,6 +14408,23 @@ inherit (pkgs) libfreenect;};
            homepage = "http://github.com/joom/fuzzy";
            description = "Filters a list based on a fuzzy string search";
            license = stdenv.lib.licenses.mit;
+         }) {};
+      "gauge" = callPackage
+        ({ mkDerivation, base, basement, deepseq, directory, process
+         , stdenv, vector
+         }:
+         mkDerivation {
+           pname = "gauge";
+           version = "0.2.1";
+           sha256 = "2d78584a8fdca851c60a13c79bbb8528e174ec84d6631679e76445f765590110";
+           libraryHaskellDepends = [
+             base basement deepseq directory process vector
+           ];
+           doHaddock = false;
+           doCheck = false;
+           homepage = "https://github.com/vincenthz/hs-gauge";
+           description = "small framework for performance measurement and analysis";
+           license = stdenv.lib.licenses.bsd3;
          }) {};
       "gd" = callPackage
         ({ mkDerivation, base, bytestring, expat, fontconfig, freetype, gd

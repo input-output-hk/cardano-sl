@@ -77,10 +77,10 @@ deriveJSON defaultOptions ''CPtxCondition
 deriveJSON defaultOptions ''CTx
 deriveJSON defaultOptions ''CTExMeta
 deriveJSON defaultOptions ''CUpdateInfo
+deriveJSON defaultOptions ''WalletError
+deriveJSON defaultOptions ''SyncProgress
 
-deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
-deriveToJSON defaultOptions ''WalletError
 
 -- For backward compatibility.
 -- Guys /really/ want it to be normal JSON

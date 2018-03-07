@@ -42,7 +42,7 @@ import           Pos.Update.Configuration
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
-    , ccInfra  :: !InfraConfiguration
+    , ccNtp    :: !NtpConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
     , ccDlg    :: !DlgConfiguration
@@ -59,7 +59,7 @@ instance ToJSON Configuration where
 
 type HasConfigurations =
     ( HasConfiguration
-    , HasInfraConfiguration
+    , HasNtpConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
@@ -113,7 +113,7 @@ withConfigurations co@ConfigurationOptions{..} act = do
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
-        withInfraConfiguration ccInfra $
+        withNtpConfiguration ccNtp $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
         withDlgConfiguration ccDlg $

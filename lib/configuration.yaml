@@ -60,12 +60,12 @@ dev: &dev
 
     dbSerializeVersion: 0
 
-  infra: &dev_infra
+  ntp: &dev_ntp
 
     # NTP slotting
-    ntpResponseTimeout: 7000000 # 7 sec
-    ntpPollDelay: 300000000 # 300 sec
-    ntpMaxError: 120000000 # 2 mins
+    responseTimeout: 7000000 # 7 sec
+    pollDelay: 300000000 # 300 sec
+    maxError: 120000000 # 2 mins
 
     # NTP checking
     timeDifferenceWarnInterval: 14400000000 # 4 hours
@@ -240,12 +240,12 @@ mainnet_base: &mainnet_base
 
     dbSerializeVersion: 0
 
-  infra:
+  ntp:
 
     # NTP slotting
-    ntpResponseTimeout: 10000000           # 10 sec
-    ntpPollDelay: 60000000                 # 1 min
-    ntpMaxError: 120000000 # 2 mins
+    responseTimeout: 10000000           # 10 sec
+    pollDelay: 60000000                 # 1 min
+    maxError: 120000000 # 2 mins
 
     # NTP checking
     timeDifferenceWarnInterval: 14400000000 # 4 hours

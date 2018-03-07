@@ -18,14 +18,14 @@ import           NTP.Client (NtpClientSettings (..), NtpMonad, spawnNtpClient)
 import           Serokell.Util (sec)
 
 import           Pos.Core.Slotting (Timestamp (..), diffTimestamp)
-import           Pos.Infra.Configuration (HasInfraConfiguration, infraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration, ntpConfiguration)
 import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
     ( NtpMonad m
     , Mockable CurrentTime m
-    , HasInfraConfiguration
+    , HasNtpConfiguration
     )
 
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings m -> m a -> m a
@@ -57,11 +57,11 @@ ntpCheckHandler cont (newMargin, transmitTime) = do
             | otherwise = NtpSyncOk
     cont ntpStatus
 
-timeDifferenceWarnInterval :: HasInfraConfiguration => Microsecond
-timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval infraConfiguration)
+timeDifferenceWarnInterval :: HasNtpConfiguration => Microsecond
+timeDifferenceWarnInterval = fromIntegral (Infra.ntpcTimeDifferenceWarnInterval ntpConfiguration)
 
-timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
-timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
+timeDifferenceWarnThreshold :: HasNtpConfiguration => Microsecond
+timeDifferenceWarnThreshold = fromIntegral (Infra.nptcTimeDifferenceWarnThreshold ntpConfiguration)
 
 -- | Create NTP client, let it work till the first response from servers,
 -- then shutdown and return result.

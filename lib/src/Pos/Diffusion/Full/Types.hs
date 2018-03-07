@@ -23,7 +23,7 @@ import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration)
 
 type DiffusionWorkMode m
     = ( WithLogger m
@@ -40,7 +40,7 @@ type DiffusionWorkMode m
       -- we can deal with that later.
       , HasBlockConfiguration
       -- Needed for message size limits, but shouldn't be [CSL-2242].
-      , HasInfraConfiguration
+      , HasNtpConfiguration
       , HasNodeConfiguration
       , Rand.MonadRandom m
       , MonadMask m

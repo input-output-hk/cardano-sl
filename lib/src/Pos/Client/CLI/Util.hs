@@ -35,7 +35,7 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
-import           Pos.Infra.Configuration (infraConfiguration)
+import           Pos.Infra.Configuration (ntpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
@@ -107,7 +107,7 @@ dumpConfiguration = do
     let conf =
             Configuration
             { ccCore = coreConfiguration
-            , ccInfra = infraConfiguration
+            , ccNtp = ntpConfiguration
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration
             , ccDlg = dlgConfiguration

@@ -1,9 +1,9 @@
 {-# LANGUAGE Rank2Types #-}
 module Pos.Infra.Configuration
-       ( InfraConfiguration (..)
-       , HasInfraConfiguration
-       , infraConfiguration
-       , withInfraConfiguration
+       ( NtpConfiguration (..)
+       , HasNtpConfiguration
+       , ntpConfiguration
+       , withNtpConfiguration
        , ntpServers
        ) where
 
@@ -13,42 +13,41 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
 import           Data.Reflection (Given, give, given)
 import           Serokell.Aeson.Options (defaultOptions)
 
--- FIXME should be called NTPConfiguration.
-data InfraConfiguration = InfraConfiguration
+data NtpConfiguration = NtpConfiguration
     {
     --------------------------------------------------------------------------
     -- -- NTP slotting
     --------------------------------------------------------------------------
-      ccNtpResponseTimeout          :: !Int
+      ntpcResponseTimeout          :: !Int
       -- ^ How often request to NTP server and response collection
-    , ccNtpPollDelay                :: !Int
+    , ntpcPollDelay                :: !Int
       -- ^ How often send request to NTP server
-    , ccNtpMaxError                 :: !Int
+    , ntpcMaxError                 :: !Int
     -- ^ Max NTP error (max difference between local and global time, which is trusted)
 
     --------------------------------------------------------------------------
     -- -- NTP checking
     --------------------------------------------------------------------------
-    , ccTimeDifferenceWarnInterval  :: !Integer
+    , ntpcTimeDifferenceWarnInterval  :: !Integer
       -- ^ NTP checking interval, microseconds
-    , ccTimeDifferenceWarnThreshold :: !Integer
+    , nptcTimeDifferenceWarnThreshold :: !Integer
       -- ^ Maximum tolerable difference between NTP time
       -- and local time, microseconds
     } deriving (Show, Generic)
 
-instance FromJSON InfraConfiguration where
+instance FromJSON NtpConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
-instance ToJSON InfraConfiguration where
+instance ToJSON NtpConfiguration where
     toJSON = genericToJSON defaultOptions
 
-type HasInfraConfiguration = Given InfraConfiguration
+type HasNtpConfiguration = Given NtpConfiguration
 
-withInfraConfiguration :: InfraConfiguration -> (HasInfraConfiguration => r) -> r
-withInfraConfiguration = give
+withNtpConfiguration :: NtpConfiguration -> (HasNtpConfiguration => r) -> r
+withNtpConfiguration = give
 
-infraConfiguration :: HasInfraConfiguration => InfraConfiguration
-infraConfiguration = given
+ntpConfiguration :: HasNtpConfiguration => NtpConfiguration
+ntpConfiguration = given
 
 ntpServers :: [String]
 ntpServers =

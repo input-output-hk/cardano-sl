@@ -43,7 +43,7 @@ import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.DHT.Real (KademliaParams (..))
 import qualified Pos.GState as GS
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..))
@@ -95,7 +95,7 @@ allocateNodeResources
        ( Default ext
        , HasConfiguration
        , HasNodeConfiguration
-       , HasInfraConfiguration
+       , HasNtpConfiguration
        , HasSscConfiguration
        , HasDlgConfiguration
        , HasBlockConfiguration
@@ -184,7 +184,7 @@ bracketNodeResources :: forall ext a.
       ( Default ext
       , HasConfiguration
       , HasNodeConfiguration
-      , HasInfraConfiguration
+      , HasNtpConfiguration
       , HasSscConfiguration
       , HasDlgConfiguration
       , HasBlockConfiguration
@@ -246,7 +246,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ext .
-      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, HasBlockConfiguration)
+      (HasConfiguration, HasNodeConfiguration, HasNtpConfiguration, HasBlockConfiguration)
     => AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store

@@ -25,7 +25,7 @@ import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.Recovery ()
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
@@ -51,12 +51,12 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasNtpConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasNtpConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
@@ -74,7 +74,7 @@ type HasExplorerConfiguration =
     ( HasConfiguration
     , HasBlockConfiguration
     , HasNodeConfiguration
-    , HasInfraConfiguration
+    , HasNtpConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasCompileInfo

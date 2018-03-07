@@ -8,21 +8,21 @@ import           Data.Time.Units (Microsecond)
 import           Serokell.Util (mcs)
 import           Universum
 
-import           Pos.Infra.Configuration (HasInfraConfiguration, ccNtpMaxError, ccNtpPollDelay,
-                                          ccNtpResponseTimeout, infraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration, ntpcMaxError, ntpcPollDelay,
+                                          ntpcResponseTimeout, ntpConfiguration)
 
 ----------------------------------------------------------------------------
 -- NTP
 ----------------------------------------------------------------------------
 
 -- | Inaccuracy in call threadDelay (actually this error is much less than 1 sec)
-ntpMaxError :: HasInfraConfiguration => Microsecond
-ntpMaxError = mcs . ccNtpMaxError $ infraConfiguration
+ntpMaxError :: HasNtpConfiguration => Microsecond
+ntpMaxError = mcs . ntpcMaxError $ ntpConfiguration
 
 -- | After making request to NTP servers, how long to wait for their response
-ntpResponseTimeout :: HasInfraConfiguration => Microsecond
-ntpResponseTimeout = mcs . ccNtpResponseTimeout $ infraConfiguration
+ntpResponseTimeout :: HasNtpConfiguration => Microsecond
+ntpResponseTimeout = mcs . ntpcResponseTimeout $ ntpConfiguration
 
 -- | How often send request to NTP server
-ntpPollDelay :: HasInfraConfiguration => Microsecond
-ntpPollDelay = mcs . ccNtpPollDelay $ infraConfiguration
+ntpPollDelay :: HasNtpConfiguration => Microsecond
+ntpPollDelay = mcs . ntpcPollDelay $ ntpConfiguration

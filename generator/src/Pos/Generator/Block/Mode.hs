@@ -49,7 +49,7 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -81,7 +81,7 @@ type MonadBlockGenBase m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration
        , HasUpdateConfiguration
-       , HasInfraConfiguration
+       , HasNtpConfiguration
        , HasSscConfiguration
        , HasNodeConfiguration
        , HasDlgConfiguration

@@ -35,7 +35,7 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Slotting (HasSlottingVar (..))
 import           Pos.Slotting.Class (MonadSlots (..))
@@ -90,7 +90,7 @@ instance HasConfiguration => MonadDB InitMode where
     dbDelete = dbDeleteDefault
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) =>
+instance (HasConfiguration, HasNtpConfiguration, MonadSlotsData ctx InitMode) =>
          MonadSlots ctx InitMode
   where
     getCurrentSlot           = getCurrentSlotSimple

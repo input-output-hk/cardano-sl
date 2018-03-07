@@ -28,7 +28,7 @@ import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
-import           Pos.Infra.Configuration (HasInfraConfiguration, withInfraConfiguration)
+import           Pos.Infra.Configuration (HasNtpConfiguration, withNtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
@@ -57,7 +57,7 @@ defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).
 type HasStaticConfigurations =
-    ( HasInfraConfiguration
+    ( HasNtpConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
@@ -75,8 +75,8 @@ withDefSscConfiguration = withSscConfiguration (ccSsc defaultTestConf)
 withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
 withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 
-withDefInfraConfiguration :: (HasInfraConfiguration => r) -> r
-withDefInfraConfiguration = withInfraConfiguration (ccInfra defaultTestConf)
+withDefInfraConfiguration :: (HasNtpConfiguration => r) -> r
+withDefInfraConfiguration = withNtpConfiguration (ccNtp defaultTestConf)
 
 withDefBlockConfiguration :: (HasBlockConfiguration => r) -> r
 withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)

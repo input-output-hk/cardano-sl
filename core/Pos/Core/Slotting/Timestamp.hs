@@ -9,6 +9,7 @@ module Pos.Core.Slotting.Timestamp
        , addMicrosecondsToTimestamp
        , timestampToPosix
        , timestampSeconds
+       , timestampToUTCTimeL
 
        , TimeDiff (..)
        , addTimeDiffToTimestamp
@@ -19,7 +20,8 @@ import           Universum
 
 import           Control.Lens (Iso', iso, makePrisms)
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Time (UTCTime)
+import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
 import           Mockable (CurrentTime, Mockable, currentTime)
@@ -79,6 +81,13 @@ timestampSeconds = _Timestamp . iso fromIntegral round . dividing 1e6
 
 timestampToPosix :: Timestamp -> POSIXTime
 timestampToPosix = view timestampSeconds
+
+-- | Lens to convert timestamp to 'UTCTime'.
+-- Ignores leap seconds.
+timestampToUTCTimeL :: Iso' Timestamp UTCTime
+timestampToUTCTimeL = timestampSeconds . posixSecondsToUTCTimeL
+  where
+    posixSecondsToUTCTimeL = iso posixSecondsToUTCTime utcTimeToPOSIXSeconds
 
 -- | Difference between two timestamps
 newtype TimeDiff = TimeDiff

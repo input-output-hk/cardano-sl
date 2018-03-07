@@ -10,6 +10,7 @@ import qualified Control.Lens as Lens
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.Util (parseApiUtcTime)
 import           Data.String.Conv (toS)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
@@ -40,8 +41,13 @@ instance ToIndex Transaction Core.TxId where
     accessIx Transaction{..} = let V1 ti = txId in ti
 
 instance ToIndex Transaction Core.Timestamp where
-    toIndex _ x =
-        view (Lens.from Core.timestampSeconds) <$> readMaybe @Double (toS x)
+    toIndex _ x = utcTimeParser x <|> timePosixParser x
+      where
+        utcTimeParser t = do
+            utcTime <- parseApiUtcTime t
+            return $ utcTime ^. Lens.from Core.timestampToUTCTimeL
+        timePosixParser t =
+            view (Lens.from Core.timestampSeconds) <$> readMaybe @Double (toS t)
     accessIx Transaction{..} = let V1 time = txCreationTime in time
 
 -- | A type family mapping a resource 'a' to all its indices.

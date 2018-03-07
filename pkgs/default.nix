@@ -7715,8 +7715,8 @@ inherit (pkgs) mesa;};
              log-warper memory mtl network-uri QuickCheck safe-exceptions
              serokell-util servant servant-client servant-quickcheck
              servant-server string-conv swagger2 template-haskell text
-             text-format time transformers universum unordered-containers vector
-             wai warp
+             text-format time time-units transformers universum
+             unordered-containers vector wai warp
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

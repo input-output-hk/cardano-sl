@@ -24,12 +24,13 @@ import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParse
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
-import           Data.Maybe (isNothing)
+import           Data.Maybe (isNothing, fromJust)
 import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
 import qualified Data.Yaml as Y
+import           Distribution.System (buildOS, OS(..))
 import           Formatting (build, int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
 import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
@@ -73,7 +74,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
-import           Pos.Update.DB.Misc (affirmUpdateInstalled)
+import           Pos.Update.DB.Misc (affirmUpdateInstalled, getLastInstallerHash)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
@@ -128,12 +129,18 @@ data NodeData = NodeData
     , ndArgs    :: ![Text]
     , ndLogPath :: Maybe FilePath }
 
--- | Updater path, args, windows runner path, archive path
-data UpdaterData = UpdaterData
-    { udPath        :: !FilePath
-    , udArgs        :: ![Text]
-    , udWindowsPath :: Maybe FilePath
-    , udArchivePath :: Maybe FilePath
+data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OSXUD
+
+data WinUD = WinUD 
+    { wudExePath :: !FilePath -- Installer.exe
+    , wudArgs    :: ![Text]
+    , wudBatPath :: !FilePath -- Installer.bat
+    }
+
+data OSXUD = OSXUD
+    { oudOpenPath :: !FilePath -- /usr/bin/open
+    , oudArgs     :: ![Text] -- FW
+    , oudPkgPath  :: !FilePath -- Installer.pkg
     }
 
 data LauncherArgs = LauncherArgs
@@ -300,7 +307,7 @@ main =
   Silently.hSilence [stdout, stderr] $
 #endif
   do
-    LO {..} <- getLauncherOptions
+    lo@LO {..} <- getLauncherOptions
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
     let realNodeArgs = propagateOptions loReportServer loNodeDbPath loConfiguration $
             case loNodeLogConfig of
@@ -326,8 +333,7 @@ main =
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                    (setUpdaterData lo)
                     loReportServer
                 logNotice "Finished serverScenario"
             Just wpath -> do
@@ -338,13 +344,31 @@ main =
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                    (setUpdaterData lo)
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
                 logNotice "Finished clientScenario"
   where
+    setUpdaterData :: LauncherOptions -> UpdaterData
+    setUpdaterData LO {..} = case buildOS of 
+        OSX -> OSXUpdaterData OSXUD
+            { oudOpenPath = loUpdaterPath
+            , oudArgs = loUpdaterArgs
+            -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
+            -- , oudPkgPath = fromMaybe (bug Not_set_OSX_loUpdateArchive) loUpdateArchive
+            , oudPkgPath = fromJust loUpdateArchive
+            }
+        Windows -> WindowsUpdaterData WinUD
+            { wudExePath = loUpdaterPath
+            , wudArgs = loUpdaterArgs
+            -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
+            -- , wudBatPath = fromMaybe (bug Not_set_Windows_loUpdateWindowsRunner) loUpdateWindowsRunner
+            , wudBatPath = fromJust loUpdateWindowsRunner            
+            }
+        -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
+        _ -> error "Unsupported OS"
+            
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
     -- don't want to pass the same options twice.  However, if the
@@ -479,46 +503,78 @@ clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = d
 -- | We run the updater and delete the update file if the update was
 -- successful.
 runUpdater :: NodeDbPath -> UpdaterData -> M ()
-runUpdater ndbp ud = do
-    let path = udPath ud
-        args = udArgs ud
-        runnerPath = udWindowsPath ud
-        mUpdateArchivePath = udArchivePath ud
-    whenM (liftIO (doesFileExist path)) $ do
+runUpdater ndbp ud = whenM (validUD ud) $ do
+        let installerPath = getInstaller ud
         logNotice "Running the updater"
-        let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
-        exitCode <- case runnerPath of
-            Nothing -> runUpdaterProc path args'
-            Just rp -> do
-                -- Write the bat script and pass it the updater with all args
-                writeWindowsUpdaterRunner rp
-                -- The script will terminate this updater so this function shouldn't return
-                runUpdaterProc rp ((toText path):args')
-        case exitCode of
-            ExitSuccess -> do
-                logInfo "The updater has exited successfully"
-                -- this will throw an exception if the file doesn't exist but
-                -- hopefully if the updater has succeeded it *does* exist
-                whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
-                    let affirmInstalled = do
-                            updateArchive <- BS.L.readFile updateArchivePath
-                            bracketNodeDBs ndbp $ \lmcNodeDBs ->
-                                usingReaderT LauncherModeContext{..} $
-                                affirmUpdateInstalled (installerHash updateArchive)
-                        removeInstaller = removeFile updateArchivePath
-                    -- Even if we fail to affirm that update was
-                    -- installed, we still want to remove installer to
-                    -- avoid infinite loop. If we don't remove it, we
-                    -- will launch it again and again.
-                    affirmInstalled `finally` removeInstaller
-            ExitFailure code ->
-                logWarning $ sformat ("The updater has failed (exit code "%int%")") code
+        hashValid <- validInstallerHash installerPath
+        if hashValid
+            then do
+                exitCode <- runUpdaterWithOS ud
+                archiveAndRemove exitCode installerPath
+            else do
+                logWarning "Installer failed Hash check and will be removed"
+                liftIO $ removeFile installerPath
+
+  where
+    validInstallerHash :: FilePath -> M Bool
+    validInstallerHash instPath = do
+
+        validHash <- liftIO $ bracketNodeDBs ndbp $ \lmcNodeDBs ->
+            usingReaderT LauncherModeContext{..} $ do
+                getLastInstallerHash
+
+        installer <- liftIO $ BS.L.readFile instPath
+        let currentHash = installerHash installer
+        return $ currentHash == validHash 
+
+    getInstaller :: UpdaterData -> FilePath
+    getInstaller (WindowsUpdaterData WinUD {..}) = wudExePath
+    getInstaller (OSXUpdaterData OSXUD {..}) = oudPkgPath
+
+    archiveAndRemove :: ExitCode -> FilePath -> M ()
+    archiveAndRemove exitCode installerPath = case exitCode of
+        ExitSuccess -> do
+            logInfo "The updater has exited successfully"
+            -- this will throw an exception if the file doesn't exist but
+            -- hopefully if the updater has succeeded it *does* exist
+            liftIO $ do 
+                let affirmInstalled = do
+                        updateArchive <- BS.L.readFile installerPath
+                        bracketNodeDBs ndbp $ \lmcNodeDBs ->
+                            usingReaderT LauncherModeContext{..} $
+                            affirmUpdateInstalled (installerHash updateArchive)
+                    removeInstaller = removeFile installerPath
+                -- Even if we fail to affirm that update was
+                -- installed, we still want to remove installer to
+                -- avoid infinite loop. If we don't remove it, we
+                -- will launch it again and again.
+                affirmInstalled `finally` removeInstaller
+        ExitFailure code ->
+            logWarning $ sformat ("The updater has failed (exit code "%int%")") code
+
+    logIfM predicate message = ifM predicate (return True) ((logWarning message) >> return False)
+
+    validUD :: UpdaterData -> M Bool
+    validUD (WindowsUpdaterData WinUD {..}) = logIfM (liftIO $ doesFileExist wudExePath) "Installer.exe not found"
+    validUD (OSXUpdaterData OSXUD {..}) = logIfM (liftIO $ doesFileExist oudPkgPath) "Installer.pkg not found"
+    
+    runUpdaterWithOS :: UpdaterData -> M ExitCode
+    runUpdaterWithOS (WindowsUpdaterData WinUD {..}) = do
+        let args = wudArgs ++ ((one . toText) wudExePath)
+        -- Write the bat script and pass it the updater with all args
+        writeWindowsUpdaterRunner wudBatPath
+        -- The script will terminate this updater so this function shouldn't return
+        runUpdaterProc wudBatPath args
+    runUpdaterWithOS (OSXUpdaterData OSXUD {..}) = do
+        let args = oudArgs ++ ((one . toText) oudPkgPath)
+        runUpdaterProc oudOpenPath args
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
 runUpdaterProc path args = do
     logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
     liftIO $ do
         let cr = createProc Process.CreatePipe path args
+        
         phvar <- newEmptyMVar
         system' phvar cr mempty EUpdater
 

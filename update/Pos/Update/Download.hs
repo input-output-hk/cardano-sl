@@ -33,7 +33,7 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Reporting (reportOrLogW)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
 import           Pos.Update.Context (UpdateContext (..))
-import           Pos.Update.DB.Misc (isUpdateInstalled)
+import           Pos.Update.DB.Misc (isUpdateInstalled, setLastInstallerHash)
 import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
@@ -138,6 +138,7 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
 
                 logInfo $ "Update was downloaded, saving to " <> show updPath
 
+                setLastInstallerHash updHash
                 liftIO $ BSL.writeFile updPath file
                 logInfo $ "Update was downloaded, saved to " <> show updPath
 
@@ -146,7 +147,7 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
         fileIsOnDrive <- liftIO $ doesFileExist updPath
         if fileIsOnDrive
             then do
-                logInfo $ sformat ("Found an update file: "%stext) (toText updPath)
+                logInfo $ sformat ("Found an unapplied update file: "%stext) (toText updPath)
                 localUpdateFile <- liftIO $ BSL.readFile updPath -- could be an error while reading
 
                 if installerHash localUpdateFile == updHash
@@ -157,7 +158,6 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
                         downloadUpdateWithLog
             else
                 downloadUpdateWithLog
-
         downloadedMVar <- views (lensOf @UpdateContext) ucDownloadedUpdate
         putMVar downloadedMVar cps
         logInfo "Update MVar filled, wallet is notified"

@@ -291,22 +291,22 @@ newtype InductiveGen h a
     { unInductiveGen :: ReaderT (InductiveCtx h) Gen a
     } deriving (Functor, Applicative, Monad, MonadReader (InductiveCtx h))
 
-runInductiveGen :: FromPreChain h -> InductiveGen h a -> Gen a
+runInductiveGen :: FromPreChain h () -> InductiveGen h a -> Gen a
 runInductiveGen fpc ig = runReaderT (unInductiveGen ig) (initializeCtx fpc)
 
 data InductiveCtx h
     = InductiveCtx
-    { icFromPreChain  :: !(FromPreChain h)
+    { icFromPreChain  :: !(FromPreChain h ())
     , icHashesInChain :: !IntSet
     }
 
-initializeCtx :: FromPreChain h -> InductiveCtx h
+initializeCtx :: FromPreChain h () -> InductiveCtx h
 initializeCtx fpc@FromPreChain{..} = InductiveCtx{..}
   where
     icFromPreChain = fpc
     icHashesInChain = hashesInChain fpcChain
 
-getFromPreChain :: InductiveGen h (FromPreChain h)
+getFromPreChain :: InductiveGen h (FromPreChain h ())
 getFromPreChain = asks icFromPreChain
 
 getHashesInChain :: InductiveGen h IntSet
@@ -342,7 +342,7 @@ toInductive = foldl' k WalletEmpty
 genFromBlockchain
     :: Hash h Addr
     => Set Addr
-    -> FromPreChain h
+    -> FromPreChain h ()
     -> Gen (Inductive h Addr)
 genFromBlockchain addrs fpc =
     runInductiveGen fpc (genInductiveFor addrs)
@@ -352,7 +352,7 @@ genFromBlockchain addrs fpc =
 genFromBlockchainPickingAccounts
     :: Hash h Addr
     => Int
-    -> FromPreChain h
+    -> FromPreChain h ()
     -> Gen (Inductive h Addr)
 genFromBlockchainPickingAccounts i fpc = do
     let allAddrs = toList (ledgerAddresses (fpcLedger fpc))

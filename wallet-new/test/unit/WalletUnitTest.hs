@@ -28,7 +28,6 @@ import           UTxO.Translate
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
-import           Util.DepIndep
 import           Util.Validated
 import           Wallet.Abstract
 -- import qualified Wallet.Full as Full
@@ -204,12 +203,12 @@ bracketWallet test =
   Example hand-constructed chains
 -------------------------------------------------------------------------------}
 
-emptyBlock :: Hash h Addr => PreChain h Identity
-emptyBlock = DepIndep $ \_boot -> return $ \_fees ->
+emptyBlock :: Hash h Addr => PreChain h Identity ()
+emptyBlock = preChain $ \_boot -> return $ \_fees ->
     OldestFirst [OldestFirst []]
 
-oneTrans :: Hash h Addr => PreChain h Identity
-oneTrans = DepIndep $ \boot -> return $ \((fee : _) : _) ->
+oneTrans :: Hash h Addr => PreChain h Identity ()
+oneTrans = preChain $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -222,8 +221,8 @@ oneTrans = DepIndep $ \boot -> return $ \((fee : _) : _) ->
     in OldestFirst [OldestFirst [t1]]
 
 -- Try to transfer from R0 to R1, but leaving R0's balance the same
-overspend :: Hash h Addr => PreChain h Identity
-overspend = DepIndep $ \boot -> return $ \((fee : _) : _) ->
+overspend :: Hash h Addr => PreChain h Identity ()
+overspend = preChain $ \boot -> return $ \((fee : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee
@@ -239,8 +238,8 @@ overspend = DepIndep $ \boot -> return $ \((fee : _) : _) ->
 -- TODO: in principle this example /ought/ to work without any kind of
 -- outputs at all; but in practice this breaks stuff because now we have
 -- two identical transactions which would therefore get identical IDs?
-doublespend :: Hash h Addr => PreChain h Identity
-doublespend = DepIndep $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
+doublespend :: Hash h Addr => PreChain h Identity ()
+doublespend = preChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
     let t1 = Transaction {
                  trFresh = 0
                , trFee   = fee1
@@ -274,8 +273,8 @@ doublespend = DepIndep $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
 -- Transaction 5 in example 1 is a transaction /from/ the treasury /to/ an
 -- ordinary address. This currently has no equivalent in Cardano, so we omit
 -- it.
-example1 :: Hash h Addr => PreChain h Identity
-example1 = DepIndep $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
+example1 :: Hash h Addr => PreChain h Identity ()
+example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
     let t3 = Transaction {
                  trFresh = 0
                , trFee   = fee3
@@ -313,22 +312,25 @@ r2 = Addr (IxRich 2) 0
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: PreChain GivenHash Identity -> ValidationResult GivenHash Addr
+intAndVerifyPure :: PreChain GivenHash Identity a
+                 -> ValidationResult GivenHash Addr
 intAndVerifyPure = runIdentity . intAndVerify
 
-intAndVerifyGen :: PreChain GivenHash Gen -> Gen (ValidationResult GivenHash Addr)
+intAndVerifyGen :: PreChain GivenHash Gen a
+                -> Gen (ValidationResult GivenHash Addr)
 intAndVerifyGen = intAndVerify
 
 -- | Interpret and verify a chain, given the bootstrap transactions
 intAndVerify :: (Hash h Addr, Monad m)
-             => PreChain h m -> m (ValidationResult h Addr)
+             => PreChain h m a -> m (ValidationResult h Addr)
 intAndVerify = map fst . intAndVerifyChain
 
 -- | Interpret and verify a chain, given the bootstrap transactions. Also
 -- returns the 'FromPreChain' value, which contains the blockchain, ledger,
 -- boot transaction, etc.
 intAndVerifyChain :: (Hash h Addr, Monad m)
-             => PreChain h m -> m (ValidationResult h Addr, FromPreChain h)
+                  => PreChain h m a
+                  -> m (ValidationResult h Addr, FromPreChain h a)
 intAndVerifyChain pc = runTranslateT $ do
     fpc@FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger

@@ -49,26 +49,25 @@ data BlockGenCtx h
 
 makeLenses ''BlockGenCtx
 
-genValidBlockchain :: Hash h Addr => PreChain h Gen
+genValidBlockchain :: Hash h Addr => PreChain h Gen ()
 genValidBlockchain = toPreChain newChain
 
 toPreChain
     :: Hash h Addr
     => BlockGen h [[Value -> Transaction h Addr]]
-    -> PreChain h Gen
+    -> PreChain h Gen ()
 toPreChain = toPreChainWith identity
 
 toPreChainWith
     :: Hash h Addr
     => (BlockGenCtx h -> BlockGenCtx h)
     -> BlockGen h [[Value -> Transaction h Addr]]
-    -> PreChain h Gen
+    -> PreChain h Gen ()
 toPreChainWith settings bg = DepIndep $ \boot -> do
     ks <- runBlockGenWith settings boot bg
-    return
-        $ OldestFirst
-        . fmap OldestFirst
-        . zipFees ks
+    return $ \fees -> (markOldestFirst (zipFees ks fees), ())
+  where
+   markOldestFirst = OldestFirst . fmap OldestFirst
 
 -- | Given an initial bootstrap 'Transaction' and a function to customize
 -- the other settings in the 'BlockGenCtx', this function will initialize

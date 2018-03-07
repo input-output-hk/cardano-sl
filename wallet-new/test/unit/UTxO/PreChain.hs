@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | Fee calculation
 --
 -- See also
@@ -6,6 +8,7 @@
 -- * Function 'Pos.Client.Txp.Util.stabilizeTxFee'
 module UTxO.PreChain (
     PreChain
+  , preChain
   , FromPreChain(..)
   , fromPreChain
   ) where
@@ -49,22 +52,37 @@ import           UTxO.Translate
 --
 -- It is still the responsibility of the 'PreChain' author to make sure that the
 -- structure of the blockchain does not depend on the fees that are passed.
-type PreChain h m = DepIndep (Transaction h Addr) [[Fee]] m (Blocks h Addr)
+type PreChain h m a = DepIndep (Transaction h Addr) [[Fee]] m (Blocks h Addr, a)
+
+preChain :: Functor m
+         => (Transaction h Addr -> m ([[Fee]] -> Blocks h Addr))
+         -> PreChain h m ()
+preChain = fmap (, ()) . DepIndep
 
 -- | Result of translating a 'PreChain'
 --
 -- See 'fromPreChain'
-data FromPreChain h = FromPreChain {
-      fpcBoot   :: Transaction h Addr
-    , fpcChain  :: Chain       h Addr
-    , fpcLedger :: Ledger      h Addr
+data FromPreChain h a = FromPreChain {
+      -- | The boot transaction that was used in the translation
+      fpcBoot :: Transaction h Addr
+
+      -- | The resulting chain (i.e., list of list of transactions)
+      -- This does /not/ include the bootstrap transaction.
+    , fpcChain :: Chain h Addr
+
+      -- | The resulting ledger (i.e., flat list of transactions)
+      -- This /does/ include the bootstrap transaction .
+    , fpcLedger :: Ledger h Addr
+
+      -- | Any additional information that was included in the 'PreChain'.
+    , fpcExtra :: a
     }
 
 fromPreChain :: (Hash h Addr, Monad m)
-             => PreChain h m -> TranslateT IntException m (FromPreChain h)
+             => PreChain h m a -> TranslateT IntException m (FromPreChain h a)
 fromPreChain preChain = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot =<< lift (runDepIndep preChain fpcBoot)
+    (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep preChain fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
@@ -116,10 +134,10 @@ type Fee = Value
 -- TODO: We should check that the fees of the constructed transactions match the
 -- fees we calculuated. This ought to be true at the moment, but may break when
 -- the size of the fee might change the size of the the transaction.
-calcFees :: forall h m. (Hash h Addr, Monad m)
+calcFees :: forall h m x. (Hash h Addr, Monad m)
          => Transaction h Addr
-         -> ([[Fee]] -> Blocks h Addr)
-         -> TranslateT IntException m (Blocks h Addr)
+         -> ([[Fee]] -> (Blocks h Addr, x))
+         -> TranslateT IntException m (Blocks h Addr, x)
 calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
     let txToLinearFee' :: TxAux -> TranslateT IntException m Value
@@ -127,7 +145,7 @@ calcFees boot f = do
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ f (repeat (repeat 0))
+    (txs, _) <- runIntBoot boot $ fst (f (repeat (repeat 0)))
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where

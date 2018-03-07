@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Monads used for explorer's toil.
 
@@ -41,6 +42,7 @@ import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..), Explorer
                                               eemNewUtxoSum)
 import           Pos.Txp.Toil (ExtendedGlobalToilM, ExtendedLocalToilM, StakesLookupF)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util (type (~>))
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.
@@ -93,7 +95,7 @@ putUtxoSum utxoSum = eemNewUtxoSum .= Just utxoSum
 
 type ELocalToilM = ExtendedLocalToilM ExplorerExtraLookup ExplorerExtraModifier
 
-explorerExtraMToELocalToilM :: ExplorerExtraM a -> ELocalToilM a
+explorerExtraMToELocalToilM :: ExplorerExtraM ~> ELocalToilM
 explorerExtraMToELocalToilM = zoom _2 . magnify _2
 
 ----------------------------------------------------------------------------
@@ -103,8 +105,8 @@ explorerExtraMToELocalToilM = zoom _2 . magnify _2
 type EGlobalToilM
      = ExtendedGlobalToilM ExplorerExtraLookup ExplorerExtraModifier
 
-explorerExtraMToEGlobalToilM :: ExplorerExtraM a -> EGlobalToilM a
+explorerExtraMToEGlobalToilM :: ExplorerExtraM ~> EGlobalToilM
 explorerExtraMToEGlobalToilM = mapReaderT (mapStateT f . zoom _2) . magnify _2
   where
-    f :: NamedPureLogger Identity a -> NamedPureLogger (F StakesLookupF) a
+    f :: NamedPureLogger Identity ~> NamedPureLogger (F StakesLookupF)
     f = hoist generalize

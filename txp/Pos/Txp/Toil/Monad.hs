@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Some monads used in Toil and primitive actions.
 
@@ -62,6 +63,7 @@ import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier,
                                      mpLocalTxs, mpSize, svStakes, svTotal)
+import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
@@ -249,7 +251,7 @@ type ExtendedGlobalToilM extraEnv extraState =
     ))
 
 -- | Natural transformation from 'GlobalToilM to 'ExtendedGlobalToilM'.
-extendGlobalToilM :: GlobalToilM a -> ExtendedGlobalToilM extraEnv extraState a
+extendGlobalToilM :: GlobalToilM ~> ExtendedGlobalToilM extraEnv extraState
 extendGlobalToilM = zoom _1 . magnify _1
 
 ----------------------------------------------------------------------------
@@ -257,14 +259,13 @@ extendGlobalToilM = zoom _1 . magnify _1
 ----------------------------------------------------------------------------
 
 -- | Lift 'UtxoM' action to 'LocalToilM'.
-utxoMToLocalToilM :: UtxoM a -> LocalToilM a
+utxoMToLocalToilM :: UtxoM ~> LocalToilM
 utxoMToLocalToilM = zoom ltsUtxoModifier
 
 -- | Lift 'UtxoM' action to 'GlobalToilM'.
-utxoMToGlobalToilM :: UtxoM a -> GlobalToilM a
+utxoMToGlobalToilM :: UtxoM ~> GlobalToilM
 utxoMToGlobalToilM = mapReaderT f . magnify gteUtxo
   where
-    f :: forall a.
-         State UtxoModifier a
-      -> StateT GlobalToilState (NamedPureLogger (F StakesLookupF)) a
+    f :: State UtxoModifier
+      ~> StateT GlobalToilState (NamedPureLogger (F StakesLookupF))
     f = state . runState . zoom gtsUtxoModifier

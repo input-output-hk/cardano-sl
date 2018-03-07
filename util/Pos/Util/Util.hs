@@ -6,8 +6,10 @@
 
 module Pos.Util.Util
        (
+       -- * Cool stuff
+         type (~>)
        -- * Exceptions/errors
-         maybeThrow
+       , maybeThrow
        , eitherToThrow
        , liftEither
        , leftToPanic
@@ -105,6 +107,12 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
+-- Cool stuff
+----------------------------------------------------------------------------
+
+type f ~> g = forall x. f x -> g x
+
+----------------------------------------------------------------------------
 -- Exceptions/errors
 ----------------------------------------------------------------------------
 
@@ -130,8 +138,6 @@ liftEither = either throwError pure
 -- Intended usage is when you're sure that value must be right.
 leftToPanic :: Buildable a => Text -> Either a b -> b
 leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
-
-type f ~> g = forall x. f x -> g x
 
 -- | This unexported helper is used to define conversions to 'MonadFail'
 -- forced on us by external APIs. I also used underscores in its name, so don't

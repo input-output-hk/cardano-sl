@@ -5,6 +5,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
+-- The hlint parser fails on the `pattern` function, so we disable the
+-- language extension here.
+{-# LANGUAGE NoPatternSynonyms #-}
+
 -- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
 -- is merged
 {-# OPTIONS_GHC -fno-warn-orphans #-}

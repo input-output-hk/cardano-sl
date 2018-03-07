@@ -3,10 +3,11 @@
 -- | Simple implementation of slotting.
 
 module Pos.Slotting.Impl.Simple
-       ( SimpleSlottingVar
-       , mkSimpleSlottingVar
+       ( SimpleSlottingStateVar
+       , mkSimpleSlottingStateVar
 
        , SimpleSlottingMode
+       , MonadSimpleSlotting
        , getCurrentSlotSimple
        , getCurrentSlotBlockingSimple
        , getCurrentSlotInaccurateSimple
@@ -23,6 +24,7 @@ import           Pos.Core.Slotting (SlotId (..), Timestamp (..), unflattenSlotId
 import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
                                         waitCurrentEpochEqualsM)
+import           Pos.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
 -- Mode
@@ -32,7 +34,14 @@ type SimpleSlottingMode ctx m
     = ( Mockable CurrentTime m
       , MonadSlotsData ctx m
       , MonadIO m
-      , HasConfiguration)
+      , HasConfiguration
+      )
+
+type MonadSimpleSlotting ctx m
+    = ( MonadReader ctx m
+      , HasLens SimpleSlottingStateVar ctx SimpleSlottingStateVar
+      , SimpleSlottingMode ctx m
+      )
 
 ----------------------------------------------------------------------------
 -- State
@@ -42,41 +51,41 @@ data SimpleSlottingState = SimpleSlottingState
     { _sssLastSlot :: !SlotId
     }
 
-type SimpleSlottingVar = TVar SimpleSlottingState
+type SimpleSlottingStateVar = TVar SimpleSlottingState
 
-mkSimpleSlottingVar :: (MonadIO m, HasConfiguration) => m SimpleSlottingVar
-mkSimpleSlottingVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId 0
+mkSimpleSlottingStateVar :: (MonadIO m, HasConfiguration) => m SimpleSlottingStateVar
+mkSimpleSlottingStateVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId 0
 
 ----------------------------------------------------------------------------
 -- Implementation
 ----------------------------------------------------------------------------
 
 getCurrentSlotSimple
-    :: (SimpleSlottingMode ctx m)
-    => SimpleSlottingVar
-    -> m (Maybe SlotId)
-getCurrentSlotSimple var = traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
+    :: (MonadSimpleSlotting ctx m)
+    => m (Maybe SlotId)
+getCurrentSlotSimple = do
+    var <- view (lensOf @SimpleSlottingStateVar)
+    traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
 
 getCurrentSlotBlockingSimple
-    :: (SimpleSlottingMode ctx m)
-    => SimpleSlottingVar
-    -> m SlotId
-getCurrentSlotBlockingSimple var = do
+    :: (MonadSimpleSlotting ctx m)
+    => m SlotId
+getCurrentSlotBlockingSimple = do
     (_, nextEpochIndex) <- getCurrentNextEpochIndexM
-    getCurrentSlotSimple var >>= \case
+    getCurrentSlotSimple >>= \case
         Just slot -> pure slot
         Nothing -> do
             waitCurrentEpochEqualsM nextEpochIndex
-            getCurrentSlotBlockingSimple var
+            getCurrentSlotBlockingSimple
 
 getCurrentSlotInaccurateSimple
-    :: (SimpleSlottingMode ctx m)
-    => SimpleSlottingVar
-    -> m SlotId
-getCurrentSlotInaccurateSimple var =
-    getCurrentSlotSimple var >>= \case
+    :: (MonadSimpleSlotting ctx m)
+    => m SlotId
+getCurrentSlotInaccurateSimple =
+    getCurrentSlotSimple >>= \case
         Just slot -> pure slot
         Nothing   -> do
+            var <- view (lensOf @SimpleSlottingStateVar)
             lastSlot <- _sssLastSlot <$> atomically (readTVar var)
             max lastSlot <$> (currentTimeSlottingSimple >>=
                 approxSlotUsingOutdated)
@@ -84,7 +93,7 @@ getCurrentSlotInaccurateSimple var =
 currentTimeSlottingSimple :: (SimpleSlottingMode ctx m) => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime
 
-updateLastSlot :: MonadIO m => SimpleSlottingVar -> SlotId -> m SlotId
+updateLastSlot :: MonadIO m => SimpleSlottingStateVar -> SlotId -> m SlotId
 updateLastSlot var slot = atomically $ do
     modifyTVar' var (SimpleSlottingState . max slot . _sssLastSlot)
     _sssLastSlot <$> readTVar var

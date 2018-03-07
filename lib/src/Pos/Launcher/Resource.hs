@@ -49,7 +49,7 @@ import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Shutdown.Types (ShutdownContext (..))
-import           Pos.Slotting (SlottingContextSum (..), mkNtpSlottingVar, mkSimpleSlottingVar)
+import           Pos.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscParams, SscState, createSscContext, mkSscState)
 import           Pos.StateLock (newStateLock)
@@ -238,7 +238,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
 data AllocateNodeContextData ext = AllocateNodeContextData
     { ancdNodeParams  :: !NodeParams
     , ancdSscParams   :: !SscParams
-    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ()
+    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SimpleSlottingStateVar -> InitMode ()
     , ancdNetworkCfg  :: NetworkConfig KademliaParams
     , ancdEkgStore    :: !Metrics.Store
     , ancdTxpMemState :: !(GenericTxpLocalData ext)
@@ -270,10 +270,7 @@ allocateNodeContext ancd txpSettings ekgStore = do
     logDebug "Created LRC sync"
     ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
     logDebug "Created slotting variable"
-    ncSlottingContext <-
-        case npUseNTP of
-            True  -> SCNtp <$> mkNtpSlottingVar
-            False -> SCSimple <$> mkSimpleSlottingVar
+    ncSlottingContext <- mkSimpleSlottingStateVar
     logDebug "Created slotting context"
     putSlotting ncSlottingVar ncSlottingContext
     logDebug "Filled slotting future"

@@ -200,10 +200,10 @@ instance ( HasConfiguration
          , HasInfraConfiguration
          , MonadSlotsData ctx WalletMode
          ) => MonadSlots ctx WalletMode where
-  getCurrentSlot           = getCurrentSlotSum
-  getCurrentSlotBlocking   = getCurrentSlotBlockingSum
-  getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-  currentTimeSlotting      = currentTimeSlottingSum
+  getCurrentSlot           = getCurrentSlotSimple
+  getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
+  getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+  currentTimeSlotting      = currentTimeSlottingSimple
 
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault

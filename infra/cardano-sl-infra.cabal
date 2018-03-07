@@ -40,7 +40,6 @@ library
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Configuration
                         Pos.Slotting.Impl
                         Pos.Slotting.Impl.Simple
                         Pos.Slotting.Impl.Util

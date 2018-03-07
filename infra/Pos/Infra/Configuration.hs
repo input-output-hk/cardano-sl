@@ -15,19 +15,9 @@ import           Serokell.Aeson.Options (defaultOptions)
 data NtpConfiguration = NtpConfiguration
     {
     --------------------------------------------------------------------------
-    -- -- NTP slotting
-    --------------------------------------------------------------------------
-      ntpcResponseTimeout          :: !Int
-      -- ^ How often request to NTP server and response collection
-    , ntpcPollDelay                :: !Int
-      -- ^ How often send request to NTP server
-    , ntpcMaxError                 :: !Int
-      -- ^ Max NTP error (max difference between local and global time, which is trusted)
-
-    --------------------------------------------------------------------------
     -- -- NTP checking
     --------------------------------------------------------------------------
-    , ntpcTimeDifferenceWarnInterval  :: !Integer
+      ntpcTimeDifferenceWarnInterval  :: !Integer
       -- ^ NTP checking interval, microseconds
     , nptcTimeDifferenceWarnThreshold :: !Integer
       -- ^ Maximum tolerable difference between NTP time

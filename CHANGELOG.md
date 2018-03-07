@@ -1,48 +1,49 @@
 # CHANGELOG
 
-## Mainnet 1.1.0
+## Cardano SL 1.1.0 (Mainnet)
 
 Most important code changes which made to release 1.1.0.
 
 ### Features
 
-* New endpoint to provide UI an information that user's time is out of sync with global time.
-* Support of transactions with multiple recipients (useful for integration).
-* Minor: Logs being sent to report server are now compressed before sending (which reduces bandwidth usage in case of large logs).
-* Minor: Launcher now launched with YAML config which removes the need for custom .bat/.sh scripts to launch node.
-* Minor: Special option for node to switch off TLS protection of wallet endpoints (useful for integration/testing).
+- A new API endpoint is created for providing information on how much time on user’s machine is out of sync with the global time.
 
+- An API endpoint for creating transactions is improved to support multiple destination addresses (transaction batching).
 
-### Important fixes
+- Logs are compressed when sent to the reporting server to reduce bandwidth usage.
 
-* Applied several fixes to `rocksdb` bindings in order to reduce the probability of improper node shutdown.
-* Fixed bug in transaction resubmission logic: a queue of locally proposed transaction wasn't sorted well which caused problems for some users, in particular exchanges.
-* Applied several minor fixes to update system, for node to correctly retrieve and install updates from blockchain:
-   * Node finishing earlier than Daedalus (UI) causing an update to fail.
-* Fixed several space leaks in node.
-* Fixed few issues with block retrieval:
-   * Block syncing became extremely slow after reaching 99% of sync status.
-   * Block syncing hanged indefinitely in case of network connection dip (or temporary disconnection).
-   * Block syncing hanged after node left running for some hours (some cases).
-   * Unnecessary serialization/deserizalization of data on server side which slowed down block retrieval conversation.
-* Fixed issue with node failing to start with 5s timeout on slow machines.
-* Fixed networking policy to allow network disconnects up to 15s (previous value 2s was too restrictive and slowed down operation between user and Cardano network).
-* Applied number of performance improvements on node to support users with huge wallets (e.g. exchanges).
-* Improved logging: 
-  * Made logs less verbose in some cases, more informative overall.
-  * Added more logs in various parts of code to ease investigation upon issues discovered by users, QA.
-* Improved automated reporting in case of particular node failures.
-* Improved node shutdown behaviour by removing some concurrency and exception handling anti-patterns from codebase.
-* Applied several fixes for bugs in Explorer (discovered by users and QA).
+- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node. 
 
-### Other work
+- A new option for launching the Cardano node allows usage of API endpoints without TLS encryption for easier testing while developing integrations.
 
-* Migrated from Travis to Buildkite with nix-based workers as a CI solution.
-* Applied few minor fixes were applied to consensus logic.
-* Introduced auxx: tooling suite for developers to be able to quickly test and closely interact with node or network.
-* Introduced technical documentation for various parts of system, technical documentation is located at https://github.com/input-output-hk/cardano-sl/tree/release/1.1.0/docs.
-* Peformed a series of huge refactorings to have better code decomposition, type definitions.
-* Implemented first methods for v1 wallet API (prototype).
+### Bug fixes and improvements
+
+- Fixed improper node shutdowns, which caused some of the ‘connecting to network’ issues when using Daedalus. Improved Cardano node shutdown behavior by improvements to concurrency and exception handling, providing fixes to rocksdb database bindings.
+
+- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges. 
+
+- Several minor fixes to the update system for correctly receiving and installing updates from the blockchain to remove some of the reported cases of failed updates.
+
+- Fixed several space leaks in the operation of the Cardano node, fixing the Cardano node using all memory resources issue.
+
+- Fixed a bug with block retrieval, causing the extremely slow syncing after blockchain syncing reaches 99%.
+
+- Fixed a bug with blockchain syncing in case of unreliable internet connection, causing the blockchain syncing to never complete.
+
+- Fixed a bug causing block syncing to stop working in some cases when the Cardano node is left running for an extended period of time.
+
+- Improved performance of blockchain syncing by the removal of some unnecessary serialization and deserialization.
+
+- Fixed a bug causing the Cardano node to fail to start on slow computers, caused by a too-restrictive 5-second timeout.
+
+- Improved networking policy by allowing more time to connect to the network, resolving connectivity problems for users on slow internet connections.
+
+- Significant performance improvements for API endpoints for handling wallet operations, where the issues previously caused slow performance for users operating wallets with a large number of addresses, such as cryptocurrency exchanges.
+
+- Logging improved by making logs less verbose when that is not needed and by expanding the logs to cover more cases necessary for better issue diagnostics and easier quality assurance.
+
+- Improved automated issue reporting for some previously uncovered cases of Cardano node failures.
+
 
 ## Mainnet 1.0.3
 

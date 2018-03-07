@@ -22,7 +22,7 @@ data NtpConfiguration = NtpConfiguration
     , ntpcPollDelay                :: !Int
       -- ^ How often send request to NTP server
     , ntpcMaxError                 :: !Int
-    -- ^ Max NTP error (max difference between local and global time, which is trusted)
+      -- ^ Max NTP error (max difference between local and global time, which is trusted)
 
     --------------------------------------------------------------------------
     -- -- NTP checking

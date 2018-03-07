@@ -15,16 +15,14 @@ module NTP.Example
 import           Universum
 
 import           Control.Monad (void)
-import           System.Wlog (LoggerNameBox, Severity (..), defaultConfig, setupLogging,
+import           System.Wlog (Severity (..), defaultConfig, setupLogging,
                               severityPlus, termSeveritiesOutB, usingLoggerName)
 
 import           Mockable.Instances ()
 import           Mockable.Production (Production (..))
 import           NTP.Client (NtpClientSettings (..), spawnNtpClient)
 
-type WorkMode = LoggerNameBox Production
-
-runNtpClientIO :: NtpClientSettings WorkMode -> IO ()
+runNtpClientIO :: NtpClientSettings -> IO ()
 runNtpClientIO settings = do
     setupLogging Nothing $
         defaultConfig "ntp-example" <> termSeveritiesOutB (severityPlus Debug)

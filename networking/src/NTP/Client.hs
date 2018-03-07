@@ -11,12 +11,13 @@ module NTP.Client
     ( NtpMonad
     , spawnNtpClient
     , NtpClientSettings (..)
+    , NtpStatus (..)
     , ntpSingleShot
-    , hoistNtpClientSettings
     ) where
 
 import           Universum
 
+import           Control.Concurrent.MVar (modifyMVar_)
 import           Control.Concurrent.STM (check, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, readTVar)
 import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
@@ -26,8 +27,6 @@ import           Control.Monad.State (gets)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Default (Default (..))
-import           Data.List (sortOn, (!!))
 import           Data.Maybe (catMaybes, isNothing)
 import           Data.Time.Units (Microsecond, Second, toMicroseconds)
 import           Data.Typeable (Typeable)
@@ -39,16 +38,19 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, Delay, concurrently, forConcurrently,
+import           Mockable (Async, Concurrently, CurrentTime, Delay, concurrently, currentTime, forConcurrently,
                                       timeout, withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
-data NtpClientSettings m = NtpClientSettings
+data NtpStatus = NtpSyncOk | NtpDesync Microsecond
+    deriving (Eq, Show)
+
+data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpHandler         :: (Microsecond, Microsecond) -> m ()
+    , ntpStatus          :: MVar NtpStatus
       -- ^ got time callback (margin, time when client sent request)
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
@@ -58,39 +60,25 @@ data NtpClientSettings m = NtpClientSettings
       -- ^ how often to send responses to server
     , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
-      -- this may accept list of lesser size than @length ntpServers@ in case some servers
-      -- failed to respond in time, but never an empty list
+      -- this may accept list of lesser size than @length ntpServers@ in case
+      -- some servers failed to respond in time, but never an empty list
+    , ntpTimeDifferenceWarnInterval  :: Microsecond
+      -- ^ NTP checking interval
+    , ntpTimeDifferenceWarnThreshold :: Microsecond
+      -- ^ Maxium tolerable difference between NTP time and locak time.
     }
 
-hoistNtpClientSettings
-    :: (m () -> n ()) -> NtpClientSettings m -> NtpClientSettings n
-hoistNtpClientSettings f settings =
-    settings { ntpHandler = f . ntpHandler settings }
-
-data NtpClient m = NtpClient
+data NtpClient = NtpClient
     { ncSockets  :: TVar Sockets
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
-    , ncSettings :: NtpClientSettings m
+    , ncSettings :: NtpClientSettings
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings m -> Sockets -> m (NtpClient m)
+mkNtpClient :: MonadIO m => NtpClientSettings -> Sockets -> m NtpClient
 mkNtpClient ncSettings sock = liftIO $ do
     ncSockets <- newTVarIO sock
     ncState  <- newTVarIO Nothing
     return NtpClient{..}
-
-instance Monad m => Default (NtpClientSettings m) where
-    def = NtpClientSettings
-        { ntpServers         = [ "ntp5.stratum2.ru"
-                               , "ntp1.stratum1.ru"
-                               , "clock.isc.org"
-                               ]
-        , ntpHandler         = \_ -> return ()
-        , ntpLogName         = "ntp-cli"
-        , ntpResponseTimeout = 1000000
-        , ntpPollDelay       = 3000000
-        , ntpMeanSelection   = \l -> let len = length l in (sortOn fst l) !! ((len - 1) `div` 2)
-        }
 
 data NoHostResolved = NoHostResolved
     deriving (Show, Typeable)
@@ -103,15 +91,15 @@ type NtpMonad m =
     , MonadMask m
     , WithLogger m
     , Mockable Concurrently m
+    , Mockable CurrentTime m
     , Mockable Async m
     , Mockable Delay m
     )
 
-handleCollectedResponses :: NtpMonad m => NtpClient m -> m ()
+handleCollectedResponses :: NtpMonad m => NtpClient -> m ()
 handleCollectedResponses cli = do
-    mres <- liftIO $ readTVarIO (ncState cli)
+    mres <- readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
-        handler   = ntpHandler (ncSettings cli)
     case mres of
         Nothing        -> logError "Protocol error: responses are not awaited"
         Just []        -> logWarning "No servers responded"
@@ -125,7 +113,21 @@ handleCollectedResponses cli = do
   where
     handleE = logError . sformat ("ntpMeanSelection: "%shown)
 
-allResponsesGathered :: NtpClient m -> STM Bool
+    handler :: NtpMonad m => (Microsecond, Microsecond) -> m ()
+    handler (newMargin, transmitTime) = do
+        let ntpTime = transmitTime + newMargin
+        localTime <- currentTime
+        let timeDiff = abs $ ntpTime - localTime
+        -- If the @absolute@ time difference between the NTP time and the local time is
+        -- bigger than the given threshold, it effectively means we are not synced, as we are
+        -- either behind or ahead of the NTP time.
+        let status
+                | timeDiff > (ntpTimeDifferenceWarnThreshold . ncSettings $ cli) = NtpDesync timeDiff
+                | otherwise = NtpSyncOk
+        liftIO $ modifyMVar_ (ntpStatus . ncSettings $ cli) (\_ -> return $! status)
+
+
+allResponsesGathered :: NtpClient -> STM Bool
 allResponsesGathered cli = do
     responsesState <- readTVar $ ncState cli
     let servers = ntpServers $ ncSettings cli
@@ -133,7 +135,7 @@ allResponsesGathered cli = do
         Nothing        -> False
         Just responses -> length responses >= length servers
 
-doSend :: NtpMonad m => SockAddr -> NtpClient m -> m ()
+doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
 doSend addr cli = do
     sock   <- liftIO $ readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
@@ -151,7 +153,7 @@ doSend addr cli = do
     handleE =
         logWarning . sformat ("Failed to send to "%shown%": "%shown) addr
 
-startSend :: NtpMonad m => [SockAddr] -> NtpClient m -> m ()
+startSend :: NtpMonad m => [SockAddr] -> NtpClient -> m ()
 startSend addrs cli = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
@@ -171,7 +173,7 @@ startSend addrs cli = do
     startSend addrs cli
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: forall m . NtpMonad m => NtpClientSettings m -> m Sockets
+mkSockets :: forall m . NtpMonad m => NtpClientSettings -> m Sockets
 mkSockets settings = do
     (sock1MB, sock2MB) <- doMkSockets `catchAny` handlerE
     whenJust sock1MB logging
@@ -200,7 +202,7 @@ mkSockets settings = do
         liftIO $ threadDelay (5 :: Second)
         doMkSockets
 
-handleNtpPacket :: NtpMonad m => NtpClient m -> NtpPacket -> m ()
+handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
 handleNtpPacket cli packet = do
     logDebug $ sformat ("Got packet "%shown) packet
 
@@ -215,7 +217,7 @@ handleNtpPacket cli packet = do
     when late $
         logWarning "Response was too late"
 
-doReceive :: NtpMonad m => Socket -> NtpClient m -> m ()
+doReceive :: NtpMonad m => Socket -> NtpClient -> m ()
 doReceive sock cli = forever $ do
     (received, _) <- liftIO $ recvFrom sock ntpPacketSize
     let eNtpPacket = decodeOrFail $ LBS.fromStrict received
@@ -227,7 +229,7 @@ doReceive sock cli = forever $ do
   where
     handleE = logWarning . sformat ("Error while handle packet: "%shown)
 
-startReceive :: NtpMonad m => NtpClient m -> m ()
+startReceive :: NtpMonad m => NtpClient -> m ()
 startReceive cli = do
     sockets <- liftIO . atomically . readTVar $ ncSockets cli
     case sockets of
@@ -259,7 +261,7 @@ startReceive cli = do
          flip mergeSockets .
          constr $ sock)
 
-spawnNtpClient :: NtpMonad m => NtpClientSettings m -> m ()
+spawnNtpClient :: NtpMonad m => NtpClientSettings -> m ()
 spawnNtpClient settings =
     withSocketsDoLifted $
     modifyLoggerName (<> ntpLogName settings) $
@@ -290,7 +292,7 @@ spawnNtpClient settings =
 -- and stop it.
 ntpSingleShot
     :: (NtpMonad m)
-    => NtpClientSettings m -> m ()
+    => NtpClientSettings -> m ()
 ntpSingleShot settings =
     () <$ timeout (ntpResponseTimeout settings) (spawnNtpClient settings)
 

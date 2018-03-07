@@ -45,9 +45,12 @@ module Pos.Util.LogSafe
 
          -- ** Secure log utils
        , BuildableSafe
+       , BuildableSafeGen (..)
        , SecuredText
        , buildUnsecure
        , getSecuredText
+       , deriveSafeBuildable
+       , deriveSafeBuildableExt
        ) where
 
 import           Universum
@@ -59,6 +62,7 @@ import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
+import qualified Language.Haskell.TH as TH
 import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
@@ -194,6 +198,7 @@ secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
 secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
 
 -- | For public logs hides list content, showing only its size.
+-- For secret logs uses provided formatter for list.
 secureListF
     :: NontrivialContainer l
     => LogSecurityLevel -> Format r (l -> r) -> Format r (l -> r)
@@ -203,6 +208,61 @@ secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
         if null l
         then "[]"
         else bprint ("[... ("%build%" item(s))]") $ length l
+
+{-
+This is helper in generating @instance Buildable a@ and
+@instance Buildable (SecureLog a)@ in a single shot.
+
+Sometimes those instances are very similar, and we want to provide
+both at once with help of formatter combinators (see functions above).
+In such case, define this instance and then use 'deriveSafeBuildable' to
+produce the two desired @Buildable@ instances.
+
+You are not supposed to specify this typeclass in constraints, for that
+purpose use 'BuildableSafe'.
+
+Example of usage:
+
+@
+data Password = Password [Char]
+
+instance BuildableSafeGen Password where
+    buildSafeGen sl (Password chars) = bprint (secureListF sl string) chars
+    -- "sl" stands for "security level"
+@
+-}
+class BuildableSafeGen a where
+    buildSafeGen :: LogSecurityLevel -> a -> Builder
+
+{-
+Similar to 'deriveSafeBuildable', but more flexible,
+suitable for complex types.
+
+Example:
+
+@
+data Nyan a
+
+deriveSafeBuildableExt [t| Nyan $(TH.VarT <$> TH.newName "x") |]
+@
+-}
+deriveSafeBuildableExt :: TH.Q TH.Type -> TH.Q [TH.Dec]
+deriveSafeBuildableExt typeQ = do
+    [d|
+        instance Buildable $typeQ where
+            build = buildSafeGen unsecure
+
+        instance Buildable (SecureLog $typeQ) where
+            build = buildSafeGen secure . getSecureLog
+        |]
+
+-- | Builds up @instance Buildable a@ and @instance Buildable (SecureLog a)@
+-- assuming provided @instance BuildableSafeGen a@.
+-- Suitable for simple types.
+--
+-- Example: @deriveSafeBuildable ''Nyan@
+deriveSafeBuildable :: TH.Name -> TH.Q [TH.Dec]
+deriveSafeBuildable typeName = deriveSafeBuildableExt (TH.conT typeName)
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
 -- to terminal). Use it along with 'logMessageS' when want to specify
@@ -252,6 +312,7 @@ logNoticeSP  = logMessageSP Notice
 logWarningSP = logMessageSP Warning
 logErrorSP   = logMessageSP Error
 
+-- ** Instances for core types
 
 instance Buildable (SecureLog PassPhrase) where
     build _ = "<passphrase>"

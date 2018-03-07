@@ -11,7 +11,7 @@ import           Universum
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (views)
-import           Control.Monad.Except (ExceptT (..), throwError)
+import           Control.Monad.Except (ExceptT (..))
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
@@ -22,7 +22,7 @@ import           Network.HTTP.Simple (getResponseBody, getResponseStatus, getRes
                                       httpLBS, parseRequest, setRequestManager)
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
-import           System.Directory (doesFileExist)
+import           System.Directory (doesFileExist, removeFile)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
@@ -129,18 +129,36 @@ downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
                     "software at all") updHash
 
         updPath <- views (lensOf @UpdateParams) upUpdatePath
-        whenM (liftIO $ doesFileExist updPath) $
-            throwError "There's unapplied update already downloaded"
 
-        logInfo "Downloading update..."
-        file <- ExceptT $ downloadHash updateServers updHash <&>
-                first (sformat ("Update download (hash "%build%
-                                ") has failed: "%stext) updHash)
+        let downloadUpdateWithLog = do
+                logInfo "Downloading update..."
+                file <- ExceptT $ downloadHash updateServers updHash <&>
+                        first (sformat ("Update download (hash "%build%
+                                        ") has failed: "%stext) updHash)
 
-        logInfo $ "Update was downloaded, saving to " <> show updPath
+                logInfo $ "Update was downloaded, saving to " <> show updPath
 
-        liftIO $ BSL.writeFile updPath file
-        logInfo $ "Update was downloaded, saved to " <> show updPath
+                liftIO $ BSL.writeFile updPath file
+                logInfo $ "Update was downloaded, saved to " <> show updPath
+
+        -- Check if an update is already downloaded to `updPath`.
+        -- If it is valid one, it would be passed to `downloadedMVar`.
+        fileIsOnDrive <- liftIO $ doesFileExist updPath
+        if fileIsOnDrive
+            then do
+                logInfo $ sformat ("Found an update file: "%stext) (toText updPath)
+                localUpdateFile <- liftIO $ BSL.readFile updPath -- could be an error while reading
+                validPkgHash <- lift $ getUpdateHash cps
+
+                if (installerHash localUpdateFile) == validPkgHash
+                    then logInfo $ "It would be used to install an update"
+                    else do
+                        logInfo $ "File failed Hash check and would be removed. Update would be downloaded via network"
+                        liftIO $ removeFile updPath
+                        downloadUpdateWithLog
+            else
+                downloadUpdateWithLog
+
         downloadedMVar <- views (lensOf @UpdateContext) ucDownloadedUpdate
         putMVar downloadedMVar cps
         logInfo "Update MVar filled, wallet is notified"

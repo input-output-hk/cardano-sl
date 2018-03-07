@@ -1,6 +1,7 @@
 module Cardano.Wallet.API.V1.Wallets where
 
 import           Cardano.Wallet.API.Request
+import qualified Cardano.Wallet.API.Request.Parameters as P
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
@@ -15,8 +16,8 @@ type API =
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
-                   :> FilterBy '["wallet_id", "balance"] Wallet
-                   :> SortBy   '["balance"] Wallet
+                   :> FilterBy '[P.WalletId, P.Balance] Wallet
+                   :> SortBy   '[P.Balance] Wallet
                    :> Get '[ValidJSON] (WalletResponse [Wallet])
     :<|> "wallets" :> Capture "walletId" WalletId
                    :> ( "password" :> Summary "Updates the password for the given Wallet."

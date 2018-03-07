@@ -29,6 +29,7 @@ library
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
                        Cardano.Wallet.API.Request.Filter
+                       Cardano.Wallet.API.Request.Parameters
                        Cardano.Wallet.API.Request.Sort
                        Cardano.Wallet.API.Response
                        Cardano.Wallet.API.Response.Filter.IxSet

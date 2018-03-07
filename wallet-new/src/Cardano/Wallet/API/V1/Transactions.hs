@@ -2,6 +2,7 @@
 module Cardano.Wallet.API.V1.Transactions where
 
 import           Cardano.Wallet.API.Request
+import qualified Cardano.Wallet.API.Request.Parameters as P
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
@@ -18,8 +19,8 @@ type API
                         :> QueryParam "account_index" AccountIndex
                         :> QueryParam "address" (V1 Core.Address)
                         :> WalletRequestParams
-                        :> FilterBy '["id", "created_at"] Transaction
-                        :> SortBy '["id"] Transaction
+                        :> FilterBy '[P.Id, P.CreatedAt] Transaction
+                        :> SortBy '[P.CreatedAt] Transaction
                         :> Get '[ValidJSON] (WalletResponse [Transaction])
     :<|> "transactions" :> "fees"
                         :> Summary "Estimate the fees which would originate from the payment."

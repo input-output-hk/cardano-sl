@@ -16,6 +16,7 @@ import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
+import           Cardano.Wallet.API.V1.Generic (gconsName)
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
@@ -26,8 +27,9 @@ import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..))
+import           Data.Aeson (ToJSON (..), encode)
 import           Data.Aeson.Encode.Pretty
+import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
@@ -35,8 +37,10 @@ import           Data.String.Conv
 import           Data.Swagger hiding (Example, Header, example)
 import           Data.Swagger.Declare
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Data.Typeable
 import           NeatInterpolation
+import           Servant (ServantErr (..))
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -59,6 +63,11 @@ fromExampleJSON :: (ToJSON a, Typeable a, Example a)
 fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
+
+
+-- | Surround a Text with another
+surroundedBy :: Text -> Text -> Text
+surroundedBy wrap context = wrap <> context <> wrap
 
 --
 -- Instances
@@ -176,6 +185,20 @@ sortDescription :: Text -> Text -> Text
 sortDescription resource allowedKeys = [text|
 A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
 |]
+
+errorsDescription :: Text
+errorsDescription = [text|
+Error Name | HTTP Error code | Example
+-----------|-----------------|---------
+$errors
+|] where
+  errors = T.intercalate "\n" rows
+  rows = map mkRow Errors.sample
+  mkRow err = T.intercalate "|"
+    [ surroundedBy "`" (gconsName err)
+    , show $ errHTTPCode $ Errors.toServantError err
+    , T.decodeUtf8 $ BL.toStrict $ encode err
+    ]
 
 highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
@@ -474,13 +497,8 @@ api (compileInfo, curSoftwareVersion) walletAPI = toSwagger walletAPI
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
-    , deWalletErrorTable      = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map (\e -> [surroundedBy "`" e, "-", "-"]) Errors.allErrorsList -- TODO Fully document errors
+    , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
-  where
-    surroundedBy wrap context = wrap <> context <> wrap
-    markdownTable h rows = unlines $ (mkRow h):(mkSplit h):(map mkRow rows)
-    mkSplit h = mkRow $ map (const "---") h -- e.g. ---|---|---
-    mkRow = T.intercalate "|" -- e.g. a|b|c

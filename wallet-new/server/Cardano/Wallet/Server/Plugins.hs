@@ -105,7 +105,7 @@ legacyWalletBackend WalletBackendParams {..} =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             Servant.serve API.walletAPI $
-              LegacyServer.walletServer (V0.convertHandler ctx) diffusion
+              LegacyServer.walletServer (V0.convertHandler ctx) diffusion walletRunMode
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
@@ -136,7 +136,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $
-        Servant.serve API.walletAPI $ Server.walletServer active
+        Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env Production a -> IO a
     lower env = runProduction . (`runReaderT` env)

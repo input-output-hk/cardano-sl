@@ -65,7 +65,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (ix)
+import           Control.Lens (at, ix, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -175,7 +175,7 @@ instance FromJSON (V1 BackupPhrase) where
 
 instance ToSchema (V1 BackupPhrase) where
     declareNamedSchema _ = do
-        return $ NamedSchema (Just "V1 BackupPhrase") $ mempty
+        return $ NamedSchema (Just "V1BackupPhrase") $ mempty
             & type_ .~ SwaggerArray
             & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
 
@@ -207,7 +207,7 @@ instance Arbitrary (V1 Core.PassPhrase) where
 
 instance ToSchema (V1 Core.PassPhrase) where
     declareNamedSchema _ = do
-        pure $ NamedSchema (Just "V1 PassPhrase") $ mempty
+        pure $ NamedSchema (Just "V1PassPhrase") $ mempty
             & type_ .~ SwaggerString
             & pattern .~ Just "abcd"
 
@@ -222,7 +222,7 @@ instance Arbitrary (V1 Core.Coin) where
 
 instance ToSchema (V1 Core.Coin) where
     declareNamedSchema _ =
-        pure $ NamedSchema (Just "V1 Coin") $ mempty
+        pure $ NamedSchema (Just "V1Coin") $ mempty
             & type_ .~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
 
@@ -250,7 +250,7 @@ instance Arbitrary (V1 Core.Address) where
 
 instance ToSchema (V1 Core.Address) where
     declareNamedSchema _ =
-        pure $ NamedSchema (Just "V1 Address") $ mempty
+        pure $ NamedSchema (Just "V1Address") $ mempty
             & type_ .~ SwaggerString
             -- TODO: any other constraints we can have here?
 
@@ -579,7 +579,7 @@ instance FromJSON (V1 Core.InputSelectionPolicy) where
 
 instance ToSchema (V1 Core.InputSelectionPolicy) where
     declareNamedSchema _ =
-        pure $ NamedSchema (Just "V1 InputSelectionPolicy") $ mempty
+        pure $ NamedSchema (Just "V1InputSelectionPolicy") $ mempty
             & type_ .~ SwaggerString
             & enum_ .~ Just ["OptimizeForSecurity", "OptimizeForHighThroughput"]
 
@@ -738,10 +738,10 @@ instance ToSchema SlotDuration where
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
             & properties .~ (mempty
-                & ix "quantity" .~ (Inline $ mempty
+                & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
                     )
-                & ix "unit" .~ (Inline $ mempty
+                & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
                     & pattern .~ Just "milliseconds"
                     )
@@ -781,11 +781,11 @@ instance ToJSON (V1 Core.SoftwareVersion) where
 
 instance ToSchema (V1 Core.SoftwareVersion) where
     declareNamedSchema _ =
-        pure $ NamedSchema (Just "V1 SoftwareVersion") $ mempty
+        pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
             & type_ .~ SwaggerObject
             & properties .~ (mempty
-                & ix "applicationName" .~ Inline (toSchema (Proxy @Text))
-                & ix "version" .~ Inline (toSchema (Proxy @Word32))
+                & at "applicationName" ?~ Inline (toSchema (Proxy @Text))
+                & at "version" ?~ Inline (toSchema (Proxy @Word32))
             )
             & required .~ ["applicationName", "version"]
 
@@ -828,10 +828,10 @@ instance ToSchema LocalTimeDifference where
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
             & properties .~ (mempty
-                & ix "quantity" .~ (Inline $ mempty
+                & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
                     )
-                & ix "unit" .~ (Inline $ mempty
+                & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
                     & pattern .~ Just "microseconds"
                     )
@@ -863,12 +863,12 @@ instance ToSchema SyncProgress where
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
             & properties .~ (mempty
-                & ix "quantity" .~ (Inline $ mempty
+                & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
                     & maximum_ .~ Just 100
                     & minimum_ .~ Just 0
                     )
-                & ix "unit" .~ (Inline $ mempty
+                & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
                     & pattern .~ Just "percent"
                     )
@@ -900,12 +900,12 @@ instance ToSchema BlockchainHeight where
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
             & properties .~ (mempty
-                & ix "quantity" .~ (Inline $ mempty
+                & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
                     & maximum_ .~ Just (fromIntegral (maxBound :: Word64))
                     & minimum_ .~ Just (fromIntegral (minBound :: Word64))
                     )
-                & ix "unit" .~ (Inline $ mempty
+                & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
                     & pattern .~ Just "blocks"
                     )

@@ -467,24 +467,41 @@ instance ( ApiHasArgClass subApi
 instance ( ApiCanLogArg subApi ) =>
          ApiCanLogArg (CDecodeApiArg subApi) where
 
+paramRouteWithLog
+    :: forall config api subApi res ctx env.
+       ( api ~ (subApi :> res)
+       , HasServer (subApi :> res) ctx
+       , HasServer (subApi :> LoggingApiRec config res) ctx
+       , ApiHasArg subApi res
+       , ApiHasArg subApi (LoggingApiRec config res)
+       , ApiCanLogArg subApi
+       , BuildableSafe (ApiArgToLog subApi)
+       )
+    => Proxy (LoggingApiRec config api)
+    -> SI.Context ctx
+    -> SI.Delayed env (Server (LoggingApiRec config api))
+    -> SI.Router env
+paramRouteWithLog =
+    inRouteServer @(subApi :> LoggingApiRec config res) route $
+        \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
+  where
+    updateParamsInfo a =
+        let paramVal = toLogParamInfo (Proxy @subApi) a
+            paramName = apiArgName $ Proxy @subApi
+            paramInfo =
+                \sl -> sformat (string%": "%stext) paramName (paramVal sl)
+        in _ApiParamsLogInfo %~ (paramInfo :)
+
 instance ( HasServer (subApi :> res) ctx
          , HasServer (subApi :> LoggingApiRec config res) ctx
          , ApiHasArg subApi res
          , ApiHasArg subApi (LoggingApiRec config res)
          , ApiCanLogArg subApi
          , BuildableSafe (ApiArgToLog subApi)
+         , subApi ~ apiType a
          ) =>
-         HasLoggingServer config (subApi :> res) ctx where
-    routeWithLog =
-        inRouteServer @(subApi :> LoggingApiRec config res) route $
-        \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
-      where
-        updateParamsInfo a = do
-            let paramVal = toLogParamInfo (Proxy @subApi) a
-                paramName = apiArgName $ Proxy @subApi
-                paramInfo =
-                    \sl -> sformat (string%": "%stext) paramName (paramVal sl)
-            _ApiParamsLogInfo %~ (paramInfo :)
+         HasLoggingServer config (apiType a :> res) ctx where
+    routeWithLog = paramRouteWithLog
 
 instance HasLoggingServer config res ctx =>
          HasLoggingServer config (Summary s :> res) ctx where

@@ -8,23 +8,26 @@ module Pos.Update.Worker
 
 import           Universum
 
+import           Control.Lens (views)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
 import           System.Wlog (logDebug, logInfo)
 
 import           Pos.Communication.Protocol (OutSpecs)
+import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Recovery.Info (recoveryCommGuard)
 import           Pos.Shutdown (triggerShutdown)
 import           Pos.Slotting.Util (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                                    defaultOnNewSlotParams)
+                                    defaultOnNewSlotParams, onNewSlot)
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Update.Context (UpdateContext (..))
 import           Pos.Update.DB (getConfirmedProposals)
 import           Pos.Update.Download (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
+import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Util (lensOf)
 import           Pos.Worker.Types (WorkerSpec, localOnNewSlotWorker, worker)
@@ -44,9 +47,16 @@ usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
             recoveryCommGuard "processNewSlot in US" $ do
                 logDebug "Updating slot for US..."
                 processNewSlot s
-    checkForUpdateWorker =
-        localOnNewSlotWorker defaultOnNewSlotParams $ \_ ->
-            recoveryCommGuard "checkForUpdate" (checkForUpdate @ctx @m)
+
+    serversProvided :: m Bool
+    serversProvided =
+        (not . null) <$> views (lensOf @UpdateParams) upUpdateServers
+
+    checkForUpdateWorker = (ActionSpec $ \__sA -> action, mempty)
+      where
+        action = whenM serversProvided $ do
+            onNewSlot defaultOnNewSlotParams $ \_ ->
+                recoveryCommGuard "checkForUpdate" (checkForUpdate @ctx @m)
 
 checkForUpdate ::
        forall ctx m. UpdateMode ctx m
@@ -67,14 +77,16 @@ checkForUpdate = do
                 svNumber . upSoftwareVersion . cpsUpdateProposal
         let newestCPS =
                 maximumBy (comparing cpsToNumericVersion) confirmedProposals
+
         logInfo $
             sformat
                 ("There are new confirmed update proposals for our application: "
-                 %listJsonIndent 2%
-                 "\n The newest one is: "%build%" and we want to download it")
+                %listJsonIndent 2%
+                "\n The newest one is: "%build%" and we want to download it")
                 (cpsUpdateProposal <$> confirmedProposals)
                 (cpsUpdateProposal newestCPS)
         downloadUpdate newestCPS
+
 
 -- | This worker is just waiting until we download an update for our
 -- application. When an update is downloaded, it shuts the system

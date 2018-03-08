@@ -36,7 +36,7 @@ data ToilVerFailure
     | ToilOutGreaterThanIn { tInputSum  :: !Integer
                            , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Text  -- [CSL-1628] TODO: make it more informative
+    | ToilInvalidOutputs !Word32 !TxOutVerFailure
     | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either
@@ -89,8 +89,10 @@ instance Buildable ToilVerFailure where
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =
         bprint ("TxAux is inconsistent: "%stext) msg
-    build (ToilInvalidOutputs msg) =
-        bprint ("outputs are invalid: "%stext) msg
+    build (ToilInvalidOutputs i reason) =
+        bprint ("input #"%int%"'s outputs are invalid:\n'"%
+                " reason: "%build)
+            i reason
     build (ToilWitnessDoesntMatch i txIn txOut@TxOut {..} witness) =
         bprint ("input #"%int%"'s witness doesn't match address "%
                 "of corresponding output:\n"%
@@ -161,3 +163,17 @@ instance Buildable WitnessVerFailure where
         bprint ("error when executing scripts: "%build) err
     build (WitnessUnknownType t) =
         bprint ("unknown witness type: "%build) t
+
+----------------------------------------------------------------------------
+-- TxOutVerFailure
+----------------------------------------------------------------------------
+
+-- | Result of checking transaction output.
+data TxOutVerFailure
+    -- | The output of a transaction doesn't pass validation
+    = TxOutVerFailure
+    deriving (Show, Eq, Generic, NFData)
+
+instance Buildable TxOutVerFailure where
+    build TxOutVerFailure = 
+        bprint "outputs are invalid"

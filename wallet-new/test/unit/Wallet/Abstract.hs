@@ -476,6 +476,8 @@ synthesizeTransactions addrs actions = do
     fakes <- map (IntMap.fromList . catMaybes) . forM ix'ourUtxo $ \(i, utxos) -> do
         pct <- liftGen $ choose (0, 100 :: Int)
         if pct < 5
+            -- 'elements' will blow up at runtime if 'utxoToList utxos' is an empty list
+            && not (Map.null (utxoToMap utxos))
             then do
                 io <- liftGen . elements $ utxoToList utxos
                 h <- selectHash

@@ -354,8 +354,7 @@ ledgerUtxo :: forall h a. Hash h a => Ledger h a -> Utxo h a
 ledgerUtxo l = go (ledgerToNewestFirst l)
   where
     go :: [Transaction h a] -> Utxo h a
-    go []     = utxoEmpty
-    go (t:ts) = utxoApply t (go ts)
+    go = foldr utxoApply utxoEmpty
 
 -- | Ledger validity
 ledgerIsValid :: (Hash h a, Buildable a) => Ledger h a -> Validated Text ()

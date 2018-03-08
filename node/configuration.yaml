@@ -120,6 +120,7 @@ dev: &dev
     pendingTxResubmissionPeriod: 7 # seconds
     walletProductionApi: false
     walletTxCreationDisabled: false
+    txDefInputSelectionPolicy: "OptimizeForSecurity"
 
 
 ##############################################################################
@@ -309,6 +310,7 @@ mainnet_base: &mainnet_base
     pendingTxResubmissionPeriod: 7 # seconds
     walletProductionApi: true
     walletTxCreationDisabled: false
+    txDefInputSelectionPolicy: "OptimizeForSecurity"
 
 
 ##############################################################################

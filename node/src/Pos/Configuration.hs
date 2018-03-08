@@ -5,6 +5,7 @@
 module Pos.Configuration
        ( NodeConfiguration (..)
        , HasNodeConfiguration
+       , InputSelectionPolicyConf (..)
        , nodeConfiguration
        , withNodeConfiguration
 
@@ -30,11 +31,12 @@ module Pos.Configuration
        , pendingTxResubmitionPeriod
        , walletProductionApi
        , walletTxCreationDisabled
+       , txDefInputSelectionPolicy
        ) where
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Aeson             (FromJSON (..), genericParseJSON, withText)
 import           Data.Reflection        (Given (..), give)
 import           Data.Time.Units        (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
@@ -83,10 +85,28 @@ data NodeConfiguration = NodeConfiguration
     , ccWalletTxCreationDisabled    :: !Bool
       -- ^ Disallow transaction creation or re-submission of
       -- pending transactions by the wallet
+    , ccTxDefInputSelectionPolicy   :: !InputSelectionPolicyConf
+      -- ^ Default policy to pick inputs when forming transaction
     } deriving (Show, Generic)
 
 instance FromJSON NodeConfiguration where
     parseJSON = genericParseJSON defaultOptions
+
+-- | Specifies the way Utxos are going to be grouped.
+-- This maps 1-to-1 to @InputSelectionPolicy@, but has another 'FromJSON'
+-- instance which parses from String.
+data InputSelectionPolicyConf
+    = OptimizeForSecurityConf  -- ^ Spend everything from the address
+    | OptimizeForHighThroughputConf  -- ^ No grouping
+    deriving (Show, Eq, Generic)
+
+instance FromJSON InputSelectionPolicyConf where
+    parseJSON = withText "InputSelectionPolicy" $ \case
+        "OptimizeForSecurity"       -> pure OptimizeForSecurityConf
+        -- for backward-compatibility
+        "OptimizeForSize"           -> pure OptimizeForHighThroughputConf
+        "OptimizeForHighThroughput" -> pure OptimizeForHighThroughputConf
+        _ -> fail "Unknown transaction inputs grouping policy"
 
 ----------------------------------------------------------------------------
 -- Main constants mentioned in paper
@@ -157,6 +177,11 @@ mdNoBlocksSlotThreshold = fromIntegral . ccMdNoBlocksSlotThreshold $ nodeConfigu
 ----------------------------------------------------------------------------
 -- Wallet parameters
 ----------------------------------------------------------------------------
+
+-- | Specifies how inputs should be selected when forming transaction.
+-- This is default behaviour and may be overriden.
+txDefInputSelectionPolicy :: HasNodeConfiguration => InputSelectionPolicyConf
+txDefInputSelectionPolicy = ccTxDefInputSelectionPolicy $ nodeConfiguration
 
 pendingTxResubmitionPeriod :: HasNodeConfiguration => Second
 pendingTxResubmitionPeriod = fromIntegral . ccPendingTxResubmissionPeriod $ nodeConfiguration

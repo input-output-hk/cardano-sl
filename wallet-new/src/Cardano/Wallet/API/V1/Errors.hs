@@ -52,6 +52,7 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
+    | GenericError { weMsg :: !Text }
     | WalletNotFound
     deriving (Show, Eq)
 
@@ -77,6 +78,7 @@ instance Arbitrary WalletError where
         , SomeOtherError <$> pure "blah" <*> arbitrary
         , MigrationFailed <$> pure "migration"
         , JSONValidationFailed <$> pure "Expected String, found Null."
+        , GenericError <$> pure "generic"
         , pure WalletNotFound
         ]
 
@@ -97,6 +99,7 @@ walletHTTPError OutputIsRedeem{}       = err403
 walletHTTPError SomeOtherError{}       = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
 walletHTTPError MigrationFailed{}      = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
 walletHTTPError JSONValidationFailed{} = err400 -- <https://httpstatuses.com/400 400> Bad Request
+walletHTTPError GenericError{}         = err400 -- <https://httpstatuses.com/400 400> Bad Request
 walletHTTPError WalletNotFound         = err404 -- <https://httpstatuses.com/404 404> NotFound
 
 -- | "Hoist" the given 'Wallet' error into a 'ServantError',

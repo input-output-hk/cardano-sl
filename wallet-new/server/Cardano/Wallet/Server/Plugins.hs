@@ -16,6 +16,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
+import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
@@ -25,10 +26,12 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 
-import           Data.ByteString.Lazy.Char8 (pack)
+import           Data.Aeson
+import qualified Data.Text as T
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types.Status (status500)
+import           Network.HTTP.Types.Status (badRequest400)
+import           Network.HTTP.Types (hContentType)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
@@ -109,9 +112,9 @@ legacyWalletBackend WalletBackendParams {..} =
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler e =
-        -- TODO (jk) Return a JSend valid JSON payload with the error
-        responseLBS status500 [] $  "Oh nooooo, something went wrong: " <> pack (show e)
+    exceptionHandler _ =
+        responseLBS badRequest400 [(hContentType, "application/json")] .
+            encode . toJSON . GenericError $ T.pack "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --

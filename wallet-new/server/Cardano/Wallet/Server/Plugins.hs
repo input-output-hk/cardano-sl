@@ -27,7 +27,6 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             walletAcidInterval, walletDbOptions)
 
 import           Data.Aeson
-import qualified Data.Text as T
 import           Formatting (build, sformat, (%))
 import           Mockable
 import           Network.HTTP.Types.Status (badRequest400)
@@ -114,7 +113,7 @@ legacyWalletBackend WalletBackendParams {..} =
     exceptionHandler :: SomeException -> Response
     exceptionHandler _ =
         responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode . toJSON . GenericError $ T.pack "Something went wrong."
+            encode . toJSON $ GenericError "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --

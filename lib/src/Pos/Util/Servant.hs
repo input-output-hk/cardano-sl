@@ -335,7 +335,9 @@ data LoggingApi config api
 -- | Helper to traverse servant api and apply logging.
 data LoggingApiRec config api
 
-type ApiLoggingConfig = LoggerName
+newtype ApiLoggingConfig = ApiLoggingConfig
+    { apiLoggerName :: LoggerName
+    } deriving Show
 
 -- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
@@ -569,8 +571,8 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
             return $ sformat shown (endTime - startTime)
     inLogCtx :: MonadIO m => LoggerNameBox m a -> m a
     inLogCtx logAction = do
-        let loggerName = reflect configP
-        usingLoggerName loggerName logAction
+        let ApiLoggingConfig{..} = reflect configP
+        usingLoggerName apiLoggerName logAction
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->

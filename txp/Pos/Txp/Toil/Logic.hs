@@ -27,14 +27,15 @@ import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
-                               toaOut, txInputs, txOutAddress)
+                               toaOut, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
 import           Pos.Txp.Toil.Monad (GlobalToilM, LocalToilM, UtxoM, hasTx, memPoolSize,
-                                     putTxWithUndo, utxoGet, utxoMToGlobalToilM, utxoMToLocalToilM)
+                                     putTxWithUndo, utxoMToGlobalToilM, utxoMToLocalToilM)
 import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types (TxFee (..))
+import           Pos.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
 import qualified Pos.Txp.Toil.Utxo as Utxo
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (liftEither)
@@ -129,32 +130,32 @@ verifyAndApplyTx ::
     -> ExceptT ToilVerFailure UtxoM TxUndo
 verifyAndApplyTx adoptedBVD curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
-    Utxo.VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState adoptedBVD curEpoch txAux vturFee
+    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx txAux
+    liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx
     pure vturUndo
   where
     ctx = Utxo.VTxContext verifyVersions
 
-isRedeemTx :: TxAux -> UtxoM Bool
-isRedeemTx txAux = do
-    resolvedOuts <- mapM utxoGet $ (view txInputs . taTx) txAux
-    let inputAddresses =
-            fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
-    return $ all isRedeemAddress inputAddresses
+isRedeemTx :: TxUndo -> Bool
+isRedeemTx resolvedOuts = all isRedeemAddress inputAddresses
+  where
+    inputAddresses =
+        fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
 
 verifyGState ::
        BlockVersionData
     -> EpochIndex
     -> TxAux
-    -> Maybe TxFee
-    -> ExceptT ToilVerFailure UtxoM ()
-verifyGState bvd@BlockVersionData {..} curEpoch txAux txFeeMB = do
-    liftEither $ verifyBootEra bvd curEpoch txAux
+    -> VerifyTxUtxoRes
+    -> Either ToilVerFailure ()
+verifyGState bvd@BlockVersionData {..} curEpoch txAux vtur = do
+    verifyBootEra bvd curEpoch txAux
+    let txFeeMB = vturFee vtur
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
-    unlessM (lift $ isRedeemTx txAux) $ whenJust txFeeMB $ \txFee ->
-        liftEither $ verifyTxFeePolicy txFee bvdTxFeePolicy txSize
+    unless (isRedeemTx $ vturUndo vtur) $ whenJust txFeeMB $ \txFee ->
+        verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 

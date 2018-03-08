@@ -422,7 +422,8 @@ intersperseTransactions
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions addrs actions = do
     chain <- getBlockchain
-    let ourTxns = findOurTransactions addrs chain
+    ledger <- getLedger
+    let ourTxns = findOurTransactions addrs ledger chain
     let allTxnCount = length ourTxns
 
     -- we weight the frequency distribution such that most of the
@@ -441,7 +442,6 @@ intersperseTransactions addrs actions = do
 
     txnsToDisperse <- liftGen $ sublistN txnToDisperseCount ourTxns
 
-    ledger <- getLedger
 
     let txnsWithRange =
             mapMaybe
@@ -450,7 +450,7 @@ intersperseTransactions addrs actions = do
 
     txnsWithIndex <-
         forM txnsWithRange $ \(t, hi, lo) ->
-            (,) t <$> liftGen (choose (lo, hi))
+            (,) t <$> liftGen (choose (lo, hi - 1))
 
     let withPendings =
             foldr
@@ -521,16 +521,24 @@ conssect :: IntMap [a] -> [a]
 conssect = concatMap snd . IntMap.toList
 
 -- | Given a 'Set' of addresses and a 'Chain', this function returns a list
--- of the transactions with outputs belonging to any of the addresses and
+-- of the transactions with *inputs* belonging to any of the addresses and
 -- the index of the block that the transaction is confirmed in.
-findOurTransactions :: Ord a => Set a -> Chain h a -> [(Int, Transaction h a)]
-findOurTransactions addrs =
+findOurTransactions
+    :: (Hash h a, Ord a)
+    => Set a
+    -> Ledger h a
+    -> Chain h a
+    -> [(Int, Transaction h a)]
+findOurTransactions addrs ledger =
     concatMap k . zip [0..] . toList . chainBlocks
   where
     k (i, block) =
         map ((,) i)
-            . filter (any ((`Set.member` addrs) . outAddr) . trOuts)
+            . filter (any p . trIns)
             $ toList block
+    p = fromMaybe False
+        . fmap (\o -> outAddr o `Set.member` addrs)
+        . (`inpSpentOutput` ledger)
 
 -- | This function identifies the index of the block that the input was
 -- received in the ledger, marking the point at which it may be inserted as

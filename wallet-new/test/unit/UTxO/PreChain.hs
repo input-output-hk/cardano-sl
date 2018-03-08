@@ -80,9 +80,9 @@ data FromPreChain h a = FromPreChain {
 
 fromPreChain :: (Hash h Addr, Monad m)
              => PreChain h m a -> TranslateT IntException m (FromPreChain h a)
-fromPreChain preChain = do
+fromPreChain pc = do
     fpcBoot <- asks bootstrapTransaction
-    (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep preChain fpcBoot)
+    (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}

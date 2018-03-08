@@ -8,7 +8,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\nGit revision: **133d97f6ecd32139ad4104e9f1ed5d7ceff71527**\nSoftware version: **cardano-sl:0**\n\n\n## Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n## Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n## Filtering and sorting\n\n`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked\nin the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:\n\n### Filter operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |\n| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |\n| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |\n| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |\n| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |\n| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |\n| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |\n\n### Sort operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |\n| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |\n| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |\n\n## Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n\n### Existing wallet errors\n\nError Name | HTTP Error code | Example\n-----------|-----------------|---------\n`NotEnoughMoney`|403|{\"status\":\"error\",\"diagnostic\":{\"needMore\":1400},\"message\":\"NotEnoughMoney\"}\n`OutputIsRedeem`|403|{\"status\":\"error\",\"diagnostic\":{\"address\":\"b10b24203f1f0cadffcfd16277125cf7f3ad598983bef9123be80d93\"},\"message\":\"OutputIsRedeem\"}\n`SomeOtherError`|418|{\"status\":\"error\",\"diagnostic\":{\"foo\":\"foo\",\"bar\":14},\"message\":\"SomeOtherError\"}\n`MigrationFailed`|422|{\"status\":\"error\",\"diagnostic\":{\"description\":\"migration\"},\"message\":\"MigrationFailed\"}\n`JSONValidationFailed`|400|{\"status\":\"error\",\"diagnostic\":{\"validationError\":\"Expected String, found Null.\"},\"message\":\"JSONValidationFailed\"}\n`WalletNotFound`|404|{\"status\":\"error\",\"diagnostic\":{},\"message\":\"WalletNotFound\"}\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)\nspec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).\n\nSoftware Version | Git Revision\n-----------------|-------------------\n951eb4242acec80bb7da64df0e787081d5a4c44d   | cardano-sl:0\n\n## Getting Started\n\nIn the following examples, we will use *curl* to illustrate request to an API running on the\ndefault port **8090**.\n\n> Please note that wallet web API uses TLS for secure communication. Requests to the API need\nto send a client CA certificate that was used when launching the node and identifies the client as\nbeing permitted to invoke the server API.\n\n### Creating a New Wallet\n\nYou can create your first wallet using the `POST /api/v1/wallets` endpoint as follow:\n\n```\ncurl -X POST https://localhost:8090/api/v1/wallets                     \\\n     -H \"Content-Type: application/json; charset=utf-8\"                \\\n     -H \"Accept: application/json; charset=utf-8\"                      \\\n     --cacert ./scripts/tls-files/ca.crt                               \\\n     -d '{                                                             \\\n  \"operation\": \"create\",                                               \\\n  \"backupPhrase\": [\"squirrel\", \"material\", \"silly\", \"twice\", \"direct\", \\\n    \"slush\", \"pistol\", \"razor\", \"become\", \"junk\", \"kingdom\", \"flee\"],  \\\n  \"assuranceLevel\": \"normal\",                                          \\\n  \"name\": \"MyFirstWallet\"                                              \\\n}'\n```\n\nAs a response, the API provides you with a wallet `id` used in subsequent requests to uniquely\nidentity the wallet. Make sure to store it / write it down.\n\n```json\n{\n    \"status\": \"success\",\n    \"data\": {\n        \"id\": \"Ae2tdPwUPE...8V3AVTnqGZ\",\n        \"name\": \"MyFirstWallet\",\n        \"balance\": 0\n    },\n    \"meta\": {\n        \"pagination\": {\n            \"totalPages\": 1,\n            \"page\": 1,\n            \"perPage\": 1,\n            \"totalEntries\": 1\n        }\n    }\n}\n```\n\nYou have just created your first wallet. Information about this wallet can be retrieved using\nthe `GET /api/v1/wallets/{walletId}` endpoint as follow:\n\n```\ncurl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \\\n     -H \"Accept: application/json; charset=utf-8\"              \\\n     --cacert ./scripts/tls-files/ca.crt                       \\\n```\n\n### Receiving Money\n\nTo receive money from other user you should provide your address. This address can be obtained\nfrom an account. Each wallet contains at least one account, you can think of account as a\npocket inside of your wallet. Besides, you can view all existing accounts of a wallet by using\nthe `GET /api/v1/wallets/{{walletId}}/accounts` endpoint as follow:\n\n```\ncurl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \\\n     -H \"Accept: application/json; charset=utf-8\"                                          \\\n     --cacert ./scripts/tls-files/ca.crt                                                   \\\n```\n\nSince you have, for now, only a single wallet, you'll see something like this:\n\n```json\n{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"index\": 2147483648,\n            \"addresses\": [\n                \"DdzFFzCqrh...fXSru1pdFE\"\n            ],\n            \"amount\": 0,\n            \"name\": \"Initial account\",\n            \"walletId\": \"Ae2tdPwUPE...8V3AVTnqGZ\"\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"totalPages\": 1,\n            \"page\": 1,\n            \"perPage\": 10,\n            \"totalEntries\": 1\n        }\n    }\n}\n```\n\nEach account has at least one address, all listed under the `addresses` field. You can\ncommunicate one of these addresses to receive money on the associated account.\n\n\n### Sending Money\n\nIn order to send money from one of your account to another address, you can create a new\npayment transaction using the `POST /api/v1/transactions` endpoint as follow:\n\n```\ncurl -X POST https://localhost:8090/api/v1/transactions \\\n     -H \"Content-Type: application/json; charset=utf-8\" \\\n     -H \"Accept: application/json; charset=utf-8\"       \\\n     --cacert ./scripts/tls-files/ca.crt                \\\n     -d '{                                              \\\n  \"destinations\": [{                                    \\\n    \"amount\": 14,                                       \\\n    \"address\": \"A7k5bz1QR2...Tx561NNmfF\"                \\\n  }],                                                   \\\n  \"source\": {                                           \\\n    \"accountIndex\": 0,                                  \\\n    \"walletId\": \"Ae2tdPwUPE...8V3AVTnqGZ\"               \\\n  }                                                     \\\n}'\n```\n\nNote that, in order to perform a transaction, you need to have some existing coins on the\nsource account! When the transaction succeeds, funds are _moved_ from an address to another.\nNote that, you can at any time see the status of your wallets by using the\n`GET /api/v1/transactions/{{walletId}}` endpoint as follow:\n\n```\ncurl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}?account_index=0  \\\n     -H \"Accept: application/json; charset=utf-8\"                               \\\n     --cacert ./scripts/tls-files/ca.crt                                        \\\n```\n\nWe have here constrainted the request to a specific account, with our previous transaction the\noutput should look roughly similar to this:\n\n```json\n{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"amount\": 14,\n            \"inputs\": [{\n              \"amount\": 14,\n              \"address\": \"DdzFFzCqrh...fXSru1pdFE\"\n            }],\n            \"direction\": \"outgoing\",\n            \"outputs\": [{\n              \"amount\": 14,\n              \"address\": \"A7k5bz1QR2...Tx561NNmfF\"\n            }],\n            \"confirmations\": 42,\n            \"id\": \"43zkUzCVi7...TT31uDfEF7\",\n            \"type\": \"local\"\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"totalPages\": 1,\n            \"page\": 1,\n            \"perPage\": 10,\n            \"totalEntries\": 1\n        }\n    }\n}\n```\n\n## Pagination\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a\nbrief overview the first two control how many results and which results to access in a\npaginated request.\n\n\n## Filtering and sorting\n\n`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked\nin the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:\n\n### Filter operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |\n| `EQ`     | Retrieves the resources with index _equal_ to the one provided.           | `balance=EQ[10]`       |\n| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |\n| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |\n| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |\n| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |\n| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |\n\n### Sort operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |\n| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |\n| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |\n\n\n## Errors\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n\n### Existing wallet errors\n\nError Name | HTTP Error code | Example\n-----------|-----------------|---------\n`NotEnoughMoney`|403|{\"status\":\"error\",\"diagnostic\":{\"needMore\":1400},\"message\":\"NotEnoughMoney\"}\n`OutputIsRedeem`|403|{\"status\":\"error\",\"diagnostic\":{\"address\":\"b10b24203f1f0cadffcfd16277125cf7f3ad598983bef9123be80d93\"},\"message\":\"OutputIsRedeem\"}\n`SomeOtherError`|418|{\"status\":\"error\",\"diagnostic\":{\"foo\":\"foo\",\"bar\":14},\"message\":\"SomeOtherError\"}\n`MigrationFailed`|422|{\"status\":\"error\",\"diagnostic\":{\"description\":\"migration\"},\"message\":\"MigrationFailed\"}\n`JSONValidationFailed`|400|{\"status\":\"error\",\"diagnostic\":{\"validationError\":\"Expected String, found Null.\"},\"message\":\"JSONValidationFailed\"}\n`WalletNotFound`|404|{\"status\":\"error\",\"diagnostic\":{},\"message\":\"WalletNotFound\"}\n\n\n## Mnemonic Codes\n\nThe full list of accepted mnemonic codes to secure a wallet is defined by the BIP-39\nspecifications and available [here](https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt).\n\n\n## Versioning & Legacy\n\nThe API is **versioned**, meaning that is possible to access different versions of the API by\nadding the _version number_ in the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available\nsimply as unversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Deprecated\nendpoints are currently grouped under an appropriate section; they would be removed in upcoming\nreleased, if you're starting a new integration with Cardano-SL, please ignore these.\n\nNote that Compatibility between major versions is not _guaranteed_, i.e. the request & response\nformats might differ.\n"
     },
     "definitions": {
         "TransactionType": {
@@ -413,8 +413,10 @@
                             "type": "number"
                         },
                         "unit": {
-                            "pattern": "milliseconds",
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                                "milliseconds"
+                            ]
                         }
                     }
                 },
@@ -518,8 +520,10 @@
                     "type": "number"
                 },
                 "unit": {
-                    "pattern": "blocks",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "blocks"
+                    ]
                 }
             }
         },
@@ -889,8 +893,10 @@
                     "type": "number"
                 },
                 "unit": {
-                    "pattern": "microseconds",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "milliseconds"
+                    ]
                 }
             }
         },
@@ -1069,8 +1075,10 @@
                     "type": "number"
                 },
                 "unit": {
-                    "pattern": "milliseconds",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "milliseconds"
+                    ]
                 }
             }
         },
@@ -1184,8 +1192,10 @@
                     "type": "number"
                 },
                 "unit": {
-                    "pattern": "percent",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "percent"
+                    ]
                 }
             }
         },
@@ -1414,16 +1424,82 @@
             "type": "object",
             "properties": {
                 "blockchainHeight": {
-                    "$ref": "#/definitions/BlockchainHeight"
+                    "required": [
+                        "quantity"
+                    ],
+                    "type": "object",
+                    "description": "If known, the current blockchain height, in number of blocks",
+                    "properties": {
+                        "quantity": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": [
+                                "blocks"
+                            ]
+                        }
+                    }
                 },
                 "localTimeDifference": {
-                    "$ref": "#/definitions/LocalTimeDifference"
+                    "required": [
+                        "quantity"
+                    ],
+                    "type": "object",
+                    "description": "Local time difference, in number of blocks",
+                    "properties": {
+                        "quantity": {
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": [
+                                "milliseconds"
+                            ]
+                        }
+                    }
                 },
                 "syncProgress": {
-                    "$ref": "#/definitions/SyncProgress"
+                    "required": [
+                        "quantity"
+                    ],
+                    "type": "object",
+                    "description": "Syncing progression, in percentage",
+                    "properties": {
+                        "quantity": {
+                            "maximum": 100,
+                            "minimum": 0,
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": [
+                                "percent"
+                            ]
+                        }
+                    }
                 },
                 "localBlockchainHeight": {
-                    "$ref": "#/definitions/BlockchainHeight"
+                    "required": [
+                        "quantity"
+                    ],
+                    "type": "object",
+                    "description": "Local blockchain height, in number of blocks",
+                    "properties": {
+                        "quantity": {
+                            "maximum": 1.8446744073709551615e19,
+                            "minimum": 0,
+                            "type": "number"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": [
+                                "blocks"
+                            ]
+                        }
+                    }
                 }
             }
         },

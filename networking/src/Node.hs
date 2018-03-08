@@ -306,11 +306,8 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
               converse :: Converse packing peerData m
               converse = nodeConverse llnode packing
               unexceptional :: m t
-              unexceptional = do
-                  t <- act converse
-                  logNormalShutdown
-                  (LL.stopNode llnode `catch` logNodeException)
-                  return t
+              unexceptional =
+                  act converse <* (logNormalShutdown >> LL.stopNode llnode)
         ; llnode <- LL.startNode
               packing
               peerData
@@ -323,7 +320,7 @@ node mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nodeEnv k = 
         }
     unexceptional
         `catch` logException
-        `onException` (LL.stopNode llnode `catch` logNodeException)
+        `onException` (LL.killNode llnode `catch` logNodeException)
   where
     logNormalShutdown :: m ()
     logNormalShutdown =

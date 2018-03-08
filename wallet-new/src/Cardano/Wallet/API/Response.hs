@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor   #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE OverloadedLists #-}
 module Cardano.Wallet.API.Response (
@@ -65,7 +66,7 @@ data WalletResponse a = WalletResponse
   -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
   , wrMeta   :: Metadata
   -- ^ Extra metadata to be returned.
-  } deriving (Show, Eq, Generic)
+  } deriving (Show, Eq, Generic, Functor)
 
 deriveJSON Serokell.defaultOptions ''WalletResponse
 

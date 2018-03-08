@@ -237,18 +237,21 @@ class BuildableSafeGen a where
 {-
 Similar to 'deriveSafeBuildable', but more flexible,
 suitable for complex types.
+Provides helper to make new type variables.
 
 Example:
 
 @
 data Nyan a
 
-deriveSafeBuildableExt [t| Nyan $(TH.VarT <$> TH.newName "x") |]
+deriveSafeBuildableExt (\newVar -> [t| Nyan $newVar |])
 @
 -}
-deriveSafeBuildableExt :: TH.Q TH.Type -> TH.Q [TH.Dec]
-deriveSafeBuildableExt typeQ = do
-    [d|
+deriveSafeBuildableExt :: (TH.Q TH.Type -> TH.Q TH.Type) -> TH.Q [TH.Dec]
+deriveSafeBuildableExt mkTypeQ =
+    let newTypeVarQ = TH.VarT <$> TH.newName "t"
+        typeQ = mkTypeQ newTypeVarQ
+    in  [d|
         instance Buildable $typeQ where
             build = buildSafeGen unsecure
 
@@ -262,7 +265,7 @@ deriveSafeBuildableExt typeQ = do
 --
 -- Example: @deriveSafeBuildable ''Nyan@
 deriveSafeBuildable :: TH.Name -> TH.Q [TH.Dec]
-deriveSafeBuildable typeName = deriveSafeBuildableExt (TH.conT typeName)
+deriveSafeBuildable typeName = deriveSafeBuildableExt (\_ -> TH.conT typeName)
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
 -- to terminal). Use it along with 'logMessageS' when want to specify

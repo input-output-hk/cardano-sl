@@ -9,7 +9,11 @@
 -- | Some utilites for more flexible servant usage.
 
 module Pos.Util.Servant
-    ( ModifiesApiRes (..)
+    ( ApiHasArgClass (..)
+    , ApiCanLogArg (..)
+
+
+    , ModifiesApiRes (..)
     , VerbMod
 
     , ReportDecodeError (..)
@@ -22,11 +26,15 @@ module Pos.Util.Servant
     , WithDefaultApiArg
 
     , HasLoggingServer (..)
-    , ApiLoggingConfig
+    , ApiLoggingConfig (..)
+    , ApiParamsLogInfo (..)
     , LoggingApi
     , LoggingApiRec
     , WithTruncatedLog (..)
     , HasTruncateLogPolicy (..)
+    , _ApiParamsLogInfo
+    , _ApiNoParamsLogInfo
+    , addParamLogInfo
 
     , CQueryParam
     , CCapture
@@ -352,6 +360,9 @@ makePrisms ''ApiParamsLogInfo
 instance Default ApiParamsLogInfo where
     def = ApiParamsLogInfo mempty
 
+addParamLogInfo :: SecuredText -> ApiParamsLogInfo -> ApiParamsLogInfo
+addParamLogInfo paramInfo = _ApiParamsLogInfo %~ (paramInfo :)
+
 -- | When it comes to logging responses, returned data may be very large.
 -- Log space is valuable (already in testnet we got truncated logs),
 -- so we have to care about printing only whose data which may be useful.
@@ -431,9 +442,9 @@ instance ( KnownSymbol path
         inRouteServer @(path :> LoggingApiRec config res) route $
         first updateParamsInfo
       where
-        updateParamsInfo = do
+        updateParamsInfo =
             let path = const . toText . symbolVal $ Proxy @path
-            _ApiParamsLogInfo %~ (path :)
+            in  addParamLogInfo path
 
 -- | Describes a way to log a single parameter.
 class ApiHasArgClass subApi =>
@@ -492,7 +503,7 @@ paramRouteWithLog =
             paramName = apiArgName $ Proxy @subApi
             paramInfo =
                 \sl -> sformat (string%": "%stext) paramName (paramVal sl)
-        in _ApiParamsLogInfo %~ (paramInfo :)
+        in addParamLogInfo paramInfo
 
 instance ( HasServer (subApi :> res) ctx
          , HasServer (subApi :> LoggingApiRec config res) ctx

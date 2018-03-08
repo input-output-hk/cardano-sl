@@ -20,6 +20,8 @@ import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
 import           Data.Swagger as S
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)
 import           Web.HttpApiData
@@ -140,3 +142,9 @@ data PaginationParams = PaginationParams
     { ppPage    :: Page
     , ppPerPage :: PerPage
     } deriving (Show, Eq, Generic)
+
+instance Buildable PaginationParams where
+    build PaginationParams{..} =
+        let Page page = ppPage
+            PerPage perPage = ppPerPage
+        in  bprint ("p #"%build%" / pp "%build) page perPage

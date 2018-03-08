@@ -82,8 +82,10 @@ import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
+import           Formatting (bprint)
 import           GHC.Generics (Generic, Rep)
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
@@ -112,6 +114,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..))
 
 
 -- | Declare generic schema, while documenting properties
@@ -207,6 +210,12 @@ instance Enum a => Enum (V1 a) where
 instance Bounded a => Bounded (V1 a) where
     minBound = V1 $ minBound @a
     maxBound = V1 $ maxBound @a
+
+instance Buildable a => Buildable (V1 a) where
+    build (V1 x) = bprint build x
+
+instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
+    build (SecureLog vx) = bprint build (SecureLog vx)
 
 --
 -- Benign instances
@@ -383,6 +392,10 @@ data AssuranceLevel =
   | StrictAssurance
   deriving (Eq, Show, Enum, Bounded)
 
+instance BuildableSafeGen AssuranceLevel where
+    buildSafeGen _sl NormalAssurance = "normal assurance"
+    buildSafeGen _sl StrictAssurance = "strict assurance"
+
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
@@ -407,6 +420,12 @@ instance Arbitrary WalletId where
   arbitrary =
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
           in WalletId <$> elements [wid]
+
+instance Buildable WalletId where
+    build (WalletId wid) = bprint build wid
+
+instance Buildable (SecureLog WalletId) where
+    build _ = "<wallet id>"
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId

@@ -13,9 +13,17 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Text as T
-import           Data.Typeable
+import qualified Data.Text.Buildable
+import           Data.Typeable (Typeable)
+import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits
+import           GHC.TypeLits (Symbol)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), buildSafe, deriveSafeBuildableExt)
+import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
+import           Serokell.Util (listJson)
+
+import           Cardano.Wallet.API.Indices
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Servant
@@ -43,7 +51,7 @@ data FilterOperations a where
 infixr 6 `FilterOp`
 
 instance Show (FilterOperations a) where
-    show = show . flattenOperations
+    show = show @_ @[String] . flattenOperations show
 
 instance Eq (FilterOperations a) where
     NoFilters == NoFilters =
@@ -57,11 +65,16 @@ instance Eq (FilterOperations a) where
     _ == _ =
         False
 
--- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
--- debug purposes.
-flattenOperations :: FilterOperations a -> [String]
-flattenOperations NoFilters       = mempty
-flattenOperations (FilterOp f fs) = show f : flattenOperations fs
+instance Buildable (FilterOperations a) where
+    build = bprint listJson . flattenOperations (bprint build)
+
+-- | Handy helper function to transform 'FilterOperation'(s) into list.
+flattenOperations :: (forall ix. FilterOperation ix a -> b)
+                  -> FilterOperations a
+                  -> [b]
+flattenOperations _ NoFilters           = mempty
+flattenOperations trans (FilterOp f fs) = trans f : flattenOperations trans fs
+
 
 -- A custom ordering for a 'FilterOperation'. Conceptually theh same as 'Ordering' but with the ">=" and "<="
 -- variants.
@@ -80,6 +93,13 @@ renderFilterOrdering = \case
     GreaterThanEqual -> "GTE"
     LesserThan -> "LT"
     LesserThanEqual -> "LTE"
+
+instance Buildable FilterOrdering where
+    build Equal            = "=="
+    build GreaterThan      = ">"
+    build GreaterThanEqual = ">="
+    build LesserThan       = "<"
+    build LesserThanEqual  = "<="
 
 -- A filter operation on the data model
 data FilterOperation ix a =
@@ -123,6 +143,12 @@ instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
     show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
     show (FilterByRange _ _)          = "FilterByRange"
+    show                              = formatToString build
+
+instance BuildableSafeGen (FilterOperation ix a) where
+    buildSafeGen _ = bprint build . show
+
+deriveSafeBuildableExt $ \newVar -> [t| FilterOperation $newVar $newVar |]
 
 -- | Represents a filter operation on the data model.
 --
@@ -194,6 +220,31 @@ instance ( HasServer subApi ctx
         let delayed = addParameterCheck subserver . withRequest $ \req ->
                           return $ toFilterOperations (parseQueryText $ rawQueryString req) (Proxy @params)
         in route (Proxy :: Proxy subApi) context delayed
+
+-- | Defines name of @FilterBy syms res@ as sum of @syms@,
+-- and specifies parameter 'FilterBy' provides.
+-- Used in e.g. logging.
+instance KnownSymbols syms => ApiHasArgClass (FilterBy syms a) where
+    type ApiArg (FilterBy syms a) = FilterOperations a
+
+    apiArgName _ =
+        let filterNames = mconcat . intersperse ", " $ symbolVals (Proxy @syms)
+        in  formatToString ("filters: ("%build%")") filterNames
+
+-- | Defines how 'FilterBy' is logged by just refering to
+-- 'instance Buildable SortOperations'.
+instance KnownSymbols syms => ApiCanLogArg (FilterBy syms a) where
+    toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
+
+parseFilterParams :: forall a ixs. (
+                     SOP.All (ToIndex a) ixs
+                  ,  ToFilterOperations ixs a
+                  )
+                  => Request
+                  -> [Text]
+                  -> Proxy ixs
+                  -> DelayedIO (FilterOperations a)
+parseFilterParams req params p = return $ toFilterOperations req params p
 
 -- | Parse the filter operations, failing silently if the query is malformed.
 -- TODO(adinapoli): we need to improve error handling (and the parsers, for

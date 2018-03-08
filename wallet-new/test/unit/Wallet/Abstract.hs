@@ -481,14 +481,7 @@ synthesizeTransactions addrs actions = do
                 h <- selectHash
                 fee <- liftGen $ choose (10000, 180000)
                 dests <- liftGen $ selectDestinations' Set.empty utxos
-                let (ins, outs) = divvyUp (pure io) dests fee
-                let txn = Transaction
-                        { trFee = fee
-                        , trFresh = 0
-                        , trHash = h
-                        , trIns = ins
-                        , trOuts = outs
-                        }
+                let txn = divvyUp h (pure io) dests fee
 
                 pure $ Just (i, [NewPending' txn])
             else do

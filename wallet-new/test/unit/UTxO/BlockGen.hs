@@ -144,35 +144,40 @@ newTransaction = do
     destinations <- selectDestinations (foldMap Set.singleton (map fst inputs'outputs))
     hash' <- freshHash
 
-    let txn fee =
-            let (inputs, outputs) = divvyUp inputs'outputs destinations fee
-             in Transaction
-                { trFresh = 0
-                , trFee = fee
-                , trHash = hash'
-                , trIns = inputs
-                , trOuts = outputs
-                }
+    let txn = divvyUp hash' inputs'outputs destinations
 
-    -- we assume that the fee is 0 for initializing these transactions
-    -- TODO: This means that the UTxO we maintain is actually inaccurate :/
-    bgcCurrentUtxo %= utxoApply (txn 0)
+    -- We don't know the fee yet, but /do/ need to make it possible to
+    -- generate different kinds of transactions (i.e., different kinds of
+    -- monadic effects) depending on the UTxO. This means that we must be
+    -- conversative here.
+    bgcCurrentUtxo %= utxoApply (withEstimatedFee txn)
     pure txn
 
+-- | Given a set of inputs, tagged with their output values, and a set of output
+-- addresses, construct a transaction by dividing the sum total of the inputs
+-- evenly over the output addresses.
 divvyUp
     :: Hash h Addr
-    => NonEmpty (Input h Addr, Output Addr)
+    => Int
+    -> NonEmpty (Input h Addr, Output Addr)
     -> NonEmpty Addr
     -> Value
-    -> (Set (Input h Addr), [Output Addr])
-divvyUp inputs'outputs destinations fee = (inputs, outputs)
+    -> Transaction h Addr
+divvyUp h inputs'outputs destinations fee = tx
   where
+    tx = Transaction {
+             trFresh = 0
+           , trFee   = fee
+           , trHash  = h
+           , trIns   = inputs
+           , trOuts  = outputs
+           }
     inputs = foldMap (Set.singleton . fst) inputs'outputs
     destLen = fromIntegral (length destinations)
     -- if we don't know what the fee is yet (eg a 0), then we want to use
     -- the max fee for safety's sake
     totalValue = sum (map (outVal . snd) inputs'outputs)
-        `safeSubtract` if fee == 0 then maxFee else fee
+        `safeSubtract` if fee == 0 then estimateFee tx else fee
     valPerOutput = totalValue `div` destLen
     outputs = toList (map (\addr -> Output addr valPerOutput) destinations)
 
@@ -185,8 +190,18 @@ safeSubtract x y
   where
     z = x - y
 
-maxFee :: Num a => a
-maxFee = 180000
+-- | Conversatively estimate the fee for this transaction
+--
+-- Result may be larger than the minimum fee, but not smaller.
+-- TODO: Right now this does not take the transaction structure into account.
+-- We should come up with a more precise model here.
+estimateFee :: Transaction h a -> Value
+estimateFee _ = maxFee
+  where
+    maxFee = 180000
+
+withEstimatedFee :: (Value -> Transaction h a) -> Transaction h a
+withEstimatedFee tx = let tx0 = tx 0 in tx0 { trFee = estimateFee tx0 }
 
 newBlock :: Hash h Addr => BlockGen h [Value -> Transaction h Addr]
 newBlock = do

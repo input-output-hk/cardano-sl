@@ -330,7 +330,7 @@ instance ToSchema AssuranceLevel where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
             & type_ .~ SwaggerString
-            & enum_ .~ Just ["normal", "strict"]
+            & enum_ ?~ ["normal", "strict"]
 
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
@@ -367,7 +367,7 @@ instance ToSchema WalletOperation where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "WalletOperation") $ mempty
             & type_ .~ SwaggerString
-            & enum_ .~ Just ["create", "restore"]
+            & enum_ ?~ ["create", "restore"]
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
@@ -665,7 +665,7 @@ instance ToSchema (V1 Core.InputSelectionPolicy) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1InputSelectionPolicy") $ mempty
             & type_ .~ SwaggerString
-            & enum_ .~ Just ["OptimizeForSecurity", "OptimizeForHighThroughput"]
+            & enum_ ?~ ["OptimizeForSecurity", "OptimizeForHighThroughput"]
 
 instance Arbitrary (V1 Core.InputSelectionPolicy) where
     arbitrary = fmap V1 arbitrary
@@ -730,7 +730,7 @@ instance ToSchema TransactionType where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionType") $ mempty
             & type_ .~ SwaggerString
-            & enum_ .~ Just ["local", "foreign"]
+            & enum_ ?~ ["local", "foreign"]
 
 -- | The 'Transaction' @direction@
 data TransactionDirection =
@@ -751,7 +751,7 @@ instance ToSchema TransactionDirection where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionDirection") $ mempty
             & type_ .~ SwaggerString
-            & enum_ .~ Just ["outgoing", "incoming"]
+            & enum_ ?~ ["outgoing", "incoming"]
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
@@ -840,7 +840,7 @@ instance ToSchema SlotDuration where
                     )
                 & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
-                    & pattern .~ Just "milliseconds"
+                    & enum_ ?~ ["milliseconds"]
                     )
                 )
 
@@ -936,7 +936,7 @@ instance ToSchema LocalTimeDifference where
                     )
                 & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
-                    & pattern .~ Just "microseconds"
+                    & enum_ ?~ ["milliseconds"]
                     )
                 )
 
@@ -973,7 +973,7 @@ instance ToSchema SyncProgress where
                     )
                 & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
-                    & pattern .~ Just "percent"
+                    & enum_ ?~ ["percent"]
                     )
                 )
 
@@ -1010,7 +1010,7 @@ instance ToSchema BlockchainHeight where
                     )
                 & at "unit" ?~ (Inline $ mempty
                     & type_ .~ SwaggerString
-                    & pattern .~ Just "blocks"
+                    & enum_ ?~ ["blocks"]
                     )
                 )
 

@@ -89,12 +89,12 @@ instance Hashable BlockVersion
 instance NFData BlockVersion
 
 
-newtype ApplicationName = UnsafeApplicationName
+newtype ApplicationName = UncheckedApplicationName
     { getApplicationName :: Text
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
 
 instance PVerifiable ApplicationName where
-    pverifySelf (UnsafeApplicationName appName) = do
+    pverifySelf (UncheckedApplicationName appName) = do
         when (length appName > applicationNameMaxLength)
              (pverFail "ApplicationName: too long string passed")
         when (T.any (not . isAscii) appName)
@@ -287,14 +287,14 @@ instance Buildable BlockVersionModifier where
 ----------------------------------------------------------------------------
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
-newtype SystemTag = UnsafeSystemTag { getSystemTag :: Text }
+newtype SystemTag = UncheckedSystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
 
 instance PVerifiable SystemTag where
-    pverifySelf (UnsafeSystemTag tag) = do
+    pverifySelf (UncheckedSystemTag tag) = do
         when (T.length tag > systemTagMaxLength) $
             pverFail "SystemTag: too long string passed"
         when (T.any (not . isAscii) tag) $
@@ -315,7 +315,7 @@ data UpdateProposalToSign
     } deriving (Eq, Show, Generic)
 
 -- | Proposal for software update
-data UpdateProposal = UnsafeUpdateProposal
+data UpdateProposal = UncheckedUpdateProposal
     { upBlockVersion    :: !BlockVersion
     , upBlockVersionMod :: !BlockVersionModifier
     , upSoftwareVersion :: !SoftwareVersion
@@ -335,7 +335,7 @@ type UpdateProposals = HashMap UpId UpdateProposal
 instance Hashable UpdateProposal
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
-    build up@UnsafeUpdateProposal {..} =
+    build up@UncheckedUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
               ", UpId: "%build%
@@ -412,7 +412,7 @@ type VoteId = (UpId, PublicKey, Bool)
 --
 -- Invariants:
 --   * The signature is valid.
-data UpdateVote = UnsafeUpdateVote
+data UpdateVote = UncheckedUpdateVote
     { -- | Public key of stakeholder, who votes
       uvKey        :: !PublicKey
     , -- | Proposal to which this vote applies
@@ -427,7 +427,7 @@ data UpdateVote = UnsafeUpdateVote
 instance NFData UpdateVote
 
 instance Buildable UpdateVote where
-    build UnsafeUpdateVote {..} =
+    build UncheckedUpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
@@ -436,7 +436,7 @@ instance Buildable VoteId where
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
 
--- | A safe constructor for 'UnsafeVote'.
+-- | A safe constructor for 'UncheckedVote'.
 mkUpdateVote
     :: HasCryptoConfiguration
     => SecretKey           -- ^ The voter
@@ -446,7 +446,7 @@ mkUpdateVote
 mkUpdateVote sk uvProposalId uvDecision =
     let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = toPublic sk
-    in  UnsafeUpdateVote{..}
+    in  UncheckedUpdateVote{..}
 
 -- | Same as 'mkUpdateVote', but uses 'SafeSigner'.
 mkUpdateVoteSafe
@@ -458,11 +458,11 @@ mkUpdateVoteSafe
 mkUpdateVoteSafe sk uvProposalId uvDecision =
     let uvSignature = safeSign SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = safeToPublic sk
-    in  UnsafeUpdateVote{..}
+    in  UncheckedUpdateVote{..}
 
 -- | Format 'UpdateVote' compactly.
 formatVoteShort :: UpdateVote -> Builder
-formatVoteShort UnsafeUpdateVote {..} =
+formatVoteShort UncheckedUpdateVote {..} =
     bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
         (addressHash uvKey)
         (bool "against" "for" uvDecision)

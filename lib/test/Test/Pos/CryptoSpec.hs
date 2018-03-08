@@ -270,9 +270,9 @@ proxySecretKeyCheckCorrect issuerSk delegateSk w =
 proxySecretKeyCheckIncorrect
     :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
-    let Crypto.UnsafeProxySecretKey{..} =
+    let Crypto.UncheckedProxySecretKey{..} =
             Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
-        wrongPsk = Crypto.UnsafeProxySecretKey { Crypto.pskIssuerPk = pk2, ..}
+        wrongPsk = Crypto.UncheckedProxySecretKey { Crypto.pskIssuerPk = pk2, ..}
     (Crypto.toPublic issuerSk /= pk2) ==>
         isVerFailure (runPVerify wrongPsk)
 

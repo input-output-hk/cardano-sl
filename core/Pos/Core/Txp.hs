@@ -176,7 +176,7 @@ type TxAttributes = Attributes ()
 -- | Transaction.
 --
 -- NB: transaction witnesses are stored separately.
-data Tx = UnsafeTx
+data Tx = UncheckedTx
     { _txInputs     :: !(NonEmpty TxIn)  -- ^ Inputs of transaction.
     , _txOutputs    :: !(NonEmpty TxOut) -- ^ Outputs of transaction.
     , _txAttributes :: !TxAttributes     -- ^ Attributes of transaction
@@ -193,7 +193,7 @@ data TxAux = TxAux
 instance Hashable Tx
 
 instance Bi Tx => Buildable Tx where
-    build tx@(UnsafeTx{..}) =
+    build tx@(UncheckedTx{..}) =
         bprint
             ("Tx "%build%
              " with inputs "%listJson%", outputs: "%listJson % builder)
@@ -251,7 +251,7 @@ instance NFData TxProof
 -- This will construct a merkle tree, which can be very expensive. Use with
 -- care. Bi constraints arise because we need to hash these things.
 mkTxProof :: (Bi Tx,  Bi TxInWitness) => TxPayload -> TxProof
-mkTxProof UnsafeTxPayload {..} =
+mkTxProof UncheckedTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)
     , txpRoot = mtRoot (mkMerkleTree _txpTxs)
@@ -261,7 +261,7 @@ mkTxProof UnsafeTxPayload {..} =
 -- | Payload of Txp component which is part of main block. Constructor
 -- is unsafe, because it lets one create invalid payload, for example
 -- with different number of transactions and witnesses.
-data TxPayload = UnsafeTxPayload
+data TxPayload = UncheckedTxPayload
     { -- | Transactions are the main payload.
       _txpTxs       :: ![Tx]
     , -- | Witnesses for each transaction. The length of this field is
@@ -279,7 +279,7 @@ instance NFData TxPayload
 makeLenses ''TxPayload
 
 instance PVerifiable TxPayload where
-    pverifySelf UnsafeTxPayload{..} =
+    pverifySelf UncheckedTxPayload{..} =
         unless (length _txpTxs == length _txpWitnesses) $
             pverFail "txs length isn't equal to txWitnesses length"
     pverifyFields txPayload =
@@ -289,7 +289,7 @@ instance PVerifiable TxPayload where
 -- lists are the same.
 mkTxPayload :: [TxAux] -> TxPayload
 mkTxPayload txws = do
-    UnsafeTxPayload {..}
+    UncheckedTxPayload {..}
   where
     (_txpTxs, _txpWitnesses) =
             unzip . map (liftA2 (,) taTx taWitness) $ txws

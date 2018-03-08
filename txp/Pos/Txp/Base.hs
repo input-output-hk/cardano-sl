@@ -46,7 +46,7 @@ txOutStake TxOut {..} =
     case aaStakeDistribution (addrAttributesUnwrapped txOutAddress) of
         BootstrapEraDistr            -> bootstrapEraDistr txOutValue
         SingleKeyDistr sId           -> [(sId, txOutValue)]
-        UnsafeMultiKeyDistr distrMap -> computeMultiKeyDistr (M.toList distrMap)
+        UncheckedMultiKeyDistr distrMap -> computeMultiKeyDistr (M.toList distrMap)
   where
     outValueInteger = coinToInteger txOutValue
     -- For all stakeholders in this list (which is 'Ord'-ered) except
@@ -68,7 +68,7 @@ txOutStake TxOut {..} =
 
 -- | Convert 'TxPayload' into a flat list of `TxAux`s.
 flattenTxPayload :: TxPayload -> [TxAux]
-flattenTxPayload UnsafeTxPayload {..} =
+flattenTxPayload UncheckedTxPayload {..} =
     zipWith TxAux (toList _txpTxs) _txpWitnesses
 
 emptyTxPayload :: TxPayload

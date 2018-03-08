@@ -63,7 +63,7 @@ instance HasCryptoConfiguration => PVerifiable UpdateVote where
         unless sigValid $ pverFail "UpdateVote: invalid signature"
 
 instance (HasCryptoConfiguration, Bi UpdateProposalToSign) => PVerifiable UpdateProposal where
-    pverifySelf UnsafeUpdateProposal{..} = do
+    pverifySelf UncheckedUpdateProposal{..} = do
         let toSign = UpdateProposalToSign
                          upBlockVersion
                          upBlockVersionMod
@@ -72,7 +72,7 @@ instance (HasCryptoConfiguration, Bi UpdateProposalToSign) => PVerifiable Update
                          upAttributes
         unless (checkSig SignUSProposal upFrom toSign upSignature)
                (pverFail "UpdateProposal: invalid signature")
-    pverifyFields UnsafeUpdateProposal{..} =
+    pverifyFields UncheckedUpdateProposal{..} =
         [ PVerifiableSub "upBlockVersionMod" upBlockVersionMod
         , PVerifiableSub "upSoftwareVersion" upSoftwareVersion ] <>
         map (PVerifiableSub "upDataKey") (HM.keys upData)
@@ -100,7 +100,7 @@ mkUpdateProposalWSign
     -> SafeSigner
     -> UpdateProposal
 mkUpdateProposalWSign upBlockVersion upBlockVersionMod upSoftwareVersion upData upAttributes ss =
-    UnsafeUpdateProposal {..}
+    UncheckedUpdateProposal {..}
   where
     toSign =
         UpdateProposalToSign

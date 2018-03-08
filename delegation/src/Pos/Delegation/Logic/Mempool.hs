@@ -52,7 +52,7 @@ import           Pos.Util.Verification (runPVerifyText)
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m DlgPayload
-getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
+getDlgMempool = UncheckedDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool

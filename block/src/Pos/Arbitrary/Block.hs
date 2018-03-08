@@ -187,7 +187,7 @@ instance ( Arbitrary SscPayload
             pure Nothing <*>
             pure body <*>
             pure extraHeaderData
-        return $ T.UnsafeGenericBlock header body extraBodyData
+        return $ T.UncheckedGenericBlock header body extraBodyData
     shrink = genericShrink
 
 instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where

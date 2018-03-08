@@ -70,7 +70,7 @@ genesisHeaderFormation prevHeader epoch body =
   where
     header = T.mkGenesisHeader prevHeader epoch body
     manualHeader =
-        T.UnsafeGenericBlockHeader
+        T.UncheckedGenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
@@ -97,7 +97,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     correctSigner (Right (i,d,_)) = i /= d
     header = T.mkGenericHeader prevHeader body consensus extra
     manualHeader =
-        T.UnsafeGenericBlockHeader
+        T.UncheckedGenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof

@@ -21,7 +21,7 @@ module Pos.Generator.Block.Mode
 import           Universum
 
 import           Control.Lens.TH (makeLensesWith)
-import qualified Control.Monad.Catch as UnsafeExc
+import qualified Control.Monad.Catch as UncheckedExc
 import           Control.Monad.Random.Strict (RandT)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
@@ -146,7 +146,7 @@ type BlockGenMode ext m = ReaderT (BlockGenContext ext) m
 type BlockGenRandMode ext g m = RandT g (BlockGenMode ext m)
 
 instance MonadThrow m => MonadThrow (RandT g m) where
-    throwM = lift . UnsafeExc.throwM
+    throwM = lift . UncheckedExc.throwM
 
 ----------------------------------------------------------------------------
 -- Context creation

@@ -50,7 +50,7 @@ mkVssCertificate
     -> EpochIndex
     -> VssCertificate
 mkVssCertificate sk vk expiry =
-    UnsafeVssCertificate vk expiry signature (toPublic sk)
+    UncheckedVssCertificate vk expiry signature (toPublic sk)
   where
     signature = sign SignVssCert sk (vk, expiry)
 
@@ -59,7 +59,7 @@ mkVssCertificate sk vk expiry =
 -- #checkPubKeyAddress
 -- #checkSig
 checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
-checkCertSign UnsafeVssCertificate {..} =
+checkCertSign UncheckedVssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable VssCertificate where
@@ -81,7 +81,7 @@ toCertPair vc = (getCertId vc, vc)
 -- | Guard against certificates with duplicate signing keys or with
 -- duplicate 'vcVssKey's.
 instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable VssCertificatesMap where
-    pverifySelf (UnsafeVssCertificatesMap vm) = do
+    pverifySelf (UncheckedVssCertificatesMap vm) = do
         let certs = HM.elems vm
         unless (allDistinct (map vcSigningKey certs)) $
             pverFail "VssCertificatesMap: two certs have the same signing key"
@@ -93,19 +93,19 @@ instance (HasCryptoConfiguration, Bi EpochIndex) => PVerifiable VssCertificatesM
                     ("wrong issuerPk set as key for delegation map: "%
                      "issuer id = "%build%", cert id = "%build)
                     k (getCertId v)
-    pverifyFields (UnsafeVssCertificatesMap vm) =
+    pverifyFields (UncheckedVssCertificatesMap vm) =
         map (PVerifiableSub "vssCertMap.elem") $ HM.elems vm
 
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
-mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
+mkVssCertificatesMap = UncheckedVssCertificatesMap . HM.fromList . map toCertPair
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.
 mkVssCertificatesMapLossy :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMapLossy =
-    UnsafeVssCertificatesMap . HM.fromList .
+    UncheckedVssCertificatesMap . HM.fromList .
     map toCertPair . nubOrdOn vcVssKey
 
 -- | A map with a single certificate is always valid so this function is
@@ -113,17 +113,17 @@ mkVssCertificatesMapLossy =
 -- from it.
 mkVssCertificatesMapSingleton :: VssCertificate -> VssCertificatesMap
 mkVssCertificatesMapSingleton =
-    UnsafeVssCertificatesMap . uncurry HM.singleton . toCertPair
+    UncheckedVssCertificatesMap . uncurry HM.singleton . toCertPair
 
 ----------------------------------------------------------------------------
 -- Operations on maps
 ----------------------------------------------------------------------------
 
 memberVss :: StakeholderId -> VssCertificatesMap -> Bool
-memberVss id (UnsafeVssCertificatesMap m) = HM.member id m
+memberVss id (UncheckedVssCertificatesMap m) = HM.member id m
 
 lookupVss :: StakeholderId -> VssCertificatesMap -> Maybe VssCertificate
-lookupVss id (UnsafeVssCertificatesMap m) = HM.lookup id m
+lookupVss id (UncheckedVssCertificatesMap m) = HM.lookup id m
 
 -- | Insert a certificate into the map.
 --
@@ -133,8 +133,8 @@ lookupVss id (UnsafeVssCertificatesMap m) = HM.lookup id m
 insertVss :: VssCertificate
           -> VssCertificatesMap
           -> (VssCertificatesMap, [StakeholderId])
-insertVss c (UnsafeVssCertificatesMap m) =
-    ( UnsafeVssCertificatesMap $
+insertVss c (UncheckedVssCertificatesMap m) =
+    ( UncheckedVssCertificatesMap $
       HM.insert (getCertId c) c $
       HM.filter (not . willBeDeleted) m
     , deleted
@@ -145,4 +145,4 @@ insertVss c (UnsafeVssCertificatesMap m) =
     deleted = HM.keys $ HM.filter willBeDeleted m
 
 deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
-deleteVss id (UnsafeVssCertificatesMap m) = UnsafeVssCertificatesMap (HM.delete id m)
+deleteVss id (UncheckedVssCertificatesMap m) = UncheckedVssCertificatesMap (HM.delete id m)

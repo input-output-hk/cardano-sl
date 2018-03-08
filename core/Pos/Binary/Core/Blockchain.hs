@@ -43,7 +43,7 @@ instance ( Typeable b
         _gbhBodyProof <- decode
         _gbhConsensus <- decode
         _gbhExtra     <- decode
-        pure T.UnsafeGenericBlockHeader {..}
+        pure T.UncheckedGenericBlockHeader {..}
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -64,7 +64,7 @@ instance ( Typeable b
         _gbHeader <- decode
         _gbBody   <- decode
         _gbExtra  <- decode
-        pure T.UnsafeGenericBlock {..}
+        pure T.UncheckedGenericBlock {..}
 
 ----------------------------------------------------------------------------
 -- BlockHeader

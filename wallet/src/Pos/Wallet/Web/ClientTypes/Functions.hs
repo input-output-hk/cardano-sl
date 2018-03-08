@@ -113,7 +113,7 @@ countVotes = foldl' counter (0, 0)
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
 toCUpdateInfo :: BlockVersionData -> ConfirmedProposalState -> CUpdateInfo
 toCUpdateInfo bvd ConfirmedProposalState {..} =
-    let UnsafeUpdateProposal {..} = cpsUpdateProposal
+    let UncheckedUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
         cuiScriptVersion    = fromMaybe (bvdScriptVersion bvd)

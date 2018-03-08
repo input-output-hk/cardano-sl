@@ -20,7 +20,7 @@ import           Test.Pos.Configuration (withDefUpdateConfiguration)
 -- @cardano-sl-1.0.4@, something has gone wrong.
 systemTagCheck :: HasUpdateConfiguration => Expectation
 systemTagCheck = do
-    let sysTags = map UnsafeSystemTag ["linux64", "macos64", "win64"]
+    let sysTags = map UncheckedSystemTag ["linux64", "macos64", "win64"]
         felem = flip elem
     ourSystemTag `shouldSatisfy` felem sysTags
 

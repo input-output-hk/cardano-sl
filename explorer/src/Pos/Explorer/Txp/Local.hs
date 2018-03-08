@@ -84,7 +84,7 @@ buildEProcessTxContext
     => TxAux -> m EProcessTxContext
 buildEProcessTxContext txAux = do
     ProcessTxContext{..} <- buildProccessTxContext txAux
-    let UnsafeTx {..} = taTx txAux
+    let UncheckedTx {..} = taTx txAux
     let txInAddrs = map (txOutAddress . toaOut) $ toList _ptcUtxoBase
         txOutAddrs = toList $ map txOutAddress _txOutputs
         allAddrs = ordNub $ txInAddrs <> txOutAddrs

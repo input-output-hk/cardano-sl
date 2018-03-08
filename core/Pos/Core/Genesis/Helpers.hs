@@ -50,7 +50,7 @@ recreateGenesisDelegation pskMap = do
             isJust $ pskMap ^. at (addressHash (pskDelegatePk psk))
     when (any isIssuer pskMap) $
         throwError "one of the delegates is also an issuer, don't do it"
-    return $ UnsafeGenesisDelegation pskMap
+    return $ UncheckedGenesisDelegation pskMap
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

@@ -358,7 +358,7 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
         signature <- fromJSField obj "signature"
         signingKey <- fromJSField obj "signingKey"
-        return $ UnsafeVssCertificate
+        return $ UncheckedVssCertificate
             { vcVssKey      = vssKey
             , vcExpiryEpoch = expiryEpoch
             , vcSignature   = signature
@@ -366,16 +366,16 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
             }
 
 instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
-    fromJSON = fmap UnsafeVssCertificatesMap . fromJSON
+    fromJSON = fmap UncheckedVssCertificatesMap . fromJSON
 
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
 
 instance ReportSchemaErrors m => FromJSON m Coin where
-    fromJSON = fmap UnsafeCoin . fromJSON
+    fromJSON = fmap UncheckedCoin . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
-    fromJSON = fmap UnsafeCoinPortion . fromJSON
+    fromJSON = fmap UncheckedCoinPortion . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =
@@ -394,7 +394,7 @@ instance ReportSchemaErrors m => FromJSON m ProxySKHeavy where
         pskIssuerPk <- fromJSField obj "issuerPk"
         pskDelegatePk <- fromJSField obj "delegatePk"
         pskCert <- fromJSField obj "cert"
-        pure UnsafeProxySecretKey{..}
+        pure UncheckedProxySecretKey{..}
 
 instance ReportSchemaErrors m => FromJSON m SoftforkRule where
     fromJSON obj = do

@@ -46,7 +46,7 @@ instance Bi VssCertificate where
         epo <- decode
         sig <- decode
         sky <- decode
-        pure $ UnsafeVssCertificate key epo sig sky
+        pure $ UncheckedVssCertificate key epo sig sky
 
 instance Bi VssCertificatesMap where
     encode = encodeVssCertificates

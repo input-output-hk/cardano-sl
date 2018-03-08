@@ -94,10 +94,10 @@ balance = TestnetBalanceOptions
     }
 
 genesisSpec :: GenesisSpec
-genesisSpec = UnsafeGenesisSpec
+genesisSpec = UncheckedGenesisSpec
     { gsAvvmDistr = GenesisAvvmBalances mempty
     , gsFtsSeed = SharedSeed mempty
-    , gsHeavyDelegation = UnsafeGenesisDelegation mempty
+    , gsHeavyDelegation = UncheckedGenesisDelegation mempty
     , gsBlockVersionData = bvd
     , gsProtocolConstants = pc
     , gsInitializer = genesisInitializer

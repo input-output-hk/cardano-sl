@@ -107,7 +107,7 @@ deriveJSON defaultOptions ''BlockCount
 instance FromJSON ApplicationName where
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = UnsafeApplicationName <$> parseJSON v
+    parseJSON v = UncheckedApplicationName <$> parseJSON v
 
 deriveToJSON defaultOptions ''ApplicationName
 

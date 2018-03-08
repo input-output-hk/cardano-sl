@@ -139,22 +139,22 @@ instance HasProtocolConstants => Bounded EpochOrSlot where
 instance HasProtocolConstants => Enum LocalSlotIndex where
     toEnum i | i >= fromIntegral epochSlots = error "toEnum @LocalSlotIndex: greater than maxBound"
              | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
-             | otherwise = UnsafeLocalSlotIndex (fromIntegral i)
+             | otherwise = UncheckedLocalSlotIndex (fromIntegral i)
     fromEnum = fromIntegral . getSlotIndex
 
 instance HasProtocolConstants => Random LocalSlotIndex where
     random = randomR (minBound, maxBound)
-    randomR (UnsafeLocalSlotIndex lo, UnsafeLocalSlotIndex hi) g =
+    randomR (UncheckedLocalSlotIndex lo, UncheckedLocalSlotIndex hi) g =
         let (r, g') = randomR (lo, hi) g
-        in  (UnsafeLocalSlotIndex r, g')
+        in  (UncheckedLocalSlotIndex r, g')
 
 instance HasProtocolConstants => Bounded LocalSlotIndex where
-    minBound = UnsafeLocalSlotIndex 0
-    maxBound = UnsafeLocalSlotIndex (fromIntegral epochSlots - 1)
+    minBound = UncheckedLocalSlotIndex 0
+    maxBound = UncheckedLocalSlotIndex (fromIntegral epochSlots - 1)
 
 mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
 mkLocalSlotIndex idx
-    | idx < fromIntegral epochSlots = pure (UnsafeLocalSlotIndex idx)
+    | idx < fromIntegral epochSlots = pure (UncheckedLocalSlotIndex idx)
     | otherwise =
         throwError $
         "local slot is greater than or equal to the number of slots in epoch: " <>
@@ -163,8 +163,8 @@ mkLocalSlotIndex idx
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.
 addLocalSlotIndex :: HasProtocolConstants => SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
-addLocalSlotIndex x (UnsafeLocalSlotIndex i)
-    | s < fromIntegral epochSlots = Just (UnsafeLocalSlotIndex (fromIntegral s))
+addLocalSlotIndex x (UncheckedLocalSlotIndex i)
+    | s < fromIntegral epochSlots = Just (UncheckedLocalSlotIndex (fromIntegral s))
     | otherwise      = Nothing
   where
     s :: Word64

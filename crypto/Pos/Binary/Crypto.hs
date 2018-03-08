@@ -199,7 +199,7 @@ instance Typeable w => Bi (ProxyCert w) where
     decode = fmap ProxyCert decodeXSignature
 
 instance Bi w => Bi (ProxySecretKey w) where
-    encode UnsafeProxySecretKey{..} =
+    encode UncheckedProxySecretKey{..} =
         encodeListLen 4
         <> encode pskOmega
         <> encode pskIssuerPk
@@ -211,7 +211,7 @@ instance Bi w => Bi (ProxySecretKey w) where
         pskIssuerPk   <- decode
         pskDelegatePk <- decode
         pskCert       <- decode
-        pure UnsafeProxySecretKey {..}
+        pure UncheckedProxySecretKey {..}
 
 instance (Typeable a, Bi w) =>
          Bi (ProxySignature w a) where

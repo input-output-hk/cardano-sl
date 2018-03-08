@@ -346,7 +346,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
                 slotId :: SlotId
                 slotId = SlotId
                     { siEpoch = epochIndex
-                    , siSlot  = UnsafeLocalSlotIndex integralBlockNumber
+                    , siSlot  = UncheckedLocalSlotIndex integralBlockNumber
                     }
 
                 currentSecretKey :: SecretKey

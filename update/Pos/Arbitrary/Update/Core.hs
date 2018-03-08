@@ -29,7 +29,7 @@ instance Arbitrary BlockVersionModifier where
 
 instance Arbitrary SystemTag where
     arbitrary =
-        oneof . map (pure . UnsafeSystemTag) $
+        oneof . map (pure . UncheckedSystemTag) $
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
     shrink = genericShrink
 

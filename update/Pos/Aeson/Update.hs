@@ -11,6 +11,6 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           Pos.Core.Update (SystemTag (..))
 
 instance FromJSON SystemTag where
-    parseJSON v = UnsafeSystemTag <$> parseJSON v
+    parseJSON v = UncheckedSystemTag <$> parseJSON v
 
 deriveToJSON defaultOptions ''SystemTag

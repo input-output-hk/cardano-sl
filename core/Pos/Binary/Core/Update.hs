@@ -24,7 +24,7 @@ import           Pos.Crypto (Hash)
 
 instance Bi U.ApplicationName where
     encode appName = encode (U.getApplicationName appName)
-    decode = U.UnsafeApplicationName <$> decode
+    decode = U.UncheckedApplicationName <$> decode
 
 deriveSimpleBi ''U.BlockVersion [
     Cons 'U.BlockVersion [
@@ -84,7 +84,7 @@ deriveSimpleBi ''U.BlockVersionModifier [
 
 instance Bi U.SystemTag where
     encode = encode . U.getSystemTag
-    decode = U.UnsafeSystemTag <$> decode
+    decode = U.UncheckedSystemTag <$> decode
 
 deriveSimpleBi ''U.UpdateData [
     Cons 'U.UpdateData [
@@ -114,7 +114,7 @@ instance HasConfiguration => Bi U.UpdateProposal where
             <> encode (U.upSignature up)
     decode = do
         enforceSize "UpdateProposal" 7
-        U.UnsafeUpdateProposal <$> decode
+        U.UncheckedUpdateProposal <$> decode
                                <*> decode
                                <*> decode
                                <*> decode
@@ -134,7 +134,7 @@ instance HasConfiguration => Bi U.UpdateVote where
         uvProposalId <- decode
         uvDecision   <- decode
         uvSignature  <- decode
-        pure U.UnsafeUpdateVote{..}
+        pure U.UncheckedUpdateVote{..}
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
     Cons 'U.UpdatePayload [

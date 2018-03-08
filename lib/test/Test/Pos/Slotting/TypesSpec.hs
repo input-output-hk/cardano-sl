@@ -143,7 +143,7 @@ spec = describe "Types" $ do
         it "should be correct" $ do
             -- Friday, July 14, 2017 2:40:00 AM = 1500000000 seconds
             let systemStart = Timestamp $ 1500000000 * 1000000
-            let localSlotIndex = UnsafeLocalSlotIndex 3
+            let localSlotIndex = UncheckedLocalSlotIndex 3
             let epochSlottingData = testEpochSlottingData0
             let slotStart = computeSlotStart systemStart localSlotIndex epochSlottingData
             -- Slot should start on:

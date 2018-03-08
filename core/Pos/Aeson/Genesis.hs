@@ -86,7 +86,7 @@ instance ToJSON VssCertificatesMap where
     toJSON = toJSON . getVssCertificatesMap
 
 instance FromJSON VssCertificatesMap where
-    parseJSON val = UnsafeVssCertificatesMap <$> parseJSON val
+    parseJSON val = UncheckedVssCertificatesMap <$> parseJSON val
 
 instance ToJSON GenesisVssCertificatesMap where
     toJSON = toJSON . getGenesisVssCertificatesMap

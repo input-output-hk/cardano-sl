@@ -16,7 +16,7 @@ instance Bi (A.Attributes ()) where
 
 instance Bi T.CoinPortion where
     encode = encode . T.getCoinPortion
-    decode = T.UnsafeCoinPortion <$> decode
+    decode = T.UncheckedCoinPortion <$> decode
 
 instance Bi T.BlockCount where
     encode = encode . T.getBlockCount
@@ -53,4 +53,4 @@ deriveSimpleBi ''T.ChainDifficulty [
 
 instance Bi T.Coin where
     encode = encode . T.unsafeGetCoin
-    decode = T.UnsafeCoin <$> decode
+    decode = T.UncheckedCoin <$> decode

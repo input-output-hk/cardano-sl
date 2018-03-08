@@ -47,7 +47,7 @@ coinToInteger = toInteger . unsafeGetCoin
 -- | Only use if you're sure there'll be no overflow.
 unsafeAddCoin :: Coin -> Coin -> Coin
 unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = UnsafeCoin res
+    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = UncheckedCoin res
     | otherwise =
       error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
   where
@@ -58,7 +58,7 @@ unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
 -- than the minuend, and 'Just' otherwise.
 subCoin :: Coin -> Coin -> Maybe Coin
 subCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | a >= b = Just (UnsafeCoin (a-b))
+    | a >= b = Just (UncheckedCoin (a-b))
     | otherwise = Nothing
 
 -- | Only use if you're sure there'll be no underflow.
@@ -69,19 +69,19 @@ unsafeSubCoin a b = fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
 -- | Only use if you're sure there'll be no overflow.
 unsafeMulCoin :: Integral a => Coin -> a -> Coin
 unsafeMulCoin (unsafeGetCoin -> a) b
-    | res <= coinToInteger (maxBound @Coin) = UnsafeCoin (fromInteger res)
+    | res <= coinToInteger (maxBound @Coin) = UncheckedCoin (fromInteger res)
     | otherwise = error "unsafeMulCoin: overflow"
   where
     res = toInteger a * toInteger b
 
 divCoin :: Integral a => Coin -> a -> Coin
 divCoin (unsafeGetCoin -> a) b =
-    UnsafeCoin (fromInteger (toInteger a `div` toInteger b))
+    UncheckedCoin (fromInteger (toInteger a `div` toInteger b))
 
 integerToCoin :: Integer -> Either Text Coin
 integerToCoin n
     | n < 0 = Left $ "integerToCoin: value is negative (" <> show n <> ")"
-    | n <= coinToInteger (maxBound :: Coin) = pure $ UnsafeCoin (fromInteger n)
+    | n <= coinToInteger (maxBound :: Coin) = pure $ UncheckedCoin (fromInteger n)
     | otherwise = Left $ "integerToCoin: value is too big (" <> show n <> ")"
 
 unsafeIntegerToCoin :: Integer -> Coin
@@ -110,7 +110,7 @@ coinPortionToDouble (getCoinPortion -> x) =
 -- Use it for calculating coin amounts.
 applyCoinPortionDown :: CoinPortion -> Coin -> Coin
 applyCoinPortionDown (getCoinPortion -> p) (unsafeGetCoin -> c) =
-    UnsafeCoin . fromInteger $
+    UncheckedCoin . fromInteger $
         (toInteger p * toInteger c) `div`
         (toInteger coinPortionDenominator)
 
@@ -121,4 +121,4 @@ applyCoinPortionUp :: CoinPortion -> Coin -> Coin
 applyCoinPortionUp (getCoinPortion -> p) (unsafeGetCoin -> c) =
     let (d, m) = divMod (toInteger p * toInteger c)
                         (toInteger coinPortionDenominator)
-    in UnsafeCoin $ fromInteger $ if m > 0 then d + 1 else d
+    in UncheckedCoin $ fromInteger $ if m > 0 then d + 1 else d

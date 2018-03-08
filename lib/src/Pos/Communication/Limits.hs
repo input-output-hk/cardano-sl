@@ -123,7 +123,7 @@ instance (Applicative m, MessageLimited w m) => MessageLimited (ProxySecretKey w
                          <*> getMsgLenLimit Proxy
                          <*> getMsgLenLimit Proxy
       where
-        f a b c d = UnsafeProxySecretKey <$> a <+> b <+> c <+> d
+        f a b c d = UncheckedProxySecretKey <$> a <+> b <+> c <+> d
 
 ----------------------------------------------------------------------------
 ---- SSC
@@ -268,7 +268,7 @@ instance (Applicative m) => MessageLimited UpdateVote m where
       where
         -- It's alright to use an unsafe constructor here because we don't
         -- create an actual vote, only count bytes
-        f a b c d = (UnsafeUpdateVote <$> a <+> b <+> c <+> d) + 1
+        f a b c d = (UncheckedUpdateVote <$> a <+> b <+> c <+> d) + 1
 
 instance (HasAdoptedBlockVersionData m, Functor m) => MessageLimited UpdateProposal m where
     -- FIXME Integer -> Word32

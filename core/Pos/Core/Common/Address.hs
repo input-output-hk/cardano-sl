@@ -105,7 +105,7 @@ instance Buildable AddrStakeDistribution where
             BootstrapEraDistr -> "Bootstrap era distribution"
             SingleKeyDistr id ->
                 bprint ("Single key distribution ("%shortHashF%")") id
-            UnsafeMultiKeyDistr distr ->
+            UncheckedMultiKeyDistr distr ->
                 bprint ("Multi key distribution: "%mapJson) distr
 
 instance Buildable AddrAttributes where

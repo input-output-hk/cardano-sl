@@ -607,7 +607,7 @@ instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
 
 instance FromJSON (V1 Core.ApplicationName) where
-    parseJSON (String svAppName) = pure (V1 (Core.UnsafeApplicationName svAppName))
+    parseJSON (String svAppName) = pure (V1 (Core.UncheckedApplicationName svAppName))
     parseJSON x                  = typeMismatch "Not a valid ApplicationName" x
 
 instance ToJSON (V1 Core.SoftwareVersion) where

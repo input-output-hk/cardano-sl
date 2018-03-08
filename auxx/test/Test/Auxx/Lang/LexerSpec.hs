@@ -66,7 +66,7 @@ unitLexerSample2 = map snd (tokenize input) `shouldBe` output
             "04f2bf626c4e92d97683592c5af70ec243a5a5508a0bbb0adf7af49483cc9894"
         , TokenBlockVersion $ BlockVersion 1 22 3
         , TokenSoftwareVersion $ SoftwareVersion
-            { svAppName = UnsafeApplicationName "cardano-sl"
+            { svAppName = UncheckedApplicationName "cardano-sl"
             , svNumber  = 41 }
         , TokenAddress . discardErrorText . decodeTextAddress $
             "Ae2tdPwUPEZ3Fd8HkQabvTJo3Ues7o2kNXXcK6LgGBfYwTM3pxpn5pijrBu"

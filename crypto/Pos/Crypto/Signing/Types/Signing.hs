@@ -141,7 +141,7 @@ instance B.Buildable (ProxyCert w) where
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate. It is unsafe -- 'pskCert' can be invalid with respect
 -- to other fields.
-data ProxySecretKey w = UnsafeProxySecretKey
+data ProxySecretKey w = UncheckedProxySecretKey
     { pskOmega      :: w
     , pskIssuerPk   :: PublicKey
     , pskDelegatePk :: PublicKey
@@ -152,7 +152,7 @@ instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
-    build (UnsafeProxySecretKey w iPk dPk _) =
+    build (UncheckedProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
 -- | Delegate signature made with certificate-based permission. @w@

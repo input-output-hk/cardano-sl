@@ -18,7 +18,7 @@ import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))
 
 genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
 genDlgPayload epoch =
-    UnsafeDlgPayload . toList . HM.fromList . map convert <$> listOf genPSK
+    UncheckedDlgPayload . toList . HM.fromList . map convert <$> listOf genPSK
   where
     convert psk = (pskIssuerPk psk, psk)
     genPSK = createPsk <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)

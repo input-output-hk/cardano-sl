@@ -152,7 +152,7 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
 -- | Creates proxy secret key
 safeCreatePsk :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
 safeCreatePsk ss delegatePk w =
-    UnsafeProxySecretKey
+    UncheckedProxySecretKey
         { pskOmega      = w
         , pskIssuerPk   = safeToPublic ss
         , pskDelegatePk = delegatePk

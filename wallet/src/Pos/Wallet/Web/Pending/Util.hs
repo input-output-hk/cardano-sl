@@ -88,7 +88,7 @@ allPendingAddresses =
     grabTxOutputs :: PendingTx -> Set.Set Address
     grabTxOutputs PendingTx{..} =
         let (TxAux tx _) = _ptxTxAux
-            (UnsafeTx _ outputs _) = tx
+            (UncheckedTx _ outputs _) = tx
             in Set.fromList $ map (\(TxOut a _) -> a) (toList outputs)
 
 -- | Filters the input '[PendingTx]' to choose only the ones which are not

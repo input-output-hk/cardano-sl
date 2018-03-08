@@ -65,7 +65,7 @@ instance HasCryptoConfiguration => PVerifiable (Body MainBlockchain) where
 
 -- I think only HasCryptoConfiguration is needed here @volhovm
 instance HasConfiguration => PVerifiable (GenericBlockHeader MainBlockchain) where
-    pverifySelf UnsafeGenericBlockHeader{..} =
+    pverifySelf UncheckedGenericBlockHeader{..} =
         -- Internal consistency: is the signature in the consensus data really for
         -- this block?
         unless (verifyBlockSignature _mcdSignature) $
@@ -128,10 +128,10 @@ checkBodyProof body proof = do
     unless (calculatedProof == proof) $ pverFail errMsg
 
 instance PVerifiable (GenericBlock GenesisBlockchain) where
-    pverifySelf UnsafeGenericBlock{..} = checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
+    pverifySelf UncheckedGenericBlock{..} = checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
 
 instance HasConfiguration => PVerifiable (GenericBlock MainBlockchain) where
-    pverifySelf block@UnsafeGenericBlock{..} = do
+    pverifySelf block@UncheckedGenericBlock{..} = do
         -- No need to verify the main extra body data. It's an 'Attributes ()'
         -- which is valid whenever it's well-formed.
         --

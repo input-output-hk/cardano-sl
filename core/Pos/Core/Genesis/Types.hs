@@ -74,7 +74,7 @@ instance Buildable GenesisVssCertificatesMap where
 --    equal to the key in the map.
 -- 3. Delegates can't be issuers, i. e. transitive delegation is not supported.
 --    It's not needed in genesis, it can always be reduced.
-newtype GenesisDelegation = UnsafeGenesisDelegation
+newtype GenesisDelegation = UncheckedGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
     } deriving (Show, Eq, ToList, Container)
 
@@ -82,7 +82,7 @@ type instance Element GenesisDelegation = ProxySKHeavy
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation
-noGenesisDelegation = UnsafeGenesisDelegation mempty
+noGenesisDelegation = UncheckedGenesisDelegation mempty
 
 ----------------------------------------------------------------------------
 -- Genesis Spec
@@ -197,7 +197,7 @@ data ProtocolConstants = ProtocolConstants
     } deriving (Show, Eq, Generic)
 
 -- | Specification how to generate full genesis data.
-data GenesisSpec = UnsafeGenesisSpec
+data GenesisSpec = UncheckedGenesisSpec
     { gsAvvmDistr         :: !GenesisAvvmBalances
     -- ^ Genesis data describes avvm utxo.
     , gsFtsSeed           :: !SharedSeed
@@ -230,7 +230,7 @@ mkGenesisSpec avvmDistr seed delega bvd pc specType = do
         throwError $ "mkGenesisSpec: there are duplicates in avvm balances"
 
     -- All checks passed
-    pure $ UnsafeGenesisSpec avvmDistr seed delega bvd pc specType
+    pure $ UncheckedGenesisSpec avvmDistr seed delega bvd pc specType
 
 ----------------------------------------------------------------------------
 -- GenesisData

@@ -241,7 +241,7 @@ pBlockVersion = do
 pSoftwareVersion :: Lexer SoftwareVersion
 pSoftwareVersion = do
     appName <- manyTill (satisfy isAlphaNum <|> char '-') (char ':')
-    let svAppName = UnsafeApplicationName (toText appName)
+    let svAppName = UncheckedApplicationName (toText appName)
     svNumber <- decimal
     notFollowedBy $ char '.'
     return SoftwareVersion {..}

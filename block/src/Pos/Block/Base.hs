@@ -80,7 +80,7 @@ mkMainBlock
     -> Body MainBlockchain
     -> MainBlock
 mkMainBlock prevHeader slotId sk pske body =
-    UnsafeGenericBlock
+    UncheckedGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB
@@ -139,7 +139,7 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
-    UnsafeGenericBlock header body extra
+    UncheckedGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders

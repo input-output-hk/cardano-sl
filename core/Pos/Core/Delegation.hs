@@ -82,24 +82,24 @@ type ProxySKHeavy = ProxySecretKey HeavyDlgIndex
 
 -- | 'DlgPayload' is put into 'MainBlock' and is a set of heavyweight
 -- proxy signing keys. List of psk issuers should be unique also.
-newtype DlgPayload = UnsafeDlgPayload
+newtype DlgPayload = UncheckedDlgPayload
     { getDlgPayload :: [ProxySKHeavy]
     } deriving (Show, Eq, Generic, NFData)
 
 instance Default DlgPayload where
-    def = UnsafeDlgPayload mempty
+    def = UncheckedDlgPayload mempty
 
 instance Buildable DlgPayload where
-    build (UnsafeDlgPayload psks) =
+    build (UncheckedDlgPayload psks) =
         bprint
             ("proxy signing keys ("%int%" items): "%listJson%"\n")
             (length psks) psks
 
 instance (HasCryptoConfiguration, Bi HeavyDlgIndex) => PVerifiable DlgPayload where
-    pverifySelf (UnsafeDlgPayload proxySKs) =
+    pverifySelf (UncheckedDlgPayload proxySKs) =
         unless (allDistinct $ map pskIssuerPk proxySKs) $
             pverFail "Some of block's PSKs have the same issuer, which is prohibited"
-    pverifyFields (UnsafeDlgPayload certs) =
+    pverifyFields (UncheckedDlgPayload certs) =
         map (\(c,(i::Integer)) -> PVerifiableSub ("dlgPayload#" <> show i) c)
             (certs `zip` [0..])
 

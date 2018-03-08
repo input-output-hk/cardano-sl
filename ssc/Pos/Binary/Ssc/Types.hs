@@ -28,7 +28,7 @@ instance HasConfiguration => Bi VssCertData where
     decode = do
         enforceSize "VssCertData" 6
         lastKnownEoS <- decode
-        certs <- UnsafeVssCertificatesMap <$> decode
+        certs <- UncheckedVssCertificatesMap <$> decode
         whenInsMap <- decode
         whenInsSet <- decode
         whenExpire <- decode

@@ -328,7 +328,7 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
         -- • the value can't be greater than max possible one, because
         --   minuend represents a valid coin portion.
         | minuend > subtrahend + getCoinPortion srMinThd =
-            UnsafeCoinPortion (minuend - subtrahend)
+            UncheckedCoinPortion (minuend - subtrahend)
         | otherwise = srMinThd
 
 ----------------------------------------------------------------------------

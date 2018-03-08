@@ -58,8 +58,8 @@ checkTxGood :: Tx -> Bool
 checkTxGood = isVerSuccess . runPVerify
 
 checkTxBad :: Tx -> Bool
-checkTxBad UnsafeTx {..} =
-    all (\outs -> isVerFailure $ runPVerify (UnsafeTx _txInputs outs _txAttributes)) badOutputs
+checkTxBad UncheckedTx {..} =
+    all (\outs -> isVerFailure $ runPVerify (UncheckedTx _txInputs outs _txAttributes)) badOutputs
   where
     invalidateOut :: TxOut -> TxOut
     invalidateOut out = out {txOutValue = mkCoin 0}
@@ -120,7 +120,7 @@ txAcyclicGen isBamboo size = do
         -- gen some outputs
         outputs <- NE.fromList <$> replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
         -- calculate new utxo & add vertex
-        let tx = UnsafeTx inputs outputs $ mkAttributes ()
+        let tx = UncheckedTx inputs outputs $ mkAttributes ()
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ toList chosenUtxo) ++ producedUtxo
@@ -138,6 +138,6 @@ txGen size = do
     inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo h 0) <$> arbitrary)
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
-    let tx = UnsafeTx inputs outputs (mkAttributes ())
+    let tx = UncheckedTx inputs outputs (mkAttributes ())
     -- FIXME can't we convince ourselves that the Tx we made is valid?
     pure $ runPVerifyPanic ("txGen: something went wrong") tx

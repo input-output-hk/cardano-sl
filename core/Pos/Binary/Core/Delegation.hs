@@ -19,4 +19,4 @@ instance Bi LightDlgIndices where
 
 instance Bi DlgPayload where
     encode = encode . getDlgPayload
-    decode = UnsafeDlgPayload <$> decode
+    decode = UncheckedDlgPayload <$> decode

@@ -125,7 +125,7 @@ block :: Block
 block = Right mainBlock
 
 mainBlock :: MainBlock
-mainBlock = UnsafeGenericBlock
+mainBlock = UncheckedGenericBlock
     { _gbHeader = mainBlockHeader
     , _gbBody   = blockBody
     , _gbExtra  = extraBodyData
@@ -143,13 +143,13 @@ blockBody = MainBody
 -- the fewest fields...
 emptySscPayload :: SscPayload
 emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
+    { spVss = UncheckedVssCertificatesMap
           { getVssCertificatesMap = mempty
           }
     }
 
 emptyDlgPayload :: DlgPayload
-emptyDlgPayload = UnsafeDlgPayload
+emptyDlgPayload = UncheckedDlgPayload
     { getDlgPayload = mempty
     }
 
@@ -171,7 +171,7 @@ blockHeader :: BlockHeader
 blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
-mainBlockHeader = UnsafeGenericBlockHeader
+mainBlockHeader = UncheckedGenericBlockHeader
     { _gbhPrevBlock = mainBlockHeaderHash
     , _gbhBodyProof = bodyProof
     , _gbhConsensus = consensusData
@@ -218,7 +218,7 @@ consensusData = MainConsensusData
 slotId :: SlotId
 slotId = SlotId
     { siEpoch = EpochIndex { getEpochIndex = 0 }
-    , siSlot  = UnsafeLocalSlotIndex { getSlotIndex = 0 }
+    , siSlot  = UncheckedLocalSlotIndex { getSlotIndex = 0 }
     }
 
 publicKey :: PublicKey
@@ -254,7 +254,7 @@ softwareVersion = SoftwareVersion
     , svNumber  = 0
     }
   where
-    appName = UnsafeApplicationName (mempty :: Text)
+    appName = UncheckedApplicationName (mempty :: Text)
 
 blockHeaderAttributes :: BlockHeaderAttributes
 blockHeaderAttributes = Attributes

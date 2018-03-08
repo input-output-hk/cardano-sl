@@ -155,7 +155,7 @@ verifyAndApplyProposal
     -> UpdateProposal
     -> m ()
 verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
-                           up@UnsafeUpdateProposal {..} = do
+                           up@UncheckedUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
     whenM (HS.member upFromId <$> getEpochProposers) $

@@ -184,7 +184,7 @@ buildProccessTxContext
        )
     => TxAux -> m (ProcessTxContext ())
 buildProccessTxContext txAux = do
-    let UnsafeTx {..} = taTx txAux
+    let UncheckedTx {..} = taTx txAux
     bvd <- gsAdoptedBVData
     localUM <- getUtxoModifier @(MempoolExt m)
     let runUM um = runToilTLocal um def mempty

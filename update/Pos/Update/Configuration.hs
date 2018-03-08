@@ -96,7 +96,7 @@ currentSystemTag :: SystemTag
 currentSystemTag =
     $(do let tag :: SystemTag
              tag = runPVerifyPanic (color Red $ "Current system tag could not be calculated") $
-                  UnsafeSystemTag $
+                  UncheckedSystemTag $
                   toText (osHelper buildOS ++ archHelper buildArch)
              color c s = "\n" <> colorize c s <> "\n"
          runIO . putStrLn . color Blue . T.concat $ ["Current system tag is: ", show tag]

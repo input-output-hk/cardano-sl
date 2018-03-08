@@ -137,7 +137,7 @@ wordToCoinToWord c = c > C.maxCoinVal .||. C.unsafeGetCoin (C.mkCoin c) === c
 
 overflowInCheckCoinError :: Expectation
 overflowInCheckCoinError =
-    shouldSatisfy (runPVerify (C.UnsafeCoin (C.maxCoinVal + 1))) isVerFailure
+    shouldSatisfy (runPVerify (C.UncheckedCoin (C.maxCoinVal + 1))) isVerFailure
 
 coinToIntegerToCoin :: C.Coin -> Property
 coinToIntegerToCoin = C.unsafeIntegerToCoin . C.coinToInteger .=. identity

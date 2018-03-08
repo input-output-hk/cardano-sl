@@ -55,7 +55,7 @@ instance Bi T.Tx where
                 <> encode (T._txAttributes tx)
     decode = do
         enforceSize "Tx" 3
-        T.UnsafeTx <$> decode <*> decode <*> decode
+        T.UncheckedTx <$> decode <*> decode <*> decode
 
 instance Bi T.TxInWitness where
     encode input = case input of
@@ -114,5 +114,5 @@ instance Bi T.TxProof where
                       decode
 
 instance Bi T.TxPayload where
-    encode T.UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
+    encode T.UncheckedTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
     decode = T.mkTxPayload <$> decode

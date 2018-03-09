@@ -7,6 +7,13 @@ module Pos.Arbitrary.Txp
        , DoubleInputTx (..)
        , GoodTx (..)
        , goodTxToTxAux
+
+       -- | Standalone generators.
+       , genTx
+       , genTxIn
+       , genTxInWitness
+       , genTxOutDist
+       , genTxPayload
        ) where
 
 import           Universum
@@ -19,6 +26,7 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof, sc
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Crypto (genSignature, genRedeemSignature)
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
@@ -47,29 +55,42 @@ instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+-- | Generator for a 'TxInWitness'. 'ProtocolMagic' is needed because it
+-- contains signatures.
+genTxInWitness :: ProtocolMagic -> Gen TxInWitness
+genTxInWitness pm = oneof
+    [ PkWitness <$> arbitrary <*> genSignature pm arbitrary
+      -- this can generate a redeemer script where a validator script is
+      -- needed and vice-versa, but it doesn't matter
+    , ScriptWitness <$> arbitrary <*> arbitrary
+    , RedeemWitness <$> arbitrary <*> genRedeemSignature pm arbitrary
+    , UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary
+    ]
+
 instance HasProtocolMagic => Arbitrary TxInWitness where
-    arbitrary = oneof [
-        PkWitness <$> arbitrary <*> arbitrary,
-        -- this can generate a redeemer script where a validator script is
-        -- needed and vice-versa, but it doesn't matter
-        ScriptWitness <$> arbitrary <*> arbitrary,
-        RedeemWitness <$> arbitrary <*> arbitrary,
-        UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary ]
+    arbitrary = genTxInWitness protocolMagic
     shrink = \case
         UnknownWitnessType n a -> UnknownWitnessType n <$> shrink a
         ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
         _ -> []
 
+genTxIn :: Gen TxIn
+genTxIn = oneof
+    [ TxInUtxo <$> arbitrary <*> arbitrary
+    , TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary
+    ]
+
 instance Arbitrary TxIn where
-    arbitrary = oneof [
-        TxInUtxo <$> arbitrary <*> arbitrary,
-        TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary]
+    arbitrary = genTxIn
     shrink = genericShrink
+
+genTx :: Gen Tx
+genTx = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
 instance Arbitrary Tx where
-    arbitrary = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
+    arbitrary = genTx
     shrink = genericShrink
 
 -- | Type used to generate valid ('verifyTx')
@@ -185,27 +206,29 @@ instance Arbitrary TxProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+genTxAux :: ProtocolMagic -> Gen TxAux
+genTxAux pm = TxAux <$> genTx <*> (V.fromList <$> listOf (genTxInWitness pm))
+
 instance HasProtocolMagic => Arbitrary TxAux where
-    arbitrary = genericArbitrary
+    arbitrary = genTxAux protocolMagic
     shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Utilities used in 'Pos.Block.Arbitrary'
 ----------------------------------------------------------------------------
 
--- FIXME make this one take a ProtocolMagic as a parameter.
--- Will require freeing up some other arbitrary instances: defining their
--- generators as terms which take a ProtocolMagic and then making
--- Arbitrary instances which use a reflection configuration.
-txOutDistGen :: HasProtocolMagic => Gen [TxAux]
-txOutDistGen =
+genTxOutDist :: ProtocolMagic -> Gen [TxAux]
+genTxOutDist pm =
     listOf $ do
-        txInW <- arbitrary
+        txInW <- V.fromList <$> listOf (genTxInWitness pm)
         txIns <- arbitrary
         txOuts <- arbitrary
         let tx = UnsafeTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW)
+        return $ TxAux tx txInW
+
+genTxPayload :: ProtocolMagic -> Gen TxPayload
+genTxPayload pm = mkTxPayload <$> genTxOutDist pm
 
 instance HasProtocolMagic => Arbitrary TxPayload where
-    arbitrary = mkTxPayload <$> txOutDistGen
+    arbitrary = genTxPayload protocolMagic
     shrink = genericShrink

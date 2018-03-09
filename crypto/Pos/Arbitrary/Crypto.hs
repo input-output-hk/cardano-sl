@@ -1,7 +1,12 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Arbitrary.Crypto
        ( SharedSecrets (..)
+       , genSignature
+       , genSignatureEncoded
+       , genRedeemSignature
        ) where
 
 import           Universum
@@ -9,11 +14,11 @@ import           Universum
 import           Control.Monad (zipWithM)
 import qualified Data.ByteArray as ByteArray
 import           Data.List.NonEmpty (fromList)
-import           Test.QuickCheck (Arbitrary (..), elements, oneof, vector)
+import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe ()
-import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
+import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw, serialize')
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.AsBinary ()
 import           Pos.Crypto.Configuration (HasProtocolMagic, ProtocolMagic (..), protocolMagic)
@@ -26,7 +31,7 @@ import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretPro
                                            toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing (ProxyCert, ProxySecretKey, ProxySignature, PublicKey,
                                      SecretKey, Signature, Signed, keyGen, mkSigned, proxySign,
-                                     sign, toPublic)
+                                     sign, signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
                                             redeemKeyGen, redeemSign)
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
@@ -120,11 +125,39 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
+-- | Generate a signature with a given 'ProtocolMagic', for some generated
+-- bytes. The 'SignTag' and 'SecretKey' are generated using their
+-- 'Arbitrary' instances.
+genSignatureEncoded :: ProtocolMagic -> Gen ByteString -> Gen (Signature a)
+genSignatureEncoded pm genBytes = signEncoded pm <$> genSignTag <*> genSecretKey <*> genBytes
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen SecretKey
+    genSecretKey = arbitrary
+
+-- | Like 'genSignatureEncoded' but use an 'a' that can be serialized.
+genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
+genSignature pm genA = sign pm <$> genSignTag <*> genSecretKey <*> genA
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen SecretKey
+    genSecretKey = arbitrary
+
+genRedeemSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (RedeemSignature a)
+genRedeemSignature pm genA = redeemSign pm <$> genSignTag <*> genSecretKey <*> genA
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen RedeemSecretKey
+    genSecretKey = arbitrary
+
 instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = sign protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = genSignature protocolMagic arbitrary
 
 instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = redeemSign protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = genRedeemSignature protocolMagic arbitrary
 
 instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary

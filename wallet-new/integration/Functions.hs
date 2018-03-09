@@ -1,12 +1,16 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Functions where
 
 import Universum
 
-import Control.Lens ((+~))
+import Control.Lens ((+~), _Right)
 import Test.QuickCheck (Gen, generate, arbitrary, frequency, elements)
 
 import Cardano.Wallet.API.Response (WalletResponse (..))
-import Cardano.Wallet.API.V1.Types (Wallet (..))
+import Cardano.Wallet.API.V1.Types (Wallet (..), Account (..))
 
 import Cardano.Wallet.Client (WalletClient (..), ClientError (..))
 
@@ -59,40 +63,65 @@ runAction wc _  CreateWallet = do
     newWallet <- liftIO $ generate arbitrary
     result    <- postWallet wc newWallet
 
-    pure $ case result of
-        Left  e   -> ErrorResult e
-        Right res -> CreateWalletResult $ wrData res
+    pure $ respToTestResult CreateWalletResult result
 
 runAction wc ws GetWallet    = do
     -- We choose from the existing wallets.
     wallet   <- liftIO $ generate $ elements (ws ^. wallets)
     result   <- getWallet wc (walId wallet)
 
-    pure $ case result of
-        Left  e   -> ErrorResult e
-        Right res -> GetWalletResult $ wrData res
+    pure $ respToTestResult GetWalletResult result
 
 -- Accounts
 runAction wc _  CreateAccount = do
     newAccount <- liftIO $ generate arbitrary
     result     <- postAccount wc newAccount
 
-    pure $ case result of
-        Left  e   -> ErrorResult e
-        Right res -> CreateAccountResult $ wrData res
+    pure $ respToTestResult CreateAccountResult result
 
 runAction wc ws GetAccounts   = do
     -- We choose from the existing wallets AND existing accounts.
     wallet   <- liftIO $ generate $ elements (ws ^. wallets)
     let walletId = walId wallet
     -- We get all the accounts.
-    accounts <- getAccounts wc walletId
+    result   <- getAccounts wc walletId
 
-    pure $ case accounts of
-        Left  e   -> ErrorResult e
-        Right res -> GetAccountsResult $ wrData res
+    pure $ respToTestResult GetAccountsResult result
+
+runAction wc ws GetAccount    = do
+    -- We choose from the existing wallets AND existing accounts.
+    wallet   <- liftIO $ generate $ elements (ws ^. wallets)
+    let walletId = walId wallet
+    -- We get all the accounts. Throw exception if something is wrong.
+    accounts <- respToRes $ getAccounts wc walletId
+
+    -- Choose one randomly.
+    account  <- liftIO $ generate $ elements accounts
+    let accountIndex = accIndex account
+
+    result   <- getAccount wc walletId accountIndex
+    pure $ respToTestResult GetAccountResult result
 
 runAction _ _ _             = error "Implement"
+
+
+-- | We are not interested in the @WalletResponse@ for now.
+respToRes
+    :: forall m a. (MonadThrow m)
+    => m (Either ClientError (WalletResponse a))
+    -> m a
+respToRes resp = do
+    result <- resp
+    either throwM (pure . wrData) result
+
+
+-- | We are not interested in the @WalletResponse@ for now.
+respToTestResult
+    :: (a -> TestResult)
+    -> (Either ClientError (WalletResponse a))
+    -> TestResult
+respToTestResult constr resp =
+    either ErrorResult constr (over _Right wrData resp)
 
 
 -- | @WalletState@ is changed _only_ if the invariant is
@@ -114,6 +143,16 @@ validateInvariants (CreateWalletResult w) ws = do
     pure $ ws
         & wallets    .~ ws ^. wallets <> [w]
         & actionsNum +~ 1
+
+validateInvariants (CreateAccountResult a) ws = do
+    checkInvariant (accAmount a == minBound) "Balance is not zero."
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & actionsNum +~ 1
+
+
+
 
 validateInvariants (GetWalletResult w) ws = do
 

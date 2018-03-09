@@ -22,7 +22,7 @@ genDlgPayload pm epoch =
     UnsafeDlgPayload . toList . HM.fromList . map convert <$> listOf genPSK
   where
     convert psk = (pskIssuerPk psk, psk)
-    genPSK = createPsk <$> arbitrary <*> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
+    genPSK = createPsk pm <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
 
 instance HasProtocolMagic => Arbitrary DlgPayload where
     arbitrary = arbitrary >>= genDlgPayload protocolMagic

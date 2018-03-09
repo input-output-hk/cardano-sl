@@ -21,7 +21,7 @@ import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
 import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy,
-                           StakeholderId, addressHash, gbhConsensus, protocolMagic)
+                           StakeholderId, addressHash, gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
 import           Pos.Crypto (HasProtocolMagic, ProxySecretKey (..), PublicKey,

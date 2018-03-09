@@ -21,8 +21,8 @@ import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
+import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -177,7 +177,6 @@ sortDescription resource allowedKeys = [text|
 A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
 |]
 
-
 highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)
@@ -187,7 +186,8 @@ Software Version | Git Revision
 -----------------|-------------------
 $deGitRevision   | $deSoftwareVersion
 
-## Getting Started
+Getting Started
+---------------
 
 In the following examples, we will use *curl* to illustrate request to an API running on the
 default port **8090**.
@@ -196,7 +196,8 @@ default port **8090**.
 to send a client CA certificate that was used when launching the node and identifies the client as
 being permitted to invoke the server API.
 
-### Creating a New Wallet
+Creating a New Wallet
+=====================
 
 You can create your first wallet using the `POST /api/v1/wallets` endpoint as follow:
 
@@ -245,7 +246,8 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
      --cacert ./scripts/tls-files/ca.crt                       \
 ```
 
-### Receiving Money
+Receiving Money
+===============
 
 To receive money from other user you should provide your address. This address can be obtained
 from an account. Each wallet contains at least one account, you can think of account as a
@@ -289,7 +291,8 @@ Each account has at least one address, all listed under the `addresses` field. Y
 communicate one of these addresses to receive money on the associated account.
 
 
-### Sending Money
+Sending Money
+=============
 
 In order to send money from one of your account to another address, you can create a new
 payment transaction using the `POST /api/v1/transactions` endpoint as follow:
@@ -356,7 +359,8 @@ output should look roughly similar to this:
 }
 ```
 
-## Pagination
+Pagination
+----------
 
 **All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is
 the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
@@ -373,12 +377,14 @@ brief overview the first two control how many results and which results to acces
 paginated request.
 
 
-## Filtering and sorting
+Filtering and sorting
+---------------------
 
 `GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked
 in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
 
-### Filter operators
+Filter operators
+================
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
@@ -390,7 +396,8 @@ in the swagger docs with the `FILTER` or `SORT` labels. The query format is quit
 | `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |
 | `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
 
-### Sort operators
+Sort operators
+==============
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
@@ -399,7 +406,8 @@ in the swagger docs with the `FILTER` or `SORT` labels. The query format is quit
 | -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |
 
 
-## Errors
+Errors
+------
 
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
 [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
@@ -410,18 +418,21 @@ application. For example, here's a typical error which might be issued:
 $deErrorExample
 ```
 
-### Existing wallet errors
+Existing wallet errors
+======================
 
 $deWalletErrorTable
 
 
-## Mnemonic Codes
+Mnemonic Codes
+--------------
 
 The full list of accepted mnemonic codes to secure a wallet is defined by the BIP-39
 specifications and available [here](https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt).
 
 
-## Versioning & Legacy
+Versioning & Legacy
+-------------------
 
 The API is **versioned**, meaning that is possible to access different versions of the API by
 adding the _version number_ in the URL.
@@ -451,12 +462,11 @@ data DescriptionEnvironment = DescriptionEnvironment
   , deSoftwareVersion       :: !T.Text
   }
 
-api :: ( HasCompileInfo
-       , HasUpdateConfiguration
-       , HasSwagger a)
-    => Proxy a
+api :: HasSwagger a
+    => (CompileTimeInfo, SoftwareVersion)
+    -> Proxy a
     -> Swagger
-api walletApi = toSwagger walletApi
+api (compileInfo, curSoftwareVersion) walletAPI = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"

@@ -106,7 +106,7 @@ legacyWalletBackend WalletBackendParams {..} =
 -- | A 'Plugin' to start the wallet REST server
 --
 -- TODO: no web socket support in the new wallet for now
-walletBackend :: (HasConfigurations)
+walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
               -> Kernel.PassiveWallet
               -> Plugin Kernel.WalletMode

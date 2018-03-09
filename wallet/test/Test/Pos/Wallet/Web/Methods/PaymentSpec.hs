@@ -52,8 +52,6 @@ spec = withCompileInfo def $
 
 oneNewPaymentBatchSpec :: (HasCompileInfo, HasConfigurations) => Spec
 oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
-    db <- WS.askWalletDB
-    ws <- WS.getWalletSnapshot db
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
     destLen <- pick $ choose (1, l)
@@ -69,6 +67,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
+    ws <- WS.askWalletSnapshot
     srcAddr <- getAddress ws srcAccId
     -- Dunno how to get account's balances without CAccModifier
     initBalance <- getBalance srcAddr
@@ -104,9 +103,10 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
         "Minimal tx fee isn't satisfied"
 
+    ws' <- WS.askWalletSnapshot
     -- Validate that tx meta was added when transaction was processed
     forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
-        txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws wId)
+        txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws' wId)
         void $ expectedOne "TxMeta for wallet" txMetas
 
     -- Validate change and used address

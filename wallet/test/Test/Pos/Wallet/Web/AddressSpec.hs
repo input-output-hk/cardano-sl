@@ -46,8 +46,8 @@ fakeAddressHasMaxSizeTest
     :: (HasConfigurations, HasCompileInfo)
     => AddressGenerator -> Word32 -> WalletProperty ()
 fakeAddressHasMaxSizeTest generator accSeed = do
-    ws <- askWalletSnapshot
     passphrase <- importSingleWallet mostlyEmptyPassphrases
+    ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)

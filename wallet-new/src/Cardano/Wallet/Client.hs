@@ -21,6 +21,7 @@ module Cardano.Wallet.Client
 
 import           Universum
 
+import           Control.Exception (Exception (..))
 import           Servant.Client (ServantError (..))
 
 import           Cardano.Wallet.API.Request.Pagination
@@ -156,4 +157,10 @@ data ClientError
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
     deriving (Show)
+
+-- | General exception instance.
+instance Exception ClientError where
+    toException   (ClientWalletError e) = toException e
+    toException   (ClientHttpError   e) = toException e
+    toException   (UnknownError      e) = toException e
 

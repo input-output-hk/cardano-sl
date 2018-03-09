@@ -66,8 +66,9 @@ import qualified Pos.DB.Block.Load as GS
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import qualified Pos.GState as GS
-import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
+import           Pos.GState.BlockExtra (resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
 import           Pos.Txp (flattenTxPayload, getLocalTxsNUndo, topsortTxs, _txOutputs)
 import           Pos.Util (HasLens (..))
@@ -246,80 +247,105 @@ syncHistoryWithGStateUnsafe
     -- to the genesis BlockHeader if this is a brand new wallet being
     -- synced or restored.
     -> BlockHeader
-    -- ^ GState header hash
+    -- ^ Blockchain's tip header hash
     -> m (Either SyncError ())
-syncHistoryWithGStateUnsafe syncRequest wTipHeader gstateH = setLogger $ do
+syncHistoryWithGStateUnsafe syncRequest walletTip blockchainTip = setLogger $ do
     let credentials@(_, walletId) = srCredentials syncRequest
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
 
-    let diff = (^. difficultyL)
-        mDiff = Just . diff
-        gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
+    let getBlockHeaderTimestamp = blockHeaderTimestamp systemStart slottingData
 
-        mainBlkHeaderTs mBlkH =
-          getSlotStartPure systemStart (mBlkH ^. headerSlotL) slottingData
-        blkHeaderTs = \case
-            BlockHeaderGenesis _ -> Nothing
-            BlockHeaderMain h -> mainBlkHeaderTs h
+    (mapModifier, newSyncTip) <- computeAccModifier credentials getBlockHeaderTimestamp walletTip mempty
+    applyModifierToWallet (srOperation syncRequest) walletId (headerHash newSyncTip) mapModifier
 
-        -- assuming that transactions are not created until syncing is complete
-        ptxBlkInfo = const Nothing
+    case headerHash newSyncTip == headerHash blockchainTip of
+        True -> do
+            logInfoSP $ \sl ->
+                sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
+                        %shortHashF%", "%buildSafe sl)
+                        walletId (headerHash walletTip) mapModifier
+            pure $ Right ()
+        False -> syncHistoryWithGStateUnsafe syncRequest newSyncTip blockchainTip
 
-        rollbackBlock :: [(CId Addr, HeaderHash)] -> Blund -> CAccModifier
-        rollbackBlock dbUsed (b, u) =
-            trackingRollbackTxs credentials dbUsed mDiff blkHeaderTs $
-            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
-
-        applyBlock :: [(CId Addr, HeaderHash)] -> Blund -> m CAccModifier
-        applyBlock dbUsed (b, u) = pure $
-            trackingApplyTxs credentials dbUsed mDiff blkHeaderTs ptxBlkInfo $
-            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
-
-        computeAccModifier :: BlockHeader -> m CAccModifier
-        computeAccModifier wHeader = do
+    where
+        -- | Main workhorse which iterates over the blockchain and reconstruct the transaction
+        -- history.
+        computeAccModifier :: WalletDecrCredentials
+                           -> (BlockHeader -> Maybe Timestamp)
+                           -> BlockHeader
+                           -> CAccModifier
+                           -> m (CAccModifier, BlockHeader)
+                           -- ^ The new wallet modifier and the new sync tip for the wallet.
+        computeAccModifier credentials getBlockTimestamp wHeader currentModifier = do
+            let walletId = snd credentials
             dbUsed <- WS.getCustomAddresses WS.UsedAddr
-            logInfoSP $ \sl -> do
-                sformat ("Wallet " % secretOnlyF sl build
-                                   % " header: "
-                                   % build
-                                   % ", current tip header: "
-                                   % build) walletId wHeader gstateH
-            if | diff gstateH > diff wHeader -> do
-                     let loadCond (b,_undo) _ = b ^. difficultyL <= gstateH ^. difficultyL
-                         convertFoo rr blund = (rr <>) <$> applyBlock dbUsed blund
+            if | depthOf blockchainTip > depthOf wHeader -> do
                      -- If wallet's syncTip is before than the current tip in the blockchain,
                      -- then it loads wallets starting with @wHeader@.
                      -- Sync tip can be before the current tip
                      -- when we call @syncWalletSetWithTip@ at the first time
                      -- or if the application was interrupted during rollback.
                      -- We don't load blocks explicitly, because blockain can be long.
-                     maybe (pure mempty)
-                         (\wNextH ->
-                            foldlUpWhileM getBlund
-                                          wNextH
-                                          loadCond
-                                          convertFoo
-                                          mempty)
-                         =<< resolveForwardLink wHeader
-               | diff gstateH < diff wHeader -> do
+                     nextBlund <- resolveForwardLink wHeader >>= (maybe (pure Nothing) getBlund)
+                     case nextBlund of
+                         Nothing -> pure (mempty, blockchainTip)
+                         Just blund@(currentBlock, _) -> do
+                             newModifier <- (currentModifier <>) <$> applyBlock credentials getBlockTimestamp dbUsed blund
+                             if isModifierEmpty newModifier
+                                 then computeAccModifier credentials getBlockTimestamp (getBlockHeader currentBlock) newModifier
+                                 else pure (newModifier, getBlockHeader currentBlock)
+
+               | depthOf blockchainTip < depthOf wHeader -> do
                      -- This rollback can occur
                      -- if the application was interrupted during blocks application.
-                     blunds <- getNewestFirst <$>
-                         GS.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
-                     pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
+                     blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
+                     let newModifier = foldl' (\r b -> r <> rollbackBlock credentials getBlockTimestamp dbUsed b) currentModifier blunds
+                     pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
                | otherwise -> do
                      logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
-                     return mempty
+                     pure (mempty, blockchainTip)
 
-    mapModifier@CAccModifier{..} <- computeAccModifier wTipHeader
-    applyModifierToWallet walletId (headerHash gstateH) mapModifier
-    logInfoSP $ \sl ->
-        sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
-                %shortHashF%", "%buildSafe sl)
-                walletId (headerHash wTipHeader) mapModifier
-    pure $ Right ()
+        isModifierEmpty :: CAccModifier -> Bool
+        isModifierEmpty CAccModifier{..} = and [ camAddresses == mempty
+                                               , camUsed                 == mempty
+                                               , camChange               == mempty
+                                               , camUtxo                 == mempty
+                                               , camAddedHistory         == mempty
+                                               , camDeletedHistory       == mempty
+                                               , camAddedPtxCandidates   == mempty
+                                               , camDeletedPtxCandidates == mempty
+                                               ]
 
+        gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
+
+        blockHeaderTimestamp :: Timestamp -> SlottingData -> BlockHeader -> Maybe Timestamp
+        blockHeaderTimestamp systemStart slottingData = \case
+            BlockHeaderGenesis _ -> Nothing
+            BlockHeaderMain h -> getSlotStartPure systemStart (h ^. headerSlotL) slottingData
+
+        -- assuming that transactions are not created until syncing is complete
+        ptxBlkInfo = const Nothing
+
+        rollbackBlock :: WalletDecrCredentials
+                      -> (BlockHeader -> Maybe Timestamp)
+                      -> [(CId Addr, HeaderHash)] -> Blund -> CAccModifier
+        rollbackBlock credentials blkHeaderTs dbUsed (b, u) =
+            trackingRollbackTxs credentials dbUsed (Just . depthOf) blkHeaderTs $
+            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
+
+        applyBlock :: WalletDecrCredentials
+                   -> (BlockHeader -> Maybe Timestamp)
+                   -> [(CId Addr, HeaderHash)] -> Blund -> m CAccModifier
+        applyBlock credentials blkHeaderTs dbUsed (b, u) = pure $
+            trackingApplyTxs credentials dbUsed (Just . depthOf) blkHeaderTs ptxBlkInfo $
+            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
+
+
+-- | Gets the 'ChainDifficulty' for either a 'GenesisBlock' or
+-- a 'MainBlock'.
+depthOf :: HasDifficulty a => a -> ChainDifficulty
+depthOf = view difficultyL
 
 firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
 firstGenesisHeader = runExceptT $ do
@@ -439,16 +465,19 @@ trackingRollbackTxs credentials dbUsed getDiff getTs txs =
 
 applyModifierToWallet
     :: MonadWalletDB ctx m
-    => CId Wal
+    => TrackingOperation
+    -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-applyModifierToWallet wid newTip CAccModifier{..} = do
+applyModifierToWallet trackingOperation wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
     mapM_ WS.addWAddress (sortedInsertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
-    WS.updateWalletBalancesAndUtxo camUtxo
+    -- If this is a sync operation we do want the balance to be influenced.
+    when (trackingOperation == SyncWallet) $
+        WS.updateWalletBalancesAndUtxo camUtxo
     let cMetas = M.fromList
                $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
                $ DL.toList camAddedHistory

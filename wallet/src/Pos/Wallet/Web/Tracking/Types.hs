@@ -73,6 +73,7 @@ data TrackingOperation = SyncWallet
                        | RestoreWallet
                        -- ^ Restore the full wallet @history@ as in "restoring a wallet
                        -- from seed."
+                       deriving Eq
 
 newRestoreRequest :: WalletDecrCredentials -> SyncRequest
 newRestoreRequest creds = SyncRequest RestoreWallet creds

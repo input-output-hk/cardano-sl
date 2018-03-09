@@ -20,18 +20,25 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 -- | This function has the tricky task of plumbing different versions of the API,
 -- with potentially different monadic stacks into a uniform @Server@ we can use
 -- with Servant.
-walletServer :: ( Migration.HasConfigurations
-                , Migration.HasCompileInfo
-                )
+walletServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
+             => (forall a. WalletWebMode a -> Handler a)
+             -> Diffusion WalletWebMode
+             -> Server WalletAPI
+walletServer natV0 diffusion = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
+  where
+    v0DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API)
+    v0Hdl    = V0.handlers natV0 diffusion
+    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
+    v1Hdl    = V1.handlers natV0 diffusion
+
+
+walletDevServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
              -> Diffusion WalletWebMode
              -> RunMode
-             -> Server WalletAPI
-walletServer natV0 diffusion runMode = externalAPI :<|> internalAPI
+             -> Server WalletDevAPI
+walletDevServer natV0 diffusion runMode = devDocHdl :<|> devHdl :<|> walletHdl
   where
-    v0Doc       = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API)
-    v0Handlers  = V0.handlers natV0 diffusion
-    v1Doc       = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
-    v1Handlers  = V1.handlers natV0 diffusion
-    externalAPI = v0Doc :<|> v1Doc :<|> v0Handlers :<|> v1Handlers
-    internalAPI = Dev.handlers natV0 runMode
+    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI)
+    devHdl    = Dev.handlers natV0 runMode
+    walletHdl = walletServer natV0 diffusion

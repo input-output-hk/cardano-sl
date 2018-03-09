@@ -5,10 +5,10 @@ module Cardano.Wallet.API
        , v1API
        , DevAPI
        , devAPI
-       , PublicAPI
-       , publicAPI
        , WalletAPI
        , walletAPI
+       , WalletDevAPI
+       , walletDevAPI
        ) where
 
 import           Servant ((:<|>), (:>), Proxy (..))
@@ -44,14 +44,15 @@ type V1API = "api" :> "v1" :> V1.API
 v1API :: Proxy V1API
 v1API = Proxy
 
+type DevDoc = "docs" :> "development" :> SwaggerSchemaUI "index" "swagger.json"
 type DevAPI = "api" :> "development" :> Dev.API
 devAPI :: Proxy DevAPI
 devAPI = Proxy
 
-type PublicAPI = V0Doc :<|> V1Doc :<|> V0API :<|> V1API
-publicAPI :: Proxy PublicAPI
-publicAPI = Proxy
-
-type WalletAPI = PublicAPI :<|> DevAPI
+type WalletAPI = V0Doc :<|> V1Doc :<|> V0API :<|> V1API
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
+
+type WalletDevAPI = DevDoc :<|> DevAPI :<|> WalletAPI
+walletDevAPI :: Proxy WalletDevAPI
+walletDevAPI = Proxy

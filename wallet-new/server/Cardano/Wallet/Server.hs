@@ -1,5 +1,6 @@
 module Cardano.Wallet.Server
     ( walletServer
+    , walletDevServer
     ) where
 
 import           Servant
@@ -7,7 +8,6 @@ import           Universum
 
 import           Cardano.Wallet.API
 import qualified Cardano.Wallet.API.Development.Handlers as Dev
-import qualified Cardano.Wallet.API.V0 as V0
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Kernel
@@ -22,21 +22,26 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 -- Cardano monad because they just interfact with the Wallet object.
 walletServer :: (HasCompileInfo, HasUpdateConfiguration)
              => ActiveWallet
-             -> RunMode
              -> Server WalletAPI
-walletServer w runMode = externalAPI :<|> internalAPI
+walletServer w = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
   where
-    v0Doc       = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API)
-    v1Doc       = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
-    externalAPI = v0Doc :<|> v1Doc :<|> v0Handler :<|> V1.handlers w
-    internalAPI = Dev.handlers runMode
+    -- TODO: Not sure if we want to support the V0 API with the new wallet.
+    -- For now I'm assuming we're not going to.
+    --
+    -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
+    -- make this very easy at the moment.
+    v0DocHdl = error "V0 API no longer supported"
+    v0Hdl    = v0DocHdl
+    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
+    v1Hdl    = V1.handlers w
 
--- | Return
---
--- TODO: Not sure if we want to support the V0 API with the new wallet.
--- For now I'm assuming we're not going to.
---
--- TODO: It'd be nicer to not through an exception here, but servant doesn't
--- make this very easy at the moment.
-v0Handler :: Server V0.API
-v0Handler = error "V0 API no longer supported"
+
+walletDevServer :: (HasCompileInfo, HasUpdateConfiguration)
+             => ActiveWallet
+             -> RunMode
+             -> Server WalletDevAPI
+walletDevServer w runMode = devDocHdl :<|> devHdl :<|> walletHdl
+  where
+    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI)
+    devHdl    = Dev.handlers runMode
+    walletHdl = walletServer w

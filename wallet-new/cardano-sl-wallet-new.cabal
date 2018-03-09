@@ -265,7 +265,6 @@ executable cardano-integration-test
                      , servant-swagger
                      , serokell-util
                      , memory
-                     , MonadRandom
                      , stm
                      , string-conv
                      , swagger2

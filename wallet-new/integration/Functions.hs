@@ -2,11 +2,13 @@ module Functions where
 
 import Universum
 
-import Control.Lens (ix, (+~))
-import Control.Monad.Random
-import Test.QuickCheck
+import Control.Lens ((+~))
+import Test.QuickCheck (Gen, generate, arbitrary, frequency, elements)
 
-import Cardano.Wallet.API.V1.Types (Wallet (..), New)
+import Cardano.Wallet.API.Response (WalletResponse (..))
+import Cardano.Wallet.API.V1.Types (Wallet (..))
+
+import Cardano.Wallet.Client (WalletClient (..), ClientError (..))
 
 import Types
 import Error
@@ -16,12 +18,13 @@ import Error
 -- to test the backend.
 runActionCheck
     :: (WalletTestMode m)
-    => WalletState
+    => WalletClient m
+    -> WalletState
     -> ActionProbabilities
     -> m WalletState
-runActionCheck walletState actionProb = do
+runActionCheck walletClient walletState actionProb = do
     action <- chooseAction actionProb
-    result <- runAction action
+    result <- runAction walletClient walletState action
 
     validateInvariants result walletState
 
@@ -42,52 +45,54 @@ chooseAction
 chooseAction = liftIO . generate . chooseActionGen
 
 
--- | Get action randomly, depending on the action distribution
-chooseActionRandom
-    :: (WalletTestMode m)
-    => ActionProbabilities
-    -> m Action
-chooseActionRandom aProb = do
-    prob <- liftIO chooseProb
-
-    -- @choice@ from random-extras-0.2?
-    let distributedActions :: [Action]
-        distributedActions = concatMap replDistribution aProb
-
-    maybe actionNotFound pure (distributedActions ^? ix prob)
-  where
-    chooseProb :: IO Int
-    chooseProb = getStdRandom (randomR (1,100))
-
-    replDistribution
-        :: (Action,Probability)
-        -> [Action]
-    replDistribution (action,prob) =
-        replicate (getProbability prob) action
-
-    actionNotFound :: (MonadThrow m) => m Action
-    actionNotFound = throwM $ Internal "The selected action was not found!"
-
-
 -- | Here we run the actions. What we need from the other
 -- side is the interpretation of this action. This
 -- can be a typeclass with different interpretations.
-runAction :: (WalletTestMode m) => Action -> m TestResult
-runAction CreateWallet = createTestWallet
-runAction _            = error "Implement"
-
-
-createTestWallet :: forall m. (WalletTestMode m) => m TestResult
-createTestWallet = do
-    -- I guess we can try to use the new quickcheck types
-    -- sometime in the future.
+runAction
+    :: (WalletTestMode m)
+    => WalletClient m
+    -> WalletState
+    -> Action
+    -> m TestResult
+-- Wallets
+runAction wc _  CreateWallet = do
     newWallet <- liftIO $ generate arbitrary
-    -- external call to either REST api or internal function
-    externalCall newWallet
-  where
-    -- | TODO(ks): This needs to be an actual call.
-    externalCall :: New Wallet -> m TestResult
-    externalCall _ = liftIO $ NewWalletResult <$> generate arbitrary
+    result    <- postWallet wc newWallet
+
+    pure $ case result of
+        Left  e   -> ErrorResult e
+        Right res -> CreateWalletResult $ wrData res
+
+runAction wc ws GetWallet    = do
+    -- We choose from the existing wallets.
+    wallet   <- liftIO $ generate $ elements (ws ^. wallets)
+    result   <- getWallet wc (walId wallet)
+
+    pure $ case result of
+        Left  e   -> ErrorResult e
+        Right res -> GetWalletResult $ wrData res
+
+-- Accounts
+runAction wc _  CreateAccount = do
+    newAccount <- liftIO $ generate arbitrary
+    result     <- postAccount wc newAccount
+
+    pure $ case result of
+        Left  e   -> ErrorResult e
+        Right res -> CreateAccountResult $ wrData res
+
+runAction wc ws GetAccounts   = do
+    -- We choose from the existing wallets AND existing accounts.
+    wallet   <- liftIO $ generate $ elements (ws ^. wallets)
+    let walletId = walId wallet
+    -- We get all the accounts.
+    accounts <- getAccounts wc walletId
+
+    pure $ case accounts of
+        Left  e   -> ErrorResult e
+        Right res -> GetAccountsResult $ wrData res
+
+runAction _ _ _             = error "Implement"
 
 
 -- | @WalletState@ is changed _only_ if the invariant is
@@ -97,13 +102,24 @@ validateInvariants
     => TestResult
     -> WalletState
     -> m WalletState
-validateInvariants (ErrorResult e) _ = throwM $ Internal e
-validateInvariants (NewWalletResult w) ws = do
+-- Maybe output the wallet state if something goes wrong?
+validateInvariants (ErrorResult (ClientWalletError e)) _  = throwM e
+validateInvariants (ErrorResult (ClientHttpError e))   _  = throwM e
+validateInvariants (ErrorResult (UnknownError e))      _  = throwM e
+
+validateInvariants (CreateWalletResult w) ws = do
     checkInvariant (walBalance w == minBound) "Balance is not zero."
 
     -- Modify wallet state accordingly.
     pure $ ws
         & wallets    .~ ws ^. wallets <> [w]
+        & actionsNum +~ 1
+
+validateInvariants (GetWalletResult w) ws = do
+
+    checkInvariant (walBalance w == minBound) "Balance is not zero."
+    -- No modification required.
+    pure $ ws
         & actionsNum +~ 1
 
 

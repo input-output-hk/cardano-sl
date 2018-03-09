@@ -32,7 +32,7 @@ import           Servant.Swagger (HasSwagger)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-import           Cardano.Wallet.API (publicAPI, walletAPI)
+import           Cardano.Wallet.API (walletAPI)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
@@ -138,9 +138,8 @@ startEdgeNode WalletStartupOptions{..} =
       (sscParams, nodeParams) <- getParameters
       case wsoWalletBackendParams of
         WalletLegacy legacyParams -> do
-          if isDebugMode $ walletRunMode legacyParams
-              then generateSwaggerDocumentation walletAPI
-              else generateSwaggerDocumentation publicAPI
+          when (isDebugMode $ walletRunMode legacyParams) $
+              generateSwaggerDocumentation walletAPI
           actionWithWallet sscParams nodeParams legacyParams
         WalletNew newParams ->
           actionWithNewWallet sscParams nodeParams newParams

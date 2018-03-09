@@ -10,10 +10,12 @@ module Pos.Core.Slotting.Util
        , diffEpochOrSlot
        , flatSlotId
        , crucialSlot
+       , unsafeMkLocalSlotIndexExplicit
        , unsafeMkLocalSlotIndex
        , isBootstrapEra
        , epochOrSlot
        , epochOrSlotToSlot
+       , mkLocalSlotIndexExplicit
        , mkLocalSlotIndex
        , addLocalSlotIndex
 
@@ -30,7 +32,7 @@ import           System.Random (Random (..))
 import           Pos.Core.Class (HasEpochIndex (..), HasEpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  slotSecurityParam)
+                                                  slotSecurityParam, protocolConstants)
 import           Pos.Core.Slotting.Types (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
                                           LocalSlotIndex (..), SlotCount, SlotId (..), getSlotIndex)
 import           Pos.Util.Util (leftToPanic)
@@ -187,6 +189,9 @@ mkLocalSlotIndexThrow_ es idx = case mkLocalSlotIndex_ es idx of
 mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
 mkLocalSlotIndex = mkLocalSlotIndexThrow_ epochSlots
 
+mkLocalSlotIndexExplicit :: MonadError Text m => ProtocolConstants -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndexExplicit pc = mkLocalSlotIndexThrow_ (pcEpochSlots pc)
+
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.
 addLocalSlotIndex :: HasProtocolConstants => SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
@@ -199,8 +204,11 @@ addLocalSlotIndex x (UnsafeLocalSlotIndex i)
 
 -- | Unsafe constructor of 'LocalSlotIndex'.
 unsafeMkLocalSlotIndex :: HasProtocolConstants => Word16 -> LocalSlotIndex
-unsafeMkLocalSlotIndex =
-    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
+unsafeMkLocalSlotIndex = unsafeMkLocalSlotIndexExplicit protocolConstants
+
+unsafeMkLocalSlotIndexExplicit :: ProtocolConstants -> Word16 -> LocalSlotIndex
+unsafeMkLocalSlotIndexExplicit pc =
+    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndexExplicit pc
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
 -- from the epoch specified as the epoch that unlocks stakes:

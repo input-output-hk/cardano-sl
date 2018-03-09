@@ -22,12 +22,12 @@ import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, SlotId (..),
                            blkSecurityParam, genesisBlockVersionData, mkVssCertificatesMapLossy,
-                           unsafeMkLocalSlotIndex, protocolConstants)
+                           unsafeMkLocalSlotIndex, protocolMagic, protocolConstants)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey, protocolMagic)
+import           Pos.Crypto (SecretKey)
 import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -150,7 +150,8 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
 
 validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
 validSscPayloadGen = do
-    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $ vssCertificateEpochGen protocolMagic protocolConstants 0
+    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $
+        vssCertificateEpochGen protocolMagic protocolConstants 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen protocolMagic 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)

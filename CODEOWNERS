@@ -30,23 +30,10 @@ scripts/set_nixpath.sh          @iohk-devops
 
 Delegation/                     @volhovm
 
-Wallet/                         @akegalj @adinapoli-iohk
-
-txp/                            @gromakovsky @pva701 @neongreen
+txp/                            @gromakovsky @pva701
 update/                         @gromakovsky @pva701
 lrc/                            @pva701
-ssc/                            @gromakovsky @neongreen
-
-core/Pos/Binary/                @neongreen
-core/Pos/Crypto/                @neongreen
-core/Pos/Merkle.hs              @neongreen
-
-core/Pos/Util/Config.hs         @neongreen
-core/Pos/Util/Config/           @neongreen
-lib/src/Pos/CompileConfig/      @neongreen
-
-scripts/build/cardano-sl.sh     @neongreen
-HLint.hs                        @neongreen
+ssc/                            @gromakovsky
 
 lib/test/                       @rockbmb
 lib/test/Test/Pos/Block/Logic/  @gromakovsky
@@ -60,12 +47,9 @@ networking/                     @dcoutts @avieth
 scripts/bench                   @kantp @avieth
 
 # Wallet
-wallet/src                      @martoon @akegalj @adinapoli-iohk
-wallet/purescript               @akegalj @adinapoli-iohk
+wallet/                         @martoon @akegalj @adinapoli-iohk
 wallet/web-api-swagger          @martoon @adinapoli-iohk
 wallet-new/                     @adinapoli-iohk
 
 ## Auxx
 auxx                            @int-index
-
-genesis-info/                   @georgeee

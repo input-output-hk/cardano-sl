@@ -6,7 +6,7 @@
   #walletListen = "127.0.0.1:8090";
 
   ## Runtime metrics server.
-  #ekgListen = "127.0.0.0.1:8000";
+  #ekgListen = "127.0.0.1:8000";
 
   ## Directory for the wallet's local state. Must be set BEFORE
   ## running nix-build to have any effect, and it must be enclosed in

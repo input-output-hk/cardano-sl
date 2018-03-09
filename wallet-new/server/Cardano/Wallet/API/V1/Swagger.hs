@@ -10,7 +10,6 @@ module Cardano.Wallet.API.V1.Swagger where
 
 import           Universum
 
-import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
@@ -25,10 +24,11 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Core as Core
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), Value (Number, Object))
+import           Data.Aeson (ToJSON (..), Value (Object))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.HashMap.Strict as HM
 import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
@@ -79,12 +79,12 @@ withExample (_ :: proxy a) desc =
 -- | Generates a description suitable to be used for "Update" types.
 updateDescr :: Typeable a => proxy a -> T.Text
 updateDescr (p :: proxy a) =
-    "A type represending an update for an existing " <> renderType p <> "."
+    "A type representing an update for an existing " <> renderType p <> "."
 
 -- | Generates a description suitable to be used for "New" types.
 newDescr :: Typeable a => proxy a -> T.Text
 newDescr (p :: proxy a) =
-    "A type represending an request for creating a(n) " <> renderType p <> "."
+    "A type representing an request for creating a(n) " <> renderType p <> "."
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
@@ -231,20 +231,10 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-instance ToParamSchema PerPage where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
-    & minimum_ ?~ 1
-    & maximum_ ?~ (fromIntegral maxPerPageEntries)
-
-instance ToParamSchema Page where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number 1) -- Always show the first page by default.
-    & minimum_ ?~ 1
-
 instance ToParamSchema WalletId
+
+instance ToSchema Core.Address where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
 
 instance ToParamSchema Core.Address where
   toParamSchema _ = mempty
@@ -331,6 +321,9 @@ instance ToDocs LocalTimeDifference where
 instance ToDocs NodeInfo where
   descriptionFor _ = "A collection of dynamic information for this wallet node."
 
+instance ToDocs WalletStateSnapshot where
+  descriptionFor _ = "Dump current wallet state"
+
 instance ToDocs (V1 InputSelectionPolicy) where
   descriptionFor _ = "A policy to be passed to each new `Payment` request to "
                   <> "determine how a `Transaction` is assembled. "
@@ -341,68 +334,8 @@ possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound.
 
 -- ToSchema instances
 
-instance ToSchema Account where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletAddress where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema AccountUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NewAccount where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema AddressValidity where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema (V1 Core.Address) where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletId where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Metadata where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Wallet where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NewWallet where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NewAddress where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema PasswordUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema EstimatedFees where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Transaction where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema Payment where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema WalletSoftwareUpdate where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NodeSettings where
-  declareNamedSchema = annotate fromExampleJSON
-
-instance ToSchema NodeInfo where
-  declareNamedSchema = annotate fromExampleJSON
-
 instance ToDocs a => ToDocs (WalletResponse a) where
   annotate f p = (f p)
-
-instance (ToJSON a, ToDocs a, Typeable a, Example a) => ToSchema (WalletResponse a) where
-  declareNamedSchema = annotate fromExampleJSON
 
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
@@ -528,8 +461,12 @@ data DescriptionEnvironment = DescriptionEnvironment {
   , deSoftwareVersion       :: !T.Text
   }
 
-api :: (HasCompileInfo, HasUpdateConfiguration) => Swagger
-api = toSwagger walletAPI
+api :: ( HasCompileInfo
+       , HasUpdateConfiguration
+       , HasSwagger a)
+    => Proxy a
+    -> Swagger
+api walletApi = toSwagger walletApi
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & host ?~ "127.0.0.1:8090"

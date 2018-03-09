@@ -16,7 +16,6 @@ nodeArgs:
   - "./scripts/tls-files/server.key"
   - "--tlsca"
   - "./scripts/tls-files/ca.crt"
-  - "--web"
   - "--no-ntp"
   - "--topology"
   - "docs/network/example-topologies/mainnet-staging.yaml"
@@ -78,8 +77,8 @@ nodeTimeoutSec: 5
 # Where to send logs in case of failure.
 # reportServer: localhost:8080
 
-# Where to put launcher logs (def: console only).
-# launcherLogsPrefix:
+# Log prefix for launcher and node (def: console only).
+# logsPrefix:
 
 # Global constant configuration.
 configuration:

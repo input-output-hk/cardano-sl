@@ -21,10 +21,11 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
 import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+-- import           Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
-import           Data.Maybe (isNothing, fromJust)
+import           Data.Maybe (isNothing)
 import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
@@ -88,10 +89,7 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
-    , loUpdaterPath         :: !FilePath
-    , loUpdaterArgs         :: ![Text]
-    , loUpdateArchive       :: !(Maybe FilePath)
-    , loUpdateWindowsRunner :: !(Maybe FilePath)
+    , loUpdaterData         :: !UpdaterData
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
@@ -113,7 +111,6 @@ instance FromJSON LauncherOptions where
                 [ ("walletLogging", Bool False)
                 , ("nodeArgs",      Array mempty)
                 , ("walletArgs",    Array mempty)
-                , ("updaterArgs",   Array mempty)
                 ]
 
 -- | The concrete monad where everything happens
@@ -129,21 +126,23 @@ data NodeData = NodeData
     , ndArgs    :: ![Text]
     , ndLogPath :: Maybe FilePath }
 
-data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OSXUD | UnsupportedOSUpdateData UnsupOSUD
+data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OsxUD | UnsupportedOSUpdateData deriving (Generic)
 
-data UnsupOSUD = UnsupOSUD
+instance FromJSON UpdaterData
+instance FromJSON WinUD
+instance FromJSON OsxUD
 
 data WinUD = WinUD 
-    { wudExePath :: !FilePath -- Installer.exe
-    , wudArgs    :: ![Text]
-    , wudBatPath :: !FilePath -- Installer.bat
-    }
+    { wudExePath :: !FilePath -- installer executable (e. g. Installer.exe).
+    , wudArgs    :: ![Text]   -- command line arguments passed to the installer executable.
+    , wudBatPath :: !FilePath -- path where bat file with installer instructions will be written.
+    } deriving (Generic)
 
-data OSXUD = OSXUD
-    { oudOpenPath :: !FilePath -- /usr/bin/open
-    , oudArgs     :: ![Text] -- FW
-    , oudPkgPath  :: !FilePath -- Installer.pkg
-    }
+data OsxUD = OsxUD
+    { oudOpenPath :: !FilePath -- executable to launch the installer (e. g. /usr/bin/open).
+    , oudArgs     :: ![Text]   -- command line arguments passed to oudOpenPath executable.
+    , oudPkgPath  :: !FilePath -- path to installer package, passed to oudOpenPath (e. g. Installer.pkg).
+    } deriving (Generic)
 
 data LauncherArgs = LauncherArgs
     { maybeConfigPath  :: !(Maybe FilePath)
@@ -229,38 +228,58 @@ getLauncherOptions = do
 
     -- Poor man's environment variable expansion.
     expandVars :: LauncherOptions -> IO LauncherOptions
-#ifdef mingw32_HOST_OS
-    expandVars lo@(LO {..}) = do
+    expandVars lo@(LO {..}) = case buildOS of 
+        Windows -> do
         -- %APPDATA%: nodeArgs, nodeDbPath,
         --     nodeLogPath, updaterPath,
         --     updateWindowsRunner, launcherLogsPrefix
         -- %DAEDALUS_DIR%: nodePath, walletPath
-        appdata <- toText <$> getEnv "APPDATA"
-        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
-        let replaceAppdata = replace "%APPDATA%" appdata
-            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
-        pure lo
-            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
-            , loNodeDbPath          = replaceAppdata loNodeDbPath
-            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
-            , loUpdaterPath         = replaceAppdata loUpdaterPath
-            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
-            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
-            , loNodePath            = replaceDaedalusDir loNodePath
-            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
-            }
-#else
-    expandVars lo@(LO {..}) = do
-        home <- toText <$> getEnv "HOME"
-        let replaceHome = replace "$HOME" home
-        pure lo
-            { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
-            , loNodeDbPath         = replaceHome loNodeDbPath
-            , loNodeLogPath        = replaceHome <$> loNodeLogPath
-            , loUpdateArchive      = replaceHome <$> loUpdateArchive
-            , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
-            }
-#endif
+            appdata <- toText <$> getEnv "APPDATA"
+            daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
+            let replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
+
+                replaceAppdata = replace "%APPDATA%" appdata 
+                replaceUpdaterAppdata (WindowsUpdaterData wud@WinUD {..}) = WindowsUpdaterData wud 
+                    { wudExePath = replaceAppdata wudExePath
+                    , wudBatPath = replaceAppdata wudBatPath
+                    }
+                replaceUpdaterAppdata _ = error "Can not expand %APPDATA%"
+
+            pure lo
+                { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
+                , loNodeDbPath          = replaceAppdata loNodeDbPath
+                , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
+                , loUpdaterData         = replaceUpdaterAppdata loUpdaterData
+                , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
+                , loNodePath            = replaceDaedalusDir loNodePath
+                , loWalletPath          = replaceDaedalusDir <$> loWalletPath
+                }
+        OSX -> do
+            home <- toText <$> getEnv "HOME"
+            let replaceHome = replace "$HOME" home
+                replaceUpdaterHome (OSXUpdaterData oud@OsxUD {..}) = OSXUpdaterData oud 
+                    { oudPkgPath = replaceHome oudPkgPath}
+                replaceUpdaterHome _ = error "Can not expand $HOME"
+
+            pure lo
+                { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
+                , loNodeDbPath         = replaceHome loNodeDbPath
+                , loNodeLogPath        = replaceHome <$> loNodeLogPath
+                , loUpdaterData        = replaceUpdaterHome loUpdaterData
+                , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
+                }
+        _ -> do 
+            home <- toText <$> getEnv "HOME"
+            let replaceHome = replace "$HOME" home
+
+            pure lo
+                { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
+                , loNodeDbPath         = replaceHome loNodeDbPath
+                , loNodeLogPath        = replaceHome <$> loNodeLogPath
+                , loUpdaterData        = UnsupportedOSUpdateData
+                , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
+                }
+
     replace :: Text -> Text -> FilePath -> FilePath
     replace from to = toString . T.replace from to . toText
 
@@ -309,7 +328,7 @@ main =
   Silently.hSilence [stdout, stderr] $
 #endif
   do
-    lo@LO {..} <- getLauncherOptions
+    LO {..} <- getLauncherOptions
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
     let realNodeArgs = propagateOptions loReportServer loNodeDbPath loConfiguration $
             case loNodeLogConfig of
@@ -335,7 +354,7 @@ main =
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (setUpdaterData lo)
+                    loUpdaterData
                     loReportServer
                 logNotice "Finished serverScenario"
             Just wpath -> do
@@ -346,31 +365,12 @@ main =
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
-                    (setUpdaterData lo)
+                    loUpdaterData
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
                 logNotice "Finished clientScenario"
   where
-    setUpdaterData :: LauncherOptions -> UpdaterData
-    setUpdaterData LO {..} = case buildOS of 
-        OSX -> OSXUpdaterData OSXUD
-            { oudOpenPath = loUpdaterPath
-            , oudArgs = loUpdaterArgs
-            -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
-            -- , oudPkgPath = fromMaybe (bug Not_set_OSX_loUpdateArchive) loUpdateArchive
-            , oudPkgPath = fromJust loUpdateArchive
-            }
-        Windows -> WindowsUpdaterData WinUD
-            { wudExePath = loUpdaterPath
-            , wudArgs = loUpdaterArgs
-            -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
-            -- , wudBatPath = fromMaybe (bug Not_set_Windows_loUpdateWindowsRunner) loUpdateWindowsRunner
-            , wudBatPath = fromJust loUpdateWindowsRunner            
-            }
-        -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
-        _ -> UnsupportedOSUpdateData UnsupOSUD
-            
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
     -- don't want to pass the same options twice.  However, if the
@@ -512,7 +512,7 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
         if hashValid
             then do
                 exitCode <- runUpdaterWithOS ud
-                archiveAndRemove exitCode installerPath
+                affirmUpdateAndRemove exitCode installerPath
             else do
                 logWarning "Installer failed Hash check and will be removed"
                 liftIO $ removeFile installerPath
@@ -521,22 +521,25 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
     validInstallerHash :: FilePath -> M Bool
     validInstallerHash instPath = do
 
-        validHash <- liftIO $ bracketNodeDBs ndbp $ \lmcNodeDBs ->
+        mbValidHash <- liftIO $ bracketNodeDBs ndbp $ \lmcNodeDBs ->
             usingReaderT LauncherModeContext{..} $ do
                 getLastInstallerHash
-
-        installer <- liftIO $ BS.L.readFile instPath
-        let currentHash = installerHash installer
-        return $ currentHash == validHash 
+        case mbValidHash of
+            Just validHash -> do
+                installer <- liftIO $ BS.L.readFile instPath
+                let currentHash = installerHash installer
+                return $ currentHash == validHash
+            Nothing -> do
+                logWarning "miscDB do not contain any installer hash" $> False
 
     getInstaller :: UpdaterData -> FilePath
     getInstaller (WindowsUpdaterData WinUD {..}) = wudExePath
-    getInstaller (OSXUpdaterData OSXUD {..}) = oudPkgPath
+    getInstaller (OSXUpdaterData OsxUD {..}) = oudPkgPath
     -- Should not happen due to whenM in runUpdater
     getInstaller _ = error "Unsupported OS UpdateConfig has no Installer"
 
-    archiveAndRemove :: ExitCode -> FilePath -> M ()
-    archiveAndRemove exitCode installerPath = case exitCode of
+    affirmUpdateAndRemove :: ExitCode -> FilePath -> M ()
+    affirmUpdateAndRemove exitCode installerPath = case exitCode of
         ExitSuccess -> do
             logInfo "The updater has exited successfully"
             -- this will throw an exception if the file doesn't exist but
@@ -556,17 +559,11 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
         ExitFailure code ->
             logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
-    logIfM predicate message = ifM predicate (return True) ((logWarning message) >> return False)
-
-    logIf predicate message = if predicate 
-        then return True
-        else (logWarning message) >> return False
+    logIfNotM predicate message = ifM predicate (return True) ((logWarning message) $> False)
 
     validUD :: UpdaterData -> M Bool
-    validUD (WindowsUpdaterData WinUD {..}) = logIfM (liftIO $ doesFileExist wudExePath) "Installer.exe not found"
-    validUD (OSXUpdaterData OSXUD {..}) = logIfM (liftIO $ doesFileExist oudPkgPath) "Installer.pkg not found"
-    validUD (UnsupportedOSUpdateData UnsupOSUD) = logIf True "Current OS is not supported by updater"
-    
+    validUD UnsupportedOSUpdateData = logWarning "Current OS is not supported by updater" $> False
+    validUD ud_ = logIfNotM (liftIO $ doesFileExist (getInstaller ud_)) "Installer not found"
     
     runUpdaterWithOS :: UpdaterData -> M ExitCode
     runUpdaterWithOS (WindowsUpdaterData WinUD {..}) = do
@@ -575,7 +572,7 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
         writeWindowsUpdaterRunner wudBatPath
         -- The script will terminate this updater so this function shouldn't return
         runUpdaterProc wudBatPath args
-    runUpdaterWithOS (OSXUpdaterData OSXUD {..}) = do
+    runUpdaterWithOS (OSXUpdaterData OsxUD {..}) = do
         let args = oudArgs ++ ((one . toText) oudPkgPath)
         runUpdaterProc oudOpenPath args
     -- Should not happen due to whenM in runUpdater

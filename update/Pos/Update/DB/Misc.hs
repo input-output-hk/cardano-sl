@@ -9,7 +9,6 @@ module Pos.Update.DB.Misc
 
 import           Universum
 
-import           Data.Maybe (fromJust)
 import           Formatting (sformat)
 
 import           Pos.Binary.Class (Raw)
@@ -29,8 +28,8 @@ updateTrackKey h = "updinst/" <> encodeUtf8 (sformat hashHexF h)
 lastInstallerKey :: ByteString
 lastInstallerKey = "updlast/lastDownloaded" 
 
-getLastInstallerHash :: MonadDBRead m => m (Hash Raw)
-getLastInstallerHash = fromJust <$> (miscGetBi lastInstallerKey)
+getLastInstallerHash :: MonadDBRead m => m (Maybe (Hash Raw))
+getLastInstallerHash = miscGetBi lastInstallerKey
 
 setLastInstallerHash :: MonadDB m => Hash Raw -> m ()
 setLastInstallerHash = miscPutBi lastInstallerKey

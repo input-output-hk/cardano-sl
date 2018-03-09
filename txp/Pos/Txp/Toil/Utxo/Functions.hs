@@ -17,8 +17,8 @@ import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), HasConfiguration, integerToCoin,
-                           isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
+                           isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,

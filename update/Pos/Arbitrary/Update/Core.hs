@@ -1,13 +1,15 @@
 -- | Arbitrary instances for Update System core types.
 
 module Pos.Arbitrary.Update.Core
-       (
+       ( genUpdatePayload
+       , genUpdateVote
+       , genUpdateProposal
        ) where
 
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Test.QuickCheck (Arbitrary (..), listOf1, oneof)
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf, listOf1, oneof, frequency)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
@@ -19,7 +21,7 @@ import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateDa
                                   UpdatePayload (..), UpdateProposal (..),
                                   UpdateProposalToSign (..), UpdateVote (..),
                                   mkUpdateProposalWSign, mkUpdateVote)
-import           Pos.Crypto (fakeSigner)
+import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
 
@@ -33,27 +35,33 @@ instance Arbitrary SystemTag where
         [os <> arch | os <- ["win", "linux", "mac"], arch <- ["32", "64"]]
     shrink = genericShrink
 
+genUpdateVote :: ProtocolMagic -> Gen UpdateVote
+genUpdateVote pm = mkUpdateVote pm <$> arbitrary <*> arbitrary <*> arbitrary
+
 instance HasProtocolMagic => Arbitrary UpdateVote where
-    arbitrary = mkUpdateVote protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = genUpdateVote protocolMagic
     shrink = genericShrink
 
+genUpdateProposal :: ProtocolMagic -> Gen UpdateProposal
+genUpdateProposal pm = do
+    upBlockVersion <- arbitrary
+    upBlockVersionMod <- arbitrary
+    upSoftwareVersion <- arbitrary
+    upData <- HM.fromList <$> listOf1 arbitrary
+    let upAttributes = mkAttributes ()
+    ss <- fakeSigner <$> arbitrary
+    pure $
+        mkUpdateProposalWSign
+            pm
+            upBlockVersion
+            upBlockVersionMod
+            upSoftwareVersion
+            upData
+            upAttributes
+            ss
+
 instance HasProtocolMagic => Arbitrary UpdateProposal where
-    arbitrary = do
-        upBlockVersion <- arbitrary
-        upBlockVersionMod <- arbitrary
-        upSoftwareVersion <- arbitrary
-        upData <- HM.fromList <$> listOf1 arbitrary
-        let upAttributes = mkAttributes ()
-        ss <- fakeSigner <$> arbitrary
-        pure $
-            mkUpdateProposalWSign
-                protocolMagic
-                upBlockVersion
-                upBlockVersionMod
-                upSoftwareVersion
-                upData
-                upAttributes
-                ss
+    arbitrary = genUpdateProposal protocolMagic
     shrink = genericShrink
 
 instance Arbitrary UpdateProposalToSign where
@@ -68,6 +76,15 @@ instance Arbitrary UpdateData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+genUpdatePayload :: ProtocolMagic -> Gen UpdatePayload
+genUpdatePayload pm = UpdatePayload <$> genMaybeUpdateProposal <*> listOf (genUpdateVote pm)
+  where
+    -- Arbitrary1 instance for Maybe uses these frequencies.
+    genMaybeUpdateProposal = frequency
+        [ (1, return Nothing)
+        , (3, Just <$> genUpdateProposal pm)
+        ]
+
 instance HasProtocolMagic => Arbitrary UpdatePayload where
-    arbitrary = genericArbitrary
+    arbitrary = genUpdatePayload protocolMagic
     shrink = genericShrink

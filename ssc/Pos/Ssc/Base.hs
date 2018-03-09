@@ -6,11 +6,17 @@ module Pos.Ssc.Base
        (
          -- * Helpers
          genCommitmentAndOpening
+       , isCommitmentIdExplicit
        , isCommitmentId
+       , isCommitmentIdxExplicit
        , isCommitmentIdx
+       , isOpeningIdExplicit
        , isOpeningId
+       , isOpeningIdxExplicit
        , isOpeningIdx
+       , isSharesIdExplicit
        , isSharesId
+       , isSharesIdxExplicit
        , isSharesIdx
        , mkSignedCommitment
        , secretToSharedSeed
@@ -49,9 +55,11 @@ import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinary)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
-                           StakeholderId, addressHash, unsafeMkLocalSlotIndex)
+                           StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL, vssMinTTL,
-                                         slotSecurityParam)
+                                         protocolConstants)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                                             pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
@@ -100,32 +108,50 @@ mkSignedCommitment
     => ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
 
-toLocalSlotIndex :: HasProtocolConstants => SlotCount -> LocalSlotIndex
-toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
+toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
+toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit pc . fromIntegral
+
+isCommitmentIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isCommitmentIdxExplicit pc =
+    inRange (toLocalSlotIndex pc 0,
+             toLocalSlotIndex pc (pcSlotSecurityParam pc - 1))
 
 isCommitmentIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isCommitmentIdx =
-    inRange (toLocalSlotIndex 0,
-             toLocalSlotIndex (slotSecurityParam - 1))
+isCommitmentIdx = isCommitmentIdxExplicit protocolConstants
+
+isOpeningIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isOpeningIdxExplicit pc =
+    inRange (toLocalSlotIndex pc (2 * pcSlotSecurityParam pc),
+             toLocalSlotIndex pc (3 * pcSlotSecurityParam pc - 1))
 
 isOpeningIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isOpeningIdx =
-    inRange (toLocalSlotIndex (2 * slotSecurityParam),
-             toLocalSlotIndex (3 * slotSecurityParam - 1))
+isOpeningIdx = isOpeningIdxExplicit protocolConstants
+
+isSharesIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isSharesIdxExplicit pc =
+    inRange (toLocalSlotIndex pc (4 * pcSlotSecurityParam pc),
+             toLocalSlotIndex pc (5 * pcSlotSecurityParam pc - 1))
 
 isSharesIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isSharesIdx =
-    inRange (toLocalSlotIndex (4 * slotSecurityParam),
-             toLocalSlotIndex (5 * slotSecurityParam - 1))
+isSharesIdx = isSharesIdxExplicit protocolConstants
+
+isCommitmentIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isCommitmentIdExplicit pc = isCommitmentIdxExplicit pc . siSlot
 
 isCommitmentId :: HasProtocolConstants => SlotId -> Bool
-isCommitmentId = isCommitmentIdx . siSlot
+isCommitmentId = isCommitmentIdExplicit protocolConstants
+
+isOpeningIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isOpeningIdExplicit pc = isOpeningIdxExplicit pc . siSlot
 
 isOpeningId :: HasProtocolConstants => SlotId -> Bool
-isOpeningId = isOpeningIdx . siSlot
+isOpeningId = isOpeningIdExplicit protocolConstants
+
+isSharesIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isSharesIdExplicit pc = isSharesIdxExplicit pc . siSlot
 
 isSharesId :: HasProtocolConstants => SlotId -> Bool
-isSharesId = isSharesIdx . siSlot
+isSharesId = isSharesIdExplicit protocolConstants
 
 ----------------------------------------------------------------------------
 -- CommitmentsMap

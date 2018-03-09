@@ -129,7 +129,9 @@ data NodeData = NodeData
     , ndArgs    :: ![Text]
     , ndLogPath :: Maybe FilePath }
 
-data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OSXUD
+data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OSXUD | UnsupportedOSUpdateData UnsupOSUD
+
+data UnsupOSUD = UnsupOSUD
 
 data WinUD = WinUD 
     { wudExePath :: !FilePath -- Installer.exe
@@ -367,7 +369,7 @@ main =
             , wudBatPath = fromJust loUpdateWindowsRunner            
             }
         -- It would be better to use `bug` function from universum-1.0.1 but you want 0.9.0
-        _ -> error "Unsupported OS"
+        _ -> UnsupportedOSUpdateData UnsupOSUD
             
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
@@ -530,6 +532,8 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
     getInstaller :: UpdaterData -> FilePath
     getInstaller (WindowsUpdaterData WinUD {..}) = wudExePath
     getInstaller (OSXUpdaterData OSXUD {..}) = oudPkgPath
+    -- Should not happen due to whenM in runUpdater
+    getInstaller _ = error "Unsupported OS UpdateConfig has no Installer"
 
     archiveAndRemove :: ExitCode -> FilePath -> M ()
     archiveAndRemove exitCode installerPath = case exitCode of
@@ -554,9 +558,15 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
 
     logIfM predicate message = ifM predicate (return True) ((logWarning message) >> return False)
 
+    logIf predicate message = if predicate 
+        then return True
+        else (logWarning message) >> return False
+
     validUD :: UpdaterData -> M Bool
     validUD (WindowsUpdaterData WinUD {..}) = logIfM (liftIO $ doesFileExist wudExePath) "Installer.exe not found"
     validUD (OSXUpdaterData OSXUD {..}) = logIfM (liftIO $ doesFileExist oudPkgPath) "Installer.pkg not found"
+    validUD (UnsupportedOSUpdateData UnsupOSUD) = logIf True "Current OS is not supported by updater"
+    
     
     runUpdaterWithOS :: UpdaterData -> M ExitCode
     runUpdaterWithOS (WindowsUpdaterData WinUD {..}) = do
@@ -568,6 +578,8 @@ runUpdater ndbp ud = whenM (validUD ud) $ do
     runUpdaterWithOS (OSXUpdaterData OSXUD {..}) = do
         let args = oudArgs ++ ((one . toText) oudPkgPath)
         runUpdaterProc oudOpenPath args
+    -- Should not happen due to whenM in runUpdater
+    runUpdaterWithOS _ = error "Can not launch an updater with Unsupported OS UpdateConfig"
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
 runUpdaterProc path args = do

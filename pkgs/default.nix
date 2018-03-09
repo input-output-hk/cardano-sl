@@ -7714,8 +7714,9 @@ inherit (pkgs) mesa;};
              http-api-data http-client http-types ixset-typed json-sop lens
              log-warper memory mtl network-uri QuickCheck safe-exceptions
              serokell-util servant servant-client servant-quickcheck
-             servant-server string-conv template-haskell text text-format time
-             transformers universum unordered-containers vector wai warp
+             servant-server string-conv swagger2 template-haskell text
+             text-format time transformers universum unordered-containers vector
+             wai warp
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

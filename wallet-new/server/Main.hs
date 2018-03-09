@@ -41,6 +41,8 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
                                             walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 
+import Cardano.Wallet.API.V1.Swagger ()
+
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
 defaultLoggerName = "node"

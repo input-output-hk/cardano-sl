@@ -18,7 +18,7 @@ library(gridExtra)
 
 if (INTERACTIVE) {
   #library('ggedit')    # only if interactive editing
-  pdf(NULL)   # prevent PDF output
+  #pdf(NULL)   # prevent PDF output
   fnames <- file.choose()
   fname <- fnames[1]
   RUN <- sub('.*run-([-_0-9]+).csv', '\\1', fname)
@@ -211,7 +211,7 @@ epochs <- function(d) {
     tmin <- trunc(tmin / EPOCHLENGTH) * EPOCHLENGTH
     epochs <- data.frame(start=seq(from=tmin, to=max(d$t), by=EPOCHLENGTH))
     geom_vline(data=epochs,
-               aes(xintercept = start, alpha=0.65)
+               aes(xintercept = start, alpha=0.60)
              , colour='red'
              , linetype='dashed'
                )
@@ -223,7 +223,7 @@ kslots <- function(d) {
   tmin <- trunc(tmin / EPOCHLENGTH) * EPOCHLENGTH
   kslots <- data.frame(start=seq(from=tmin, to=max(d$t), by=k*SLOTLENGTH))
     geom_vline(data=kslots,
-               aes(xintercept = start, alpha=0.65)
+               aes(xintercept = start, alpha=0.60)
              , colour='red'
              , linetype='dotted'
                )
@@ -416,7 +416,7 @@ report <- readReport(fname2)
 data <- readData(fname)
 
 
-if (TRUE) {
+if (! INTERACTIVE) {
   png(filename=paste('overview-', RUN, '.png', sep=''))
   plotOverview(data, report)
   dev.off()
@@ -466,6 +466,7 @@ if (TRUE) {
 # plot the rate of sent and written transactions
 plotOSMetrics <- function(d, run=RUN, labx="", laby="", desc=DESC) {
      ggplot(d, aes(x=(time), y=metrics)) +
+        epochs(data) + kslots(data) +
         geom_point(colour = "blue", size=0.1) +
         ggtitle(paste(
             desc
@@ -475,7 +476,6 @@ plotOSMetrics <- function(d, run=RUN, labx="", laby="", desc=DESC) {
 #        scale_x_date(date_labels = "%H:%M:%S") +
 #        scale_x_datetime() +
         facet_grid(node ~ category, scales = "fixed") +
-        epochs(data) + kslots(data) +
         guides(size = "none", colour = "legend", alpha = "none")
     }
 
@@ -521,13 +521,14 @@ prepareOSMetrics4nodes <- function (nodes, target, title) {
   # prepare plot data (I/O)
     plotdata <- {}
     for (n in nodes) {
-      #recDelay <- recDelay0
-      #if (! is.null(osmetrics$delay[n])) { recDelay <- osmetrics$delay[n] }
       # extract node's data and sort it by the 'time' column:
       d <- osmetrics$io %>% filter(nodename == n) %>% arrange_all(c(time))
-      td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
-      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$rchar) / td), category='read'))
-      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$wchar) / td), category='written'))
+      if (dim(d)[1] > 50) {
+        print(c(dim(d), n))
+        td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$rchar) / td), category='read'))
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$wchar) / td), category='written'))
+      }
     }
   
     p1 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="bytes per s", desc=paste("I/O metrics", title, sep=" "))
@@ -540,9 +541,12 @@ prepareOSMetrics4nodes <- function (nodes, target, title) {
       #if (! is.null(osmetrics$delay[n])) { recDelay <- osmetrics$delay[n] }
       # extract node's data and sort it by the 'time' column:
       d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
-      td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
-      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$utime) / td), category='CPU (user time)'))
-      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$stime) / td), category='CPU (kernel time)'))
+      if (dim(d)[1] > 50) {
+        print(c(dim(d), n))
+        td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$utime) / td), category='CPU (user time)'))
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=append(0,diff(d$stime) / td), category='CPU (kernel time)'))
+      }
     }
   
     p2 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="single CPU %", desc=paste("CPU metrics", title, sep=" "))
@@ -553,13 +557,33 @@ prepareOSMetrics4nodes <- function (nodes, target, title) {
     for (n in nodes) {
       # extract node's data and sort it by the 'time' column:
       d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
-      plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=(d$rss / 1024), category='memory (RSS)'))
+      if (dim(d)[1] > 50) {
+        print(c(dim(d), n))
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=(d$rss / 1024), category='memory (RSS)'))
+      }
     }
   
     p3 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="kilobytes", desc=paste("Memory usage", title, sep=" "))
     ggsave(paste('os-mem-', target, "-", RUN, '.png', sep=''))
 
-    list(p1,p2,p3);
+  # prepare plot data (read bytes / sys. calls, wbytes / sys. calls)
+    plotdata <- {}
+    for (n in nodes) {
+      d <- osmetrics$io %>% filter(nodename == n) %>% arrange_all(c(time))
+      if (dim(d)[1] > 50) {
+        print(c(dim(d), n))
+        td <- d$time[2:length(d$time)] - d$time[1:length(d$time)-1]
+        tr <- append(0,diff(d$syscr) / td) #d$rchar / d$syscr
+        tw <- append(0,diff(d$syscw) / td) #d$wchar / d$syscw
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=tr, category='read syscalls'))
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=tw, category='write syscalls'))
+      }
+    }
+
+    p4 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="syscalls per second", desc=paste("I/O work", title, sep=" "))
+    ggsave(paste('os-io-work-', target, "-", RUN, '.png', sep=''))
+
+    list(p1,p2,p3,p4);
   }
 }
 

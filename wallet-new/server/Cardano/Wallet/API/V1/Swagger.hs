@@ -454,6 +454,16 @@ The full list of accepted mnemonic codes to secure a wallet is defined by the BI
 specifications and available [here](https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt).
 
 
+Disable TLS (Not Recommended)
+-----------------------------
+
+All API endpoints in this document have a `Try it out` button which produce a `curl` command
+that can be used to make a request to the wallet. These `curl` commands do not use TLS options
+so ensure that you have turned off TLS when running these examples. You can disable TLS by
+providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug`
+turned on.
+
+
 Versioning & Legacy
 -------------------
 

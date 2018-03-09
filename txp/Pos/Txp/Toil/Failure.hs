@@ -170,10 +170,20 @@ instance Buildable WitnessVerFailure where
 
 -- | Result of checking transaction output.
 data TxOutVerFailure
-    -- | The output of a transaction doesn't pass validation
-    = TxOutVerFailure
+    -- | Not all attributes for the output are known
+    = TxOutUnknownAttributes Address
+    -- | Can't send to an address with unknown type
+    | TxOutUnknownAddressType Address
+    -- | Can't send to a redeem address
+    | TxOutRedeemAddressProhibited Address
     deriving (Show, Eq, Generic, NFData)
 
 instance Buildable TxOutVerFailure where
-    build TxOutVerFailure = 
-        bprint "outputs are invalid"
+    build (TxOutUnknownAttributes addr) =
+        bprint ("address "%addressF%" has unknown attributes") addr
+    build (TxOutUnknownAddressType addr) =
+        bprint ("sends money to an addresss with unknown type ("
+                %addressF%"), this is prohibited") addr
+    build (TxOutRedeemAddressProhibited addr) =
+        bprint ("sends money to a redeem address ("
+                %addressF%"), this is prohibited") addr

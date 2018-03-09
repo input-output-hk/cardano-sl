@@ -200,6 +200,20 @@ $errors
     , T.decodeUtf8 $ BL.toStrict $ encode err
     ]
 
+
+-- | Shorter version of the doc below, only for Dev & V0 documentations
+highLevelShortDescription :: DescriptionEnvironment -> T.Text
+highLevelShortDescription DescriptionEnvironment{..} = [text|
+This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)
+spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
+
+Software Version | Git Revision
+-----------------|-------------------
+$deGitRevision   | $deSoftwareVersion
+|]
+
+
+-- | Provide additional insights on V1 documentation
 highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)
@@ -498,12 +512,13 @@ data DescriptionEnvironment = DescriptionEnvironment
 api :: HasSwagger a
     => (CompileTimeInfo, SoftwareVersion)
     -> Proxy a
+    -> (DescriptionEnvironment -> T.Text)
     -> Swagger
-api (compileInfo, curSoftwareVersion) walletAPI = toSwagger walletAPI
+api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
-  & info.version .~ "2.0"
+  & info.version .~ "1.0"
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (highLevelDescription $ DescriptionEnvironment
+  & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))

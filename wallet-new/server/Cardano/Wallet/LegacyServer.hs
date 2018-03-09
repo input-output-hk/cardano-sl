@@ -26,9 +26,9 @@ walletServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
              -> Server WalletAPI
 walletServer natV0 diffusion = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
   where
-    v0DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API)
+    v0DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API Swagger.highLevelShortDescription)
     v0Hdl    = V0.handlers natV0 diffusion
-    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
+    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
     v1Hdl    = V1.handlers natV0 diffusion
 
 
@@ -39,6 +39,6 @@ walletDevServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
              -> Server WalletDevAPI
 walletDevServer natV0 diffusion runMode = devDocHdl :<|> devHdl :<|> walletHdl
   where
-    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI)
+    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
     devHdl    = Dev.handlers natV0 runMode
     walletHdl = walletServer natV0 diffusion

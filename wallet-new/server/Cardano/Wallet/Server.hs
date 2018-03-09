@@ -32,7 +32,7 @@ walletServer w = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
     -- make this very easy at the moment.
     v0DocHdl = error "V0 API no longer supported"
     v0Hdl    = v0DocHdl
-    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API)
+    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
     v1Hdl    = V1.handlers w
 
 
@@ -42,6 +42,6 @@ walletDevServer :: (HasCompileInfo, HasUpdateConfiguration)
              -> Server WalletDevAPI
 walletDevServer w runMode = devDocHdl :<|> devHdl :<|> walletHdl
   where
-    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI)
+    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
     devHdl    = Dev.handlers runMode
     walletHdl = walletServer w

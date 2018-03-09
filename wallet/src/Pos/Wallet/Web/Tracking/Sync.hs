@@ -41,7 +41,7 @@ import           Data.List                        ((!!))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
-import           Formatting                       (build, sformat, (%))
+import           Formatting                       (build, sformat, (%), shown)
 import           Serokell.Util                    (enumerate)
 import           System.Wlog                      (HasLoggerName, WithLogger, logError,
                                                    logInfo, logWarning, modifyLoggerName)
@@ -139,6 +139,7 @@ txMempoolToModifier ws (txs, undoMap) encSK = do
             let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
             logError errMsg
             throwM $ InternalError errMsg
+    logInfo $ sformat ("txMempoolToModifier: txsWUndo are " % shown) txsWUndo
 
     tipH <- DB.getTipHeader @WalletSscType
     let allAddresses = getWalletAddrMetas ws Ever wId

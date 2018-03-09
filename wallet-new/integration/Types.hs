@@ -26,7 +26,8 @@ import Universum
 
 import Control.Lens (makeLenses)
 
-import Cardano.Wallet.API.V1.Types (Wallet)
+import Cardano.Wallet.API.V1.Types (Wallet, Account)
+import Cardano.Wallet.Client (ClientError (..))
 
 import Error
 
@@ -54,7 +55,11 @@ createProbability prob
 data Action
     = CreateWallet
     | GetWallet
+
     | CreateAccount
+    | GetAccounts
+    | GetAccount
+
     | CreateTransaction
     | GetTransaction
     deriving (Show, Eq)
@@ -71,8 +76,8 @@ type ActionProbabilities = [(Action, Probability)]
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { _wallets       :: [Wallet]
-    , _actionsNum    :: Int
+    { _wallets          :: [Wallet]
+    , _actionsNum       :: Int
     } deriving (Show, Eq, Generic)
 
 
@@ -96,9 +101,18 @@ type ActionWalletState = (WalletState, ActionProbabilities)
 -- down significantly. Since we don't have a lot of time,
 -- I just keep the options open (there are other ideas as well).
 data TestResult
-    = NewWalletResult Wallet
-    | ErrorResult Text
-    deriving (Show, Eq)
+    = CreateWalletResult Wallet
+    | GetWalletResult Wallet
+
+    | CreateAccountResult Account
+    | GetAccountsResult [Account]
+    | GetAccountResult Account
+
+--    | CreateTransactionResult Tx
+--    | GetTransactionResult Tx
+
+    | ErrorResult ClientError
+    deriving (Show)
 
 
 -- | This is helpful.

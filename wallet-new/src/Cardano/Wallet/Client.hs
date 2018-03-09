@@ -67,8 +67,12 @@ data WalletClient m
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
     -- account endpoints
+    , postAccount
+         :: New Account -> Resp m Account
     , deleteAccount
          :: WalletId -> AccountIndex -> Resp m ()
+    , getAccounts
+         :: WalletId -> Resp m [Account]
     , getAccount
          :: WalletId -> AccountIndex -> Resp m Account
     , getAccountIndexPaged
@@ -112,7 +116,9 @@ hoistClient phi wc = WalletClient
     , deleteWallet          = phi . deleteWallet wc
     , getWallet             = phi . getWallet wc
     , updateWallet          = \x -> phi . updateWallet wc x
+    , postAccount           = phi . postAccount wc
     , deleteAccount         = \x -> phi . deleteAccount wc x
+    , getAccounts           = phi . getAccounts wc
     , getAccount            = \x -> phi . getAccount wc x
     , getAccountIndexPaged  = \x mp -> phi . getAccountIndexPaged wc x mp
     , updateAccount         = \x y -> phi . updateAccount wc x y
@@ -149,3 +155,5 @@ data ClientError
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
+    deriving (Show)
+

@@ -6,6 +6,7 @@ import           Cardano.Wallet.API.V1.Errors (WalletError)
 import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
+import qualified Cardano.Wallet.Util as Util
 import           Data.Aeson
 import           Data.Typeable (typeRep)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
@@ -16,6 +17,7 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
+import qualified Test.QuickCheck.Property as Property
 
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
@@ -57,6 +59,9 @@ spec = describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @PaymentDistribution @(V0.CId V0.Addr, Core.Coin) Proxy Proxy
         migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
 
+        -- Other roundtrips
+        generalRoundtripProp "UTC time" Util.showApiUtcTime Util.parseApiUtcTime
+
     describe "Invariants" $ do
         describe "password" $ do
             it "empty string decodes to empty password" $
@@ -89,6 +94,20 @@ aesonRoundtripProp
     => proxy a -> Spec
 aesonRoundtripProp proxy =
     prop ("Aeson " <> show (typeRep proxy) <> " roundtrips") (aesonRoundtrip proxy)
+
+generalRoundtrip
+    :: (Arbitrary from, Eq from, Show from, Show e)
+    => (from -> to) -> (to -> Either e from) -> Property
+generalRoundtrip generalEncode generalDecode = property $ \a ->
+    case generalDecode (generalEncode a) of
+        Right a' -> a === a'
+        Left e   -> property Property.failed{ Property.reason = show e }
+
+generalRoundtripProp
+    :: (Arbitrary from, Eq from, Show from, Show e)
+    => String -> (from -> to) -> (to -> Either e from) -> Spec
+generalRoundtripProp desc generalEncode generalDecode =
+    prop (desc <> " roundtrip") $ generalRoundtrip generalEncode generalDecode
 
 decodesTo :: (FromJSON a, Show a) => LByteString -> (a -> Bool) -> Expectation
 decodesTo s p = either expectationFailure (`shouldSatisfy` p) $ eitherDecode s

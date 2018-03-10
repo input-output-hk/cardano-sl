@@ -8,20 +8,21 @@ module Cardano.Wallet.API.Request.Sort where
 import qualified Prelude
 import           Universum
 
-import           Cardano.Wallet.API.Indices
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
-
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
-import           Pos.Core as Core
 import           Servant
+import           Servant.Client
 import           Servant.Server.Internal
+
+import           Pos.Core as Core
+import           Cardano.Wallet.API.Indices
+import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 
 -- | Represents a sort operation on the data model.
 -- Examples:
@@ -144,3 +145,13 @@ parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
                ("DES[", "]", True) -> Just $ SortByIndex SortDescending ix
                (_, _, True)        -> Just $ SortByIndex SortDescending ix -- default sorting.
                _                   -> Nothing
+
+instance (HasClient m next) => HasClient m (SortBy syms res :> next) where
+    type Client m (SortBy syms res :> next) = SortOperations res -> Client m next
+    clientWithRoute pm _ req sortOperations =
+        clientWithRoute pm (Proxy @next) (incorporate sortOperations)
+      where
+        -- TODO: implement this
+        incorporate _ = req
+
+

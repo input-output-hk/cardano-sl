@@ -2,21 +2,25 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE RankNTypes                #-}
+
 module Cardano.Wallet.API.Request.Filter where
 
 import qualified Prelude
 import           Universum
 
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
+import           Servant.Client
+import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Indices
+import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
@@ -30,7 +34,7 @@ import           Servant.Server.Internal
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix)
+    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix)
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
@@ -54,6 +58,14 @@ data FilterOrdering =
     | LesserThanEqual
     deriving (Show, Eq)
 
+renderFilterOrdering :: FilterOrdering -> Text
+renderFilterOrdering = \case
+    Equal -> "EQ"
+    GreaterThan -> "GT"
+    GreaterThanEqual -> "GTE"
+    LesserThan -> "LT"
+    LesserThanEqual -> "LTE"
+
 -- A filter operation on the data model
 data FilterOperation ix a =
       FilterByIndex ix
@@ -64,6 +76,13 @@ data FilterOperation ix a =
     -- ^ Filter by range, in the form [from,to]
     | FilterIdentity
     -- ^ Do not alter the resource.
+
+renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
+renderFilterOperation = \case
+    FilterByIndex ix -> toQueryParam ix
+    FilterByPredicate p ix -> mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
+    FilterByRange lo hi  -> mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+    FilterIdentity -> ""
 
 instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
@@ -93,25 +112,21 @@ instance ( Indexable' a
          , IsIndexOf' a ix
          , ToIndex a ix
          , ToFilterOperations ixs a
+         , ToHttpApiData ix
+         , FromHttpApiData ix
          )
          => ToFilterOperations (ix ': ixs) a where
-  toFilterOperations req [] _     =
-      let newOp = FilterIdentity
-      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req [] (Proxy :: Proxy ixs))
-  toFilterOperations req (x:xs) _ =
-      case List.lookup x (parseQueryText $ rawQueryString req) of
-          Nothing       ->
-              let newOp = FilterIdentity
-              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-          Just Nothing  ->
-              let newOp = FilterIdentity
-              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-          Just (Just v) ->
-              case parseFilterOperation (Proxy @a) (Proxy @ix) v of
-                  Left _      ->
-                      let newOp = FilterIdentity
-                      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-                  Right newOp -> newOp `FilterOp` toFilterOperations req xs (Proxy @ ixs)
+    toFilterOperations req [] _     =
+        let newOp = FilterIdentity
+        in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req [] (Proxy :: Proxy ixs))
+    toFilterOperations req (x:xs) _ =
+        fromMaybe rest $ do
+            v <- join . List.lookup x . parseQueryText $ rawQueryString req
+            op <- hush $ parseFilterOperation (Proxy @a) (Proxy @ix) v
+            pure (FilterOp op rest)
+      where
+        rest = toFilterOperations req xs (Proxy @ ixs)
+        hush = either (const Nothing) Just
 
 instance ( HasServer subApi ctx
          , FilterParams syms res ~ ixs
@@ -175,3 +190,19 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
         case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
             (_, "")    -> Nothing
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+
+instance
+    ( FilterParams syms res ~ ixs
+    , KnownSymbols syms
+    , ToFilterOperations ixs res
+    , SOP.All (ToIndex res) ixs
+    , HasClient m next
+    )
+    => HasClient m (FilterBy syms res :> next) where
+    type Client m (FilterBy syms res :> next) = FilterOperations res -> Client m next
+    clientWithRoute pm _ req filterOperations =
+        clientWithRoute pm (Proxy @next) (incorporate filterOperations)
+      where
+        -- TODO: implement this
+        incorporate _ = req
+

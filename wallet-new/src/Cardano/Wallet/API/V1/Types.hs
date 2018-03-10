@@ -272,7 +272,7 @@ instance ToJSON (V1 Core.Timestamp) where
 -- | Parses from both UTC time in 'apiTimeFormat' format.
 instance FromJSON (V1 Core.Timestamp) where
     parseJSON = withText "UTC time" $ \t -> do
-        utcTime <- parseApiUtcTime t
+        utcTime <- either (fail . show) pure $ parseApiUtcTime t
         pure . V1 $ utcTime ^. from Core.timestampToUTCTimeL
 
 instance Arbitrary (V1 Core.Timestamp) where

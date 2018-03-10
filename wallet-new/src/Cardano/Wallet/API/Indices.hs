@@ -44,7 +44,7 @@ instance ToIndex Transaction Core.Timestamp where
     toIndex _ x = utcTimeParser x <|> timePosixParser x
       where
         utcTimeParser t = do
-            utcTime <- parseApiUtcTime t
+            utcTime <- either (fail . show) pure $ parseApiUtcTime t
             return $ utcTime ^. Lens.from Core.timestampToUTCTimeL
         timePosixParser t =
             view (Lens.from Core.timestampSeconds) <$> readMaybe @Double (toS t)

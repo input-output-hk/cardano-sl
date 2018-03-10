@@ -101,7 +101,8 @@ library
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
 
-  other-modules:        Paths_cardano_sl_wallet
+  other-modules:      Paths_cardano_sl_wallet
+                      Pos.Wallet.Web.Server.Handlers.Internal
 
   build-depends:        QuickCheck
                       , acid-state

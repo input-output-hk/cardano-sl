@@ -44,16 +44,19 @@ import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
+import qualified System.Process.Internals as Process
 import           System.Timeout (timeout)
 import           System.Wlog (LoggerName, logError, logInfo, logNotice, logWarning, usingLoggerName)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
+import           System.Win32.Process (getProcessId)
+import           System.Win32.Console (generateConsoleCtrlEvent,
+                                       cTRL_C_EVENT)
 import qualified System.IO.Silently as Silently
 #else
 import           System.Posix.Signals (sigKILL, signalProcess)
-import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
@@ -480,7 +483,7 @@ clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report wal
   where
     killNode nodeHandle nodeAsync = do
         logInfo "Killing the node"
-        liftIO (tryAny (Process.terminateProcess nodeHandle)) >>= \case
+        liftIO (tryAny (stopProcess nodeHandle)) >>= \case
             Right _ -> pass
             Left ex -> logError $ "'terminateProcess' failed: " <> show ex
         cancel nodeAsync
@@ -490,7 +493,7 @@ clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report wal
             Process.waitForProcess nodeHandle
         whenNothing_ nodeExitCode $ do
             logWarning "The node didn't die after 'terminateProcess'"
-            maybeTrySIGKILL nodeHandle
+            killProcess nodeHandle
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
@@ -719,9 +722,9 @@ system' phvar p sl nt = liftIO (do
                 return True )
     let close' (Just hIn, ph) = do
             close hIn
-            Process.terminateProcess ph
+            stopProcess ph
         close' (Nothing , ph) = do
-            Process.terminateProcess ph
+            stopProcess ph
 
     let handle_ (Just hIn, ph) = do
             let feedIn :: (forall a. IO a -> IO a) -> IO ()
@@ -753,14 +756,41 @@ ignoreSIGPIPE = handle (\ex -> case ex of
     _ -> throwM ex )
 
 ----------------------------------------------------------------------------
+-- SIGTERM
+
+-- generateConsoleCtrlEvent was used as a conditional counterpart of SIGTERM in Windows
+
+----------------------------------------------------------------------------
+
+stopProcess :: ProcessHandle -> IO ()
+stopProcess _h = do
+#ifdef mingw32_HOST_OS
+    pid <- getPid _h
+    case pid of
+      Nothing -> return ()
+      Just pD -> generateConsoleCtrlEvent cTRL_C_EVENT pD
+    where
+      getPid (Process.ProcessHandle mh _) = do
+        p_ <- readMVar mh
+        case p_ of
+          Process.OpenHandle h -> do
+            pid <- getProcessId h
+            return $ Just pid
+          _ -> return Nothing
+#else
+    Process.terminateProcess _h
+#endif
+
+----------------------------------------------------------------------------
 -- SIGKILL
 ----------------------------------------------------------------------------
 
 -- | If we're on Linux or macOS, send a SIGKILL to a process.
-maybeTrySIGKILL :: ProcessHandle -> M ()
-maybeTrySIGKILL _h = do
+killProcess :: ProcessHandle -> M ()
+killProcess _h = do
 #ifdef mingw32_HOST_OS
-    logInfo "Not trying to send a SIGKILL because we're on Windows"
+    logInfo "Process terminated"
+    liftIO $ Process.terminateProcess _h
 #else
     logInfo "Sending SIGKILL"
     liftIO $ Process.withProcessHandle _h $ \case

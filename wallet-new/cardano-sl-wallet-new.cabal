@@ -298,7 +298,7 @@ test-suite wallet-unit-tests
                     , universum
                     , unordered-containers
 
-test-suite wallet-new-specs
+test-suite wn-spec
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   main-is:          Spec.hs

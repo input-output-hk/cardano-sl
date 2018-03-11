@@ -239,6 +239,7 @@ executable cardano-launcher
                      , universum
                      , unordered-containers
                      , yaml
+                     , vector
   if !os(windows)
     build-depends:     unix
   default-language:    Haskell2010

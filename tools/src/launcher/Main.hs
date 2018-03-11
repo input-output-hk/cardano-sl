@@ -20,7 +20,7 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object, String), genericParseJSON, withObject)
 -- import           Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
@@ -30,6 +30,7 @@ import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
+import           Data.Vector (fromList)
 import qualified Data.Yaml as Y
 import           Distribution.System (buildOS, OS(..))
 import           Formatting (build, int, sformat, shown, stext, string, (%))
@@ -128,9 +129,21 @@ data NodeData = NodeData
 
 data UpdaterData = WindowsUpdaterData WinUD | OSXUpdaterData OsxUD | UnsupportedOSUpdateData deriving (Generic)
 
-instance FromJSON UpdaterData
-instance FromJSON WinUD
-instance FromJSON OsxUD
+instance FromJSON UpdaterData where
+    parseJSON = genericParseJSON defaultOptions
+
+instance FromJSON WinUD where
+    parseJSON = withObject "windowsUpdaterData" $ \o ->
+        genericParseJSON defaultOptions $ Object $
+            o <> HM.fromList
+                [ ("args", Array mempty)]
+instance FromJSON OsxUD where
+    parseJSON = withObject "updaterData" $ \o ->
+        genericParseJSON defaultOptions $ Object $
+            o <> HM.fromList
+                [ ("args",     Array (fromList [(String "-- FW")]))
+                , ("openPath", String "/usr/bin/open")
+                ]
 
 data WinUD = WinUD 
     { wudExePath :: !FilePath -- installer executable (e. g. Installer.exe).
@@ -224,7 +237,11 @@ getLauncherOptions = do
     defaultConfigPath :: IO FilePath
     defaultConfigPath = do
         launcherDir <- takeDirectory <$> getExecutablePath
-        pure $ launcherDir </> "launcher-config.yaml"
+        pure $ launcherDir </> case buildOS of
+            Windows -> "launcher-config-win.yaml"
+            OSX -> "launcher-config-osx.yaml"
+            -- It will be catched in `runUpdater`
+            _ -> "launcher-config-osx.yaml"
 
     -- Poor man's environment variable expansion.
     expandVars :: LauncherOptions -> IO LauncherOptions
@@ -243,7 +260,8 @@ getLauncherOptions = do
                     { wudExePath = replaceAppdata wudExePath
                     , wudBatPath = replaceAppdata wudBatPath
                     }
-                replaceUpdaterAppdata _ = error "Can not expand %APPDATA%"
+                -- It would be catched durind path check in `runUpdater`
+                replaceUpdaterAppdata unexpandeble = unexpandeble
 
             pure lo
                 { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
@@ -259,7 +277,8 @@ getLauncherOptions = do
             let replaceHome = replace "$HOME" home
                 replaceUpdaterHome (OSXUpdaterData oud@OsxUD {..}) = OSXUpdaterData oud 
                     { oudPkgPath = replaceHome oudPkgPath}
-                replaceUpdaterHome _ = error "Can not expand $HOME"
+                -- It would be catched durind path check in `runUpdater`
+                replaceUpdaterHome unexpandeble = unexpandeble
 
             pure lo
                 { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs

@@ -29,6 +29,8 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @(V1 BackupPhrase) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
+        aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
+        aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
@@ -36,6 +38,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @(V1 Core.Coin) Proxy
         aesonRoundtripProp @(V1 Crypto.PassPhrase) Proxy
         aesonRoundtripProp @(V1 InputSelectionPolicy) Proxy
+        aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
         aesonRoundtripProp @WalletError Proxy

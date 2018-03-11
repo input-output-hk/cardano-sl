@@ -94,6 +94,9 @@ extra-deps:
   subdirs:
   - cborg
 # acid-state (required for Pos.Wallet.Web)
+# - git: https://github.com/serokell/acid-state.git
+#   commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
+# - ../acid-state
 - git: https://github.com/serokell/acid-state.git
   commit: 1049699df411c9584523ba7424cba1f3f82ac419
 ## kademlia; P2P discovery
@@ -126,11 +129,6 @@ extra-deps:
 
 - git: https://github.com/well-typed/canonical-json.git
   commit: 2d261bb971bada1893753b503452d9e6e217bc4a
-
-# Required due to conduit bump
-# See https://github.com/alphaHeavy/lzma-conduit/pull/18
-- git: https://github.com/serokell/lzma-conduit.git
-  commit: 0f6a8754bcd97c701465d71f4a0ad83f2c11aaf4
 
 # I don't think making a PR to servant is a good idea at this point
 - git: https://github.com/serokell/servant.git

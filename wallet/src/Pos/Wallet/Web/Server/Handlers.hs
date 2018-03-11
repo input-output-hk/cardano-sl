@@ -10,21 +10,15 @@ module Pos.Wallet.Web.Server.Handlers
 
 import           Universum
 
-import           Pos.Wallet.Web.Swagger.Spec             (swaggerSpecForWalletApi)
-import           Servant.API                             ((:<|>) ((:<|>)))
-import           Servant.Generic                         (AsServerT, GenericProduct, ToServant,
-                                                          toServant)
-import           Servant.Server                          (Handler, Server, ServerT, hoistServer)
-import           Servant.Swagger.UI                      (swaggerSchemaUIServer)
+import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
+import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Server (Handler, Server, ServerT, hoistServer)
+import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
-import           Pos.Core.Txp                            (TxAux)
-import           Pos.Update.Configuration                (curSoftwareVersion)
+import           Pos.Core.Txp (TxAux)
 
-import           Pos.Wallet.WalletMode                   (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account                  (GenSeed (RandomSeed))
-import qualified Pos.Wallet.Web.Api                      as A
-import qualified Pos.Wallet.Web.Methods                  as M
-import           Pos.Wallet.Web.Mode                     (MonadFullWalletWebMode)
+import qualified Pos.Wallet.Web.Api as A
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 
 import           Pos.Wallet.Web.Server.Handlers.Internal
 
@@ -62,4 +56,3 @@ servantHandlers submitTx = toServant' A.WalletApiRecord
     , _info        = infoHandlers
     , _system      = systemHandlers
     }
-

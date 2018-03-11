@@ -4,6 +4,7 @@ license:             MIT
 license-file:        LICENSE
 category:            Network
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.20
 
 flag benchmarks

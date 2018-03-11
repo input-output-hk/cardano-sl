@@ -22,6 +22,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurat
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
@@ -31,7 +32,7 @@ import           Pos.Wallet.Web.State (flushWalletStorage)
 import           Servant.Swagger (HasSwagger)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
-import           Cardano.Wallet.API (publicAPI, walletAPI)
+import           Cardano.Wallet.API (walletAPI)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
@@ -40,6 +41,8 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
                                             getWalletNodeOptions, isDebugMode, walletDbPath,
                                             walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
+
+import           Cardano.Wallet.API.V1.Swagger ()
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
@@ -138,9 +141,8 @@ startEdgeNode WalletStartupOptions{..} =
       (sscParams, nodeParams) <- getParameters
       case wsoWalletBackendParams of
         WalletLegacy legacyParams -> do
-          if isDebugMode $ walletRunMode legacyParams
-              then generateSwaggerDocumentation walletAPI
-              else generateSwaggerDocumentation publicAPI
+          when (isDebugMode $ walletRunMode legacyParams) $
+              generateSwaggerDocumentation walletAPI
           actionWithWallet sscParams nodeParams legacyParams
         WalletNew newParams ->
           actionWithNewWallet sscParams nodeParams newParams
@@ -181,9 +183,9 @@ generateSwaggerDocumentation api = liftIO $ do
 -- | The main entrypoint for the Wallet.
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
-  cfg <- getWalletNodeOptions
-  putTextLn "Wallet is starting..."
-  let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)
-  loggerBracket loggingParams . runProduction $ do
-    logInfo "[Attention] Software is built with the wallet backend"
-    startEdgeNode cfg
+    cfg <- getWalletNodeOptions
+    putText "Wallet is starting..."
+    let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)
+    loggerBracket loggingParams . logException "node" . runProduction $ do
+        logInfo "[Attention] Software is built with the wallet backend"
+        startEdgeNode cfg

@@ -23,17 +23,17 @@ module Pos.Wallet.Web.Server.Handlers.Internal
 
 import           Universum
 
-import           Servant.Generic          (AsServerT, GenericProduct, ToServant, toServant)
-import           Servant.Server           (ServerT)
+import           Servant.Generic (AsServerT, GenericProduct, ToServant, toServant)
+import           Servant.Server (ServerT)
 
-import           Pos.Core.Txp             (TxAux)
+import           Pos.Core.Txp (TxAux)
 import           Pos.Update.Configuration (curSoftwareVersion)
 
-import           Pos.Wallet.WalletMode    (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account   (GenSeed (RandomSeed))
-import qualified Pos.Wallet.Web.Api       as A
-import qualified Pos.Wallet.Web.Methods   as M
-import           Pos.Wallet.Web.Mode      (MonadFullWalletWebMode)
+import           Pos.Wallet.WalletMode (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
+import qualified Pos.Wallet.Web.Api as A
+import qualified Pos.Wallet.Web.Methods as M
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 
 -- branches of the API
 

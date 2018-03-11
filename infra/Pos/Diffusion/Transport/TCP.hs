@@ -9,7 +9,7 @@ import           Universum
 
 import           Data.Time.Units (Microsecond)
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (WithLogger, logError, usingLoggerName, askLoggerName)
+import           System.Wlog (WithLogger, askLoggerName, logError, logInfo, usingLoggerName)
 
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT (closeTransport)
@@ -58,8 +58,11 @@ createTransportTCP connectionTimeout addrInfo = do
                          logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <- liftIO $ TCP.createTransport addrInfo tcpParams
+    let closeTransport transport = do
+            logInfo "Closing transport"
+            liftIO $ NT.closeTransport transport
     case transportE of
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
             throwM e
-        Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
+        Right transport -> return (concrete transport, closeTransport transport)

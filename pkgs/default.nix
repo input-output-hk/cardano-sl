@@ -7194,9 +7194,10 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, base, bytestring, cardano-sl-binary
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-util
          , concurrent-extra, conduit, containers, cpphs, data-default
-         , directory, ether, filepath, formatting, lens, memory, mmorph
-         , monad-control, mtl, resourcet, rocksdb-haskell-ng, serokell-util
-         , stdenv, text-format, transformers, universum, unliftio
+         , directory, ether, filepath, formatting, lens, log-warper, memory
+         , mmorph, monad-control, mtl, resourcet, rocksdb-haskell-ng
+         , serokell-util, stdenv, text-format, transformers, universum
+         , unliftio
          }:
          mkDerivation {
            pname = "cardano-sl-db";
@@ -7205,7 +7206,7 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-util concurrent-extra conduit containers data-default
-             directory ether filepath formatting lens memory mmorph
+             directory ether filepath formatting lens log-warper memory mmorph
              monad-control mtl resourcet rocksdb-haskell-ng serokell-util
              text-format transformers universum unliftio
            ];

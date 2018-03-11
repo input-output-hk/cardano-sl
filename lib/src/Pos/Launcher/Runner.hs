@@ -23,6 +23,7 @@ import           JsonLog (jsonLog)
 import           Mockable (race)
 import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
+import           System.Wlog (logDebug)
 
 import           Pos.Binary ()
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
@@ -128,10 +129,12 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
+    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer -> do
+        logDebug "Created logic layer"
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
+                logDebug "Created diffusion layer"
                 when npEnableMetrics (registerEkgMetrics ekgStore)
                 runLogicLayer logicLayer $
                     runDiffusionLayer diffusionLayer $
@@ -141,6 +144,7 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
                     act (diffusion diffusionLayer)
   where
     exitOnShutdown action = do
+        logDebug "Racing with 'waitForShutdown'"
         _ <- race waitForShutdown action
         exitWith (ExitFailure 20) -- special exit code to indicate an update
     tcpAddr = ncTcpAddr npNetworkConfig

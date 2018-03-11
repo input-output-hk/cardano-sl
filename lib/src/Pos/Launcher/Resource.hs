@@ -174,9 +174,11 @@ allocateNodeResources networkConfig np@NodeParams {..} sscnp txpSettings initDB 
 releaseNodeResources ::
        NodeResources ext -> Production ()
 releaseNodeResources NodeResources {..} = do
+    logInfo "Releasing node resources..."
     whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
     releaseNodeContext nrContext
+    logInfo "Released node resources..."
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.

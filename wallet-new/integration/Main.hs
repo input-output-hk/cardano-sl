@@ -1,19 +1,31 @@
 module Main where
 
-import Universum
+import           Universum
 
-import Cardano.Wallet.Client (WalletClient (..))
+import           Cardano.Wallet.Client (WalletClient (..))
+import           System.IO (hSetEncoding, stdout, utf8)
 
-import Types
-import Functions
+import           CLI
+import           Functions
+import           Types
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
 main :: IO ()
 main = do
-    -- Formatting
-    putStrLn ("Starting the integration testing for wallet." :: Text)
-    putStrLn ("The node should be running." :: Text)
+
+    hSetEncoding stdout utf8
+    CLOptions {..} <- getOptions
+
+    _pubCert <- readFile tlsPubCertPath
+    _privKey <- readFile tlsPrivKeyPath
+    -- stateless
+
+    printT "Starting the integration testing for wallet."
+
+    when stateless $
+        printT "The wallet test node is running in stateless mode."
+        printT "Stateless mode not implemented currently!"
 
     let actionDistribution = [ (CreateWallet, createProbability 50)
                              , (GetWallet, createProbability 50)
@@ -31,4 +43,5 @@ main = do
         actionDistribution
 
     pure ()
+
 

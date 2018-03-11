@@ -1,6 +1,7 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE StrictData      #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Types
     ( Probability
@@ -9,27 +10,18 @@ module Types
     , Action (..)
     , WalletState (..)
     , wallets
+    , accounts
     , actionsNum
-    , TestResult (..)
     , ActionWalletState
     , ActionProbabilities
     , WalletTestMode
-    -- * EDSL
-    , Expr (..)
-    , createActionDistribution
-    , createActionHandler
-    , createActionError
-    , testEval
     ) where
 
-import Universum
+import           Universum
 
-import Control.Lens (makeLenses)
+import           Control.Lens (makeLenses)
 
-import Cardano.Wallet.API.V1.Types (Wallet, Account)
-import Cardano.Wallet.Client (ClientError (..))
-
-import Error
+import           Cardano.Wallet.API.V1.Types (Account, Wallet)
 
 
 type WalletTestMode m =
@@ -54,11 +46,16 @@ createProbability prob
 -- | Actions that can be called from the test.
 data Action
     = CreateWallet
+    | GetWallets
     | GetWallet
 
     | CreateAccount
     | GetAccounts
     | GetAccount
+
+    | CreateAddress
+    | GetAddresses
+    | GetAddress
 
     | CreateTransaction
     | GetTransaction
@@ -76,8 +73,9 @@ type ActionProbabilities = [(Action, Probability)]
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { _wallets          :: [Wallet]
-    , _actionsNum       :: Int
+    { _wallets    :: [Wallet]
+    , _accounts   :: [Account]
+    , _actionsNum :: Int
     } deriving (Show, Eq, Generic)
 
 
@@ -88,62 +86,5 @@ makeLenses ''WalletState
 -- with the current @WalletState@ from the client perspective.
 -- Yes, I know, @MonadState@, but we can always switch to that.
 type ActionWalletState = (WalletState, ActionProbabilities)
-
-
--- | The type we use to capture the result of the @Action@.
--- TODO(ks): I have some ideas how to extend this, so I
--- just created a type, it's useless otherwise.
--- For example, we can record the time it took for the endpoint
--- to respond, which will help us measure regressions.
--- The smart thing about this is that it's going to capture
--- regressions non-linearly - by exploring the state space
--- randomly, we may find out some conditions which slow our code
--- down significantly. Since we don't have a lot of time,
--- I just keep the options open (there are other ideas as well).
-data TestResult
-    = CreateWalletResult Wallet
-    | GetWalletResult Wallet
-
-    | CreateAccountResult Account
-    | GetAccountsResult [Account]
-    | GetAccountResult Account
-
---    | CreateTransactionResult Tx
---    | GetTransactionResult Tx
-
-    | ErrorResult ClientError
-    deriving (Show)
-
-
--- | This is helpful.
-type ActionResult = Action -> TestResult
-type Invariant    = [ActionResult -> Bool]
-
-
--- | The EDSL for using this.
-data Expr
-    = ActionDistribution [(Action,Probability)]
-    | ActionHandler Action ActionResult Invariant
-    | ActionError WalletTestError
-    deriving (Generic)
-
-
-createActionDistribution :: [(Action,Probability)] -> Expr
-createActionDistribution = ActionDistribution
-
-
-createActionHandler :: Action -> ActionResult -> Invariant -> Expr
-createActionHandler = ActionHandler
-
-
-createActionError :: WalletTestError -> Expr
-createActionError = ActionError
-
-
--- | Testing evaluation.
-testEval :: Expr -> Text
-testEval (ActionDistribution aDistr) = "ActionDistribution " <> show aDistr
-testEval (ActionHandler action _ _)  = "ActionHandler " <> show action
-testEval (ActionError actionErr)     = "ActionError " <> show actionErr
 
 

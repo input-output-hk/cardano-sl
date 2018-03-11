@@ -28,7 +28,8 @@ runActionCheck
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
     action <- chooseAction actionProb
-    runAction walletClient walletState action
+    result <- runAction walletClient walletState action
+    either throwM pure result
 
 
 -- | Here we run the actions.
@@ -37,18 +38,21 @@ runAction
     => WalletClient m
     -> WalletState
     -> Action
-    -> m WalletState
+    -> m (Either WalletTestError WalletState)
 -- Wallets
 runAction wc ws  CreateWallet = do
     newWallet <- liftIO $ generate arbitrary
     result    <- respToRes $ postWallet wc newWallet
 
-    checkInvariant
-        (walBalance result == minBound)
-        "Wallet balance is not zero."
+    -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (walBalance result == minBound)
+            (Internal "Wallet balance is not zero.")
+
 
     -- Modify wallet state accordingly.
-    pure $ ws
+    pure $ invariant >>= \ws -> pure $ ws
         & wallets    .~ ws ^. wallets <> [result]
         & actionsNum +~ 1
 
@@ -56,12 +60,14 @@ runAction wc ws GetWallets   = do
     -- We choose from the existing wallets.
     result   <- respToRes $ getWallets wc
 
-    checkInvariant
-        (result == ws ^. wallets)
-        "Local wallets differs from server wallets."
+     -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (result == ws ^. wallets)
+            (Internal "Local wallets differs from server wallets.")
 
     -- No modification required.
-    pure $ ws
+    pure $ invariant >>= \ws -> pure $ ws
         & actionsNum +~ 1
 
 runAction wc ws GetWallet    = do
@@ -69,12 +75,14 @@ runAction wc ws GetWallet    = do
     wallet   <- pickRandomElement (ws ^. wallets)
     result   <- respToRes $ getWallet wc (walId wallet)
 
-    checkInvariant
-        (result == wallet)
-        "Local wallet differs from server wallet."
+    -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (result == wallet)
+            (Internal "Local wallet differs from server wallet.")
 
     -- No modification required.
-    pure $ ws
+    pure $ invariant >>= \ws -> pure $ ws
         & actionsNum +~ 1
 
 
@@ -92,12 +100,14 @@ runAction wc ws  CreateAccount = do
     newAccount <- liftIO $ generate generateNewAccount
     result     <- respToRes $ postAccount wc newAccount
 
-    checkInvariant
-        (accAmount result == minBound)
-        "Account balance is not zero."
+    -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (accAmount result == minBound)
+            (Internal "Account balance is not zero.")
 
     -- Modify wallet state accordingly.
-    pure $ ws
+    pure $ invariant >>= \ws -> pure $ ws
         & accounts   .~ ws ^. accounts <> [result]
         & actionsNum +~ 1
   where
@@ -114,12 +124,14 @@ runAction wc ws GetAccounts   = do
     -- We get all the accounts.
     result   <- respToRes $ getAccounts wc walletId
 
-    checkInvariant
-        (result == ws ^. accounts)
-        "Local accounts differ from server accounts."
+    -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (result == ws ^. accounts)
+            (Internal "Local accounts differ from server accounts.")
 
-    --pure $ respToTestResult GetAccountsResult result
-    pure $ ws
+    -- Modify wallet state accordingly.
+    pure $ invariant >>= \ws -> pure $ ws
         & actionsNum +~ 1
 
 runAction wc ws GetAccount    = do
@@ -129,12 +141,14 @@ runAction wc ws GetAccount    = do
 
     result   <- respToRes $ getAccount wc walletId (accIndex account)
 
-    checkInvariant
-        (result == account)
-        "Local account differ from server account."
+    -- TODO(ks): MonadState
+    let invariant = checkInvariant
+            ws
+            (result == account)
+            (Internal "Local account differ from server account.")
 
     -- Modify wallet state accordingly.
-    pure $ ws
+    pure $ invariant >>= \ws -> pure $ ws
         & actionsNum +~ 1
 
 -- Addresses
@@ -177,9 +191,13 @@ pickRandomElement = liftIO . generate . elements
 
 
 -- | A util function for checking the validity of invariants.
-checkInvariant :: (MonadThrow m) => Bool -> Text -> m ()
-checkInvariant True  _    = pure ()
-checkInvariant False desc = throwM $ Internal desc
+checkInvariant
+    :: WalletState
+    -> Bool
+    -> WalletTestError
+    -> Either WalletTestError WalletState
+checkInvariant ws True  _             = Right ws
+checkInvariant _  False walletTestErr = Left walletTestErr
 
 
 -- | Output for @Text@.

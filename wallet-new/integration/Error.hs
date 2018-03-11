@@ -22,5 +22,5 @@ instance Exception WalletTestError
 
 
 instance Buildable WalletTestError where
-    build (Internal msg) = bprint ("Wallet test error ("%stext%")") msg
+    build (Internal msg)           = bprint ("Wallet test error ("%stext%")") msg
     build (ServerConnectionFailed) = bprint "Server connection failed"

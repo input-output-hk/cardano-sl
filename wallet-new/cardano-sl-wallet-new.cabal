@@ -225,7 +225,8 @@ executable cardano-integration-test
                        -Wall
                        -fno-warn-orphans
                        -O2
-  other-modules:       Types
+  other-modules:       CLI
+                       Types
                        Functions
                        Error
   build-depends:       base

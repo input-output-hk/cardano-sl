@@ -63,6 +63,8 @@ data WalletClient m
          :: WalletId -> PasswordUpdate -> Resp m Wallet
     , deleteWallet
          :: WalletId -> Resp m ()
+    , getWallets
+         :: Resp m [Wallet]
     , getWallet
          :: WalletId -> Resp m Wallet
     , updateWallet
@@ -115,6 +117,7 @@ hoistClient phi wc = WalletClient
     , getWalletIndexPaged   = \x -> phi . getWalletIndexPaged wc x
     , updateWalletPassword  = \x -> phi . updateWalletPassword wc x
     , deleteWallet          = phi . deleteWallet wc
+    , getWallets            = phi $ getWallets wc
     , getWallet             = phi . getWallet wc
     , updateWallet          = \x -> phi . updateWallet wc x
     , postAccount           = phi . postAccount wc

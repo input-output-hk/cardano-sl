@@ -16,7 +16,7 @@ import qualified Serokell.Util.Base16 as Base16
 import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupInput)
 
-import           Pos.Core (Address, Coin, coinToInteger, decodeTextAddress, mkCoin, unsafeGetCoin)
+import           Pos.Core (Address, Coin(..), coinToInteger, decodeTextAddress, checkCoin, mkCoin, unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
@@ -137,7 +137,10 @@ instance ToHttpApiData Coin where
     toQueryParam = pretty . coinToInteger
 
 instance FromHttpApiData Coin where
-    parseUrlPiece = fmap mkCoin . parseUrlPiece
+    parseUrlPiece p = do
+        c <- Coin <$> parseQueryParam p
+        checkCoin c
+        pure c
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress

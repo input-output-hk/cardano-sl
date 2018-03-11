@@ -8,8 +8,7 @@ module Cardano.Wallet.Client.Http
 
 import           Universum
 
-import Control.Lens (_Left)
-import           Data.Bifunctor
+import           Control.Lens (_Left)
 import           Network.HTTP.Client (Manager)
 import           Servant ((:<|>) (..), (:>))
 import           Servant.Client (BaseUrl, ClientEnv (..), client, runClientM)

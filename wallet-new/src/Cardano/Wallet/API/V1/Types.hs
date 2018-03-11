@@ -93,6 +93,8 @@ import           Cardano.Wallet.Orphans.Aeson ()
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
+-- importing for orphan instances for Coin
+import Pos.Wallet.Web.ClientTypes.Instances ()
 
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -267,7 +269,10 @@ instance ToJSON (V1 Core.Coin) where
     toJSON (V1 c) = toJSON . Core.unsafeGetCoin $ c
 
 instance FromJSON (V1 Core.Coin) where
-    parseJSON v = V1 . Core.mkCoin <$> parseJSON v
+    parseJSON v = do
+        i <- Core.Coin <$> parseJSON v
+        either (fail . toString) (const (pure (V1 i)))
+            $ Core.checkCoin i
 
 instance Arbitrary (V1 Core.Coin) where
     arbitrary = fmap V1 arbitrary
@@ -707,6 +712,12 @@ instance Arbitrary (V1 Core.TxId) where
 instance ToJSON (V1 Core.TxId) where
   toJSON (V1 t) = String (sformat hashHexF t)
 
+instance FromJSON (V1 Core.TxId) where
+    parseJSON = withText "TxId" $ \t -> do
+       case decodeHash t of
+           Left err -> fail $ "Failed to parse transaction ID: " <> toString err
+           Right a -> pure (V1 a)
+
 instance FromHttpApiData (V1 Core.TxId) where
     parseQueryParam = fmap (fmap V1) decodeHash
 
@@ -775,7 +786,7 @@ data Transaction = Transaction
   , txDirection     :: TransactionDirection
   } deriving (Show, Ord, Eq, Generic)
 
-deriveToJSON Serokell.defaultOptions ''Transaction
+deriveJSON Serokell.defaultOptions ''Transaction
 
 instance ToSchema Transaction where
   declareNamedSchema =
@@ -871,7 +882,6 @@ instance ToSchema Version where
         pure $ NamedSchema (Just "Version") $ mempty
             & type_ .~ SwaggerString
 
-
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
 
@@ -887,6 +897,12 @@ instance ToJSON (V1 Core.SoftwareVersion) where
                , "version" .=  toJSON svNumber
                ]
 
+instance FromJSON (V1 Core.SoftwareVersion) where
+    parseJSON = withObject "V1SoftwareVersion" $ \o -> do
+        V1 svAppName <- o .: "applicationName"
+        svNumber <- o .: "version"
+        pure $ V1 Core.SoftwareVersion{..}
+
 instance ToSchema (V1 Core.SoftwareVersion) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
@@ -900,7 +916,7 @@ instance ToSchema (V1 Core.SoftwareVersion) where
 instance Arbitrary (V1 Core.SoftwareVersion) where
     arbitrary = fmap V1 arbitrary
 
-deriveToJSON Serokell.defaultOptions ''NodeSettings
+deriveJSON Serokell.defaultOptions ''NodeSettings
 
 instance ToSchema NodeSettings where
   declareNamedSchema =

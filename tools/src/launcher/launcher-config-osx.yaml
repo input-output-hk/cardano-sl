@@ -1,0 +1,75 @@
+# Example config for cardano-launcher.
+# Use like so:
+#     stack exec -- cardano-launcher --config /path/to/launcher-config.yaml
+# Arguments to be passed to the wallet frontend executable.
+
+# Bool that determines if wallet should log to stdout.
+# walletLogging: true
+
+# Arguments to be passed to the node.
+nodeArgs:
+  - "--tlscert"
+  - "./scripts/tls-files/server.crt"
+  - "--tlskey"
+  - "./scripts/tls-files/server.key"
+  - "--tlsca"
+  - "./scripts/tls-files/ca.crt"
+  - "--web"
+  - "--no-ntp"
+  - "--topology"
+  - "docs/network/example-topologies/mainnet-staging.yaml"
+  - "--logs-prefix"
+  - "logs/test"
+  - "--wallet-db-path"
+  - "wdb-mainnet-staging"
+  - "--keyfile"
+  - "secret-mainnet-staging.key"
+  - "--configuration-file"
+  - "lib/configuration.yaml"
+  - "--configuration-key"
+  - "mainnet_dryrun_full"
+
+# Path to the wallet frontend executable (e. g. Daedalus).
+# If it is provided, the launcher runs in client scenario;
+# otherwise, in server scenario.
+walletPath: binaries/daedalus
+
+nodePath: path
+launcherLogsPrefix: null
+
+# Arguments to be passed to the wallet frontend executable.
+# walletArgs: []
+
+# Where to send logs in case of failure.
+reportServer: localhost:8080
+
+# Path to directory with all DBs used by the node. The launcher
+# needs it to record information about installed updates.
+nodeDbPath: db-mainnet-staging
+
+# File where wallet stdout/err will be redirected.
+walletLogPath: /tmp/wallet-log
+
+# File where node stdout/err will be redirected (def: no redirection).
+nodeLogPath: node.log
+
+configuration:
+  filePath: lib/configuration.yaml
+  key: default
+  systemStart: 1512847931
+  # Leaving a field empty is equivalent to not specifying it at all.
+  seed:
+  systemStart: null
+
+# updater data for Mac OS X   
+updaterData:
+  updaterData:
+    pkgPath: Installer.pkg
+    
+# Path to log config that will be used by the node. The launcher
+# attaches it to crash reports.
+nodeLogConfig: log-configs/connect-to-cluster.yaml
+
+# The time (in seconds) to wait for graceful shutdown of the
+# node in case the wallet exits with code 20.
+nodeTimeoutSec: 5

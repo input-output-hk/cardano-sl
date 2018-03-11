@@ -26685,23 +26685,22 @@ inherit (pkgs) which;};
            platforms = stdenv.lib.platforms.none;
          }) {};
       "lzma-conduit" = callPackage
-        ({ mkDerivation, base, bindings-DSL, bytestring, conduit, lzma
-         , resourcet, stdenv, transformers
+        ({ mkDerivation, base, bytestring, conduit, lzma, resourcet, stdenv
+         , transformers
          }:
          mkDerivation {
            pname = "lzma-conduit";
-           version = "1.1.3.3";
-           sha256 = "17cc0669639891a86fdae101b785f614fbd8560c170b4f8a88929134f2936da5";
+           version = "1.2.1";
+           sha256 = "e955da2b8b108b3bf07073e12e5b01c46d42c8f3e40828fb1f34cd7e5413a742";
            libraryHaskellDepends = [
-             base bindings-DSL bytestring conduit resourcet transformers
+             base bytestring conduit lzma resourcet transformers
            ];
-           librarySystemDepends = [ lzma ];
            doHaddock = false;
            doCheck = false;
            homepage = "http://github.com/alphaHeavy/lzma-conduit";
            description = "Conduit interface for lzma/xz compression";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) lzma;};
+         }) {};
       "machines" = callPackage
         ({ mkDerivation, adjunctions, base, Cabal, cabal-doctest, comonad
          , containers, distributive, mtl, pointed, profunctors

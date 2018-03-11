@@ -4,19 +4,7 @@
 -- | Wallet endpoints list
 
 module Pos.Wallet.Web.Server.Handlers.Internal
-       ( testHandlers
-       , walletsHandlers
-       , accountsHandlers
-       , addressesHandlers
-       , profileHandlers
-       , txsHandlers
-       , updateHandlers
-       , redemptionsHandlers
-       , reportingHandlers
-       , settingsHandlers
-       , backupHandlers
-       , infoHandlers
-       , systemHandlers
+       ( servantHandlers
 
        , toServant'
        ) where
@@ -35,7 +23,31 @@ import qualified Pos.Wallet.Web.Api as A
 import qualified Pos.Wallet.Web.Methods as M
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 
--- branches of the API
+----------------------------------------------------------------------------
+-- The wallet API
+----------------------------------------------------------------------------
+
+servantHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WalletApi m
+servantHandlers submitTx = toServant' A.WalletApiRecord
+    { _test        = testHandlers
+    , _wallets     = walletsHandlers
+    , _accounts    = accountsHandlers
+    , _addresses   = addressesHandlers
+    , _profile     = profileHandlers
+    , _txs         = txsHandlers submitTx
+    , _update      = updateHandlers
+    , _redemptions = redemptionsHandlers submitTx
+    , _reporting   = reportingHandlers
+    , _settings    = settingsHandlers
+    , _backup      = backupHandlers
+    , _info        = infoHandlers
+    , _system      = systemHandlers
+    }
+
+
+----------------------------------------------------------------------------
+-- Handlers
+----------------------------------------------------------------------------
 
 testHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WTestApi m
 testHandlers = toServant' A.WTestApiRecord

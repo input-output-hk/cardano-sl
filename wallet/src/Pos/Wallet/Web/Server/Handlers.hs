@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Server (Handler, Server, ServerT, hoistServer)
+import           Servant.Server (Handler, Server, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Core.Txp (TxAux)
@@ -20,7 +20,7 @@ import           Pos.Core.Txp (TxAux)
 import qualified Pos.Wallet.Web.Api as A
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 
-import           Pos.Wallet.Web.Server.Handlers.Internal
+import           Pos.Wallet.Web.Server.Handlers.Internal (servantHandlers)
 
 ----------------------------------------------------------------------------
 -- The wallet API with Swagger
@@ -35,24 +35,3 @@ servantHandlersWithSwagger submitTx nat =
     hoistServer A.walletApi nat (servantHandlers submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
-
-----------------------------------------------------------------------------
--- The wallet API
-----------------------------------------------------------------------------
-
-servantHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WalletApi m
-servantHandlers submitTx = toServant' A.WalletApiRecord
-    { _test        = testHandlers
-    , _wallets     = walletsHandlers
-    , _accounts    = accountsHandlers
-    , _addresses   = addressesHandlers
-    , _profile     = profileHandlers
-    , _txs         = txsHandlers submitTx
-    , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers submitTx
-    , _reporting   = reportingHandlers
-    , _settings    = settingsHandlers
-    , _backup      = backupHandlers
-    , _info        = infoHandlers
-    , _system      = systemHandlers
-    }

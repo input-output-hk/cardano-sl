@@ -228,7 +228,7 @@ executable cardano-node
                       UndecidableInstances
                       MonadFailDesugaring
 
-test-suite wallet-unit-tests
+test-suite wn-unit
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs

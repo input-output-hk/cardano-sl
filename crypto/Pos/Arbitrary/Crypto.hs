@@ -41,6 +41,8 @@ import           Pos.Util.Orphans ()
 import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
                                                 sublistN)
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 deriving instance Arbitrary ProtocolMagic
 
 {- A note on 'Arbitrary' instances
@@ -125,6 +127,11 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
+-- hlint thinks that the where clauses in the following 3 definitions are
+-- unnecessary duplication. I disagree completely.
+
+{-# ANN genSignatureEncoded ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | Generate a signature with a given 'ProtocolMagic', for some generated
 -- bytes. The 'SignTag' and 'SecretKey' are generated using their
 -- 'Arbitrary' instances.
@@ -136,6 +143,8 @@ genSignatureEncoded pm genBytes = signEncoded pm <$> genSignTag <*> genSecretKey
     genSecretKey :: Gen SecretKey
     genSecretKey = arbitrary
 
+{-# ANN genSignature ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | Like 'genSignatureEncoded' but use an 'a' that can be serialized.
 genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
 genSignature pm genA = sign pm <$> genSignTag <*> genSecretKey <*> genA
@@ -144,6 +153,8 @@ genSignature pm genA = sign pm <$> genSignTag <*> genSecretKey <*> genA
     genSignTag = arbitrary
     genSecretKey :: Gen SecretKey
     genSecretKey = arbitrary
+
+{-# ANN genRedeemSignature ("HLint: ignore Reduce duplication" :: Text) #-}
 
 genRedeemSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (RedeemSignature a)
 genRedeemSignature pm genA = redeemSign pm <$> genSignTag <*> genSecretKey <*> genA

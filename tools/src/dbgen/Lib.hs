@@ -25,8 +25,7 @@ import           Pos.Core (Address, Coin, mkCoin)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.StateLock (StateLock (..))
-import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..), getLocalTxs,
-                          getLocalUndos, withTxpLocalData)
+import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
 import           Pos.Util.BackupPhrase (BackupPhrase(..))
 import           Pos.Util.Mnemonics (toMnemonic)
@@ -40,7 +39,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
-import           Pos.Wallet.Web.State.State (askWalletDB, askWalletSnapshot, getWalletSnapshot,
+import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot,
                                              getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
 import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
@@ -445,10 +444,5 @@ genAccount CWallet{..} accountNum = do
 -- | Creates a new 'CAddress'.
 genAddress :: AccountId -> UberMonad CAddress
 genAddress cid = do
-    ws <- askWalletSnapshot
-    mps <- withTxpLocalData $ \txpData -> (,)
-          <$> getLocalTxs txpData
-          <*> getLocalUndos txpData
-
     let (walletId, addrNum) = (aiWId cid, aiIndex cid)
-    newAddress ws mps RandomSeed mempty (AccountId walletId addrNum)
+    newAddress RandomSeed mempty (AccountId walletId addrNum)

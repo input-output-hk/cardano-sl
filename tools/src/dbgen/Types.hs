@@ -9,7 +9,7 @@ import           Universum
 import           Data.Map (Map)
 import           Pos.Wallet.Web.Mode (MonadWalletWebMode, WalletWebMode)
 
-type UberMonad a = MonadWalletWebMode () WalletWebMode => WalletWebMode a
+type UberMonad a = forall ctx. MonadWalletWebMode ctx WalletWebMode => WalletWebMode a
 
 data Method = GetWallets
     deriving (Show, Read)

@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Main where
@@ -11,28 +12,31 @@ import           Universum
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Mockable (Production, runProduction)
+import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
                                  gtSscParams)
 import           Pos.Core (Timestamp (..))
+import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
                                bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
                                npUserSecret, withConfigurations)
 import           Pos.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Network.Types (Topology (..), defaultNetworkConfig, initQueue)
-import           Pos.Ssc.SscAlgo (SscAlgo (..))
+import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+                                    topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
 import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.SscType (WalletSscType)
-import           Pos.Wallet.Web.Mode (AddrCIdHashes (..), WalletWebModeContext (..))
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.Util (sec)
-import           System.Wlog.LoggerName (LoggerName (..))
-import           System.Wlog.LoggerNameBox (HasLoggerName (..))
+import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           CLI (CLI (..))
 import           Lib (generateWalletDB, loadGenSpec)
@@ -40,38 +44,43 @@ import           Rendering (bold, say)
 import           Stats (showStatsAndExit, showStatsData)
 import           Types (UberMonad)
 
+defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
+defaultNetworkConfig ncTopology = NetworkConfig {
+      ncDefaultPort   = 3000
+    , ncSelfName      = Nothing
+    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
+    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
+    , ncFailurePolicy = topologyFailurePolicy ncTopology
+    , ncTcpAddr       = TCP.Unaddressable
+    , ..
+    }
 
 newRealModeContext
     :: HasConfigurations
     => NodeDBs
     -> ConfigurationOptions
     -> FilePath
-    -> Production (RealModeContext WalletSscType)
+    -> Production (RealModeContext ())
 newRealModeContext dbs confOpts secretKeyPath = do
     let nodeArgs = NodeArgs {
-      sscAlgo            = GodTossingAlgo
-    , behaviorConfigPath = Nothing
+      behaviorConfigPath = Nothing
     }
     let networkOps = NetworkConfigOpts {
-          networkConfigOptsTopology = Nothing
-        , networkConfigOptsKademlia = Nothing
-        , networkConfigOptsSelf     = Nothing
-        , networkConfigOptsPort     = 3030
-        , networkConfigOptsPolicies = Nothing
+          ncoTopology = Nothing
+        , ncoKademlia = Nothing
+        , ncoSelf     = Nothing
+        , ncoPort     = 3030
+        , ncoPolicies = Nothing
+        , ncoBindAddress = Nothing
+        , ncoExternalAddress = Nothing
         }
     let cArgs@CommonNodeArgs {..} = CommonNodeArgs {
-           dbPath                 = "node-db"
+           dbPath                 = Just "node-db"
          , rebuildDB              = True
-         , devSpendingGenesisI    = Nothing
-         , devVssGenesisI         = Nothing
+         , devGenesisSecretI      = Nothing
          , keyfilePath            = secretKeyPath
-         , backupPhrase           = Nothing
-         , externalAddress        = Nothing
-         , bindAddress            = Nothing
-         , peers                  = mempty
          , networkConfigOpts      = networkOps
          , jlPath                 = Nothing
-         , kademliaDumpPath       = "kademlia.dump"
          , commonArgs             = CommonArgs {
                logConfig            = Nothing
              , logPrefix            = Nothing
@@ -87,11 +96,13 @@ newRealModeContext dbs confOpts secretKeyPath = do
          , ekgParams              = Nothing
          , statsdParams           = Nothing
          , cnaDumpGenesisDataPath = Nothing
+         , cnaDumpConfiguration   = False
          }
-    nodeParams <- getNodeParams cArgs nodeArgs
+    loggerName <- askLoggerName
+    nodeParams <- getNodeParams loggerName cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @WalletSscType @IO nodeParams gtParams $ \NodeResources{..} ->
+    bracketNodeResources @() nodeParams gtParams txpGlobalSettings initNodeDBs $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState
@@ -99,11 +110,11 @@ newRealModeContext dbs confOpts secretKeyPath = do
                         <*> jsonLogConfigFromHandle stdout
                         <*> pure (LoggerName "dbgen")
                         <*> pure nrContext
-                        <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing
+                        -- <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing
 
 
 walletRunner
-    :: HasConfigurations
+    :: (HasConfigurations, HasCompileInfo)
     => ConfigurationOptions
     -> NodeDBs
     -> FilePath
@@ -124,7 +135,7 @@ newWalletState recreate walletPath =
     liftIO $ openState (not recreate) walletPath
 
 instance HasLoggerName IO where
-    getLoggerName = pure $ LoggerName "dbgen"
+    askLoggerName = pure $ LoggerName "dbgen"
     modifyLoggerName _ x = x
 
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
@@ -142,19 +153,20 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ do
-        when showStats (showStatsAndExit walletPath)
+    withConfigurations cfg $
+        withCompileInfo $(retrieveCompileTimeInfo) $ do
+            when showStats (showStatsAndExit walletPath)
 
-        say $ bold "Starting the modification of the wallet..."
+            say $ bold "Starting the modification of the wallet..."
 
-        showStatsData "before" walletPath
+            showStatsData "before" walletPath
 
-        dbs  <- openNodeDBs False nodePath -- Do not recreate!
-        spec <- loadGenSpec config
-        ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
+            dbs  <- openNodeDBs False nodePath -- Do not recreate!
+            spec <- loadGenSpec config
+            ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-        let generatedWallet = generateWalletDB cli spec
-        walletRunner cfg dbs secretKeyPath ws generatedWallet
-        closeState ws
+            let generatedWallet = generateWalletDB cli spec
+            walletRunner cfg dbs secretKeyPath ws generatedWallet
+            closeState ws
 
-        showStatsData "after" walletPath
+            showStatsData "after" walletPath

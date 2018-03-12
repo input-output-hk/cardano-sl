@@ -43,27 +43,25 @@ runAction wc ws  CreateWallet = do
     newWall <-  liftIO $ generate arbitrary
     result  <-  respToRes $ postWallet wc newWall
 
-    ws'     <-  checkInvariant
-                    ws
-                    (walBalance result == minBound)
-                    (Internal "Wallet balance is not zero.")
+    checkInvariant
+        (walBalance result == minBound)
+        (WalletBalanceNotZero result)
 
     -- Modify wallet state accordingly.
-    pure $ ws'
-        & wallets    .~ ws' ^. wallets <> [result]
+    pure $ ws
+        & wallets    .~ ws ^. wallets <> [result]
         & actionsNum +~ 1
 
 runAction wc ws GetWallets   = do
     -- We choose from the existing wallets.
     result  <-  respToRes $ getWallets wc
 
-    ws'     <-  checkInvariant
-                    ws
-                    (length result == length (ws ^. wallets))
-                    (Internal "Local wallets differs from server wallets.")
+    checkInvariant
+        (length result == length (ws ^. wallets))
+        (LocalWalletsDiffers result)
 
     -- No modification required.
-    pure $ ws'
+    pure $ ws
         & actionsNum +~ 1
 
 runAction wc ws GetWallet    = do
@@ -71,13 +69,12 @@ runAction wc ws GetWallet    = do
     wallet  <-  pickRandomElement (ws ^. wallets)
     result  <-  respToRes $ getWallet wc (walId wallet)
 
-    ws'     <-  checkInvariant
-                    ws
-                    (walBalance result == minBound)
-                    (Internal "Local wallet differs from server wallet.")
+    checkInvariant
+        (walBalance result == minBound)
+        (LocalWalletDiffers result)
 
     -- No modification required.
-    pure $ ws'
+    pure $ ws
         & actionsNum +~ 1
 
 
@@ -95,14 +92,13 @@ runAction wc ws  CreateAccount = do
     newAcc  <-  liftIO $ generate generateNewAccount
     result  <-  respToRes $ postAccount wc newAcc
 
-    ws'     <-  checkInvariant
-                    ws
-                    (accAmount result == minBound)
-                    (Internal "Account balance is not zero.")
+    checkInvariant
+        (accAmount result == minBound)
+        (AccountBalanceNotZero result)
 
     -- Modify wallet state accordingly.
-    pure $ ws'
-        & accounts   .~ ws' ^. accounts <> [result]
+    pure $ ws
+        & accounts   .~ ws ^. accounts <> [result]
         & actionsNum +~ 1
   where
     -- | We don't want to memorize the passwords for now.
@@ -118,13 +114,12 @@ runAction wc ws GetAccounts   = do
     -- We get all the accounts.
     result  <-  respToRes $ getAccounts wc walletId
 
-    ws'     <-  checkInvariant
-                    ws
-                    (length result == length (ws ^. accounts))
-                    (Internal "Local accounts differ from server accounts.")
+    checkInvariant
+        (length result == length (ws ^. accounts))
+        (LocalAccountsDiffers result)
 
     -- Modify wallet state accordingly.
-    pure $ ws'
+    pure $ ws
         & actionsNum +~ 1
 
 runAction wc ws GetAccount    = do
@@ -134,13 +129,12 @@ runAction wc ws GetAccount    = do
 
     result  <-  respToRes $ getAccount wc walletId (accIndex account)
 
-    ws'     <-  checkInvariant
-                    ws
-                    (accAmount result == minBound)
-                    (Internal "Local account differ from server account.")
+    checkInvariant
+        (accAmount result == minBound)
+        (LocalAccountDiffers result)
 
     -- Modify wallet state accordingly.
-    pure $ ws'
+    pure $ ws
         & actionsNum +~ 1
 
 -- Addresses
@@ -185,12 +179,11 @@ pickRandomElement = liftIO . generate . elements
 -- | A util function for checking the validity of invariants.
 checkInvariant
     :: forall m. (MonadThrow m)
-    => WalletState
-    -> Bool
+    => Bool
     -> WalletTestError
-    -> m WalletState
-checkInvariant ws True  _             = pure ws
-checkInvariant _  False walletTestErr = throwM walletTestErr
+    -> m ()
+checkInvariant True  _             = pure ()
+checkInvariant False walletTestErr = throwM walletTestErr
 
 
 -- | Output for @Text@.

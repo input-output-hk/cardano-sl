@@ -18,7 +18,7 @@ import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError, protocolConstants)
+import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
@@ -127,7 +127,7 @@ action opts@AuxxOptions {..} command = do
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion protocolConstants recoveryHeadersMessage transport Nothing $ \withLogic -> do
+                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                                   (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)

@@ -10,7 +10,7 @@ import           Control.Lens ((+~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), NewAccount (..), Wallet (..))
+import           Cardano.Wallet.API.V1.Types (Account (..), NewAccount (..), Wallet (..), WalletAddress (..), NewAddress (..), WalletId, AccountIndex)
 
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
@@ -138,7 +138,30 @@ runAction wc ws GetAccount    = do
         & actionsNum +~ 1
 
 -- Addresses
--- ...
+runAction wc ws CreateAddress = do
+    -- We choose from the existing wallets AND existing accounts.
+    account <-  pickRandomElement (ws ^. accounts)
+    let walletId = accWalletId account
+
+    let newAddress = createNewAddress walletId (accIndex account)
+
+    result  <-  respToRes $ postAddress wc newAddress
+
+    checkInvariant
+        (addrBalance result == minBound)
+        (AddressBalanceNotZero result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & actionsNum +~ 1
+  where
+    createNewAddress :: WalletId -> AccountIndex -> NewAddress
+    createNewAddress wId accIndex = NewAddress
+        { newaddrSpendingPassword = Nothing
+        , newaddrAccountIndex     = accIndex
+        , newaddrWalletId         = wId
+        }
+
 
 -----------------------------------------------------------------------------
 -- Helpers

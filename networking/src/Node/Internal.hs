@@ -39,6 +39,7 @@ module Node.Internal (
     ChannelOut(..),
     startNode,
     stopNode,
+    killNode,
     withInOutChannel,
     writeMany,
     Timeout(..)
@@ -46,7 +47,7 @@ module Node.Internal (
 
 import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow,
                                          SomeException, bracket, catch, finally, throwM)
-import           Control.Monad (forM, forM_, when)
+import           Control.Monad (forM_, when)
 import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Fix (MonadFix)
 import           Data.Binary
@@ -138,7 +139,7 @@ initialNodeState prng = do
     newSharedAtomic nodeState
 
 data SomeHandler m = forall t . SomeHandler {
-      someHandlerThreadId :: !(ThreadId m)
+      _someHandlerThreadId :: !(ThreadId m)
     , _someHandlerPromise :: !(Promise m t)
     }
 
@@ -153,6 +154,9 @@ instance (Ord (ThreadId m)) => Ord (SomeHandler m) where
 
 waitSomeHandler :: ( Mockable LowLevelAsync m ) => SomeHandler m -> m ()
 waitSomeHandler (SomeHandler _ promise) = () <$ wait promise
+
+cancelSomeHandler :: ( Mockable LowLevelAsync m ) => SomeHandler m -> m ()
+cancelSomeHandler (SomeHandler _ promise) = cancel promise
 
 makeSomeHandler :: ( Mockable Async m ) => Promise m t -> m (SomeHandler m)
 makeSomeHandler promise = do
@@ -674,13 +678,15 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode
-    :: ( WithLogger m, MonadThrow m, Mockable LowLevelAsync m, Mockable SharedAtomic m )
+    :: ( Mockable SharedAtomic m
+       , Mockable LowLevelAsync m
+       )
     => Node packingType peerData m
     -> m ()
-stopNode Node {..} = do
+stopNode node@Node {..} = do
     modifySharedAtomic nodeState $ \nodeState ->
         if _nodeStateClosed nodeState
-        then throwM $ userError "stopNode : already stopped"
+        then pure (nodeState, ())
         else pure (nodeState { _nodeStateClosed = True }, ())
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
@@ -692,6 +698,24 @@ stopNode Node {..} = do
     -- no new handler threads will be created, so this will block indefinitely
     -- only if some handler is blocked indefinitely or looping.
     wait nodeDispatcherThread
+    -- We'll wait for all of the handlers to finish, rather than cancel
+    -- them, because this is a normal termination. See 'killNode' if you
+    -- want to stop everything right away.
+    waitRunningHandlers node
+
+-- | Kill a 'Node', canceling its dispatcher thread and all handlers.
+-- This will also close its network-transport endpoint (normally, without
+-- killing it).
+killNode
+    :: ( Mockable SharedAtomic m
+       , Mockable LowLevelAsync m
+       )
+    => Node packingType peerData m
+    -> m ()
+killNode node@Node {..} = do
+    cancel nodeDispatcherThread
+    cancelRunningHandlers node
+    nodeCloseEndPoint
 
 data ConnectionState peerData m =
 
@@ -756,19 +780,40 @@ initialDispatcherState = DispatcherState Map.empty Map.empty
 
 -- | Wait for every running handler in a node's state to finish. Exceptions are
 --   caught and gathered, not re-thrown.
-waitForRunningHandlers
+waitRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
        , Mockable LowLevelAsync m
-       , MonadCatch m
-       , WithLogger m
-       , Show (ThreadId m)
        )
     => Node packingType peerData m
-    -> m [Maybe SomeException]
-waitForRunningHandlers node = do
+    -> m ()
+waitRunningHandlers node = do
     -- Gather the promises for all handlers.
-    handlers <- withSharedAtomic (nodeState node) $ \st -> do
+    handlers <- runningHandlers node
+    forM_ handlers waitSomeHandler
+
+-- | Cancel every running handler for a node.
+cancelRunningHandlers
+    :: forall m packingType peerData .
+       ( Mockable SharedAtomic m
+       , Mockable LowLevelAsync m
+       )
+    => Node packingType peerData m
+    -> m ()
+cancelRunningHandlers node = do
+    handlers <- runningHandlers node
+    forM_ handlers cancelSomeHandler
+
+-- | Get every handler running for a node (induced by inbound and outbound
+-- connections).
+runningHandlers
+    :: forall m packingType peerData .
+       ( Mockable SharedAtomic m
+       )
+    => Node packingType peerData m
+    -> m [SomeHandler m]
+runningHandlers node =
+    withSharedAtomic (nodeState node) $ \st -> do
         let -- List monad computation: grab the values of the map (ignoring
             -- peer keys), then for each of those maps grab its values (ignoring
             -- nonce keys) and then return the promise.
@@ -778,13 +823,7 @@ waitForRunningHandlers node = do
                 return x
             inbound = Set.toList (_nodeStateInbound st)
             all = outbound_bi ++ inbound
-        logDebug $ sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi)
-        logDebug $ sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound)
         return all
-    let waitAndCatch someHandler = do
-            logDebug $ sformat ("waiting on " % shown) (someHandlerThreadId someHandler)
-            (Nothing <$ waitSomeHandler someHandler) `catch` (\(e :: SomeException) -> return (Just e))
-    forM handlers waitAndCatch
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
@@ -879,8 +918,6 @@ nodeDispatcher node handlerInOut =
                    _ <- tryPutSharedExclusive peerDataVar (error "no peer data because local node has gone down")
                    dumpBytes Nothing
             return (st, ())
-
-        _ <- waitForRunningHandlers node
 
         -- Check that this node was closed by a call to 'stopNode'. If it
         -- wasn't, we throw an exception. This is important because the thread

@@ -8174,7 +8174,7 @@ inherit (pkgs) mesa;};
            description = "Cardano SL - wallet";
            license = stdenv.lib.licenses.mit;
          }) {};
-      "cardano-sl-wallet-new" = callPackage
+      "cslw" = callPackage
         ({ mkDerivation, acid-state, aeson, aeson-pretty, base, bytestring
          , cardano-crypto, cardano-sl, cardano-sl-binary, cardano-sl-block
          , cardano-sl-client, cardano-sl-core, cardano-sl-crypto
@@ -8193,7 +8193,7 @@ inherit (pkgs) mesa;};
          , wai, wai-cors, wai-extra, warp
          }:
          mkDerivation {
-           pname = "cardano-sl-wallet-new";
+           pname = "cslw";
            version = "0.1.0.0";
            src = ./../wallet-new;
            isLibrary = true;

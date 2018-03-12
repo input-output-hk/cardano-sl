@@ -1,4 +1,4 @@
-name:                cardano-sl-wallet-new
+name:                cslw
 version:             0.1.0.0
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
@@ -135,7 +135,7 @@ library
 executable cardano-node
   hs-source-dirs:      server
   main-is:             Main.hs
-  other-modules:       Paths_cardano_sl_wallet_new
+  other-modules:       Paths_cslw
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
@@ -176,7 +176,7 @@ executable cardano-node
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-wallet
-                     , cardano-sl-wallet-new
+                     , cslw
                      , containers
                      , data-default
                      , exceptions
@@ -280,7 +280,7 @@ test-suite wn-unit
                     , cardano-sl-txp
                     , cardano-sl-update
                     , cardano-sl-util
-                    , cardano-sl-wallet-new
+                    , cslw
                     , constraints
                     , containers
                     , data-default
@@ -302,7 +302,7 @@ test-suite wn-spec
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   main-is:          Spec.hs
-  other-modules:    Paths_cardano_sl_wallet_new
+  other-modules:    Paths_cslw
   hs-source-dirs:   server test
 
   other-modules:    APISpec
@@ -363,7 +363,7 @@ test-suite wn-spec
                     , cardano-sl-ssc
                     , cardano-sl-txp
                     , cardano-sl-wallet
-                    , cardano-sl-wallet-new
+                    , cslw
                     , containers
                     , data-default
                     , exceptions
@@ -393,7 +393,7 @@ test-suite wn-spec
                     , universum
                     , unordered-containers
 
-benchmark cardano-sl-wallet-new-bench
+benchmark cslw-bench
   hs-source-dirs:      bench
   main-is:             Main.hs
   other-modules:       Bench.Cardano.Wallet.Config
@@ -428,7 +428,7 @@ benchmark cardano-sl-wallet-new-bench
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-wallet
-                     , cardano-sl-wallet-new
+                     , cslw
                      , cassava
                      , connection
                      , cryptonite

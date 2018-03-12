@@ -196,7 +196,7 @@ if [[ $spec_prj == "" ]]; then
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
 elif [[ $spec_prj == "wallet-new" ]]; then
-  to_build="cardano-sl-node cardano-sl-wallet-new"
+  to_build="cardano-sl-node cslw"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then

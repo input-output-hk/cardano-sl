@@ -13,7 +13,7 @@ b23cc418662347264b282e4702790205  ./block/cardano-sl-block.cabal
 e1a9d9e627efcbd66bf9e4d76f07abfb  ./client/cardano-sl-client.cabal
 71d581464315dad7a0eb495ca1448c27  ./generator/cardano-sl-generator.cabal
 68b65003a68d29181ef4ac2e3566967d  ./binary/cardano-sl-binary.cabal
-199379f9d1f841116f53d46593729073  ./wallet-new/cardano-sl-wallet-new.cabal
+199379f9d1f841116f53d46593729073  ./wallet-new/cslw.cabal
 62b019e326bc554d880e58edb05ba135  ./explorer/cardano-sl-explorer.cabal
 25725ef17aeee255465aa0044ae041b0  ./db/cardano-sl-db.cabal
 e385c4661cabe37aecaf5054874ebc71  ./ssc/cardano-sl-ssc.cabal

@@ -24,9 +24,12 @@ import           Control.Lens (makeLenses)
 import           Cardano.Wallet.API.V1.Types (Account, Wallet)
 
 
+-- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
+-- but it's better to see how the client fits in the end.
 type WalletTestMode m =
     ( MonadIO m
     , MonadThrow m
+    , MonadPlus m
     )
 
 -- | The probability type that captures the chance of

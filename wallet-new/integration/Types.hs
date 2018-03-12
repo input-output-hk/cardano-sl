@@ -11,6 +11,8 @@ module Types
     , WalletState (..)
     , wallets
     , accounts
+    , addresses
+    , transactions
     , actionsNum
     , ActionWalletState
     , ActionProbabilities
@@ -21,7 +23,7 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Cardano.Wallet.API.V1.Types (Account, Wallet)
+import           Cardano.Wallet.API.V1.Types (Account, Wallet, WalletAddress,Transaction)
 
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
@@ -57,11 +59,11 @@ data Action
     | GetAccount
 
     | CreateAddress
-    | GetAddresses
-    | GetAddress
+    -- | GetAddresses
+    -- | GetAddress
 
     | CreateTransaction
-    | GetTransaction
+    -- | GetTransaction
     deriving (Show, Eq)
 
 
@@ -76,9 +78,11 @@ type ActionProbabilities = [(Action, Probability)]
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { _wallets    :: [Wallet]
-    , _accounts   :: [Account]
-    , _actionsNum :: Int
+    { _wallets      :: [Wallet]
+    , _accounts     :: [Account]
+    , _addresses    :: [WalletAddress]
+    , _transactions :: [Transaction]
+    , _actionsNum   :: Int
     } deriving (Show, Eq, Generic)
 
 

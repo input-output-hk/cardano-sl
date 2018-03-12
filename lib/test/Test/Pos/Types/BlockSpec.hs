@@ -96,16 +96,16 @@ mainHeaderFormation prevHeader slotId signer body extra =
   where
     correctSigner (Left _)        = True
     correctSigner (Right (i,d,_)) = i /= d
-    header = T.mkGenericHeader protocolMagic (maybe (Left (GenesisHash genesisHash)) Right prevHeader) body consensus extra
+    header = T.mkGenericHeader protocolMagic prevHash body consensus extra
     manualHeader =
         T.UnsafeGenericBlockHeader
         { T._gbhProtocolMagic = protocolMagic
-        , T._gbhPrevBlock = h
+        , T._gbhPrevBlock = prevHash
         , T._gbhBodyProof = proof
-        , T._gbhConsensus = consensus h proof
+        , T._gbhConsensus = consensus proof
         , T._gbhExtra = extra
         }
-    h = maybe genesisHash T.headerHash prevHeader
+    prevHash = maybe genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
     (sk, pSk) = either (, Nothing) mkProxySk signer
     mkProxySk (issuerSK, delegateSK, isSigEpoch) =
@@ -123,19 +123,19 @@ mainHeaderFormation prevHeader slotId signer body extra =
         T.BlockPSignatureLight $ proxySign protocolMagic SignMainBlockLight sk psk toSign
     makeSignature toSign (Right psk) =
         T.BlockPSignatureHeavy $ proxySign protocolMagic SignMainBlockHeavy sk psk toSign
-    signature prevHash p =
+    signature p =
         let toSign = T.MainToSign prevHash p slotId difficulty extra
         in maybe
                (T.BlockSignature (sign protocolMagic SignMainBlock sk toSign))
                (makeSignature toSign)
                pSk
-    consensus prevHash p =
+    consensus p =
         T.MainConsensusData
         { T._mcdSlot = slotId
         , T._mcdLeaderKey =
               maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
         , T._mcdDifficulty = difficulty
-        , T._mcdSignature = signature prevHash p
+        , T._mcdSignature = signature p
         }
 
 ----------------------------------------------------------------------------

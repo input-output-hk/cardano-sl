@@ -161,6 +161,13 @@ data ClientError
     -- 'WalletError' for API errors.
     deriving (Show)
 
+-- | General (and naive) equality instance.
+instance Eq ClientError where
+    (==) (ClientWalletError e1) (ClientWalletError e2) = e1 == e2
+    (==) (ClientHttpError   e1) (ClientHttpError   e2) = e1 == e2
+    (==) (UnknownError      _ ) (UnknownError      _ ) = True
+    (==) _                      _                      = False
+
 -- | General exception instance.
 instance Exception ClientError where
     toException   (ClientWalletError e) = toException e

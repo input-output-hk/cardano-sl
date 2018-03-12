@@ -31,5 +31,5 @@ type API = Tags '["Wallets"] :>
                         :> Put '[ValidJSON] (WalletResponse Wallet)
                    )
     )
-    -- Nest the Accounts API
+    -- Nest the Accounts API, note that it is left out of the "Wallets" tag purposedly
     :<|> "wallets" :> Capture "walletId" WalletId :> Accounts.API

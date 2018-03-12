@@ -23,25 +23,25 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 walletServer :: (HasCompileInfo, HasUpdateConfiguration)
              => ActiveWallet
              -> Server WalletAPI
-walletServer w = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
+walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
   where
     -- TODO: Not sure if we want to support the V0 API with the new wallet.
     -- For now I'm assuming we're not going to.
     --
     -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
     -- make this very easy at the moment.
-    v0DocHdl = error "V0 API no longer supported"
-    v0Hdl    = v0DocHdl
-    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
-    v1Hdl    = V1.handlers w
+    v0DocHandler = error "V0 API no longer supported"
+    v0Handler    = v0DocHandler
+    v1DocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
+    v1Handler    = V1.handlers w
 
 
 walletDevServer :: (HasCompileInfo, HasUpdateConfiguration)
              => ActiveWallet
              -> RunMode
              -> Server WalletDevAPI
-walletDevServer w runMode = devDocHdl :<|> devHdl :<|> walletHdl
+walletDevServer w runMode = devDocHandler :<|> devHandler :<|> walletHandler
   where
-    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
-    devHdl    = Dev.handlers runMode
-    walletHdl = walletServer w
+    devDocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
+    devHandler    = Dev.handlers runMode
+    walletHandler = walletServer w

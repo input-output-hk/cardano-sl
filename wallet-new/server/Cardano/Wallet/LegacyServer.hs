@@ -24,12 +24,12 @@ walletServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
              -> Diffusion WalletWebMode
              -> Server WalletAPI
-walletServer natV0 diffusion = v0DocHdl :<|> v1DocHdl :<|> v0Hdl :<|> v1Hdl
+walletServer natV0 diffusion = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
   where
-    v0DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API Swagger.highLevelShortDescription)
-    v0Hdl    = V0.handlers natV0 diffusion
-    v1DocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
-    v1Hdl    = V1.handlers natV0 diffusion
+    v0DocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v0API Swagger.highLevelShortDescription)
+    v0Handler    = V0.handlers natV0 diffusion
+    v1DocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
+    v1Handler    = V1.handlers natV0 diffusion
 
 
 walletDevServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
@@ -37,8 +37,8 @@ walletDevServer :: (Migration.HasConfigurations, Migration.HasCompileInfo)
              -> Diffusion WalletWebMode
              -> RunMode
              -> Server WalletDevAPI
-walletDevServer natV0 diffusion runMode = devDocHdl :<|> devHdl :<|> walletHdl
+walletDevServer natV0 diffusion runMode = devDocHandler :<|> devHandler :<|> walletHandler
   where
-    devDocHdl = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
-    devHdl    = Dev.handlers natV0 runMode
-    walletHdl = walletServer natV0 diffusion
+    devDocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
+    devHandler    = Dev.handlers natV0 runMode
+    walletHandler = walletServer natV0 diffusion

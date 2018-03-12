@@ -33,6 +33,7 @@ handlers =
                 :<|> updateWallet walletId
              )
         )
+        -- NOTE Separation between tags ("Wallets" vs "Accounts"), see Cardano.Wallet.API.V1.Wallets
         :<|> (\walletId -> Accounts.handlers walletId)
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.

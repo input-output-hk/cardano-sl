@@ -41,6 +41,7 @@ import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
                                          epochSlots)
 import           Pos.Core.Constants (sharedSeedLength)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Slotting.Types (Timestamp (..))
@@ -221,14 +222,14 @@ instance Arbitrary Types.AddrStakeDistribution where
                 -- Limit is exhausted, can't create more.
                 (_, 0) -> return res
                 -- The last portion, we must ensure the sum is correct.
-                (1, _) -> return (Types.CoinPortion limit : res)
+                (1, _) -> return (Types.UncheckedCoinPortion limit : res)
                 -- We intentionally don't generate 'limit', because we
                 -- want to generate at least 2 portions.  However, if
                 -- 'limit' is 1, we will generate 1, because we must
                 -- have already generated one portion.
                 _ -> do
                     portion <-
-                        Types.CoinPortion <$> choose (1, max 1 (limit - 1))
+                        Types.UncheckedCoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
@@ -435,7 +436,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
-        U.ApplicationName .
+        U.UncheckedApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
       where
@@ -510,7 +511,7 @@ instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk issuer delegatePk 0
+        mkCert delegatePk issuer = createPsk issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -540,7 +541,6 @@ instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisDa
             True
         hasKnownFeePolicy _ = False
         arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
-
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
@@ -559,6 +559,17 @@ instance Arbitrary Second where
 
 deriving instance Arbitrary Types.Timestamp
 deriving instance Arbitrary Types.TimeDiff
+
+instance Arbitrary HeavyDlgIndex where
+    arbitrary = HeavyDlgIndex <$> arbitrary
+    shrink = genericShrink
+
+instance Arbitrary LightDlgIndices where
+    arbitrary = do
+        l <- arbitrary
+        r <- arbitrary
+        pure $ LightDlgIndices $ if r >= l then (l,r) else (r,l)
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- SSC

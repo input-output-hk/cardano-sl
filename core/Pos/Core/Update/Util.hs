@@ -2,14 +2,8 @@
 
 module Pos.Core.Update.Util
        (
-         -- * Checkers/validators.
-         checkUpdatePayload
-       , checkUpdateProposal
-       , checkUpdateVote
-       , checkBlockVersionModifier
-       , checkSoftforkRule
-
-       , mkUpdateProposalWSign
+       -- * Smart constructors
+         mkUpdateProposalWSign
        , mkVoteId
        , mkUpdateProof
 
@@ -23,7 +17,6 @@ module Pos.Core.Update.Util
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
@@ -33,77 +26,69 @@ import           Instances.TH.Lift ()
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Common.Types (checkCoinPortion)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
                                         UpdatePayload (..), UpdateProof, UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..), VoteId,
-                                        checkSoftwareVersion, checkSystemTag)
-import           Pos.Crypto (SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             checkSig, hash, safeSign, safeToPublic)
+                                        UpdateProposalToSign (..), UpdateVote (..), VoteId)
+import           Pos.Crypto (HasCryptoConfiguration, SafeSigner,
+                             SignTag (SignUSProposal, SignUSVote), checkSig, hash, safeSign,
+                             safeToPublic)
+import           Pos.Util.Verification (PVerifiable (..), PVerifiableSub (..), pverFail)
 
-checkUpdatePayload
-    :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
-    => UpdatePayload
-    -> m ()
-checkUpdatePayload it = do
-    -- Linter denies using foldables on Maybe.
-    -- Suggests whenJust rather than forM_.
-    --
-    --   ¯\_(ツ)_/¯
-    --
-    whenJust (upProposal it) checkUpdateProposal
-    forM_ (upVotes it) checkUpdateVote
+----------------------------------------------------------------------------
+-- Verification
+----------------------------------------------------------------------------
 
-checkBlockVersionModifier
-    :: (MonadError Text m)
-    => BlockVersionModifier
-    -> m ()
-checkBlockVersionModifier BlockVersionModifier {..} = do
-    whenJust bvmMpcThd checkCoinPortion
-    whenJust bvmHeavyDelThd checkCoinPortion
-    whenJust bvmUpdateVoteThd checkCoinPortion
-    whenJust bvmUpdateProposalThd checkCoinPortion
-    whenJust bvmSoftforkRule checkSoftforkRule
+instance PVerifiable SoftforkRule where
+    pverifyFields SoftforkRule{..} =
+        [ PVerifiableSub "srInitThd" srInitThd
+        , PVerifiableSub "srMinThd" srMinThd
+        , PVerifiableSub "srThdDecrement" srThdDecrement ]
 
-checkSoftforkRule
-    :: (MonadError Text m)
-    => SoftforkRule
-    -> m ()
-checkSoftforkRule SoftforkRule {..} = do
-    checkCoinPortion srInitThd
-    checkCoinPortion srMinThd
-    checkCoinPortion srThdDecrement
+instance PVerifiable BlockVersionModifier where
+    pverifyFields BlockVersionModifier{..} =
+        catMaybes $
+        [ PVerifiableSub "bvmMpcThd" <$> bvmMpcThd
+        , PVerifiableSub "bvmHeavyDelThd" <$> bvmHeavyDelThd
+        , PVerifiableSub "bvmUpdateVoteThd" <$> bvmUpdateVoteThd
+        , PVerifiableSub "bvmUpdateProposalThd" <$> bvmUpdateProposalThd
+        , PVerifiableSub "bvmSoftforkRule" <$> bvmSoftforkRule ]
+
+instance HasCryptoConfiguration => PVerifiable UpdateVote where
+    pverifySelf it = do
+        let sigValid = checkSig SignUSVote
+                                (uvKey it)
+                                (uvProposalId it, uvDecision it)
+                                (uvSignature it)
+        unless sigValid $ pverFail "UpdateVote: invalid signature"
+
+instance (HasCryptoConfiguration, Bi UpdateProposalToSign) => PVerifiable UpdateProposal where
+    pverifySelf UncheckedUpdateProposal{..} = do
+        let toSign = UpdateProposalToSign
+                         upBlockVersion
+                         upBlockVersionMod
+                         upSoftwareVersion
+                         upData
+                         upAttributes
+        unless (checkSig SignUSProposal upFrom toSign upSignature)
+               (pverFail "UpdateProposal: invalid signature")
+    pverifyFields UncheckedUpdateProposal{..} =
+        [ PVerifiableSub "upBlockVersionMod" upBlockVersionMod
+        , PVerifiableSub "upSoftwareVersion" upSoftwareVersion ] <>
+        map (PVerifiableSub "upDataKey") (HM.keys upData)
+
+instance (HasCryptoConfiguration, Bi UpdateProposalToSign) => PVerifiable UpdatePayload where
+    pverifyFields UpdatePayload{..} =
+        maybe mempty one (PVerifiableSub "upProposal" <$> upProposal) <>
+        map (PVerifiableSub "upElem") upVotes
+
+----------------------------------------------------------------------------
+-- Utilities/creation
+----------------------------------------------------------------------------
 
 -- | 'SoftforkRule' formatter which restricts type.
 softforkRuleF :: Format r (SoftforkRule -> r)
 softforkRuleF = build
-
-checkUpdateVote
-    :: (HasConfiguration, MonadError Text m)
-    => UpdateVote
-    -> m ()
-checkUpdateVote it =
-    unless sigValid (throwError "UpdateVote: invalid signature")
-  where
-    sigValid = checkSig SignUSVote (uvKey it) (uvProposalId it, uvDecision it) (uvSignature it)
-
-checkUpdateProposal
-    :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
-    => UpdateProposal
-    -> m ()
-checkUpdateProposal it = do
-    checkBlockVersionModifier (upBlockVersionMod it)
-    checkSoftwareVersion (upSoftwareVersion it)
-    forM_ (HM.keys (upData it)) checkSystemTag
-    let toSign = UpdateProposalToSign
-            (upBlockVersion it)
-            (upBlockVersionMod it)
-            (upSoftwareVersion it)
-            (upData it)
-            (upAttributes it)
-    unless (checkSig SignUSProposal (upFrom it) toSign (upSignature it))
-        (throwError "UpdateProposal: invalid signature")
 
 mkUpdateProposalWSign
     :: (HasConfiguration, Bi UpdateProposalToSign)
@@ -115,7 +100,7 @@ mkUpdateProposalWSign
     -> SafeSigner
     -> UpdateProposal
 mkUpdateProposalWSign upBlockVersion upBlockVersionMod upSoftwareVersion upData upAttributes ss =
-    UnsafeUpdateProposal {..}
+    UncheckedUpdateProposal {..}
   where
     toSign =
         UpdateProposalToSign

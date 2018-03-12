@@ -45,7 +45,7 @@ import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()
 import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coin, StakeholderId, unsafeGetCoin)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances, recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer,
@@ -53,8 +53,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (.
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          ProtocolConstants, TestnetBalanceOptions,
                                          unGenesisDelegation)
-import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap,
-                               validateVssCertificatesMap)
+import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk, redeemPkB64UrlF)
 import           Pos.Util.Util (toAesonError)
 
@@ -87,8 +86,7 @@ instance ToJSON VssCertificatesMap where
     toJSON = toJSON . getVssCertificatesMap
 
 instance FromJSON VssCertificatesMap where
-    parseJSON = parseJSON >=>
-        toAesonError . validateVssCertificatesMap . UnsafeVssCertificatesMap
+    parseJSON val = UncheckedVssCertificatesMap <$> parseJSON val
 
 instance ToJSON GenesisVssCertificatesMap where
     toJSON = toJSON . getGenesisVssCertificatesMap

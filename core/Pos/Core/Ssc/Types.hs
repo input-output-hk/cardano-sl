@@ -173,7 +173,7 @@ instance Buildable (StakeholderId, Word16) where
 -- stake.
 --
 -- Invariant: 'checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature'.
-data VssCertificate = UnsafeVssCertificate
+data VssCertificate = UncheckedVssCertificate
     { vcVssKey      :: !(AsBinary VssPublicKey)
     , vcExpiryEpoch :: !EpochIndex
     -- ^ Epoch up to which certificate is valid.
@@ -193,15 +193,15 @@ instance NFData VssCertificate
 instance Ord VssCertificate where
     compare a b = toTuple a `compare` toTuple b
       where
-        toTuple UnsafeVssCertificate {..} =
+        toTuple UncheckedVssCertificate {..} =
             (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
 instance Bi PublicKey => Buildable VssCertificate where
-    build UnsafeVssCertificate {..} = bprint
+    build UncheckedVssCertificate {..} = bprint
         ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
 
 instance Hashable VssCertificate where
-    hashWithSalt s UnsafeVssCertificate{..} =
+    hashWithSalt s UncheckedVssCertificate{..} =
         hashWithSalt s (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
 -- | VssCertificatesMap contains all valid certificates collected
@@ -210,7 +210,7 @@ instance Hashable VssCertificate where
 -- Invariants:
 --   * stakeholder ids correspond to 'vcSigningKey's of associated certs
 --   * no two certs have the same 'vcVssKey'
-newtype VssCertificatesMap = UnsafeVssCertificatesMap
+newtype VssCertificatesMap = UncheckedVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
     deriving (Eq, Show, Generic, NFData, ToList, Container)
 
@@ -220,14 +220,14 @@ makeWrapped ''VssCertificatesMap
 
 -- | A left-biased instance
 instance Semigroup VssCertificatesMap where
-    (UnsafeVssCertificatesMap a) <> (UnsafeVssCertificatesMap b) =
-        UnsafeVssCertificatesMap $
+    (UncheckedVssCertificatesMap a) <> (UncheckedVssCertificatesMap b) =
+        UncheckedVssCertificatesMap $
         a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
       where
         lVssKeys = HS.fromList (map vcVssKey (toList a))
 
 instance Monoid VssCertificatesMap where
-    mempty = UnsafeVssCertificatesMap mempty
+    mempty = UncheckedVssCertificatesMap mempty
     mappend = (<>)
 
 ----------------------------------------------------------------------------

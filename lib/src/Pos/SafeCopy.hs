@@ -25,7 +25,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
                                   Coin, CoinPortion (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
@@ -47,7 +47,7 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Util (toCerealError, cerealError)
+import           Pos.Util.Util (cerealError, toCerealError)
 
 ----------------------------------------------------------------------------
 -- Bi
@@ -181,8 +181,8 @@ instance ( SafeCopy (BHeaderHash b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           return $! UnsafeGenericBlockHeader {..}
-    putCopy UnsafeGenericBlockHeader {..} =
+           return $! UncheckedGenericBlockHeader {..}
+    putCopy UncheckedGenericBlockHeader {..} =
         contain $
         do safePut _gbhPrevBlock
            safePut _gbhBodyProof
@@ -202,8 +202,8 @@ instance ( SafeCopy (BHeaderHash b)
         do _gbHeader <- safeGet
            _gbBody <- safeGet
            _gbExtra <- safeGet
-           return $! UnsafeGenericBlock {..}
-    putCopy UnsafeGenericBlock {..} =
+           return $! UncheckedGenericBlock {..}
+    putCopy UncheckedGenericBlock {..} =
         contain $
         do safePut _gbHeader
            safePut _gbBody
@@ -362,8 +362,16 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
-    putCopy = putCopyBi
     getCopy = getCopyBi
+    putCopy = putCopyBi
+
+instance SafeCopy HeavyDlgIndex where
+    getCopy = contain $ HeavyDlgIndex <$> safeGet
+    putCopy x = contain $ safePut $ getHeavyDlgIndex x
+
+instance SafeCopy LightDlgIndices where
+    getCopy = contain $ LightDlgIndices <$> safeGet
+    putCopy x = contain $ safePut $ getLightDlgIndices x
 
 ----------------------------------------------------------------------------
 -- Plutus

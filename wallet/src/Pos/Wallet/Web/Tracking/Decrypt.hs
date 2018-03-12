@@ -55,7 +55,7 @@ buildTHEntryExtra
     -> (Maybe ChainDifficulty, Maybe Timestamp)
     -> THEntryExtra
 buildTHEntryExtra wdc (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs) =
-    let (UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = tx
+    let (UncheckedTx (NE.toList -> inps) (NE.toList -> outs) _) = tx
         toTxInOut (idx, out) = (TxInUtxo txId idx, TxOutAux out)
 
         resolvedInputs :: [(TxIn, TxOutAux)]

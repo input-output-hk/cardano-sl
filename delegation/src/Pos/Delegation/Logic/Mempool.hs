@@ -35,14 +35,14 @@ import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPs
                                       emptyCedeModifier, evalMapCede, pskToDlgEdgeAction)
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
-import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
 import           Pos.Delegation.Lrc (getDlgRichmen)
-import           Pos.Delegation.Types (DlgPayload (..))
+import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
+import           Pos.Util.Verification (runPVerifyText)
 
 ----------------------------------------------------------------------------
 -- Delegation mempool
@@ -52,7 +52,7 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m DlgPayload
-getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
+getDlgMempool = UncheckedDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool
@@ -172,8 +172,9 @@ processProxySKHeavyInternal psk = do
         fmap (either (,False)
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
-        runExceptT $
-        dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
+        runExceptT $ do
+            ExceptT $ pure $ maybeToLeft () $ runPVerifyText psk
+            dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
 
     -- Here the memory state is the same.
     runDelegationStateAction $ do

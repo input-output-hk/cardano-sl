@@ -36,7 +36,7 @@ instance Buildable EpochIndex where
     build = bprint ("#"%int)
 
 -- | Index of slot inside a concrete epoch.
-newtype LocalSlotIndex = UnsafeLocalSlotIndex
+newtype LocalSlotIndex = UncheckedLocalSlotIndex
     { getSlotIndex :: Word16
     } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
 

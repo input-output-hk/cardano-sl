@@ -68,7 +68,7 @@ instance Arbitrary TxIn where
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
 instance Arbitrary Tx where
-    arbitrary = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
+    arbitrary = UncheckedTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
     shrink = genericShrink
 
 -- | Type used to generate valid ('verifyTx')
@@ -100,11 +100,11 @@ buildProperTx inputList (inCoin, outCoin) =
         , mkWitness fromSk
         )
   where
-    fun (UnsafeTx txIn txOut _, fromSk, toSk, c) =
+    fun (UncheckedTx txIn txOut _, fromSk, toSk, c) =
         let inC = inCoin c
             outC = outCoin c
             txToBeSpent =
-                UnsafeTx
+                UncheckedTx
                     txIn
                     ((makeTxOutput fromSk inC) <| txOut)
                     (mkAttributes ())
@@ -114,7 +114,7 @@ buildProperTx inputList (inCoin, outCoin) =
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
-    newTx = UnsafeTx ins outs def
+    newTx = UncheckedTx ins outs def
     newTxHash = hash newTx
     ins  = fmap (view _2) txList
     outs = fmap (view _4) txList
@@ -135,7 +135,7 @@ newtype GoodTx = GoodTx
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
-    tx = UnsafeTx (map (view _2) l) (map (toaOut . view _3) l) def
+    tx = UncheckedTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
 instance HasConfiguration => Arbitrary GoodTx where
@@ -196,7 +196,7 @@ txOutDistGen =
         txInW <- arbitrary
         txIns <- arbitrary
         txOuts <- arbitrary
-        let tx = UnsafeTx txIns txOuts (mkAttributes ())
+        let tx = UncheckedTx txIns txOuts (mkAttributes ())
         return $ TxAux tx (txInW)
 
 instance HasConfiguration => Arbitrary TxPayload where

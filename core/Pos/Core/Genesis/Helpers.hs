@@ -17,7 +17,7 @@ import           Serokell.Util (allDistinct)
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (Address, Coin, StakeholderId, addressHash, decodeTextAddress,
                                   unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis.Types (GenesisDelegation (..), GenesisNonAvvmBalances (..))
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 
@@ -50,7 +50,7 @@ recreateGenesisDelegation pskMap = do
             isJust $ pskMap ^. at (addressHash (pskDelegatePk psk))
     when (any isIssuer pskMap) $
         throwError "one of the delegates is also an issuer, don't do it"
-    return $ UnsafeGenesisDelegation pskMap
+    return $ UncheckedGenesisDelegation pskMap
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

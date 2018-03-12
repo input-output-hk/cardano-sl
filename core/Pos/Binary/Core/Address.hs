@@ -90,7 +90,7 @@ instance Bi AddrStakeDistribution where
         \case
             BootstrapEraDistr -> encodeListLen 0
             SingleKeyDistr id -> encode (w8 0, id)
-            UnsafeMultiKeyDistr distr -> encode (w8 1, distr)
+            UncheckedMultiKeyDistr distr -> encode (w8 1, distr)
     decode =
         decodeListLenCanonical >>= \case
             0 -> pure BootstrapEraDistr

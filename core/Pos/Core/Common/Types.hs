@@ -36,11 +36,9 @@ module Pos.Core.Common.Types
        , Coin (..)
        , CoinPortion (..)
        , mkCoin
-       , checkCoin
        , coinF
        , unsafeGetCoin
        , coinPortionDenominator
-       , checkCoinPortion
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
@@ -77,6 +75,7 @@ import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes (Attributes)
+import           Pos.Util.Verification (PVerifiable (..), pverFail, runPVerifyPanic)
 
 ----------------------------------------------------------------------------
 -- Address, StakeholderId
@@ -128,7 +127,7 @@ data AddrStakeDistribution
     -- ^ Stake distribution for bootstrap era.
     | SingleKeyDistr !StakeholderId
     -- ^ Stake distribution stating that all stake should go to the given stakeholder.
-    | UnsafeMultiKeyDistr !(Map StakeholderId CoinPortion)
+    | UncheckedMultiKeyDistr !(Map StakeholderId CoinPortion)
     -- ^ Stake distribution which gives stake to multiple
     -- stakeholders. 'CoinPortion' is a portion of an output (output
     -- has a value, portion of this value is stake). The constructor
@@ -163,7 +162,7 @@ mkMultiKeyDistr ::
        MonadError MultiKeyDistrError m
     => Map StakeholderId CoinPortion
     -> m AddrStakeDistribution
-mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
+mkMultiKeyDistr distrMap = UncheckedMultiKeyDistr distrMap <$ check
   where
     check = do
         when (null distrMap) $ throwError MkdMapIsEmpty
@@ -284,16 +283,16 @@ slotLeadersF =
 ----------------------------------------------------------------------------
 
 -- | Coin is the least possible unit of currency.
-newtype Coin = Coin
+newtype Coin = UncheckedCoin
     { getCoin :: Word64
     } deriving (Show, Ord, Eq, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
-    build (Coin n) = bprint (int%" coin(s)") n
+    build (UncheckedCoin n) = bprint (int%" coin(s)") n
 
 instance Bounded Coin where
-    minBound = Coin 0
-    maxBound = Coin maxCoinVal
+    minBound = UncheckedCoin 0
+    maxBound = UncheckedCoin maxCoinVal
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
@@ -302,15 +301,13 @@ maxCoinVal = 45000000000000000
 -- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
 -- You can also use 'checkCoin' to do that check.
 mkCoin :: Word64 -> Coin
-mkCoin c = either error (const coin) (checkCoin coin)
-  where
-    coin = (Coin c)
+mkCoin x = runPVerifyPanic "mkCoin" $ UncheckedCoin x
 {-# INLINE mkCoin #-}
 
-checkCoin :: MonadError Text m => Coin -> m ()
-checkCoin (Coin c)
-    | c <= maxCoinVal = pure ()
-    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
+instance PVerifiable Coin where
+    pverifySelf (UncheckedCoin c)
+        | c <= maxCoinVal = pass
+        | otherwise       = pverFail $ "Coin: " <> show c <> " is too large"
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -332,7 +329,7 @@ unsafeGetCoin = getCoin
 -- To multiply a coin portion by 'Coin', use 'applyCoinPortionDown' (when
 -- calculating number of coins) or 'applyCoinPortionUp' (when calculating a
 -- threshold).
-newtype CoinPortion = CoinPortion
+newtype CoinPortion = UncheckedCoinPortion
     { getCoinPortion :: Word64
     } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
 
@@ -341,20 +338,13 @@ coinPortionDenominator :: Word64
 coinPortionDenominator = (10 :: Word64) ^ (15 :: Word64)
 
 instance Bounded CoinPortion where
-    minBound = CoinPortion 0
-    maxBound = CoinPortion coinPortionDenominator
+    minBound = UncheckedCoinPortion 0
+    maxBound = UncheckedCoinPortion coinPortionDenominator
 
--- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
--- than 'coinPortionDenominator'.
-checkCoinPortion
-    :: MonadError Text m
-    => CoinPortion -> m ()
-checkCoinPortion (CoinPortion x)
-    | x <= coinPortionDenominator = pure ()
-    | otherwise = throwError err
-  where
-    err =
-        sformat
+instance PVerifiable CoinPortion where
+    pverifySelf (UncheckedCoinPortion x) =
+        when (x > coinPortionDenominator) $ pverFail $
+            sformat
             ("CoinPortion: value is greater than coinPortionDenominator: "
             %int) x
 
@@ -364,7 +354,7 @@ checkCoinPortion (CoinPortion x)
 -- place.
 unsafeCoinPortionFromDouble :: Double -> CoinPortion
 unsafeCoinPortionFromDouble x
-    | 0 <= x && x <= 1 = CoinPortion v
+    | 0 <= x && x <= 1 = UncheckedCoinPortion v
     | otherwise = error "unsafeCoinPortionFromDouble: double not in [0, 1]"
   where
     v = round $ realToFrac coinPortionDenominator * x

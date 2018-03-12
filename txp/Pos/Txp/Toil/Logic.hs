@@ -32,7 +32,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
-                               txInputs, txOutAddress, checkTxAux)
+                               txInputs, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
@@ -43,6 +43,7 @@ import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo as Utxo
 import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.Verification (runPVerifyText)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -115,6 +116,7 @@ processTx
     => EpochIndex -> (TxId, TxAux) -> m TxUndo
 processTx curEpoch tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
+    whenJust (runPVerifyText aux) $ throwError . ToilInconsistentTxAux
     whenM ((>= memPoolLimitTx) <$> poolSize) $
         throwError (ToilOverwhelmed memPoolLimitTx)
     undo <- verifyAndApplyTx curEpoch True tx
@@ -135,6 +137,7 @@ normalizeToil curEpoch txs = mapM_ normalize ordered
 -- Verify and Apply logic
 ----------------------------------------------------------------------------
 
+-- | Verifies and applies tx. TxAux is assumed to be purely verified.
 verifyAndApplyTx
     :: ( MonadUtxo m
        , MonadGState m
@@ -142,7 +145,6 @@ verifyAndApplyTx
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    either (throwError . ToilInconsistentTxAux) pure (checkTxAux txAux)
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
     verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx

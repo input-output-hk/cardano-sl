@@ -8,7 +8,7 @@ import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Global (decodeURIComponent, encodeURIComponent)
-import Pos.Core.Slotting.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
+import Pos.Core.Slotting.Lenses.Types (_EpochIndex, _UncheckedLocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Slotting.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CHash, CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxId)
@@ -140,4 +140,4 @@ instance epochIndexRouteParams :: RouteParams EpochIndex where
 
 instance localSlotIndexRouteParams :: RouteParams LocalSlotIndex where
     paramToString slot =
-        show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+        show (slot ^. (_UncheckedLocalSlotIndex <<< getSlotIndex))

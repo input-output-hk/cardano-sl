@@ -96,5 +96,5 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
     onlyKnownUndos = catMaybes . toList
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap (txOutStake . toaOut) (foldMap onlyKnownUndos undo)
-    concatDistr (TxAux UnsafeTx {..} _) =
+    concatDistr (TxAux UncheckedTx {..} _) =
         concatMap (txOutStake . toaOut) $ toList (map TxOutAux _txOutputs)

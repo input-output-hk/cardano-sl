@@ -11,6 +11,7 @@ import           Control.Lens (each)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (elemIndex, (\\))
 import qualified Data.List.NonEmpty as NE
+import           Serokell.Util (isVerFailure, isVerSuccess)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, forAll,
@@ -19,11 +20,12 @@ import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Arbitrary.Txp ()
 import           Pos.Core (mkCoin)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..))
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (sublistN, _neHead)
+import           Pos.Util.Verification (runPVerify, runPVerifyPanic)
 
 spec :: Spec
 spec = describe "Txp.Core" $ do
@@ -53,11 +55,11 @@ spec = describe "Txp.Core" $ do
         "doesn't create Tx with non-positive coins in outputs"
 
 checkTxGood :: Tx -> Bool
-checkTxGood = isRight . checkTx
+checkTxGood = isVerSuccess . runPVerify
 
 checkTxBad :: Tx -> Bool
-checkTxBad UnsafeTx {..} =
-    all (\outs -> isLeft $ checkTx (UnsafeTx _txInputs outs _txAttributes)) badOutputs
+checkTxBad UncheckedTx {..} =
+    all (\outs -> isVerFailure $ runPVerify (UncheckedTx _txInputs outs _txAttributes)) badOutputs
   where
     invalidateOut :: TxOut -> TxOut
     invalidateOut out = out {txOutValue = mkCoin 0}
@@ -118,7 +120,7 @@ txAcyclicGen isBamboo size = do
         -- gen some outputs
         outputs <- NE.fromList <$> replicateM outputsN (TxOut <$> arbitrary <*> arbitrary)
         -- calculate new utxo & add vertex
-        let tx = UnsafeTx inputs outputs $ mkAttributes ()
+        let tx = UncheckedTx inputs outputs $ mkAttributes ()
             producedUtxo = map (tx,) $ [0..(length outputs) - 1]
             newVertices = tx : vertices
             newUtxo = (unusedUtxo \\ toList chosenUtxo) ++ producedUtxo
@@ -136,8 +138,6 @@ txGen size = do
     inputs <- NE.fromList <$> (replicateM inputsN $ (\h -> TxInUtxo h 0) <$> arbitrary)
     outputs <-
         NE.fromList <$> (replicateM outputsN $ TxOut <$> arbitrary <*> arbitrary)
-    let tx = UnsafeTx inputs outputs (mkAttributes ())
+    let tx = UncheckedTx inputs outputs (mkAttributes ())
     -- FIXME can't we convince ourselves that the Tx we made is valid?
-    case checkTx tx of
-        Left e   -> error $ "txGen: something went wrong: " <> e
-        Right () -> pure tx
+    pure $ runPVerifyPanic ("txGen: something went wrong") tx

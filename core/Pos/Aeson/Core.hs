@@ -25,6 +25,7 @@ import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coi
                                   Script (..), SharedSeed (..), addressF, coinPortionToDouble,
                                   decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble,
                                   unsafeGetCoin)
+import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
@@ -106,7 +107,7 @@ deriveJSON defaultOptions ''BlockCount
 instance FromJSON ApplicationName where
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = ApplicationName <$> parseJSON v
+    parseJSON v = UncheckedApplicationName <$> parseJSON v
 
 deriveToJSON defaultOptions ''ApplicationName
 
@@ -122,3 +123,9 @@ instance ToJSON Coin where
 
 deriving instance FromJSON EpochIndex
 deriving instance ToJSON EpochIndex
+
+instance FromJSON HeavyDlgIndex where
+    parseJSON v = HeavyDlgIndex <$> parseJSON v
+
+instance ToJSON HeavyDlgIndex where
+    toJSON = toJSON . getHeavyDlgIndex

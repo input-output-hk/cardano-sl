@@ -32,8 +32,6 @@ module Pos.Core.Block.Blockchain
 import           Universum
 
 import           Control.Lens (makeLenses)
-import           Control.Monad.Except (MonadError (throwError))
-import           Formatting (build, sformat, (%))
 
 import           Pos.Core.Class (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Common (HeaderHash)
@@ -71,19 +69,6 @@ class Blockchain p where
 
     mkBodyProof :: Body p -> BodyProof p
 
-    -- | Check whether 'BodyProof' corresponds to 'Body.
-    checkBodyProof :: MonadError Text m => Body p -> BodyProof p -> m ()
-    default checkBodyProof ::
-        (MonadError Text m, Buildable (BodyProof p), Eq (BodyProof p)) =>
-        Body p -> BodyProof p -> m ()
-    checkBodyProof body proof = do
-        let calculatedProof = mkBodyProof body
-        let errMsg =
-                sformat ("Incorrect proof of body. "%
-                         "Proof in header: "%build%
-                         ", calculated proof: "%build)
-                proof calculatedProof
-        unless (calculatedProof == proof) $ throwError errMsg
 
 ----------------------------------------------------------------------------
 -- Generic types
@@ -95,7 +80,7 @@ class Blockchain p where
 -- The constructor has `Unsafe' prefix in its name, because there in
 -- general there may be some invariants which must hold for the
 -- contents of header.
-data GenericBlockHeader b = UnsafeGenericBlockHeader
+data GenericBlockHeader b = UncheckedGenericBlockHeader
     { -- | Pointer to the header of the previous block.
       _gbhPrevBlock :: !(BHeaderHash b)
     , -- | Proof of body.
@@ -135,7 +120,7 @@ instance
 -- instance, for generic block proof of body must correspond to the
 -- body itself. Also there may be other invariants specific for
 -- particular blockchains.
-data GenericBlock b = UnsafeGenericBlock
+data GenericBlock b = UncheckedGenericBlock
     { _gbHeader :: !(GenericBlockHeader b)
     , _gbBody   :: !(Body b)
     , _gbExtra  :: !(ExtraBodyData b)
@@ -156,13 +141,6 @@ deriving instance
     , Eq (ExtraHeaderData b)
     ) => Eq (GenericBlock b)
 
--- Derived partially in Instances
---instance
---    ( NFData (GenericBlockHeader b)
---    , NFData (Body b)
---    , NFData (ExtraBodyData b)
---    ) => NFData (GenericBlock b)
-
 ----------------------------------------------------------------------------
 -- Smart constructors
 ----------------------------------------------------------------------------
@@ -181,7 +159,7 @@ mkGenericHeader
     -> ExtraHeaderData b
     -> GenericBlockHeader b
 mkGenericHeader prevHeader body consensus extra =
-    UnsafeGenericBlockHeader h proof (consensus h proof) extra
+    UncheckedGenericBlockHeader h proof (consensus h proof) extra
   where
     h :: HeaderHash
     h = maybe genesisHash headerHash prevHeader
@@ -202,7 +180,7 @@ mkGenericBlock
     -> ExtraBodyData b
     -> GenericBlock b
 mkGenericBlock prevHeader body consensus extraH extra =
-    UnsafeGenericBlock header body extra
+    UncheckedGenericBlock header body extra
   where
     header = mkGenericHeader prevHeader body consensus extraH
 

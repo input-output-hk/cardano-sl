@@ -22,7 +22,6 @@ import qualified Codec.CBOR.Encoding as E
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodeListLen, enforceSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.Scrypt (EncryptedPass (..))
@@ -199,8 +198,8 @@ instance Typeable w => Bi (ProxyCert w) where
     encode (ProxyCert a) = encodeXSignature a
     decode = fmap ProxyCert decodeXSignature
 
-instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
-    encode UnsafeProxySecretKey{..} =
+instance Bi w => Bi (ProxySecretKey w) where
+    encode UncheckedProxySecretKey{..} =
         encodeListLen 4
         <> encode pskOmega
         <> encode pskIssuerPk
@@ -212,9 +211,9 @@ instance (Bi w, HasCryptoConfiguration) => Bi (ProxySecretKey w) where
         pskIssuerPk   <- decode
         pskDelegatePk <- decode
         pskCert       <- decode
-        pure UnsafeProxySecretKey {..}
+        pure UncheckedProxySecretKey {..}
 
-instance (Typeable a, Bi w, HasCryptoConfiguration) =>
+instance (Typeable a, Bi w) =>
          Bi (ProxySignature w a) where
     encode ProxySignature{..} = encodeListLen 2
                              <> encode psigPsk

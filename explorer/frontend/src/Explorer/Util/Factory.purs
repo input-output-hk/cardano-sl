@@ -23,4 +23,4 @@ mkEpochIndex :: Int -> EpochIndex
 mkEpochIndex index = EpochIndex {getEpochIndex: index}
 
 mkLocalSlotIndex :: Int -> LocalSlotIndex
-mkLocalSlotIndex index = UnsafeLocalSlotIndex {getSlotIndex: index}
+mkLocalSlotIndex index = UncheckedLocalSlotIndex {getSlotIndex: index}

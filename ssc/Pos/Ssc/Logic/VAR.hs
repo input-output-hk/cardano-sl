@@ -168,8 +168,9 @@ onVerifyFailedInApply hashes e = assertionFailed msg
 -- Verify and apply
 ----------------------------------------------------------------------------
 
--- | Verify SSC-related part of given blocks with respect to current GState
--- and apply them on success. Blocks must be from the same epoch.
+-- | Verify SSC-related part of given blocks with respect to current
+-- GState and apply them on success. Blocks must be from the same
+-- epoch. They must be purely verified.
 sscVerifyAndApplyBlocks
     :: (HasSscConfiguration, HasConfiguration, SscVerifyMode m)
     => RichmenStakes

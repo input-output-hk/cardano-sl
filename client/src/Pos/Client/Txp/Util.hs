@@ -199,7 +199,7 @@ makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> Either e TxAux
 makeAbstractTx mkWit txInputs outputs = do
   let
-    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
+    tx = UncheckedTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
     txSigData = TxSigData

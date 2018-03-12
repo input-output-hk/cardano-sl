@@ -129,7 +129,7 @@ applyActionToModifier (AddConfirmedProposal cps) _ =
     Poll.pmConfirmedPropsL %~ MM.insert (Poll.cpsSoftwareVersion cps) cps
 applyActionToModifier (DelConfirmedProposal sv) _ = Poll.pmConfirmedPropsL %~ MM.delete sv
 applyActionToModifier (InsertActiveProposal ps) pst = \p ->
-    let up@UnsafeUpdateProposal{..} = Poll.psProposal ps
+    let up@UncheckedUpdateProposal{..} = Poll.psProposal ps
         upId = hash up
         p' = case MM.lookup innerLookupFun upId (Poll.pmActiveProps p) of
             Nothing -> p

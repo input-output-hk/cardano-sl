@@ -7,11 +7,9 @@ module Pos.Core.Update.Types
          -- * Version
          ApplicationName (..)
        , applicationNameMaxLength
-       , checkApplicationName
        , BlockVersion (..)
        , NumSoftwareVersion
        , SoftwareVersion (..)
-       , checkSoftwareVersion
 
        -- * Data associated with block version
        , SoftforkRule (..)
@@ -26,7 +24,6 @@ module Pos.Core.Update.Types
        , UpdateData (..)
        , UpdateProposalToSign (..)
        , SystemTag (..)
-       , checkSystemTag
        , systemTagMaxLength
 
          -- * UpdateVote and related
@@ -44,7 +41,6 @@ module Pos.Core.Update.Types
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
 import           Data.Char (isAscii)
 import           Data.Default (Default (..))
 import           Data.Hashable (Hashable)
@@ -65,10 +61,11 @@ import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import           Pos.Crypto (HasCryptoConfiguration, Hash, PublicKey, SafeSigner, SecretKey,
-                             SignTag (SignUSVote), Signature, hash, safeSign,
-                             safeToPublic, shortHashF, sign, toPublic)
+                             SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic,
+                             shortHashF, sign, toPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Orphans ()
+import           Pos.Util.Verification (PVerifiable (..), PVerifiableSub (..), pverFail)
 
 ----------------------------------------------------------------------------
 -- Version
@@ -81,21 +78,31 @@ data BlockVersion = BlockVersion
     , bvAlt   :: !Word8
     } deriving (Eq, Generic, Ord, Typeable)
 
-newtype ApplicationName = ApplicationName
+instance Show BlockVersion where
+    show BlockVersion {..} =
+        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
+
+instance Buildable BlockVersion where
+    build = bprint shown
+
+instance Hashable BlockVersion
+instance NFData BlockVersion
+
+
+newtype ApplicationName = UncheckedApplicationName
     { getApplicationName :: Text
     } deriving (Eq, Ord, Show, Generic, Typeable, ToString, Hashable, Buildable, NFData)
 
--- | Smart constructor of 'ApplicationName'.
-checkApplicationName :: MonadError Text m => ApplicationName -> m ()
-checkApplicationName (ApplicationName appName)
-    | length appName > applicationNameMaxLength =
-        throwError "ApplicationName: too long string passed"
-    | T.any (not . isAscii) appName =
-        throwError "ApplicationName: not ascii string passed"
-    | otherwise = pure ()
+instance PVerifiable ApplicationName where
+    pverifySelf (UncheckedApplicationName appName) = do
+        when (length appName > applicationNameMaxLength)
+             (pverFail "ApplicationName: too long string passed")
+        when (T.any (not . isAscii) appName)
+             (pverFail "ApplicationName: not ascii string passed")
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
+
 
 -- | Numeric software version associated with ApplicationName.
 type NumSoftwareVersion = Word32
@@ -113,22 +120,11 @@ instance Buildable SoftwareVersion where
 instance Show SoftwareVersion where
     show = toString . pretty
 
-instance Show BlockVersion where
-    show BlockVersion {..} =
-        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
-
-instance Buildable BlockVersion where
-    build = bprint shown
+instance PVerifiable SoftwareVersion where
+    pverifyFields = one . PVerifiableSub "svAppName" . svAppName
 
 instance Hashable SoftwareVersion
-instance Hashable BlockVersion
-
-instance NFData BlockVersion
 instance NFData SoftwareVersion
-
--- | A software version is valid iff its application name is valid.
-checkSoftwareVersion :: MonadError Text m => SoftwareVersion -> m ()
-checkSoftwareVersion sv = checkApplicationName (svAppName sv)
 
 ----------------------------------------------------------------------------
 -- Values updatable by update system
@@ -291,20 +287,18 @@ instance Buildable BlockVersionModifier where
 ----------------------------------------------------------------------------
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
-newtype SystemTag = SystemTag { getSystemTag :: Text }
+newtype SystemTag = UncheckedSystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 systemTagMaxLength :: Integral i => i
 systemTagMaxLength = 10
 
-checkSystemTag :: MonadError Text m => SystemTag -> m ()
-checkSystemTag (SystemTag tag)
-    | T.length tag > systemTagMaxLength
-          = throwError "SystemTag: too long string passed"
-    | T.any (not . isAscii) tag
-          = throwError "SystemTag: not ascii string passed"
-    | otherwise
-          = pure ()
+instance PVerifiable SystemTag where
+    pverifySelf (UncheckedSystemTag tag) = do
+        when (T.length tag > systemTagMaxLength) $
+            pverFail "SystemTag: too long string passed"
+        when (T.any (not . isAscii) tag) $
+            pverFail "SystemTag: not ascii string passed"
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal
@@ -321,7 +315,7 @@ data UpdateProposalToSign
     } deriving (Eq, Show, Generic)
 
 -- | Proposal for software update
-data UpdateProposal = UnsafeUpdateProposal
+data UpdateProposal = UncheckedUpdateProposal
     { upBlockVersion    :: !BlockVersion
     , upBlockVersionMod :: !BlockVersionModifier
     , upSoftwareVersion :: !SoftwareVersion
@@ -341,7 +335,7 @@ type UpdateProposals = HashMap UpId UpdateProposal
 instance Hashable UpdateProposal
 
 instance Bi UpdateProposal => Buildable UpdateProposal where
-    build up@UnsafeUpdateProposal {..} =
+    build up@UncheckedUpdateProposal {..} =
       bprint (build%
               " { block v"%build%
               ", UpId: "%build%
@@ -418,7 +412,7 @@ type VoteId = (UpId, PublicKey, Bool)
 --
 -- Invariants:
 --   * The signature is valid.
-data UpdateVote = UnsafeUpdateVote
+data UpdateVote = UncheckedUpdateVote
     { -- | Public key of stakeholder, who votes
       uvKey        :: !PublicKey
     , -- | Proposal to which this vote applies
@@ -433,7 +427,7 @@ data UpdateVote = UnsafeUpdateVote
 instance NFData UpdateVote
 
 instance Buildable UpdateVote where
-    build UnsafeUpdateVote {..} =
+    build UncheckedUpdateVote {..} =
       bprint ("Update Vote { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              (addressHash uvKey) uvProposalId uvDecision
 
@@ -442,7 +436,7 @@ instance Buildable VoteId where
       bprint ("Vote Id { voter: "%build%", proposal id: "%build%", voter's decision: "%build%" }")
              pk upId dec
 
--- | A safe constructor for 'UnsafeVote'.
+-- | A safe constructor for 'UncheckedVote'.
 mkUpdateVote
     :: HasCryptoConfiguration
     => SecretKey           -- ^ The voter
@@ -452,7 +446,7 @@ mkUpdateVote
 mkUpdateVote sk uvProposalId uvDecision =
     let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = toPublic sk
-    in  UnsafeUpdateVote{..}
+    in  UncheckedUpdateVote{..}
 
 -- | Same as 'mkUpdateVote', but uses 'SafeSigner'.
 mkUpdateVoteSafe
@@ -464,11 +458,11 @@ mkUpdateVoteSafe
 mkUpdateVoteSafe sk uvProposalId uvDecision =
     let uvSignature = safeSign SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = safeToPublic sk
-    in  UnsafeUpdateVote{..}
+    in  UncheckedUpdateVote{..}
 
 -- | Format 'UpdateVote' compactly.
 formatVoteShort :: UpdateVote -> Builder
-formatVoteShort UnsafeUpdateVote {..} =
+formatVoteShort UncheckedUpdateVote {..} =
     bprint ("("%shortHashF%" "%builder%" "%shortHashF%")")
         (addressHash uvKey)
         (bool "against" "for" uvDecision)

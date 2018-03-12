@@ -169,7 +169,7 @@ updateUtxoSumFromBalanceUpdate balanceUpdate = do
     putUtxoSum $ utxoSum + utxoChange
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
+getTxRelatedAddrs TxAux {taTx = UncheckedTx {..}} (catMaybes . toList -> undo) =
     map txOutAddress _txOutputs `unionNEnList` map (txOutAddress . toaOut) undo
   where
     toSet = HS.fromList . toList

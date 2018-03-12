@@ -70,7 +70,7 @@ genesisHeaderFormation prevHeader epoch body =
   where
     header = T.mkGenesisHeader prevHeader epoch body
     manualHeader =
-        T.UnsafeGenericBlockHeader
+        T.UncheckedGenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
@@ -97,7 +97,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
     correctSigner (Right (i,d,_)) = i /= d
     header = T.mkGenericHeader prevHeader body consensus extra
     manualHeader =
-        T.UnsafeGenericBlockHeader
+        T.UncheckedGenericBlockHeader
         { T._gbhPrevBlock = h
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus h proof
@@ -108,14 +108,13 @@ mainHeaderFormation prevHeader slotId signer body extra =
     (sk, pSk) = either (, Nothing) mkProxySk signer
     mkProxySk (issuerSK, delegateSK, isSigEpoch) =
         let epoch = T.siEpoch slotId
-            w = (epoch, epoch)
             delegatePK = toPublic delegateSK
             curried :: Bi w => w -> ProxySecretKey w
             curried = createPsk issuerSK delegatePK
             proxy =
                 if isSigEpoch
-                    then Right $ curried epoch
-                    else Left $ curried w
+                    then Right $ curried $ T.HeavyDlgIndex epoch
+                    else Left $ curried $ T.LightDlgIndices (epoch, epoch)
         in (delegateSK, Just $ proxy)
     difficulty = maybe 0 (succ . view T.difficultyL) prevHeader
     makeSignature toSign (Left psk) =

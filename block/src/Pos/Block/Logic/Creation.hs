@@ -41,8 +41,8 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo,
-                                 clearDlgMemPool, getDlgMempool)
+import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
+                                 getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
@@ -448,7 +448,7 @@ createMainBody bodyLimit sId payload =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
-        let dlgPay' = UnsafeDlgPayload psks'
+        let dlgPay' = UncheckedDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block

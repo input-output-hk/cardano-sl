@@ -72,7 +72,7 @@ verifyTxUtxo
     => VTxContext
     -> TxAux
     -> m (TxUndo, Maybe TxFee)
-verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
+verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UncheckedTx {..} witnesses) = do
     let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
     case (vtcVerifyAllIsKnown, unknownTxInMB) of
         (True, Just (inpId, txIn)) -> throwError $
@@ -128,7 +128,7 @@ verifyConsistency inputs witnesses
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
 verifyOutputs :: VTxContext -> TxAux -> VerificationRes
-verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
+verifyOutputs VTxContext {..} (TxAux UncheckedTx {..} _) =
     verifyGeneric $
     concatMap verifyOutput (enumerate $ toList _txOutputs)
   where
@@ -223,7 +223,7 @@ verifyAttributesAreKnown attrs =
 -- | Remove unspent outputs used in given transaction, add new unspent
 -- outputs.
 applyTxToUtxo :: MonadUtxo m => WithHash Tx -> m ()
-applyTxToUtxo (WithHash UnsafeTx {..} txid) = do
+applyTxToUtxo (WithHash UncheckedTx {..} txid) = do
     mapM_ utxoDel $ filter (not . isTxInUnknown) (toList _txInputs)
     mapM_ applyOutput . zip [0 ..] . toList . map TxOutAux $ _txOutputs
   where
@@ -236,7 +236,7 @@ rollbackTxUtxo
     :: (MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo (txAux, undo) = do
-    let tx@UnsafeTx {..} = taTx txAux
+    let tx@UncheckedTx {..} = taTx txAux
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ map (TxInUtxo txid) [0..]
     mapM_ (uncurry utxoPut) $ mapMaybe knownInputAndUndo $ toList $ NE.zip _txInputs undo

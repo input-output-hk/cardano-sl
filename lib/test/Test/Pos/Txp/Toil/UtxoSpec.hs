@@ -91,9 +91,9 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
-        newTx = UnsafeTx ins (map toaOut outs) (mkAttributes ())
+        newTx = UncheckedTx ins (map toaOut outs) (mkAttributes ())
         utxo = M.fromList $ do
-            tx@UnsafeTx{..} <- toList txs
+            tx@UncheckedTx{..} <- toList txs
             let id = hash tx
             (idx, out) <- zip [0..] (toList _txOutputs)
             pure ((TxInUtxo id idx), TxOutAux out)
@@ -105,7 +105,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
 
 badSigsTx :: HasConfiguration => SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
-    let (tx@UnsafeTx {..}, utxo, extendedInputs, txWits) =
+    let (tx@UncheckedTx {..}, utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
         ctx = VTxContext False
         transactionVerRes =
@@ -118,7 +118,7 @@ badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
 
 doubleInputTx :: HasConfiguration => SmallGenerator DoubleInputTx -> Property
 doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
-    let ((tx@UnsafeTx {..}), utxo, _extendedInputs, txWits) =
+    let ((tx@UncheckedTx {..}), utxo, _extendedInputs, txWits) =
             getTxFromGoodTx ls
         ctx = VTxContext False
         transactionVerRes =
@@ -160,13 +160,13 @@ getTxFromGoodTx ls =
         utxo =
             M.fromList
                 [ (i, (TxOutAux (NE.head o)))
-                | ((UnsafeTx _ o _), i, _, _) <- toList ls
+                | ((UncheckedTx _ o _), i, _, _) <- toList ls
                 ]
         extendInput txIn = (txIn, ) <$> M.lookup txIn utxo
         extendedInputs :: NonEmpty (Maybe (TxIn, TxOutAux))
         extendedInputs = map extendInput _txInputs
         _txAttributes = mkAttributes ()
-    in ((UnsafeTx {..}), utxo, extendedInputs, txWitness)
+    in ((UncheckedTx {..}), utxo, extendedInputs, txWitness)
 
 -- | This function, used in 'verifyGoodTx', takes a 'GoodTx' and checks that
 -- each property verified by 'verifyTx' holds, meaning:
@@ -176,7 +176,7 @@ getTxFromGoodTx ls =
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
 individualTxPropertyVerifier :: HasConfiguration => TxVerifyingTools -> Bool
-individualTxPropertyVerifier (tx@UnsafeTx{..}, _, extendedInputs, txWits) =
+individualTxPropertyVerifier (tx@UncheckedTx{..}, _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs _txOutputs
         hasGoodInputs =
             all (signatureIsValid tx)
@@ -221,7 +221,7 @@ applyTxToUtxoGood :: HasConfiguration
                   -> Bool
 applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
     let inpList = txIn0 :| M.keys txMap
-        tx = UnsafeTx inpList (map toaOut txOuts) (mkAttributes ())
+        tx = UncheckedTx inpList (map toaOut txOuts) (mkAttributes ())
         -- Initial utxo
         initUtxo = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
         resultUtxo = applyTxToUtxoPure (withHash tx) initUtxo
@@ -424,7 +424,7 @@ scriptTxSpec = describe "script transactions" $ do
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
                 TxOut (makeScriptAddress Nothing val) (mkCoin 1)
-            tx = UnsafeTx (one inp) (one randomPkOutput) $ mkAttributes ()
+            tx = UncheckedTx (one inp) (one randomPkOutput) $ mkAttributes ()
             txSigData = TxSigData { txSigTxHash = hash tx }
             txAux = TxAux tx (one (mkWit txSigData))
         in tryApplyTx utxo txAux

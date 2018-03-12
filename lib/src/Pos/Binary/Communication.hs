@@ -15,7 +15,6 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize)
 import           Pos.Binary.Core ()
-import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,

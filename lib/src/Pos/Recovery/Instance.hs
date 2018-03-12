@@ -9,7 +9,6 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 
-import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB

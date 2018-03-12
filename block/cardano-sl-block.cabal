@@ -19,7 +19,6 @@ library
                         Pos.Arbitrary.Block.Generate
 
                         Pos.Block.Base
-                        Pos.Block.BHelpers
                         Pos.Block.BListener
                         Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
@@ -28,6 +27,7 @@ library
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
+                        Pos.Block.Verification
 
                         Pos.Block.Network
                         Pos.Block.Network.Logic
@@ -173,6 +173,7 @@ Benchmark bench-block
                    , cardano-sl-update
                    , cardano-sl-ssc
                    , cardano-sl-delegation
+                   , cardano-sl-util
                    , formatting
                    , universum
                    , deepseq

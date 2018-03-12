@@ -140,7 +140,7 @@ instance MonadPollRead m =>
     delConfirmedProposal sv = ether $
         pmConfirmedPropsL %= MM.delete sv
     insertActiveProposal ps = do
-        let up@UnsafeUpdateProposal{..} = psProposal ps
+        let up@UncheckedUpdateProposal{..} = psProposal ps
             upId = hash up
         whenNothingM_ (getProposal upId) $
             setEpochProposers =<< (HS.insert (addressHash upFrom) <$> getEpochProposers)

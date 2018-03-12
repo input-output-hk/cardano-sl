@@ -19,7 +19,7 @@ import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
-import Pos.Core.Slotting.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
+import Pos.Core.Slotting.Lenses.Types (_EpochIndex, _UncheckedLocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Slotting.Types (EpochIndex(..), LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CAddressesFilter(..), CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
@@ -89,7 +89,7 @@ epochPageSearch (EpochIndex epochIndex) (PageNumber pNumber) = get $ "epochs/"
 epochSlotSearch :: forall eff. EpochIndex -> LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
 epochSlotSearch epoch slot = get $ "epochs/" <> show epochIndex <> slotQuery
     where
-        slotQuery = "/" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+        slotQuery = "/" <> show (slot ^. (_UncheckedLocalSlotIndex <<< getSlotIndex))
         epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
 
 -- genesis block

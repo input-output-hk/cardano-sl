@@ -13,10 +13,10 @@ import           Data.Default (def)
 import           Data.Reflection (give)
 
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData,
-                           GenericBlock (..), GenericBlockHeader (..), HeaderHash,
-                           SoftforkRule (..), SoftwareVersion (..), StakeholderId,
-                           TxFeePolicy (..), unsafeCoinPortionFromDouble)
+                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
+                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
+                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
+                           unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
@@ -125,7 +125,7 @@ block :: Block
 block = Right mainBlock
 
 mainBlock :: MainBlock
-mainBlock = UnsafeGenericBlock
+mainBlock = UncheckedGenericBlock
     { _gbHeader = mainBlockHeader
     , _gbBody   = blockBody
     , _gbExtra  = extraBodyData
@@ -143,14 +143,14 @@ blockBody = MainBody
 -- the fewest fields...
 emptySscPayload :: SscPayload
 emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
+    { spVss = UncheckedVssCertificatesMap
           { getVssCertificatesMap = mempty
           }
     }
 
 emptyDlgPayload :: DlgPayload
-emptyDlgPayload = UnsafeDlgPayload
-    { getDlgPayload = []
+emptyDlgPayload = UncheckedDlgPayload
+    { getDlgPayload = mempty
     }
 
 emptyUpdatePayload :: UpdatePayload
@@ -171,7 +171,7 @@ blockHeader :: BlockHeader
 blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
-mainBlockHeader = UnsafeGenericBlockHeader
+mainBlockHeader = UncheckedGenericBlockHeader
     { _gbhPrevBlock = mainBlockHeaderHash
     , _gbhBodyProof = bodyProof
     , _gbhConsensus = consensusData
@@ -218,7 +218,7 @@ consensusData = MainConsensusData
 slotId :: SlotId
 slotId = SlotId
     { siEpoch = EpochIndex { getEpochIndex = 0 }
-    , siSlot  = UnsafeLocalSlotIndex { getSlotIndex = 0 }
+    , siSlot  = UncheckedLocalSlotIndex { getSlotIndex = 0 }
     }
 
 publicKey :: PublicKey
@@ -254,7 +254,7 @@ softwareVersion = SoftwareVersion
     , svNumber  = 0
     }
   where
-    appName = ApplicationName (mempty :: Text)
+    appName = UncheckedApplicationName (mempty :: Text)
 
 blockHeaderAttributes :: BlockHeaderAttributes
 blockHeaderAttributes = Attributes

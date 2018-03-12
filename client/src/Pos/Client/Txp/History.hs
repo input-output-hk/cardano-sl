@@ -70,7 +70,7 @@ import           Pos.Util.Util (HasLens')
 
 -- | For given tx, gives list of source addresses of this tx, with respective 'TxIn's
 getSenders :: MonadUtxoRead m => Tx -> m [TxOut]
-getSenders UnsafeTx {..} = do
+getSenders UncheckedTx {..} = do
     utxo <- catMaybes <$> mapM utxoGet (toList _txInputs)
     return $ toaOut <$> utxo
 

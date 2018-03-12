@@ -31,7 +31,7 @@ import           Pos.Crypto (hashHexF)
 ----------------------------------------------------------------------------
 
 instance Bi BlockHeader => Buildable GenesisBlockHeader where
-    build gbh@UnsafeGenericBlockHeader {..} =
+    build gbh@UncheckedGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
              "    hash: "%hashHexF%"\n"%
@@ -49,7 +49,7 @@ instance Bi BlockHeader => Buildable GenesisBlockHeader where
         GenesisConsensusData {..} = _gbhConsensus
 
 instance Bi BlockHeader => Buildable GenesisBlock where
-    build UnsafeGenericBlock {..} =
+    build UncheckedGenericBlock {..} =
         bprint
             (stext%":\n"%
              "  "%build%

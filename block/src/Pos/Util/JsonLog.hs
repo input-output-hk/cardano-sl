@@ -37,7 +37,6 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Core ()
-import           Pos.Block.BHelpers ()
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
                            gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)

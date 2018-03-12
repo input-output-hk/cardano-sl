@@ -73,7 +73,11 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
             logInfo "Flushing wallet db..."
             flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
-            syncWallets
+
+        -- NOTE(adn): Sync the wallets anyway. The old implementation was skipping syncing in
+        -- case `walletFlushDb` was not set, but was still calling it before starting the Servant
+        -- server.
+        syncWallets
 
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr plugins

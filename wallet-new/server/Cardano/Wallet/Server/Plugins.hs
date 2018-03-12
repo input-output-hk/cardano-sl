@@ -85,16 +85,17 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     -> Plugin WalletWebMode
 legacyWalletBackend WalletBackendParams {..} =
     first one $ worker walletServerOuts $ \diffusion -> do
-      logInfo $ sformat ("Production mode for API: "%build)
-        walletProductionApi
-      logInfo $ sformat ("Transaction submission disabled: "%build)
-        walletTxCreationDisabled
+        modifyLoggerName (const "legacyServantBackend") $ do
+            logInfo $ sformat ("Production mode for API: "%build)
+              walletProductionApi
+            logInfo $ sformat ("Transaction submission disabled: "%build)
+              walletTxCreationDisabled
 
-      walletServeImpl
-        (getApplication diffusion)
-        walletAddress
-        -- Disable TLS if in debug mode.
-        (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+            walletServeImpl
+              (getApplication diffusion)
+              walletAddress
+              -- Disable TLS if in debug mode.
+              (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application

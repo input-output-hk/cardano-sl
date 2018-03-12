@@ -47,7 +47,7 @@ type VoidModifier a = MapModifier a ()
 data IndexedMapModifier a = IndexedMapModifier
     { immModifier :: MM.MapModifier a Int
     , immCounter  :: Int
-    } deriving Eq
+    }
 
 sortedInsertions :: IndexedMapModifier a -> [a]
 sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier

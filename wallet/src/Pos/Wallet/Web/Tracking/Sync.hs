@@ -49,8 +49,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import           Formatting (build, sformat, (%))
-import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
+import           Formatting (build, float, sformat, (%))
+import           System.Wlog (HasLoggerName, WithLogger, logDebug, logError, logInfo, logWarning,
                               modifyLoggerName)
 
 import           Pos.Block.Types (Blund, undoTx)
@@ -177,7 +177,7 @@ syncWalletWithBlockchain
     )
     => SyncRequest
     -> m (Either SyncError ())
-syncWalletWithBlockchain syncRequest = do
+syncWalletWithBlockchain syncRequest = setLogger $ do
     let (_, walletId) = srCredentials syncRequest
     let onError       = pure . Left . SyncFailed walletId
     handleAny onError $ do
@@ -256,66 +256,70 @@ syncHistoryWithGStateUnsafe syncRequest walletTip blockchainTip = setLogger $ do
 
     let getBlockHeaderTimestamp = blockHeaderTimestamp systemStart slottingData
 
-    (mapModifier, newSyncTip) <- computeAccModifier credentials getBlockHeaderTimestamp walletTip mempty
+    dbUsed <- WS.getCustomAddresses WS.UsedAddr
+    logDebug "Starting sync via computeAccModifier..."
+    (mapModifier, newSyncTip) <- computeAccModifier credentials getBlockHeaderTimestamp walletTip dbUsed mempty 0
+    logInfo $ sformat ("Found new interesting mapModifier, new sync tip will be " %  build) newSyncTip
     applyModifierToWallet (srOperation syncRequest) walletId (headerHash newSyncTip) mapModifier
+    logInfoSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
 
     case headerHash newSyncTip == headerHash blockchainTip of
         True -> do
             logInfoSP $ \sl ->
                 sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                         %shortHashF%", "%buildSafe sl)
-                        walletId (headerHash walletTip) mapModifier
+                        walletId (headerHash newSyncTip) mapModifier
             pure $ Right ()
         False -> syncHistoryWithGStateUnsafe syncRequest newSyncTip blockchainTip
 
     where
         -- | Main workhorse which iterates over the blockchain and reconstruct the transaction
-        -- history.
+        -- history. Yields a new 'CAccModifier', give or take, every 10000 blocks.
         computeAccModifier :: WalletDecrCredentials
                            -> (BlockHeader -> Maybe Timestamp)
                            -> BlockHeader
+                           -> [(CId Addr, HeaderHash)]
+                           -- ^ used addresses
                            -> CAccModifier
+                           -> Int
                            -> m (CAccModifier, BlockHeader)
                            -- ^ The new wallet modifier and the new sync tip for the wallet.
-        computeAccModifier credentials getBlockTimestamp wHeader currentModifier = do
-            let walletId = snd credentials
-            dbUsed <- WS.getCustomAddresses WS.UsedAddr
-            if | depthOf blockchainTip > depthOf wHeader -> do
-                     -- If wallet's syncTip is before than the current tip in the blockchain,
-                     -- then it loads wallets starting with @wHeader@.
-                     -- Sync tip can be before the current tip
-                     -- when we call @syncWalletSetWithTip@ at the first time
-                     -- or if the application was interrupted during rollback.
-                     -- We don't load blocks explicitly, because blockain can be long.
-                     nextBlund <- resolveForwardLink wHeader >>= (maybe (pure Nothing) getBlund)
-                     case nextBlund of
-                         Nothing -> pure (mempty, blockchainTip)
-                         Just blund@(currentBlock, _) -> do
-                             newModifier <- (currentModifier <>) <$> applyBlock credentials getBlockTimestamp dbUsed blund
-                             if isModifierEmpty newModifier
-                                 then computeAccModifier credentials getBlockTimestamp (getBlockHeader currentBlock) newModifier
-                                 else pure (newModifier, getBlockHeader currentBlock)
+        computeAccModifier credentials getBlockTimestamp wHeader dbUsed currentModifier currentBlockCount = do
+            case currentBlockCount >= 10000 of
+                True -> do
+                    let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) / fromIntegral totalDepth
+                    logDebug $ sformat ("Progress: " % float @Double % "%") (progress (depthOf wHeader) (depthOf blockchainTip))
+                    pure (currentModifier, wHeader)
+                False -> do
+                    let walletId = snd credentials
+                    if | depthOf blockchainTip > depthOf wHeader -> do
+                             -- If wallet's syncTip is before than the current tip in the blockchain,
+                             -- then it loads wallets starting with @wHeader@.
+                             -- Sync tip can be before the current tip
+                             -- when we call @syncWalletSetWithTip@ at the first time
+                             -- or if the application was interrupted during rollback.
+                             -- We don't load blocks explicitly, because blockain can be long.
+                             nextBlund <- resolveForwardLink wHeader >>= (maybe (pure Nothing) getBlund)
+                             case nextBlund of
+                                 Nothing -> pure (currentModifier, blockchainTip)
+                                 Just blund@(currentBlock, _) -> do
+                                     newModifier <- (currentModifier <>) <$> applyBlock credentials getBlockTimestamp dbUsed blund
+                                     computeAccModifier credentials
+                                                        getBlockTimestamp
+                                                        (getBlockHeader currentBlock)
+                                                        dbUsed
+                                                        newModifier
+                                                        (currentBlockCount + 1)
 
-               | depthOf blockchainTip < depthOf wHeader -> do
-                     -- This rollback can occur
-                     -- if the application was interrupted during blocks application.
-                     blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
-                     let newModifier = foldl' (\r b -> r <> rollbackBlock credentials getBlockTimestamp dbUsed b) currentModifier blunds
-                     pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
-               | otherwise -> do
-                     logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
-                     pure (mempty, blockchainTip)
-
-        isModifierEmpty :: CAccModifier -> Bool
-        isModifierEmpty CAccModifier{..} = and [ camAddresses == mempty
-                                               , camUsed                 == mempty
-                                               , camChange               == mempty
-                                               , camUtxo                 == mempty
-                                               , camAddedHistory         == mempty
-                                               , camDeletedHistory       == mempty
-                                               , camAddedPtxCandidates   == mempty
-                                               , camDeletedPtxCandidates == mempty
-                                               ]
+                       | depthOf blockchainTip < depthOf wHeader -> do
+                             -- This rollback can occur
+                             -- if the application was interrupted during blocks application.
+                             blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
+                             let newModifier = foldl' (\r b -> r <> rollbackBlock credentials getBlockTimestamp dbUsed b) currentModifier blunds
+                             pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
+                       | otherwise -> do
+                             logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
+                             pure (mempty, blockchainTip)
 
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
@@ -549,7 +553,7 @@ evalChange allUsed inputs outputs allOutputsOur
         else HS.toList potentialChange
 
 setLogger :: HasLoggerName m => m a -> m a
-setLogger = modifyLoggerName (<> "wallet" <> "sync")
+setLogger = modifyLoggerName (const "syncWalletWorker")
 
 ----------------------------------------------------------------------------
 -- Cached modifier

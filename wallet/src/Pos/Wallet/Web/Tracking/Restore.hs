@@ -5,7 +5,7 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Data.Map as M
-import           System.Wlog (CanLog, HasLoggerName, WithLogger)
+import           System.Wlog (CanLog, HasLoggerName, WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Core (Address, HasConfiguration)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
@@ -35,9 +35,11 @@ restoreWallet :: ( MonadWalletDB ctx m
                  , MonadUnliftIO m
                  ) => WalletDecrCredentials -> m ()
 restoreWallet credentials = do
-    restoreGenesisAddresses credentials
-    restoreWalletBalance credentials
-    submitSyncRequest (newRestoreRequest credentials)
+    modifyLoggerName (const "syncWalletWorker") $ do
+        logInfo "New Restoration request for a wallet..."
+        restoreGenesisAddresses credentials
+        restoreWalletBalance credentials
+        submitSyncRequest (newRestoreRequest credentials)
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.

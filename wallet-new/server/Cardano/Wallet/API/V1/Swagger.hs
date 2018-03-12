@@ -223,14 +223,14 @@ Software Version | Git Revision
 $deGitRevision   | $deSoftwareVersion
 
 Getting Started
----------------
+===============
 
 In the following examples, we will use *curl* to illustrate request to an API running on the default port **8090**.
 
 Please note that wallet web API uses TLS for secure communication. Requests to the API need to send a client CA certificate that was used when launching the node and identifies the client as being permitted to invoke the server API.
 
 Creating a New Wallet
-=====================
+---------------------
 
 You can create your first wallet using the `POST /api/v1/wallets` endpoint as follow:
 
@@ -280,7 +280,7 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
 ```
 
 Receiving Money
-===============
+---------------
 
 To receive money from other users you should provide your address. This address can be obtained from an account. Each wallet contains at least one account, you can think of account as a pocket inside of your wallet. Besides, you can view all existing accounts of a wallet by using the `GET /api/v1/wallets/{{walletId}}/accounts` endpoint as follow:
 
@@ -321,7 +321,7 @@ Each account has at least one address, all listed under the `addresses` field. Y
 
 
 Sending Money
-=============
+-------------
 
 In order to send money from one of your account to another address, you can create a new payment transaction using the `POST /api/v1/transactions` endpoint as follow:
 
@@ -389,7 +389,7 @@ In addition, and because it is not possible to _preview_ a transaction, one can 
 
 
 Pagination
-----------
+==========
 
 **All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
 
@@ -402,12 +402,13 @@ For a more accurate description, see the section `Parameters` of each GET reques
 
 
 Filtering and sorting
----------------------
+=====================
 
 `GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
 
+
 Filter operators
-================
+----------------
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
@@ -420,7 +421,7 @@ Filter operators
 | `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
 
 Sort operators
-==============
+--------------
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
@@ -430,7 +431,7 @@ Sort operators
 
 
 Errors
-------
+======
 
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together with a numeric error code which can be used by API consumers to implement proper error handling in their application. For example, here's a typical error which might be issued:
 
@@ -439,25 +440,19 @@ $deErrorExample
 ```
 
 Existing wallet errors
-======================
+----------------------
 
 $deWalletErrorTable
 
 
 Mnemonic Codes
---------------
+==============
 
 The full list of accepted mnemonic codes to secure a wallet is defined by the [BIP-39 specifications](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). Note that picking up 12 random words from the list **is not enough** and leads to poor security. Make sure to carefully follow the steps described in the protocol when you generate words for a new wallet.
 
 
-Disable TLS (Not Recommended)
------------------------------
-
-All API endpoints in this document have a `Try it out` button which produce a `curl` command that can be used to make a request to the wallet. These `curl` commands do not use TLS options so ensure that you have turned off TLS when running these examples. You can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
-
-
 Versioning & Legacy
--------------------
+===================
 
 The API is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_ in the URL.
 
@@ -466,6 +461,12 @@ The API is **versioned**, meaning that is possible to access different versions 
 This means that _omitting_ the version number would call the old version of the API. Deprecated endpoints are currently grouped under an appropriate section; they would be removed in upcoming released, if you're starting a new integration with Cardano-SL, please ignore these.
 
 Note that Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
+
+
+Disable TLS (Not Recommended)
+-----------------------------
+
+All API endpoints in this document have a `Try it out` button which produce a `curl` command that can be used to make a request to the wallet. These `curl` commands do not use TLS options so ensure that you have turned off TLS when running these examples. You can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
 |]
 
 

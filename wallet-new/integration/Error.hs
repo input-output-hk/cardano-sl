@@ -12,7 +12,7 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 
-import           Cardano.Wallet.API.V1.Types (Account (..), Wallet (..))
+import           Cardano.Wallet.API.V1.Types (Account (..), Wallet (..), WalletAddress (..))
 
 import           Cardano.Wallet.Client (ClientError)
 
@@ -27,6 +27,8 @@ data WalletTestError
     | AccountBalanceNotZero Account
     | LocalAccountDiffers Account
     | LocalAccountsDiffers [Account]
+
+    | AddressBalanceNotZero WalletAddress
 
     deriving (Show, Eq, Generic)
 
@@ -44,5 +46,6 @@ instance Buildable WalletTestError where
     build (AccountBalanceNotZero a)  = bprint ("Acccount balance is not zero. Account - ("%stext%")") (show a)
     build (LocalAccountDiffers   a)  = bprint ("Local account differs. Account - ("%stext%")") (show a)
     build (LocalAccountsDiffers  a)  = bprint ("Local accounts differs. Account - ("%stext%")") (show a)
+    build (AddressBalanceNotZero a)  = bprint ("Address balance is not zero. Address - ("%stext%")") (show a)
 
 

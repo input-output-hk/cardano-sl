@@ -6,11 +6,17 @@ module Functions where
 
 import           Universum
 
+import           Data.List.NonEmpty (fromList)
+
 import           Control.Lens ((+~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), NewAccount (..), Wallet (..), WalletAddress (..), NewAddress (..), WalletId, AccountIndex)
+import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, NewAccount (..),
+                                              NewAddress (..), Payment (..),
+                                              PaymentDistribution (..), PaymentSource (..),
+                                              Transaction (..), Wallet (..), WalletAddress (..),
+                                              WalletId)
 
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
@@ -87,7 +93,7 @@ runAction wc ws  CreateAccount = do
 
     -- Precondition, we need to have wallet in order
     -- to create an account.
-    guard (length localWallets > 0)
+    guard (length localWallets >= 1)
 
     newAcc  <-  liftIO $ generate generateNewAccount
     result  <-  respToRes $ postAccount wc newAcc
@@ -139,6 +145,13 @@ runAction wc ws GetAccount    = do
 
 -- Addresses
 runAction wc ws CreateAddress = do
+
+    -- The precondition is that we must have accounts.
+    -- If we have accounts, that presupposes that we have wallets,
+    -- which is the other thing we need here.
+    let localAccounts = ws ^. accounts
+    guard (length localAccounts >= 1)
+
     -- We choose from the existing wallets AND existing accounts.
     account <-  pickRandomElement (ws ^. accounts)
     let walletId = accWalletId account
@@ -153,6 +166,7 @@ runAction wc ws CreateAddress = do
 
     -- Modify wallet state accordingly.
     pure $ ws
+        & addresses  .~ ws ^. addresses <> [result]
         & actionsNum +~ 1
   where
     createNewAddress :: WalletId -> AccountIndex -> NewAddress
@@ -160,6 +174,69 @@ runAction wc ws CreateAddress = do
         { newaddrSpendingPassword = Nothing
         , newaddrAccountIndex     = accIndex
         , newaddrWalletId         = wId
+        }
+
+-- Transactions
+runAction wc ws CreateTransaction = do
+
+    let localAccounts  = ws ^. accounts
+    let localAddresses = ws ^. addresses
+
+    let localAccsWithMoney = filter ((> minBound) . accAmount) localAccounts
+
+    -- | The preconditions we need to generate a transaction.
+    -- We need to have an account and two addresses.
+    -- We also need money to execute a transaction.
+    guard (length localAccounts       >= 1)
+    guard (length localAddresses      >= 2)
+    guard (length localAccsWithMoney  >= 1)
+
+    -- From which source to pay.
+    accountSource <- pickRandomElement localAccsWithMoney
+
+    let _accountSourceMoney = accAmount accountSource
+
+    -- We should probably have a sensible minimum value.
+    -- moneyAmount <- liftIO $ mkCoin $ generate $ choose (0, getCoin accountSourceMoney)
+    moneyAmount <- liftIO $ generate arbitrary
+
+    let paymentSource =
+            PaymentSource
+                { psWalletId     = accWalletId accountSource
+                , psAccountIndex = accIndex    accountSource
+                }
+
+    addressDestination <- pickRandomElement localAddresses
+
+    let paymentDistribution =
+            PaymentDistribution
+                { pdAddress = addrId addressDestination
+                , pdAmount  = moneyAmount
+                }
+
+    let newPayment =  createNewPayment
+                          paymentSource
+                          [paymentDistribution]
+
+    result  <-  respToRes $ postTransaction wc newPayment
+
+    checkInvariant
+        (txAmount result == moneyAmount)
+        (InvalidTransactionState result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & transactions  .~ ws ^. transactions <> [result]
+        & actionsNum    +~ 1
+
+  where
+    createNewPayment :: PaymentSource -> [PaymentDistribution] -> Payment
+    createNewPayment ps pd = Payment
+        { pmtSource           = ps
+        , pmtDestinations     = fromList pd
+        , pmtGroupingPolicy   = Nothing
+        -- ^ Simple for now.
+        , pmtSpendingPassword = Nothing
         }
 
 

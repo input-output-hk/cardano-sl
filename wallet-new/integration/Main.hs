@@ -23,7 +23,7 @@ main = do
 
     printT "Starting the integration testing for wallet."
 
-    when stateless $
+    when stateless $ do
         printT "The wallet test node is running in stateless mode."
         printT "Stateless mode not implemented currently!"
 
@@ -34,7 +34,7 @@ main = do
     let walletClient :: forall m. WalletClient m
         walletClient = error "Missing"
 
-    let walletState = WalletState mempty mempty 0
+    let walletState = WalletState mempty mempty mempty mempty 0
 
     -- some monadic fold or smth similar
     _ <- runActionCheck

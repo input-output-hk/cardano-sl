@@ -102,11 +102,6 @@ class (Hash h a, Ord a) => IsWallet w h a where
   total :: IsWallet w h a => w h a -> Utxo h a
   total w = available w `utxoUnion` change w
 
--- | Variation on 'newPending' which simply ignores any transactions
--- that do not belong to us
-newPending' :: IsWallet w h a => Transaction h a -> w h a -> w h a
-newPending' tx w = fromMaybe w $ newPending tx w
-
 {-------------------------------------------------------------------------------
   Rollback
 -------------------------------------------------------------------------------}
@@ -144,10 +139,15 @@ data Inductive h a =
   | NewPending (Transaction h a) (Inductive h a)
   deriving Eq
 
+
 -- | Interpreter for 'Inductive'
 --
 -- Given (one or more) empty wallets, evaluate an 'Inductive' wallet, checking
 -- the given property at each step.
+--
+-- Note: we expect the 'Inductive' to be valid (valid blockchain, valid
+-- calls to 'newPending', etc.). This is meant to check properties of the
+-- /wallet/, not the wallet input.
 interpret :: forall ws h a.
              Wallets ws h a                         -- ^ Empty wallet
           -> (Wallets ws h a -> Validated Text ())  -- ^ Predicate to check
@@ -161,6 +161,10 @@ interpret es p = go
 
     verify :: Wallets ws h a -> Validated Text (Wallets ws h a)
     verify ws = p ws >> return ws
+
+    newPending' :: IsWallet w h a => Transaction h a -> w h a -> w h a
+    newPending' tx = fromMaybe (error "interpret: invalid NewPending")
+                   . newPending tx
 
 {-------------------------------------------------------------------------------
   Invariants

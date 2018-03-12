@@ -1,4 +1,4 @@
-resolver: lts-9.1
+resolver: lts-10.8
 
 flags:
   ether:
@@ -34,176 +34,116 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 
-- location:
-    git: https://github.com/well-typed/cborg
-    # Has support for canonical cbor
-    commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
-  subdirs:
-  - cborg
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/time-units.git
-    commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/kademlia.git
-    commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/plutus-prototype
-    commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
-  extra-dep: true
-- location:
-    git: https://github.com/thoughtpolice/hs-ed25519
-    # We're waiting on next release
-    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
-  extra-dep: true
-# These three are needed for cardano-sl-networking
-- location:
-    git: https://github.com/serokell/network-transport-tcp
-    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/network-transport
-    commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
-  extra-dep: true
-- location:
-      git: https://github.com/avieth/network-transport-inmemory
-      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
-  extra-dep: true
-- location:
-    git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
-  extra-dep: true
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
-- location:
-    git: https://github.com/serokell/swagger2
-    commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
-  extra-dep: true
-
-- location:
-    git: https://github.com/haskell-crypto/cryptonite
-    commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
-  extra-dep: true
-# Required for explorer
-- location:
-    git: https://github.com/serokell/engine.io.git
-    commit: a594e402fd450f11ad60d09ddbd93db500000632
-  extra-dep: true
-  subdirs:
-    - socket-io
-    - engine-io
-    - engine-io-wai
-
-# Version of "dns" with proper Windows & Unix multiple-nameservers support
-- location:
-    git: https://github.com/kazu-yamamoto/dns.git
-    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
-  extra-dep: true
-
-- location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
-  extra-dep: true
-
-- location:
-    git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
-    commit: 49f501a082d745f3b880677220a29cafaa181452
-  extra-dep: true
-
-# I don't think making a PR to servant is a good idea at this point
-- location:
-    git: https://github.com/serokell/servant.git
-    commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
-  extra-dep: true
-  subdirs:
-    - servant-server
-- location:
-    git: https://github.com/serokell/servant-multipart.git
-    commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
-  extra-dep: true
-- location:
-    git: https://github.com/serokell/log-warper.git
-    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
-  extra-dep: true
-
 nix:
   shell-file: shell.nix
 
 extra-deps:
-- ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
-- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.9.0
-- serokell-util-0.5.2
-- pvss-0.2.0
+# Serokell packages
+- log-warper-1.8.10.1             # TODO: remove after appear on Stackage
+- o-clock-0.1.1                   # Should replace time-units in future
+- serokell-util-0.8.0
+- universum-1.1.0                 # TODO: remove after appear on Stackage
+
+# miscellaneous packages
 - base58-bytestring-0.1.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage
-# - purescript-bridge-0.8.0.1
+- criterion-1.3.0.0
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- gauge-0.2.1
+- json-sop-0.2.0.3
+- lens-sop-0.2.0.2
+- loc-0.1.3.2
+- lzma-clib-5.2.2
+- pipes-interleave-1.1.2
+- pvss-0.2.0
+- systemd-1.1.2
+- tabl-1.0.3
+- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
+
+# engine-io; needed for explorer
+- either-4.4.1.1
+- engine-io-1.2.17
+- engine-io-wai-1.0.8
+- socket-io-1.3.8
+- websockets-0.10.0.0
+
+# See CSL-2231
+- conduit-1.3.0
+- conduit-extra-1.3.0
+- http-conduit-2.3.0
+- resourcet-1.2.0
+
+# servant
 - servant-0.12
 - servant-client-0.12
 - servant-client-core-0.12
 - servant-docs-0.11.1             # needed for servant-0.12
-- servant-swagger-1.1.4           # needed for servant-0.12
-- servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
-- servant-blaze-0.7.1             # needed for servant-0.12
-- servant-quickcheck-0.0.4
-- ether-0.5.1.0
-- pipes-interleave-1.1.1
-- generic-arbitrary-0.1.0
-- happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
-- entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
-- fmt-0.5.0.0
-- systemd-1.1.2
-- tabl-1.0.3
-# ekg-statsd version without the unnecessary diffing optimisation
-- ekg-statsd-0.2.2.0
-# https://github.com/fpco/lts-haskell/issues/70
-- fgl-5.5.3.1
-- megaparsec-6.2.0
-- parser-combinators-0.2.0
-- loc-0.1.3.1
-- lens-sop-0.2.0.2
-- json-sop-0.2.0.3
-- servant-generic-0.1.0.1
-# See CSL-2231
-- conduit-1.3.0
-- conduit-extra-1.3.0
-- mono-traversable-1.0.8.1
-- resourcet-1.2.0
-- yaml-0.8.28
-- lzma-0.0.0.3
-- lzma-clib-5.2.2
-- wai-extra-3.0.22.0
-- typed-process-0.2.1.0
-- unliftio-0.2.4.0
-- unliftio-core-0.1.1.0
-- http-conduit-2.3.0
-- simple-sendfile-0.2.27
-- basement-0.0.6
-- foundation-0.0.19
-- memory-0.14.14
-- criterion-1.3.0.0
-- gauge-0.2.1
-- statistics-0.14.0.2
-- validation-0.6.1
+- servant-quickcheck-0.0.5.0
 
+# GitHub dependencies
+## Segfault-free bindindgs to rocksdb
+- git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
+  commit: 49f501a082d745f3b880677220a29cafaa181452
+## Serokell fork of time-units; don't show microseconds in unicode
+- git: https://github.com/serokell/time-units.git
+  commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+## cborg
+- git: https://github.com/well-typed/cborg
+  # Has support for canonical cbor
+  commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
+  subdirs:
+  - cborg
+# acid-state (required for Pos.Wallet.Web)
+# - git: https://github.com/serokell/acid-state.git
+#   commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
+# - ../acid-state
+- git: https://github.com/serokell/acid-state.git
+  commit: 1049699df411c9584523ba7424cba1f3f82ac419
+## kademlia; P2P discovery
+- git: https://github.com/serokell/kademlia.git
+  commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
+## plutus; smart-contracts language
+- git: https://github.com/input-output-hk/plutus-prototype
+  commit: b35148f0097bf5b4ddd75c323ae896a568cd1122 # tip of csl-update-2
+## ed25519
+- git: https://github.com/thoughtpolice/hs-ed25519
+  # We're waiting on next release
+  commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
+## logging report server
+- git: https://github.com/input-output-hk/cardano-report-server.git
+  commit: 0f4d1fc44b18d7bc496a2435b63e36a39bd98d22 # chshersh/csl2125-new-universum v0.4.9
+
+# These three are needed for cardano-sl-networking
+- git: https://github.com/serokell/network-transport-tcp
+  commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
+- git: https://github.com/serokell/network-transport
+  commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+- git: https://github.com/avieth/network-transport-inmemory
+  commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+- git: https://github.com/input-output-hk/cardano-crypto
+  commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+
+# Version of "dns" with proper Windows & Unix multiple-nameservers support
+- git: https://github.com/kazu-yamamoto/dns.git
+  commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
+
+- git: https://github.com/well-typed/canonical-json.git
+  commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+
+# I don't think making a PR to servant is a good idea at this point
+- git: https://github.com/serokell/servant.git
+  commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
+  subdirs:
+    - servant-server
+- git: https://github.com/serokell/servant-multipart.git
+  commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
+  "$locals": -fhide-source-paths  # this option hides pats from compiler output (reduces build noise)
   cardano-sl-util:       -Werror
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
@@ -222,4 +162,4 @@ ghc-options:
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
-  cardano-sl-wallet-new: -Werror
+  cslw: -Werror

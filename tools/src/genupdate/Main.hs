@@ -101,19 +101,19 @@ createUpdate oldDir newDir updPath = do
            unless (null newNotFiles) $ do
                TL.putStrLn $ format (fp%" contains not-files:") newDir
                for_ newNotFiles $ TL.putStrLn . format ("  * "%fp)
-           putText "Generation aborted."
+           putTextLn "Generation aborted."
            exitWith (ExitFailure 2)
     -- fail if lists of files are unequal
     do let notInOld = map takeFileName newFiles \\ map takeFileName oldFiles
        let notInNew = map takeFileName oldFiles \\ map takeFileName newFiles
        unless (null notInOld && null notInNew) $ do
            unless (null notInOld) $ do
-               putText "these files are in the NEW dir but not in the OLD dir:"
+               putTextLn "these files are in the NEW dir but not in the OLD dir:"
                for_ notInOld $ TL.putStrLn . format ("  * "%fp)
            unless (null notInNew) $ do
                TL.putStr "these files are in the OLD dir but not in the NEW dir:"
                for_ notInNew $ TL.putStrLn . format ("  * "%fp)
-           putText "Generation aborted."
+           putTextLn "Generation aborted."
            exitWith (ExitFailure 3)
     -- otherwise, for all files, generate hashes and a diff
     withTempDir (directory updPath) "temp" $ \tempDir -> do

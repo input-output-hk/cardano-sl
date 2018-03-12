@@ -19,7 +19,7 @@ module Pos.Txp.Toil.Logic
        , verifyAndApplyTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError (..), runExceptT)
 import           Serokell.Data.Memory.Units (Byte)

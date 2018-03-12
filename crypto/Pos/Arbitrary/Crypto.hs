@@ -64,19 +64,19 @@ instance Arbitrary SignTag where
 -- 'arbitrary' and then use 'Pos.Crypto.toPublic' to get the corresponding
 -- public key.
 
-keys :: [(PublicKey, SecretKey)]
-keys = deterministic "keys" $
+signingKeys :: [(PublicKey, SecretKey)]
+signingKeys = deterministic "keys" $
     replicateM keysToGenerate keyGen
 
 instance Arbitrary PublicKey where
-    arbitrary = fst <$> elements keys
+    arbitrary = fst <$> elements signingKeys
 instance Arbitrary SecretKey where
-    arbitrary = snd <$> elements keys
+    arbitrary = snd <$> elements signingKeys
 
 instance Nonrepeating PublicKey where
-    nonrepeating n = map fst <$> sublistN n keys
+    nonrepeating n = map fst <$> sublistN n signingKeys
 instance Nonrepeating SecretKey where
-    nonrepeating n = map snd <$> sublistN n keys
+    nonrepeating n = map snd <$> sublistN n signingKeys
 
 -- Repeat the same for ADA redemption keys
 redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]

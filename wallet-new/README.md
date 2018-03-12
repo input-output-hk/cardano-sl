@@ -7,7 +7,7 @@ This is the Wallet Backend for a Cardano node.
 Installation follows the standard approach to installing Stack-based projects.
 
 1. Install the [Haskell `stack` tool](http://docs.haskellstack.org/en/stable/README).
-2. Run `stack install cardano-sl-wallet-new` from the project *root* to install this package.
+2. Run `stack install cslw` from the project *root* to install this package.
 
 ## The API
 
@@ -45,4 +45,4 @@ as simple as:
 
 ## Testing
 
-Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+Tests can be run by running `stack test cslw` from the project *root* directory.

@@ -7,7 +7,7 @@ import           Cardano.Wallet.API.V1.Migration
 import qualified Cardano.Wallet.API.V1.Settings as Settings
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Data.Text as T
-import           Paths_cardano_sl_wallet_new (version)
+import           Paths_cslw (version)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)

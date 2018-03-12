@@ -31,7 +31,6 @@ module Pos.DB.Block
        , dbPutSerBlundsSumDefault
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (handle)

@@ -18,11 +18,10 @@ import           Universum
 
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
-import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
-import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
@@ -53,6 +52,8 @@ instance Foldable MerkleTree where
     length MerkleEmpty      = 0
     length (MerkleTree s _) = fromIntegral s
 
+instance Container (MerkleTree a)
+
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (toList tree)
 
@@ -71,6 +72,8 @@ instance Foldable MerkleNode where
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
             foldMap f mLeft `mappend` foldMap f mRight
+
+instance Container (MerkleNode a)
 
 toLazyByteString :: Builder -> LBS.ByteString
 toLazyByteString = Builder.toLazyByteStringWith (Builder.safeStrategy 1024 4096) mempty

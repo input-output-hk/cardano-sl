@@ -35,7 +35,6 @@ module Pos.Util.QuickCheck.Property
 
 import           Universum
 
-import qualified Data.Semigroup as Semigroup
 import           Test.Hspec (Expectation, Selector, shouldThrow)
 import           Test.QuickCheck (Arbitrary, Property, counterexample, property, (.&&.), (===))
 import           Test.QuickCheck.Gen (Gen, choose)
@@ -63,18 +62,18 @@ qcIsRight (Right _) = property True
 qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
 
 qcElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a ~ Eq a)
     => a -> t -> Property
 qcElem x xs =
     counterexample ("expected " <> show x <> " to be in " <> show xs) $
     x `elem` xs
 
 qcNotElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a ~ Eq a)
     => a -> t -> Property
 qcNotElem x xs =
     counterexample ("expected " <> show x <> " not to be in " <> show xs) $
-    not (x `elem` xs)
+    x `notElem` xs
 
 -- | A property that is always false
 qcFail :: Text -> Property
@@ -154,8 +153,8 @@ expectationError = fail . toString
 
 isAssociative :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
 isAssociative m1 m2 m3 =
-    let assoc1 = (m1 Semigroup.<> m2) Semigroup.<> m3
-        assoc2 = m1 Semigroup.<> (m2 Semigroup.<> m3)
+    let assoc1 = (m1 <> m2) <> m3
+        assoc2 = m1 <> (m2 <> m3)
     in assoc1 === assoc2
 
 formsSemigroup :: (Show m, Eq m, Semigroup m) => m -> m -> m -> Property
@@ -163,8 +162,8 @@ formsSemigroup = isAssociative
 
 hasIdentity :: (Eq m, Semigroup m, Monoid m) => m -> Property
 hasIdentity m =
-    let id1 = mempty Semigroup.<> m
-        id2 = m Semigroup.<> mempty
+    let id1 = mempty <> m
+        id2 = m <> mempty
     in (m == id1) .&&. (m == id2)
 
 formsMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
@@ -173,8 +172,8 @@ formsMonoid m1 m2 m3 =
 
 isCommutative :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> Property
 isCommutative m1 m2 =
-    let comm1 = m1 <> m2
-        comm2 = m2 <> m1
+    let comm1 = m1 `mappend` m2
+        comm2 = m2 `mappend` m1
     in comm1 === comm2
 
 formsCommutativeMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property

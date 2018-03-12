@@ -23,15 +23,15 @@ import           Universum
 import           Data.Default (def)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import           Serokell.Util (sec)
-import           Pos.Util.OptParse (fromParsec)
 
 import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Util.OptParse (fromParsec)
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
                                     addressToNodeId)
+import           Pos.Util.Util (sec)
 
 data CommonArgs = CommonArgs
     { logConfig            :: !(Maybe FilePath)
@@ -125,7 +125,6 @@ portOption portNum =
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser
              "report-server"
@@ -135,7 +134,6 @@ reportServersOption =
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
-    toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from.")
 

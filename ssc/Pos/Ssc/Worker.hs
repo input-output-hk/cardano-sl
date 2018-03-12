@@ -20,7 +20,7 @@ import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
+import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Protocol (OutSpecs)
@@ -29,8 +29,7 @@ import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), Stakeholde
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
                            vssMaxTTL)
-import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
-                               getCommitmentsMap)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
@@ -295,7 +294,7 @@ sendOurData sendIt msgTag dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (HasSscConfiguration, HasConfiguration, SscMode ctx m, Bi Commitment)
+       (HasSscConfiguration, HasConfiguration, SscMode ctx m)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -338,9 +337,9 @@ generateAndSetNewSecret sk SlotId {..} = do
                 Just multiPS -> case mapM fromBinary multiPS of
                     Left err -> Nothing <$
                         logErrorS (here ("Couldn't deserialize keys: " <> err))
-                    Right keys -> do
+                    Right multiKeys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
-                            genCommitmentAndOpening threshold keys
+                            genCommitmentAndOpening threshold multiKeys
                         let signedComm = mkSignedCommitment sk siEpoch comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)

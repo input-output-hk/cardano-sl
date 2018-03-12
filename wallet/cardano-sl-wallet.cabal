@@ -102,7 +102,8 @@ library
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
 
-  other-modules:        Paths_cardano_sl_wallet
+  other-modules:      Paths_cardano_sl_wallet
+                      Pos.Wallet.Web.Server.Handlers.Internal
 
   build-depends:        QuickCheck
                       , acid-state
@@ -141,6 +142,7 @@ library
                       , memory
                       , monad-control
                       , mtl
+                      , o-clock
                       , quickcheck-instances
                       , random
                       , reflection
@@ -266,11 +268,6 @@ test-suite cardano-wallet-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

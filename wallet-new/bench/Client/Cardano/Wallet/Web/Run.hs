@@ -16,7 +16,7 @@ import           Network.HTTP.Client.TLS    (mkManagerSettings)
 import           Network.TLS                (ClientParams (..), credentialLoadX509FromMemory,
                                              defaultParamsClient, onCertificateRequest,
                                              onServerCertificate, supportedCiphers)
-import           Network.TLS.Extra.Cipher   (ciphersuite_all)
+import           Network.TLS.Extra.Cipher   (ciphersuite_strong)
 
 import           Bench.Cardano.Wallet.Types (CompleteConfig (..))
 
@@ -52,7 +52,7 @@ makeClientManager pubCert privKey =
                 clientParams = (defaultParamsClient "localhost" "") {
                                    clientHooks = hooks,
                                    clientSupported = def {
-                                       supportedCiphers = ciphersuite_all
+                                       supportedCiphers = ciphersuite_strong
                                    }
                                }
                 tlsSettings = TLSSettings clientParams

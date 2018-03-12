@@ -11,7 +11,7 @@ module UTxO.Verify
     , verifyBlocksPrefix
     ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens ((%=), _Wrapped)
 import           Control.Monad.Except

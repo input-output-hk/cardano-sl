@@ -24,7 +24,6 @@ import           Universum
 import           Control.Lens (mapped, (?~))
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Fixed (Fixed (..), Micro)
 import           Data.Swagger (Swagger, ToParamSchema (..), ToSchema (..), declareNamedSchema,
                                defaultSchemaOptions, description, genericDeclareNamedSchema, host,
                                info, name, title, version)
@@ -94,9 +93,6 @@ instance ToSchema      C.CGenesisAddressInfo
 instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
 instance ToParamSchema C.CAddressesFilter
-
-deriving instance Generic Micro
-instance ToSchema      Micro
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

@@ -17,7 +17,6 @@ import           Universum
 
 import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Formatting (build, sformat, shown, stext, (%))
-import           Serokell.Util (hour)
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
@@ -26,7 +25,7 @@ import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Util (hour, maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
                                                    usingPtxCoords)

@@ -192,12 +192,12 @@ instance Bi UserSecret where
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
-    keys <- decode
+    ukeys <- decode
     wallet <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
-        & usKeys .~ keys
+        & usKeys .~ ukeys
         & usWallet .~ wallet
 
 #ifdef POSIX

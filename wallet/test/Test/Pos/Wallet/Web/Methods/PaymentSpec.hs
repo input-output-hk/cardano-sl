@@ -2,7 +2,6 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Data.Default (def)
@@ -64,7 +63,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
+    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ safeHead <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     srcAddr <- getAddress srcAccId

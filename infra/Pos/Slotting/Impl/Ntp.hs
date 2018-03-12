@@ -35,7 +35,6 @@ import           Data.Time.Units (Microsecond)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (CurrentTime, Delay, Mockable, Mockables, currentTime, delay)
 import           NTP.Client (NtpClientSettings (..), NtpMonad, ntpSingleShot, spawnNtpClient)
-import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Core.Configuration (HasConfiguration)
@@ -46,7 +45,7 @@ import qualified Pos.Slotting.Configuration as C
 import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
                                         getCurrentNextEpochSlottingDataM, waitCurrentEpochEqualsM)
-import           Pos.Util.Util (median)
+import           Pos.Util.Util (median, sec)
 
 ----------------------------------------------------------------------------
 -- State

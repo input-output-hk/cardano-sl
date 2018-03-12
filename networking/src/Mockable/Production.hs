@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
 module Mockable.Production
@@ -19,13 +20,13 @@ import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..))
 import qualified Crypto.Random as Rand
-import           Data.Time.Units (Hour)
+import           Data.Time.Units (toMicroseconds)
 import qualified GHC.IO as GHC
-import           Serokell.Util.Concurrent as Serokell
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
 import           System.Wlog (CanLog (..), HasLoggerName (..))
+import           Time (Hour, mcs, threadDelay)
 
 import           Control.Monad.Base (MonadBase (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
@@ -62,8 +63,8 @@ instance Mockable Fork Production where
 instance Mockable Delay Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
-    liftMockable (Delay time) = Production $ Serokell.threadDelay time
-    liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
+    liftMockable (Delay time) = Production $ threadDelay $ mcs $ fromIntegral $ toMicroseconds time  -- TODO: simplify after switching to o-clock
+    liftMockable SleepForever = Production $ forever $ threadDelay @Hour 1
 
 instance Mockable MyThreadId Production where
     {-# INLINABLE liftMockable #-}

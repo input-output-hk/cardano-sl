@@ -6,13 +6,14 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
-import           Universum
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, IsMainHeader (..),

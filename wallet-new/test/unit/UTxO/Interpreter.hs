@@ -14,7 +14,7 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import Universum
+import Universum hiding (id)
 import Data.Default (def)
 import Prelude (Show(..))
 import qualified Data.List.NonEmpty as NE

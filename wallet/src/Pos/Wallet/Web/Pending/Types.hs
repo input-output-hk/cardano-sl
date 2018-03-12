@@ -89,7 +89,7 @@ data PtxCondition
                                       --   (this constructor is at bottom for
                                       --   the sake of SafeCopy instance's
                                       --   backward-compatibility)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 makePrisms ''PtxCondition
 
@@ -115,7 +115,7 @@ instance Buildable (SecureLog PtxCondition) where
 data PtxSubmitTiming = PtxSubmitTiming
     { _pstNextSlot  :: SlotId
     , _pstNextDelay :: FlatSlotId
-    } deriving (Eq, Show)
+    } deriving (Eq, Ord, Show)
 
 makeLenses ''PtxSubmitTiming
 
@@ -129,7 +129,7 @@ data PendingTx = PendingTx
     , _ptxWallet       :: !(CId Wal)
     , _ptxPeerAck      :: !Bool
     , _ptxSubmitTiming :: !PtxSubmitTiming
-    } deriving (Eq, Show)
+    } deriving (Eq, Ord, Show)
 
 makeLenses ''PendingTx
 

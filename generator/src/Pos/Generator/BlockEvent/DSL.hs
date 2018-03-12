@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-simplifiable-class-constraints #-}
+
 module Pos.Generator.BlockEvent.DSL
        (
          -- * Core re-exports

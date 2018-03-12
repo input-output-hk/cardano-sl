@@ -101,8 +101,8 @@ instance ToJSON GenesisDelegation where
 
 instance FromJSON GenesisDelegation where
     parseJSON = parseJSON >=> \v -> do
-        (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
-        toAesonError $ recreateGenesisDelegation elems
+        (sidToPSKs :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
+        toAesonError $ recreateGenesisDelegation sidToPSKs
 
 deriveJSON defaultOptions ''FakeAvvmOptions
 deriveJSON defaultOptions ''TestnetBalanceOptions

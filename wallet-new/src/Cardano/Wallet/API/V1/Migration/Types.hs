@@ -9,7 +9,6 @@ module Cardano.Wallet.API.V1.Migration.Types (
 import           Universum
 
 import qualified Data.List.NonEmpty as NE
-import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 
 import           Cardano.Wallet.API.V1.Errors as Errors

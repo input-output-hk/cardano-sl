@@ -85,9 +85,9 @@ propose diffusion ProposeUpdateParams{..} = do
         let upid = hash updateProposal
         submitUpdateProposal diffusion ss updateProposal
         if not puVoteAll then
-            putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
+            putTextLn (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
         else
-            putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+            putTextLn (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
         return upid
 
 updateDataElement :: MonadAuxxMode m => ProposeUpdateSystem -> m (SystemTag, UpdateData)

@@ -2,7 +2,7 @@ module Pos.Binary.Update.Relay
        (
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Core ()

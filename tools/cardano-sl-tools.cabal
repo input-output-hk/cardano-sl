@@ -58,11 +58,6 @@ executable cardano-dht-keygen
                        -fno-warn-orphans
                        -O2
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -116,11 +111,6 @@ executable cardano-genupdate
                        -Wall
                        -O2
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
                        BangPatterns
@@ -171,11 +161,6 @@ executable cardano-keygen
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -246,11 +231,6 @@ executable cardano-launcher
                        -Wall
                        -O2
 
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections
@@ -279,11 +259,6 @@ executable cardano-addr-convert
   ghc-options:         -threaded
                        -Wall
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -327,11 +302,6 @@ executable cardano-cli-docs
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   NoImplicitPrelude
                         BangPatterns
@@ -401,10 +371,6 @@ executable cardano-post-mortem
   ghc-options:         -threaded
                        -Wall
                        -O2
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -466,11 +432,6 @@ executable cardano-blockchain-analyser
                        -Wall
                        -fno-warn-orphans
                        -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
 
   default-extensions:   RecordWildCards
                         NoImplicitPrelude

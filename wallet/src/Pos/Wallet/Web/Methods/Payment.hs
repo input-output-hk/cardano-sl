@@ -139,7 +139,7 @@ getSomeMoneySourceAccount (AddressMoneySource addrId) =
     return $ addrMetaToAccount addrId
 getSomeMoneySourceAccount (AccountMoneySource accId) = return accId
 getSomeMoneySourceAccount (WalletMoneySource wid) = do
-    wAddr <- (head <$> getWalletAccountIds wid) >>= maybeThrow noWallets
+    wAddr <- (safeHead <$> getWalletAccountIds wid) >>= maybeThrow noWallets
     getSomeMoneySourceAccount (AccountMoneySource wAddr)
   where
     noWallets = InternalError "Wallet has no accounts"

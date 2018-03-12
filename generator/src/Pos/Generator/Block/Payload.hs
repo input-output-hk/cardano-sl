@@ -8,7 +8,7 @@ module Pos.Generator.Block.Payload
        ( genPayload
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, uses, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
@@ -23,8 +23,8 @@ import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
                                  unInvSecretsMap)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), createGenericTx,
-                                      makeMPubKeyTxAddrs, TxError (..))
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), createGenericTx,
+                                      makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
                            coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)

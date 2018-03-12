@@ -122,8 +122,8 @@ foldlUpWhileM
     -> (r -> b -> m r)             -- ^ Conversion function
     -> r                           -- ^ Starting value
     -> m r
-foldlUpWhileM getData start condition accM init =
-    loadUpWhileDo (headerHash start) 0 init
+foldlUpWhileM getData start condition accM =
+    loadUpWhileDo (headerHash start) 0
   where
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
     loadUpWhileDo curH height !res = getData curH >>= \case

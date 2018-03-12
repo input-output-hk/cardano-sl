@@ -287,7 +287,8 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- type is crucial.
 verifyBlocks
     :: ( t ~ OldestFirst f Block
-       , NontrivialContainer t
+       , Container t
+       , Element t ~ Block
        , HasConfiguration
        )
     => Maybe SlotId

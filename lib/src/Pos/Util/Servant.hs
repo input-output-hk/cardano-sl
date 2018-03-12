@@ -104,7 +104,7 @@ class ApiHasArgClass apiType a where
     apiArgName :: Proxy (apiType a) -> String
     default apiArgName
         :: forall n someApiType. (KnownSymbol n, someApiType n ~ apiType)
-        => Proxy (someApiType n a) -> String
+        => Proxy (apiType a) -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
 class ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
@@ -153,7 +153,7 @@ instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
             serverHandlerL' %~ modifyApiResult (Proxy @mod)
 
     hoistServerWithContext _ pc nt s =
-        hoistServerWithContext (Proxy :: Proxy (Verb mt st ct api)) pc nt s
+        hoistServerWithContext (Proxy @(VerbMod mod $ Verb mt st ct a)) pc nt s
 
 instance HasSwagger v => HasSwagger (VerbMod mod v) where
     toSwagger _ = toSwagger $ Proxy @v
@@ -438,8 +438,11 @@ class ApiHasArgClass apiType a =>
         :: BuildableSafe (ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     default toLogParamInfo
-        :: BuildableSafe (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredText
+        :: ( BuildableSafe (ApiArgToLog apiType a)
+           , ApiHasArgClass apiType a
+           , ApiArg apiType a ~ ApiArgToLog apiType a
+           )
+        => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
@@ -494,7 +497,7 @@ instance HasLoggingServer config res ctx =>
 newtype RequestId = RequestId Integer
 
 instance Buildable RequestId where
-    build (RequestId id) = bprint ("#"%build) id
+    build (RequestId id_) = bprint ("#"%build) id_
 
 -- | We want all servant servers to have non-overlapping ids,
 -- so using singleton counter here.

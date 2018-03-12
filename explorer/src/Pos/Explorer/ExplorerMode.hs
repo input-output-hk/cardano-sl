@@ -292,7 +292,7 @@ instance HasLoggerName SubscriptionTestMode where
 type ExplorerProperty = PropertyM ExplorerExtraTestMode
 
 explorerPropertyToProperty
-    :: HasConfigurations
+    :: (HasConfigurations, Testable a)
     => Gen ExplorerTestParams
     -> ExplorerProperty a
     -> Property
@@ -300,5 +300,5 @@ explorerPropertyToProperty tpGen explorerTestProperty =
     forAll tpGen $ \tp ->
         monadic (ioProperty . (runExplorerTestMode tp makeExtraCtx)) explorerTestProperty
 
-instance HasConfigurations => Testable (ExplorerProperty a) where
+instance (HasConfigurations, Testable a) => Testable (ExplorerProperty a) where
     property = explorerPropertyToProperty arbitrary

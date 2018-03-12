@@ -35,7 +35,7 @@ module Pos.Ssc.Base
        , defaultSscPayload
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM

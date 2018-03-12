@@ -92,6 +92,7 @@ import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import           Data.Swagger.Internal.TypeShape (TypeHasSimpleShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
@@ -101,7 +102,7 @@ import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 
 genericSchemaDroppingPrefix
-    :: (Generic a, GToSchema (Rep a))
+  :: (Generic a, GToSchema (Rep a), TypeHasSimpleShape a "genericDeclareNamedSchemaUnrestricted")
     => String
     -> proxy a
     -> Declare (Definitions Schema) NamedSchema

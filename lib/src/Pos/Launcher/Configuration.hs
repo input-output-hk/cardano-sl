@@ -20,15 +20,18 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
                              withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (sec)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (WithLogger, logInfo)
+import qualified Text.JSON.Canonical as Canonical
+
+import           Pos.Core.Genesis (GenesisData, SchemaError)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration ()
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
+import           Pos.Util.Util (sec)
 
 import           Pos.Block.Configuration
 import           Pos.Configuration
@@ -104,7 +107,11 @@ instance Default ConfigurationOptions where
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
 withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
+    :: ( WithLogger m
+       , MonadThrow m
+       , MonadIO m
+       , Canonical.FromJSON (Either SchemaError) GenesisData
+       )
     => ConfigurationOptions
     -> (HasConfigurations => m r)
     -> m r

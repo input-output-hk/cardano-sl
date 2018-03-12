@@ -92,7 +92,7 @@ Please note that each wallet contains at least one account, and each account con
 Please run:
 
 ```
-$ stack bench cardano-sl-wallet-new --benchmark-arguments "--help"
+$ stack bench cslw --benchmark-arguments "--help"
 ```
 
 to see all supported options.
@@ -102,7 +102,7 @@ to see all supported options.
 Example of the full command:
 
 ```
-$ stack bench cardano-sl-wallet-new --benchmark-arguments "--tls-pub-cert=$PWD/scripts/tls-files/ca.crt \
+$ stack bench cslw --benchmark-arguments "--tls-pub-cert=$PWD/scripts/tls-files/ca.crt \
                                                            --tls-priv-key=$PWD/scripts/tls-files/server.key \
                                                            --wal-conf=$PWD/wallet/bench/config/Wallets.yaml \
                                                            --ep-conf=$PWD/wallet/bench/config/Endpoints.csv \

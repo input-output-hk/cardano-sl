@@ -7,7 +7,7 @@ module Pos.Explorer.Txp.Toil.Class
        , MonadTxExtraRead (..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, (%=), (.=))
 import           Control.Monad.Trans.Class (MonadTrans)

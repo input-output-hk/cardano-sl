@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass       #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Idealized specification of UTxO-style accounting
 module UTxO.DSL (
@@ -67,18 +67,18 @@ module UTxO.DSL (
   , chainToLedger
   ) where
 
-import Universum
-import Control.Exception (throw)
-import Data.List (tail)
-import Data.Map.Strict (Map)
-import Data.Set (Set)
-import Formatting (sformat, bprint, build, (%))
-import Pos.Util.Chrono
-import Serokell.Util (listJson, mapJson)
-import Prelude (Show(..))
+import           Universum
+
+import           Control.Exception (throw)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import qualified Data.Set        as Set
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, (%))
+import           Pos.Util.Chrono
+import           Prelude (Show (..))
+import           Serokell.Util (listJson, mapJson)
 
 {-------------------------------------------------------------------------------
   Parameters
@@ -204,8 +204,8 @@ trBalance a t l = received - spent
                                          AddrTreasury -> trFee t
                                          _otherwise   -> 0
     spent    = total outputsSpent    + case a of
-                                         AddrGenesis  -> trFresh t
-                                         _otherwise   -> 0
+                                         AddrGenesis -> trFresh t
+                                         _otherwise  -> 0
 
     outputsReceived, outputsSpent :: [Output a]
     outputsReceived = our $                            trOuts t
@@ -323,7 +323,7 @@ ledgerAdds (NewestFirst ts) (Ledger (NewestFirst l)) =
 -- it's allowed to refer to)
 ledgerTails :: Ledger h a -> [(Transaction h a, Ledger h a)]
 ledgerTails (Ledger (NewestFirst l)) =
-    zipWith (\t ts -> (t, Ledger (NewestFirst ts))) l (tail (tails l))
+    zipWith (\t ts -> (t, Ledger (NewestFirst ts))) l (drop 1 (tails l))
 
 ledgerBalance :: forall h a. (Hash h a, Eq a, Buildable a)
               => Address a -> Ledger h a -> Value
@@ -566,10 +566,20 @@ instance (Buildable a, Hash h a) => Buildable (Chain h a) where
       )
       chainBlocks
 
-instance ( Buildable a, Hash h a, Foldable f) => Buildable (NewestFirst f (Transaction h a)) where
+instance ( Buildable a
+         , Hash h a
+         , t ~ NewestFirst f (Transaction h a)
+         , Container t
+         , Element t ~ Transaction h a
+         ) => Buildable (NewestFirst f (Transaction h a)) where
   build ts = bprint ("NewestFirst " % listJson) (toList ts)
 
-instance (Buildable a, Hash h a, Foldable f) => Buildable (OldestFirst f (Transaction h a)) where
+instance ( Buildable a
+         , Hash h a
+         , t ~ OldestFirst f (Transaction h a)
+         , Container t
+         , Element t ~ Transaction h a
+         ) => Buildable (OldestFirst f (Transaction h a)) where
   build ts = bprint ("OldestFirst " % listJson) (toList ts)
 
 instance (Buildable a, Hash h a) => Buildable (Ledger h a) where

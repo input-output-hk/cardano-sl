@@ -8,7 +8,6 @@ module Pos.Explorer.Txp.Local
        , eTxNormalize
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
@@ -100,9 +99,9 @@ buildEProcessTxContext txAux = do
     pure $ ProcessTxContext _ptcAdoptedBVData _ptcUtxoBase eet
   where
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
-    buildMap keys maybeValues =
+    buildMap mapKeys maybeValues =
         HM.fromList $
-        catMaybes $ toList $ zipWith (liftM2 (,) . Just) keys maybeValues
+        catMaybes $ toList $ zipWith (liftM2 (,) . Just) mapKeys maybeValues
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool

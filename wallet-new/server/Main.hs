@@ -76,9 +76,9 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
-    runNodeWithInit init nr =
+    runNodeWithInit initial nr =
         let (ActionSpec f, outs) = runNode nr plugins
-         in (ActionSpec $ \s -> init >> f s, outs)
+        in (ActionSpec $ \s -> initial >> f s, outs)
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -112,9 +112,9 @@ actionWithNewWallet sscParams nodeParams params =
     mainAction w = runNodeWithInit w $
         liftIO $ Kernel.init w
 
-    runNodeWithInit w init nr =
+    runNodeWithInit w initial nr =
         let (ActionSpec f, outs) = runNode nr (plugins w)
-         in (ActionSpec $ \s -> init >> f s, outs)
+         in (ActionSpec $ \s -> initial >> f s, outs)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
@@ -178,7 +178,7 @@ generateSwaggerDocumentation :: ( MonadIO m
                              -> m ()
 generateSwaggerDocumentation api = liftIO $ do
     BL8.writeFile "wallet-new/spec/swagger.json" (encodePretty $ Swagger.api api)
-    putText "Swagger API written on disk."
+    putTextLn "Swagger API written on disk."
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()

@@ -29,15 +29,14 @@ import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
+import           Codec.Compression.Lzma (CompressionLevel (..), compressLevel, compressWith,
+                                         defaultCompressParams)
 import           Control.Exception (ErrorCall (..))
 import           Control.Exception.Safe (Exception (..), try)
 import           Control.Lens (each, to)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
 import qualified Data.ByteString.Lazy as BSL
-import           Codec.Compression.Lzma (compressWith, defaultCompressParams,
-                                         compressLevel, CompressionLevel(..))
-import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.IO as TIO
@@ -55,9 +54,9 @@ import           System.Directory (canonicalizePath, doesFileExist, getTemporary
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose)
-import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
-                              logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
-                              retrieveLogContent)
+import           System.Wlog (LoggerConfig (..), LoggerMap, LoggerTree, Severity (..), WithLogger,
+                              getLoggerName, hwFilePath, lcTree, logError, logInfo, logMessage,
+                              logWarning, ltFiles, ltSubloggers, retrieveLogContent)
 
 
 import           Paths_cardano_sl_infra (version)
@@ -139,10 +138,14 @@ sendReport logFiles reportType appName reportServerUri = do
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
 retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
+    fromLogTree :: LoggerTree -> [([Text], FilePath)]
     fromLogTree lt =
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             iterNext (part, node) = map (first (part :)) $ fromLogTree node
-        in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
+        in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to flattenSubloggers)
+
+    flattenSubloggers :: LoggerMap -> [(Text, LoggerTree)]
+    flattenSubloggers = map (first getLoggerName) . toPairs
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into
@@ -251,7 +254,7 @@ sendReportNode reportType = do
             logFile <-
                 maybeThrow
                     NoPubFiles
-                    (head $ filter (".pub" `isSuffixOf`) allFiles)
+                    (safeHead $ filter (".pub" `isSuffixOf`) allFiles)
             logContent <-
                 takeGlobalSize charsConst <$>
                 retrieveLogContent logFile (Just 5000)

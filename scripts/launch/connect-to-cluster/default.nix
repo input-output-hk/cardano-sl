@@ -31,7 +31,7 @@ let
     };
   };
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
+    wallet = "${iohkPkgs.cslw}/bin/cardano-node";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   ifWallet = localLib.optionalString (executable == "wallet");

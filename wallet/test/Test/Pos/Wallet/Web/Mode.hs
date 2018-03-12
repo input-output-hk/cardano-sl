@@ -216,7 +216,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -224,12 +224,12 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec

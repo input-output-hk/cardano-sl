@@ -1,7 +1,7 @@
 with import ((import ./lib.nix).fetchNixPkgs) { };
 
 let
-  hsPkgs = haskell.packages.ghc802;
+  hsPkgs = haskell.packages.ghc822;
 in
   haskell.lib.buildStackProject {
      name = "cardano-sl";

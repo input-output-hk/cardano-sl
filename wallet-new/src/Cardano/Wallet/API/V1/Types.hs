@@ -1,11 +1,11 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TemplateHaskell            #-}
-
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
@@ -83,6 +83,8 @@ import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
 import           Test.QuickCheck
+import           Test.QuickCheck.Gen (Gen (..))
+import           Test.QuickCheck.Random (mkQCGen)
 import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
@@ -124,8 +126,11 @@ import qualified Pos.Crypto.Signing as Core
 --     declareNamedSchema =
 --       genericSchemaDroppingPrefix "myData" (\_ -> id)
 --
+type IsPropertiesMap m =
+  (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
+
 genericSchemaDroppingPrefix
-    :: (Generic a, GToSchema (Rep a), IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
+    :: forall a m proxy. (Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m)
     => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
     -> proxy a -- ^ Underlying data-type proxy
@@ -135,8 +140,13 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
           { S.fieldLabelModifier = over (ix 0) C.toLower . drop (length prfx) }
     s <- genericDeclareNamedSchema opts proxy
     defs <- look
-    pure $ over schema (over properties (extraDoc (addFieldDescription defs))) s
+    pure $ s
+      & over schema (over properties (extraDoc (addFieldDescription defs)))
+      & schema . example ?~ toJSON (genExample :: a)
   where
+    genExample =
+      (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
 
@@ -149,6 +159,7 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
           Just (Inline s) -> rewrap s
           Just (Ref ref)  -> maybe err rewrap (defs ^. at (getReference ref))
           _               -> err
+
 
 --
 -- Versioning

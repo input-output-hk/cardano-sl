@@ -123,4 +123,4 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     ws' <- askWalletSnapshot
     let cWalAddrsDetector = getWalletAddrsDetector ws' Ever cWalId
     diff <- getCurChainDifficulty
-    fst <$> constructCTx ws' cWalId cWalAddrsDetector diff th
+    constructCTx ws' cWalId cWalAddrsDetector diff th

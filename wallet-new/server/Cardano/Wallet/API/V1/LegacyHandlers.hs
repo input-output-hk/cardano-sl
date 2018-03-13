@@ -8,17 +8,16 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 
 import           Universum
 
-import           Pos.Diffusion.Types (Diffusion(sendTx))
+import           Pos.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
+import qualified Cardano.Wallet.API.V1.Info as Info
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Addresses as Addresses
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Info as Info
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Settings as Settings
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Transactions as Transactions
-import qualified Cardano.Wallet.API.V1.LegacyHandlers.Updates as Updates
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Wallets as Wallets
-import qualified Cardano.Wallet.API.V1.Info as Info
 import qualified Cardano.Wallet.API.V1.Settings as Settings
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -39,6 +38,5 @@ handlers naturalTransformation diffusion =
          hoistServer (Proxy @Addresses.API) naturalTransformation Addresses.handlers
     :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
     :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers (sendTx diffusion))
-    :<|> Updates.handlers
     :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
     :<|> hoistServer (Proxy @Info.API) naturalTransformation Info.handlers

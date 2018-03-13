@@ -11,6 +11,7 @@ module Main
 
 import           Universum
 
+import           Control.Concurrent.STM (newTBQueueIO)
 import           Data.Maybe (fromJust)
 import           Formatting (build, sformat, (%))
 import           Mockable (Production, runProduction)
@@ -19,9 +20,9 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -30,15 +31,17 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
                                withConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util (logException)
+import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 notifierPlugin, processSyncResult, runWRealMode, syncWalletsFromGState,
-                                 walletServeWebFull, walletServerOuts, AddrCIdHashes (..),
-                                 startPendingTxsResubmitter)
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
+                                 startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -68,10 +71,12 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                 ref <- newIORef mempty
+                syncRequestsQueue <- liftIO $ newTBQueueIO 50
                 runWRealMode
                     db
                     conn
                     (AddrCIdHashes ref)
+                    syncRequestsQueue
                     nr
                     (mainAction nr)
   where
@@ -86,19 +91,23 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
          in (ActionSpec $ \s -> init >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
-    syncWallets = do
-        sks <- getWalletAddresses >>= mapM getSKById
-        results <- syncWalletsFromGState sks
-        mapM_ processSyncResult results
+    syncWallets = getWalletAddresses >>= mapM_ (getSKById >=> syncWallet . eskToWalletDecrCredentials)
     resubmitterPlugins = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     allPlugins = mconcat [ convPlugins (plugins wArgs)
                          , walletProd wArgs
                          , acidCleanupWorker wArgs
+                         , syncWalletWorker
                          , resubmitterPlugins
                          , notifierPlugins
                          ]
+
+syncWalletWorker :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
+syncWalletWorker =
+    first one $ worker mempty $ const $
+    modifyLoggerName (const "syncWalletWorker") $
+    (view (lensOf @SyncQueue) >>= processSyncRequest)
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =

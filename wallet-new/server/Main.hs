@@ -8,6 +8,7 @@ module Main where
 
 import           Universum
 
+import           Control.Concurrent.STM (newTBQueueIO)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Data.Maybe (fromJust)
@@ -24,9 +25,11 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 getWalletAddresses, runWRealMode, syncWalletsWithGState)
+                                 getWalletAddresses, runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (flushWalletStorage)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
@@ -62,29 +65,32 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
-                    runWRealMode db conn (AddrCIdHashes ref) nr (mainAction nr)
+                    syncQueue <- liftIO $ newTBQueueIO 50
+                    runWRealMode db conn (AddrCIdHashes ref) syncQueue nr (mainAction nr)
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
             flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
-            syncWallets
+
+        -- NOTE(adn): Sync the wallets anyway. The old implementation was skipping syncing in
+        -- case `walletFlushDb` was not set, but was still calling it before starting the Servant
+        -- server.
+        syncWallets
 
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr plugins
          in (ActionSpec $ \s -> init >> f s, outs)
 
     syncWallets :: WalletWebMode ()
-    syncWallets = do
-        sks <- getWalletAddresses >>= mapM getSKById
-        results <- syncWalletsFromGState sks
-        mapM_ processSyncResult results
+    syncWallets = getWalletAddresses >>= mapM_ (getSKById >=> syncWallet . eskToWalletDecrCredentials)
 
     plugins :: HasConfigurations => Plugins.Plugin WalletWebMode
     plugins = mconcat [ Plugins.conversation wArgs
                       , Plugins.legacyWalletBackend wArgs
                       , Plugins.acidCleanupWorker wArgs
+                      , Plugins.syncWalletWorker
                       , Plugins.resubmitterPlugin
                       , Plugins.notifierPlugin
                       ]

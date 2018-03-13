@@ -28,6 +28,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
 import           Mockable (LowLevelAsync, Mockable, Production)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
@@ -98,10 +99,11 @@ import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebW
                                           onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState     :: !WalletState
-    , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcHashes          :: !AddrCIdHashes
-    , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
+    { wwmcWalletState        :: !WalletState
+    , wwmcConnectionsVar     :: !ConnectionsVar
+    , wwmcHashes             :: !AddrCIdHashes
+    , wwmcWalletSyncRequests :: !SyncQueue
+    , wwmcRealModeContext    :: !(RealModeContext WalletMempoolExt)
     }
 
 -- It's here because of TH for lens
@@ -111,16 +113,20 @@ walletWebModeToRealMode
     :: WalletState
     -> ConnectionsVar
     -> AddrCIdHashes
+    -> SyncQueue
     -> WalletWebMode t
     -> RealMode WalletMempoolExt t
-walletWebModeToRealMode ws cv cidHashes act = do
+walletWebModeToRealMode ws cv cidHashes syncRequests act = do
     rmc <- ask
-    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes rmc)
+    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes syncRequests rmc)
 
 makeLensesWith postfixLFields ''WalletWebModeContext
 
 instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
     lensOf = wwmcHashes_L
+
+instance HasLens SyncQueue WalletWebModeContext SyncQueue where
+    lensOf = wwmcWalletSyncRequests_L
 
 instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
@@ -217,6 +223,7 @@ type MonadFullWalletWebMode ctx m =
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
     , Mockable LowLevelAsync m
+    , HasLens SyncQueue ctx SyncQueue
     )
 
 ----------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 
 import           Universum
+import           UnliftIO (MonadUnliftIO)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
@@ -14,7 +15,9 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
+import           Pos.Util (HasLens (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 import           Test.QuickCheck (arbitrary, generate)
 
@@ -36,10 +39,14 @@ handlers =   newWallet
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
-newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m (WalletResponse Wallet)
+newWallet :: ( MonadThrow m
+             , MonadUnliftIO m
+             , MonadWalletLogic ctx m
+             , HasLens SyncQueue ctx SyncQueue
+             ) => NewWallet -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-  let newWalletHandler CreateWallet  = V0.newWallet
-      newWalletHandler RestoreWallet = V0.restoreWallet
+  let newWalletHandler CreateWallet  = V0.newWalletHandler
+      newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
       (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
       (V1 backupPhrase) = newwalBackupPhrase
   initMeta <- V0.CWalletMeta <$> pure newwalName

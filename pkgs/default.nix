@@ -7671,7 +7671,7 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp cardano-sl-util
              formatting lens log-warper optparse-applicative servant
              servant-multipart servant-server servant-swagger servant-swagger-ui
-             swagger2 text time-units universum
+             stm swagger2 text time-units universum
            ];
            executableToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -7703,8 +7703,8 @@ inherit (pkgs) mesa;};
          , servant-client, servant-quickcheck, servant-server
          , servant-swagger, stdenv, stm, string-conv, swagger2
          , template-haskell, text, text-format, time, time-units
-         , transformers, universum, unordered-containers, vector, wai
-         , wai-cors, wai-extra, warp
+         , transformers, universum, unliftio, unordered-containers, vector
+         , wai, wai-cors, wai-extra, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7733,8 +7733,8 @@ inherit (pkgs) mesa;};
              insert-ordered-containers ixset-typed lens log-warper memory mtl
              neat-interpolation optparse-applicative QuickCheck serokell-util
              servant servant-server servant-swagger stm string-conv swagger2
-             text text-format time-units universum unordered-containers wai
-             wai-cors wai-extra warp
+             text text-format time-units universum unliftio unordered-containers
+             wai wai-cors wai-extra warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-binary
@@ -7747,7 +7747,7 @@ inherit (pkgs) mesa;};
              lens log-warper memory mtl neat-interpolation QuickCheck
              quickcheck-instances safe-exceptions serokell-util servant
              servant-quickcheck servant-server servant-swagger stm string-conv
-             swagger2 text text-format universum unordered-containers
+             swagger2 text text-format universum unliftio unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

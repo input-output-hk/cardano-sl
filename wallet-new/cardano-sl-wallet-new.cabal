@@ -192,6 +192,7 @@ executable cardano-node-new
                      , text-format
                      , time-units
                      , universum
+                     , unliftio
                      , unordered-containers
                      , wai
                      , wai-cors
@@ -368,4 +369,5 @@ test-suite wallet-new-specs
                     , swagger2
                     , text
                     , universum
+                    , unliftio
                     , unordered-containers

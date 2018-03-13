@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 module Cardano.Wallet.Server.Plugins (
       Plugin
+    , syncWalletWorker
     , acidCleanupWorker
     , conversation
     , legacyWalletBackend
@@ -42,12 +43,15 @@ import           System.Wlog (logInfo, modifyLoggerName)
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Context (HasNodeContext)
+import           Pos.Util (lensOf)
 
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -81,16 +85,17 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     -> Plugin WalletWebMode
 legacyWalletBackend WalletBackendParams {..} =
     first one $ worker walletServerOuts $ \diffusion -> do
-      logInfo $ sformat ("Production mode for API: "%build)
-        walletProductionApi
-      logInfo $ sformat ("Transaction submission disabled: "%build)
-        walletTxCreationDisabled
+        modifyLoggerName (const "legacyServantBackend") $ do
+            logInfo $ sformat ("Production mode for API: "%build)
+              walletProductionApi
+            logInfo $ sformat ("Transaction submission disabled: "%build)
+              walletTxCreationDisabled
 
-      walletServeImpl
-        (getApplication diffusion)
-        walletAddress
-        -- Disable TLS if in debug mode.
-        (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+            walletServeImpl
+              (getApplication diffusion)
+              walletAddress
+              -- Disable TLS if in debug mode.
+              (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -138,6 +143,13 @@ resubmitterPlugin = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sen
 notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
 notifierPlugin = ([ActionSpec $ \_ -> V0.notifierPlugin], mempty)
 
+-- | The @Plugin@ responsible for the restoration & syncing of a wallet.
+syncWalletWorker :: HasConfigurations => Plugin WalletWebMode
+syncWalletWorker =
+    first one $ worker mempty $ const $
+    modifyLoggerName (const "syncWalletWorker") $
+    (view (lensOf @SyncQueue) >>= processSyncRequest)
+
 -- | "Attaches" the middleware to this 'Application', if any.
 -- When running in debug mode, chances are we want to at least allow CORS to test the API
 -- with a Swagger editor, locally.
@@ -153,3 +165,4 @@ corsMiddleware = cors (const $ Just policy)
         { corsRequestHeaders = ["Content-Type"]
         , corsMethods = "PUT" : simpleMethods
         }
+

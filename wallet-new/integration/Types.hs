@@ -59,11 +59,12 @@ data Action
     | GetAccount
 
     | CreateAddress
-    -- | GetAddresses
+    | GetAddresses
     -- | GetAddress
 
     | CreateTransaction
     | GetTransaction
+
     deriving (Show, Eq)
 
 

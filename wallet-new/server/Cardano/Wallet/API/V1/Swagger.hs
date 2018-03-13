@@ -170,15 +170,12 @@ requestParameterToDescription = M.fromList [
 
 pageDescription :: T.Text
 pageDescription = [text|
-The page number to fetch for this request. The minimum is **1**.
-If nothing is specified, **this value defaults to 1** and always shows the first
-entries in the requested collection.
+The page number to fetch for this request. The minimum is **1**.  If nothing is specified, **this value defaults to 1** and always shows the first entries in the requested collection.
 |]
 
 perPageDescription :: T.Text -> T.Text -> T.Text
 perPageDescription maxValue defaultValue = [text|
-The number of entries to display for each page. The minimum is **1**, whereas the maximum
-is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
+The number of entries to display for each page. The minimum is **1**, whereas the maximum is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
 sortDescription :: Text -> Text -> Text
@@ -204,12 +201,11 @@ $errors
 -- | Shorter version of the doc below, only for Dev & V0 documentations
 highLevelShortDescription :: DescriptionEnvironment -> T.Text
 highLevelShortDescription DescriptionEnvironment{..} = [text|
-This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)
-spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
+This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version | Git Revision
------------------|-------------------
-$deGitRevision   | $deSoftwareVersion
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
 |]
 
 
@@ -218,9 +214,12 @@ highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version | Git Revision
------------------|-------------------
-$deGitRevision   | $deSoftwareVersion
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
+
+> **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
+
 
 Getting Started
 ===============
@@ -466,7 +465,7 @@ Note that Compatibility between major versions is not _guaranteed_, i.e. the req
 Disable TLS (Not Recommended)
 -----------------------------
 
-All API endpoints in this document have a `Try it out` button which produce a `curl` command that can be used to make a request to the wallet. These `curl` commands do not use TLS options so ensure that you have turned off TLS when running these examples. You can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
+If needed, you can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
 |]
 
 
@@ -490,7 +489,7 @@ api :: HasSwagger a
     -> Swagger
 api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
-  & info.version .~ "1.0"
+  & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
@@ -500,4 +499,4 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     })
-  & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")

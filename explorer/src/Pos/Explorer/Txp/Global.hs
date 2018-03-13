@@ -12,52 +12,53 @@ import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash, Sl
                            epochIndexL, headerHash, headerSlotL)
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.Slotting (MonadSlots, getSlotStart)
-import           Pos.Txp (ApplyBlocksSettings (..), TxpBlund, TxpGlobalRollbackMode,
-                          TxpGlobalSettings (..), applyBlocksWith, blundToAuxNUndo,
-                          genericToilModifierToBatch, runToilAction, txpGlobalSettings)
-import           Pos.Util.Chrono (NE, NewestFirst (..))
+import           Pos.Slotting (getSlotStart)
+import           Pos.Txp (ProcessBlundsSettings (..), TxpBlund, TxpGlobalApplyMode,
+                          TxpGlobalRollbackMode, TxpGlobalSettings (..), applyBlocksWith,
+                          blundToAuxNUndo, processBlunds, txpGlobalSettings)
+import           Pos.Util.Chrono (NewestFirst (..))
 import qualified Pos.Util.Modifier as MM
 
 import qualified Pos.Explorer.DB as GS
-import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..), eApplyToil,
-                                        eRollbackToil)
-
-
+import           Pos.Explorer.Txp.Common (buildExplorerExtraLookup)
+import           Pos.Explorer.Txp.Toil (EGlobalToilM, ExplorerExtraLookup (..),
+                                        ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
 explorerTxpGlobalSettings :: HasConfiguration => TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same
     txpGlobalSettings
-    { tgsApplyBlocks = applyBlocksWith eApplyBlocksSettings
-    , tgsRollbackBlocks = rollbackBlocks
+    { tgsApplyBlocks = applyBlocksWith applySettings
+    , tgsRollbackBlocks = processBlunds rollbackSettings . getNewestFirst
     }
 
-eApplyBlocksSettings
-    :: (HasConfiguration, EGlobalApplyToilMode m, MonadSlots ctx m)
-    => ApplyBlocksSettings ExplorerExtra m
-eApplyBlocksSettings =
-    ApplyBlocksSettings
-    { absApplySingle = applyBlund
-    , absExtraOperations = extraOps
-    }
+applySettings ::
+       TxpGlobalApplyMode ctx m
+    => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
+applySettings =
+    ProcessBlundsSettings
+        { pbsProcessSingle = applySingle
+        , pbsCreateEnv = buildExplorerExtraLookup
+        , pbsExtraOperations = extraOps
+        , pbsIsRollback = False
+        }
 
-extraOps :: HasConfiguration => ExplorerExtra -> SomeBatchOp
-extraOps (ExplorerExtra em (HM.toList -> histories) balances utxoNewSum) =
-    SomeBatchOp $
-    map GS.DelTxExtra (MM.deletions em) ++
-    map (uncurry GS.AddTxExtra) (MM.insertions em) ++
-    map (uncurry GS.UpdateAddrHistory) histories ++
-    map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
-    map GS.DelAddrBalance (MM.deletions balances) ++
-    map GS.PutUtxoSum (maybeToList utxoNewSum)
+rollbackSettings ::
+       TxpGlobalRollbackMode m
+    => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
+rollbackSettings =
+    ProcessBlundsSettings
+        { pbsProcessSingle = return . eRollbackToil . blundToAuxNUndo
+        , pbsCreateEnv = buildExplorerExtraLookup
+        , pbsExtraOperations = extraOps
+        , pbsIsRollback = True
+        }
 
-applyBlund
-    :: (HasConfiguration, MonadSlots ctx m, EGlobalApplyToilMode m)
-    => TxpBlund
-    -> m ()
-applyBlund txpBlund = do
+applySingle ::
+       forall ctx m. (HasConfiguration, TxpGlobalApplyMode ctx m)
+    => TxpBlund -> m (EGlobalToilM ())
+applySingle txpBlund = do
     -- @TxpBlund@ is a block/blund with a reduced set of information required for
     -- transaction processing. We use it to determine at which slot did a transaction
     -- occur. TxpBlund has TxpBlock inside. If it's Left, it's a genesis block which
@@ -79,14 +80,18 @@ applyBlund txpBlund = do
     -- Get the timestamp from that information.
     mTxTimestamp <- getSlotStart slotId
 
-    uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash txpBlund
+    let (txAuxesAndUndos, hHash) = blundToAuxNUndoWHash txpBlund
+    return $ eApplyToil mTxTimestamp txAuxesAndUndos hHash
 
-rollbackBlocks
-    :: TxpGlobalRollbackMode m
-    => NewestFirst NE TxpBlund -> m SomeBatchOp
-rollbackBlocks blunds =
-    (genericToilModifierToBatch extraOps) . snd <$>
-    runToilAction (mapM (eRollbackToil . blundToAuxNUndo) blunds)
+extraOps :: HasConfiguration => ExplorerExtraModifier -> SomeBatchOp
+extraOps (ExplorerExtraModifier em (HM.toList -> histories) balances utxoNewSum) =
+    SomeBatchOp $
+    map GS.DelTxExtra (MM.deletions em) ++
+    map (uncurry GS.AddTxExtra) (MM.insertions em) ++
+    map (uncurry GS.UpdateAddrHistory) histories ++
+    map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
+    map GS.DelAddrBalance (MM.deletions balances) ++
+    map GS.PutUtxoSum (maybeToList utxoNewSum)
 
 -- Zip block's TxAuxes and also add block hash
 blundToAuxNUndoWHash :: TxpBlund -> ([(TxAux, TxUndo)], HeaderHash)

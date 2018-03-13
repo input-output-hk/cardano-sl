@@ -5,7 +5,8 @@
 -- | Global settings of Txp.
 
 module Pos.Txp.Settings.Global
-       ( TxpGlobalVerifyMode
+       ( TxpCommonMode
+       , TxpGlobalVerifyMode
        , TxpGlobalApplyMode
        , TxpGlobalRollbackMode
        , TxpBlock

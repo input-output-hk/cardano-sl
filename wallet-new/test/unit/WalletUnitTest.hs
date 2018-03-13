@@ -91,9 +91,9 @@ quickCheckTranslation :: Spec
 quickCheckTranslation =
     describe "QuickCheck sanity checks" $ do
       prop "can construct and verify block with one arbitrary transaction" $
-        expectValid <$> intAndVerifyGen genOneTrans
-      prop "can construct and verify block with one arbitrary transaction" $
-        expectValid <$> intAndVerifyGen genOneTrans
+        forAll
+          (intAndVerifyGen genOneTrans)
+          expectValid
       prop "DSL and Cardano agree on randomly generated chains" $
         forAll
           (intAndVerifyGen genValidBlockchain)
@@ -184,12 +184,12 @@ bracketWallet test =
 -- the first rich actor to the second.
 genOneTrans :: Hash h Addr => PreChain h Gen
 genOneTrans = PreChain $ \boot -> do
-    -- TODO: The actual range we can use here is @(0, initR0 - fee)@ where
+    -- TODO: The actual range we can use here is @(1, initR0 - fee)@ where
     -- @fee@ is the fee of the transaction. Sadly, however, we don't know
     -- this fee in advance. Hence, any QuickCheck generators for transactions
     -- will need to be a little bit conservative (possibly using some kind of
     -- @maxFee@ upper bound).
-    value <- choose (0, 1000)
+    value <- choose (1, 1000)
     return $ \((fee : _) : _) ->
       let t1 = Transaction {
                    trFresh = 0

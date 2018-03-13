@@ -22,21 +22,20 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodePara
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Context (NodeContext (..))
-import           Pos.Worker.Types (WorkerSpec)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Txp (ExplorerExtra, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
-                                   runExplorerProd)
+import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSettings)
+import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, withConfigurations, elimRealMode, runServer)
+                               NodeResources (..), bracketNodeResources, elimRealMode,
+                               loggerBracket, runNode, runServer, withConfigurations)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException, mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Worker.Types (WorkerSpec)
 
 loggerName :: LoggerName
 loggerName = "node"
@@ -81,7 +80,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => NodeResources ExplorerExtra
+        => NodeResources ExplorerExtraModifier
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode nr@NodeResources{..} (go, outSpecs) =

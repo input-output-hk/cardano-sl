@@ -10,6 +10,7 @@ license:             MIT
 license-file:        LICENSE
 category:            Web
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -86,6 +87,7 @@ library
                      , servant-server
                      , servant-quickcheck
                      , string-conv
+                     , swagger2
                      , template-haskell
                      , time
                      , text

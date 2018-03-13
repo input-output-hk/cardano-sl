@@ -23,7 +23,7 @@ import           Control.Exception (ArithException (..), ArrayException (..), Er
 import           Control.Exception.Safe (Handler (..), SomeException (..), catches,
                                          displayException)
 import           Control.Lens (_Left)
-import           Control.Monad.Error.Class (MonadError, throwError)
+import           Control.Monad.Error.Class (throwError)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as S
@@ -37,11 +37,10 @@ import qualified PlutusCore.Program as PL
 import           System.IO.Unsafe (unsafePerformIO)
 import qualified Utils.Names as PL
 
-import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Common (Script (..), ScriptVersion, Script_v0)
+import           Pos.Core.Common (Script (..), ScriptVersion)
 import           Pos.Core.Script ()
 import           Pos.Core.Txp (TxSigData (..))
 
@@ -68,7 +67,7 @@ stripStdlib (PL.Program xs) = PL.Program (filter (not . std) xs)
 
 -- | Parse a script intended to serve as a validator (or “lock”) in a
 -- transaction output.
-parseValidator :: Bi Script_v0 => Text -> Either String Script
+parseValidator :: Text -> Either String Script
 parseValidator t = do
     scr <- stripStdlib <$> PL.loadValidator stdlib (toString t)
     return Script {
@@ -77,7 +76,7 @@ parseValidator t = do
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
 -- transaction input.
-parseRedeemer :: Bi Script_v0 => Text -> Either String Script
+parseRedeemer :: Text -> Either String Script
 parseRedeemer t = do
     scr <- stripStdlib <$> PL.loadRedeemer stdlib (toString t)
     return Script {
@@ -115,11 +114,10 @@ instance Buildable PlutusError where
 
 -- | Validate a transaction, given a validator and a redeemer.
 txScriptCheck
-    :: (MonadError PlutusError m, Bi Script_v0)
-    => TxSigData
+    :: TxSigData
     -> Script                     -- ^ Validator
     -> Script                     -- ^ Redeemer
-    -> m ()
+    -> Either PlutusError ()
 txScriptCheck sigData validator redeemer = case spoon result of
     Left err            -> throwError (PlutusException (toText err))
     Right (Left err)    -> throwError err

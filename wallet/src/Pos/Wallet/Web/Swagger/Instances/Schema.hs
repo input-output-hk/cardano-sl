@@ -83,6 +83,7 @@ instance ToSchema      InputSelectionPolicy
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
+instance ToParamSchema CT.SinceTime
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.CFilePath

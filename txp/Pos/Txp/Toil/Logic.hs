@@ -2,184 +2,167 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | All logic of Toil.  It operates in terms of MonadUtxo,
--- MonadStakes and MonadTxPool.
+-- | All high-level logic of Toil.  It operates in 'LocalToilM' and
+-- 'GlobalToilM'.
 
 module Pos.Txp.Toil.Logic
-       ( GlobalApplyToilMode
-       , GlobalVerifyToilMode
-       , verifyToil
+       ( verifyToil
        , applyToil
        , rollbackToil
 
-       , LocalToilMode
        , normalizeToil
        , processTx
-
-       , verifyAndApplyTx
        ) where
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (..), runExceptT)
+import           Control.Monad.Except (ExceptT, mapExceptT, throwError)
 import           Serokell.Data.Memory.Units (Byte)
-import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
                            BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
-                           isRedeemAddress)
+                           isBootstrapEraBVD, isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, toaOut,
-                               txInputs, txOutAddress, checkTxAux)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
+                               toaOut, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
-import           Pos.DB.Class (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
-import           Pos.Txp.Toil.Class (MonadStakes (..), MonadTxPool (..), MonadUtxo (..),
-                                     MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
+import           Pos.Txp.Toil.Monad (GlobalToilM, LocalToilM, UtxoM, hasTx, memPoolSize,
+                                     putTxWithUndo, utxoMToGlobalToilM, utxoMToLocalToilM)
 import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types (TxFee (..))
+import           Pos.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
 import qualified Pos.Txp.Toil.Utxo as Utxo
 import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util (liftEither)
 
 ----------------------------------------------------------------------------
 -- Global
 ----------------------------------------------------------------------------
-
-type GlobalApplyToilMode m =
-    ( MonadUtxo m
-    , MonadStakes m
-    , MonadGState m
-    , WithLogger m
-    )
-
-type GlobalVerifyToilMode m =
-    ( MonadUtxo m
-    , MonadStakes m
-    , MonadGState m
-    , WithLogger m
-    )
 
 -- CHECK: @verifyToil
 -- | Verify transactions correctness with respect to Utxo applying
 -- them one-by-one.
 -- Note: transactions must be topsorted to pass check.
 -- Warning: this function may apply some transactions and fail
--- eventually. Use it only on temporary data.
+-- eventually.
 --
--- If the first argument is 'True', all data (script versions,
+-- If the 'Bool' argument is 'True', all data (script versions,
 -- witnesses, addresses, attributes) must be known. Otherwise unknown
 -- data is just ignored.
-verifyToil
-    :: forall m . (GlobalVerifyToilMode m, MonadError ToilVerFailure m)
-    => EpochIndex -> Bool -> [TxAux] -> m TxpUndo
-verifyToil curEpoch verifyAllIsKnown =
-    mapM (verifyAndApplyTx curEpoch verifyAllIsKnown . withTxId)
+verifyToil ::
+       (HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
+    -> Bool
+    -> [TxAux]
+    -> ExceptT ToilVerFailure UtxoM TxpUndo
+verifyToil bvd curEpoch verifyAllIsKnown =
+    mapM (verifyAndApplyTx bvd curEpoch verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-applyToil
-    :: GlobalApplyToilMode m
-    => [(TxAux, TxUndo)]
-    -> m ()
+applyToil :: HasConfiguration => [(TxAux, TxUndo)] -> GlobalToilM ()
 applyToil [] = pass
 applyToil txun = do
     applyTxsToStakes txun
-    mapM_ (applyTxToUtxo' . withTxId . fst) txun
+    utxoMToGlobalToilM $ mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: GlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+rollbackToil :: HasConfiguration => [(TxAux, TxUndo)] -> GlobalToilM ()
 rollbackToil txun = do
     rollbackTxsStakes txun
-    mapM_ Utxo.rollbackTxUtxo $ reverse txun
+    utxoMToGlobalToilM $ mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
 ----------------------------------------------------------------------------
 -- Local
 ----------------------------------------------------------------------------
 
-type LocalToilMode m =
-    ( MonadUtxo m
-    , MonadGState m
-    , MonadTxPool m
-    , WithLogger m
-    , HasTxpConfiguration
-    )
-
--- CHECK: @processTx
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
-processTx
-    :: forall m . (LocalToilMode m, MonadError ToilVerFailure m)
-    => EpochIndex -> (TxId, TxAux) -> m TxUndo
-processTx curEpoch tx@(id, aux) = do
-    whenM (hasTx id) $ throwError ToilKnown
-    whenM ((>= memPoolLimitTx) <$> poolSize) $
+processTx ::
+       (HasTxpConfiguration, HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
+    -> (TxId, TxAux)
+    -> ExceptT ToilVerFailure LocalToilM TxUndo
+processTx bvd curEpoch tx@(id, aux) = do
+    whenM (lift $ hasTx id) $ throwError ToilKnown
+    whenM ((>= memPoolLimitTx) <$> lift memPoolSize) $
         throwError (ToilOverwhelmed memPoolLimitTx)
-    undo <- verifyAndApplyTx curEpoch True tx
-    undo <$ putTxWithUndo id aux undo
+    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx bvd curEpoch True tx
+    undo <$ lift (putTxWithUndo id aux undo)
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-normalizeToil
-    :: forall m . LocalToilMode m
-    => EpochIndex -> [(TxId, TxAux)] -> m ()
-normalizeToil curEpoch txs = mapM_ normalize ordered
+normalizeToil ::
+       (HasTxpConfiguration, HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
+    -> [(TxId, TxAux)]
+    -> LocalToilM ()
+normalizeToil bvd curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
-    normalize = runExceptT . processTx curEpoch
+    normalize ::
+           (HasTxpConfiguration, HasConfiguration)
+        => (TxId, TxAux)
+        -> LocalToilM ()
+    normalize = void . runExceptT . processTx bvd curEpoch
 
 ----------------------------------------------------------------------------
 -- Verify and Apply logic
 ----------------------------------------------------------------------------
 
-verifyAndApplyTx
-    :: ( MonadUtxo m
-       , MonadGState m
-       , MonadError ToilVerFailure m
-       )
-    => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
-verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
-    either (throwError . ToilInconsistentTxAux) pure (checkTxAux txAux)
-    (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState curEpoch txAux txFeeMB
-    applyTxToUtxo' tx
-    pure txUndo
+-- Note: it doesn't consider/affect stakes! That's because we don't
+-- care about stakes for local txp.
+verifyAndApplyTx ::
+       (HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
+    -> Bool
+    -> (TxId, TxAux)
+    -> ExceptT ToilVerFailure UtxoM TxUndo
+verifyAndApplyTx adoptedBVD curEpoch verifyVersions tx@(_, txAux) = do
+    whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
+    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx txAux
+    liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
+    lift $ applyTxToUtxo' tx
+    pure vturUndo
   where
     ctx = Utxo.VTxContext verifyVersions
 
-isRedeemTx :: MonadUtxoRead m => TxAux -> m Bool
-isRedeemTx txAux = do
-    resolvedOuts <- traverse utxoGet $ (view txInputs . taTx) txAux
-    let inputAddresses = fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
-    return $ all isRedeemAddress inputAddresses
+isRedeemTx :: TxUndo -> Bool
+isRedeemTx resolvedOuts = all isRedeemAddress inputAddresses
+  where
+    inputAddresses =
+        fmap (txOutAddress . toaOut) . catMaybes . toList $ resolvedOuts
 
-verifyGState
-    :: ( MonadGState m
-       , MonadUtxoRead m
-       , MonadError ToilVerFailure m
-       )
-    => EpochIndex -> TxAux -> Maybe TxFee -> m ()
-verifyGState curEpoch txAux txFeeMB = do
-    BlockVersionData {..} <- gsAdoptedBVData
-    verifyBootEra curEpoch txAux
+verifyGState ::
+       BlockVersionData
+    -> EpochIndex
+    -> TxAux
+    -> VerifyTxUtxoRes
+    -> Either ToilVerFailure ()
+verifyGState bvd@BlockVersionData {..} curEpoch txAux vtur = do
+    verifyBootEra bvd curEpoch txAux
+    let txFeeMB = vturFee vtur
     let txSize = biSize txAux
     let limit = bvdMaxTxSize
-    unlessM (isRedeemTx txAux) $ whenJust txFeeMB $ \txFee ->
+    unless (isRedeemTx $ vturUndo vtur) $ whenJust txFeeMB $ \txFee ->
         verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 
-verifyBootEra
-    :: forall m .
-       ( MonadError ToilVerFailure m
-       , MonadGState m
-       )
-    => EpochIndex -> TxAux -> m ()
-verifyBootEra curEpoch TxAux {..} = do
-    whenM (gsIsBootstrapEra curEpoch) $
+verifyBootEra ::
+       BlockVersionData -> EpochIndex -> TxAux -> Either ToilVerFailure ()
+verifyBootEra bvd curEpoch TxAux {..} = do
+    when (isBootstrapEraBVD bvd curEpoch) $
         whenNotNull notBootstrapDistrAddresses $
         throwError . ToilNonBootstrapDistr
   where
@@ -193,12 +176,8 @@ verifyBootEra curEpoch TxAux {..} = do
             BootstrapEraDistr -> True
             _                 -> False
 
-verifyTxFeePolicy
-    :: MonadError ToilVerFailure m
-    => TxFee
-    -> Fee.TxFeePolicy
-    -> Byte
-    -> m ()
+verifyTxFeePolicy ::
+       TxFee -> Fee.TxFeePolicy -> Byte -> Either ToilVerFailure ()
 verifyTxFeePolicy (TxFee txFee) policy txSize = case policy of
     Fee.TxFeePolicyTxSizeLinear txSizeLinear -> do
         let
@@ -247,5 +226,5 @@ verifyTxFeePolicy (TxFee txFee) policy txSize = case policy of
 withTxId :: TxAux -> (TxId, TxAux)
 withTxId aux = (hash (taTx aux), aux)
 
-applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
+applyTxToUtxo' :: (TxId, TxAux) -> UtxoM ()
 applyTxToUtxo' (i, TxAux tx _) = Utxo.applyTxToUtxo (WithHash tx i)

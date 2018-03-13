@@ -38,7 +38,7 @@ import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
                                             runExtraContextT)
 import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Txp (ExplorerExtra, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Txp (ExplorerExtraModifier, eTxNormalize, eTxProcessTransaction)
 import           Pos.Explorer.Web.Api (explorerApi)
 import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
 
@@ -46,10 +46,10 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explore
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type RealModeE = RealMode ExplorerExtra
+type RealModeE = RealMode ExplorerExtraModifier
 type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
-type instance MempoolExt ExplorerProd = ExplorerExtra
+type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
 instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal RealModeE where
@@ -109,7 +109,7 @@ explorerServeWebReal diffusion port = do
 
 convertHandler
     :: HasConfiguration
-    => RealModeContext ExplorerExtra
+    => RealModeContext ExplorerExtraModifier
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =

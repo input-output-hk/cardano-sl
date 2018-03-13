@@ -5,7 +5,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 
 module Pos.Diffusion.Full
-    ( diffusionLayerFull
+    ( FullDiffusionConfiguration (..)
+    , diffusionLayerFull
     ) where
 
 import           Nub (ordNub)
@@ -68,6 +69,14 @@ import           Pos.Util.Timer (Timer, newTimer)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
+data FullDiffusionConfiguration = FullDiffusionConfiguration
+    { fdcProtocolMagic          :: !ProtocolMagic
+    , fdcProtocolConstants      :: !ProtocolConstants
+    , fdcNetworkConfig          :: !(NetworkConfig KademliaParams)
+    , fdcRecoveryHeadersMessage :: !Word
+    , fdcLastKnownBlockVersion  :: !BlockVersion
+    }
+
 -- | The full diffusion layer.
 --
 -- NB: we could do the whole logic/diffusion layer interface using typeclasses
@@ -84,17 +93,19 @@ diffusionLayerFull
        , WithLogger m
        )
     => (forall y . d y -> IO y)
-    -> NetworkConfig KademliaParams
-    -> BlockVersion -- For making the VerInfo.
-    -> ProtocolMagic
-    -> ProtocolConstants -- Certain protocol constants affect networking (accidental/historical; will fix soon).
-    -> Word
+    -> FullDiffusionConfiguration
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull runIO networkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport mEkgNodeMetrics expectLogic =
+diffusionLayerFull runIO fdconf transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
+
+        let networkConfig = fdcNetworkConfig fdconf
+            protocolMagic = fdcProtocolMagic fdconf
+            protocolConstants = fdcProtocolConstants fdconf
+            lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
+            recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
 
         -- Make the outbound queue using network policies.
         -- NB: the <> is under 'LoggerName', which is representationally equal

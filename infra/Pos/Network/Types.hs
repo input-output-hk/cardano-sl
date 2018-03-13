@@ -245,12 +245,12 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
     go TopologyBehindNAT{}   = const NodeEdge   -- should never happen
     go TopologyAuxx{}        = const NodeEdge   -- should never happen
 
-data SubscriptionWorker kademlia =
+data SubscriptionWorker =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
-  | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
+  | SubscriptionWorkerKademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
-topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kademlia)
+topologySubscriptionWorker :: Topology kademlia -> Maybe SubscriptionWorker
 topologySubscriptionWorker = go
   where
     go TopologyCore{}          = Nothing
@@ -261,12 +261,10 @@ topologySubscriptionWorker = go
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
     go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
-                                          topologyKademlia
                                           NodeRelay
                                           topologyValency
                                           topologyFallbacks
     go TopologyTraditional{..} = Just $ SubscriptionWorkerKademlia
-                                          topologyKademlia
                                           NodeCore
                                           topologyValency
                                           topologyFallbacks
@@ -517,13 +515,13 @@ type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 --
 -- This uses the network, and so may throw exceptions in case of, for instance,
 -- and unreachable network.
-resolveDnsDomains :: NetworkConfig kademlia
+resolveDnsDomains :: Word16
                   -> [NodeAddr DNS.Domain]
                   -> IO [Either DNSError [NodeId]]
-resolveDnsDomains NetworkConfig{..} dnsDomains =
+resolveDnsDomains defaultPort dnsDomains =
     initDnsOnUse $ \resolve -> (fmap . fmap . fmap . fmap) addressToNodeId $
         DnsDomains.resolveDnsDomains resolve
-                                     ncDefaultPort
+                                     defaultPort
                                      dnsDomains
 {-# ANN resolveDnsDomains ("HLint: ignore Use <$>" :: String) #-}
 

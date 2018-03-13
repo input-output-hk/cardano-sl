@@ -7,6 +7,9 @@
 module Pos.Diffusion.Full
     ( FullDiffusionConfiguration (..)
     , diffusionLayerFull
+    , diffusionLayerFullExposeInternals
+    , FullDiffusionInternals (..)
+    , RunFullDiffusionInternals (..)
     ) where
 
 import           Nub (ordNub)
@@ -54,12 +57,13 @@ import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket (..), initQueue,
+import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
-                                    topologySubscriptionWorker, topologyRunKademlia,
-                                    topologyHealthStatus)
+                                    NodeType,  topologySubscriptionWorker,
+                                    topologyRunKademlia, topologyHealthStatus)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
@@ -72,16 +76,30 @@ import           Pos.Util.Timer (Timer, newTimer)
 data FullDiffusionConfiguration = FullDiffusionConfiguration
     { fdcProtocolMagic          :: !ProtocolMagic
     , fdcProtocolConstants      :: !ProtocolConstants
-    , fdcNetworkConfig          :: !(NetworkConfig KademliaParams)
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
+    , fdcConvEstablishTimeout   :: !Microsecond
     }
 
--- | Make a full diffusion layer.
--- No resource acquisition is done so you don't need to worry about bracketing
--- on this one.
+data RunFullDiffusionInternals d = RunFullDiffusionInternals
+    { runFullDiffusionInternals :: forall y . (FullDiffusionInternals d -> d y) -> d y
+    }
+
+data FullDiffusionInternals d = FullDiffusionInternals
+    { fdiNode :: Node d
+    , fdiConverse :: Converse PackingType PeerData d
+    }
+
+-- | Make a full diffusion layer, filling in many details using a
+-- 'NetworkConfig' and its constituent 'Topology'.
+-- An 'OutboundQ' is brought up for you, based on the 'NetworkConfig'.
+-- A TCP transport is brought up as well, again using the 'NetworkConfig',
+-- which includes information about the address. This is why we use CPS here:
+-- the transport is bracketed.
+-- The 'NetworkConfig's topology is also used to fill in various options
+-- related to subscription, health status reporting, etc.
 diffusionLayerFull
-    :: forall d m .
+    :: forall d m x .
        ( DiffusionWorkMode d
        , MonadFix d
        , MonadIO m
@@ -90,21 +108,80 @@ diffusionLayerFull
        )
     => (forall y . d y -> IO y)
     -> FullDiffusionConfiguration
-    -> Transport d
+    -> NetworkConfig KademliaParams
     -> Maybe (EkgNodeMetrics d)
     -> Logic d
-    -> m (DiffusionLayer d)
-diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
+    -> (DiffusionLayer d -> m x)
+    -> m x
+diffusionLayerFull runIO fdconf networkConfig mEkgNodeMetrics logic k = do
+    -- Make the outbound queue using network policies.
+    oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
+        -- NB: <> it's not Text semigroup append, it's LoggerName append, which
+        -- puts a "." in the middle.
+        initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
+    let topology = ncTopology networkConfig
+        mSubscriptionWorker = topologySubscriptionWorker topology
+        mSubscribers = topologySubscribers topology
+        healthStatus = topologyHealthStatus topology oq
+        mKademliaParams = topologyRunKademlia topology
+    bracketTransportTCP (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) $ \transport -> do
+        (fullDiffusion, internals) <-
+            diffusionLayerFullExposeInternals runIO
+                                              fdconf
+                                              transport
+                                              oq
+                                              (ncDefaultPort networkConfig)
+                                              mSubscriptionWorker
+                                              mSubscribers
+                                              mKademliaParams
+                                              healthStatus
+                                              mEkgNodeMetrics
+                                              logic
+        k $ DiffusionLayer
+            { diffusion = fullDiffusion
+            , runDiffusionLayer = \action -> runFullDiffusionInternals internals (const action)
+            }
 
-    let networkConfig = fdcNetworkConfig fdconf
-        protocolMagic = fdcProtocolMagic fdconf
+diffusionLayerFullExposeInternals
+    :: forall d m .
+       ( DiffusionWorkMode d
+       , MonadFix d
+       , MonadIO m
+       , MonadMask m
+       )
+    => (forall y . d y -> IO y)
+    -> FullDiffusionConfiguration
+    -> Transport d
+    -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
+    -> Word16 -- ^ Port on which peers are assumed to listen.
+    -> Maybe SubscriptionWorker
+    -> Maybe (NodeType, OQ.MaxBucketSize)
+    -> Maybe (KademliaParams, Bool)
+       -- ^ KademliaParams and a default port for kademlia.
+       -- Bool says whether the node must join before starting normal
+       -- operation, as opposed to passively trying to join.
+    -> d HealthStatus
+       -- ^ Amazon Route53 health check support (stopgap measure, see note
+       --   in Pos.Diffusion.Types, above 'healthStatus' record field).
+    -> Maybe (EkgNodeMetrics d)
+    -> Logic d
+    -> m (Diffusion d, RunFullDiffusionInternals d)
+diffusionLayerFullExposeInternals runIO
+                                  fdconf
+                                  transport
+                                  oq
+                                  defaultPort
+                                  mSubscriptionWorker
+                                  mSubscribers
+                                  mKademliaParams
+                                  healthStatus -- named to be picked up by record wildcard
+                                  mEkgNodeMetrics
+                                  logic = do
+
+    let protocolMagic = fdcProtocolMagic fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
-
-    -- Make the outbound queue using network policies.
-    oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
-        initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
 
     -- Timer is in microseconds.
     keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
@@ -200,10 +277,10 @@ diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
         -- FIXME it will be wrong when the patch to include a keepalive
         -- is merged. That shall be the first test of this inspec/outspec
         -- system I suppose.
-        subscriptionWorkerOutSpecs = case topologySubscriptionWorker (ncTopology networkConfig) of
-            Just (SubscriptionWorkerBehindNAT _)       -> specs
-            Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
-            _                                          -> mempty
+        subscriptionWorkerOutSpecs = case mSubscriptionWorker of
+            Just (SubscriptionWorkerBehindNAT _)     -> specs
+            Just (SubscriptionWorkerKademlia  _ _ _) -> specs
+            _                                        -> mempty
           where
             specs = toOutSpecs
                 [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
@@ -222,7 +299,7 @@ diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
             , lmodifier "ssc"         $ Diffusion.Ssc.sscListeners logic oq enqueue
             ] ++ [
               lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
-            | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
+            | Just (subscriberNodeType, _) <- [mSubscribers]
             ]
 
         lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }
@@ -238,20 +315,19 @@ diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
         currentSlotDuration :: d Millisecond
         currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
-        convEstablishTimeout :: Microsecond
-        convEstablishTimeout = convertUnit (15 :: Second)
-
         -- Bracket kademlia and network-transport, create a node. This
         -- will be very involved. Should make it top-level I think.
-        runDiffusionLayer :: forall y . d y -> d y
+        runDiffusionLayer :: forall y . (FullDiffusionInternals d -> d y) -> d y
         runDiffusionLayer = runDiffusionLayerFull
             runIO
-            networkConfig
             transport
-            convEstablishTimeout
-            ourVerInfo
-            mEkgNodeMetrics
             oq
+            (fdcConvEstablishTimeout fdconf)
+            ourVerInfo
+            defaultPort
+            mKademliaParams
+            mSubscriptionWorker
+            mEkgNodeMetrics
             keepaliveTimer
             currentSlotDuration
             listeners
@@ -282,12 +358,6 @@ diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
         sendVote :: UpdateVote -> d ()
         sendVote = Diffusion.Update.sendVote enqueue
 
-        -- FIXME
-        -- SSC stuff has a 'waitUntilSend' motif before it. Must remember to
-        -- investigate that and port it if necessary...
-        -- No, it really should be the logic layer which decides when to send
-        -- things.
-        --
         -- TODO put these into a Pos.Diffusion.Full.Ssc module.
         sendSscCert :: VssCertificate -> d ()
         sendSscCert = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCVssCertificate
@@ -304,18 +374,17 @@ diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
         sendPskHeavy :: ProxySKHeavy -> d ()
         sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue
 
-        -- Amazon Route53 health check support (stopgap measure, see note
-        -- in Pos.Diffusion.Types, above 'healthStatus' record field).
-        healthStatus :: d HealthStatus
-        healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
-
         formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
         formatPeers formatter = liftIO (Just <$> OQ.dumpState oq formatter)
 
         diffusion :: Diffusion d
         diffusion = Diffusion {..}
 
-    return DiffusionLayer {..}
+        runInternals = RunFullDiffusionInternals
+            { runFullDiffusionInternals = runDiffusionLayer
+            }
+
+    return (diffusion, runInternals)
 
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.
@@ -323,19 +392,33 @@ runDiffusionLayerFull
     :: forall d x .
        ( DiffusionWorkMode d, MonadFix d )
     => (forall y . d y -> IO y)
-    -> NetworkConfig KademliaParams
     -> Transport d
+    -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> Microsecond -- ^ Conversation establish timeout
     -> VerInfo
+    -> Word16 -- ^ Default port to use for resolved hosts (from dns)
+    -> Maybe (KademliaParams, Bool)
+    -> Maybe SubscriptionWorker
     -> Maybe (EkgNodeMetrics d)
-    -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
     -> Timer -- ^ Keepalive timer.
     -> d Millisecond -- ^ Slot duration; may change over time.
     -> (VerInfo -> [Listener d])
+    -> (FullDiffusionInternals d -> d x)
     -> d x
-    -> d x
-runDiffusionLayerFull runIO networkConfig transport convEstablishTimeout ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
-    bracketKademlia networkConfig $ \networkConfig' ->
+runDiffusionLayerFull runIO
+                      transport
+                      oq
+                      convEstablishTimeout
+                      ourVerInfo
+                      defaultPort
+                      mKademliaParams
+                      mSubscriptionWorker
+                      mEkgNodeMetrics
+                      keepaliveTimer
+                      slotDuration
+                      listeners
+                      k =
+    maybeBracketKademliaInstance mKademliaParams defaultPort $ \mKademlia ->
         timeWarpNode transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
             withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse runIO converse)) $ \dthread -> do
                 link dthread
@@ -346,20 +429,26 @@ runDiffusionLayerFull runIO networkConfig transport convEstablishTimeout ourVerI
                 -- send actions directly.
                 let sendActions :: SendActions d
                     sendActions = makeSendActions ourVerInfo oqEnqueue converse
-                withAsync (subscriptionThread networkConfig' sendActions) $ \sthread -> do
+                withAsync (subscriptionThread (fst <$> mKademlia) sendActions) $ \sthread -> do
                     link sthread
-                    joinKademlia networkConfig'
-                    action
+                    maybe (pure ()) joinKademlia mKademlia
+                    k $ FullDiffusionInternals
+                        { fdiNode = nd
+                        , fdiConverse = converse
+                        }
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (STM.TVar (OQ.PacketStatus t)))
     oqEnqueue msgType l = do
         itList <- liftIO $ OQ.enqueue oq msgType (EnqueuedConversation (msgType, l))
         return (M.fromList itList)
-    subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
+    subscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-            dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
-        Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
-            dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
+            dnsSubscriptionWorker oq defaultPort dnsDomains keepaliveTimer slotDuration sactions
+        Just (SubscriptionWorkerKademlia nodeType valency fallbacks) -> case mKademliaInst of
+            -- Caller wanted a DHT subscription worker, but not a Kademlia
+            -- instance. Shouldn't be allowed, but oh well FIXME later.
+            Nothing -> pure ()
+            Just kInst -> dhtSubscriptionWorker oq kInst nodeType valency fallbacks sactions
         Nothing -> pure ()
 
 sendMsgFromConverse
@@ -407,60 +496,32 @@ createKademliaInstance kp defaultPort =
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
     :: (MonadIO m, MonadMask m, CanLog m)
-    => KademliaParams
-    -> Word16 -- ^ Default port to bind to.
-    -> (KademliaDHTInstance -> m a)
+    => (KademliaParams, Bool)
+    -> Word16
+    -> ((KademliaDHTInstance, Bool) -> m a)
     -> m a
-bracketKademliaInstance kp defaultPort action =
-    bracket (createKademliaInstance kp defaultPort) stopDHTInstance action
+bracketKademliaInstance (kp, mustJoin) defaultPort action =
+    bracket (createKademliaInstance kp defaultPort) stopDHTInstance $ \kinst ->
+        action (kinst, mustJoin)
 
--- | The 'NodeParams' contain enough information to determine whether a Kademlia
--- instance should be brought up. Use this to safely acquire/release one.
-bracketKademlia
+maybeBracketKademliaInstance
     :: (MonadIO m, MonadMask m, CanLog m)
-    => NetworkConfig KademliaParams
-    -> (NetworkConfig KademliaDHTInstance -> m a)
+    => Maybe (KademliaParams, Bool)
+    -> Word16
+    -> (Maybe (KademliaDHTInstance, Bool) -> m a)
     -> m a
-bracketKademlia nc@NetworkConfig {..} action = case ncTopology of
-    -- cases that need Kademlia
-    TopologyP2P{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
-        k $ TopologyP2P{topologyKademlia = kinst, ..}
-    TopologyTraditional{topologyKademlia = kp, ..} ->
-      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
-        k $ TopologyTraditional{topologyKademlia = kinst, ..}
-    TopologyRelay{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
-        k $ TopologyRelay{topologyOptKademlia = Just kinst, ..}
-    TopologyCore{topologyOptKademlia = Just kp, ..} ->
-      bracketKademliaInstance kp ncDefaultPort $ \kinst ->
-        k $ TopologyCore{topologyOptKademlia = Just kinst, ..}
+maybeBracketKademliaInstance Nothing _ k = k Nothing
+maybeBracketKademliaInstance (Just kp) defaultPort k =
+    bracketKademliaInstance kp defaultPort (k . Just)
 
-    -- cases that don't
-    TopologyRelay{topologyOptKademlia = Nothing, ..} ->
-        k $ TopologyRelay{topologyOptKademlia = Nothing, ..}
-    TopologyCore{topologyOptKademlia = Nothing, ..} ->
-        k $ TopologyCore{topologyOptKademlia = Nothing, ..}
-    TopologyBehindNAT{..} ->
-        k $ TopologyBehindNAT{..}
-    TopologyAuxx{..} ->
-        k $ TopologyAuxx{..}
-  where
-    k topology = action (nc { ncTopology = topology })
-
--- | Synchronously join the Kademlia network.
+-- | Join the Kademlia network.
 joinKademlia
     :: ( DiffusionWorkMode m )
-    => NetworkConfig KademliaDHTInstance
+    => (KademliaDHTInstance, Bool)
     -> m ()
-joinKademlia networkConfig = case topologyRunKademlia (ncTopology networkConfig) of
-    -- See 'topologyRunKademlia' documentation: the second component is 'True'
-    -- iff it's essential that at least one of the initial peers is contacted.
-    -- Otherwise, it's OK to not find any initial peers and the program can
-    -- continue.
-    Just (kInst, True)  -> kademliaJoinNetworkRetry kInst (kdiInitialPeers kInst) retryInterval
-    Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
-    Nothing             -> return ()
+joinKademlia (kInst, mustJoin) = case mustJoin of
+    True  -> kademliaJoinNetworkRetry kInst (kdiInitialPeers kInst) retryInterval
+    False -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
   where
     retryInterval :: Second
     retryInterval = 5

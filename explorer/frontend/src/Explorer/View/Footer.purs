@@ -6,7 +6,7 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.String (take)
 import Explorer.I18n.Lang (Language, langCode, translate)
-import Explorer.I18n.Lenses (footer, fooCardanoLaunch, fooCardanoOpenSource, fooCardanoHub
+import Explorer.I18n.Lenses (footer, fooCardanoOpenSource, fooCardanoHub
   , fooCardanoChat, fooCardanoForum, fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation
   , fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation, fooCardanoTestnet
   , fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter

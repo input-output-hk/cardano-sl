@@ -5,6 +5,7 @@
 module Pos.Txp.Toil.Failure
        ( ToilVerFailure (..)
        , WitnessVerFailure (..)
+       , TxOutVerFailure (..)
        ) where
 
 import           Universum

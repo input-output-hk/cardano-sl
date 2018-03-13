@@ -11,7 +11,7 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, int, shown, stext, (%))
+import           Formatting (bprint, build, int, ords, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
@@ -91,10 +91,10 @@ instance Buildable ToilVerFailure where
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =
         bprint ("TxAux is inconsistent: "%stext) msg
-    build (ToilInvalidOutputs i reason) =
-        bprint ("input #"%int%"'s outputs are invalid:\n'"%
+    build (ToilInvalidOutputs n reason) =
+        bprint (ords%" output is invalid:\n'"%
                 " reason: "%build)
-            i reason
+            n reason
     build (ToilWitnessDoesntMatch i txIn txOut@TxOut {..} witness) =
         bprint ("input #"%int%"'s witness doesn't match address "%
                 "of corresponding output:\n"%

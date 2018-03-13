@@ -125,15 +125,22 @@ verifyConsistency inputs witnesses
     errFmt = ("length of inputs != length of witnesses "%"("%int%" != "%int%")")
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
-verifyOutputs :: VTxContext -> TxAux -> Either ToilVerFailure ()
+verifyOutputs :: 
+       MonadError ToilVerFailure m 
+    => VTxContext
+    -> TxAux 
+    -> m ()
 verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
     mapM_ verifyOutput (enumerate $ toList _txOutputs)
   where
-    verifyOutput :: (Word32, TxOut) -> Either ToilVerFailure ()
+    verifyOutput :: 
+           MonadError ToilVerFailure m 
+        => (Word32, TxOut) 
+        -> m ()
     verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) = do
-        unless (vtcVerifyAllIsKnown && not (areAttributesKnown addrAttributes)) $
+        when (vtcVerifyAllIsKnown && not (areAttributesKnown addrAttributes)) $
             throwError $ ToilInvalidOutputs i (TxOutUnknownAttributes addr)
-        unless (vtcVerifyAllIsKnown && not (isUnknownAddressType addr)) $
+        when (vtcVerifyAllIsKnown && isUnknownAddressType addr) $
             throwError $ ToilInvalidOutputs i (TxOutUnknownAddressType addr)
         when (isRedeemAddress addr) $
             throwError $ ToilInvalidOutputs i (TxOutRedeemAddressProhibited addr)

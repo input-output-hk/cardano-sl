@@ -37,7 +37,7 @@ import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Txp (MonadTxpLocal (..), ToilVerFailure, TxpNormalizeMempoolMode,
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), ToilVerFailure, TxpLocalWorkMode,
                           TxpProcessTransactionMode, getLocalTxsNUndo, txNormalize,
                           txProcessTransaction)
 import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
@@ -152,6 +152,5 @@ txpProcessTxWebWallet tx@(txId, txAux) = txProcessTransaction tx >>= traverse (c
         wdc <- eskToWalletDecrCredentials <$> getSKById wId
         pure (wId, buildTHEntryExtra wdc txWithUndo (Nothing, Just ts))
 
-txpNormalizeWebWallet
-    :: TxpNormalizeMempoolMode ctx m => m ()
+txpNormalizeWebWallet :: (TxpLocalWorkMode ctx m, MempoolExt m ~ ()) => m ()
 txpNormalizeWebWallet = txNormalize

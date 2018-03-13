@@ -19,6 +19,9 @@ module Pos.Core.Update.Util
        -- * System tag helpers
        , archHelper
        , osHelper
+
+       -- * Other utility functions
+       , isBootstrapEraBVD
        ) where
 
 import           Universum
@@ -32,15 +35,17 @@ import           Instances.TH.Lift ()
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Common.Types (checkCoinPortion)
-import           Pos.Core.Update.Types (BlockVersion, BlockVersionModifier (..), SoftforkRule (..),
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
+import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
+                                        BlockVersionModifier (..), SoftforkRule (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
                                         UpdatePayload (..), UpdateProof, UpdateProposal (..),
                                         UpdateProposalToSign (..), UpdateVote (..), VoteId,
                                         checkSoftwareVersion, checkSystemTag)
-import           Pos.Crypto (SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             checkSig, hash, safeSign, safeToPublic)
+import           Pos.Crypto (SafeSigner, SignTag (SignUSProposal, SignUSVote), checkSig, hash,
+                             safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (HasConfiguration, MonadError Text m, Bi UpdateProposalToSign)
@@ -151,3 +156,8 @@ archHelper archt = case archt of
     I386   -> "32"
     X86_64 -> "64"
     _      -> display archt
+
+-- | Version of 'isBootstrapEra' which takes 'BlockVersionData'
+-- instead of unlock stake epoch.
+isBootstrapEraBVD :: BlockVersionData -> EpochIndex -> Bool
+isBootstrapEraBVD adoptedBVD = isBootstrapEra (bvdUnlockStakeEpoch adoptedBVD)

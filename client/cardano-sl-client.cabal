@@ -45,6 +45,7 @@ library
                      , log-warper
                      , monad-control
                      , mtl
+                     , safe-exceptions
                      , serokell-util
                      , stm
                      , text-format

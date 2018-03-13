@@ -28,8 +28,7 @@ import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 -- (let's call it 'utxo1') will be such that all transactions from
 -- 'memPool' are valid with respect to it.
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
--- resulting Utxo will be equivalent to 'um' with respect to
--- MonadUtxo.
+-- resulting 'UtxoModifier' will be equivalent to 'um'.
 
 -- | Memory state of Txp. Generic version.
 data GenericTxpLocalData extra = TxpLocalData

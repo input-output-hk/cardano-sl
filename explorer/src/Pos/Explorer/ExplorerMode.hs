@@ -43,7 +43,7 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExpl
                                             HasGenesisRedeemAddressInfo, makeExtraCtx,
                                             runExtraContextT)
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
-import           Pos.Explorer.Txp (ExplorerExtra (..))
+import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
@@ -107,7 +107,7 @@ data ExplorerTestContext = ExplorerTestContext
     , etcSlotId       :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
-    , etcTxpLocalData :: !(GenericTxpLocalData ExplorerExtra)
+    , etcTxpLocalData :: !(GenericTxpLocalData ExplorerExtraModifier)
     , etcLoggerName   :: !LoggerName
     , etcParams       :: !ExplorerTestParams
     }
@@ -211,9 +211,9 @@ instance HasLens DB.DBPureVar ExplorerTestContext DB.DBPureVar where
         realDBInTestsError = error "You are using real db in tests"
 
 -- We need to define the full transformer stack type.
-type instance MempoolExt ExplorerExtraTestMode = ExplorerExtra
+type instance MempoolExt ExplorerExtraTestMode = ExplorerExtraModifier
 
-instance HasLens TxpHolderTag ExplorerTestContext (GenericTxpLocalData ExplorerExtra) where
+instance HasLens TxpHolderTag ExplorerTestContext (GenericTxpLocalData ExplorerExtraModifier) where
     lensOf = etcTxpLocalData_L
 
 instance HasLens LoggerName ExplorerTestContext LoggerName where

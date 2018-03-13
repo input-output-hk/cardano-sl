@@ -33,7 +33,6 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
@@ -136,8 +135,7 @@ runServer
     -> m t
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
-        bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport -> do
-            diffusionLayer <- diffusionLayerFull fdconf transport (Just ekgNodeMetrics) (logic logicLayer)
+        diffusionLayerFull fdconf npNetworkConfig (Just ekgNodeMetrics) (logic logicLayer) $ \diffusionLayer -> do
             when npEnableMetrics (registerEkgMetrics ekgStore)
             runLogicLayer logicLayer $
                 runDiffusionLayer diffusionLayer $
@@ -151,12 +149,11 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
         , fdcProtocolConstants = protocolConstants
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
-        , fdcNetworkConfig = npNetworkConfig
+        , fdcConvEstablishTimeout = networkConnectionTimeout
         }
     exitOnShutdown action = do
         _ <- race waitForShutdown action
         exitWith (ExitFailure 20) -- special exit code to indicate an update
-    tcpAddr = ncTcpAddr npNetworkConfig
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of
         Nothing         -> ("127.0.0.1", 3030)

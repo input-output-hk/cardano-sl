@@ -12,7 +12,7 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, int, ords shown, stext, (%))
+import           Formatting (bprint, build, int, ords, shown, stext, (%))
 import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)

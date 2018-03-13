@@ -133,12 +133,11 @@ action opts@AuxxOptions {..} command = do
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
-                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf transport Nothing $ \withLogic -> do
-                              diffusionLayer <- withLogic (logic logicLayer)
-                              let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                                  (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                              runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
+                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport -> do
+                          diffusionLayer <- diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf transport Nothing (logic logicLayer)
+                          let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                              (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                          runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

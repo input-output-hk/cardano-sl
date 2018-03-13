@@ -138,16 +138,15 @@ runServer
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
-        bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
-            diffusionLayerFull runIO fdconf transport (Just ekgNodeMetrics) $ \withLogic -> do
-                diffusionLayer <- withLogic (logic logicLayer)
-                when npEnableMetrics (registerEkgMetrics ekgStore)
-                runLogicLayer logicLayer $
-                    runDiffusionLayer diffusionLayer $
-                    maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
-                    maybeWithEkg $
-                    maybeWithStatsd $
-                    act (diffusion diffusionLayer)
+        bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport -> do
+            diffusionLayer <- diffusionLayerFull runIO fdconf transport (Just ekgNodeMetrics) (logic logicLayer)
+            when npEnableMetrics (registerEkgMetrics ekgStore)
+            runLogicLayer logicLayer $
+                runDiffusionLayer diffusionLayer $
+                maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
+                maybeWithEkg $
+                maybeWithStatsd $
+                act (diffusion diffusionLayer)
   where
     fdconf = FullDiffusionConfiguration
         { fdcProtocolMagic = protocolMagic

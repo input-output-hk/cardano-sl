@@ -16,27 +16,6 @@ import           Pos.Core (MainBlock, HasProtocolConstants, HasProtocolMagic,
 -- Also brings in the 'Arbitrary' instance for 'MainBlock'.
 import           Pos.Arbitrary.Block (genMainBlock)
 
--- Goal now: to be able to generate an arbitrary block *without* using
--- any configurations.
---
--- Would also be nice to get a block chain as an unfold:
---
---   unfoldr mkBlockWithParent initialBlock :: [Block]
---
--- We already have 'mkMainBlock' and 'mkGenesisBlock' which don't require
--- configurations. It's just daunting, getting values for their parameters:
---
---   SlotLeaders - required for a genesis block
---   ProxySKBlockInfo = required for main block
---
--- Perhaps what we want to start with is indeed a 'SlotLeaders'.
--- Yeah ok, on the one hand we can make a random block using QuickCheck
--- generators. The block may not be valid. That's all we need for now so
--- whatever, just do that.
---
--- So what do we need? Most of the work is in generating an arbitrary
--- body/payloads without the configurations. So let's start there.
-
 -- | Use 'Arbitrary' instances to generate a 'MainBlock'.
 -- These require magical configurations.
 generateMainBlockWithConfiguration

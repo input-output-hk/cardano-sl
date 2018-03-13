@@ -111,10 +111,10 @@ getBlocks
     -> Word -- ^ Historical: limit on how many headers you can get back... always 2200
     -> EnqueueMsg d
     -> NodeId
-    -> BlockHeader
+    -> HeaderHash
     -> [HeaderHash]
     -> d (OldestFirst [] Block)
-getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
+getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints = do
     -- It is apparently an error to request headers for the tipHeader and
     -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
     -- you want. Sure, it's a silly thing to do, but should it be an error?
@@ -124,8 +124,8 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
     -- the block itself.
     bvd <- getAdoptedBVData logic
     blocks <- if singleBlockHeader
-              then requestBlocks bvd (OldestFirst (one tipHeader))
-              else requestAndClassifyHeaders bvd >>= requestBlocks bvd
+              then requestBlocks bvd (OldestFirst (one tipHeaderHash))
+              else requestAndClassifyHeaders bvd >>= requestBlocks bvd . fmap headerHash
     pure (OldestFirst (reverse (toList blocks)))
   where
 
@@ -150,16 +150,13 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
-        [checkpointHash] -> checkpointHash == tipHash
+        [checkpointHash] -> checkpointHash == tipHeaderHash
         _                -> False
     mgh :: MsgGetHeaders
     mgh = MsgGetHeaders
         { mghFrom = checkpoints
-        , mghTo = Just tipHash
+        , mghTo = Just tipHeaderHash
         }
-
-    tipHash :: HeaderHash
-    tipHash = headerHash tipHeader
 
     -- | Make message which requests chain of blocks which is based on our
     -- tip. LcaChild is the first block after LCA we don't
@@ -208,7 +205,7 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                     nodeId
                 return headers
 
-    requestBlocks :: BlockVersionData -> OldestFirst NE BlockHeader -> d (NewestFirst NE Block)
+    requestBlocks :: BlockVersionData -> OldestFirst NE HeaderHash -> d (NewestFirst NE Block)
     requestBlocks bvd headers = enqueueMsgSingle
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
@@ -216,7 +213,7 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
 
     requestBlocksConversation
         :: BlockVersionData
-        -> OldestFirst NE BlockHeader
+        -> OldestFirst NE HeaderHash
         -> ConversationActions MsgGetBlocks MsgBlock d
         -> d (NewestFirst NE Block)
     requestBlocksConversation bvd headers conv = do
@@ -227,12 +224,10 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
             newestHeader = headers ^. _OldestFirst . _neLast
             numBlocks = length headers
             lcaChild = oldestHeader
-            newestHash = headerHash newestHeader
-            lcaChildHash = headerHash lcaChild
         logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
-                           lcaChildHash
-                           newestHash
-        send conv $ mkBlocksRequest lcaChildHash newestHash
+                           lcaChild
+                           newestHeader
+        send conv $ mkBlocksRequest lcaChild newestHeader
         logDebug "Requested blocks, waiting for the response"
         chainE <- runExceptT (retrieveBlocks conv bvd numBlocks)
         case chainE of
@@ -240,7 +235,7 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                 let msg = sformat ("Error retrieving blocks from "%shortHashF%
                                    " to "%shortHashF%" from peer "%
                                    build%": "%stext)
-                                  lcaChildHash newestHash nodeId e
+                                  lcaChild newestHeader nodeId e
                 logWarning msg
                 throwM $ DialogUnexpected msg
             Right bs -> case nonEmptyNewestFirst bs of

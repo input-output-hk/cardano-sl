@@ -21,7 +21,6 @@ import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
 import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Logic.Full (logicLayerFull)
@@ -117,7 +116,7 @@ action opts@AuxxOptions {..} command = do
                   , fdcProtocolConstants = protocolConstants
                   , fdcRecoveryHeadersMessage = recoveryHeadersMessage
                   , fdcLastKnownBlockVersion = lastKnownBlockVersion
-                  , fdcNetworkConfig = npNetworkConfig nodeParams
+                  , fdcConvEstablishTimeout = networkConnectionTimeout
                   }
 
               toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
@@ -133,8 +132,7 @@ action opts@AuxxOptions {..} command = do
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
-                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport -> do
-                          diffusionLayer <- diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf transport Nothing (logic logicLayer)
+                      diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf (npNetworkConfig nodeParams) Nothing (logic logicLayer) $ \diffusionLayer -> do
                           let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                               (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
                           runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))

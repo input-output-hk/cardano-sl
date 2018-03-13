@@ -499,4 +499,4 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     })
-  & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")

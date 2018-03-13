@@ -1,11 +1,13 @@
 
 module Cardano.Wallet.API.Response.JSend where
 
+import           Universum
+
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
+import           Data.Swagger hiding (constructorTagModifier)
 import           Test.QuickCheck (Arbitrary (..), elements)
-import           Universum
 
 data ResponseStatus =
       SuccessStatus
@@ -17,3 +19,9 @@ deriveJSON defaultOptions { constructorTagModifier = map Char.toLower . reverse 
 
 instance Arbitrary ResponseStatus where
     arbitrary = elements [minBound .. maxBound]
+
+instance ToSchema ResponseStatus where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "ResponseStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ .~ Just ["success", "fail", "error"]

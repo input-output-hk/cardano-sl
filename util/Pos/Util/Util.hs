@@ -1,12 +1,17 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Util.Util
        (
+       -- * Cool stuff
+         type (~>)
        -- * Exceptions/errors
-         maybeThrow
+       , maybeThrow
        , eitherToThrow
+       , liftEither
        , leftToPanic
        , toAesonError
        , aesonError
@@ -18,6 +23,7 @@ module Pos.Util.Util
        , parsecError
        , toCerealError
        , cerealError
+       , DisallowException
 
        -- * Ether
        , ether
@@ -74,6 +80,7 @@ import qualified Codec.CBOR.Decoding as CBOR
 import           Control.Concurrent (threadDelay)
 import qualified Control.Exception.Safe as E
 import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
+import           Control.Monad.Except (MonadError, throwError)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Aeson (FromJSON (..))
 import qualified Data.Aeson as A
@@ -91,6 +98,7 @@ import           Data.Time.Units (Microsecond, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
+import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
 import           Serokell.Util (listJson)
@@ -99,25 +107,37 @@ import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInf
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------
+-- Cool stuff
+----------------------------------------------------------------------------
+
+type f ~> g = forall x. f x -> g x
+
+----------------------------------------------------------------------------
 -- Exceptions/errors
 ----------------------------------------------------------------------------
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
--- | Throw exception or return result depending on what is stored in 'Either'
+-- | Throw exception (in 'MonadThrow') or return result depending on
+-- what is stored in 'Either'
 eitherToThrow
     :: (MonadThrow m, Exception e)
     => Either e a -> m a
 eitherToThrow = either throwM pure
+
+-- | 'liftEither' from mtl-2.2.2.
+-- TODO: use mtl version after we start using 2.2.2.
+liftEither
+    :: (MonadError e m)
+    => Either e a -> m a
+liftEither = either throwError pure
 
 -- | Partial function which calls 'error' with meaningful message if
 -- given 'Left' and returns some value if given 'Right'.
 -- Intended usage is when you're sure that value must be right.
 leftToPanic :: Buildable a => Text -> Either a b -> b
 leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
-
-type f ~> g = forall x. f x -> g x
 
 -- | This unexported helper is used to define conversions to 'MonadFail'
 -- forced on us by external APIs. I also used underscores in its name, so don't
@@ -166,6 +186,19 @@ toParsecError = external_api_fail
 
 parsecError :: P.Stream s => Text -> P.ParsecT e s m a
 parsecError = toParsecError . Left
+
+type family DisallowException t :: ErrorMessage where
+    DisallowException t =
+             'ShowType t ':<>:
+             'Text " intentionally doesn't have an 'Exception' instance."
+        ':$$: 'Text
+             "This type shouldn't be thrown as a runtime exception."
+        ':$$: 'Text
+             "If you want to throw it, consider defining your own exception \
+             \type with a constructor storing a value of this type."
+        ':$$: 'Text
+             "See the exception handling guidelines for more details."
+        ':$$: 'Text ""
 
 ----------------------------------------------------------------------------
 -- Ether

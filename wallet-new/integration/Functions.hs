@@ -13,13 +13,16 @@ import           Control.Lens ((+~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, NewAccount (..),
+import           Cardano.Wallet.API.V1.Types (Account (..), AddressValidity (..), AccountIndex, NewAccount (..),
                                               NewAddress (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               Transaction (..), V1 (..), Wallet (..),
                                               WalletAddress (..), WalletId)
 
+import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
+
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
 import           Types
@@ -187,6 +190,30 @@ runAction wc ws GetAddresses   = do
     checkInvariant
         (any ((==) address) result)
         (LocalAddressesDiffer address result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & actionsNum +~ 1
+
+runAction wc ws GetAddress     = do
+    -- We choose one address.
+    address <-  addrId <$> pickRandomElement (ws ^. addresses)
+
+    -- If we can't switch to @Text@ something is obviously wrong.
+    let cAddress :: (MonadThrow m) => m (V0.CId V0.Addr)
+        cAddress = either throwM pure (migrate address)
+
+    textAddress <- coerce <$> cAddress
+
+    -- We check if the address is valid. It should be.
+    result  <-  respToRes $ getAddressValidity wc textAddress
+
+    let isAddressValid = isValid result
+
+    -- The address should be valid, it should exist.
+    checkInvariant
+        isAddressValid
+        (LocalAddressDiffer . coerce $ address)
 
     -- Modify wallet state accordingly.
     pure $ ws

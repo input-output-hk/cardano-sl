@@ -30,6 +30,7 @@ data WalletTestError
 
     | AddressBalanceNotZero WalletAddress
     | LocalAddressesDiffer Address [Address]
+    | LocalAddressDiffer Address
 
     | InvalidTransactionState Transaction
     | LocalTransactionsDiffer [Transaction]
@@ -54,6 +55,7 @@ instance Buildable WalletTestError where
 
     build (AddressBalanceNotZero   a)     = bprint ("Address balance is not zero. Address - ("%stext%")") (show a)
     build (LocalAddressesDiffer a as)     = bprint ("Local address ("%stext%") missing from addresses ("%stext%")") (show a) (show as)
+    build (LocalAddressDiffer      a)     = bprint ("Local address differs. Address - ("%stext%")") (show a)
 
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs. Transactions - ("%stext%")") (show t)

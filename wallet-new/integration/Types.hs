@@ -60,7 +60,7 @@ data Action
 
     | CreateAddress
     | GetAddresses
-    -- | GetAddress
+    | GetAddress
 
     | CreateTransaction
     | GetTransaction

@@ -23,7 +23,7 @@ import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
@@ -112,7 +112,14 @@ action opts@AuxxOptions {..} command = do
           CLI.printInfoOnStart aoCommonNodeArgs
           (nodeParams, tempDbUsed) <-
               correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-          let
+          let fdconf = FullDiffusionConfiguration
+                  { fdcProtocolMagic = protocolMagic
+                  , fdcProtocolConstants = protocolConstants
+                  , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+                  , fdcLastKnownBlockVersion = lastKnownBlockVersion
+                  , fdcNetworkConfig = npNetworkConfig nodeParams
+                  }
+
               toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
               toRealMode auxxAction = do
                   realModeContext <- ask
@@ -127,7 +134,7 @@ action opts@AuxxOptions {..} command = do
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport Nothing $ \withLogic -> do
+                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                                   (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)

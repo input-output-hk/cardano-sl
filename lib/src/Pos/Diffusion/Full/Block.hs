@@ -52,7 +52,7 @@ import           Pos.Network.Types (Bucket)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..),
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
@@ -129,24 +129,13 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints 
     pure (OldestFirst (reverse (toList blocks)))
   where
 
-    requestAndClassifyHeaders :: BlockVersionData -> d (OldestFirst NE BlockHeader)
+    requestAndClassifyHeaders :: BlockVersionData -> d (OldestFirst [] BlockHeader)
     requestAndClassifyHeaders bvd = do
-        headers <- toOldestFirst <$> requestHeaders bvd
-        getLcaMainChain logic headers >>= \case
-            Nothing -> throwM $ DialogUnexpected $ "Got headers, but couldn't compute " <>
-                                                   "LCA to ask for blocks"
-            Just (lca :: HeaderHash) -> do
-                -- Headers list is (oldest to newest)
-                -- [n1,n2,...nj,lca,nj+2,...nk] we drop [n1..lca] and
-                -- return [nj+2..nk], as we already have lca in our
-                -- local db. Usually this function does 1 iterations
-                -- as it's a common case that [n1..nj] is absent and
-                -- lca is the oldest header.
-                let dropUntilLca = NE.dropWhile (\h -> h ^. prevBlockL /= lca)
-                case nonEmpty (dropUntilLca $ getOldestFirst headers) of
-                    Nothing -> throwM $ DialogUnexpected $
-                                   "All headers are older than LCA, nothing to query"
-                    Just headersSuffix -> pure (OldestFirst headersSuffix)
+        OldestFirst headers <- toOldestFirst <$> requestHeaders bvd
+        -- Logic layer gives us the suffix of the chain that we don't have.
+        -- Possibly empty.
+        -- 'requestHeaders' gives a NonEmpty; we drop it to a [].
+        getLcaMainChain logic (OldestFirst (toList headers))
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
@@ -205,17 +194,18 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints 
                     nodeId
                 return headers
 
-    requestBlocks :: BlockVersionData -> OldestFirst NE HeaderHash -> d (NewestFirst NE Block)
-    requestBlocks bvd headers = enqueueMsgSingle
+    requestBlocks :: BlockVersionData -> OldestFirst [] HeaderHash -> d (NewestFirst [] Block)
+    requestBlocks _   (OldestFirst [])     = pure (NewestFirst [])
+    requestBlocks bvd (OldestFirst (b:bs)) = enqueueMsgSingle
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
-        (Conversation $ requestBlocksConversation bvd headers)
+        (Conversation $ requestBlocksConversation bvd (OldestFirst (b :| bs)))
 
     requestBlocksConversation
         :: BlockVersionData
         -> OldestFirst NE HeaderHash
         -> ConversationActions MsgGetBlocks MsgBlock d
-        -> d (NewestFirst NE Block)
+        -> d (NewestFirst [] Block)
     requestBlocksConversation bvd headers conv = do
         -- Preserved behaviour from existing logic code: all of the headers
         -- except for the first and last are tossed away.
@@ -238,11 +228,7 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints 
                                   lcaChild newestHeader nodeId e
                 logWarning msg
                 throwM $ DialogUnexpected msg
-            Right bs -> case nonEmptyNewestFirst bs of
-                Nothing -> do
-                    let msg = sformat ("Peer gave an empty blocks list")
-                    throwM $ DialogUnexpected msg
-                Just blocks -> return blocks
+            Right bs -> return bs
 
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.

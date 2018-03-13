@@ -7,6 +7,7 @@ module Pos.Block.Logic.Util
        (
          -- * Common/Utils
          lcaWithMainChain
+       , lcaWithMainChainSuffix
        , calcChainQuality
        , calcChainQualityM
        , calcOverallChainQuality
@@ -59,6 +60,24 @@ lcaWithMainChain headers =
             (_, False)   -> pure prevValue
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
+
+-- | Basically drop the head of the list until a block not in the main chain
+-- is found. Uses the 'MonadBlockDBRead' constraint and there seems to be no
+-- consistency/locking control in view so I guess you don't get any
+-- consistency. FIXME.
+lcaWithMainChainSuffix
+    :: forall m .
+       (HasConfiguration, MonadBlockDBRead m)
+    => OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+lcaWithMainChainSuffix headers = OldestFirst <$> go (getOldestFirst headers)
+  where
+    go :: [BlockHeader] -> m [BlockHeader]
+    go [] = pure []
+    go (bh:rest) = do
+        inMain <- isBlockInMainChain (headerHash bh)
+        case inMain of
+          False -> pure rest
+          True  -> go rest
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blocksCount' and another slot after that one for which we

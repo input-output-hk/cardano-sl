@@ -11,7 +11,7 @@ module Pos.Txp.Toil.Utxo.Functions
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (throwError)
+import           Control.Monad.Except (throwError, MonadError)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)

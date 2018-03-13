@@ -167,7 +167,7 @@ bench: &bench
           unlockStakeEpoch: 0 # first epoch
         protocolConstants:
           <<: *dev_core_genesis_spec_protocolConstants
-          k: 6
+          k: 24
           protocolMagic: 55550007
 
 

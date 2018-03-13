@@ -32,7 +32,7 @@ main = do
                              ]
 
     let walletClient :: forall m. WalletClient m
-        walletClient = error "Missing"
+        walletClient = error "Missing implementation for client!"
 
     let walletState = WalletState mempty mempty mempty mempty 0
 

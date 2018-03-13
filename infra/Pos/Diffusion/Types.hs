@@ -31,10 +31,7 @@ data Diffusion m = Diffusion
                          -> m (OldestFirst [] Block)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
-      -- This type is chosen so that it fits with the current implementation:
-      -- for each header received, dump it into the block retrieval queue and
-      -- let the retrieval worker figure out all the recovery mode business.
-    , requestTip         :: forall t . (BlockHeader -> NodeId -> m t) -> m (Map NodeId (m t))
+    , requestTip          :: m (Map NodeId (m BlockHeader))
       -- | Announce a block header.
     , announceBlockHeader :: MainBlockHeader -> m ()
       -- | Returns a Bool iff at least one peer accepted the transaction.
@@ -86,8 +83,8 @@ dummyDiffusionLayer = DiffusionLayer
   where
     dummyDiffusion :: Applicative m => Diffusion m
     dummyDiffusion = Diffusion
-        { getBlocks          = \_ _ _ -> pure (OldestFirst [])
-        , requestTip         = \_ -> pure mempty
+        { getBlocks           = \_ _ _ -> pure (OldestFirst [])
+        , requestTip          = pure mempty
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()

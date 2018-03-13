@@ -283,27 +283,26 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
 requestTip
-    :: forall d t .
-       ( DiffusionWorkMode d
-       )
+    :: forall d .
+       ( DiffusionWorkMode d )
     => Logic d
     -> EnqueueMsg d
-    -> (BlockHeader -> NodeId -> d t)
-    -> d (Map NodeId (d t))
-requestTip logic enqueue k = fmap waitForDequeues $
+    -> Word
+    -> d (Map NodeId (d BlockHeader))
+requestTip logic enqueue recoveryHeadersMessage = fmap waitForDequeues $
     enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
         \(conv :: ConversationActions MsgGetHeaders MsgHeaders m) -> do
             logDebug "Requesting tip..."
             bvd <- getAdoptedBVData logic
             send conv (MsgGetHeaders [] Nothing)
-            received <- recvLimited conv (mlMsgHeaders bvd 2200)
+            received <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
             case received of
                 Just headers -> handleTip nodeId headers
                 Nothing      -> throwM $ DialogUnexpected "peer didnt' respond with tips"
   where
     handleTip nodeId (MsgHeaders (NewestFirst (tip:|[]))) = do
-        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        k tip nodeId
+        logDebug $ sformat ("Got tip "%shortHashF%" from "%shown%", processing") (headerHash tip) nodeId
+        pure tip
     handleTip _ t = do
         logWarning $ sformat ("requestTip: got enexpected response: "%shown) t
         throwM $ DialogUnexpected "peer sent more than one tip"
@@ -434,7 +433,7 @@ blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer 
       -- Peer wants some blocks from us.
     , handleGetBlocks logic recoveryHeadersMessage oq
       -- Peer has a block header for us (yes, singular only).
-    , handleBlockHeaders logic oq keepaliveTimer
+    , handleBlockHeaders logic oq recoveryHeadersMessage keepaliveTimer
     ]
 
 ----------------------------------------------------------------------------
@@ -511,16 +510,17 @@ handleBlockHeaders
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
+    -> Word
     -> Timer
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq keepaliveTimer =
+handleBlockHeaders logic oq recoveryHeadersMessage keepaliveTimer =
   listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     bvd <- getAdoptedBVData logic
-    mHeaders <- recvLimited conv (mlMsgHeaders bvd 2200)
+    mHeaders <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
     whenJust mHeaders $ \case
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.

@@ -31,7 +31,7 @@ import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeo
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
@@ -137,7 +137,7 @@ runServer
 runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
-            diffusionLayerFull npNetworkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport (Just ekgNodeMetrics) $ \withLogic -> do
+            diffusionLayerFull fdconf transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
                 when npEnableMetrics (registerEkgMetrics ekgStore)
                 runLogicLayer logicLayer $
@@ -147,6 +147,13 @@ runServer NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
                     maybeWithStatsd $
                     act (diffusion diffusionLayer)
   where
+    fdconf = FullDiffusionConfiguration
+        { fdcProtocolMagic = protocolMagic
+        , fdcProtocolConstants = protocolConstants
+        , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+        , fdcLastKnownBlockVersion = lastKnownBlockVersion
+        , fdcNetworkConfig = npNetworkConfig
+        }
     exitOnShutdown action = do
         _ <- race waitForShutdown action
         exitWith (ExitFailure 20) -- special exit code to indicate an update

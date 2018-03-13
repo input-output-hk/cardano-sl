@@ -203,9 +203,9 @@ highLevelShortDescription :: DescriptionEnvironment -> T.Text
 highLevelShortDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version | Git Revision
------------------|-------------------
-$deGitRevision   | $deSoftwareVersion
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
 |]
 
 
@@ -214,9 +214,9 @@ highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version | Git Revision
------------------|-------------------
-$deGitRevision   | $deSoftwareVersion
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
 
 > **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
 
@@ -489,7 +489,7 @@ api :: HasSwagger a
     -> Swagger
 api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
-  & info.version .~ "1.0"
+  & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound

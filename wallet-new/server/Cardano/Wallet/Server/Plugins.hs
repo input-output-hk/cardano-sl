@@ -113,7 +113,7 @@ legacyWalletBackend WalletBackendParams {..} =
     exceptionHandler :: SomeException -> Response
     exceptionHandler _ =
         responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode . toJSON $ UnkownError "Something went wrong."
+            encode $ UnkownError "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --

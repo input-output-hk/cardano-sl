@@ -258,8 +258,8 @@ diffusionLayerFull networkConfig lastKnownBlockVersion protocolMagic protocolCon
                       -> d (OldestFirst [] Block)
             getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue
 
-            requestTip :: (BlockHeader -> NodeId -> d t) -> d (Map NodeId (d t))
-            requestTip = Diffusion.Block.requestTip logic enqueue
+            requestTip :: d (Map NodeId (d BlockHeader))
+            requestTip = Diffusion.Block.requestTip logic enqueue recoveryHeadersMessage
 
             announceBlockHeader :: MainBlockHeader -> d ()
             announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic protocolConstants recoveryHeadersMessage enqueue

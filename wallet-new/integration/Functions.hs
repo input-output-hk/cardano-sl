@@ -6,6 +6,7 @@ module Functions where
 
 import           Universum
 
+import           Data.Coerce (coerce)
 import           Data.List.NonEmpty (fromList)
 
 import           Control.Lens ((+~))
@@ -15,8 +16,8 @@ import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, NewAccount (..),
                                               NewAddress (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
-                                              Transaction (..), Wallet (..), WalletAddress (..),
-                                              WalletId)
+                                              Transaction (..), V1 (..), Wallet (..),
+                                              WalletAddress (..), WalletId)
 
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
@@ -176,6 +177,21 @@ runAction wc ws CreateAddress = do
         , newaddrWalletId         = wId
         }
 
+runAction wc ws GetAddresses   = do
+    -- We choose one address, we could choose all of them.
+    -- Also, remove the `V1` type since we don't need it now.
+    address <-  coerce . addrId <$> pickRandomElement (ws ^. addresses)
+    -- We get all the accounts.
+    result  <-  respToRes $ getAddresses wc
+
+    checkInvariant
+        (any ((==) address) result)
+        (LocalAddressesDiffer address result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & actionsNum +~ 1
+
 -- Transactions
 runAction wc ws CreateTransaction = do
 
@@ -183,10 +199,11 @@ runAction wc ws CreateTransaction = do
     let localAddresses = ws ^. addresses
 
     -- Some min amount of money so we can send a transaction?
-    let localAccsWithMoney = filter ((> minBound) . accAmount) localAccounts
+    let minCoinForTxs = minBound
+    let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
 
     -- | The preconditions we need to generate a transaction.
-    -- We need to have an account and two addresses.
+    -- We need to have an account and an address.
     -- We also need money to execute a transaction.
     guard (not (null localAccounts))
     guard (not (null localAddresses))
@@ -244,7 +261,7 @@ runAction wc ws GetTransaction  = do
     let txs = ws ^. transactions
 
     -- We need to have transactions in order to test this endpoint.
-    guard (length txs >= 1)
+    guard (not (null txs))
 
     -- We choose from the existing transactions.
     accTransaction  <- pickRandomElement txs
@@ -259,7 +276,7 @@ runAction wc ws GetTransaction  = do
         walletId = accWalletId txsAccount
 
     let accountIndex :: AccountIndex
-        accountIndex = accIndex    txsAccount
+        accountIndex = accIndex txsAccount
 
     result  <-  respToRes $ getTransactionHistory
                                 wc

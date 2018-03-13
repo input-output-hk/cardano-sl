@@ -45,10 +45,13 @@ import qualified Pos.Core as Core
 --
 -- Other functions may be defined in terms of this 'WalletClient' -- see
 -- 'getWalletIndex' as a convenience helper for 'getWalletIndexPaged'.
+-- TODO(ks): I don't think that it's important to preserve paging as
+-- an important detail, we should remove paging and return the full set
+-- of results.
 data WalletClient m
     = WalletClient
     { -- address endpoints
-      getAddressIndex
+      getAddresses
          :: Resp m [Address]
     , postAddress
          :: NewAddress -> Resp m WalletAddress
@@ -110,7 +113,7 @@ data WalletClient m
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
 hoistClient phi wc = WalletClient
-    { getAddressIndex       = phi (getAddressIndex wc)
+    { getAddresses          = phi (getAddresses wc)
     , postAddress           = phi . postAddress wc
     , getAddressValidity    = phi . getAddressValidity wc
     , postWallet            = phi . postWallet wc

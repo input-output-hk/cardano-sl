@@ -259,7 +259,7 @@ diffusionLayerFull fdconf transport mEkgNodeMetrics logic = do
             return ((>>= either throwM return) <$> itMap)
 
         getBlocks :: NodeId
-                  -> BlockHeader
+                  -> HeaderHash
                   -> [HeaderHash]
                   -> d (OldestFirst [] Block)
         getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue

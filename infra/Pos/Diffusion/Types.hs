@@ -26,7 +26,7 @@ data Diffusion m = Diffusion
       -- The blocks come in oldest first, and form a chain (prev header of
       -- {n}'th is the header of {n-1}th.
       getBlocks          :: NodeId
-                         -> BlockHeader
+                         -> HeaderHash
                          -> [HeaderHash]
                          -> m (OldestFirst [] Block)
       -- | This is needed because there's a security worker which will request

@@ -77,15 +77,11 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcLastKnownBlockVersion  :: !BlockVersion
     }
 
--- | The full diffusion layer.
---
--- NB: we could do the whole logic/diffusion layer interface using typeclasses
--- against a monad, but we'd end up with a bunch of reader constraints over
--- the values that would otherwise appear in the Logic and Diffusion records.
--- That's to say, we'd have to do the same work anyway, but then even more
--- work to juggle the instances.
+-- | Make a full diffusion layer.
+-- No resource acquisition is done so you don't need to worry about bracketing
+-- on this one.
 diffusionLayerFull
-    :: forall d m x .
+    :: forall d m .
        ( DiffusionWorkMode d
        , MonadFix d
        , MonadIO m
@@ -96,240 +92,230 @@ diffusionLayerFull
     -> FullDiffusionConfiguration
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
-    -> ((Logic d -> m (DiffusionLayer d)) -> m x)
-    -> m x
-diffusionLayerFull runIO fdconf transport mEkgNodeMetrics expectLogic =
-    bracket acquire release $ \_ -> expectLogic $ \logic -> do
+    -> Logic d
+    -> m (DiffusionLayer d)
+diffusionLayerFull runIO fdconf transport mEkgNodeMetrics logic = do
 
-        let networkConfig = fdcNetworkConfig fdconf
-            protocolMagic = fdcProtocolMagic fdconf
-            protocolConstants = fdcProtocolConstants fdconf
-            lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
-            recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+    let networkConfig = fdcNetworkConfig fdconf
+        protocolMagic = fdcProtocolMagic fdconf
+        protocolConstants = fdcProtocolConstants fdconf
+        lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
+        recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
 
-        -- Make the outbound queue using network policies.
-        -- NB: the <> is under 'LoggerName', which is representationally equal
-        -- to 'Text' but its semigroup instance adds a '.' in-between.
-        -- The result: the outbound queue will log under the
-        -- ["diffusion", "outboundqueue"] hierarchy via log-warper.
-        oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
-            initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
+    -- Make the outbound queue using network policies.
+    oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
+        initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
 
-        -- Timer is in microseconds.
-        keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
+    -- Timer is in microseconds.
+    keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
 
-        let -- VerInfo is a diffusion-layer-specific thing. It's only used for
-            -- negotiating with peers.
-            --
-            -- Known bug: if the block version changes, the VerInfo will be
-            -- out of date, as it's immutable.
-            -- Solution: don't put it in the VerInfo. Other clients don't need
-            -- to know the peer's latest adopted block version, they need only
-            -- know what software version its running.
-            ourVerInfo :: VerInfo
-            ourVerInfo = VerInfo (getProtocolMagic protocolMagic)
-                                 lastKnownBlockVersion
-                                 ins
-                                 (outs <> workerOuts)
+    let -- VerInfo is a diffusion-layer-specific thing. It's only used for
+        -- negotiating with peers.
+        --
+        -- Known bug: if the block version changes, the VerInfo will be
+        -- out of date, as it's immutable.
+        -- Solution: don't put it in the VerInfo. Other clients don't need
+        -- to know the peer's latest adopted block version, they need only
+        -- know what software version its running.
+        ourVerInfo :: VerInfo
+        ourVerInfo = VerInfo (getProtocolMagic protocolMagic)
+                             lastKnownBlockVersion
+                             ins
+                             (outs <> workerOuts)
 
-            ins :: HandlerSpecs
-            InSpecs ins = inSpecs mkL
+        ins :: HandlerSpecs
+        InSpecs ins = inSpecs mkL
 
-            -- The out specs come not just from listeners but also from workers.
-            -- Workers in the existing implementation were bundled up in
-            --   allWorkers :: ([WorkerSpec m], OutSpecs)
-            -- and they performed logic layer tasks, so having out specs defined
-            -- by them doesn't make sense.
-            -- For the first iteration, we just dump those out specs here, since
-            -- we know in the diffusion layer the set of all requests that might
-            -- be made.
-            --
-            -- Find below a definition of each of the worker out specs,
-            -- copied from Pos.Worker (allWorkers). Each one was manually
-            -- inspected to determine the out specs.
-            --
-            -- FIXME this system must change. Perhaps replace it with a
-            -- version number?
-            outs :: HandlerSpecs
-            OutSpecs outs = outSpecs mkL
+        -- The out specs come not just from listeners but also from workers.
+        -- Workers in the existing implementation were bundled up in
+        --   allWorkers :: ([WorkerSpec m], OutSpecs)
+        -- and they performed logic layer tasks, so having out specs defined
+        -- by them doesn't make sense.
+        -- For the first iteration, we just dump those out specs here, since
+        -- we know in the diffusion layer the set of all requests that might
+        -- be made.
+        --
+        -- Find below a definition of each of the worker out specs,
+        -- copied from Pos.Worker (allWorkers). Each one was manually
+        -- inspected to determine the out specs.
+        --
+        -- FIXME this system must change. Perhaps replace it with a
+        -- version number?
+        outs :: HandlerSpecs
+        OutSpecs outs = outSpecs mkL
 
-            workerOuts :: HandlerSpecs
-            OutSpecs workerOuts = mconcat
-                [ -- First: the relay system out specs.
-                  Diffusion.Txp.txOutSpecs logic
-                , Diffusion.Update.updateOutSpecs logic
-                , Diffusion.Delegation.delegationOutSpecs logic
-                , Diffusion.Ssc.sscOutSpecs logic
-                  -- Relay system for blocks is ad-hoc.
-                , blockWorkerOutSpecs
-                  -- SSC has non-relay out specs, defined below.
-                , sscWorkerOutSpecs
-                , securityWorkerOutSpecs
-                , slottingWorkerOutSpecs
-                , subscriptionWorkerOutSpecs
-                , dhtWorkerOutSpecs
+        workerOuts :: HandlerSpecs
+        OutSpecs workerOuts = mconcat
+            [ -- First: the relay system out specs.
+              Diffusion.Txp.txOutSpecs logic
+            , Diffusion.Update.updateOutSpecs logic
+            , Diffusion.Delegation.delegationOutSpecs logic
+            , Diffusion.Ssc.sscOutSpecs logic
+              -- Relay system for blocks is ad-hoc.
+            , blockWorkerOutSpecs
+              -- SSC has non-relay out specs, defined below.
+            , sscWorkerOutSpecs
+            , securityWorkerOutSpecs
+            , slottingWorkerOutSpecs
+            , subscriptionWorkerOutSpecs
+            , dhtWorkerOutSpecs
+            ]
+
+        -- An onNewSlotWorker and a localWorker. Latter is mempty. Former
+        -- actually does the ssc stuff.
+        sscWorkerOutSpecs = mconcat
+            [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
+            , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCOpening))
+            , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCShares))
+            , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCVssCertificate))
+            ]
+
+        -- A single worker checkForReceivedBlocksWorker with
+        -- requestTipOuts from Pos.Block.Network.
+        securityWorkerOutSpecs = toOutSpecs
+            [ convH (Proxy :: Proxy MsgGetHeaders)
+                    (Proxy :: Proxy MsgHeaders)
+            ]
+
+        -- announceBlockHeaderOuts from blkCreatorWorker
+        -- announceBlockHeaderOuts from blkMetricCheckerWorker
+        -- along with the retrieval worker outs which also include
+        -- announceBlockHeaderOuts.
+        blockWorkerOutSpecs = mconcat
+            [ announceBlockHeaderOuts
+            , announceBlockHeaderOuts
+            , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
+                                                            (Proxy :: Proxy MsgBlock)
+                                                    ]
+            ]
+
+        announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
+                                                     (Proxy :: Proxy MsgGetHeaders)
+                                             ]
+
+        -- Plainly mempty from the definition of allWorkers.
+        slottingWorkerOutSpecs = mempty
+
+        -- Copied from existing implementation but
+        -- FIXME it will be wrong when the patch to include a keepalive
+        -- is merged. That shall be the first test of this inspec/outspec
+        -- system I suppose.
+        subscriptionWorkerOutSpecs = case topologySubscriptionWorker (ncTopology networkConfig) of
+            Just (SubscriptionWorkerBehindNAT _)       -> specs
+            Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
+            _                                          -> mempty
+          where
+            specs = toOutSpecs
+                [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
+                , convH (Proxy @MsgSubscribe1) (Proxy @Void)
                 ]
 
-            -- An onNewSlotWorker and a localWorker. Latter is mempty. Former
-            -- actually does the ssc stuff.
-            sscWorkerOutSpecs = mconcat
-                [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
-                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCOpening))
-                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCShares))
-                , createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCVssCertificate))
-                ]
+        -- It's a localOnNewSlotWorker, so mempty.
+        dhtWorkerOutSpecs = mempty
 
-            -- A single worker checkForReceivedBlocksWorker with
-            -- requestTipOuts from Pos.Block.Network.
-            securityWorkerOutSpecs = toOutSpecs
-                [ convH (Proxy :: Proxy MsgGetHeaders)
-                        (Proxy :: Proxy MsgHeaders)
-                ]
+        mkL :: MkListeners d
+        mkL = mconcat $
+            [ lmodifier "block"       $ Diffusion.Block.blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer
+            , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
+            , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
+            , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
+            , lmodifier "ssc"         $ Diffusion.Ssc.sscListeners logic oq enqueue
+            ] ++ [
+              lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
+            | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
+            ]
 
-            -- announceBlockHeaderOuts from blkCreatorWorker
-            -- announceBlockHeaderOuts from blkMetricCheckerWorker
-            -- along with the retrieval worker outs which also include
-            -- announceBlockHeaderOuts.
-            blockWorkerOutSpecs = mconcat
-                [ announceBlockHeaderOuts
-                , announceBlockHeaderOuts
-                , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
-                                                                (Proxy :: Proxy MsgBlock)
-                                                        ]
-                ]
+        lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }
+          where
+            mkListeners' v p =
+                let ls = mkListeners mkLs v p
+                    f = wrapListener ("server" <> lname)
+                in  map f ls
 
-            announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
-                                                         (Proxy :: Proxy MsgGetHeaders)
-                                                 ]
+        listeners :: VerInfo -> [Listener d]
+        listeners = mkListeners mkL ourVerInfo
 
-            -- Plainly mempty from the definition of allWorkers.
-            slottingWorkerOutSpecs = mempty
+        currentSlotDuration :: d Millisecond
+        currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
-            -- Copied from existing implementation but
-            -- FIXME it will be wrong when the patch to include a keepalive
-            -- is merged. That shall be the first test of this inspec/outspec
-            -- system I suppose.
-            subscriptionWorkerOutSpecs = case topologySubscriptionWorker (ncTopology networkConfig) of
-                Just (SubscriptionWorkerBehindNAT _)       -> specs
-                Just (SubscriptionWorkerKademlia __ _ _ _) -> specs
-                _                                          -> mempty
-              where
-                specs = toOutSpecs
-                    [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
-                    , convH (Proxy @MsgSubscribe1) (Proxy @Void)
-                    ]
+        convEstablishTimeout :: Microsecond
+        convEstablishTimeout = convertUnit (15 :: Second)
 
-            -- It's a localOnNewSlotWorker, so mempty.
-            dhtWorkerOutSpecs = mempty
+        -- Bracket kademlia and network-transport, create a node. This
+        -- will be very involved. Should make it top-level I think.
+        runDiffusionLayer :: forall y . d y -> d y
+        runDiffusionLayer = runDiffusionLayerFull
+            runIO
+            networkConfig
+            transport
+            convEstablishTimeout
+            ourVerInfo
+            mEkgNodeMetrics
+            oq
+            keepaliveTimer
+            currentSlotDuration
+            listeners
 
-            mkL :: MkListeners d
-            mkL = mconcat $
-                [ lmodifier "block"       $ Diffusion.Block.blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer
-                , lmodifier "tx"          $ Diffusion.Txp.txListeners logic oq enqueue
-                , lmodifier "update"      $ Diffusion.Update.updateListeners logic oq enqueue
-                , lmodifier "delegation"  $ Diffusion.Delegation.delegationListeners logic oq enqueue
-                , lmodifier "ssc"         $ Diffusion.Ssc.sscListeners logic oq enqueue
-                ] ++ [
-                  lmodifier "subscription" $ subscriptionListeners oq subscriberNodeType
-                | Just (subscriberNodeType, _) <- [topologySubscribers (ncTopology networkConfig)]
-                ]
+        enqueue :: EnqueueMsg d
+        enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
+            itList <- liftIO $ OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+            pure (M.fromList itList)
 
-            lmodifier lname mkLs = mkLs { mkListeners = mkListeners' }
-              where
-                mkListeners' v p =
-                    let ls = mkListeners mkLs v p
-                        f = wrapListener ("server" <> lname)
-                    in  map f ls
+        getBlocks :: NodeId
+                  -> BlockHeader
+                  -> [HeaderHash]
+                  -> d (OldestFirst [] Block)
+        getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue
 
-            listeners :: VerInfo -> [Listener d]
-            listeners = mkListeners mkL ourVerInfo
+        requestTip :: d (Map NodeId (d BlockHeader))
+        requestTip = Diffusion.Block.requestTip logic enqueue recoveryHeadersMessage
 
-            currentSlotDuration :: d Millisecond
-            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
+        announceBlockHeader :: MainBlockHeader -> d ()
+        announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic protocolConstants recoveryHeadersMessage enqueue
 
-            convEstablishTimeout :: Microsecond
-            convEstablishTimeout = convertUnit (15 :: Second)
+        sendTx :: TxAux -> d Bool
+        sendTx = Diffusion.Txp.sendTx enqueue
 
-            -- Bracket kademlia and network-transport, create a node. This
-            -- will be very involved. Should make it top-level I think.
-            runDiffusionLayer :: forall y . d y -> d y
-            runDiffusionLayer = runDiffusionLayerFull
-                runIO
-                networkConfig
-                transport
-                convEstablishTimeout
-                ourVerInfo
-                mEkgNodeMetrics
-                oq
-                keepaliveTimer
-                currentSlotDuration
-                listeners
+        sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> d ()
+        sendUpdateProposal = Diffusion.Update.sendUpdateProposal enqueue
 
-            enqueue :: EnqueueMsg d
-            enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> liftIO $ do
-                itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
-                pure (M.fromList itList)
+        sendVote :: UpdateVote -> d ()
+        sendVote = Diffusion.Update.sendVote enqueue
 
-            getBlocks :: NodeId
-                      -> BlockHeader
-                      -> [HeaderHash]
-                      -> d (OldestFirst [] Block)
-            getBlocks = Diffusion.Block.getBlocks logic recoveryHeadersMessage enqueue
+        -- FIXME
+        -- SSC stuff has a 'waitUntilSend' motif before it. Must remember to
+        -- investigate that and port it if necessary...
+        -- No, it really should be the logic layer which decides when to send
+        -- things.
+        --
+        -- TODO put these into a Pos.Diffusion.Full.Ssc module.
+        sendSscCert :: VssCertificate -> d ()
+        sendSscCert = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCVssCertificate
 
-            requestTip :: d (Map NodeId (d BlockHeader))
-            requestTip = Diffusion.Block.requestTip logic enqueue recoveryHeadersMessage
+        sendSscOpening :: Opening -> d ()
+        sendSscOpening = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCOpening (ourStakeholderId logic)
 
-            announceBlockHeader :: MainBlockHeader -> d ()
-            announceBlockHeader = void . Diffusion.Block.announceBlockHeader logic protocolConstants recoveryHeadersMessage enqueue
+        sendSscShares :: InnerSharesMap -> d ()
+        sendSscShares = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCShares (ourStakeholderId logic)
 
-            sendTx :: TxAux -> d Bool
-            sendTx = Diffusion.Txp.sendTx enqueue
+        sendSscCommitment :: SignedCommitment -> d ()
+        sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCCommitment
 
-            sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> d ()
-            sendUpdateProposal = Diffusion.Update.sendUpdateProposal enqueue
+        sendPskHeavy :: ProxySKHeavy -> d ()
+        sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue
 
-            sendVote :: UpdateVote -> d ()
-            sendVote = Diffusion.Update.sendVote enqueue
+        -- Amazon Route53 health check support (stopgap measure, see note
+        -- in Pos.Diffusion.Types, above 'healthStatus' record field).
+        healthStatus :: d HealthStatus
+        healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
 
-            -- FIXME
-            -- SSC stuff has a 'waitUntilSend' motif before it. Must remember to
-            -- investigate that and port it if necessary...
-            -- No, it really should be the logic layer which decides when to send
-            -- things.
-            --
-            -- TODO put these into a Pos.Diffusion.Full.Ssc module.
-            sendSscCert :: VssCertificate -> d ()
-            sendSscCert = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCVssCertificate
+        formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
+        formatPeers formatter = liftIO (Just <$> OQ.dumpState oq formatter)
 
-            sendSscOpening :: Opening -> d ()
-            sendSscOpening = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCOpening (ourStakeholderId logic)
+        diffusion :: Diffusion d
+        diffusion = Diffusion {..}
 
-            sendSscShares :: InnerSharesMap -> d ()
-            sendSscShares = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCShares (ourStakeholderId logic)
-
-            sendSscCommitment :: SignedCommitment -> d ()
-            sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCCommitment
-
-            sendPskHeavy :: ProxySKHeavy -> d ()
-            sendPskHeavy = Diffusion.Delegation.sendPskHeavy enqueue
-
-            -- Amazon Route53 health check support (stopgap measure, see note
-            -- in Pos.Diffusion.Types, above 'healthStatus' record field).
-            healthStatus :: d HealthStatus
-            healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
-
-            formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
-            formatPeers formatter = liftIO $ (Just <$> OQ.dumpState oq formatter)
-
-            diffusion :: Diffusion d
-            diffusion = Diffusion {..}
-
-        return DiffusionLayer {..}
-
-  where
-    -- TBD will we need any resources here?
-    acquire = pure ()
-    release = \_ -> pure ()
+    return DiffusionLayer {..}
 
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.

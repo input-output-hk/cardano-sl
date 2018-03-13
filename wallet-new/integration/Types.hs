@@ -63,7 +63,7 @@ data Action
     -- | GetAddress
 
     | CreateTransaction
-    -- | GetTransaction
+    | GetTransaction
     deriving (Show, Eq)
 
 
@@ -81,7 +81,9 @@ data WalletState = WalletState
     { _wallets      :: [Wallet]
     , _accounts     :: [Account]
     , _addresses    :: [WalletAddress]
-    , _transactions :: [Transaction]
+    , _transactions :: [(Account, Transaction)]
+    -- ^ A tuple since for now we can't get @Wallet@ or
+    -- @Account@ with a @Transaction@.
     , _actionsNum   :: Int
     } deriving (Show, Eq, Generic)
 

@@ -85,7 +85,7 @@ data WalletClient m
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
-    , getTransactionIndex
+    , getTransactionHistory
          :: WalletId
          -> Maybe AccountIndex
          -> Maybe (V1 Core.Address)
@@ -127,7 +127,7 @@ hoistClient phi wc = WalletClient
     , getAccountIndexPaged  = \x mp -> phi . getAccountIndexPaged wc x mp
     , updateAccount         = \x y -> phi . updateAccount wc x y
     , postTransaction       = phi . postTransaction wc
-    , getTransactionIndex   = \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
+    , getTransactionHistory = \wid maid maddr mp -> phi . getTransactionHistory wc wid maid maddr mp
     , getTransactionFee     = phi . getTransactionFee wc
     , getNextUpdate         = phi (getNextUpdate wc)
     , postWalletUpdate      = phi (postWalletUpdate wc)

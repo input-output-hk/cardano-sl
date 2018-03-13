@@ -93,7 +93,7 @@ runAction wc ws  CreateAccount = do
 
     -- Precondition, we need to have wallet in order
     -- to create an account.
-    guard (length localWallets >= 1)
+    guard (not (null localWallets))
 
     newAcc  <-  liftIO $ generate generateNewAccount
     result  <-  respToRes $ postAccount wc newAcc
@@ -182,14 +182,15 @@ runAction wc ws CreateTransaction = do
     let localAccounts  = ws ^. accounts
     let localAddresses = ws ^. addresses
 
+    -- Some min amount of money so we can send a transaction?
     let localAccsWithMoney = filter ((> minBound) . accAmount) localAccounts
 
     -- | The preconditions we need to generate a transaction.
     -- We need to have an account and two addresses.
     -- We also need money to execute a transaction.
-    guard (length localAccounts       >= 1)
-    guard (length localAddresses      >= 2)
-    guard (length localAccsWithMoney  >= 1)
+    guard (not (null localAccounts))
+    guard (not (null localAddresses))
+    guard (not (null localAccsWithMoney))
 
     -- From which source to pay.
     accountSource <- pickRandomElement localAccsWithMoney
@@ -226,7 +227,7 @@ runAction wc ws CreateTransaction = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & transactions  .~ ws ^. transactions <> [result]
+        & transactions  .~ ws ^. transactions <> [(accountSource, result)]
         & actionsNum    +~ 1
 
   where
@@ -238,6 +239,49 @@ runAction wc ws CreateTransaction = do
         -- ^ Simple for now.
         , pmtSpendingPassword = Nothing
         }
+
+runAction wc ws GetTransaction  = do
+    let txs = ws ^. transactions
+
+    -- We need to have transactions in order to test this endpoint.
+    guard (length txs >= 1)
+
+    -- We choose from the existing transactions.
+    accTransaction  <- pickRandomElement txs
+
+    let txsAccount :: Account
+        txsAccount = accTransaction ^. _1
+
+    let transaction :: Transaction
+        transaction = accTransaction ^. _2
+
+    let walletId :: WalletId
+        walletId = accWalletId txsAccount
+
+    let accountIndex :: AccountIndex
+        accountIndex = accIndex    txsAccount
+
+    result  <-  respToRes $ getTransactionHistory
+                                wc
+                                walletId
+                                (Just accountIndex)
+                                Nothing
+                                Nothing
+                                Nothing
+
+    -- First check we have results
+    checkInvariant
+        (not (null result))
+        (LocalTransactionsDiffer result)
+
+    -- Then check if the transaction exists in the history
+    checkInvariant
+        (any ((==) transaction) result)
+        (LocalTransactionMissing transaction result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & actionsNum +~ 1
 
 
 -----------------------------------------------------------------------------

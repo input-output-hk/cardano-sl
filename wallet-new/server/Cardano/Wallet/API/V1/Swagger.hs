@@ -170,15 +170,12 @@ requestParameterToDescription = M.fromList [
 
 pageDescription :: T.Text
 pageDescription = [text|
-The page number to fetch for this request. The minimum is **1**.
-If nothing is specified, **this value defaults to 1** and always shows the first
-entries in the requested collection.
+The page number to fetch for this request. The minimum is **1**.  If nothing is specified, **this value defaults to 1** and always shows the first entries in the requested collection.
 |]
 
 perPageDescription :: T.Text -> T.Text -> T.Text
 perPageDescription maxValue defaultValue = [text|
-The number of entries to display for each page. The minimum is **1**, whereas the maximum
-is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
+The number of entries to display for each page. The minimum is **1**, whereas the maximum is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
 sortDescription :: Text -> Text -> Text
@@ -204,8 +201,7 @@ $errors
 -- | Shorter version of the doc below, only for Dev & V0 documentations
 highLevelShortDescription :: DescriptionEnvironment -> T.Text
 highLevelShortDescription DescriptionEnvironment{..} = [text|
-This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/)
-spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
+This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
 Software Version | Git Revision
 -----------------|-------------------

@@ -222,6 +222,9 @@ Software Version | Git Revision
 -----------------|-------------------
 $deGitRevision   | $deSoftwareVersion
 
+> **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
+
+
 Getting Started
 ===============
 

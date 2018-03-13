@@ -76,8 +76,8 @@ data VerifyTxUtxoRes = VerifyTxUtxoRes
 -- blocks when we're creating a block (because transactions for
 -- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
 -- set to 'True', so unknown script versions are rejected).
-verifyTxUtxo ::
-       HasConfiguration
+verifyTxUtxo
+    :: ( HasProtocolMagic )
     => VTxContext
     -> TxAux
     -> ExceptT ToilVerFailure UtxoM VerifyTxUtxoRes

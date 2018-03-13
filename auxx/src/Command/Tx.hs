@@ -113,13 +113,14 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
         -- construct transaction output
-        outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
-        let val1 = mkCoin 1
+        --outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
+        {-let val1 = mkCoin 1
             txOut1 = TxOut {
                 txOutAddress = outAddr,
                 txOutValue = val1
                 }
             txOuts = TxOutAux txOut1 :| []
+        -}
         -- construct a transaction, and add it to the queue
         let addTx (secretKey, n) = do
                 neighbours <- case sendMode of
@@ -129,12 +130,21 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [ccPeers !! i]
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+        -- every genesis secret key sends to itself
+                me <- makePubKeyAddressAuxx (toPublic  secretKey )
+                let val2 = mkCoin 1
+                    txOut2 = TxOut {
+                        txOutAddress = me,
+                        txOutValue   = val2
+                    }
+                    txOuts2 = TxOutAux txOut2 :| []
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
-        let nTrans = conc * duration -- number of transactions we'll send
-            allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
+        --let nTrans = conc * duration -- number of transactions we'll send
+        let nTrans = 1000 
+            allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
@@ -187,7 +197,11 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- transactions.
         void $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently duration)
+            concurrently writeTPS (sendTxsConcurrently (duration)) 
+        void $ 
+            concurrently (forM_ firstBatch addTx) $
+            concurrently (forM_ secondBatch addTx) $
+            concurrently writeTPS (sendTxsConcurrently (duration)) 
 
 ----------------------------------------------------------------------------
 -- Casual sending

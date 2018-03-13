@@ -17,6 +17,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
+import           Pos.Infra.Configuration (ntpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -56,7 +57,7 @@ actionWithWallet :: (HasConfigurations, HasCompileInfo)
 actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams
+            bracketNodeResources nodeParams sscParams ntpConfiguration
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
@@ -96,6 +97,7 @@ actionWithNewWallet sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
+        ntpConfiguration
         txpGlobalSettings
         initNodeDBs $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the

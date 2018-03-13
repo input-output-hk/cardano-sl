@@ -14,7 +14,6 @@ import           System.Wlog (WithLogger, logNotice)
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.DHT.Real.Real (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.Network.Types (Bucket (..), NodeType, choosePeers)
 import           Pos.Util.TimeWarp (addressToNodeId)
 
@@ -25,7 +24,6 @@ dhtSubscriptionWorker
     :: forall pack m .
        ( MonadIO m
        , WithLogger m
-       , HasNtpConfiguration
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> KademliaDHTInstance

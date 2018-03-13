@@ -28,6 +28,7 @@ import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
                                elimRealMode, withConfigurations)
+import           Pos.Infra.Configuration (ntpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
@@ -122,7 +123,7 @@ action opts@AuxxOptions {..} command = do
                   lift $ runReaderT auxxAction auxxContext
           let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
           let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-          bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
+          bracketNodeResources nodeParams sscParams ntpConfiguration txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->

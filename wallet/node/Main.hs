@@ -28,6 +28,7 @@ import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
+import           Pos.Infra.Configuration (ntpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -64,7 +65,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
     logInfo "Running `actionWithWallet'"
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams
+            bracketNodeResources nodeParams sscParams ntpConfiguration
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                 ref <- newIORef mempty

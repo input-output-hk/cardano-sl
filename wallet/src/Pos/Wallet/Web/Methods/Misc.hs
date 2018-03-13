@@ -51,6 +51,7 @@ import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
+import           Pos.Infra.Configuration (HasNtpConfiguration, ntpConfiguration)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), getNtpStatusOnce)
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
@@ -175,9 +176,9 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Integer
+localTimeDifference :: (NtpCheckMonad m, MonadMockable m, HasNtpConfiguration) => m Integer
 localTimeDifference =
-    diff <$> getNtpStatusOnce
+    diff <$> getNtpStatusOnce ntpConfiguration
   where
     diff :: NtpStatus -> Integer
     diff = \case

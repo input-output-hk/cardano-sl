@@ -22,6 +22,7 @@ import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Launcher.Scenario (runNode)
+import           Pos.Infra.Configuration (NtpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -39,9 +40,10 @@ runNodeReal
        )
     => NodeParams
     -> SscParams
+    -> NtpConfiguration
     -> (HasAdoptedBlockVersionData (RealMode EmptyMempoolExt) => ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs))
     -> Production ()
-runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
+runNodeReal np sscnp ntpConfig plugins = bracketNodeResources np sscnp ntpConfig txpGlobalSettings initNodeDBs action
   where
     action :: HasConfiguration => NodeResources EmptyMempoolExt -> Production ()
     action nr@NodeResources {..} = giveAdoptedBVData $

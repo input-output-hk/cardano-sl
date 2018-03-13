@@ -36,7 +36,6 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Reporting (HasReportingContext (..))
@@ -141,7 +140,7 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasNtpConfiguration, MonadSlotsData ctx (RealMode ext))
+instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
       => MonadSlots ctx (RealMode ext)
   where
     getCurrentSlot = getCurrentSlotSimple
@@ -176,7 +175,7 @@ instance MonadFormatPeers (RealMode ext) where
 
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration, HasNtpConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

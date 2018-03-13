@@ -22,7 +22,6 @@ import           Pos.Core (Address, BlockVersionData, HasConfiguration, makePubK
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
-import           Pos.Infra.Configuration (HasNtpConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 
@@ -34,7 +33,6 @@ type HasTxpConfigurations =
        ( HasNodeConfiguration
        , HasSscConfiguration
        , HasConfiguration
-       , HasNtpConfiguration
        , HasUpdateConfiguration
        , HasGenesisBlockVersionData
        )

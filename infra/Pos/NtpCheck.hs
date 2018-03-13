@@ -19,14 +19,13 @@ import           Mockable (CurrentTime, Delay, Mockable, Mockables, withAsync)
 import           NTP.Client (NtpClientSettings (..), NtpMonad, NtpStatus (..), spawnNtpClient)
 import           Serokell.Util (sec)
 
-import           Pos.Infra.Configuration (HasNtpConfiguration, NtpConfiguration, ntpConfiguration)
+import           Pos.Infra.Configuration (NtpConfiguration)
 import qualified Pos.Infra.Configuration as Infra
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
     ( NtpMonad m
     , Mockable CurrentTime m
-    , HasNtpConfiguration
     )
 
 withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings -> m a -> m a
@@ -53,10 +52,11 @@ timeDifferenceWarnThreshold = fromIntegral . Infra.nptcTimeDifferenceWarnThresho
 -- | Create NTP client, let it work till the first response from servers,
 -- then shutdown and return result.
 getNtpStatusOnce :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
-    => m NtpStatus
-getNtpStatusOnce = do
+    => NtpConfiguration
+    -> m NtpStatus
+getNtpStatusOnce ntpConfig = do
     ntpStatus <- atomically $ newTVar Nothing
-    let initNtp = spawnNtpClient $ ntpSettings ntpConfiguration ntpStatus
+    let initNtp = spawnNtpClient $ ntpSettings ntpConfig ntpStatus
     withAsync initNtp $ \_ ->
         atomically $ do
             readTVar ntpStatus >>= \case

@@ -218,13 +218,14 @@ type MonadFullWalletWebMode ctx m =
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
     , Mockable LowLevelAsync m
+    , HasNtpConfiguration
     )
 
 ----------------------------------------------------------------------------
 -- Instances for WalletWebMode
 ----------------------------------------------------------------------------
 
-instance (HasConfiguration, HasNtpConfiguration, MonadSlotsData ctx WalletWebMode)
+instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode
   where
     getCurrentSlot = getCurrentSlotSimple
@@ -257,7 +258,7 @@ instance HasConfiguration => MonadGState WalletWebMode where
 instance HasConfiguration => HasAdoptedBlockVersionData WalletWebMode where
     adoptedBVData = gsAdoptedBVData
 
-instance (HasConfiguration, HasNtpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasCompileInfo)
        => MonadBListener WalletWebMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
@@ -266,7 +267,7 @@ instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration, HasSscConfiguration, HasNtpConfiguration) =>
+instance (HasConfiguration, HasSscConfiguration) =>
          MonadBlockchainInfo WalletWebMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
@@ -314,7 +315,7 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasSscConfiguration, HasTxpConfiguration, HasNtpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasSscConfiguration, HasTxpConfiguration, HasCompileInfo)
         => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -326,7 +327,7 @@ instance MonadFormatPeers WalletWebMode where
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance (HasConfiguration, HasNtpConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet

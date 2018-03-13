@@ -35,7 +35,7 @@ import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
-import           Pos.Infra.Configuration (NtpConfiguration)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..), MisbehaviorMetrics (..),

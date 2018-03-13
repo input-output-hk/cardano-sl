@@ -79,9 +79,6 @@ library
                         -- Health Checks
                         Pos.HealthCheck.Route53
 
-                        -- Configuration
-                        Pos.Infra.Configuration
-
                         -- Known peers
                         Pos.KnownPeers
 
@@ -112,7 +109,8 @@ library
                         Pos.Statistics.Statsd
 
                         -- NTP
-                        Pos.NtpCheck
+                        Pos.Ntp.Configuration
+                        Pos.Ntp.Check
 
                         -- Pos.Binary
                         Pos.Binary.Infra

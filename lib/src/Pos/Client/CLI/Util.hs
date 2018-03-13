@@ -35,7 +35,7 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
-import           Pos.Infra.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)

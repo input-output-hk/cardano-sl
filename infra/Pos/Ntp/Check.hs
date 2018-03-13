@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.NtpCheck
+module Pos.Ntp.Check
     ( getNtpStatusOnce
     , ntpSettings
     , withNtpCheck
@@ -19,8 +19,8 @@ import           Mockable (CurrentTime, Delay, Mockable, Mockables, withAsync)
 import           NTP.Client (NtpClientSettings (..), NtpMonad, NtpStatus (..), spawnNtpClient)
 import           Serokell.Util (sec)
 
-import           Pos.Infra.Configuration (NtpConfiguration)
-import qualified Pos.Infra.Configuration as Infra
+import           Pos.Ntp.Configuration (NtpConfiguration)
+import qualified Pos.Ntp.Configuration as Ntp
 import           Pos.Util.Util (median)
 
 type NtpCheckMonad m =
@@ -33,7 +33,7 @@ withNtpCheck settings action = withAsync (spawnNtpClient settings) (const action
 
 ntpSettings :: NtpConfiguration -> TVar (Maybe NtpStatus) -> NtpClientSettings
 ntpSettings ntpConfig ntpStatus = NtpClientSettings
-    { ntpServers         = Infra.ntpcServers ntpConfig
+    { ntpServers         = Ntp.ntpcServers ntpConfig
     , ntpLogName         = "ntp-check"
     , ntpResponseTimeout = sec 5
     , ntpPollDelay       = timeDifferenceWarnInterval ntpConfig
@@ -44,10 +44,10 @@ ntpSettings ntpConfig ntpStatus = NtpClientSettings
     }
 
 timeDifferenceWarnInterval :: NtpConfiguration -> Microsecond
-timeDifferenceWarnInterval = fromIntegral . Infra.ntpcTimeDifferenceWarnInterval
+timeDifferenceWarnInterval = fromIntegral . Ntp.ntpcTimeDifferenceWarnInterval
 
 timeDifferenceWarnThreshold :: NtpConfiguration -> Microsecond
-timeDifferenceWarnThreshold = fromIntegral . Infra.nptcTimeDifferenceWarnThreshold
+timeDifferenceWarnThreshold = fromIntegral . Ntp.nptcTimeDifferenceWarnThreshold
 
 -- | Create NTP client, let it work till the first response from servers,
 -- then shutdown and return result.

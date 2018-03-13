@@ -43,7 +43,7 @@ import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.DHT.Real (KademliaParams (..))
 import qualified Pos.GState as GS
-import           Pos.Infra.Configuration (NtpConfiguration)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..))

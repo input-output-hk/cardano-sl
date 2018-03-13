@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
-module Pos.Infra.Configuration
+module Pos.Ntp.Configuration
        ( NtpConfiguration (..)
        , HasNtpConfiguration
        , ntpConfiguration

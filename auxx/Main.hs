@@ -28,7 +28,7 @@ import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
                                elimRealMode, withConfigurations)
-import           Pos.Infra.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)

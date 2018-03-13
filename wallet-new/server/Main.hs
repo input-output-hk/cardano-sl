@@ -17,7 +17,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Infra.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)

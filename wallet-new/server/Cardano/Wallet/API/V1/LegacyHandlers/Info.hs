@@ -8,7 +8,7 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 
 import           Mockable (MonadMockable)
-import           Pos.NtpCheck (NtpCheckMonad)
+import           Pos.Ntp.Check (NtpCheckMonad)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 

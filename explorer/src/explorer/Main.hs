@@ -22,7 +22,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodePara
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Context (NodeContext (..))
-import           Pos.Infra.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))

@@ -1,10 +1,12 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
@@ -61,6 +63,9 @@ module Cardano.Wallet.API.V1.Types (
   , SyncProgress
   , mkSyncProgress
   , NodeInfo (..)
+  -- * Some types for the API
+  , type (?=)(..)
+  , LookupParam(..)
   -- * Core re-exports
   , Core.Address
   ) where
@@ -76,9 +81,12 @@ import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text as Text
+import           Data.Typeable
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           GHC.TypeLits
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
@@ -94,7 +102,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 -- importing for orphan instances for Coin
-import Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -716,7 +724,7 @@ instance FromJSON (V1 Core.TxId) where
     parseJSON = withText "TxId" $ \t -> do
        case decodeHash t of
            Left err -> fail $ "Failed to parse transaction ID: " <> toString err
-           Right a -> pure (V1 a)
+           Right a  -> pure (V1 a)
 
 instance FromHttpApiData (V1 Core.TxId) where
     parseQueryParam = fmap (fmap V1) decodeHash
@@ -1081,3 +1089,27 @@ type family New (original :: *) :: * where
   New Wallet  = NewWallet
   New Account = NewAccount
   New WalletAddress = NewAddress
+
+--
+-- Filter and sort operations
+--
+
+data (s :: Symbol) ?= (a :: *) = QParam a
+
+class LookupParam (x :: *) xs where
+    reifyParam :: Proxy x -> Proxy xs -> Text
+
+instance
+    TypeError
+    ( 'Text "The type " :<>: ShowType x :<>: 'Text "was not in the list of types that this accepts.")
+    => LookupParam x '[] where
+    reifyParam _ _ = error "can't happen"
+
+instance (KnownSymbol pname, x ~ ptype) => LookupParam x '[pname ?= ptype] where
+    reifyParam _ _ = Text.pack (symbolVal (Proxy @pname))
+
+instance (Typeable x, Typeable ptype, KnownSymbol pname, LookupParam x rest) => LookupParam x ((pname ?= ptype) ': rest) where
+    reifyParam px _ =
+        fromMaybe (reifyParam px (Proxy @rest)) (eqT @x @ptype $> pname)
+      where
+        pname = Text.pack (symbolVal (Proxy @pname))

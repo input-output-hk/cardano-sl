@@ -204,12 +204,10 @@ instance
         incorporate NoFilters r = r
         incorporate (FilterOp fop rest) r =
             incorporate rest $ case fop of
-                FilterByIndex ix ->
-                    appendToQueryString pname pvalue r
+                FilterByIndex (ix :: ix) ->
+                    let pname = reifyParam (Proxy @ix) (Proxy @syms)
+                     in appendToQueryString pname (Just (toQueryParam ix)) r
                 FilterByPredicate fop ix ->
                     r
                 FilterByRange ix _ ->
                     r
-          where
-            pname = error "finish me"
-            pvalue = Just ""

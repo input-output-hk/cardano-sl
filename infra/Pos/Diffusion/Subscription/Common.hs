@@ -127,8 +127,7 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
         writeTVar subStatus stats'
         where
             fn :: Maybe SubscriptionStatus -> Maybe SubscriptionStatus
-            fn Nothing = s
-            fn (Just t) = (t <>) <$> s
+            fn x = getOption (Option x <> Option s)
 
 -- | A listener for subscriptions: add the subscriber to the set of known
 -- peers, annotating it with a given NodeType. Remove that peer from the set

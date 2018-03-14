@@ -95,7 +95,7 @@ data DiffusionLayer m = DiffusionLayer
     }
 
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: (Monad m, MonadIO m, Monad d) => m (DiffusionLayer d)
+dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
 dummyDiffusionLayer = do
     ss <- newTVarIO Map.empty 
     return DiffusionLayer
@@ -103,7 +103,7 @@ dummyDiffusionLayer = do
         , diffusion         = dummyDiffusion ss
         }
   where
-    dummyDiffusion :: Monad m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
+    dummyDiffusion :: Applicative m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
     dummyDiffusion subscriptionStatus = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = \_ -> pure mempty

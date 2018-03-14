@@ -56,12 +56,33 @@ abstract syntax, with no reference to a binary representation.
   slot-to-leader function, the global-time-to-slot function, the
   abstract syntax of transactions and of blocks, \ldots}
 
+\begin{description}
+\item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
+  predecessor of $b₁$ is the genesis block, and for every $i$, the
+  predecessor of $b_{i+1}$ is $b_i$ (technically the predecessor of
+  $b_{i+1}$ is \emph{the hash of} $b_i$).
+\end{description}
+
 \section{Adding a block}
 
 \info{In this section we are interested in specifying what it means to
   add a block, given by other means, on top of some existing
   chain. The state is a single chain (aka list). The block must be
   added on top (aka in front) of it.}
+
+A chain\improvement{We can replace ``chain'' by sequence and put the
+  predecessor condition in the validity rule. Though this opens a
+  question: from the valid extension rules, can I directly define the
+  blockchain's forest data structure?} $b₁,…,b_n$ is said to be
+\emph{valid} if $b₁,…,b_{n-1}$ is valid, and $b_n$ is a \emph{valid
+  extension} of $b₁,…,b_{n-1}$.
+
+A block $b$ is said to be a valid extension of a valid chain
+$b_1,…,b_n$ if
+\begin{description}
+\item[Predecessor] The predecessor of $b$ is (the hash of) $b_n$.
+\item[TODO]
+\end{description}
 
 \section{Extending the blockchain}
 

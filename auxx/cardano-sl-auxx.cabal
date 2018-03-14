@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -90,6 +91,7 @@ library
                      , transformers
                      , universum >= 0.1.11
                      , unordered-containers
+                     , validation
 
   default-language:    Haskell2010
   ghc-options:        -Wall

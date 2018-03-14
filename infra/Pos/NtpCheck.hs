@@ -49,9 +49,12 @@ ntpCheckHandler cont (newMargin, transmitTime) = do
     let ntpTime = Timestamp $ transmitTime + newMargin
     localTime <- Timestamp <$> currentTime
     let timeDiff = diffTimestamp ntpTime localTime
+    -- If the @absolute@ time difference between the NTP time and the local time is
+    -- bigger than the given threshold, it effectively means we are not synced, as we are
+    -- either behind or ahead of the NTP time.
     let ntpStatus
-            | timeDiff <= timeDifferenceWarnThreshold = NtpSyncOk
-            | otherwise = NtpDesync timeDiff
+            | abs timeDiff > timeDifferenceWarnThreshold = NtpDesync timeDiff
+            | otherwise = NtpSyncOk
     cont ntpStatus
 
 timeDifferenceWarnInterval :: HasInfraConfiguration => Microsecond

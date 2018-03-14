@@ -1,35 +1,30 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Types used for managing of transactions
--- and synchronization with database.
+-- | Types used for pure transaction processing (aka Toil).
 
 module Pos.Txp.Toil.Types
        ( Utxo
+       , UtxoLookup
+       , UtxoModifier
        , formatUtxo
        , utxoF
+       , utxoToModifier
+       , utxoToLookup
        , GenesisUtxo (..)
        , _GenesisUtxo
+
+       , StakesView (..)
+       , svStakes
+       , svTotal
 
        , TxFee(..)
        , MemPool (..)
        , mpLocalTxs
        , mpSize
        , TxMap
-       , StakesView (..)
-       , svStakes
-       , svTotal
        , UndoMap
-       , UtxoModifier
        , AddrCoinMap
-       , utxoToModifier
        , applyUtxoModToAddrCoinMap
-       , GenericToilModifier (..)
-       , ToilModifier
-       , tmUtxo
-       , tmStakes
-       , tmMemPool
-       , tmUndos
-       , tmExtra
        ) where
 
 import           Universum
@@ -56,6 +51,12 @@ import qualified Pos.Util.Modifier as MM
 -- output) pairs.
 type Utxo = Map TxIn TxOutAux
 
+-- | Type of function to look up an entry in 'Utxo'.
+type UtxoLookup = TxIn -> Maybe TxOutAux
+
+-- | All modifications (additions and deletions) to be applied to 'Utxo'.
+type UtxoModifier = MM.MapModifier TxIn TxOutAux
+
 -- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder
 formatUtxo = mapBuilderJson . M.toList
@@ -63,6 +64,12 @@ formatUtxo = mapBuilderJson . M.toList
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
+
+utxoToModifier :: Utxo -> UtxoModifier
+utxoToModifier = foldl' (flip $ uncurry MM.insert) mempty . M.toList
+
+utxoToLookup :: Utxo -> UtxoLookup
+utxoToLookup = flip M.lookup
 
 -- | Wrapper for genesis utxo.
 newtype GenesisUtxo = GenesisUtxo
@@ -116,15 +123,11 @@ instance Default MemPool where
         }
 
 ----------------------------------------------------------------------------
--- UtxoModifier, UndoMap and AddrCoinsMap
+-- UndoMap and AddrCoinsMap
 ----------------------------------------------------------------------------
 
-type UtxoModifier = MM.MapModifier TxIn TxOutAux
 type UndoMap = HashMap TxId TxUndo
 type AddrCoinMap = HashMap Address Coin
-
-utxoToModifier :: Utxo -> UtxoModifier
-utxoToModifier = foldl' (flip $ uncurry MM.insert) mempty . M.toList
 
 -- | Takes utxo modifier and address-coin map with correspodning utxo
 -- and applies utxo modifier to map.
@@ -168,25 +171,3 @@ applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) = result
     -- Add coins to balances
     result :: HashMap Address Coin
     result = foldl' (flip $ uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest addrCoinsAdditions
-
-instance Default UndoMap where
-    def = mempty
-
-----------------------------------------------------------------------------
--- ToilModifier
-----------------------------------------------------------------------------
-
-data GenericToilModifier extension = ToilModifier
-    { _tmUtxo    :: !UtxoModifier
-    , _tmStakes  :: !StakesView
-    , _tmMemPool :: !MemPool
-    , _tmUndos   :: !UndoMap
-    , _tmExtra   :: !extension
-    }
-
-type ToilModifier = GenericToilModifier ()
-
-instance Default ext => Default (GenericToilModifier ext) where
-    def = ToilModifier mempty def def mempty def
-
-makeLenses ''GenericToilModifier

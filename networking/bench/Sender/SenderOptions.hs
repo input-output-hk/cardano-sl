@@ -13,7 +13,7 @@ import           Data.String (fromString)
 import           Data.Word (Word16)
 import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option, optional,
                                              short, showDefault, some, strOption, value, readerError)
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           Serokell.Util.Parse (connection)
 
 data Args = Args

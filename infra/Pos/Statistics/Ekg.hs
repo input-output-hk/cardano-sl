@@ -7,7 +7,7 @@ module Pos.Statistics.Ekg
 
 import qualified Options.Applicative as Opt
 import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           Universum
 
 data EkgParams = EkgParams

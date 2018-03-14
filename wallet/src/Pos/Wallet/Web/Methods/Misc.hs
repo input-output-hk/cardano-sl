@@ -40,6 +40,7 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
+import           Data.Time.Units (toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
 import           Serokell.Util (listJson, sec)
@@ -155,16 +156,16 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
+localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Integer
 localTimeDifference =
     diff <$> getNtpStatusOnce
   where
-    diff :: NtpStatus -> Word
+    diff :: NtpStatus -> Integer
     diff = \case
         NtpSyncOk -> 0
         -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
-        NtpDesync diff' -> fromIntegral diff'
+        NtpDesync diff' -> toMicroseconds diff'
 
 ----------------------------------------------------------------------------
 -- Reset

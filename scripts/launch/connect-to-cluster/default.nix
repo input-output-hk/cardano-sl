@@ -31,7 +31,7 @@ let
     };
   };
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet}/bin/cardano-node";
+    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
@@ -76,7 +76,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --no-ntp                                                       \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
-    ${ ifWallet "--web"}                                           \
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
     ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
     ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \

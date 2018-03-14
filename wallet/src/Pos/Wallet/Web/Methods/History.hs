@@ -25,23 +25,21 @@ import           Serokell.Util (listChunkedJson, listJsonIndent)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HasConfiguration, timestampToPosix)
+import           Pos.Core (Address, ChainDifficulty, HasConfiguration, timestampToPosix)
 import           Pos.Core.Txp (TxId)
 import           Pos.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
-                                             CWAddressMeta (..), ScrollLimit, ScrollOffset, Wal,
-                                             mkCTx)
+                                             ScrollLimit, ScrollOffset, Wal, mkCTx, addressToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
-import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever), WalletDB,
-                                       WalletSnapshot, addOnlyNewTxMetas, getHistoryCache,
-                                       getPendingTx, getTxMeta, getWalletPendingTxs,
-                                       getWalletSnapshot, askWalletDB)
+                                       WalletSnapshot, addOnlyNewTxMetas, askWalletDB,
+                                       getHistoryCache, getPendingTx, getTxMeta,
+                                       getWalletPendingTxs, getWalletSnapshot, wamAddress)
 import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
                                       getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))
@@ -74,10 +72,9 @@ getFullWalletHistory db cWalId = do
     logDebug "getFullWalletHistory: start"
     ws <- getWalletSnapshot db
 
-    let cAddrs = getWalletAddrs ws Ever cWalId
-        blockHistory = getHistoryCache ws cWalId
+    let addrs = getWalletAddrs ws Ever cWalId
 
-    addrs <- convertCIdTOAddrs cAddrs
+    let blockHistory = getHistoryCache ws cWalId
     unfilteredLocalHistory <- getLocalHistory addrs
 
     logDebug "getFullWalletHistory: fetched addresses and block/local histories"
@@ -108,7 +105,8 @@ getHistory cWalId getAccIds mAddrId = do
     let allAccIds = getWalletAccountIds ws cWalId
         accIds = getAccIds ws
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    accAddrs  <- S.fromList . map (cwamId . adiCWAddressMeta) <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
+    accAddrs  <- S.fromList . map (addressToCId . view wamAddress . adiWAddressMeta)
+                 <$> concatMapM (getAccountAddrsOrThrow ws Ever) accIds
 
     let filterFn :: WalletHistory -> Either WalletError WalletHistory
         filterFn cHistory = case mAddrId of
@@ -211,7 +209,7 @@ constructCTx
     :: (MonadIO m, MonadThrow m)
     => WalletSnapshot
     -> CId Wal
-    -> (CId Addr -> Bool)
+    -> (Address -> Bool)
     -> ChainDifficulty
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)

@@ -25,7 +25,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
                                  getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
@@ -66,8 +66,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
             bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
-                    ref <- newIORef mempty
-                    runWRealMode db conn (AddrCIdHashes ref) nr (mainAction nr)
+                    runWRealMode db conn nr (mainAction nr)
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb walletDbOptions) $ do

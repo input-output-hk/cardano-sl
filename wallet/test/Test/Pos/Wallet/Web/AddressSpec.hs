@@ -21,10 +21,10 @@ import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
 import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
-import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId, cwamId)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
-import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses)
+import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
@@ -74,7 +74,7 @@ commonAddressGenerator accId passphrase = do
     -- can't catch under 'PropertyM', workarounding
     maddr <- lift $ (Just <$> genAddress) `catch` seedBusyHandler
     addr <- maybe (stop Discard) pure maddr
-    lift $ decodeCTypeOrFail (cwamId addr)
+    return $ addr ^. wamAddress
   where
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing

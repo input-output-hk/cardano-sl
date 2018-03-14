@@ -1,8 +1,9 @@
 module Waypoints where
 
 import Prelude
+
 import Control.Monad.Eff (kind Effect, Eff)
-import Control.Monad.Eff.Uncurried (EffFn3, runEffFn3)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn3, runEffFn1, runEffFn3)
 import DOM.Node.Types (ElementId)
 import Data.Function.Uncurried (Fn1)
 import Data.Generic (class Generic, gShow)
@@ -42,4 +43,8 @@ waypoint elemId handler = runEffFn3 waypointImpl elemId handler defaultWaypointO
 waypoint' :: forall eff. ElementId -> (WaypointHandler eff) -> WaypointOffset -> Eff (waypoint :: WAYPOINT | eff) Waypoint
 waypoint' = runEffFn3 waypointImpl
 
-foreign import destroy :: forall eff. Fn1 Waypoint (Eff (waypoint :: WAYPOINT | eff) Unit)
+foreign import destroyImpl :: forall eff. EffFn1 (waypoint :: WAYPOINT | eff) Waypoint Waypoint
+
+-- | Destroys a `Waypoint` with all registered event handlers
+destroy :: forall eff. Waypoint -> Eff (waypoint :: WAYPOINT | eff) Waypoint
+destroy = runEffFn1 destroyImpl

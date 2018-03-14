@@ -48,6 +48,7 @@ module UTxO.DSL (
     -- ** UTxO
   , Utxo(..)
   , utxoEmpty
+  , utxoNull
   , utxoApply
   , utxoFromMap
   , utxoFromList
@@ -67,6 +68,7 @@ module UTxO.DSL (
   , Blocks
   , Chain(..)
   , chainToLedger
+  , utxoApplyBlock
   ) where
 
 import           Control.Exception (throw)
@@ -422,6 +424,10 @@ deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
 utxoEmpty :: Utxo h a
 utxoEmpty = Utxo Map.empty
 
+-- | Check if a UTxO is empty
+utxoNull :: Utxo h a -> Bool
+utxoNull = Map.null . utxoToMap
+
 -- | Apply a transaction to a UTxO
 --
 -- We have that
@@ -507,6 +513,18 @@ chainToLedger boot = Ledger
                    . (boot :)
                    . concatMap toList . toList
                    . chainBlocks
+
+-- | Compute the UTxO after a block has been applied
+--
+-- Note: we process all transactions one by one. This may not be the most
+-- efficient way to do this; this should be regarded as a specification, not
+-- a realistic implementation.
+utxoApplyBlock :: forall h a. Hash h a => Block h a -> Utxo h a -> Utxo h a
+utxoApplyBlock = go . getOldestFirst
+  where
+    go :: [Transaction h a] -> Utxo h a -> Utxo h a
+    go []     = identity
+    go (t:ts) = go ts . utxoApply t
 
 {-------------------------------------------------------------------------------
   Instantiating the hash to the identity

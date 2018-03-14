@@ -58,6 +58,7 @@ data Action
     | CreateAccount
     | GetAccounts
     | GetAccount
+    | DeleteAccount
 
     | CreateAddress
     | GetAddresses

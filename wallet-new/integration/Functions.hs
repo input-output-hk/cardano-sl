@@ -173,6 +173,33 @@ runAction wc ws GetAccount    = do
     pure $ ws
         & actionsNum +~ 1
 
+
+runAction wc ws DeleteAccount = do
+
+    let localAccounts = ws ^. accounts
+
+    -- The precondition is that we need to have accounts.
+    guard (not (null localAccounts))
+
+    -- We choose from the existing wallets AND existing accounts.
+    account <-  pickRandomElement localAccounts
+    let walletId = accWalletId account
+
+    -- If we don't have any http client errors, the delete was a success.
+    _       <-  respToRes $ deleteAccount wc walletId (accIndex account)
+
+    -- Just in case, let's check if it's still there.
+    result  <-  respToRes $ getAccounts wc walletId
+
+    checkInvariant
+        (all ((/=) account) localAccounts)
+        (LocalAccountsDiffers result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & accounts   .~ delete account localAccounts
+        & actionsNum +~ 1
+
 -- Addresses
 runAction wc ws CreateAddress = do
 

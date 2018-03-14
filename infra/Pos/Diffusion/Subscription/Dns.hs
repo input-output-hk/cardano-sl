@@ -50,8 +50,6 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- that the threads don't erase each-others' work.
     let initialDnsPeers :: Map Int (Alts NodeId)
         initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
-    -- Subscription duration
-    subDuration <- newMVar (0 :: Millisecond)
     dnsPeersVar <- newSharedAtomic initialDnsPeers
     -- There's a thread for each conjunct which attempts to subscribe to one of
     -- the alternatives.
@@ -60,7 +58,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- fallbacks (for a given outer list element) is the length of the inner
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
-    void $ forConcurrently allOf (subscribeAlts dnsPeersVar subDuration)
+    void $ forConcurrently allOf (subscribeAlts dnsPeersVar Nothing)
     logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
@@ -74,17 +72,20 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- (see 'retryInterval').
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
-        -> MVar Millisecond
+        -> Maybe (MVar Millisecond)
         -> (Int, Alts (NodeAddr DNS.Domain))
         -> m ()
     subscribeAlts _ _ (index, []) =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
-    subscribeAlts dnsPeersVar subDuration (index, alts) = do
+    subscribeAlts dnsPeersVar mSubDuration (index, alts) = do
         -- Any DNSError is squelched. So are IOExceptions, for good measure.
         -- This does not include async exceptions.
         -- It does handle the case in which there's no internet connection, or
         -- a bad configuration, so that the subscription thread will keep on
         -- retrying.
+        subDuration <- case mSubDuration of
+            Just sd -> return sd
+            Nothing -> newMVar (0 :: Millisecond)
         findAndSubscribe dnsPeersVar subDuration index alts
             `catch` logDNSError
             `catch` logIOException
@@ -92,7 +93,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         logNotice $ sformat ("dnsSubscriptionWorker: waiting "%int%"ms before trying again")
             (toMicroseconds d `div` 1000)
         delay d
-        subscribeAlts dnsPeersVar subDuration (index, alts)
+        subscribeAlts dnsPeersVar (Just subDuration) (index, alts)
 
     -- Subscribe to all alternatives, one-at-a-time, until the list is
     -- exhausted.

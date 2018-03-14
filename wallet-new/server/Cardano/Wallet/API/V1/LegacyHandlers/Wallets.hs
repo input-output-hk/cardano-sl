@@ -23,15 +23,18 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
          => ServerT Wallets.API MonadV1
-handlers =   newWallet
+handlers =
+        (    newWallet
         :<|> listWallets
         :<|> (\walletId ->
                      updatePassword walletId
                 :<|> deleteWallet walletId
                 :<|> getWallet walletId
                 :<|> updateWallet walletId
-                :<|> Accounts.handlers walletId
              )
+        )
+        -- NOTE Separation between tags ("Wallets" vs "Accounts"), see Cardano.Wallet.API.V1.Wallets
+        :<|> (\walletId -> Accounts.handlers walletId)
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored

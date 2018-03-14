@@ -99,14 +99,16 @@ legacyWalletBackend WalletBackendParams {..} =
       wsConn <- getWalletWebSockets
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
-            Servant.serve API.walletAPI $
-              LegacyServer.walletServer (V0.convertHandler ctx) diffusion walletRunMode
+            if isDebugMode walletRunMode then
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion walletRunMode
+            else
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion
       return $ withMiddleware walletRunMode app
 
 -- | A 'Plugin' to start the wallet REST server
 --
 -- TODO: no web socket support in the new wallet for now
-walletBackend :: (HasConfigurations)
+walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
               -> Kernel.PassiveWallet
               -> Plugin Kernel.WalletMode
@@ -125,7 +127,10 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $
-        Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
+        if isDebugMode walletRunMode then
+          Servant.serve API.walletDevAPI $ Server.walletDevServer active walletRunMode
+        else
+          Servant.serve API.walletAPI $ Server.walletServer active
 
     lower :: env -> ReaderT env Production a -> IO a
     lower env = runProduction . (`runReaderT` env)

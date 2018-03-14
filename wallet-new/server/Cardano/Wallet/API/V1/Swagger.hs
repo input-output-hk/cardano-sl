@@ -16,34 +16,31 @@ import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
+import           Cardano.Wallet.API.V1.Generic (gconsName)
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Core as Core
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, ctiGitRevision)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), Value (Object))
+import           Data.Aeson (ToJSON (..), encode)
 import           Data.Aeson.Encode.Pretty
-import qualified Data.HashMap.Strict as HM
-import           Data.HashMap.Strict.InsOrd (InsOrdHashMap)
-import qualified Data.HashMap.Strict.InsOrd as InsOrdHM
+import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
-import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.String.Conv
 import           Data.Swagger hiding (Example, Header, example)
-import qualified Data.Swagger as S
 import           Data.Swagger.Declare
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Data.Typeable
 import           NeatInterpolation
+import           Servant (ServantErr (..))
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -67,69 +64,10 @@ fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
--- | Renders the inner type of a proxy as a `Text`, using Typeable's `typeRep` internally.
-renderType :: Typeable a => proxy a -> T.Text
-renderType = fromString . show . typeRep
 
--- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
-withExample :: (ToJSON a, Example a) => proxy a -> T.Text -> T.Text
-withExample (_ :: proxy a) desc =
-  desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
-
--- | Generates a description suitable to be used for "Update" types.
-updateDescr :: Typeable a => proxy a -> T.Text
-updateDescr (p :: proxy a) =
-    "A type representing an update for an existing " <> renderType p <> "."
-
--- | Generates a description suitable to be used for "New" types.
-newDescr :: Typeable a => proxy a -> T.Text
-newDescr (p :: proxy a) =
-    "A type representing an request for creating a(n) " <> renderType p <> "."
-
--- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
--- given types.
-readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Example a, ToJSON a, Example b, ToJSON b)
-                       => proxy a -> Set T.Text
-readOnlyFieldsFromJSON _ =
-    case (toJSON (genExample @a), toJSON (genExample @b)) of
-        (Object o1, Object o2) -> (Set.fromList $ HM.keys o1) `Set.difference` (Set.fromList $ HM.keys o2)
-        _                      -> mempty
-
--- | Enrich a Swagger `Schema` with a list of readOnly fields.
-setReadOnlyFields :: ToDocs a
-                  => proxy a
-                  -> (InsOrdHashMap Text (Referenced Schema))
-                  -> (InsOrdHashMap Text (Referenced Schema))
-setReadOnlyFields p hm =
-  let fields = readOnlyFields p
-  in InsOrdHM.mapWithKey (setRO fields) hm
-  where
-    setRO :: Set (T.Text) -> T.Text -> Referenced Schema -> Referenced Schema
-    setRO _ _  r@(Ref _)    = r
-    setRO flds f r@(Inline s) =
-      if f `Set.member` flds then Inline (s & readOnly ?~ (f `Set.member` flds)) else r
-
---
--- Extra Typeclasses
---
-
-
--- TODO: Writing instances this way is a bit verbose. Is there a better way?
-class (ToJSON a, Typeable a, Example a) => ToDocs a where
-  annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
-           -> proxy a
-           -> Declare (Definitions Schema) NamedSchema
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ descriptionFor p)
-               . (schema . S.example ?~ toJSON @a genExample)
-               . (over (schema . properties) (setReadOnlyFields p))
-
-  descriptionFor :: proxy a -> T.Text
-  descriptionFor p = "A " <> renderType p <> "."
-
-  readOnlyFields :: proxy a -> Set T.Text
-  readOnlyFields _ = mempty
+-- | Surround a Text with another
+surroundedBy :: Text -> Text -> Text
+surroundedBy wrap context = wrap <> context <> wrap
 
 --
 -- Instances
@@ -195,11 +133,6 @@ instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (Sor
                        }
                 }
 
-sortDescription :: Text -> Text -> Text
-sortDescription resource allowedKeys = [text|
-A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
-|]
-
 instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @(WithWalletRequestParams subApi))
@@ -211,25 +144,6 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
                     Nothing -> Inline p
                     Just d  -> Inline (p & description .~ Just d)
             toDescription x = x
-
-requestParameterToDescription :: Map T.Text T.Text
-requestParameterToDescription = M.fromList [
-    ("page", pageDescription)
-  , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  ]
-
-pageDescription :: T.Text
-pageDescription = [text|
-The page number to fetch for this request. The minimum is **1**.
-If nothing is specified, **this value defaults to 1** and always shows the first
-entries in the requested collection.
-|]
-
-perPageDescription :: T.Text -> T.Text -> T.Text
-perPageDescription maxValue defaultValue = [text|
-The number of entries to display for each page. The minimum is **1**, whereas the maximum
-is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
-|]
 
 instance ToParamSchema WalletId
 
@@ -243,176 +157,270 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
-instance ToDocs Metadata where
-  descriptionFor _ = "Metadata returned as part of an <b>WalletResponse</b>."
-
-instance ToDocs Account where
-  readOnlyFields   = readOnlyFieldsFromJSON
-  descriptionFor _ = "An Account."
-
-instance ToDocs WalletAddress where
-  readOnlyFields   = readOnlyFieldsFromJSON
-  descriptionFor _ = "An Address with meta information related to it."
-
-instance ToDocs AccountUpdate where
-  descriptionFor _ = updateDescr (Proxy @Account)
-
-instance ToDocs NewAccount where
-  descriptionFor _ = newDescr (Proxy @Account)
-
-instance ToDocs AddressValidity where
-  descriptionFor _ = "Verifies that an address is base58 decodable."
-
-instance ToDocs (V1 Core.Address) where
-  descriptionFor _ = "A base58-encoded Address."
-
-instance ToDocs Core.Address where
-  descriptionFor _ = "A base58-encoded Address."
-
-instance ToDocs WalletId where
-  descriptionFor _ = "A Wallet ID."
-
-instance ToDocs Wallet where
-  readOnlyFields = readOnlyFieldsFromJSON
-
-instance ToDocs NewWallet where
-  descriptionFor _ = newDescr (Proxy @Wallet)
-
-instance ToDocs NewAddress where
-  descriptionFor _ = newDescr (Proxy @WalletAddress)
-
-instance ToDocs WalletUpdate where
-  descriptionFor _ = updateDescr (Proxy @Wallet)
-
-instance ToDocs PasswordUpdate where
-  descriptionFor _ = "A PasswordUpdate incapsulate a request for changing a Wallet's password."
-
-instance ToDocs EstimatedFees where
-  descriptionFor _ = "Estimated fees for a `Payment`."
-
-instance ToDocs Payment where
-  descriptionFor _ = "A transfer of `Coin`(s) from one source to one or more destinations."
-
-instance ToDocs PaymentDistribution where
-  descriptionFor _ = "Maps an `Address` to some `Coin`s and it's typically "
-                  <> "used to specify where to send money during a `Payment`."
-
-instance ToDocs Transaction where
-  descriptionFor _ = "A Wallet Transaction."
-
-instance ToDocs WalletSoftwareUpdate where
-  descriptionFor _ = "A programmed update to the system."
-
-instance ToDocs NodeSettings where
-  descriptionFor _ = "A collection of static settings for this wallet node."
-
-instance ToDocs BlockchainHeight where
-  descriptionFor _ = "The height of the blockchain."
-
-instance ToDocs SyncProgress where
-  descriptionFor _ = "The sync progress with the blockchain."
-
-instance ToDocs SlotDuration where
-  descriptionFor _ = "The duration for a slot."
-
-instance ToDocs LocalTimeDifference where
-  descriptionFor _ = "The time difference between this node clock and the NTP server."
-
-instance ToDocs NodeInfo where
-  descriptionFor _ = "A collection of dynamic information for this wallet node."
-
-instance ToDocs WalletStateSnapshot where
-  descriptionFor _ = "Dump current wallet state"
-
-instance ToDocs (V1 InputSelectionPolicy) where
-  descriptionFor _ = "A policy to be passed to each new `Payment` request to "
-                  <> "determine how a `Transaction` is assembled. "
-                  <> "Possible values: [" <> possibleValuesOf @(V1 InputSelectionPolicy) Proxy <> "]."
-
-possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
-possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
-
--- ToSchema instances
-
-instance ToDocs a => ToDocs (WalletResponse a) where
-  annotate f p = (f p)
-
-instance (ToDocs a) => ToDocs [a] where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A list of " <> renderType p <> ".")
 
 --
--- The API
+-- Descriptions
 --
 
+requestParameterToDescription :: Map T.Text T.Text
+requestParameterToDescription = M.fromList [
+    ("page", pageDescription)
+  , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
+  ]
+
+pageDescription :: T.Text
+pageDescription = [text|
+The page number to fetch for this request. The minimum is **1**.  If nothing is specified, **this value defaults to 1** and always shows the first entries in the requested collection.
+|]
+
+perPageDescription :: T.Text -> T.Text -> T.Text
+perPageDescription maxValue defaultValue = [text|
+The number of entries to display for each page. The minimum is **1**, whereas the maximum is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
+|]
+
+sortDescription :: Text -> Text -> Text
+sortDescription resource allowedKeys = [text|
+A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
+|]
+
+errorsDescription :: Text
+errorsDescription = [text|
+Error Name | HTTP Error code | Example
+-----------|-----------------|---------
+$errors
+|] where
+  errors = T.intercalate "\n" rows
+  rows = map mkRow Errors.sample
+  mkRow err = T.intercalate "|"
+    [ surroundedBy "`" (gconsName err)
+    , show $ errHTTPCode $ Errors.toServantError err
+    , surroundedBy "`" (T.decodeUtf8 $ BL.toStrict $ encode err)
+    ]
+
+
+-- | Shorter version of the doc below, only for Dev & V0 documentations
+highLevelShortDescription :: DescriptionEnvironment -> T.Text
+highLevelShortDescription DescriptionEnvironment{..} = [text|
+This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
+
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
+|]
+
+
+-- | Provide additional insights on V1 documentation
 highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
+This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-This is the specification for the Cardano Wallet API, automatically generated
-as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
-of [Cardano](https://github.com/input-output-hk/cardano-sl).
+Software Version   | Git Revision
+-------------------|-------------------
+$deSoftwareVersion | $deGitRevision
 
-Git revision: **$deGitRevision**
-Software version: **$deSoftwareVersion**
+> **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
 
 
-## Request format (all versions)
+Getting Started
+===============
 
-Issuing requests against this API is conceptually not very different from any other web service out there. The API
-is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_
-in the URL.
+In the following examples, we will use *curl* to illustrate request to an API running on the default port **8090**.
 
-**For the sake of backward compatibility, we expose the legacy version of the API, available simply as
-unversioned endpoints.**
+Please note that wallet web API uses TLS for secure communication. Requests to the API need to send a client CA certificate that was used when launching the node and identifies the client as being permitted to invoke the server API.
 
-This means that _omitting_ the version number would call the old version of the API. Examples:
+Creating a New Wallet
+---------------------
+
+You can create your first wallet using the `POST /api/v1/wallets` endpoint as follow:
 
 ```
-/api/version
+curl -X POST https://localhost:8090/api/v1/wallets                     \
+     -H "Content-Type: application/json; charset=utf-8"                \
+     -H "Accept: application/json; charset=utf-8"                      \
+     --cacert ./scripts/tls-files/ca.crt                               \
+     -d '{                                                             \
+  "operation": "create",                                               \
+  "backupPhrase": ["squirrel", "material", "silly", "twice", "direct", \
+    "slush", "pistol", "razor", "become", "junk", "kingdom", "flee"],  \
+  "assuranceLevel": "normal",                                          \
+  "name": "MyFirstWallet"                                              \
+}'
 ```
 
-Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
+> **Warning**: Those 12 mnemonic words given for the backup phrase act as an example. **Do not** use them on a production system. See the section below about mnemonic codes for more information.
 
-## Response format (V1 onwards)
+As a response, the API provides you with a wallet `id` used in subsequent requests to uniquely identity the wallet. Make sure to store it / write it down. Note that every API response is [jsend-compliant](https://labs.omniti.com/labs/jsend); Cardano also augments responses with meta-data specific to pagination. More details in the section below about *Pagination*.
 
-**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is
-the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
+```json
+{
+    "status": "success",
+    "data": {
+        "id": "Ae2tdPwUPE...8V3AVTnqGZ",
+        "name": "MyFirstWallet",
+        "balance": 0
+    },
+    "meta": {
+        "pagination": {
+            "totalPages": 1,
+            "page": 1,
+            "perPage": 1,
+            "totalEntries": 1
+        }
+    }
+}
+```
 
-Version `V1` introduced a different way of requesting information to the API. In particular, GET requests
-which returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be
-used to modify the shape of the response. In particular, those are:
+You have just created your first wallet. Information about this wallet can be retrieved using the `GET /api/v1/wallets/{walletId}` endpoint as follow:
+
+```
+curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
+     -H "Accept: application/json; charset=utf-8"              \
+     --cacert ./scripts/tls-files/ca.crt                       \
+```
+
+Receiving Money
+---------------
+
+To receive money from other users you should provide your address. This address can be obtained from an account. Each wallet contains at least one account, you can think of account as a pocket inside of your wallet. Besides, you can view all existing accounts of a wallet by using the `GET /api/v1/wallets/{{walletId}}/accounts` endpoint as follow:
+
+```
+curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \
+     -H "Accept: application/json; charset=utf-8"                                          \
+     --cacert ./scripts/tls-files/ca.crt                                                   \
+```
+
+Since you have, for now, only a single wallet, you'll see something like this:
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "index": 2147483648,
+            "addresses": [
+                "DdzFFzCqrh...fXSru1pdFE"
+            ],
+            "amount": 0,
+            "name": "Initial account",
+            "walletId": "Ae2tdPwUPE...8V3AVTnqGZ"
+        }
+    ],
+    "meta": {
+        "pagination": {
+            "totalPages": 1,
+            "page": 1,
+            "perPage": 10,
+            "totalEntries": 1
+        }
+    }
+}
+```
+
+Each account has at least one address, all listed under the `addresses` field. You can communicate one of these addresses to receive money on the associated account.
+
+
+Sending Money
+-------------
+
+In order to send money from one of your account to another address, you can create a new payment transaction using the `POST /api/v1/transactions` endpoint as follow:
+
+```
+curl -X POST https://localhost:8090/api/v1/transactions \
+     -H "Content-Type: application/json; charset=utf-8" \
+     -H "Accept: application/json; charset=utf-8"       \
+     --cacert ./scripts/tls-files/ca.crt                \
+     -d '{                                              \
+  "destinations": [{                                    \
+    "amount": 14,                                       \
+    "address": "A7k5bz1QR2...Tx561NNmfF"                \
+  }],                                                   \
+  "source": {                                           \
+    "accountIndex": 0,                                  \
+    "walletId": "Ae2tdPwUPE...8V3AVTnqGZ"               \
+  }                                                     \
+}'
+```
+
+Note that, in order to perform a transaction, you need to have some existing coins on the source account! Beside, the Cardano API is designed to accomodate multiple recipients payments out-of-the-box; notice how `destinations` is a list of addresses.
+
+When the transaction succeeds, funds are becomes unavailable from the sources addresses, and available to the destinations in a short delay.  Note that, you can at any time see the status of your wallets by using the `GET /api/v1/transactions/{{walletId}}` endpoint as follow:
+
+```
+curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}?account_index=0  \
+     -H "Accept: application/json; charset=utf-8"                               \
+     --cacert ./scripts/tls-files/ca.crt                                        \
+```
+
+We have here constrainted the request to a specific account, with our previous transaction the output should look roughly similar to this:
+
+```json
+{
+    "status": "success",
+    "data": [
+        {
+            "amount": 14,
+            "inputs": [{
+              "amount": 14,
+              "address": "DdzFFzCqrh...fXSru1pdFE"
+            }],
+            "direction": "outgoing",
+            "outputs": [{
+              "amount": 14,
+              "address": "A7k5bz1QR2...Tx561NNmfF"
+            }],
+            "confirmations": 42,
+            "id": "43zkUzCVi7...TT31uDfEF7",
+            "type": "local"
+        }
+    ],
+    "meta": {
+        "pagination": {
+            "totalPages": 1,
+            "page": 1,
+            "perPage": 10,
+            "totalEntries": 1
+        }
+    }
+}
+```
+
+In addition, and because it is not possible to _preview_ a transaction, one can lookup a transaction's fees using the `POST /api/v1/transactions/fees` endpoint to get an estimation of those fees.
+
+
+Pagination
+==========
+
+**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
+
+Version `V1` introduced a different way of requesting information to the API. In particular, GET requests which returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be used to modify the shape of the response. In particular, those are:
 
 * `page`: (Default value: **1**).
 * `per_page`: (Default value: **$deDefaultPerPage**)
 
-For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
-the first two control how many results and which results to access in a paginated request.
+For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview the first two control how many results and which results to access in a paginated request.
 
-This is an example of a typical (successful) response from the API:
 
-``` json
-$deWalletResponseExample
-```
+Filtering and sorting
+=====================
 
-## Filtering and sorting
+`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
 
-`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked
-in the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:
 
-### Filter operators
+Filter operators
+----------------
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
 | -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |
-| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |
+| `EQ`     | Retrieves the resources with index _equal_ to the one provided.           | `balance=EQ[10]`       |
 | `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |
 | `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |
 | `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |
 | `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |
 | `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
 
-### Sort operators
+Sort operators
+--------------
 
 | Operator | Description                                                               | Example                |
 |----------|---------------------------------------------------------------------------|------------------------|
@@ -420,40 +428,53 @@ in the swagger docs with the `FILTER` or `SORT` labels. The query format is quit
 | `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |
 | -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |
 
-## Dealing with errors (V1 onwards)
 
-In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
-[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
-with a numeric error code which can be used by API consumers to implement proper error handling in their
-application. For example, here's a typical error which might be issued:
+Errors
+======
+
+In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together with a numeric error code which can be used by API consumers to implement proper error handling in their application. For example, here's a typical error which might be issued:
 
 ``` json
 $deErrorExample
 ```
 
-### Existing wallet errors
+Existing wallet errors
+----------------------
 
 $deWalletErrorTable
 
+
+Mnemonic Codes
+==============
+
+The full list of accepted mnemonic codes to secure a wallet is defined by the [BIP-39 specifications](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). Note that picking up 12 random words from the list **is not enough** and leads to poor security. Make sure to carefully follow the steps described in the protocol when you generate words for a new wallet.
+
+
+Versioning & Legacy
+===================
+
+The API is **versioned**, meaning that is possible to access different versions of the API by adding the _version number_ in the URL.
+
+**For the sake of backward compatibility, we expose the legacy version of the API, available simply as unversioned endpoints.**
+
+This means that _omitting_ the version number would call the old version of the API. Deprecated endpoints are currently grouped under an appropriate section; they would be removed in upcoming released, if you're starting a new integration with Cardano-SL, please ignore these.
+
+Note that Compatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.
+
+
+Disable TLS (Not Recommended)
+-----------------------------
+
+If needed, you can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
 |]
 
-type TableHeader = [T.Text]
-type TableRow = [T.Text]
 
--- | Creates markdown table
--- TODO: test edge cases:
---  * TableHeader == []
---  * no TableRow
---  * when list of rows contains elements with different length (different number of columns)
-markdownTable :: TableHeader -> [TableRow] -> T.Text
-markdownTable h rows = unlines $ header:headerSplitter:(map makeRow rows)
-  where
-    header = makeRow h                             -- corresponds to "a|b|c"
-    headerSplitter = makeRow $ map (const "---") h -- corresponds to "---|---|---"
-    makeRow = T.intercalate "|"
+--
+-- The API
+--
 
-data DescriptionEnvironment = DescriptionEnvironment {
-    deErrorExample          :: !T.Text
+data DescriptionEnvironment = DescriptionEnvironment
+  { deErrorExample          :: !T.Text
   , deDefaultPerPage        :: !T.Text
   , deWalletResponseExample :: !T.Text
   , deWalletErrorTable      :: !T.Text
@@ -461,24 +482,21 @@ data DescriptionEnvironment = DescriptionEnvironment {
   , deSoftwareVersion       :: !T.Text
   }
 
-api :: ( HasCompileInfo
-       , HasUpdateConfiguration
-       , HasSwagger a)
-    => Proxy a
+api :: HasSwagger a
+    => (CompileTimeInfo, SoftwareVersion)
+    -> Proxy a
+    -> (DescriptionEnvironment -> T.Text)
     -> Swagger
-api walletApi = toSwagger walletApi
+api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
-  & info.version .~ "2.0"
+  & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      deErrorExample = toS $ encodePretty Errors.WalletNotFound
-    , deDefaultPerPage = fromString (show defaultPerPageEntries)
+  & info.description ?~ (mkDescription $ DescriptionEnvironment
+    { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
+    , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
-    , deWalletErrorTable = markdownTable ["Error Name", "HTTP Error code", "Example"] $ map makeRow Errors.allErrorsList
-    , deGitRevision = ctiGitRevision compileInfo
-    , deSoftwareVersion = fromString $ show curSoftwareVersion
+    , deWalletErrorTable      = errorsDescription
+    , deGitRevision           = ctiGitRevision compileInfo
+    , deSoftwareVersion       = fromString $ show curSoftwareVersion
     })
-  & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
-  where
-    makeRow err = [surroundedBy "`" err, "-", "-"]
-    surroundedBy wrap context = wrap <> context <> wrap
+  & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")

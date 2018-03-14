@@ -20,6 +20,7 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
@@ -36,7 +37,7 @@ import           Pos.Binary (decodeFull)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
-import           Pos.Client.Txp.Util (createTx)
+import           Pos.Client.Txp.Util (createTx, PendingAddresses (..) )
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
@@ -138,7 +139,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsS
                         txOutValue   = val2
                     }
                     txOuts2 = TxOutAux txOut2 :| []
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
+                let meset = PendingAddresses $ Set.singleton me
+                etx <- createTx meset utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)

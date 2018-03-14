@@ -167,6 +167,7 @@ library
                       , unordered-containers
                       , wai
                       , wai-websockets
+                      , warp
                       , websockets
   if !os(windows)
     build-depends:      unix

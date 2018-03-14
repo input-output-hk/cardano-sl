@@ -7646,7 +7646,7 @@ inherit (pkgs) mesa;};
          , servant-multipart, servant-server, servant-swagger
          , servant-swagger-ui, stdenv, stm, swagger2, text, text-format
          , time, time-units, transformers, universum, unix, unliftio
-         , unordered-containers, wai, wai-websockets, websockets
+         , unordered-containers, wai, wai-websockets, warp, websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
@@ -7665,7 +7665,7 @@ inherit (pkgs) mesa;};
              servant-generic servant-multipart servant-server servant-swagger
              servant-swagger-ui stm swagger2 text text-format time time-units
              transformers universum unix unliftio unordered-containers wai
-             wai-websockets websockets
+             wai-websockets warp websockets
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [

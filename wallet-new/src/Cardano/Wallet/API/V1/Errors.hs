@@ -52,6 +52,7 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
+    | UnkownError { weMsg :: !Text }
     | WalletNotFound
     deriving (Show, Eq)
 
@@ -90,6 +91,7 @@ sample =
   , SomeOtherError "foo" 14
   , MigrationFailed "migration"
   , JSONValidationFailed "Expected String, found Null."
+  , UnkownError "unknown"
   , WalletNotFound
   ]
 
@@ -103,6 +105,7 @@ toServantError err =
     SomeOtherError{}       -> mkServantErr err418 err
     MigrationFailed{}      -> mkServantErr err422 err
     JSONValidationFailed{} -> mkServantErr err400 err
+    UnkownError{}          -> mkServantErr err400 err
     WalletNotFound{}       -> mkServantErr err404 err
   where
     mkServantErr serr@ServantErr{..} werr = serr

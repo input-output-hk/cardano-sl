@@ -49,7 +49,7 @@ handlers naturalTransformation runMode =
                       => ServerT Dev.API m
             handlers' =    getWalletState runMode
                       :<|> deleteSecretKeys runMode
-
+                      :<|> throwSomething runMode
 
 getWalletState :: ( MonadThrow m, V0.MonadWalletDBRead ctx m)
                => RunMode
@@ -66,3 +66,7 @@ deleteSecretKeys :: ( V0.HasNodeConfiguration
                  -> m NoContent
 deleteSecretKeys runMode =
     developmentOnly runMode (V0.deleteAllSecretKeys >> V0.testReset >> return NoContent)
+
+throwSomething :: MonadThrow m => RunMode -> m NoContent
+throwSomething runMode =
+    developmentOnly runMode $ error "A generic error happened in dev mode"

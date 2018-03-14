@@ -23,7 +23,7 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Cardano.Wallet.API.V1.Types (Account, Wallet, WalletAddress,Transaction)
+import           Cardano.Wallet.API.V1.Types (Account, Transaction, Wallet, WalletAddress)
 
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
@@ -53,6 +53,7 @@ data Action
     = CreateWallet
     | GetWallets
     | GetWallet
+    | ImportPoorWallet
 
     | CreateAccount
     | GetAccounts

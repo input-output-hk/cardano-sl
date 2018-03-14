@@ -36,6 +36,8 @@ data WalletTestError
     | LocalTransactionsDiffer [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
 
+    | PoorWalletBalanceIsZero Wallet
+
     deriving (Show, Eq, Generic)
 
 
@@ -60,5 +62,5 @@ instance Buildable WalletTestError where
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs. Transactions - ("%stext%")") (show t)
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)
-
+    build (PoorWalletBalanceIsZero a)  = bprint ("Generated wallet balance is zero. Wallet - ("%stext%")") (show a)
 

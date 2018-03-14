@@ -7,14 +7,15 @@ module Functions where
 import           Universum
 
 import           Data.Coerce (coerce)
+import           Data.Default (def)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens ((+~))
+import           Control.Lens ((+~), (?~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AddressValidity (..), AccountIndex, NewAccount (..),
-                                              NewAddress (..), Payment (..),
+import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AddressValidity (..),
+                                              NewAccount (..), NewAddress (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               Transaction (..), V1 (..), Wallet (..),
                                               WalletAddress (..), WalletId)
@@ -22,7 +23,17 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AddressValidity (..)
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
+import           Pos.Core.Configuration (genesisSecretsPoor)
+import           Pos.Core.Genesis (poorSecretToEncKey)
+import           Pos.Launcher (withConfigurations)
+import           Pos.Util.Filesystem (withSystemTempFile)
+import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, mkGenesisWalletUserSecret,
+                                      takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
+                                      writeUserSecretRelease)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+
+
+import           System.Wlog (usingLoggerName)
 
 import           Error
 import           Types
@@ -326,6 +337,32 @@ runAction wc ws GetTransaction  = do
     -- Modify wallet state accordingly.
     pure $ ws
         & actionsNum +~ 1
+runAction wc ws ImportPoorWallet = do
+    poorSecret <- pickRandomElement =<< liftIO unsafePoorSecrets
+    liftIO $ usingLoggerName "integration-test" $ withSystemTempFile "importWalletKey.sk" $ \tempFp _ -> do
+        dumpPoorSecret tempFp poorSecret
+        poorWallet <- respToRes $ importWalletKey wc tempFp
+
+        checkInvariant
+            (walBalance poorWallet == minBound)
+            (PoorWalletBalanceIsZero poorWallet)
+
+        -- Modify wallet state accordingly.
+        pure $ ws
+            & wallets    .~ ws ^. wallets <> [poorWallet]
+            & actionsNum +~ 1
+  where
+    unsafePoorSecrets = usingLoggerName "integration-test" $ withConfigurations def $ pure $ fromMaybe (error "GeneratedSecrets are unknown") genesisSecretsPoor
+    dumpPoorSecret fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
+        dumpUserSecret fp $
+        foldl' (.) identity [ usKeys %~ (hdwSk :)
+                            , usWallet ?~ mkGenesisWalletUserSecret hdwSk
+                            ]
+    dumpUserSecret fp operation = do
+        initializeUserSecret fp
+        us <- takeUserSecret fp
+        writeUserSecretRelease (operation us)
+
 
 
 -----------------------------------------------------------------------------

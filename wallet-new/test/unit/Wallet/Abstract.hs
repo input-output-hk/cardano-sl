@@ -162,59 +162,51 @@ data Inductive h a =
 -- Note: we expect the 'Inductive' to be valid (valid blockchain, valid
 -- calls to 'newPending', etc.). This is meant to check properties of the
 -- /wallet/, not the wallet input.
-interpret :: forall ws h a.
+interpret :: forall ws h a err.
              (Buildable a)
-          => (Transaction h a -> Wallets ws h a)    -- ^ Bootstrapped wallets
-          -> (Wallets ws h a -> Validated Text ())  -- ^ Predicate to check
-          -> Inductive h a -> Validated Text (Wallets ws h a)
-interpret mkWallets p ind = fmap snd $ go ind
+          => (Inductive h a -> InvalidInput h a -> err)
+          -- ^ Inject invalid input err. We provide the value of the
+          -- 'Inductive' at the point of the error.
+          -> (Transaction h a -> Wallets ws h a)
+          -- ^ Bootstrapped wallets
+          -> (Inductive h a -> Wallets ws h a -> Validated err ())
+          -- ^ Predicate to check. The predicate is passed the 'Inductive'
+          -- at the point of the error, for better error messages.
+          -> Inductive h a
+          -- ^ 'Inductive' value to interpret
+          -> Validated err (Wallets ws h a)
+interpret invalidInput mkWallets p = fmap snd . go
   where
     -- Evaluate and verify the 'Inductive'
     -- Also returns the ledger after validation
-    go :: Inductive h a -> Validated Text (Ledger h a, Wallets ws h a)
-    go (WalletBoot t)   = do
-      ws <- verify (mkWallets t)
+    go :: Inductive h a -> Validated err (Ledger h a, Wallets ws h a)
+    go ind@(WalletBoot t)   = do
+      ws <- verify ind (mkWallets t)
       return (ledgerSingleton t, ws)
-    go (ApplyBlock w b) = do
+    go ind@(ApplyBlock w b) = do
       (l, ws) <- go w
-      ws' <- verify $ walletsMap (applyBlock b) ws
+      ws' <- verify ind $ walletsMap (applyBlock b) ws
       return (ledgerAdds (toNewestFirst b) l, ws')
-    go (NewPending w t) = do
+    go ind@(NewPending w t) = do
       (l, ws) <- go w
-      ws' <- verify =<< walletsMapA (verifyNew l t) ws
+      ws' <- verify ind =<< walletsMapA (verifyNew ind l t) ws
       return (l, ws')
 
-    verify :: Wallets ws h a -> Validated Text (Wallets ws h a)
-    verify ws = p ws >> return ws
+    verify :: Inductive h a -> Wallets ws h a -> Validated err (Wallets ws h a)
+    verify ind ws = p ind ws >> return ws
 
+    -- Verify the input
+    -- If this fails, we provide the /entire/ 'Inductive' value so that it's
+    -- easier to track down what happened.
     verifyNew :: IsWallet w h a
-              => Ledger h a    -- ^ Ledger so far (for error messages)
-              -> Transaction h a -> w h a -> Validated Text (w h a)
-    verifyNew l tx w =
+              => Inductive h a -- ^ Inductive value at this point
+              -> Ledger h a    -- ^ Ledger so far (for error messages)
+              -> Transaction h a -> w h a -> Validated err (w h a)
+    verifyNew ind l tx w =
         case newPending tx w of
           Just w' -> return w'
-          Nothing -> throwError $ pretty (InvalidPending tx (utxo w) (pending w) l ind)
-
--- | The 'Inductive' contains an invalid pending transaction
---
--- This indicates a bug in the generator (or in the hand-written 'Inductive'),
--- so we try to provide sufficient information to track that down.
-data InvalidPending h a = InvalidPending {
-      -- | The submitted transaction that was invalid
-      invalidPendingTransaction :: Transaction h a
-
-      -- | The UTxO of the wallet at the time of submission
-    , invalidPendingWalletUtxo :: Utxo h a
-
-      -- | The pending set of the wallet at time of submission
-    , invalidPendingWalletPending :: Pending h a
-
-      -- | The ledger seen so far at the time of submission
-    , invalidPendingLedger :: Ledger h a
-
-      -- | The /entire/ 'Inductive' wallet that we are processing
-    , invalidPendingInductive :: Inductive h a
-    }
+          Nothing -> throwError . invalidInput ind
+                   $ InvalidPending tx (utxo w) (pending w) l
 
 {-------------------------------------------------------------------------------
   Invariants
@@ -228,7 +220,7 @@ data InvalidPending h a = InvalidPending {
 --
 -- In order to evaluate the inductive definition we need the empty wallet
 -- to be passed as a starting point.
-type Invariant h a = Inductive h a -> Validated Text ()
+type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
 invariant :: (IsWallet w h a, Buildable a)
@@ -236,9 +228,66 @@ invariant :: (IsWallet w h a, Buildable a)
           -> (Transaction h a -> w h a)  -- ^ Construct empty wallet
           -> (w h a -> Bool)             -- ^ Property to verify
           -> Invariant h a
-invariant err e p = void . interpret (One . e) p'
+invariant err e p fullInd = void $
+    interpret notChecked (One . e) p' fullInd
   where
-    p' (One w) = unless (p w) $ throwError err
+    notChecked ind reason = InvariantNotChecked {
+          invariantNotCheckedReason    = reason
+        , invariantNotCheckedInductive = ind
+        , invariantNotCheckedContext   = fullInd
+        }
+    violation ind = InvariantViolation {
+          invariantViolationError     = err
+        , invariantViolationInductive = ind
+        , invariantViolationContext   = fullInd
+        }
+
+    p' ind (One w) = unless (p w) $ throwError (violation ind)
+
+-- | Invariant violation
+data InvariantViolation h a =
+    -- | Invariance violation
+    InvariantViolation {
+        -- | Free-form error message
+        invariantViolationError :: Text
+
+        -- | The 'Inductive' value at the point of the error
+      , invariantViolationInductive :: Inductive h a
+
+        -- | The entire 'Inductive' value
+      , invariantViolationContext :: Inductive h a
+      }
+
+    -- | The invariant was not checked because the input was invalid
+  | InvariantNotChecked {
+        -- | Why did we not check the invariant
+        invariantNotCheckedReason :: InvalidInput h a
+
+        -- | The 'Inductive' value at the point of the error
+      , invariantNotCheckedInductive :: Inductive h a
+
+        -- | The entire 'Inductive' value
+      , invariantNotCheckedContext :: Inductive h a
+      }
+
+-- | We were unable to check the invariant because the input was invalid
+--
+-- This indicates a bug in the generator (or in the hand-written 'Inductive'),
+-- so we try to provide sufficient information to track that down.
+data InvalidInput h a =
+    InvalidPending {
+        -- | The submitted transaction that was invalid
+        invalidPendingTransaction :: Transaction h a
+
+        -- | The UTxO of the wallet at the time of submission
+      , invalidPendingWalletUtxo :: Utxo h a
+
+        -- | The pending set of the wallet at time of submission
+      , invalidPendingWalletPending :: Pending h a
+
+        -- | The ledger seen so far at the time of submission
+      , invalidPendingLedger :: Ledger h a
+      }
 
 {-------------------------------------------------------------------------------
   Specific invariants
@@ -294,11 +343,24 @@ walletEquivalent :: forall w w' h a.
                  => (Transaction h a -> w  h a)
                  -> (Transaction h a -> w' h a)
                  -> Invariant h a
-walletEquivalent e e' =
-    void . interpret (\boot -> Two (e boot) (e' boot)) p
+walletEquivalent e e' fullInd = void $
+    interpret notChecked (\boot -> Two (e boot) (e' boot)) p fullInd
   where
-    p :: Wallets '[w,w'] h a -> Validated Text ()
-    p (Two w w') = sequence_ [
+    notChecked ind reason = InvariantNotChecked {
+          invariantNotCheckedReason    = reason
+        , invariantNotCheckedInductive = ind
+        , invariantNotCheckedContext   = fullInd
+        }
+    violation ind err = InvariantViolation {
+          invariantViolationError     = err
+        , invariantViolationInductive = ind
+        , invariantViolationContext   = fullInd
+        }
+
+    p :: Inductive h a
+      -> Wallets '[w,w'] h a
+      -> Validated (InvariantViolation h a) ()
+    p ind (Two w w') = sequence_ [
           cmp "pending"          pending
         , cmp "utxo"             utxo
         , cmp "availableBalance" availableBalance
@@ -311,8 +373,8 @@ walletEquivalent e e' =
         cmp :: Eq b
             => Text
             -> (forall w''. IsWallet w'' h a => w'' h a -> b)
-            -> Validated Text ()
-        cmp err f = unless (f w == f w') $ throwError err
+            -> Validated (InvariantViolation h a) ()
+        cmp err f = unless (f w == f w') $ throwError (violation ind err)
 
 {-------------------------------------------------------------------------------
   Auxiliary operations
@@ -720,21 +782,41 @@ the first block.
   Pretty-printing
 -------------------------------------------------------------------------------}
 
-instance (Hash h a, Buildable a) => Buildable (InvalidPending h a) where
+instance (Hash h a, Buildable a) => Buildable (InvalidInput h a) where
   build InvalidPending{..} = bprint
     ( "InvalidPending "
     % "{ transaction:   " % build
     % ", walletUtxo:    " % build
     % ", walletPending: " % listJson
     % ", ledger:        " % build
-    % ", inductive:     " % build
     % "}"
     )
     invalidPendingTransaction
     invalidPendingWalletUtxo
     invalidPendingWalletPending
     invalidPendingLedger
-    invalidPendingInductive
+
+instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
+  build InvariantViolation{..} = bprint
+    ( "InvariantViolation "
+    % "{ error:     " % build
+    % ", inductive: " % build
+    % ", context:   " % build
+    % "}"
+    )
+    invariantViolationError
+    invariantViolationInductive
+    invariantViolationContext
+  build (InvariantNotChecked{..}) = bprint
+    ( "InvariantNotChecked "
+    % "{ reason:    " % build
+    % ", inductive: " % build
+    % ", context:   " % build
+    % "}"
+    )
+    invariantNotCheckedReason
+    invariantNotCheckedInductive
+    invariantNotCheckedContext
 
 -- | We output the inductive in the order that things are applied; something like
 --

@@ -1,0 +1,30 @@
+## Generated pdf files
+*.pdf
+
+## Latex
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+
+## other specific Latex
+*.lof
+*.lol
+*.lot
+*.synctex.gz
+*.toc
+*.vrb
+*.ptb
+_region_.tex
+
+## Bibtex
+*.bbl
+*.blg
+
+## Beamer
+*.nav
+*.snm
+
+## Minted/Pygments
+/_minted*

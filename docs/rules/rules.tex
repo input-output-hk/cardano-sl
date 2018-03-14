@@ -1,0 +1,82 @@
+% -*- latex -*-
+
+\documentclass{article}
+
+%% packages %%
+
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{unicode-math}
+
+%% /packages %%
+
+%% Marginal notes %%
+
+\usepackage{xargs}
+\usepackage[colorinlistoftodos,prependcaption,textsize=tiny]{todonotes}
+\newcommandx{\unsure}[2][1=]{\todo[linecolor=red,backgroundcolor=red!25,bordercolor=red,#1]{#2}}
+\newcommandx{\info}[2][1=]{\todo[linecolor=green,backgroundcolor=green!25,bordercolor=green,#1]{#2}}
+\newcommandx{\change}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=blue,#1]{#2}}
+\newcommandx{\inconsistent}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=red,#1]{#2}}
+\newcommandx{\critical}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=red,#1]{#2}}
+\newcommand{\improvement}[1]{\todo[linecolor=pink,backgroundcolor=pink!25,bordercolor=pink]{#1}}
+\newcommandx{\resolved}[2][1=]{\todo[linecolor=OliveGreen,backgroundcolor=OliveGreen!25,bordercolor=OliveGreen,#1]{#2}} % use this to mark a resolved question
+
+%% /Marginal notes %%
+
+%% macros %%
+
+%% /macros %%
+
+\title{Rule-based specification of the blockchain logic}
+%\author{}
+
+\begin{document}
+
+\maketitle
+
+\improvement{At the moment, we ignore multi-party communication, but
+  we may have to add some rules related to them in the document.}
+
+This document describes the rules underpinning the blockchain data
+structure of Cardano's settlement layer. These rules are described
+independently of any network or communication mechanism: it is assumed
+that some mechanism provides us with, \emph{e.g.}, blocks, and that
+our task is to assume that they are accepted or not. Notably, we make
+no difference between rejecting a block and storing it for later use.
+
+\section{Definitions}
+
+\info{General definitions used in all sections. Like the
+  slot-to-leader function, the global-time-to-slot function, the
+  abstract syntax of transactions and of blocks, \ldots}
+
+\section{Adding a block}
+
+\info{In this section we are interested in specifying what it means to
+  add a block, given by other means, on top of some existing
+  chain. The state is a single chain (aka list). The block must be
+  added on top (aka in front) of it.}
+
+\section{Extending the blockchain}
+
+\info{In this section we will specify the rules used by a slot-leader
+  to create a new block. The state is a single chain, plus outstanding
+  transactions. }
+
+\section{Entering the mempool}
+
+\info{In this section we want to specify how individual transactions
+  are added to or rejected from the mempool. Might have to be moved
+  before the blockchain-extension rules. The state is a single chain,
+  plus outstanding transactions.}
+
+\section{Selecting the longest chain}
+
+\info{This section is concerned with the purpose of (locally) deciding
+  which chain is the longest (\emph{e.g.} if I'm a slot leader, which
+  chain I'm going to extend) among all possible chains produced by the
+  network. The state is a tree of chains rooted in the origin block.}
+
+\end{document}

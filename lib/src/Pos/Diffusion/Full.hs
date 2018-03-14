@@ -72,6 +72,8 @@ import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+{-# ANN module ("HLint: ignore Use whenJust" :: Text) #-}
+{-# ANN module ("HLint: ignore Use record patterns" :: Text) #-}
 
 data FullDiffusionConfiguration = FullDiffusionConfiguration
     { fdcProtocolMagic          :: !ProtocolMagic

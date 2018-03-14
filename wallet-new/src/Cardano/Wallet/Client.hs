@@ -58,6 +58,8 @@ data WalletClient m
     , getAddressValidity
          :: Text -> Resp m AddressValidity
     -- wallets endpoints
+    , importWalletKey
+         :: FilePath -> Resp m Wallet
     , postWallet
          :: New Wallet -> Resp m Wallet
     , getWalletIndexPaged
@@ -116,6 +118,7 @@ hoistClient phi wc = WalletClient
     { getAddresses          = phi (getAddresses wc)
     , postAddress           = phi . postAddress wc
     , getAddressValidity    = phi . getAddressValidity wc
+    , importWalletKey       = phi . importWalletKey wc
     , postWallet            = phi . postWallet wc
     , getWalletIndexPaged   = \x -> phi . getWalletIndexPaged wc x
     , updateWalletPassword  = \x -> phi . updateWalletPassword wc x
@@ -173,7 +176,7 @@ instance Eq ClientError where
 
 -- | General exception instance.
 instance Exception ClientError where
-    toException   (ClientWalletError e) = toException e
-    toException   (ClientHttpError   e) = toException e
-    toException   (UnknownError      e) = toException e
+    toException (ClientWalletError e) = toException e
+    toException (ClientHttpError   e) = toException e
+    toException (UnknownError      e) = toException e
 

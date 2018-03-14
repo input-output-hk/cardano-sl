@@ -35,7 +35,7 @@ fname3 <- paste(bp, '/bench-settings', sep='')
 fname4 <- paste(bp, '/times.csv', sep='')
 
 DESC=''                    # Add custom text to titles
-k <- 6 #6 #12 #24             # Protocol parameters determining
+k <- 6 #12 #24             # Protocol parameters determining
 SLOTLENGTH <- 20           # the length of an epoch
 EPOCHLENGTH <- 10*k*SLOTLENGTH
 
@@ -262,6 +262,7 @@ plotTxs <- function(d, run=RUN, desc=DESC) {
         filter(txType %in% c("submitted", "written")) %>%
             filter(txCount > 0)   ### only blocks with transactions
     ggplot(dd, aes(t, txCount/slotDuration)) +
+        epochs(d) + kslots(d) +
         geom_point(aes(colour=node)) +
         geom_smooth() +
         ggtitle(paste(
@@ -270,7 +271,6 @@ plotTxs <- function(d, run=RUN, desc=DESC) {
         xlab("t [s] after start of experiment") +
         ylab("transaction rate [Hz]") +
         facet_grid(txType ~ run) +
-        epochs(d) + kslots(d) +
         guides(size = "none", colour = "legend", alpha = "none")
     }
 
@@ -281,14 +281,14 @@ plotMempools <- function(d, str='core and relay', run=RUN, desc=DESC) {
                            , "size after rollback"
                            , "size after tx"))
     ggplot(dd, aes(t, txCount)) +
-        geom_point(aes(colour=node)) +
+      epochs(d) +
+      geom_point(aes(colour=node)) +
         ggtitle(paste(
             'Mempool sizes for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
         xlab("t [s] after start of experiment") +
         ylab("Mempool size [# of transactions]") +
         facet_grid(txType ~ isRelay, scales= "free", space = "free") +
-        epochs(d) +
         guides(size = "none", colour = "legend", alpha = "none")
 }
 
@@ -307,17 +307,18 @@ plotTimes <- function(d, str='core and relay', run=RUN, desc=DESC, lin=TRUE, min
                                , "hold rollback"
                                , "wait rollback"
                                  ))      %>% filter(txCount > minfilter)    ###  <<<<<<
-    ggplot(dd, aes(t, txCount)) +
-        geom_point(aes(colour=node)) +
-        ggtitle(paste(
+    ggplot(dd, aes(t, txCount/1000)) +
+      epochs(d) +
+      geom_point(aes(colour=node)) +
+#      geom_smooth() +
+      ggtitle(paste(
             'Wait and work times for', str, 'nodes, run at '
           , run, desc, sep = ' ')) +
-        xlab("t [s] after start of experiment") +
-        ylab("Times waiting for/holding the lock [microseconds]") +
-        (if (lin) { scale_y_continuous(); } else { scale_y_log10(); }) +     ###  <<<<<<
-        facet_grid(txType ~ isRelay) +
-        epochs(d) +
-        guides(size = "none", colour = "legend", alpha = "none")
+      xlab("t [s] after start of experiment") +
+      ylab("Times waiting for/holding the lock [milliseconds]") +
+      (if (lin) { scale_y_continuous(); } else { scale_y_log10(); }) +     ###  <<<<<<
+      facet_grid(txType ~ isRelay) +
+      guides(size = "none", colour = "legend", alpha = "none")
 }
 
 plotOverview <- function(d, report, run=RUN, desc=DESC) {

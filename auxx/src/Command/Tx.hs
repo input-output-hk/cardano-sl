@@ -92,7 +92,7 @@ sendToAllGenesis
     => SendActions m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
+sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsSentFile) = do
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
@@ -143,7 +143,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
         --let nTrans = conc * duration -- number of transactions we'll send
-        let nTrans = 1000 
+        let nTrans = 1000
             allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
@@ -196,12 +196,15 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- While we're sending, we're constructing the second batch of
         -- transactions.
         void $
+            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (duration)) 
-        void $ 
-            concurrently (forM_ firstBatch addTx) $
+            concurrently writeTPS (sendTxsConcurrently (nTrans))
+        logInfo "First iteration finished"
+        void $
+            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (duration)) 
+            concurrently writeTPS (sendTxsConcurrently (nTrans))
+        logInfo "Second iteration finished"
 
 ----------------------------------------------------------------------------
 -- Casual sending

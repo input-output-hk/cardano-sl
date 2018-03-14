@@ -25,11 +25,13 @@ import           Data.Time.Units (Microsecond)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Network.Transport.Abstract (Transport)
+import qualified Network.Transport.Abstract as NT
 import qualified Network.Transport.TCP as TCP
 import           Node (NodeId)
 import qualified Node
 import           Mockable.Production (Production, runProduction)
 import           System.Wlog (usingLoggerName)
+import qualified System.Wlog as Wlog
 
 import           Pos.Arbitrary.Block.Generate (generateMainBlock)
 import           Pos.Binary (serialize)
@@ -90,8 +92,7 @@ someHash = unsafeMkAbstractHash LBS.empty
 withTransport :: (Transport Production -> Production t) -> Production t
 withTransport k = usingLoggerName "" $
     -- the 'lift' bring it into 'LoggerNameBox Production', which we're
-    -- working in here, but which is discharged by that
-    -- 'usingLoggerName ""'
+    -- working in here, but which is discharged by that 'usingLoggerName ""'
     Diffusion.bracketTransportTCP connectionTimeout tcpAddr (lift . k)
   where
     connectionTimeout :: Microsecond
@@ -133,7 +134,7 @@ withServer transport logic k = do
                  Policy.defaultEnqueuePolicyRelay
                  Policy.defaultDequeuePolicyRelay
                  Policy.defaultFailurePolicyAuxx -- because its timeout is 0
-                 (const (OQ.BucketSizeMax 0))
+                 (const (OQ.BucketSizeUnlimited))
                  (OQ.UnknownNodeType (const OQ.NodeRelay))
     (diffusion, runInternals) <- diffusionLayerFullExposeInternals
         runProduction
@@ -166,14 +167,14 @@ withClient
     -> NodeId
     -> (Diffusion Production -> Production t)
     -> Production t
-withClient transport logic serverAddress k = do
+withClient transport logic serverAddress@(Node.NodeId serverEndPointAddress) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
-    oq <- liftIO $ OQ.new "server"
+    oq <- liftIO $ OQ.new "client"
                  Policy.defaultEnqueuePolicyRelay
                  Policy.defaultDequeuePolicyRelay
                  Policy.defaultFailurePolicyAuxx -- because its timeout is 0
-                 (const (OQ.BucketSizeMax 0))
+                 (const (OQ.BucketSizeUnlimited))
                  (OQ.UnknownNodeType (const OQ.NodeRelay))
     _ <- liftIO $ OQ.updatePeersBucket oq BucketStatic $ \_ ->
         OQ.simplePeers [(OQ.NodeRelay, serverAddress)]
@@ -212,7 +213,7 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches = ru
     -- We won't do any work in-between, so we'll get better performance than
     -- we would see in production (if streaming is faster, our results will be
     -- a lower bound on the real speedup).
-    forM_ [1..batches] $ \_ ->
+    forM_ [1..batches] $ \n -> do
         getBlocks client serverAddress blockHeader checkpoints
     pure ()
 
@@ -272,6 +273,11 @@ instance NFData BlockHeader
 
 main :: IO ()
 main = do
+    {-
+    Wlog.setupLogging Nothing $ (Wlog.defaultConfig "arbitrary_logger_name")
+        { Wlog._lcTree = Wlog.LoggerTree mempty [] (Just Wlog.allSeverities)
+        }
+    -}
     -- Parse criterion arguments before setting anything up. Wouldn't want to
     -- bring up a transport if the arguments don't parse.
     criterionMode <- Opt.execParser (Criterion.describe Criterion.defaultConfig)

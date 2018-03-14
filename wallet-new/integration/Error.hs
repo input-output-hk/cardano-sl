@@ -12,7 +12,8 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 
-import           Cardano.Wallet.API.V1.Types (Account, Address, Transaction, Wallet, WalletAddress)
+import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, Wallet,
+                                              WalletAddress)
 
 import           Cardano.Wallet.Client (ClientError)
 
@@ -33,6 +34,7 @@ data WalletTestError
     | LocalAddressDiffer Address
 
     | InvalidTransactionState Transaction
+    | InvalidTransactionFee EstimatedFees
     | LocalTransactionsDiffer [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
 
@@ -45,20 +47,21 @@ instance Exception WalletTestError
 instance Buildable WalletTestError where
     build (HttpClientError _        )     = bprint "Http client error"
     -- ^ TODO (ks): A proper instance
-    build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero. Wallet - ("%stext%")") (show w)
-    build (LocalWalletDiffers      w)     = bprint ("Local wallet differs. Wallet - ("%stext%")") (show w)
-    build (LocalWalletsDiffers     w)     = bprint ("Local wallets differs. Wallet - ("%stext%")") (show w)
+    build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero - ("%stext%")") (show w)
+    build (LocalWalletDiffers      w)     = bprint ("Local wallet differs - ("%stext%")") (show w)
+    build (LocalWalletsDiffers     w)     = bprint ("Local wallets differs - ("%stext%")") (show w)
 
-    build (AccountBalanceNotZero   a)     = bprint ("Acccount balance is not zero. Account - ("%stext%")") (show a)
-    build (LocalAccountDiffers     a)     = bprint ("Local account differs. Account - ("%stext%")") (show a)
-    build (LocalAccountsDiffers    a)     = bprint ("Local accounts differs. Account - ("%stext%")") (show a)
+    build (AccountBalanceNotZero   a)     = bprint ("Acccount balance is not zero - ("%stext%")") (show a)
+    build (LocalAccountDiffers     a)     = bprint ("Local account differs - ("%stext%")") (show a)
+    build (LocalAccountsDiffers    a)     = bprint ("Local accounts differs - ("%stext%")") (show a)
 
-    build (AddressBalanceNotZero   a)     = bprint ("Address balance is not zero. Address - ("%stext%")") (show a)
+    build (AddressBalanceNotZero   a)     = bprint ("Address balance is not zero - ("%stext%")") (show a)
     build (LocalAddressesDiffer a as)     = bprint ("Local address ("%stext%") missing from addresses ("%stext%")") (show a) (show as)
-    build (LocalAddressDiffer      a)     = bprint ("Local address differs. Address - ("%stext%")") (show a)
+    build (LocalAddressDiffer      a)     = bprint ("Local address differs - ("%stext%")") (show a)
 
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
-    build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs. Transactions - ("%stext%")") (show t)
+    build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
+    build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs - ("%stext%")") (show t)
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)
 
 

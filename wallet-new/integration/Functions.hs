@@ -17,12 +17,13 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AddressValidity (..)
                                               NewAddress (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               Transaction (..), V1 (..), Wallet (..),
-                                              WalletAddress (..), WalletId)
+                                              WalletAddress (..), EstimatedFees (..), WalletId)
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import           Pos.Core (mkCoin)
 
 import           Error
 import           Types
@@ -226,7 +227,8 @@ runAction wc ws CreateTransaction = do
     let localAddresses = ws ^. addresses
 
     -- Some min amount of money so we can send a transaction?
-    let minCoinForTxs = minBound
+    -- https://github.com/input-output-hk/cardano-sl/blob/develop/lib/configuration.yaml#L228
+    let minCoinForTxs = V1 . mkCoin $ 200000
     let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
 
     -- | The preconditions we need to generate a transaction.
@@ -263,6 +265,14 @@ runAction wc ws CreateTransaction = do
                           paymentSource
                           [paymentDistribution]
 
+    -- Check the transaction fees.
+    txFees  <-  respToRes $ getTransactionFee wc newPayment
+
+    checkInvariant
+        (feeEstimatedAmount txFees > minBound)
+        (InvalidTransactionFee txFees)
+
+    -- Check the transaction.
     result  <-  respToRes $ postTransaction wc newPayment
 
     checkInvariant
@@ -283,6 +293,7 @@ runAction wc ws CreateTransaction = do
         -- ^ Simple for now.
         , pmtSpendingPassword = Nothing
         }
+
 
 runAction wc ws GetTransaction  = do
     let txs = ws ^. transactions

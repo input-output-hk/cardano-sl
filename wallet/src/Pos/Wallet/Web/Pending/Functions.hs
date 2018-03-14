@@ -73,7 +73,7 @@ isReclaimableFailure (SaveTxToilFailure tvf) = case tvf of
     ToilNotUnspent{}         -> False
     ToilOutGreaterThanIn{}   -> False
     ToilInconsistentTxAux{}  -> False
-    ToilInvalidOutputs{}     -> False
+    ToilInvalidOutput{}     -> False
     ToilUnknownInput{}       -> False
     ToilWitnessDoesntMatch{} -> False
     ToilInvalidWitness{}     -> False

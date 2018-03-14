@@ -11,7 +11,7 @@ module Pos.Txp.Toil.Utxo.Functions
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError, throwError)
+import           Control.Monad.Except (throwError)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
@@ -145,25 +145,18 @@ verifyConsistency inputs witnesses
     errFmt = ("length of inputs != length of witnesses "%"("%int%" != "%int%")")
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
-verifyOutputs :: 
-       MonadError ToilVerFailure m 
-    => VTxContext
-    -> TxAux 
-    -> m ()
+verifyOutputs :: VTxContext -> TxAux -> Either ToilVerFailure ()
 verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
     mapM_ verifyOutput (enumerate $ toList _txOutputs)
   where
-    verifyOutput :: 
-           MonadError ToilVerFailure m 
-        => (Word32, TxOut) 
-        -> m ()
+    verifyOutput :: (Word32, TxOut) -> Either ToilVerFailure ()
     verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) = do
         when (vtcVerifyAllIsKnown && not (areAttributesKnown addrAttributes)) $
-            throwError $ ToilInvalidOutputs i (TxOutUnknownAttributes addr)
+            throwError $ ToilInvalidOutput i (TxOutUnknownAttributes addr)
         when (vtcVerifyAllIsKnown && isUnknownAddressType addr) $
-            throwError $ ToilInvalidOutputs i (TxOutUnknownAddressType addr)
+            throwError $ ToilInvalidOutput i (TxOutUnknownAddressType addr)
         when (isRedeemAddress addr) $
-            throwError $ ToilInvalidOutputs i (TxOutRedeemAddressProhibited addr)
+            throwError $ ToilInvalidOutput i (TxOutRedeemAddressProhibited addr)
 
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).

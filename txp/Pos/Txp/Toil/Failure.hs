@@ -41,7 +41,7 @@ data ToilVerFailure
     | ToilOutGreaterThanIn { tInputSum  :: !Integer
                            , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Word32 !TxOutVerFailure
+    | ToilInvalidOutput !Word32 !TxOutVerFailure
     | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either
@@ -95,7 +95,7 @@ instance Buildable ToilVerFailure where
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =
         bprint ("TxAux is inconsistent: "%stext) msg
-    build (ToilInvalidOutputs n reason) =
+    build (ToilInvalidOutput n reason) =
         bprint (ords%" output is invalid:\n'"%
                 " reason: "%build)
             n reason

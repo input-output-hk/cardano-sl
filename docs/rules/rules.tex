@@ -46,6 +46,10 @@ that some mechanism provides us with, \emph{e.g.}, blocks, and that
 our task is to assume that they are accepted or not. Notably, we make
 no difference between rejecting a block and storing it for later use.
 
+A direct consequence of ignoring the communication mechanisms, is that
+we do not have to serialise data, hence data is represented in
+abstract syntax, with no reference to a binary representation.
+
 \section{Definitions}
 
 \info{General definitions used in all sections. Like the

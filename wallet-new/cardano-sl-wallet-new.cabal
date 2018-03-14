@@ -83,9 +83,10 @@ library
                      , safe-exceptions
                      , servant
                      , servant-client
-                     , servant-server
+                     , servant-client-core
                      , servant-quickcheck
                      , servant-swagger-ui
+                     , servant-server
                      , string-conv
                      , swagger2
                      , template-haskell

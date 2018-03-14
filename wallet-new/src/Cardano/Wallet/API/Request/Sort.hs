@@ -39,8 +39,6 @@ data SortDirection =
 data SortOperation ix a =
       SortByIndex SortDirection (Proxy ix)
     -- ^ Standard sort by index (e.g. sort_on=balance).
-    | SortIdentity
-    -- ^ Do not perform sorting on this resource.
 
 instance Show (SortOperations a) where
     show = show . flattenSortOperations
@@ -56,7 +54,6 @@ data SortOperations a where
 
 instance Show (SortOperation ix a) where
     show (SortByIndex dir _) = "SortByIndex[" <> show dir <> "]"
-    show SortIdentity        = "SortIdentity"
 
 -- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
 -- debug purposes.
@@ -90,23 +87,15 @@ instance ( Indexable' a
          , ToSortOperations ixs a
          )
          => ToSortOperations (ix ': ixs) a where
-  toSortOperations req [] _     =
-      let newOp = SortIdentity
-      in SortOp (newOp :: SortOperation ix a) (toSortOperations req [] (Proxy :: Proxy ixs))
-  toSortOperations req (key:xs) _ =
-      case List.lookup "sort_by" (parseQueryText $ rawQueryString req) of
-          Nothing       ->
-              let newOp = SortIdentity
-              in SortOp (newOp :: SortOperation ix a) (toSortOperations req xs (Proxy @ ixs))
-          Just Nothing  ->
-              let newOp = SortIdentity
-              in SortOp (newOp :: SortOperation ix a) (toSortOperations req xs (Proxy @ ixs))
-          Just (Just v) ->
-              case parseSortOperation (Proxy @a) (Proxy @ix) (key, v) of
-                  Left _      ->
-                      let newOp = SortIdentity
-                      in SortOp (newOp :: SortOperation ix a) (toSortOperations req xs (Proxy @ ixs))
-                  Right newOp -> newOp `SortOp` toSortOperations req xs (Proxy @ ixs)
+    toSortOperations _ [] _     =
+        NoSorts
+    toSortOperations req (key:xs) _ =
+        fromMaybe rest $ do
+            v <- join . List.lookup "sort_by" . parseQueryText $ rawQueryString req
+            newOp <- rightToMaybe $ parseSortOperation (Proxy @a) (Proxy @ix) (key, v)
+            pure (newOp `SortOp` rest)
+      where
+        rest = toSortOperations req xs (Proxy @ ixs)
 
 -- | Servant's 'HasServer' instance telling us what to do with a type-level specification of a sort operation.
 instance ( HasServer subApi ctx

@@ -15,16 +15,17 @@ import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (Symbol)
+import           Network.HTTP.Types (parseQueryText)
+import           Network.Wai (Request, rawQueryString)
+import           Servant
 import           Servant.Client
+import           Servant.Client.Core.Internal.Request (appendToQueryString)
+import           Servant.Server.Internal
 import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
-import           Network.HTTP.Types (parseQueryText)
-import           Network.Wai (Request, rawQueryString)
-import           Servant
-import           Servant.Server.Internal
 
 --
 -- Filtering data
@@ -74,21 +75,20 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
-    | FilterIdentity
-    -- ^ Do not alter the resource.
 
 renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
 renderFilterOperation = \case
-    FilterByIndex ix -> toQueryParam ix
-    FilterByPredicate p ix -> mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
-    FilterByRange lo hi  -> mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
-    FilterIdentity -> ""
+    FilterByIndex ix ->
+        toQueryParam ix
+    FilterByPredicate p ix ->
+        mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
+    FilterByRange lo hi  ->
+        mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
 
 instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
     show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
     show (FilterByRange _ _)          = "FilterByRange"
-    show FilterIdentity               = "FilterIdentity"
 
 -- | Represents a filter operation on the data model.
 -- Examples:
@@ -116,17 +116,15 @@ instance ( Indexable' a
          , FromHttpApiData ix
          )
          => ToFilterOperations (ix ': ixs) a where
-    toFilterOperations req [] _     =
-        let newOp = FilterIdentity
-        in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req [] (Proxy :: Proxy ixs))
+    toFilterOperations _ [] _     =
+        NoFilters
     toFilterOperations req (x:xs) _ =
         fromMaybe rest $ do
             v <- join . List.lookup x . parseQueryText $ rawQueryString req
-            op <- hush $ parseFilterOperation (Proxy @a) (Proxy @ix) v
+            op <- rightToMaybe $ parseFilterOperation (Proxy @a) (Proxy @ix) v
             pure (FilterOp op rest)
       where
         rest = toFilterOperations req xs (Proxy @ ixs)
-        hush = either (const Nothing) Just
 
 instance ( HasServer subApi ctx
          , FilterParams syms res ~ ixs
@@ -201,8 +199,17 @@ instance
     => HasClient m (FilterBy syms res :> next) where
     type Client m (FilterBy syms res :> next) = FilterOperations res -> Client m next
     clientWithRoute pm _ req filterOperations =
-        clientWithRoute pm (Proxy @next) (incorporate filterOperations)
+        clientWithRoute pm (Proxy @next) (incorporate filterOperations req)
       where
-        -- TODO: implement this
-        incorporate _ = req
-
+        incorporate NoFilters r = r
+        incorporate (FilterOp fop rest) r =
+            incorporate rest $ case fop of
+                FilterByIndex ix ->
+                    appendToQueryString pname pvalue r
+                FilterByPredicate fop ix ->
+                    r
+                FilterByRange ix _ ->
+                    r
+          where
+            pname = error "finish me"
+            pvalue = Just ""

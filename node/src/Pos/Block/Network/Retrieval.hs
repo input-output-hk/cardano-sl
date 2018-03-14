@@ -80,12 +80,13 @@ retrievalWorkerImpl
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
-retrievalWorkerImpl SendActions {..} =
-    handleAll mainLoopE $ do
-        logDebug "Starting retrievalWorker loop"
-        mainLoop
+retrievalWorkerImpl SendActions {..} = mainLoop
   where
-    mainLoop = runIfNotShutdown $ do
+    mainLoop =
+        handleAll mainLoopE $ do
+            logDebug "Starting retrievalWorker loop"
+            mainLoopImpl
+    mainLoopImpl = do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -106,7 +107,7 @@ retrievalWorkerImpl SendActions {..} =
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
         thingToDoNext
-        mainLoop
+        runIfNotShutdown mainLoopImpl -- next iteration
     mainLoopE e = do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         reportOrLogE "retrievalWorker mainLoopE: error caught " e

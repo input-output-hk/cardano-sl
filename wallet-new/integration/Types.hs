@@ -53,6 +53,7 @@ data Action
     = CreateWallet
     | GetWallets
     | GetWallet
+    | DeleteWallet
 
     | CreateAccount
     | GetAccounts

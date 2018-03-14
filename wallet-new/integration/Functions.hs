@@ -7,6 +7,7 @@ module Functions where
 import           Universum
 
 import           Data.Coerce (coerce)
+import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
 import           Control.Lens ((+~))
@@ -88,6 +89,30 @@ runAction wc ws GetWallet    = do
     pure $ ws
         & actionsNum +~ 1
 
+runAction wc ws DeleteWallet = do
+
+    let localWallets = ws ^. wallets
+
+    -- The precondition is that we need to have wallets.
+    guard (not (null localWallets))
+
+    -- We choose from the existing wallets.
+    wallet  <-  pickRandomElement localWallets
+
+    -- If we don't have any http client errors, the delete was a success.
+    _       <-  respToRes $ deleteWallet wc (walId wallet)
+
+    -- Just in case, let's check if it's still there.
+    result  <-  respToRes $ getWallets wc
+
+    checkInvariant
+        (all ((/=) wallet) localWallets)
+        (LocalWalletsDiffers result)
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & wallets    .~ delete wallet localWallets
+        & actionsNum +~ 1
 
 -- Accounts
 runAction wc ws  CreateAccount = do

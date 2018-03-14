@@ -126,6 +126,8 @@ data Transaction h a = Transaction {
     -- ^ The fee charged to this transaction.
     , trHash  :: Int
     -- ^ The hash of this transaction. Must be unique in the entire chain.
+    , trExtra :: [Text]
+    -- ^ Free-form comments, used for debugging
     }
 
 deriving instance (Hash h a, Eq  a) => Eq  (Transaction h a)
@@ -571,6 +573,7 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       % ", outs:  " % listJson
       % ", fee:   " % build
       % ", hash:  " % build
+      % ", extra: " % listJson
       % "}"
       )
       trFresh
@@ -578,6 +581,7 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       trOuts
       trFee
       trHash
+      trExtra
 
 instance (Buildable a, Hash h a) => Buildable (Chain h a) where
   build Chain{..} = bprint

@@ -71,6 +71,7 @@ bootstrapTransaction ctxt@TransCtxt{..} = DSL.Transaction {
     , trOuts  = map (uncurry DSL.Output) balances
     , trFee   = 0
     , trHash  = 0
+    , trExtra = ["Bootstrap transaction"]
     }
   where
     CardanoContext{..} = tcCardano

@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | Wallet unit tests
 --
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
@@ -6,7 +8,7 @@ module Main (main) where
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
-import           Serokell.Util (mapJson)
+import           Serokell.Util (mapJson, listJson)
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck (generate)
 import           Universum
@@ -100,36 +102,29 @@ testTranslation = do
 
 testPureWallet :: Spec
 testPureWallet = do
-    describe "Pure wallet sanity checks" $ do
-      valid "simple empty wallet satisfies invariants" $
-        walletInvariants specEmpty WalletEmpty
-      valid "incremental empty wallet satisfies invariants" $
-        walletInvariants incrEmpty WalletEmpty
-      valid "simple and incremental empty wallets are equivalent" $
-        walletEquivalent specEmpty incrEmpty WalletEmpty
-
     beforeAll (generate genInductive) $ do
       describe "Inductive wallet generations satisfy invariants" $ do
         it "specEmpty " $
-          shouldBeValidated . walletInvariants specEmpty
+          checkInvariants specEmpty
         it "incrEmpty" $
-          shouldBeValidated . walletInvariants incrEmpty
+          checkInvariants incrEmpty
         it "rollEmpty" $
-          shouldBeValidated . walletInvariants rollEmpty
+          checkInvariants rollEmpty
         it "prefEmpty" $
-          shouldBeValidated . walletInvariants rollEmpty
+          checkInvariants rollEmpty
       describe "Wallets are equivalent after interpretation" $ do
         it "spec and incr" $
-          shouldBeValidated . walletEquivalent specEmpty incrEmpty
+          checkEquivalent specEmpty incrEmpty
         it "spec and roll" $
-          shouldBeValidated . walletEquivalent specEmpty rollEmpty
+          checkEquivalent specEmpty rollEmpty
         it "spec and pref" $
-          shouldBeValidated . walletEquivalent specEmpty prefEmpty
+          checkEquivalent specEmpty prefEmpty
   where
     transCtxt = runTranslateNoErrors ask
 
+    genInductive :: Hash h Addr => Gen (Set Addr, Inductive h Addr)
     genInductive = do
-      (_, fpc) <- intAndVerifyChain genValidBlockchain
+      fpc <- runTranslateT $ fromPreChain genValidBlockchain
       n <- choose
         ( 1
         , length . filter (not . isAvvmAddr) . toList
@@ -137,27 +132,41 @@ testPureWallet = do
         )
       genFromBlockchainPickingAccounts n fpc
 
-    specEmpty :: Spec.Wallet GivenHash Addr
-    specEmpty = Spec.walletEmpty isOurs
+    checkInvariants :: (IsWallet w h a, Buildable a)
+                    => (Set a -> Transaction h a -> w h a)
+                    -> (Set a, Inductive h a)
+                    -> Expectation
+    checkInvariants w (addrs, ind) =
+        shouldBeValidated
+      $ addErrorDetail (sformat ("addrs: " % listJson) (Set.toList addrs))
+      $ walletInvariants (w addrs) ind
 
-    incrEmpty :: Incr.Wallet GivenHash Addr
-    incrEmpty = Incr.walletEmpty isOurs
+    checkEquivalent :: (IsWallet w h a, IsWallet w' h a, Buildable a)
+                    => (Set a -> Transaction h a -> w  h a)
+                    -> (Set a -> Transaction h a -> w' h a)
+                    -> (Set a, Inductive h a)
+                    -> Expectation
+    checkEquivalent w w' (addrs, ind) =
+        shouldBeValidated
+      $ addErrorDetail (sformat ("addrs: " % listJson) (Set.toList addrs))
+      $ walletEquivalent (w addrs) (w' addrs) ind
 
-    rollEmpty :: Roll.Wallet GivenHash Addr
-    rollEmpty = Roll.walletEmpty isOurs
+    specEmpty :: Set Addr -> Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr
+    specEmpty = walletBoot Spec.walletEmpty . oursFromSet
 
-    prefEmpty :: Pref.Wallet GivenHash Addr
-    prefEmpty = Pref.walletEmpty isOurs
+    incrEmpty :: Set Addr -> Transaction GivenHash Addr -> Incr.Wallet GivenHash Addr
+    incrEmpty = walletBoot Incr.walletEmpty . oursFromSet
 
-    isOurs :: Ours Addr
-    isOurs addr = do
-        guard (isOurs' addr)
+    rollEmpty :: Set Addr -> Transaction GivenHash Addr -> Roll.Wallet GivenHash Addr
+    rollEmpty = walletBoot Roll.walletEmpty . oursFromSet
+
+    prefEmpty :: Set Addr -> Transaction GivenHash Addr -> Pref.Wallet GivenHash Addr
+    prefEmpty = walletBoot Pref.walletEmpty . oursFromSet
+
+    oursFromSet :: Set Addr -> Ours Addr
+    oursFromSet addrs addr = do
+        guard (Set.member addr addrs)
         return $ fst (resolveAddr addr transCtxt)
-
-    -- Just an example: wallet tracking the first rich actor
-    isOurs' :: Addr -> Bool
-    isOurs' (Addr (IxRich 0) 0) = True
-    isOurs' _otherwise          = False
 
 {-------------------------------------------------------------------------------
   Passive wallet tests
@@ -217,6 +226,7 @@ oneTrans = preChain $ \boot -> return $ \((fee : _) : _) ->
                , trOuts  = [ Output r1 1000
                            , Output r0 (initR0 - 1000 - fee)
                            ]
+               , trExtra = ["t1"]
                }
     in OldestFirst [OldestFirst [t1]]
 
@@ -231,6 +241,7 @@ overspend = preChain $ \boot -> return $ \((fee : _) : _) ->
                , trOuts  = [ Output r1 1000
                            , Output r0 initR0
                            ]
+               , trExtra = ["t1"]
                }
     in OldestFirst [OldestFirst [t1]]
 
@@ -248,6 +259,7 @@ doublespend = preChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
                , trOuts  = [ Output r1 1000
                            , Output r0 (initR0 - 1000 - fee1)
                            ]
+               , trExtra = ["t1"]
                }
         t2 = Transaction {
                  trFresh = 0
@@ -257,6 +269,7 @@ doublespend = preChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
                , trOuts  = [ Output r2 1000
                            , Output r0 (initR0 - 1000 - fee2)
                            ]
+               , trExtra = ["t2"]
                }
     in OldestFirst [OldestFirst [t1, t2]]
 
@@ -283,6 +296,7 @@ example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
                , trOuts  = [ Output r1 1000
                            , Output r0 (initR0 - 1000 - fee3)
                            ]
+               , trExtra = ["t3"]
                }
         t4 = Transaction {
                  trFresh = 0
@@ -290,6 +304,7 @@ example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
                , trHash  = 4
                , trIns   = Set.fromList [ Input (hash t3) 1 ]
                , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
+               , trExtra = ["t4"]
                }
     in OldestFirst [OldestFirst [t3, t4]]
 
@@ -323,38 +338,37 @@ intAndVerifyGen = intAndVerify
 -- | Interpret and verify a chain, given the bootstrap transactions
 intAndVerify :: (Hash h Addr, Monad m)
              => PreChain h m a -> m (ValidationResult h Addr)
-intAndVerify = map fst . intAndVerifyChain
+intAndVerify = intAndVerifyChain
 
 -- | Interpret and verify a chain, given the bootstrap transactions. Also
 -- returns the 'FromPreChain' value, which contains the blockchain, ledger,
 -- boot transaction, etc.
 intAndVerifyChain :: (Hash h Addr, Monad m)
                   => PreChain h m a
-                  -> m (ValidationResult h Addr, FromPreChain h a)
+                  -> m (ValidationResult h Addr)
 intAndVerifyChain pc = runTranslateT $ do
-    fpc@FromPreChain{..} <- fromPreChain pc
+    FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
         dslUtxo    = ledgerUtxo    fpcLedger
-        returnWith a = return (a, fpc)
     intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
     case intResult of
       Left e ->
         case dslIsValid of
-          Valid   () -> returnWith $ Disagreement fpcLedger (UnexpectedError e)
-          Invalid e' -> returnWith $ ExpectedInvalid' e' e
+          Valid     () -> return $ Disagreement fpcLedger (UnexpectedError e)
+          Invalid _ e' -> return $ ExpectedInvalid' e' e
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
-          (Invalid e' , Invalid e) -> returnWith $ ExpectedInvalid e' e
-          (Invalid e' , Valid   _) -> returnWith $ Disagreement fpcLedger (UnexpectedValid e')
-          (Valid   () , Invalid e) -> returnWith $ Disagreement fpcLedger (UnexpectedInvalid e)
-          (Valid   () , Valid   (_undo, finalUtxo)) -> do
+          (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e
+          (Invalid _ e' , Valid     _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
+          (Valid     () , Invalid _ e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
+          (Valid     () , Valid (_undo, finalUtxo)) -> do
             (finalUtxo', _) <- runIntT ctxt dslUtxo
             if finalUtxo == finalUtxo'
-              then returnWith $ ExpectedValid
-              else returnWith $ Disagreement fpcLedger UnexpectedUtxo {
+              then return $ ExpectedValid
+              else return $ Disagreement fpcLedger UnexpectedUtxo {
                          utxoDsl     = dslUtxo
                        , utxoCardano = finalUtxo
                        , utxoInt     = finalUtxo'

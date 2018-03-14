@@ -138,7 +138,8 @@ selectDestinations' notThese =
         . utxoRemoveInputs notThese
 
 -- | Create a fresh transaction that depends on the fee provided to it.
-newTransaction :: Hash h Addr => BlockGen h (Value -> Transaction h Addr)
+newTransaction :: (HasCallStack, Hash h Addr)
+               => BlockGen h (Value -> Transaction h Addr)
 newTransaction = do
     inputs'outputs <- selectSomeInputs
     destinations <- selectDestinations (foldMap Set.singleton (map fst inputs'outputs))
@@ -157,7 +158,7 @@ newTransaction = do
 -- addresses, construct a transaction by dividing the sum total of the inputs
 -- evenly over the output addresses.
 divvyUp
-    :: Hash h Addr
+    :: (HasCallStack, Hash h Addr)
     => Int
     -> NonEmpty (Input h Addr, Output Addr)
     -> NonEmpty Addr
@@ -171,6 +172,7 @@ divvyUp h inputs'outputs destinations fee = tx
            , trHash  = h
            , trIns   = inputs
            , trOuts  = outputs
+           , trExtra = []
            }
     inputs = foldMap (Set.singleton . fst) inputs'outputs
     destLen = fromIntegral (length destinations)

@@ -8,7 +8,7 @@
 
 -- | This module implements functionality of NTP client.
 
-module NTP.Client
+module Ntp.Client
     ( spawnNtpClient
     , NtpClientSettings (..)
     , NtpStatus (..)
@@ -36,8 +36,8 @@ import           System.Wlog (LoggerNameBox)
 import qualified System.Wlog as Wlog
 
 import           Mockable (realTime)
-import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
-import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
+import           Ntp.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
+import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
@@ -47,14 +47,13 @@ data NtpStatus =
     deriving (Eq, Show)
 
 data NtpClientSettings = NtpClientSettings
-    { ntpServers                     :: [String]
+    { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpResponseTimeout             :: Microsecond
+    , ntpResponseTimeout :: Microsecond
       -- ^ delay between making requests and response collection
-    , ntpPollDelay                   :: Microsecond
-      -- ^ how often to send requests to the servers
-    , ntpMeanSelection               :: [(Microsecond, Microsecond)]
-                                     -> (Microsecond, Microsecond)
+    , ntpPollDelay       :: Microsecond
+      -- ^ how long to wait between to send requests to the servers
+    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list

@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module NTP.Packet
+module Ntp.Packet
     ( NtpPacket (..)
     , ntpPacketSize
     , mkCliNtpPacket
@@ -17,7 +17,7 @@ import           Data.Binary.Put (putWord32be, putWord8)
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Data.Word (Word32, Word8)
 
-import           NTP.Util (getCurrentTime)
+import           Ntp.Util (getCurrentTime)
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters

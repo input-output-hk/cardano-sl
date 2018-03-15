@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module NTP.Util
+module Ntp.Util
     ( ntpPort
     , resolveNtpHost
     , getCurrentTime

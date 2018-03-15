@@ -7695,9 +7695,9 @@ inherit (pkgs) mesa;};
          , lens, log-warper, memory, mtl, neat-interpolation, network-uri
          , optparse-applicative, QuickCheck, quickcheck-instances
          , safe-exceptions, serokell-util, servant, servant-client
-         , servant-quickcheck, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, string-conv, swagger2
-         , template-haskell, text, text-format, time, time-units
+         , servant-client-core, servant-quickcheck, servant-server
+         , servant-swagger, servant-swagger-ui, stdenv, stm, string-conv
+         , swagger2, template-haskell, text, text-format, time, time-units
          , transformers, universum, unordered-containers, vector, wai
          , wai-cors, wai-extra, warp
          }:
@@ -7715,10 +7715,10 @@ inherit (pkgs) mesa;};
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
              log-warper memory mtl network-uri QuickCheck safe-exceptions
-             serokell-util servant servant-client servant-quickcheck
-             servant-server servant-swagger-ui string-conv swagger2
-             template-haskell text text-format time transformers universum
-             unordered-containers vector wai warp
+             serokell-util servant servant-client servant-client-core
+             servant-quickcheck servant-server servant-swagger-ui string-conv
+             swagger2 template-haskell text text-format time transformers
+             universum unordered-containers vector wai warp
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

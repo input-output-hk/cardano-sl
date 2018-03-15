@@ -8,7 +8,6 @@ module Cardano.Wallet.API.Request.Sort where
 import qualified Prelude
 import           Universum
 
-import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable
 import qualified Generics.SOP as SOP
@@ -123,10 +122,12 @@ instance ( Indexable' a
     toSortOperations _ [] _     =
         NoSorts
     toSortOperations req (key:xs) _ =
-        fromMaybe rest $ do
-            v <- join . List.lookup "sort_by" . parseQueryText $ rawQueryString req
-            newOp <- rightToMaybe $ parseSortOperation (Proxy @a) (Proxy @ix) (key, v)
-            pure (newOp `SortOp` rest)
+        foldr (either (flip const) SortOp) rest
+            . map (parseSortOperation (Proxy @a) (Proxy @ix) . (,) key)
+            . mapMaybe snd
+            . filter (("sort_by" ==) . fst)
+            . parseQueryText
+            $ rawQueryString req
       where
         rest = toSortOperations req xs (Proxy @ ixs)
 

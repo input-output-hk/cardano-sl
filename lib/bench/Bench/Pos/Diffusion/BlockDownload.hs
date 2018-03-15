@@ -134,7 +134,8 @@ withServer transport logic k = do
     -- give one.
     oq <- liftIO $ OQ.new "server"
                  Policy.defaultEnqueuePolicyRelay
-                 Policy.defaultDequeuePolicyRelay
+                 --Policy.defaultDequeuePolicyRelay
+                 (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
                  Policy.defaultFailurePolicyAuxx -- because its timeout is 0
                  (const (OQ.BucketSizeUnlimited))
                  (OQ.UnknownNodeType (const OQ.NodeRelay))
@@ -175,7 +176,8 @@ withClient transport logic serverAddress@(Node.NodeId serverEndPointAddress) k =
     -- give one.
     oq <- liftIO $ OQ.new "client"
                  Policy.defaultEnqueuePolicyRelay
-                 Policy.defaultDequeuePolicyRelay
+                 --Policy.defaultDequeuePolicyRelay
+                 (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
                  Policy.defaultFailurePolicyAuxx -- because its timeout is 0
                  (const (OQ.BucketSizeUnlimited))
                  (OQ.UnknownNodeType (const OQ.NodeRelay))

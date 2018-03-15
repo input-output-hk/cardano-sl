@@ -736,7 +736,7 @@ synthesizeTransactions addrs alreadySpent = do
       where
         utxoAfter = utxoApplyBlock b utxoBefore
         utxoAvail = oursNotSpent spent utxoAfter
-        newHash   = negate ix -- negative hashes not used elsewhere
+        newHash   = (-1) - ix -- negative hashes not used elsewhere
 
     oursNotSpent :: Set (Input h Addr) -> Utxo h Addr -> Utxo h Addr
     oursNotSpent spent = utxoRemoveInputs spent

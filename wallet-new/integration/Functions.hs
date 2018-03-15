@@ -46,6 +46,7 @@ runActionCheck walletClient walletState actionProb = do
 
 
 -- | Here we run the actions.
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 runAction
     :: (WalletTestMode m)
     => WalletClient m
@@ -259,7 +260,8 @@ runAction wc ws CreateAddress = do
     -- If we have accounts, that presupposes that we have wallets,
     -- which is the other thing we need here.
     let localAccounts = ws ^. accounts
-    guard (length localAccounts >= 1)
+
+    guard (not (null localAccounts))
 
     -- We choose from the existing wallets AND existing accounts.
     account <-  pickRandomElement (ws ^. accounts)
@@ -293,7 +295,7 @@ runAction wc ws GetAddresses   = do
     result  <-  respToRes $ getAddresses wc
 
     checkInvariant
-        (any ((==) address) result)
+        (elem address result)
         (LocalAddressesDiffer address result)
 
     -- Modify wallet state accordingly.
@@ -435,7 +437,7 @@ runAction wc ws GetTransaction  = do
 
     -- Then check if the transaction exists in the history
     checkInvariant
-        (any ((==) transaction) result)
+        (elem transaction result)
         (LocalTransactionMissing transaction result)
 
     -- Modify wallet state accordingly.

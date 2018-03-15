@@ -22,6 +22,7 @@ module Pos.Block.Configuration
 
     -- * Other constants
     , recoveryHeadersMessage
+    , streamWindow
     ) where
 
 import           Universum
@@ -48,6 +49,8 @@ data BlockConfiguration = BlockConfiguration
       -- ^ Estimated time for broadcasting messages
     , ccRecoveryHeadersMessage :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
+    , ccStreamWindow           :: !Int
+      -- ^ Number of blocks to have inflight
 
       -- Chain quality thresholds and other constants to detect
       -- suspicious things.
@@ -133,3 +136,9 @@ fixedTimeCQSec = ccFixedTimeCQ blockConfiguration
 -- 'blkSecurityParam'.
 recoveryHeadersMessage :: (HasBlockConfiguration, Integral a) => a
 recoveryHeadersMessage = fromIntegral . ccRecoveryHeadersMessage $ blockConfiguration
+
+-- | The maximum number of blocks to have in flight.
+-- Provides back-preassure from client to server when streaming.
+streamWindow :: (HasBlockConfiguration, Integral a) => a
+streamWindow = fromIntegral . ccStreamWindow $ blockConfiguration
+

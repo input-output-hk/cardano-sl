@@ -92,6 +92,7 @@ dev: &dev
   block: &dev_block
     networkDiameter: 3
     recoveryHeadersMessage: 20 # should be greater than k
+    streamWindow: 2048
 
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95
@@ -269,6 +270,7 @@ mainnet_base: &mainnet_base
   block: &mainnet_base_block
     networkDiameter: 18
     recoveryHeadersMessage: 2200 # should be greater than k
+    streamWindow: 2048
 
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95

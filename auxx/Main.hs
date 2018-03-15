@@ -13,7 +13,7 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
-import           Pos.Block.Configuration (recoveryHeadersMessage)
+import           Pos.Block.Configuration (recoveryHeadersMessage, streamWindow)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
@@ -114,6 +114,7 @@ action opts@AuxxOptions {..} command = do
                 , fdcRecoveryHeadersMessage = recoveryHeadersMessage
                 , fdcLastKnownBlockVersion = lastKnownBlockVersion
                 , fdcConvEstablishTimeout = networkConnectionTimeout
+                , fdcStreamWindow = streamWindow
                 , fdcTrace = wlogTrace "auxx"
                 }
 

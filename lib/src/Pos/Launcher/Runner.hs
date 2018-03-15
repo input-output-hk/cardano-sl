@@ -26,7 +26,8 @@ import           System.Exit (ExitCode (..))
 import           System.Wlog (askLoggerName)
 
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage,
+                                          streamWindow)
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
@@ -162,6 +163,7 @@ runServer runIO NodeParams {..} ekgNodeMetrics act = do
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
+        , fdcStreamWindow = streamWindow
         , fdcTrace = wlogTrace (lname <> "diffusion")
         }
     exitOnShutdown action = do

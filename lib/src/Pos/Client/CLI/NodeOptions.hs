@@ -43,7 +43,6 @@ data CommonNodeArgs = CommonNodeArgs
     , commonArgs             :: !CommonArgs
     , updateLatestPath       :: !FilePath
     , updateWithPackage      :: !Bool
-    , noNtpChecks            :: !Bool
     , route53Params          :: !(Maybe NetworkAddress)
     , enableMetrics          :: !Bool
     , ekgParams              :: !(Maybe EkgParams)
@@ -86,9 +85,6 @@ commonNodeArgsParser = do
     updateWithPackage <- switch $
         long "update-with-package" <>
         help "Enable updating via installer."
-    noNtpChecks <- switch $
-        long "no-ntp-checks" <>
-        help "Disable NTP checks."
 
     route53Params <- optional route53HealthCheckOption
 

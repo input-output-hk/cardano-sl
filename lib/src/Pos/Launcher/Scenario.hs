@@ -11,25 +11,22 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Concurrent.STM (retry)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (Mockable, Async, withAsync, mapConcurrently)
+import           Mockable (Mockable, Async, mapConcurrently)
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, askLoggerName, logDebug, logInfo, logWarning)
+import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..), wrapActionSpec)
-import           Pos.Context (getOurPublicKey, ncNodeParams, ncNtpConfig)
+import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
-import           Pos.Launcher.Param (npNtpChecks)
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Ntp.Check (NtpStatus (..), ntpSettings, withNtpCheck)
 import           Pos.Reporting (reportError)
 import           Pos.Slotting (waitSystemStart)
 import           Pos.Txp (bootDustThreshold)
@@ -54,7 +51,7 @@ runNode'
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCheck (npNtpChecks $ ncNodeParams nrContext) $ do
+runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -106,18 +103,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> ntpCh
                     " failed with exception: "%shown)
             loggerName e
 
-    ntpCheck False action = action
-    ntpCheck True action = do
-        tvar <- newTVarIO Nothing
-        let settings = ntpSettings (ncNtpConfig nrContext) tvar
-        withAsync
-            (do
-                st <- atomically $ readTVar tvar >>= \case
-                    Nothing -> retry
-                    Just st -> return st
-                onNtpStatusLogWarning st)
-            (\_ -> withNtpCheck settings action)
-
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode
@@ -132,16 +117,6 @@ runNode nr (plugins, plOuts) =
   where
     (workers', wOuts) = allWorkers nr
     plugins' = map (wrapActionSpec "plugin") plugins
-
-onNtpStatusLogWarning :: WithLogger m => NtpStatus -> m ()
-onNtpStatusLogWarning = \case
-    NtpSyncOk -> logDebug $
-              -- putText  $ -- FIXME: for some reason this message isn't printed
-                            -- when using 'logDebug', but a simple 'putText' works
-                            -- just fine.
-        "Local time is in sync with the NTP server"
-    NtpDesync diff -> logWarning $
-        "Local time is severely off sync with the NTP server: " <> show diff
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

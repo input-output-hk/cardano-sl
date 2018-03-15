@@ -57,7 +57,6 @@ data NodeParams = NodeParams
     , npJLFile         :: !(Maybe FilePath)     -- ^ File to use for JSON logging.
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
-    , npNtpChecks      :: !Bool                 -- ^ Whether to use NTP checks.
     , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.

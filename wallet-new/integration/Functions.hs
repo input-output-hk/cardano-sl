@@ -27,9 +27,8 @@ import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Launcher (withConfigurations)
 import           Pos.Util.Filesystem (withSystemTempFile)
-import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, mkGenesisWalletUserSecret,
-                                      takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
-                                      writeUserSecretRelease)
+import           Pos.Util.UserSecret (initializeUserSecret, mkGenesisWalletUserSecret,
+                                      takeUserSecret, usKeys, usWallet, writeUserSecretRelease)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 
@@ -339,8 +338,8 @@ runAction wc ws GetTransaction  = do
         & actionsNum +~ 1
 runAction wc ws ImportPoorWallet = do
     poorSecret <- pickRandomElement =<< liftIO unsafePoorSecrets
-    liftIO $ usingLoggerName "integration-test" $ withSystemTempFile "importWalletKey.sk" $ \tempFp _ -> do
-        dumpPoorSecret tempFp poorSecret
+    withSystemTempFile "importWalletKey.sk" $ \tempFp _ -> do
+        liftIO $ usingLoggerName "integration-test" $ dumpPoorSecret tempFp poorSecret
         poorWallet <- respToRes $ importWalletKey wc tempFp
 
         checkInvariant

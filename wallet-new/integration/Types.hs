@@ -32,6 +32,7 @@ type WalletTestMode m =
     ( MonadIO m
     , MonadThrow m
     , MonadPlus m
+    , MonadMask m
     )
 
 -- | The probability type that captures the chance of

@@ -9,8 +9,7 @@
 -- | This module implements functionality of NTP client.
 
 module NTP.Client
-    ( NtpMonad
-    , spawnNtpClient
+    ( spawnNtpClient
     , NtpClientSettings (..)
     , NtpStatus (..)
     , ntpSingleShot
@@ -18,28 +17,25 @@ module NTP.Client
 
 import           Universum
 
-import           Control.Concurrent.STM (check, modifyTVar')
-import           Control.Concurrent.STM.TVar (TVar, readTVar)
-import           Control.Exception.Safe (Exception, MonadMask, catchAny, handleAny)
+import           Control.Concurrent.Async (withAsync, concurrently, forConcurrently, race)
+import           Control.Concurrent.STM (TVar, check, modifyTVar')
+import           Control.Exception.Safe (Exception, catchAny, handleAny)
 import           Control.Lens ((%=), (.=), _Just)
 import           Control.Monad (forever)
 import           Control.Monad.State (gets)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Maybe (catMaybes, isNothing)
-import           Data.Time.Units (Microsecond, Second, toMicroseconds)
+import           Data.Time.Units (TimeUnit, Microsecond, Second, toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
 import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, logWarning,
-                              modifyLoggerName)
+import           System.Wlog (LoggerNameBox)
+import qualified System.Wlog as Wlog
 
-import           Mockable.Class (Mockable)
-import           Mockable (Async, Concurrently, CurrentTime, Delay, concurrently, currentTime, forConcurrently,
-                                      timeout, withAsync)
+import           Mockable (realTime)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
@@ -53,8 +49,6 @@ data NtpStatus =
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpLogName         :: LoggerName
-      -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
@@ -91,18 +85,22 @@ data NoHostResolved = NoHostResolved
 
 instance Exception NoHostResolved
 
-type NtpMonad m =
-    ( MonadIO m
-    , MonadBaseControl IO m
-    , MonadMask m
-    , WithLogger m
-    , Mockable Concurrently m
-    , Mockable CurrentTime m
-    , Mockable Async m
-    , Mockable Delay m
-    )
+usingNtpLogger :: LoggerNameBox IO a -> IO a
+usingNtpLogger = Wlog.usingLoggerName "NtpClient"
 
-handleCollectedResponses :: NtpMonad m => NtpClient -> m ()
+logError :: Text -> IO ()
+logError = usingNtpLogger . Wlog.logError
+
+logWarning :: Text -> IO ()
+logWarning = usingNtpLogger . Wlog.logWarning
+
+logInfo :: Text -> IO ()
+logInfo = usingNtpLogger . Wlog.logInfo
+
+logDebug :: Text -> IO ()
+logDebug = usingNtpLogger . Wlog.logDebug
+
+handleCollectedResponses :: NtpClient -> IO ()
 handleCollectedResponses cli = do
     mres <- readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
@@ -119,10 +117,10 @@ handleCollectedResponses cli = do
   where
     handleE = logError . sformat ("ntpMeanSelection: "%shown)
 
-    handler :: NtpMonad m => (Microsecond, Microsecond) -> m ()
+    handler :: (Microsecond, Microsecond) -> IO ()
     handler (newMargin, transmitTime) = do
         let ntpTime = transmitTime + newMargin
-        localTime <- currentTime
+        localTime <- realTime
         let timeDiff = abs $ ntpTime - localTime
         -- If the @absolute@ time difference between the NTP time and the local time is
         -- bigger than the given threshold, it effectively means we are not synced, as we are
@@ -141,11 +139,11 @@ allResponsesGathered cli = do
         Nothing        -> False
         Just responses -> length responses >= length servers
 
-doSend :: NtpMonad m => SockAddr -> NtpClient -> m ()
+doSend :: SockAddr -> NtpClient -> IO ()
 doSend addr cli = do
     sock   <- readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
-    handleAny handleE . void . liftIO $ sendDo addr sock (LBS.toStrict packet)
+    handleAny handleE . void $ sendDo addr sock (LBS.toStrict packet)
   where
     sendDo a@(SockAddrInet _ _) (IPv4Sock sock)      = sendTo' sock a
     sendDo a@(SockAddrInet _ _) (BothSock sock _)    = sendTo' sock a
@@ -159,7 +157,7 @@ doSend addr cli = do
     handleE =
         logWarning . sformat ("Failed to send to "%shown%": "%shown) addr
 
-startSend :: NtpMonad m => [SockAddr] -> NtpClient -> m ()
+startSend :: [SockAddr] -> NtpClient -> IO ()
 startSend addrs cli = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll    = ntpPollDelay (ncSettings cli)
@@ -179,7 +177,7 @@ startSend addrs cli = do
     startSend addrs cli
 
 -- Try to create IPv4 and IPv6 socket.
-mkSockets :: forall m . NtpMonad m => NtpClientSettings -> m Sockets
+mkSockets :: NtpClientSettings -> IO Sockets
 mkSockets settings = do
     (sock1MB, sock2MB) <- doMkSockets `catchAny` handlerE
     whenJust sock1MB logging
@@ -196,8 +194,8 @@ mkSockets settings = do
     logging (_, addrInfo) = logInfo $
         sformat ("Created socket (family/addr): "%shown%"/"%shown)
                 (addrFamily addrInfo) (addrAddress addrInfo)
-    doMkSockets :: m (Maybe (Socket, AddrInfo), Maybe (Socket, AddrInfo))
-    doMkSockets = liftIO $ do
+    doMkSockets :: IO (Maybe (Socket, AddrInfo), Maybe (Socket, AddrInfo))
+    doMkSockets = do
         serveraddrs <- udpLocalAddresses
         (,) <$> createAndBindSock selectIPv4 serveraddrs
             <*> createAndBindSock selectIPv6 serveraddrs
@@ -208,7 +206,7 @@ mkSockets settings = do
         threadDelay (5 :: Second)
         doMkSockets
 
-handleNtpPacket :: NtpMonad m => NtpClient -> NtpPacket -> m ()
+handleNtpPacket :: NtpClient -> NtpPacket -> IO ()
 handleNtpPacket cli packet = do
     logDebug $ sformat ("Got packet "%shown) packet
 
@@ -223,9 +221,9 @@ handleNtpPacket cli packet = do
     when late $
         logWarning "Response was too late"
 
-doReceive :: NtpMonad m => Socket -> NtpClient -> m ()
+doReceive :: Socket -> NtpClient -> IO ()
 doReceive sock cli = forever $ do
-    (received, _) <- liftIO $ recvFrom sock ntpPacketSize
+    (received, _) <- recvFrom sock ntpPacketSize
     let eNtpPacket = decodeOrFail $ LBS.fromStrict received
     case eNtpPacket of
         Left  (_, _, err)    ->
@@ -235,7 +233,7 @@ doReceive sock cli = forever $ do
   where
     handleE = logWarning . sformat ("Error while handle packet: "%shown)
 
-startReceive :: NtpMonad m => NtpClient -> m ()
+startReceive :: NtpClient -> IO ()
 startReceive cli = do
     sockets <- atomically . readTVar $ ncSockets cli
     case sockets of
@@ -266,10 +264,9 @@ startReceive cli = do
          flip mergeSockets .
          constr $ sock)
 
-spawnNtpClient :: NtpMonad m => NtpClientSettings -> TVar NtpStatus -> m ()
+spawnNtpClient :: NtpClientSettings -> TVar NtpStatus -> IO ()
 spawnNtpClient settings ntpStatus =
     withSocketsDoLifted $
-    modifyLoggerName (<> ntpLogName settings) $
     bracket (mkSockets settings) closeSockets $ \sock -> do
         cli <- mkNtpClient settings ntpStatus sock
 
@@ -296,10 +293,9 @@ spawnNtpClient settings ntpStatus =
 -- | Start client, wait for a while so that most likely it ticks once
 -- and stop it.
 ntpSingleShot
-    :: (NtpMonad m)
-    => NtpClientSettings
+    :: NtpClientSettings
     -> TVar NtpStatus
-    -> m ()
+    -> IO ()
 ntpSingleShot ntpSettings ntpStatus =
     () <$ timeout (ntpResponseTimeout ntpSettings) (spawnNtpClient ntpSettings ntpStatus)
 
@@ -329,3 +325,6 @@ mergeSockets (BothSock v4 _) (IPv6Sock s) = BothSock v4 s
 mergeSockets (IPv6Sock _) (IPv6Sock s)    = IPv6Sock s
 mergeSockets (IPv4Sock _) (IPv4Sock s)    = IPv4Sock s
 mergeSockets _ _                          = error "Unexpected state of mergeSockets"
+
+timeout :: TimeUnit t => t -> IO a -> IO (Maybe a)
+timeout t io = rightToMaybe <$> race (threadDelay t) io

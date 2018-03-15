@@ -14,12 +14,13 @@ import           Control.Lens ((+~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AddressValidity (..),
-                                              AssuranceLevel (..), EstimatedFees (..),
-                                              NewAccount (..), NewAddress (..), Payment (..),
-                                              PaymentDistribution (..), PaymentSource (..),
-                                              Transaction (..), V1 (..), Wallet (..),
-                                              WalletAddress (..), WalletId, WalletUpdate (..))
+import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
+                                              AddressValidity (..), AssuranceLevel (..),
+                                              EstimatedFees (..), NewAccount (..), NewAddress (..),
+                                              Payment (..), PaymentDistribution (..),
+                                              PaymentSource (..), Transaction (..), V1 (..),
+                                              Wallet (..), WalletAddress (..), WalletId,
+                                              WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
@@ -137,7 +138,7 @@ runAction wc ws UpdateWallet = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & wallets    .~ (delete wallet localWallets <> [result])
+        & wallets    .~ update wallet result localWallets
         & actionsNum +~ 1
 
 -- Accounts
@@ -224,6 +225,31 @@ runAction wc ws DeleteAccount = do
     -- Modify wallet state accordingly.
     pure $ ws
         & accounts   .~ delete account localAccounts
+        & actionsNum +~ 1
+
+runAction wc ws UpdateAccount = do
+
+    let localAccounts = ws ^. accounts
+
+    -- The precondition is that we need to have accounts.
+    guard (not (null localAccounts))
+
+    -- We choose from the existing wallets.
+    account <-  pickRandomElement localAccounts
+
+    let walletId  = accWalletId account
+    let accountId = accIndex account
+
+    let newAccount =
+            AccountUpdate
+                { uaccName = "Account name " <> (show accountId)
+                }
+
+    result  <-  respToRes $ updateAccount wc walletId accountId newAccount
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & accounts   .~ update account result localAccounts
         & actionsNum +~ 1
 
 -- Addresses
@@ -461,6 +487,11 @@ checkInvariant
     -> m ()
 checkInvariant True  _             = pure ()
 checkInvariant False walletTestErr = throwM walletTestErr
+
+
+-- | Update the list element.
+update :: Eq a => a -> a -> [a] -> [a]
+update x y xs = map (\x' -> if (x == x') then y else x') xs
 
 
 -- | Output for @Text@.

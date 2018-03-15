@@ -60,6 +60,7 @@ data Action
     | GetAccounts
     | GetAccount
     | DeleteAccount
+    | UpdateAccount
 
     | CreateAddress
     | GetAddresses

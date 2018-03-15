@@ -44,14 +44,15 @@ import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, nt
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
-data NtpStatus = NtpSyncOk | NtpDesync Microsecond
+data NtpStatus =
+      NtpSyncOk
+    | NtpDesync Microsecond
+    | NtpSyncUnavailable
     deriving (Eq, Show)
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
       -- ^ list of servers addresses
-    , ntpStatus          :: TVar (Maybe NtpStatus)
-      -- ^ got time callback (margin, time when client sent request)
     , ntpLogName         :: LoggerName
       -- ^ logger name modifier
     , ntpResponseTimeout :: Microsecond
@@ -70,12 +71,17 @@ data NtpClientSettings = NtpClientSettings
 
 data NtpClient = NtpClient
     { ncSockets  :: TVar Sockets
+      -- ^ ntp client sockets: ipv4 / ipv6 / both
     , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
+      -- ^ ntp client state, list of received values
+    , ncStatus          :: TVar NtpStatus
+      -- ^ got time callback (margin, time when client sent request)
     , ncSettings :: NtpClientSettings
+      -- ^ client configuration
     }
 
-mkNtpClient :: MonadIO m => NtpClientSettings -> Sockets -> m NtpClient
-mkNtpClient ncSettings sock = liftIO $ do
+mkNtpClient :: MonadIO m => NtpClientSettings -> TVar NtpStatus -> Sockets -> m NtpClient
+mkNtpClient ncSettings ncStatus sock = liftIO $ do
     ncSockets <- newTVarIO sock
     ncState  <- newTVarIO Nothing
     return NtpClient{..}
@@ -124,7 +130,7 @@ handleCollectedResponses cli = do
         let !status
                 | timeDiff > (ntpTimeDifferenceWarnThreshold . ncSettings $ cli) = NtpDesync timeDiff
                 | otherwise = NtpSyncOk
-        atomically $ writeTVar (ntpStatus . ncSettings $ cli) (Just status)
+        atomically $ writeTVar (ncStatus cli) status
 
 
 allResponsesGathered :: NtpClient -> STM Bool
@@ -260,12 +266,12 @@ startReceive cli = do
          flip mergeSockets .
          constr $ sock)
 
-spawnNtpClient :: NtpMonad m => NtpClientSettings -> m ()
-spawnNtpClient settings =
+spawnNtpClient :: NtpMonad m => NtpClientSettings -> TVar NtpStatus -> m ()
+spawnNtpClient settings ntpStatus =
     withSocketsDoLifted $
     modifyLoggerName (<> ntpLogName settings) $
     bracket (mkSockets settings) closeSockets $ \sock -> do
-        cli <- mkNtpClient settings sock
+        cli <- mkNtpClient settings ntpStatus sock
 
         addrs <- catMaybes <$> mapM (resolveHost $ socketsToBoolDescr sock)
                                     (ntpServers settings)
@@ -291,9 +297,11 @@ spawnNtpClient settings =
 -- and stop it.
 ntpSingleShot
     :: (NtpMonad m)
-    => NtpClientSettings -> m ()
-ntpSingleShot settings =
-    () <$ timeout (ntpResponseTimeout settings) (spawnNtpClient settings)
+    => NtpClientSettings
+    -> TVar NtpStatus
+    -> m ()
+ntpSingleShot ntpSettings ntpStatus =
+    () <$ timeout (ntpResponseTimeout ntpSettings) (spawnNtpClient ntpSettings ntpStatus)
 
 -- Store created sockets.
 -- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.

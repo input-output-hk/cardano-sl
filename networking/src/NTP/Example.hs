@@ -20,12 +20,12 @@ import           System.Wlog (Severity (..), defaultConfig, setupLogging,
 
 import           Mockable.Instances ()
 import           Mockable.Production (Production (..))
-import           NTP.Client (NtpClientSettings (..), spawnNtpClient)
+import           NTP.Client (NtpClientSettings (..), NtpStatus, spawnNtpClient)
 
-runNtpClientIO :: NtpClientSettings -> IO ()
-runNtpClientIO settings = do
+runNtpClientIO :: NtpClientSettings -> TVar NtpStatus -> IO ()
+runNtpClientIO ntpSettings ntpStatus = do
     setupLogging Nothing $
         defaultConfig "ntp-example" <> termSeveritiesOutB (severityPlus Debug)
     void $ runProduction $
         usingLoggerName "ntp-example" $
-        spawnNtpClient settings
+        spawnNtpClient ntpSettings ntpStatus

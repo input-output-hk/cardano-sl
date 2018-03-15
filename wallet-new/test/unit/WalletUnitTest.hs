@@ -8,9 +8,8 @@ module Main (main) where
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
-import           Serokell.Util (mapJson, listJson)
+import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
-import           Test.QuickCheck (generate)
 import           Universum
 
 import qualified Pos.Block.Error as Cardano
@@ -102,27 +101,20 @@ testTranslation = do
 
 testPureWallet :: Spec
 testPureWallet = do
-    beforeAll (generate genInductive) $ do
-      describe "Inductive wallet generations satisfy invariants" $ do
-        it "specEmpty " $
-          checkInvariants specEmpty
-        it "incrEmpty" $
-          checkInvariants incrEmpty
-        it "rollEmpty" $
-          checkInvariants rollEmpty
-        it "prefEmpty" $
-          checkInvariants rollEmpty
-      describe "Wallets are equivalent after interpretation" $ do
-        it "spec and incr" $
-          checkEquivalent specEmpty incrEmpty
-        it "spec and roll" $
-          checkEquivalent specEmpty rollEmpty
-        it "spec and pref" $
-          checkEquivalent specEmpty prefEmpty
+    it "Test pure wallets" $
+      forAll genInductive $ \ind -> conjoin [
+          checkInvariants "spec"      ind specEmpty
+        , checkInvariants "incr"      ind incrEmpty
+        , checkInvariants "roll"      ind rollEmpty
+        , checkInvariants "pref"      ind prefEmpty
+        , checkEquivalent "spec/incr" ind specEmpty incrEmpty
+        , checkEquivalent "spec/roll" ind specEmpty rollEmpty
+        , checkEquivalent "spec/pref" ind specEmpty prefEmpty
+        ]
   where
     transCtxt = runTranslateNoErrors ask
 
-    genInductive :: Hash h Addr => Gen (Set Addr, Inductive h Addr)
+    genInductive :: Hash h Addr => Gen (InductiveWithOurs h Addr)
     genInductive = do
       fpc <- runTranslateT $ fromPreChain genValidBlockchain
       n <- choose
@@ -133,23 +125,23 @@ testPureWallet = do
       genFromBlockchainPickingAccounts n fpc
 
     checkInvariants :: (IsWallet w h a, Buildable a)
-                    => (Set a -> Transaction h a -> w h a)
-                    -> (Set a, Inductive h a)
+                    => Text
+                    -> InductiveWithOurs h a
+                    -> (Set a -> Transaction h a -> w h a)
                     -> Expectation
-    checkInvariants w (addrs, ind) =
-        shouldBeValidated
-      $ addErrorDetail (sformat ("addrs: " % listJson) (Set.toList addrs))
-      $ walletInvariants (w addrs) ind
+    checkInvariants label (InductiveWithOurs addrs ind) w =
+        shouldBeValidated $
+          walletInvariants label (w addrs) ind
 
     checkEquivalent :: (IsWallet w h a, IsWallet w' h a, Buildable a)
-                    => (Set a -> Transaction h a -> w  h a)
+                    => Text
+                    -> InductiveWithOurs h a
+                    -> (Set a -> Transaction h a -> w  h a)
                     -> (Set a -> Transaction h a -> w' h a)
-                    -> (Set a, Inductive h a)
                     -> Expectation
-    checkEquivalent w w' (addrs, ind) =
-        shouldBeValidated
-      $ addErrorDetail (sformat ("addrs: " % listJson) (Set.toList addrs))
-      $ walletEquivalent (w addrs) (w' addrs) ind
+    checkEquivalent label (InductiveWithOurs addrs ind) w w' =
+        shouldBeValidated $
+          walletEquivalent label (w addrs) (w' addrs) ind
 
     specEmpty :: Set Addr -> Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr
     specEmpty = walletBoot Spec.walletEmpty . oursFromSet

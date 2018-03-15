@@ -25,6 +25,7 @@ module Wallet.Abstract (
   , walletEquivalent
     -- ** Generation
     -- $generation
+  , InductiveWithOurs(..)
   , genFromBlockchain
   , genFromBlockchainPickingAccounts
     -- * Auxiliary operations
@@ -224,27 +225,34 @@ interpret invalidInput mkWallets p = fmap snd . go
 type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
-invariant :: (IsWallet w h a, Buildable a)
+invariant :: forall w h a. (IsWallet w h a, Buildable a)
           => Text                        -- ^ Name of the invariant
           -> (Transaction h a -> w h a)  -- ^ Construct empty wallet
           -> (w h a -> Maybe InvariantViolationEvidence) -- ^ Property to verify
           -> Invariant h a
-invariant name e p fullInd = void $
-    interpret notChecked (One . e) p' fullInd
+invariant name e p = void . interpret notChecked (One . e) p'
   where
+    notChecked :: Inductive h a
+               -> InvalidInput h a
+               -> InvariantViolation h a
     notChecked ind reason = InvariantNotChecked {
           invariantNotCheckedName      = name
         , invariantNotCheckedReason    = reason
         , invariantNotCheckedInductive = ind
-        , invariantNotCheckedContext   = fullInd
         }
+
+    violation :: Inductive h a
+              -> InvariantViolationEvidence
+              -> InvariantViolation h a
     violation ind ev = InvariantViolation {
           invariantViolationName      = name
         , invariantViolationEvidence  = ev
         , invariantViolationInductive = ind
-        , invariantViolationContext   = fullInd
         }
 
+    p' :: Inductive h a
+       -> Wallets '[w] h a
+       -> Validated (InvariantViolation h a) ()
     p' ind (One w) = case p w of
                        Nothing -> return ()
                        Just ev -> throwError (violation ind ev)
@@ -261,9 +269,6 @@ data InvariantViolation h a =
 
         -- | The 'Inductive' value at the point of the error
       , invariantViolationInductive :: Inductive h a
-
-        -- | The entire 'Inductive' value
-      , invariantViolationContext :: Inductive h a
       }
 
     -- | The invariant was not checked because the input was invalid
@@ -276,9 +281,6 @@ data InvariantViolation h a =
 
         -- | The 'Inductive' value at the point of the error
       , invariantNotCheckedInductive :: Inductive h a
-
-        -- | The entire 'Inductive' value
-      , invariantNotCheckedContext :: Inductive h a
       }
 
 -- | We were unable to check the invariant because the input was invalid
@@ -353,55 +355,55 @@ checkDisjoint (labelXs, xs) (labelYs, ys) =
 
 -- | Wallet invariant, parameterized by a function to construct the wallet
 type WalletInv w h a = (IsWallet w h a, Buildable a)
-                    => (Transaction h a -> w h a) -> Invariant h a
+                    => Text -> (Transaction h a -> w h a) -> Invariant h a
 
 walletInvariants :: WalletInv w h a
-walletInvariants e w = sequence_ [
-      pendingInUtxo          e w
-    , utxoIsOurs             e w
-    , changeNotAvailable     e w
-    , changeNotInUtxo        e w
-    , changeAvailable        e w
-    , balanceChangeAvailable e w
+walletInvariants l e w = sequence_ [
+      pendingInUtxo          l e w
+    , utxoIsOurs             l e w
+    , changeNotAvailable     l e w
+    , changeNotInUtxo        l e w
+    , changeAvailable        l e w
+    , balanceChangeAvailable l e w
     ]
 
 pendingInUtxo :: WalletInv w h a
-pendingInUtxo e = invariant "pendingInUtxo" e $ \w ->
+pendingInUtxo l e = invariant (l <> "/pendingInUtxo") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
 utxoIsOurs :: WalletInv w h a
-utxoIsOurs e = invariant "utxoIsOurs" e $ \w ->
+utxoIsOurs l e = invariant (l <> "/utxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       isJust . ours w . outAddr)
                     ("utxoRange (utxo w)",
                       utxoRange (utxo w))
 
 changeNotAvailable :: WalletInv w h a
-changeNotAvailable e = invariant "changeNotAvailable" e $ \w ->
+changeNotAvailable l e = invariant (l <> "/changeNotAvailable") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (available w)",
                     utxoDomain (available w))
 
 changeNotInUtxo :: WalletInv w h a
-changeNotInUtxo e = invariant "changeNotInUtxo" e $ \w ->
+changeNotInUtxo l e = invariant (l <> "/changeNotInUtxo") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
 changeAvailable :: WalletInv w h a
-changeAvailable e = invariant "changeAvailable" e $ \w ->
+changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
     checkEqual ("change w `utxoUnion` available w" ,
                  change w `utxoUnion` available w)
                ("total w",
                  total w)
 
 balanceChangeAvailable :: WalletInv w h a
-balanceChangeAvailable e = invariant "balanceChangeAvailable" e $ \w ->
+balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w ->
     checkEqual ("balance (change w) + balance (available w)",
                  balance (change w) + balance (available w))
                ("balance (total w)",
@@ -416,23 +418,29 @@ walletEquivalent :: forall w w' h a.
                     , IsWallet w' h a
                     , Buildable a
                     )
-                 => (Transaction h a -> w  h a)
+                 => Text
+                 -> (Transaction h a -> w  h a)
                  -> (Transaction h a -> w' h a)
                  -> Invariant h a
-walletEquivalent e e' fullInd = void $
-    interpret notChecked (\boot -> Two (e boot) (e' boot)) p fullInd
+walletEquivalent lbl e e' = void .
+    interpret notChecked (\boot -> Two (e boot) (e' boot)) p
   where
+    notChecked :: Inductive h a
+               -> InvalidInput h a
+               -> InvariantViolation h a
     notChecked ind reason = InvariantNotChecked {
-          invariantNotCheckedName      = "wallet equivalence"
+          invariantNotCheckedName      = lbl
         , invariantNotCheckedReason    = reason
         , invariantNotCheckedInductive = ind
-        , invariantNotCheckedContext   = fullInd
         }
+
+    violation :: Inductive h a
+              -> InvariantViolationEvidence
+              -> InvariantViolation h a
     violation ind ev = InvariantViolation {
-          invariantViolationName      = "wallet equivalence"
+          invariantViolationName      = lbl
         , invariantViolationEvidence  = ev
         , invariantViolationInductive = ind
-        , invariantViolationContext   = fullInd
         }
 
     p :: Inductive h a
@@ -563,13 +571,19 @@ genFromBlockchain
 genFromBlockchain addrs fpc =
     runInductiveGen fpc (genInductiveFor addrs)
 
+-- | Pair an 'Inductive' wallet definition with the set of addresses owned
+data InductiveWithOurs h a = InductiveWithOurs {
+      inductiveWalletOurs :: Set a
+    , inductiveWalletDef  :: Inductive h a
+    }
+
 -- | Selects a random subset of addresses to be considered from the
 -- blockchain in the amount given.
 genFromBlockchainPickingAccounts
     :: Hash h Addr
     => Int
     -> FromPreChain h ()
-    -> Gen (Set Addr, Inductive h Addr)
+    -> Gen (InductiveWithOurs h Addr)
 genFromBlockchainPickingAccounts i fpc = do
     let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
         eligibleAddrs = filter (not . isAvvmAddr) allAddrs
@@ -592,7 +606,7 @@ genFromBlockchainPickingAccounts i fpc = do
             ) (intercalate ", " (map show allAddrs))
         else pure ()
 
-    (,) addrs <$> genFromBlockchain addrs fpc
+    InductiveWithOurs addrs <$> genFromBlockchain addrs fpc
 
 genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
 genInductiveFor addrs = do
@@ -886,25 +900,21 @@ instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
     % "{ name:      " % build
     % ", evidence:  " % build
     % ", inductive: " % build
-    % ", context:   " % build
     % "}"
     )
     invariantViolationName
     invariantViolationEvidence
     invariantViolationInductive
-    invariantViolationContext
   build (InvariantNotChecked{..}) = bprint
     ( "InvariantNotChecked "
     % "{ name:      " % build
     % ", reason:    " % build
     % ", inductive: " % build
-    % ", context:   " % build
     % "}"
     )
     invariantNotCheckedName
     invariantNotCheckedReason
     invariantNotCheckedInductive
-    invariantNotCheckedContext
 
 instance Buildable InvariantViolationEvidence where
   build (NotEqual (labelX, x) (labelY, y)) = bprint
@@ -978,3 +988,13 @@ instance (Hash h a, Buildable a) => Buildable (Action h a) where
 
 instance (Hash h a, Buildable a) => Buildable [Action h a] where
   build = bprint listJson
+
+instance (Hash h a, Buildable a) => Buildable (InductiveWithOurs h a) where
+  build InductiveWithOurs{..} = bprint
+    ( "InductiveWithOurs"
+    % "{ ours: " % listJson
+    % ", def:  " % build
+    % "}"
+    )
+    inductiveWalletOurs
+    inductiveWalletDef

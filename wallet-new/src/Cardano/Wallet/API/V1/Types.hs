@@ -66,6 +66,10 @@ module Cardano.Wallet.API.V1.Types (
   -- * Some types for the API
   , DecomposeToQueryParams
   , CaptureWalletId
+  , CaptureAccountId
+  , type (?=)
+  , ParamNames
+  , ParamTypes
   -- * Core re-exports
   , Core.Address
   ) where
@@ -1108,3 +1112,43 @@ type DecomposeErr res =
 type CaptureWalletId = Capture "walletId" WalletId
 
 type CaptureAccountId = Capture "accountId" AccountIndex
+
+-- | This type is used to pair a symbol (representing the query parameter
+-- name) along with the expected type of the query parameter. It is
+-- primarily to be used with the 'FilterBy' and 'SortBy' Servant route
+-- combinators.
+data (paramName :: Symbol) ?= (paramType :: *)
+
+-- | Extract the parameter names from a type leve list with the shape
+type family ParamNames xs where
+    ParamNames '[]            = '[]
+    ParamNames (s ?= _ ': xs) = s ': ParamNames xs
+    ParamNames (ty ': _)      = TypeError (
+        'Text "ParamNames must be called on a type-level list containing types"
+        ':$$: 'Text "that use the `"
+            ':<>: 'ShowType (?=)
+            ':<>: 'Text "' type constructor."
+        ':$$: 'Text "An example would be: "
+        ':$$: 'Text "    "
+            ':<>: 'ShowType '["hello" ?= Int, "world" ?= String]
+        ':$$: 'Text "Other types, like "
+            ':<>: 'ShowType ty
+            ':<>: 'Text " are incompatible with this function."
+        )
+
+type family ParamTypes xs where
+    ParamTypes '[]            = '[]
+    ParamTypes (_ ?= t ': xs) = t ': ParamTypes xs
+    ParamTypes (ty ': _)      = TypeError (
+        'Text "ParamTypes must be called on a type-level list containing types"
+        ':$$: 'Text "that use the `"
+            ':<>: 'ShowType (?=)
+            ':<>: 'Text "' type constructor."
+        ':$$: 'Text "An example would be: "
+        ':$$: 'Text "    "
+            ':<>: 'ShowType '["hello" ?= Int, "world" ?= String]
+        ':$$: 'Text "Other types, like "
+            ':<>: 'ShowType ty
+            ':<>: 'Text " are incompatible with this function."
+        )
+

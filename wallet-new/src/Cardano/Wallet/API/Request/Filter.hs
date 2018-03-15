@@ -109,11 +109,23 @@ instance Show (FilterOperation ix a) where
     show (FilterByRange _ _)          = "FilterByRange"
 
 -- | Represents a filter operation on the data model.
--- Examples:
---   *    `wallet_id=DEADBEEF`.
---   *    `balance=GT[10]`
---   *    `balance=RANGE[0,10]`
-data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
+--
+-- The first type parameter is a type level list that pairs the query
+-- parameter string with the expected parsed type. The second type
+-- parameter describes the resource that is being filtered.
+--
+-- @
+-- 'FilterBy' '[ "wallet_id" ?= WalletId, "balance" ?= Coin ] Wallet
+-- @
+--
+-- The above combinator would permit query parameters that look like these
+-- examples:
+--
+-- * @wallet_id=DEADBEEF@.
+-- * @balance=GT[10]@
+-- * @balance=RANGE[0,10]@
+data FilterBy (params :: [*]) (resource :: *)
+    deriving Typeable
 
 -- | This is a slighly boilerplat-y type family which maps symbols to
 -- indices, so that we can later on reify them into a list of valid indices.
@@ -146,13 +158,14 @@ instance ( Indexable' a
         rest = toFilterOperations req xs (Proxy @ ixs)
 
 instance ( HasServer subApi ctx
-         , FilterParams syms res ~ ixs
+         , syms ~ ParamNames params
+         , ixs ~ ParamTypes params
          , KnownSymbols syms
          , ToFilterOperations ixs res
          , SOP.All (ToIndex res) ixs
-         ) => HasServer (FilterBy syms res :> subApi) ctx where
+         ) => HasServer (FilterBy params res :> subApi) ctx where
 
-    type ServerT (FilterBy syms res :> subApi) m = FilterOperations res -> ServerT subApi m
+    type ServerT (FilterBy params res :> subApi) m = FilterOperations res -> ServerT subApi m
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
@@ -209,17 +222,23 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
 
 instance
-    ( FilterParams syms res ~ ixs
-    , HasClient m (DecomposeFilterBy res syms ixs next)
+    ( HasClient m (DecomposeFilterBy res params next)
     , HasClient m next
     , KnownSymbols syms
     , SOP.All (ToIndex res) ixs
+    , ixs ~ ParamTypes params
+    , syms ~ ParamNames params
     )
-    => HasClient m (FilterBy syms res :> next) where
-    type Client m (FilterBy syms res :> next) =
-        Client m (DecomposeFilterBy res syms (FilterParams syms res) next)
+    => HasClient m (FilterBy params res :> next) where
+    type Client m (FilterBy params res :> next) =
+        Client m (DecomposeFilterBy res params next)
     clientWithRoute pm _ =
-        clientWithRoute pm (Proxy @(DecomposeFilterBy res syms (FilterParams syms res) next))
+        clientWithRoute pm (Proxy @(DecomposeFilterBy res params next))
 
-type DecomposeFilterBy res syms types next =
-    DecomposeToQueryParams FilterOperation res syms types next
+type DecomposeFilterBy res params next =
+    DecomposeToQueryParams
+        FilterOperation
+        res
+        (ParamNames params)
+        (ParamTypes params)
+        next

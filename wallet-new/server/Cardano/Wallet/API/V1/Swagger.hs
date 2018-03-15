@@ -87,7 +87,12 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
-instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (FilterBy syms res :> subApi) where
+instance
+    ( Typeable res
+    , KnownSymbols syms
+    , HasSwagger subApi
+    , syms ~ ParamNames params
+    ) => HasSwagger (FilterBy params res :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @subApi)
             allOps     = map toText $ symbolVals (Proxy @syms)
@@ -110,7 +115,12 @@ instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (Fil
                        }
                 }
 
-instance (Typeable res, KnownSymbols syms, HasSwagger subApi) => HasSwagger (SortBy syms res :> subApi) where
+instance
+    ( Typeable res
+    , KnownSymbols syms
+    , syms ~ ParamNames params
+    , HasSwagger subApi
+    ) => HasSwagger (SortBy params res :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . parameters) addSortOperation

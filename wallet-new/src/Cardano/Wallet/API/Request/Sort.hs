@@ -3,6 +3,8 @@
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE PolyKinds                 #-}
+
 module Cardano.Wallet.API.Request.Sort where
 
 import qualified Prelude
@@ -26,7 +28,8 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 -- | Represents a sort operation on the data model.
 -- Examples:
 --   *    `sort_by=balance`.
-data SortBy (sym :: [Symbol]) (r :: *) deriving Typeable
+data SortBy sym (r :: *)
+    deriving Typeable
 
 -- | The direction for the sort operation.
 data SortDirection
@@ -73,7 +76,7 @@ data SortOperations a where
              -> SortOperations a
 
 findMatchingSortOp
-    :: forall needle a
+    :: forall (needle :: *) (a :: *)
     . Typeable needle
     => SortOperations a
     -> Maybe (SortOperation needle a)
@@ -133,13 +136,14 @@ instance ( Indexable' a
 
 -- | Servant's 'HasServer' instance telling us what to do with a type-level specification of a sort operation.
 instance ( HasServer subApi ctx
-         , SortParams syms res ~ ixs
+         , ixs ~ ParamTypes params
+         , syms ~ ParamNames params
          , KnownSymbols syms
          , ToSortOperations ixs res
          , SOP.All (ToIndex res) ixs
-         ) => HasServer (SortBy syms res :> subApi) ctx where
+         ) => HasServer (SortBy params res :> subApi) ctx where
 
-    type ServerT (SortBy syms res :> subApi) m = SortOperations res -> ServerT subApi m
+    type ServerT (SortBy params res :> subApi) m = SortOperations res -> ServerT subApi m
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
@@ -171,16 +175,18 @@ parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
 
 instance
     ( HasClient m next
-    , HasClient m (DecomposeSortBy res syms ixs next)
+    , HasClient m (DecomposeSortBy res params next)
     , KnownSymbols syms
     , SOP.All (ToIndex res) ixs
-    , SortParams syms res ~ ixs
+    , syms ~ ParamNames params
+    , ixs ~ ParamTypes params
     )
-    => HasClient m (SortBy syms res :> next) where
-    type Client m (SortBy syms res :> next) =
-        Client m (DecomposeSortBy res syms (SortParams syms res) next)
+    => HasClient m (SortBy params res :> next) where
+    type Client m (SortBy params res :> next) =
+        Client m (DecomposeSortBy res params next)
     clientWithRoute pm _ =
-        clientWithRoute pm (Proxy @(DecomposeSortBy res syms (SortParams syms res) next))
+        clientWithRoute pm (Proxy @(DecomposeSortBy res params next))
 
-type DecomposeSortBy res syms types next =
-    DecomposeToQueryParams SortOperation res syms types next
+type DecomposeSortBy res params next =
+    DecomposeToQueryParams
+        SortOperation res (ParamNames params) (ParamTypes params) next

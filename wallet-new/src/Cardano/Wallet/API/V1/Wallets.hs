@@ -6,6 +6,7 @@ import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import           Pos.Core as Core
 
 import           Servant
 
@@ -15,8 +16,11 @@ type API = Tags '["Wallets"] :>
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
-                   :> FilterBy '["wallet_id", "balance"] Wallet
-                   :> SortBy   '["balance"] Wallet
+                   :> FilterBy '[ "id" ?= WalletId
+                                , "balance"   ?= Core.Coin
+                                ] Wallet
+                   :> SortBy   '[ "balance" ?= Core.Coin
+                                ] Wallet
                    :> Get '[ValidJSON] (WalletResponse [Wallet])
     :<|> "wallets" :> CaptureWalletId
                    :> "password"

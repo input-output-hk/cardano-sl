@@ -27,6 +27,14 @@
 
 %% macros %%
 
+\newenvironment{record}{\begin{description}}{\end{description}}
+
+\newcommand{\idsof}[1]{\mathcal{I}_#1}
+\newcommand{\id}{\mathsf{id}}
+\newcommand{\blockids}{\idsof{\mathcal{B}}}
+\newcommand{\agentids}{\idsof{\mathcal{A}}}
+\newcommand{\slotleader}{\mathsf{sl}}
+
 %% /macros %%
 
 \title{Rule-based specification of the blockchain logic}
@@ -50,6 +58,11 @@ A direct consequence of ignoring the communication mechanisms, is that
 we do not have to serialise data, hence data is represented in
 abstract syntax, with no reference to a binary representation.
 
+As a further simplification, we ignore any unknown data, unparsed
+parameters, and versioning issue. This document specifies the system
+as it is.\improvement{We may want to add something about protocol
+  updates, though.}
+
 \section{Definitions}
 
 \info{General definitions used in all sections. Like the
@@ -57,10 +70,61 @@ abstract syntax, with no reference to a binary representation.
   abstract syntax of transactions and of blocks, \ldots}
 
 \begin{description}
+\item[System of identifiers] A set $A$ is said to \emph{have
+    identifiers} if there is a set, written $\idsof{A}$ and an
+  injective function $\id ∈ A ⟶ \idsof{A}$. In implementations,
+  identifiers are typically realised by cryptographic hash functions,
+  which are injective for all intent and purposes.
+
+  When an item $a∈A$ such that $\id(a) = h$ is clear from the context,
+  we will often identify $a$ and $h$. Similarly, when given an $a∈A$
+  and a $h∈\idsof{A}$,
+
+\item[Agent id] We assume a set $\agentids$ of identifiers
+  representing the agents interacting on the blockchain. In an
+  implementation agent ids would be public cryptographic keys.
+
+\item[Slot] An integer.\improvement{I'm ignoring epochs for the time
+    being}
+
+\item[Slot leader] We assume known a function
+  $\slotleader ∈ \mathbb{N} ⟶ \agentids$ mapping each slot to an agent
+  id.\improvement{This function is actually also parametrised by a valid
+    blockchain. And doesn't look arbitrarily far into the future.}
+
+\item[Current slot] The current slot is a parameter of every
+  verification (\emph{i.e.} it doesn't make sense in general to ask
+  whether a chain is valid, only that it is valid \emph{at the current
+    slot}). In an implementation, the current slot would be computed
+  from the clock time. The role of the current slot is to prevent
+  attacks where a malicious slot leader at slot $i+1$ would try to
+  issue a block without acknowledging the block issued by the slot
+  leader at slot $i$.
+
+\item[Transaction] \improvement{Todo}
+
+\item[Block] Blocks have a system of identifier $\blockids$. There is
+  a distinguished $b_0∈ \blockids$, called the genesis identifier,
+  which is not in the image of $\id$.
+
+  A block
+  consists of\improvement{I'm ignoring epoch boundary blocks, and the
+    genesis block. Genesis block is not really important, but epoch
+    boundary blocks may become relevant for this specification}
+  \begin{description}
+  \item[predecessor] A block identifier
+  \item[slot number] The slot at which the block has been issued
+  \item[issuer] The identifier of the agent who issued this block. In
+    an implementation, this would be realised by a cryptographic
+    signature.
+  \item[transactions] A list of transactions\improvement{Ignored:
+      secret-sharing, updates, delegation. Eventually we need at least
+    delegation}
+  \end{description}
+
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the
-  predecessor of $b_{i+1}$ is $b_i$ (technically the predecessor of
-  $b_{i+1}$ is \emph{the hash of} $b_i$).
+  predecessor of $b_{i+1}$ is $b_i$.
 \end{description}
 
 \section{Adding a block}
@@ -78,9 +142,13 @@ A chain\improvement{We can replace ``chain'' by sequence and put the
   extension} of $b₁,…,b_{n-1}$.
 
 A block $b$ is said to be a valid extension of a valid chain
-$b_1,…,b_n$ if
+$b_1,…,b_n$ if all of the following hold
 \begin{description}
-\item[Predecessor] The predecessor of $b$ is (the hash of) $b_n$.
+\item[Predecessor] The predecessor of $b$ is $b_n$.
+\item[Not future slot] The slot number is no larger than the current
+  slot.
+\item[Issuer] The issuer is the slot leader at the block's slot
+  number\improvement{This ignores delegation}.
 \item[TODO]
 \end{description}
 
@@ -88,7 +156,7 @@ $b_1,…,b_n$ if
 
 \info{In this section we will specify the rules used by a slot-leader
   to create a new block. The state is a single chain, plus outstanding
-  transactions. }
+  transactions.}
 
 \section{Entering the mempool}
 

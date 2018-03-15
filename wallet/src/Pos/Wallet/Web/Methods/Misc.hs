@@ -42,17 +42,17 @@ import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
-import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
+import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
 import           Serokell.Util (listJson, sec)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
+
+import           Ntp.Client (NtpStatus (..))
 
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
-import           Pos.Ntp.Configuration (HasNtpConfiguration, ntpConfiguration)
-import           Pos.Ntp.Check (NtpCheckMonad, NtpStatus (..), getNtpStatusOnce)
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Txp (TxId, TxIn, TxOut)
@@ -176,16 +176,16 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: (NtpCheckMonad m, MonadMockable m, HasNtpConfiguration) => m Integer
-localTimeDifference =
-    diff <$> getNtpStatusOnce ntpConfiguration
+localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
+localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
   where
-    diff :: NtpStatus -> Integer
+    diff :: NtpStatus -> Maybe Integer
     diff = \case
-        NtpSyncOk -> 0
+        NtpSyncOk -> Just 0
         -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
-        NtpDesync diff' -> toMicroseconds diff'
+        NtpDesync diff' -> Just $ toMicroseconds diff'
+        NtpSyncUnavailable -> Nothing
 
 ----------------------------------------------------------------------------
 -- Reset

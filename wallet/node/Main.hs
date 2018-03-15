@@ -16,6 +16,8 @@ import           Formatting (build, sformat, (%))
 import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
+import           Ntp.Client (NtpStatus, runNtpClient)
+
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
@@ -28,7 +30,7 @@ import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
-import           Pos.Ntp.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -68,22 +70,23 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
             bracketNodeResources nodeParams sscParams ntpConfiguration
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
+                ntpStatus <- runNtpClient (ntpClientSettings ntpConfiguration)
                 ref <- newIORef mempty
                 runWRealMode
                     db
                     conn
                     (AddrCIdHashes ref)
                     nr
-                    (mainAction nr)
+                    (mainAction ntpStatus nr)
   where
-    mainAction = runNodeWithInit $ do
+    mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb) $ do
             putText "Flushing wallet db..."
             askWalletDB >>= flushWalletStorage
             putText "Resyncing wallets with blockchain..."
             syncWallets
-    runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr allPlugins
+    runNodeWithInit ntpStatus init nr =
+        let (ActionSpec f, outs) = runNode nr (allPlugins ntpStatus)
          in (ActionSpec $ \s -> init >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
@@ -94,13 +97,14 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
     resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
                             \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
-    allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    allPlugins = mconcat [ convPlugins (plugins wArgs)
-                         , walletProd wArgs
-                         , acidCleanupWorker wArgs
-                         , resubmitterPlugins
-                         , notifierPlugins
-                         ]
+    allPlugins :: HasConfigurations => TVar NtpStatus -> ([WorkerSpec WalletWebMode], OutSpecs)
+    allPlugins ntpStatus =
+        mconcat [ convPlugins (plugins wArgs)
+                , walletProd wArgs ntpStatus
+                , acidCleanupWorker wArgs
+                , resubmitterPlugins
+                , notifierPlugins
+                ]
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =
@@ -113,14 +117,16 @@ walletProd ::
        , HasCompileInfo
        )
     => WalletArgs
+    -> TVar NtpStatus
     -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \diffusion -> do
+walletProd WalletArgs {..} ntpStatus = first one $ worker walletServerOuts $ \diffusion -> do
     logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
     logInfo $ sformat ("Transaction submission disabled: "%build)
         walletTxCreationDisabled
     walletServeWebFull
         diffusion
+        ntpStatus
         walletDebug
         walletAddress
         (Just walletTLSParams)

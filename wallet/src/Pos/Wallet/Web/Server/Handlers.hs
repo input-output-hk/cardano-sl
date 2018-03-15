@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Server.Handlers
 
 import           Universum
 
+import           Ntp.Client (NtpStatus)
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Generic (AsServerT, GenericProduct, ToServant, toServant)
@@ -31,11 +32,12 @@ import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 
 servantHandlersWithSwagger
     :: MonadFullWalletWebMode ctx m
-    => (TxAux -> m Bool)
+    => TVar NtpStatus
+    -> (TxAux -> m Bool)
     -> (forall x. m x -> Handler x)
     -> Server A.WalletSwaggerApi
-servantHandlersWithSwagger submitTx nat =
-    hoistServer A.walletApi nat (servantHandlers submitTx)
+servantHandlersWithSwagger ntpStatus submitTx nat =
+    hoistServer A.walletApi nat (servantHandlers ntpStatus submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
 
@@ -43,8 +45,8 @@ servantHandlersWithSwagger submitTx nat =
 -- The wallet API
 ----------------------------------------------------------------------------
 
-servantHandlers :: MonadFullWalletWebMode ctx m => (TxAux -> m Bool) -> ServerT A.WalletApi m
-servantHandlers submitTx = toServant' A.WalletApiRecord
+servantHandlers :: MonadFullWalletWebMode ctx m => TVar NtpStatus -> (TxAux -> m Bool) -> ServerT A.WalletApi m
+servantHandlers ntpStatus submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers
     , _accounts    = accountsHandlers
@@ -54,7 +56,7 @@ servantHandlers submitTx = toServant' A.WalletApiRecord
     , _update      = updateHandlers
     , _redemptions = redemptionsHandlers submitTx
     , _reporting   = reportingHandlers
-    , _settings    = settingsHandlers
+    , _settings    = settingsHandlers ntpStatus
     , _backup      = backupHandlers
     , _info        = infoHandlers
     , _system      = systemHandlers
@@ -131,12 +133,12 @@ reportingHandlers = toServant' A.WReportingApiRecord
     { _reportingInitialized = M.reportingInitialized
     }
 
-settingsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WSettingsApi m
-settingsHandlers = toServant' A.WSettingsApiRecord
+settingsHandlers :: MonadFullWalletWebMode ctx m => TVar NtpStatus -> ServerT A.WSettingsApi m
+settingsHandlers ntpStatus = toServant' A.WSettingsApiRecord
     { _getSlotsDuration    = blockchainSlotDuration <&> fromIntegral
     , _getVersion          = pure curSoftwareVersion
     , _getSyncProgress     = M.syncProgress
-    , _localTimeDifference = M.localTimeDifference
+    , _localTimeDifference = M.localTimeDifference ntpStatus
     }
 
 backupHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WBackupApi m
